@@ -34,7 +34,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     .setLanguageCol("lang")
     .setOutputCol("output")
 
-  test("Language Detection - Output Assertion") {
+  test("Language Detection - Output Assertion"){
     val replies = getDetector.transform(df)
       .select("output")
       .collect()
@@ -426,12 +426,21 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     (Seq("en"), Seq("I live in Vancouver."))
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val unbatcheddf: DataFrame = Seq(
+    ("en","This person is named John Doe"),
+    ("en", "He lives on 123 main street."),
+    ("en", "His phone number was 12345677")
+  ).toDF("lang","text" )
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
   df.printSchema()
   df.show(10, false)
 
-  def extractor: PII = new PII(options)
+  def extractor: TextAnalyticsPIIV4 = new TextAnalyticsPIIV4(options)
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
@@ -442,12 +451,38 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     val replies = extractor.transform(df)
       .select("output.result.redactedText")
       .collect()
-    assert(replies(0).schema(0).name == "redactedText")
-
+   assert(replies(0).schema(0).name == "redactedText")
     df.printSchema()
     df.show(10, false)
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
+  }
+
+  test("PII - Invalid Document Input") {
+    val replies = extractor.transform(invalidDocDf)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+
+  test("PII - batch usage"){
+    extractor.setLanguageCol("lang")
+      .setBatchSize(2)
+    val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+    .select("lang", "output.result.redactedText")
+    .collect()
+    assert(tdf.length == 3)
   }
 }

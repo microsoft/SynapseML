@@ -184,10 +184,10 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
 
 }
 
-object PII extends ComplexParamsReadable[PII]
+object TextAnalyticsPIIV4 extends ComplexParamsReadable[TextAnalyticsPIIV4]
 
-class PII(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-          override val uid: String = randomUID("PII"))
+class TextAnalyticsPIIV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+          override val uid: String = randomUID("TextAnalyticsPIIV4"))
   extends TextAnalyticsSDKBase[PIIEntityCollectionV4](textAnalyticsOptions) {
   logClass()
 
