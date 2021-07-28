@@ -67,7 +67,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   }
 
   private def repackResponse(toRow: TAResponseV4[T] => Row,
-                             fromRow: Row =>TAResponseV4[T],
+                             fromRow: Row => TAResponseV4[T],
                              row: Row): Seq[Row] = {
     val resp = fromRow(row)
     (resp.result, resp.error, resp.statistics).zipped.toSeq.map(tup =>
@@ -105,7 +105,7 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
       val toRow = responseBinding.makeToRowConverter
       val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
 
-      if (shouldAutoBatch){
+      if (shouldAutoBatch) {
         val toRow = responseBinding.makeToRowConverter
         val fromRow = responseBinding.makeFromRowConverter
         val repackResponseUDF = UDFUtils.oldUdf(repackResponse(toRow, fromRow, _), ArrayType(responseBinding.schema))
@@ -180,4 +180,25 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     toResponse(client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 
+}
+
+object Healthcare extends ComplexParamsReadable[Healthcare]
+
+class Healthcare(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+                 override val uid: String = randomUID("Healthcare"))
+  extends TextAnalyticsSDKBase[HealthEntitiesResultV4](textAnalyticsOptions) {
+  logClass()
+
+  override val responseBinding: SparkBindings[TAResponseV4[HealthEntitiesResultV4]] = HealthcareResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[HealthEntitiesResultV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    val poller = client.beginAnalyzeHealthcareEntities(documents, null, Context.NONE);
+    poller.waitForCompletion()
+    toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
+  }
 }
