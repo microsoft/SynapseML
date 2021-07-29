@@ -280,7 +280,7 @@ jobs:
         inlineScript: |
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage testPython
+          (sbt coverage testPython) || (sbt coverage testPython) || (sbt coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
