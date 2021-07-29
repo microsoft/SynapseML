@@ -16,6 +16,8 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
+object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
@@ -65,6 +67,18 @@ case class AssessmentV4(text: String,
                         isNegated: Boolean,
                         offset: Int,
                         length: Int)
+
+
+case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
+                                 redactedText: String,
+                                 warnings: Seq[TAWarningV4])
+
+case class PIIEntityV4(text: String,
+                       category: String,
+                       subCategory: String ,
+                       confidenceScore: Double,
+                       offset: Int,
+                       length: Int)
 
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
@@ -147,6 +161,22 @@ object SDKConverters {
       result.getPrimaryLanguage.getIso6391Name,
       result.getPrimaryLanguage.getConfidenceScore,
       result.getPrimaryLanguage.getWarnings.asScala.toSeq.map(fromSDK))
+  }
+
+  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
+    PIIEntityV4(
+      ent.getText,
+      ent.getCategory.toString,
+      ent.getSubcategory,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength)
+  }
+  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
+    PIIEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getRedactedText,
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
