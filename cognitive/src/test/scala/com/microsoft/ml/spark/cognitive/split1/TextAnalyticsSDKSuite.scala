@@ -398,3 +398,77 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
 }
+class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df3: DataFrame = Seq(
+    (Seq("en", "es"), Seq("Patient's brother died at the age of 64 from lung cancer.",
+      "Estoy enfermo")),
+    (Seq("fr"), Seq("J’ai mal au ventre")),
+  ).toDF("lang", "text")
+
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+
+  df3.printSchema()
+  df3.show()
+
+  lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare(options)
+    .setSubscriptionKeyCol(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setUrl("https://eastus.api.cognitive.microsoft.com/%22")
+    .setOutputCol("output")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageInput: DataFrame = Seq(
+    (Seq("abc", "/."), Seq("I feel sick.", "I have severe neck and shoulder pain."))
+  ).toDF("lang", "text")
+
+  test("Healthcare: Output Assertion") {
+    val replies = extractor.transform(df3)
+      .select("output")
+      .collect()
+    assert(replies(0).schema(0).name == "output.result.assertion")
+    df3.printSchema()
+    df3.show()
+    replies.foreach { row =>
+      row.toSeq.foreach { col => println(col) }
+    }
+  }
+
+  test("Healthcare: Invalid Document Input Type"){
+    val replies = extractor.transform(invalidDocumentType)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+
+  test("Healthcare - Invalid Language Input") {
+    val replies = extractor.transform(invalidLanguageInput)
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString.contains("Invalid language code."))
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString.contains("Invalid language code."))
+    assert(codes(1).get(0).toString == "InvalidDocument")
+  }
+}

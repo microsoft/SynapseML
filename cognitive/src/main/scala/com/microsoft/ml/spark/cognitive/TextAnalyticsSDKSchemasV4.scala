@@ -21,7 +21,6 @@ object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesRes
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
-
 case class DetectedLanguageV4(name: String,
                               iso6391Name: String,
                               confidenceScore: Double,
@@ -73,15 +72,6 @@ case class HealthEntitiesResultV4(id: String,
                                   entities: Seq[HealthcareEntityV4],
                                   entityRelation: Seq[HealthcareEntityRelationV4])
 
-//case class HealthEntitiesOptionsV4(stringIndexType: String,
-//                                   includeStatistics: List[HealthEntitiesOptionsV4],
-//                                   modelVersion: List[HealthEntitiesOptionsV4],
-//                                   disableServiceLogs: List[HealthEntitiesOptionsV4])
-
-//case class StringIndexTypeV4(TEXT_ELEMENT_V8: StringIndexTypeV4,
-//                             UNICODE_CODE_POINT: StringIndexTypeV4,
-//                             UTF16CODE_UNIT: StringIndexTypeV4)
-
 case class HealthEntitiesOperationDetailV4(createdAt: String,
                                            expiresAt: String,
                                            lastModifiedAt: String,
@@ -100,9 +90,12 @@ case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
                               subCategory: String,
                               text: String)
 
-case class HealthcareEntityAssertionV4(association: EntityAssociation,
-                                       certainty: EntityCertainty,
-                                       conditionality: EntityConditionality)
+case class HealthcareEntityAssertionV4(association: EntityAssociationV4,
+                                       certainty: EntityCertaintyV4,
+                                       conditionality: EntityConditionalityV4)
+case class EntityAssociationV4(name: String)
+case class EntityCertaintyV4(name: String)
+case class EntityConditionalityV4(name: String)
 
 case class HealthcareEntityRelationV4(relationType: String,
                                       roles: Seq[HealthcareEntityRelationRoleV4])

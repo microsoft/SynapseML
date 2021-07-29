@@ -182,9 +182,9 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
 
 }
 
-object Healthcare extends ComplexParamsReadable[Healthcare]
+object TextAnalyticsHealthcare extends ComplexParamsReadable[TextAnalyticsHealthcare]
 
-class Healthcare(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
+class TextAnalyticsHealthcare(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
                  override val uid: String = randomUID("Healthcare"))
   extends TextAnalyticsSDKBase[HealthEntitiesResultV4](textAnalyticsOptions) {
   logClass()
