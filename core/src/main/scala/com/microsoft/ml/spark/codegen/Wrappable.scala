@@ -15,34 +15,41 @@ import org.apache.commons.lang.StringEscapeUtils
 
 import scala.collection.Iterator.iterate
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                               pyTypeConverter: Option[String],
-                                              rTypeConverter: Option[String]) {
+                                              rTypeConverter: Option[String],
+                                              dotnetType: String) {
 
-  def this(pyType: String, typeConverterArg: String, rTypeConverterArg: String) = {
-    this(pyType, Some(typeConverterArg), Some(rTypeConverterArg))
+  def this(pyType: String, typeConverterArg: String, rTypeConverterArg: String, dotnetType: String) = {
+    this(pyType, Some(typeConverterArg), Some(rTypeConverterArg), dotnetType)
   }
 
-  def this(pyType: String) = {
-    this(pyType, None, None)
+  def this(pyType: String, dotnetType: String) = {
+    this(pyType, None, None, dotnetType)
   }
 
 }
 
 object DefaultParamInfo {
-  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical")
-  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer")
-  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"))
-  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double")
-  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double")
-  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None)
-  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString", "as.array")
-  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat", "as.array")
-  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt", "as.array")
-  val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list")
-  val MapInfo = new ParamInfo[MapParam[_, _]]("dict")
-  val UnknownInfo = new ParamInfo[Param[_]]("object")
+  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
+  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
+  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
+  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
+  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
+  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
+  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
+    "as.array", "IEnumerable<string>")
+  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
+    "as.array", "IEnumerable<double>")
+  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
+    "as.array", "IEnumerable<int>")
+  val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list", "IEnumerable<byte>")
+  val MapInfo = new ParamInfo[MapParam[_, _]]("dict", "IDictionary<object, object>")
+  val StringMapStringInfo = new ParamInfo[MapParam[String, String]]("dict", "IDictionary<string, string>")
+  val StringMapIntInfo = new ParamInfo[MapParam[String, Int]]("dict", "IDictionary<string, int>")
+  val UnknownInfo = new ParamInfo[Param[_]]("object", "object")
 
   //noinspection ScalaStyle
   def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
@@ -56,8 +63,10 @@ object DefaultParamInfo {
       case _: DoubleArrayParam => DoubleArrayInfo
       case _: IntArrayParam => IntArrayInfo
       case _: ByteArrayParam => ByteArrayInfo
+//      case _: MapParam[String, String] => StringMapStringInfo //TODO fix erasure issues
+//      case _: MapParam[String, Int] => StringMapIntInfo //TODO fix erasure issues
       case _: MapParam[_, _] => MapInfo
-      //case _: Param[String] => StringInfo //TODO fix erasure issues
+//      case _: Param[String] => StringInfo //TODO fix erasure issues
       case _ => UnknownInfo
     }
   }
@@ -88,6 +97,226 @@ trait BaseWrappable extends Params {
         typeArgs.last
     }
     modelTypeArg.getTypeName
+  }
+
+}
+
+trait DotnetWrappable extends  BaseWrappable {
+
+  import DefaultParamInfo._
+  import GenerationUtils._
+
+  protected lazy val dotnetCopyrightLines: String =
+    s"""|// Copyright (C) Microsoft Corporation. All rights reserved.
+        |// Licensed under the MIT License. See LICENSE in project root for information.
+        |""".stripMargin
+
+  protected lazy val dotnetNamespace: String =
+    thisStage.getClass.getName.replace("com.microsoft.ml.spark", "mmlspark")
+
+  protected lazy val dotnetInternalWrapper = false
+
+  protected lazy val dotnetClassName: String = {
+    if (dotnetInternalWrapper) {
+      "_" + classNameHelper
+    } else {
+      "" + classNameHelper
+    }
+  }
+
+  protected def unCapitalize(name: String): String = {
+    Character.toLowerCase(name.charAt(0)) + name.substring(1)
+  }
+
+  protected lazy val dotnetClassNameString: String = s"s_${unCapitalize(dotnetClassName)}ClassName"
+
+  protected lazy val dotnetClassWrapperName: String = "WrapAs" + dotnetClassName
+
+  protected lazy val dotnetObjectBaseClass: String = {
+    thisStage match {
+      case _: Estimator[_] => s"ScalaEstimator<$dotnetClassName, " +
+        s"${companionModelClassName.split(".".toCharArray).last}>"
+      case _: Model[_] => s"ScalaModel<$dotnetClassName>"
+      case _: Transformer => s"ScalaTransformer<$dotnetClassName>"
+      case _: Evaluator => s"ScalaEvaluator<$dotnetClassName>"
+    }
+  }
+
+  protected def dotnetLoadMethod: String = {
+    s"""|/// <summary>
+        |/// Loads the <see cref=\"$dotnetClassName\"/> that was previously saved using Save(string).
+        |/// </summary>
+        |/// <param name=\"path\">The path the previous <see cref=\"$dotnetClassName\"/> was saved to</param>
+        |/// <returns>New <see cref=\"$dotnetClassName\"/> object, loaded from path.</returns>
+        |public static $dotnetClassName Load(string path) => $dotnetClassWrapperName(
+        |    SparkEnvironment.JvmBridge.CallStaticJavaMethod($dotnetClassNameString, "load", path));
+        |""".stripMargin
+  }
+
+  protected def dotnetWrapAsTypeMethod: String = {
+    s"""|private static $dotnetClassName $dotnetClassWrapperName(object obj) =>
+        |    new $dotnetClassName((JvmObjectReference)obj);
+        |""".stripMargin
+  }
+
+  protected def dotnetParamSetter(p: Param[_]): String = {
+    val capName = p.name.capitalize
+    val docString =
+      s"""|/// <summary>
+          |/// Sets ${p.name} value for <see cref=\"${p.name}\"/>
+          |/// </summary>
+          |/// <param name=\"${p.name}\">
+          |/// ${p.doc}
+          |/// </param>
+          |/// <returns> New $dotnetClassName object </returns>""".stripMargin
+    p match {
+      case _: ServiceParam[_] =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |
+            |public $dotnetClassName Set${capName}Col(string value):
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
+            |""".stripMargin
+      case _ =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |""".stripMargin
+    }
+  }
+
+  protected def dotnetParamSetters: String =
+    thisStage.params.map(dotnetParamSetter).mkString("\n")
+
+  protected def dotnetParamGetter(p: Param[_]): String = {
+    val capName = p.name.capitalize
+    s"""|/// <summary>
+        |/// Gets ${p.name} value for <see cref=\"${p.name}\"/>
+        |/// </summary>
+        |/// <returns>
+        |/// ${p.name}: ${p.doc}
+        |/// </returns>
+        |public ${getParamInfo(p).dotnetType} Get$capName() =>
+        |    (${getParamInfo(p).dotnetType})Reference.Invoke(\"get$capName\");
+        |""".stripMargin
+  }
+
+  protected def dotnetParamGetters: String =
+    thisStage.params.map(dotnetParamGetter).mkString("\n")
+
+  //noinspection ScalaStyle
+  protected def dotnetExtraMethods: String = {
+    thisStage match {
+      case _: Transformer | _: Model[_] =>
+        s"""|/// <summary>
+            |/// Executes the <see cref=\"$dotnetClassName\"/> and transforms the DataFrame to include new columns.
+            |/// </summary>
+            |/// <param name=\"dataset\">The Dataframe to be transformed.</param>
+            |/// <returns>
+            |/// <see cref=\"DataFrame\"/> containing the original data and new columns.
+            |/// </returns>
+            |override public DataFrame Transform(DataFrame dataset) =>
+            |    new DataFrame((JvmObjectReference)Reference.Invoke("transform", dataset));
+            |""".stripMargin
+      case _: Estimator[_] =>
+        s"""|/// <summary>Fits a model to the input data.</summary>
+            |/// <param name=\"dataset\">The <see cref=\"DataFrame\"/> to fit the model to.</param>
+            |/// <returns><see cref=\"${companionModelClassName.split(".".toCharArray).last}\"/></returns>
+            |override public ${companionModelClassName.split(".".toCharArray).last} Fit(DataFrame dataset) =>
+            |    new ${companionModelClassName.split(".".toCharArray).last}((JvmObjectReference)Reference.Invoke("fit", dataset));
+            |""".stripMargin
+      case _: Evaluator =>
+        s"""|/// <summary>Evaluates the model output.</summary>
+            |/// <param name=\"dataset\">The <see cref=\"DataFrame\"/> to evaluate the model against.</param>
+            |/// <returns>double, evaluation result</returns>
+            |override public Double Evaluate(DataFrame dataset) =>
+            |    (Double)Reference.Invoke("evaluate", dataset);
+            |""".stripMargin
+      case _ =>
+        ""
+    }
+  }
+
+  protected def dotnetExtraEstimatorImports: String = {
+    thisStage match {
+      case _: Estimator[_] =>
+        val companionModelImport = companionModelClassName
+          .replaceAllLiterally("com.microsoft.ml.spark", "mmlspark")
+          .replaceAllLiterally("org.apache.spark", "Microsoft.Spark")
+          .split(".".toCharArray)
+          .dropRight(1)
+          .mkString(".")
+        s"using $companionModelImport;"
+      case _ =>
+        ""
+    }
+  }
+
+  //noinspection ScalaStyle
+  protected def dotnetClass(): String = {
+    s"""|$dotnetCopyrightLines
+        |
+        |using System;
+        |using System.Collections.Generic;
+        |using Microsoft.Spark.Interop;
+        |using Microsoft.Spark.Interop.Ipc;
+        |using Microsoft.Spark.ML.Feature;
+        |using Microsoft.Spark.Sql;
+        |using Microsoft.Spark.Sql.Types;
+        |using mmlspark.dotnet.utils;
+        |$dotnetExtraEstimatorImports
+        |
+        |namespace $dotnetNamespace
+        |{
+        |    /// <summary>
+        |    /// <see cref=\"$dotnetClassName\"/> implements $dotnetClassName
+        |    /// </summary>
+        |    public class $dotnetClassName : $dotnetObjectBaseClass
+        |    {
+        |        private static readonly string $dotnetClassNameString = \"${thisStage.getClass.getName}\";
+        |
+        |        /// <summary>
+        |        /// Creates a <see cref=\"$dotnetClassName\"/> without any parameters.
+        |        /// </summary>
+        |        public $dotnetClassName() : base($dotnetClassNameString)
+        |        {
+        |        }
+        |
+        |        /// <summary>
+        |        /// Creates a <see cref=\"$dotnetClassName\"/> with a UID that is used to give the
+        |        /// <see cref=\"$dotnetClassName\"/> a unique ID.
+        |        /// </summary>
+        |        /// <param name=\"uid\">An immutable unique ID for the object and its derivatives.</param>
+        |        public $dotnetClassName(string uid) : base($dotnetClassNameString, uid)
+        |        {
+        |        }
+        |
+        |        internal $dotnetClassName(JvmObjectReference jvmObject) : base(jvmObject)
+        |        {
+        |        }
+        |
+        |${indent(dotnetParamSetters, 2)}
+        |${indent(dotnetParamGetters, 2)}
+        |${indent(dotnetExtraMethods, 2)}
+        |${indent(dotnetLoadMethod, 2)}
+        |${indent(dotnetWrapAsTypeMethod, 2)}
+        |
+        |    }
+        |}
+        |
+        """.stripMargin
+  }
+
+  def makeDotnetFile(conf: CodegenConfig): Unit = {
+    val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
+    val srcFolders = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.ml.spark", "mmlspark").split(".".toCharArray)
+    val srcDir = FileUtilities.join((Seq(conf.dotnetSrcDir.toString) ++ srcFolders.toSeq): _*)
+    srcDir.mkdirs()
+    Files.write(
+      FileUtilities.join(srcDir, dotnetClassName + ".cs").toPath,
+      dotnetClass().getBytes(StandardCharsets.UTF_8))
   }
 
 }

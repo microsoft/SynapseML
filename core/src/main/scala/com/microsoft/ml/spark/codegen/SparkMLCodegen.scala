@@ -1,5 +1,7 @@
 package com.microsoft.ml.spark.codegen
 
+import com.microsoft.ml.spark.io.http.JSONInputParser
+import com.microsoft.ml.spark.stages.EnsembleByKey
 import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.feature.Word2Vec
 import org.apache.spark.ml.param.{ParamMap, Params}
@@ -13,7 +15,7 @@ object WrappableExtensions {
   implicit def fromWrappable(in: WrappablePipelineStage): PipelineStage = in.stage
 }
 
-class WrappablePipelineStage(val stage: PipelineStage) extends Wrappable {
+class WrappablePipelineStage(val stage: PipelineStage) extends Wrappable with DotnetWrappable {
 
   override protected val thisStage: Params = stage
 
@@ -39,4 +41,23 @@ object Foo extends App {
   new Word2Vec().makePyFile(Config)
 
 
+}
+
+object DotNetTest extends App {
+  import WrappableExtensions._
+
+  val Config = CodegenConfig(
+    rVersion = "1.0.0",
+    name = "mmlspark-cognitive",
+    packageName = "mmlspark",
+    pythonizedVersion = "1.0.0.dev1",
+    version = "1.0.0-rc3-154-20479925-SNAPSHOT",
+    jarName = None,
+    topDir = "D:\\repos\\mmlspark\\cognitive",
+    targetDir = "D:\\repos\\mmlspark\\cognitive\\")
+
+  new Word2Vec().makeDotnetFile(Config)
+//  new Word2Vec().makePyFile(Config)
+  new EnsembleByKey().makeDotnetFile(Config)
+  new JSONInputParser().makeDotnetFile(Config)
 }

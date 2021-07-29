@@ -38,6 +38,13 @@ case class CodegenConfig(name: String,
   def rTestOverrideDir: File = new File(topDir, "src/test/R")
   def rSrcOverrideDir: File = new File(topDir, "src/main/R")
 
+  //Dotnet Codegen Constants
+  def dotnetSrcDir: File = new File(srcDir, "dotnet")
+  def dotnetPackageDir: File = new File(packageDir, "dotnet")
+  def dotnetTestDir: File = new File(testDir, "dotnet")
+  def dotnetSrcOverrideDir: File = new File(topDir, "src/main/dotnet")
+  def dotnetTestOverrideDir: File = new File(topDir, "src/test/dotnet")
+
   //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
   def internalPrefix: String = "_"
   def scopeDepth: String = " " * 4
@@ -71,6 +78,14 @@ case class CodegenConfig(name: String,
         |__spark_package_version__ = "$version"
         |
         |$importString
+        |""".stripMargin
+  }
+
+  def dotnetCsprojFile: String = {
+    s"""|<Project Sdk=\"Microsoft.NET.Sdk\">
+        |
+        |
+        |
         |""".stripMargin
   }
 }
