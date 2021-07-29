@@ -60,7 +60,7 @@ object SynapseUtilities extends HasHttpClient {
   def listPythonFiles(): Array[String] = {
     Option(
       FileUtilities
-        .join(BuildInfo.baseDirectory, "notebooks")
+        .join(BuildInfo.baseDirectory.getParent, "notebooks")
         .getCanonicalFile
         .listFiles()
         .filter(_.getAbsolutePath.endsWith(".py"))
@@ -80,7 +80,7 @@ object SynapseUtilities extends HasHttpClient {
   def listPythonJobFiles(): Array[String] = {
     Option(
       FileUtilities
-        .join(BuildInfo.baseDirectory, "notebooks")
+        .join(BuildInfo.baseDirectory.getParent, "notebooks")
         .getCanonicalFile
         .listFiles()
         .filter(_.getAbsolutePath.endsWith(".py"))
@@ -94,7 +94,7 @@ object SynapseUtilities extends HasHttpClient {
   def listNoteBookFiles(): Array[String] = {
     Option(
       FileUtilities
-        .join(BuildInfo.baseDirectory, "notebooks")
+        .join(BuildInfo.baseDirectory.getParent, "notebooks")
         .getCanonicalFile
         .listFiles()
         .filter(_.getAbsolutePath.endsWith(".ipynb"))
