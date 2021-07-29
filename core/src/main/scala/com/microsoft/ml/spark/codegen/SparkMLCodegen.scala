@@ -3,7 +3,7 @@ package com.microsoft.ml.spark.codegen
 import com.microsoft.ml.spark.io.http.JSONInputParser
 import com.microsoft.ml.spark.stages.EnsembleByKey
 import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.feature.Word2Vec
+import org.apache.spark.ml.feature.{FeatureHasher, Word2Vec}
 import org.apache.spark.ml.param.{ParamMap, Params}
 
 import java.io.Serializable
@@ -57,6 +57,7 @@ object DotNetTest extends App {
     targetDir = "D:\\repos\\mmlspark\\cognitive\\")
 
   new Word2Vec().makeDotnetFile(Config)
+  new FeatureHasher().makeDotnetFile(Config)
 //  new Word2Vec().makePyFile(Config)
   new EnsembleByKey().makeDotnetFile(Config)
   new JSONInputParser().makeDotnetFile(Config)
