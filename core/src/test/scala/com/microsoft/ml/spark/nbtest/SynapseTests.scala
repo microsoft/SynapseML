@@ -4,6 +4,7 @@
 package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.nbtest.SynapseUtilities.exec
 
 import java.io.File
 import java.util.concurrent.TimeUnit

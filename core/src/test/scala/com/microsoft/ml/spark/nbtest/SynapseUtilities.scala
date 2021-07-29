@@ -18,6 +18,7 @@ import org.json4s.jackson.Serialization.write
 import org.json4s.{Formats, NoTypeHints}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+import com.microsoft.ml.spark.io.split2.HasHttpClient
 
 import java.io.{File, InputStream}
 import java.util
@@ -44,7 +45,7 @@ case class Application(state: String,
 case class Applications(nJobs: Int,
                         sparkJobs: Seq[Application])
 
-object SynapseUtilities {
+object SynapseUtilities extends HasHttpClient {
 
   implicit val Fmts: Formats = Serialization.formats(NoTypeHints)
   lazy val Token: String = getSynapseToken
@@ -108,10 +109,10 @@ object SynapseUtilities {
     batch
   }
 
-  def poll(id: Int, livyUrl: String, backOffs: List[Int] = List(100, 1000, 5000)): LivyBatch = {
-    val getStatsRequest = new HttpGet(s"$livyUrl/$id")
-    getStatsRequest.setHeader("Authorization", s"Bearer $Token")
-    val statsResponse = RESTHelpers.safeSend(getStatsRequest, backoffs = backOffs, close = false)
+  def poll(id: Int, livyUrl: String): LivyBatch = {
+    val getStatusRequest = new HttpGet(s"$livyUrl/$id")
+    getStatusRequest.setHeader("Authorization", s"Bearer $Token")
+    val statsResponse = client.execute(getStatusRequest)
     val batch = parse(IOUtils.toString(statsResponse.getEntity.getContent, "utf-8")).extract[LivyBatch]
     statsResponse.close()
     batch
@@ -127,7 +128,7 @@ object SynapseUtilities {
         s"%20and%20(sparkPoolName%20eq%20%27$poolName%27))"
     val getRequest = new HttpGet(uri)
     getRequest.setHeader("Authorization", s"Bearer $Token")
-    val jobsResponse = RESTHelpers.safeSend(getRequest, close = false)
+    val jobsResponse = client.execute(getRequest)
     val activeJobs =
       parse(IOUtils.toString(jobsResponse.getEntity.getContent, "utf-8"))
         .extract[Applications]
@@ -224,7 +225,7 @@ object SynapseUtilities {
 
     createRequest.setEntity(new UrlEncodedFormEntity(bodyList, "UTF-8"))
 
-    val response = RESTHelpers.safeSend(createRequest, close = false)
+    val response = client.execute(createRequest)
     val inputStream: InputStream = response.getEntity.getContent
     val pageContent: String = Source.fromInputStream(inputStream).mkString
     pageContent.parseJson.asJsObject().fields("access_token").convertTo[String]
@@ -233,7 +234,7 @@ object SynapseUtilities {
   def cancelRun(livyUrl: String, batchId: Int): Unit = {
     val createRequest = new HttpDelete(s"$livyUrl/$batchId")
     createRequest.setHeader("Authorization", s"Bearer $Token")
-    val response = RESTHelpers.safeSend(createRequest, close = false)
+    val response = client.execute(createRequest)
     println(response.getEntity.getContent)
   }
 
@@ -279,7 +280,7 @@ object SynapseUtilities {
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $Token")
     createRequest.setEntity(new StringEntity(livyPayload))
-    val response = RESTHelpers.safeSend(createRequest, close=false)
+    val response = client.execute(createRequest)
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode
