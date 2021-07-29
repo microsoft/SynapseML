@@ -5,7 +5,6 @@ package com.microsoft.ml.spark.nbtest
 
 import com.microsoft.ml.spark.Secrets
 import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.cognitive.RESTHelpers
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.entity.UrlEncodedFormEntity

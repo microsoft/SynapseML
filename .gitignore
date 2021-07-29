@@ -51,8 +51,6 @@ node_modules/
 pom.xml
 
 # R output
-.Rproj.user
-*.Rout
 *.Rout
 
 # Misc
