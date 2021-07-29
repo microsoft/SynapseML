@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
   extends Transformer with HasErrorCol with HasURL with HasSetLocation with HasSubscriptionKey
-    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize
+    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize with HasOptions
     with ComplexParamsWritable with BasicLogging {
 
   override def urlPath: String = ""
@@ -127,9 +127,8 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
 
 object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalyticsLanguageDetection]
 
-class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                                     override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
-  extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions) {
+class TextAnalyticsLanguageDetection(override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
+  extends TextAnalyticsSDKBase[DetectedLanguageV4]() {
   logClass()
 
   override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
@@ -146,9 +145,8 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
 
 object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
 
-class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                                       override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
-  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
+class TextAnalyticsKeyphraseExtraction(override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
+  extends TextAnalyticsSDKBase[KeyphraseV4]() {
   logClass()
 
   override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]] = KeyPhraseResponseV4
@@ -166,9 +164,8 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
 
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 
-class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                      override val uid: String = randomUID("TextSentimentV4"))
-  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
+class TextSentimentV4(override val uid: String = randomUID("TextSentimentV4"))
+  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4]() {
   logClass()
 
   override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]] = SentimentResponseV4
@@ -186,9 +183,8 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
 
 object TextAnalyticsPIIV4 extends ComplexParamsReadable[TextAnalyticsPIIV4]
 
-class TextAnalyticsPIIV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-          override val uid: String = randomUID("TextAnalyticsPIIV4"))
-  extends TextAnalyticsSDKBase[PIIEntityCollectionV4](textAnalyticsOptions) {
+class TextAnalyticsPIIV4(override val uid: String = randomUID("TextAnalyticsPIIV4"))
+  extends TextAnalyticsSDKBase[PIIEntityCollectionV4]() {
   logClass()
 
   override val responseBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]]

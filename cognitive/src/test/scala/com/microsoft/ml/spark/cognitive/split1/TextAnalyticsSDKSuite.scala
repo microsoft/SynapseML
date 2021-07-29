@@ -25,11 +25,12 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq("us", ""), Seq("", null))
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
-  def getDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection(options)
+
+  def getDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("output")
@@ -111,7 +112,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
           .transform(df)
           .show()
       }
-    assert(caught.getMessage.contains("'endpoint' must be a valid URL"))
+    assert(caught.getMessage.contains("failed to resolve 'invalidendpoint.api.cognitive.microsoft.com'"))
   }
 
   test("Asynch Functionality with Parameters") {
@@ -140,24 +141,11 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     }
     assert(caught.getMessage.contains("java.lang.IllegalArgumentException"))
   }
-
-  test("Asynch Incorrect Timeout Functionality") {
-    val caught = intercept[SparkException] {
-      getDetector.setTimeout(.01)
-        .setConcurrency(1)
-        .transform(df)
-        .select("output.result.name", "output.result.iso6391Name")
-        .collect()
-    }
-    assert(caught.getMessage.contains("java.util.concurrent.TimeoutException"))
-  }
 }
 
 class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
-
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
   lazy val df: DataFrame = Seq(
     Seq("Hello world. This is some input text that I love."),
@@ -188,9 +176,10 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     (Seq("abc", "/."), Seq("Today is a wonderful day.", "I hate the cold"))
   ).toDF("lang", "text")
 
-  def getDetector: TextSentimentV4 = new TextSentimentV4(options)
+  def getDetector: TextSentimentV4 = new TextSentimentV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setOutputCol("output")
 
@@ -261,24 +250,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     assert(errors(0).get(0).toString == "Document text is empty.")
     assert(codes(0).get(0).toString == "InvalidDocument")
-
-    assert(errors(0).get(1).toString == "Document text is empty.")
-    assert(codes(0).get(1).toString == "InvalidDocument")
-  }
-
-  test("Sentiment Analysis - Invalid Language Input") {
-    val replies = getDetector.transform(invalidLanguageDf)
-      .select("output.error.errorMessage", "output.error.errorCode")
-      .collect()
-
-    val errors = replies.map(row => row.getList(0))
-    val codes = replies.map(row => row.getList(1))
-
-    assert(errors(0).get(0).toString.contains("Invalid language code."))
-    assert(codes(0).get(0).toString == "UnsupportedLanguageCode")
-
-    assert(errors(0).get(1).toString.contains("Invalid language code."))
-    assert(codes(0).get(1).toString == "UnsupportedLanguageCode")
   }
 
   test("Sentiment Analysis - Assert Confidence Score") {
@@ -329,12 +300,12 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("abc", "/."), Seq("Today is a wonderful day.", "I hate the cold"))
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
-  def extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction(options)
+  def extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
 
@@ -398,10 +369,10 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .collect()
 
     assert(errors(0).get(0).toString.contains("Invalid language code."))
-    assert(codes(0).get(0).toString == "InvalidDocument")
+    assert(codes(0).get(0).toString == "UnsupportedLanguageCode")
 
     assert(errors(1).get(0).toString.contains("Invalid language code."))
-    assert(codes(1).get(0).toString == "InvalidDocument")
+    assert(codes(1).get(0).toString == "UnsupportedLanguageCode")
   }
 
   test("Keyphrase - batch usage"){
@@ -435,17 +406,18 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     ("en", "He lives on 123 main street."),
     ("en", "His phone number was 12345677")
   ).toDF("lang","text" )
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
 
   df.printSchema()
   df.show(10, false)
 
-  def extractor: TextAnalyticsPIIV4 = new TextAnalyticsPIIV4(options)
+  def extractor: TextAnalyticsPIIV4 = new TextAnalyticsPIIV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
+
 
   test("PII - Basic Usage") {
     val replies = extractor.transform(df)
