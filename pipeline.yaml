@@ -127,7 +127,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - template: templates/ivy_cache_2.yml
+    # - template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda info
