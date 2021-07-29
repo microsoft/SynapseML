@@ -139,7 +139,7 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         source activate mmlspark
-        jupyter nbconvert --to script ./notebooks/samples/*.ipynb*
+        jupyter nbconvert --to script ./notebooks/*.ipynb*
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
