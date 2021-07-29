@@ -432,7 +432,7 @@ class ONNXModel(override val uid: String)
         }
     }
 
-    // Append output cols.
+    // Get ONNX model output cols.
     val modelOutputFields = this.getFetchDict.map {
       case (colName, onnxOutputName) =>
         val onnxOutput = this.modelOutput.getOrElse(onnxOutputName,
@@ -446,6 +446,7 @@ class ONNXModel(override val uid: String)
 
     val allFields = schema.fields ++ modelOutputFields
 
+    // Include post processing fields if any.
     if (includePostProcessFields) {
       val softmaxFields = this.getSoftMaxDict.map {
         case (inputCol, outputCol) =>
@@ -482,7 +483,6 @@ class ONNXModel(override val uid: String)
     val inputField = schema(inputCol)
 
     val outputType = inputField.dataType match {
-      case SQLDataTypes.VectorType => DoubleType
       case ArrayType(_: NumericType, _) => DoubleType
       case MapType(_: NumericType, _: NumericType, _) => DoubleType
       case t => throw new IllegalArgumentException(

@@ -6,7 +6,7 @@ import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.ml.spark.io.IOImplicits.dfrToDfre
+import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.opencv.ImageTransformer
 import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils

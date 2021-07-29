@@ -51,22 +51,40 @@ object ImageTransformerStage {
 }
 
 /** Resizes the image. The parameters of the ParameterMap are:
-  * "height" - the height of the image
-  * "width"
+  * "height" - the height of the resized image
+  * "width" - the width of the resized image
   * "stageName"
+  * "size" - the shorter side of the resized image if keep aspect ratio is true, otherwise,
+  *          the side length of both height and width.
+  * "keepAspectRatio" - if true, then the shorter side will be resized to "size" parameter
   * Please refer to [[http://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#resize OpenCV]]
   * for more information
   *
   * @param params ParameterMap of the parameters
   */
 class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height: Double = params(ResizeImage.height).asInstanceOf[Int].toDouble
-  val width: Double = params(ResizeImage.width).asInstanceOf[Int].toDouble
   override val stageName: String = ResizeImage.stageName
 
   override def apply(image: Mat): Mat = {
     val resized = new Mat()
-    val sz = new Size(width, height)
+
+    val sz = if (params.isDefinedAt(ResizeImage.size)) {
+      val specifiedSize = params(ResizeImage.size).asInstanceOf[Int]
+      if (params(ResizeImage.keepAspectRatio).asInstanceOf[Boolean]) {
+        val (originalWidth, originalHeight) = (image.width, image.height)
+        val shorterSize = math.min(originalWidth, originalHeight)
+        val ratio = 1.0 * specifiedSize / shorterSize
+        val (targetWidth, targetHeight) = (math.round(ratio * originalWidth), math.round(ratio * originalHeight))
+        new Size(targetWidth, targetHeight)
+      } else {
+        new Size(specifiedSize, specifiedSize)
+      }
+    } else {
+      val height: Double = params(ResizeImage.height).asInstanceOf[Int].toDouble
+      val width: Double = params(ResizeImage.width).asInstanceOf[Int].toDouble
+      new Size(width, height)
+    }
+
     Imgproc.resize(image, resized, sz)
     resized
   }
@@ -81,6 +99,8 @@ object ResizeImage {
   val stageName = "resize"
   val height = "height"
   val width = "width"
+  val size = "size"
+  val keepAspectRatio = "keepAspectRatio"
 }
 
 /** Crops the image for processing. The parameters are:
@@ -499,6 +519,17 @@ class ImageTransformer(val uid: String) extends Transformer
     addStage(Map(stageNameKey -> ResizeImage.stageName,
       ResizeImage.width -> width,
       ResizeImage.height -> height))
+  }
+
+  /**
+   * If keep aspect ratio is set to true, the shorter side of the image will be resized to the specified size.
+   */
+  def resize(size: Int, keepAspectRatio: Boolean): this.type = {
+    require(size >= 0, "size should be non-negative")
+    addStage(Map(stageNameKey -> ResizeImage.stageName,
+      ResizeImage.size -> size,
+      ResizeImage.keepAspectRatio -> keepAspectRatio
+    ))
   }
 
   def crop(x: Int, y: Int, height: Int, width: Int): this.type = {
