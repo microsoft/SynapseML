@@ -76,7 +76,7 @@ case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
 
 case class PIIEntityV4(text: String,
                        category: String,
-                       subCategory: String ,
+                       subCategory: String,
                        confidenceScore: Double,
                        offset: Int,
                        length: Int)
