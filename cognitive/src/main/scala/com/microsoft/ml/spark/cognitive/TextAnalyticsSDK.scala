@@ -202,9 +202,8 @@ class TextAnalyticsPIIV4(override val uid: String = randomUID("TextAnalyticsPIIV
 
 object TextAnalyticsHealthcare extends ComplexParamsReadable[TextAnalyticsHealthcare]
 
-class TextAnalyticsHealthcare(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                 override val uid: String = randomUID("Healthcare"))
-  extends TextAnalyticsSDKBase[HealthEntitiesResultV4](textAnalyticsOptions) {
+class TextAnalyticsHealthcare(override val uid: String = randomUID("TextAnalyticsHealthcare"))
+  extends TextAnalyticsSDKBase[HealthEntitiesResultV4]() {
   logClass()
 
   override val responseBinding: SparkBindings[TAResponseV4[HealthEntitiesResultV4]] = HealthcareResponseV4

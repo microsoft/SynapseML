@@ -467,13 +467,14 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     ("en", "20mg of ibuprofen twice a day")
   ).toDF("lang", "text")
 
-  val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
+  val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
 
-  lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare(options)
+  lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
     .setUrl("https://eastus.api.cognitive.microsoft.com/")
+    .setOptions(options)
     .setOutputCol("output")
 
   lazy val invalidDocumentType: DataFrame = Seq(
