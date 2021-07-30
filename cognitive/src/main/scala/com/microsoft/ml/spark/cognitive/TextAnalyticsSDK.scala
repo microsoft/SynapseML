@@ -29,7 +29,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
+abstract class TextAnalyticsSDKBase[T]()
   extends Transformer with HasErrorCol with HasURL with HasSetLocation with HasSubscriptionKey
     with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize with HasOptions
     with ComplexParamsWritable with BasicLogging {
