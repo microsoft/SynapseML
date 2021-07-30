@@ -107,6 +107,7 @@ case class HealthcareEntityV4(assertion: Option[HealthcareEntityAssertionV4],
 case class HealthcareEntityAssertionV4(association: Option[EntityAssociationV4],
                                        certainty: Option[EntityCertaintyV4],
                                        conditionality: Option[EntityConditionalityV4])
+                                       
 case class EntityAssociationV4(name: String)
 case class EntityCertaintyV4(name: String)
 case class EntityConditionalityV4(name: String)

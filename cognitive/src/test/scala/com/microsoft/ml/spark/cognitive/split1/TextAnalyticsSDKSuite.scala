@@ -458,7 +458,6 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(tdf.length == 3)
   }
 }
-
 class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
