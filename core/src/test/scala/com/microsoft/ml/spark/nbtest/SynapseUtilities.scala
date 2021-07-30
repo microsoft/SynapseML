@@ -72,6 +72,7 @@ object SynapseUtilities extends HasHttpClient {
         .filterNot(_.getAbsolutePath.contains("Regressor.py"))
         .filterNot(_.getAbsolutePath.contains("Overview"))
         .filterNot(_.getAbsolutePath.contains("ModelInterpretation"))
+        .filterNot(_.getAbsolutePath.contains("Interpretability"))
         .map(file => file.getAbsolutePath))
       .get
       .sorted

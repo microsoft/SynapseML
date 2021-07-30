@@ -21,9 +21,9 @@ class SynapseTests extends TestBase {
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" =>
-        exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\samples\\*.ipynb")
+        exec("conda activate mmlspark && jupyter nbconvert --to script .\\notebooks\\*.ipynb")
       case _ =>
-        Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script ./notebooks/samples/*.ipynb")
+        Process(s"conda init bash; conda activate mmlspark; jupyter nbconvert --to script ./notebooks/*.ipynb")
     }
 
     SynapseUtilities.listPythonFiles().map(f => {
