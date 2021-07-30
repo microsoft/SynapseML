@@ -15,7 +15,6 @@ import org.apache.commons.lang.StringEscapeUtils
 
 import scala.collection.Iterator.iterate
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
 
 case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                               pyTypeConverter: Option[String],
@@ -32,50 +31,55 @@ case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
 
 }
 
-object DefaultParamInfo {
-  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
-  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
-  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
-  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
-  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
-  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
-  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
+trait DefaultParamInfo extends StageParam {
+  val booleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
+  val intInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
+  val longInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
+  val floatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
+  val doubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
+  val stringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
+  val stringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
     "as.array", "IEnumerable<string>")
-  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
+  val doubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
     "as.array", "IEnumerable<double>")
-  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
+  val intArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
     "as.array", "IEnumerable<int>")
-  val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list", "IEnumerable<byte>")
-  val MapInfo = new ParamInfo[MapParam[_, _]]("dict", "IDictionary<object, object>")
-  val StringMapStringInfo = new ParamInfo[MapParam[String, String]]("dict", "IDictionary<string, string>")
-  val StringMapIntInfo = new ParamInfo[MapParam[String, Int]]("dict", "IDictionary<string, int>")
-  val UnknownInfo = new ParamInfo[Param[_]]("object", "object")
+  val byteArrayInfo = new ParamInfo[ByteArrayParam]("list", "IEnumerable<byte>")
+  val mapInfo = new ParamInfo[MapParam[_, _]]("dict", "IDictionary<object, object>")
+  val stringMapStringInfo = new ParamInfo[MapParam[String, String]]("dict", "IDictionary<string, string>")
+  val stringMapObjectInfo = new ParamInfo[MapParam[String, _]]("dict", "IDictionary<string, object>")
+  val unknownInfo = new ParamInfo[Param[_]]("object", "object")
 
   //noinspection ScalaStyle
   def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
     dataType match {
-      case _: BooleanParam => BooleanInfo
-      case _: IntParam => IntInfo
-      case _: LongParam => LongInfo
-      case _: FloatParam => FloatInfo
-      case _: DoubleParam => DoubleInfo
-      case _: StringArrayParam => StringArrayInfo
-      case _: DoubleArrayParam => DoubleArrayInfo
-      case _: IntArrayParam => IntArrayInfo
-      case _: ByteArrayParam => ByteArrayInfo
-//      case _: MapParam[String, String] => StringMapStringInfo //TODO fix erasure issues
-//      case _: MapParam[String, Int] => StringMapIntInfo //TODO fix erasure issues
-      case _: MapParam[_, _] => MapInfo
-//      case _: Param[String] => StringInfo //TODO fix erasure issues
-      case _ => UnknownInfo
-    }
+      case _: BooleanParam => booleanInfo
+      case _: IntParam => intInfo
+      case _: LongParam => longInfo
+      case _: FloatParam => floatInfo
+      case _: DoubleParam => doubleInfo
+      case _: StringArrayParam => stringArrayInfo
+      case _: DoubleArrayParam => doubleArrayInfo
+      case _: IntArrayParam => intArrayInfo
+      case _: ByteArrayParam => byteArrayInfo
+      case p =>
+        thisStage.getClass.getMethod(p.name)
+          .getAnnotatedReturnType.getType.toString match {
+          case "org.apache.spark.ml.param.Param<java.lang.String>" => stringInfo
+          case "org.apache.spark.ml.param.MapParam<java.lang.String, java.lang.String>" => stringMapStringInfo
+          case "org.apache.spark.ml.param.MapParam<java.lang.String, java.lang.Object>" => stringMapObjectInfo
+          case "org.apache.spark.ml.param.MapParam<java.lang.Object, java.lang.Object>" => mapInfo
+          case _ => unknownInfo
+        }
+      }
   }
 }
 
-
-trait BaseWrappable extends Params {
-
+trait StageParam extends Params {
   protected val thisStage: Params = this
+}
+
+trait BaseWrappable extends StageParam with DefaultParamInfo {
 
   protected lazy val copyrightLines: String =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -101,9 +105,8 @@ trait BaseWrappable extends Params {
 
 }
 
-trait DotnetWrappable extends  BaseWrappable {
+trait DotnetWrappable extends BaseWrappable {
 
-  import DefaultParamInfo._
   import GenerationUtils._
 
   protected lazy val dotnetCopyrightLines: String =
@@ -347,7 +350,6 @@ trait DotnetWrappable extends  BaseWrappable {
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
-  import DefaultParamInfo._
 
   def pyAdditionalMethods: String = {
     ""
@@ -687,7 +689,7 @@ trait RWrappable extends BaseWrappable {
 
   protected def rSetterLines: String = {
     thisStage.params.map { p =>
-      val value = DefaultParamInfo.getParamInfo(p)
+      val value = getParamInfo(p)
         .rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
       p match {
         case p: ServiceParam[_] =>
