@@ -46,8 +46,8 @@ package-lock.json
 node_modules/
 
 # Notebook Test Files
-/notebooks/samples/*.py
-/notebooks/samples/*.txt
+/notebooks/*.py
+/notebooks/*.txt
 pom.xml
 
 # R output
