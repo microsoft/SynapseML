@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cognitive
 import scala.collection.JavaConverters._
 import com.azure.ai.textanalytics.models._
 import com.azure.ai.textanalytics.util._
+import com.microsoft.ml.spark.cognitive.SDKConverters.fromSDK
 import com.microsoft.ml.spark.core.schema.SparkBindings
 
 import scala.language.implicitConversions
@@ -80,7 +81,7 @@ case class HealthEntitiesOperationDetailV4(createdAt: String,
 case class EntityDataSourceV4(name: String,
                               entityId: String)
 
-case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
+case class HealthcareEntityV4(assertion: Option[HealthcareEntityAssertionV4],
                               category: String,
                               confidenceScore: Double,
                               dataSources: Seq[EntityDataSourceV4],
@@ -90,9 +91,9 @@ case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
                               subCategory: String,
                               text: String)
 
-case class HealthcareEntityAssertionV4(association: EntityAssociationV4,
-                                       certainty: EntityCertaintyV4,
-                                       conditionality: EntityConditionalityV4)
+case class HealthcareEntityAssertionV4(association: Option[EntityAssociationV4],
+                                       certainty: Option[EntityCertaintyV4],
+                                       conditionality: Option[EntityConditionalityV4])
 case class EntityAssociationV4(name: String)
 case class EntityCertaintyV4(name: String)
 case class EntityConditionalityV4(name: String)
@@ -195,9 +196,18 @@ object SDKConverters {
     )
   }
 
+  implicit def fromSDK(entity: AnalyzeHealthcareEntitiesResult): HealthEntitiesResultV4 = {
+    HealthEntitiesResultV4(
+      entity.getId,
+      entity.getWarnings.asScala.toSeq.map(fromSDK),
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntityRelations.asScala.toSeq.map(fromSDK)
+    )
+  }
+
   implicit def fromSDK(ent: HealthcareEntity): HealthcareEntityV4 = {
     HealthcareEntityV4(
-      ent.getAssertion,
+      Option(ent.getAssertion).map(fromSDK),
       ent.getCategory,
       ent.getConfidenceScore,
       ent.getDataSources.asScala.toSeq.map(fromSDK),
@@ -208,6 +218,33 @@ object SDKConverters {
       ent.getText
     )
   }
+
+  implicit def fromSDK(entityAssertion: HealthcareEntityAssertion): HealthcareEntityAssertionV4 = {
+    HealthcareEntityAssertionV4(
+      Option(entityAssertion.getAssociation).map(fromSDK),
+      Option(entityAssertion.getCertainty).map(fromSDK),
+      Option(entityAssertion.getConditionality).map(fromSDK)
+    )
+  }
+
+  implicit def fromSDK(entityAssociation: EntityAssociation): EntityAssociationV4 = {
+    EntityAssociationV4(
+      entityAssociation.toString
+    )
+  }
+
+  implicit def fromSDK(entityConditionality: EntityConditionality): EntityConditionalityV4 = {
+    EntityConditionalityV4(
+      entityConditionality.toString
+    )
+  }
+
+  implicit def fromSDK(entityCertainty: EntityCertainty): EntityCertaintyV4 = {
+    EntityCertaintyV4(
+      entityCertainty.toString
+    )
+  }
+
 
   implicit def fromSDK(rel: HealthcareEntityRelation): HealthcareEntityRelationV4 = {
     HealthcareEntityRelationV4(
@@ -220,15 +257,6 @@ object SDKConverters {
     HealthcareEntityRelationRoleV4(
       role.getEntity,
       role.getName
-    )
-  }
-
-  implicit def fromSDK(entity: AnalyzeHealthcareEntitiesResult): HealthEntitiesResultV4 = {
-    HealthEntitiesResultV4(
-      entity.getId,
-      entity.getWarnings.asScala.toSeq.map(fromSDK),
-      entity.getEntities.asScala.toSeq.map(fromSDK),
-      entity.getEntityRelations.asScala.toSeq.map(fromSDK)
     )
   }
 
