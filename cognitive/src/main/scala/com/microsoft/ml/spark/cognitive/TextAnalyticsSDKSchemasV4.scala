@@ -75,7 +75,7 @@ case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
 
 case class PIIEntityV4(text: String,
                        category: String,
-                       subCategory: String ,
+                       subCategory: String,
                        confidenceScore: Double,
                        offset: Int,
                        length: Int)
@@ -172,6 +172,7 @@ object SDKConverters {
       ent.getOffset,
       ent.getLength)
   }
+
   implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
     PIIEntityCollectionV4(
       entity.getEntities.asScala.toSeq.map(fromSDK),

@@ -139,18 +139,7 @@ trait HasSubscriptionKey extends HasServiceParams {
 
 }
 
-trait HasOptions extends HasServiceParams {
-  val options = new Param[TextAnalyticsRequestOptionsV4](
-    this, name = "options", "options for endpoint")
-
-  def getOptions: Option[TextAnalyticsRequestOptionsV4] = get(options)
-
-  def setOptions(v: TextAnalyticsRequestOptionsV4): this.type = set(options, v)
-
-}
-
-
-    object URLEncodingUtils {
+object URLEncodingUtils {
 
   private case class NameValuePairInternal(t: (String, String)) extends NameValuePair {
     override def getName: String = t._1

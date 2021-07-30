@@ -11,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, explode}
 
-class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextKey {
+class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
 
@@ -25,17 +25,14 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq("us", ""), Seq("", null))
   ).toDF("lang", "text")
 
-
-
-  def getDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection()
+  def getDetector: LanguageDetectionV4 = new LanguageDetectionV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
-    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("output")
 
-  test("Language Detection - Output Assertion"){
+  test("Language Detection - Output Assertion") {
     val replies = getDetector.transform(df)
       .select("output")
       .collect()
@@ -179,7 +176,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   def getDetector: TextSentimentV4 = new TextSentimentV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
-    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setOutputCol("output")
 
@@ -280,11 +276,11 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("fr"), Seq("Bonjour tout le monde")),
   ).toDF("lang", "text")
 
-  lazy val unbatcheddf: DataFrame = Seq(
-    ("en","Hello world. This is some input text that I love."),
+  lazy val unbatchedDf: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     ("fr", "Bonjour tout le monde")
-  ).toDF("lang","text" )
+  ).toDF("lang", "text")
 
   lazy val blankLanguageDf: DataFrame = Seq(
     (Seq("", ""), Seq("Hello world. This is some input text that I love.",
@@ -301,11 +297,10 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
   ).toDF("lang", "text")
 
 
-  def extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction()
+  def extractor: KeyphraseExtractionV4 = new KeyphraseExtractionV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
-    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
 
@@ -375,9 +370,9 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(codes(1).get(0).toString == "UnsupportedLanguageCode")
   }
 
-  test("Keyphrase - batch usage"){
-   extractor.setLanguageCol("lang")
-    val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
+  test("Keyphrase - batch usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDf.coalesce(1)).cache()
     results.show()
     val tdf = results
       .select("lang", "output.result.keyPhrases")
@@ -385,7 +380,6 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(tdf.length == 3)
   }
 }
-
 
 class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
@@ -402,28 +396,26 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
   ).toDF("lang", "text")
 
   lazy val unbatcheddf: DataFrame = Seq(
-    ("en","This person is named John Doe"),
+    ("en", "This person is named John Doe"),
     ("en", "He lives on 123 main street."),
     ("en", "His phone number was 12345677")
-  ).toDF("lang","text" )
+  ).toDF("lang", "text")
 
   df.printSchema()
   df.show(10, false)
 
-  def extractor: TextAnalyticsPIIV4 = new TextAnalyticsPIIV4()
+  def extractor: PIIV4 = new PIIV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
-    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
-
 
   test("PII - Basic Usage") {
     val replies = extractor.transform(df)
       .select("output.result.redactedText")
       .collect()
-   assert(replies(0).schema(0).name == "redactedText")
+    assert(replies(0).schema(0).name == "redactedText")
     df.printSchema()
     df.show(10, false)
     replies.foreach { row =>
@@ -447,14 +439,14 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
 
-  test("PII - batch usage"){
+  test("PII - batch usage") {
     extractor.setLanguageCol("lang")
       .setBatchSize(2)
     val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
     results.show()
     val tdf = results
-    .select("lang", "output.result.redactedText")
-    .collect()
+      .select("lang", "output.result.redactedText")
+      .collect()
     assert(tdf.length == 3)
   }
 }
