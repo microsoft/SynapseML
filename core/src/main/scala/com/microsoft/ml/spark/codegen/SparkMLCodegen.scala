@@ -2,9 +2,14 @@ package com.microsoft.ml.spark.codegen
 
 import com.microsoft.ml.spark.io.http.JSONInputParser
 import com.microsoft.ml.spark.stages.EnsembleByKey
-import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.feature.{FeatureHasher, Word2Vec}
+import org.apache.spark.SparkContext
+import org.apache.spark.ml.{PipelineStage, feature}
+import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param.{ParamMap, Params}
+import org.apache.spark.mllib.feature.{Word2VecModel => Word2VecModel2}
+import org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.streaming.StreamingContext
 
 import java.io.Serializable
 import scala.language.implicitConversions
@@ -53,12 +58,37 @@ object DotNetTest extends App {
     pythonizedVersion = "1.0.0.dev1",
     version = "1.0.0-rc3-154-20479925-SNAPSHOT",
     jarName = None,
-    topDir = "D:\\repos\\mmlspark\\cognitive",
-    targetDir = "D:\\repos\\mmlspark\\cognitive\\")
+    topDir = "D:\\repos\\mmlspark\\core",
+    targetDir = "D:\\repos\\mmlspark\\core\\")
 
-  new Word2Vec().makeDotnetFile(Config)
+  // All dotnet/spark feature samples test
+  // Transformers or Estimators
+  new Bucketizer().makeDotnetFile(Config)
+  new CountVectorizer().makeDotnetFile(Config)
   new FeatureHasher().makeDotnetFile(Config)
+  new HashingTF().makeDotnetFile(Config)
+  new IDF().makeDotnetFile(Config)
+  new NGram().makeDotnetFile(Config)
+  new SQLTransformer().makeDotnetFile(Config)
+  new StopWordsRemover().makeDotnetFile(Config)
+  new Tokenizer().makeDotnetFile(Config)
+  new Word2Vec().makeDotnetFile(Config)
+  // Models
+  new CountVectorizerModel(Array("hello", "I", "AM", "TO", "TOKENIZE")).makeDotnetFile(Config)
+//  new Word2VecModel().makeDotnetFile(Config)
+//  new IDFModel().makeDotnetFile(Config)
+
+  // Estimator example
+//  new Word2Vec().makeDotnetFile(Config)
+//  // Transformer example
+//  new FeatureHasher().makeDotnetFile(Config)
+//  // UnaryTransformer example
+//  new Tokenizer().makeDotnetFile(Config)
+//  // Predictor example
+//  new LinearRegression().makeDotnetFile(Config)
+  // Model example
+//  new LinearRegressionModel().makeDotnetFile(Config)
 //  new Word2Vec().makePyFile(Config)
-  new EnsembleByKey().makeDotnetFile(Config)
-  new JSONInputParser().makeDotnetFile(Config)
+//  new EnsembleByKey().makeDotnetFile(Config)
+//  new JSONInputParser().makeDotnetFile(Config)
 }
