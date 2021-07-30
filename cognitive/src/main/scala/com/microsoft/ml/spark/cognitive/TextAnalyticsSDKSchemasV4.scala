@@ -209,22 +209,7 @@ object SDKConverters {
       entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
-  def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
-  (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
-    if (result.isError) {
-      (Some(fromSDK(result.getError)), None, None)
-    } else {
-      (None, Option(result.getStatistics).map(fromSDK), Some(converter(result)))
-    }
-  }
-
-  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
-                                             (implicit converter: T => U): TAResponseV4[U] = {
-    val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
-    TAResponseV4[U](results, errors, stats)
-  }
-
-implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
+  implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(
       ent.getName,
       ent.getEntityId
@@ -293,6 +278,8 @@ implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
       role.getEntity,
       role.getName
     )
+  }
+
   implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
     PIIEntityV4(
       ent.getText,
@@ -301,5 +288,20 @@ implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
       ent.getConfidenceScore,
       ent.getOffset,
       ent.getLength)
+  }
+
+  def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
+  (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
+    if (result.isError) {
+      (Some(fromSDK(result.getError)), None, None)
+    } else {
+      (None, Option(result.getStatistics).map(fromSDK), Some(converter(result)))
+    }
+  }
+
+  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
+                                             (implicit converter: T => U): TAResponseV4[U] = {
+    val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
+    TAResponseV4[U](results, errors, stats)
   }
 }

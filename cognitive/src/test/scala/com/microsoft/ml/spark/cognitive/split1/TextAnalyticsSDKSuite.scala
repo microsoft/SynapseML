@@ -464,13 +464,10 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
   import spark.implicits._
 
   lazy val df3: DataFrame = Seq(
-    (Seq("en"), Seq("Patient's brother died at the age of 64 from lung cancer."))
+    ("en", "20mg of ibuprofen twice a day")
   ).toDF("lang", "text")
 
   val options: Option[TextAnalyticsRequestOptionsV4] = Some(new TextAnalyticsRequestOptionsV4("", true, false))
-
-  df3.printSchema()
-  df3.show()
 
   lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare(options)
     .setSubscriptionKey(textKey)
@@ -488,46 +485,58 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
   ).toDF("lang", "text")
 
   test("Healthcare: Output Assertion") {
-    val replies = extractor.transform(df3)
+    val replies = extractor.transform(df3.coalesce(1))
       .select("output")
       .collect()
-//    assert(replies(0).schema(0).name == "output.result.assertion")
-    df3.printSchema()
-    df3.show()
-    replies.foreach { row =>
-      row.toSeq.foreach { col => println(col) }
-    }
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category}"))
+
+    println("\nRelations:")
+    println("=========")
+    val relations = resFirstRow.result.head.get.entityRelation
+    relations.foreach(relation =>
+      println(s"${relation.roles.map(role =>
+        s"${role.entity.text}(${role.name})").mkString(s"<--${relation.relationType}-->")}"))
   }
 
-  test("Healthcare: Invalid Document Input Type"){
-    val replies = extractor.transform(invalidDocumentType)
-    val errors = replies
-      .select(explode(col("output.error.errorMessage")))
-      .collect()
-    val codes = replies
-      .select(explode(col("output.error.errorCode")))
-      .collect()
-
-    assert(errors(0).get(0).toString == "Document text is empty.")
-    assert(codes(0).get(0).toString == "InvalidDocument")
-
-    assert(errors(1).get(0).toString == "Document text is empty.")
-    assert(codes(1).get(0).toString == "InvalidDocument")
-  }
-
-  test("Healthcare - Invalid Language Input") {
-    val replies = extractor.transform(invalidLanguageInput)
-    val errors = replies
-      .select(explode(col("output.error.errorMessage")))
-      .collect()
-    val codes = replies
-      .select(explode(col("output.error.errorCode")))
-      .collect()
-
-    assert(errors(0).get(0).toString.contains("Invalid language code."))
-    assert(codes(0).get(0).toString == "InvalidDocument")
-
-    assert(errors(1).get(0).toString.contains("Invalid language code."))
-    assert(codes(1).get(0).toString == "InvalidDocument")
-  }
+//  test("Healthcare: Invalid Document Input Type"){
+//    val replies = extractor.transform(invalidDocumentType)
+//    val errors = replies
+//      .select(explode(col("output.error.errorMessage")))
+//      .collect()
+//    val codes = replies
+//      .select(explode(col("output.error.errorCode")))
+//      .collect()
+//
+//    assert(errors(0).get(0).toString == "Document text is empty.")
+//    assert(codes(0).get(0).toString == "InvalidDocument")
+//
+//    assert(errors(1).get(0).toString == "Document text is empty.")
+//    assert(codes(1).get(0).toString == "InvalidDocument")
+//  }
+//
+//  test("Healthcare - Invalid Language Input") {
+//    val replies = extractor.transform(invalidLanguageInput)
+//    val errors = replies
+//      .select(explode(col("output.error.errorMessage")))
+//      .collect()
+//    val codes = replies
+//      .select(explode(col("output.error.errorCode")))
+//      .collect()
+//
+//    assert(errors(0).get(0).toString.contains("Invalid language code."))
+//    assert(codes(0).get(0).toString == "InvalidDocument")
+//
+//    assert(errors(1).get(0).toString.contains("Invalid language code."))
+//    assert(codes(1).get(0).toString == "InvalidDocument")
+//  }
 }
