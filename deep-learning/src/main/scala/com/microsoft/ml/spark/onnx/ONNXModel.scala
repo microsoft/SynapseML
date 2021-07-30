@@ -59,7 +59,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
 
   def setSoftMaxDict(k: String, v: String): this.type = set(softMaxDict, Map(k -> v))
 
-  def getSoftMaxDict: Map[String, String] = $(softMaxDict)
+  def getSoftMaxDict: Map[String, String] = get(softMaxDict).getOrElse(Map.empty)
 
   val argMaxDict: MapParam[String, String] = new MapParam[String, String](
     this,
@@ -71,12 +71,10 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
 
   def setArgMaxDict(k: String, v: String): this.type = set(argMaxDict, Map(k -> v))
 
-  def getArgMaxDict: Map[String, String] = $(argMaxDict)
+  def getArgMaxDict: Map[String, String] = get(argMaxDict).getOrElse(Map.empty)
 
   setDefault(
     miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10), //scalastyle:ignore magic.number
-    softMaxDict -> Map.empty,
-    argMaxDict -> Map.empty
   )
 }
 
@@ -281,6 +279,8 @@ class ONNXModel(override val uid: String)
 
   import ONNXModel._
 
+  override protected lazy val pyInternalWrapper = true
+
   logClass()
 
   def this() = this(Identifiable.randomUID("ONNXModel"))
@@ -326,7 +326,7 @@ class ONNXModel(override val uid: String)
 
     val flattenedDF = new FlattenBatch().transform(cacheAttempted)
 
-    (softMaxTransform _ andThen argMaxTransform)(flattenedDF)
+    (softMaxTransform _ andThen argMaxTransform) (flattenedDF)
   }
 
   private def softMaxTransform(input: DataFrame): DataFrame = {

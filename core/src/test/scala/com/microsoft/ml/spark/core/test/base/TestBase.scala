@@ -238,7 +238,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     }
   }
 
-  def breezeVectorEq[T: Field: ClassTag](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDV[T]] =
+  def breezeVectorEq[T: Field](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDV[T]] =
     (a: BDV[T], b: Any) => {
       b match {
         case p: BDV[T @unchecked] =>
@@ -250,7 +250,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def mapEq[K, V: Equality]: Equality[Map[K, V]] = {
     (a: Map[K, V], b: Any) => {
       b match {
-        case m: Map[K, V] => a.keySet == m.keySet && a.keySet.forall(key => a(key) === m(key))
+        case m: Map[K @unchecked, V @unchecked] => a.keySet == m.keySet && a.keySet.forall(key => a(key) === m(key))
         case _ => false
       }
     }

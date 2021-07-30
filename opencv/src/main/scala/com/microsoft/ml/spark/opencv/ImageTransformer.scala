@@ -513,6 +513,17 @@ class ImageTransformer(val uid: String) extends Transformer
       .setColorScale(colorScale)
   }
 
+  /**
+   * For py4j invocation.
+   */
+  def normalize(mean: java.util.List[Double], std: java.util.List[Double], colorScale: Int): this.type = {
+    this
+      .setToTensor(true)
+      .setNormalizeMean(mean.asScala.toArray)
+      .setNormalizeStd(std.asScala.toArray)
+      .setColorScale(colorScale)
+  }
+
   def resize(height: Int, width: Int): this.type = {
     require(width >= 0 && height >= 0, "width and height should be non-negative")
 

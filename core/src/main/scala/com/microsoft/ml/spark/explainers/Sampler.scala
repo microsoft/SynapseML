@@ -152,6 +152,8 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
         (instance.get(i), 1d)
       case (_: ContinuousFeatureStats, i) =>
         (instance.getAsDouble(i), instance.getAsDouble(i))
+      case (_, _) =>
+        throw new NotImplementedError("invalid state")
     }.unzip
 
     (Row.fromSeq(identityRow), Vectors.dense(identityState.toArray), 0d)
