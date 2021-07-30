@@ -17,6 +17,8 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
+object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
 case class TAResponseV4[T](result: Seq[Option[T]],
@@ -67,6 +69,17 @@ case class AssessmentV4(text: String,
                         isNegated: Boolean,
                         offset: Int,
                         length: Int)
+
+case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
+                                 redactedText: String,
+                                 warnings: Seq[TAWarningV4])
+
+case class PIIEntityV4(text: String,
+                       category: String,
+                       subCategory: String ,
+                       confidenceScore: Double,
+                       offset: Int,
+                       length: Int)
 
 case class HealthEntitiesResultV4(id: String,
                                   warnings: Seq[TAWarningV4],
@@ -189,7 +202,29 @@ object SDKConverters {
       result.getPrimaryLanguage.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
-  implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
+  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
+    PIIEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getRedactedText,
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
+  }
+
+  def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
+  (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
+    if (result.isError) {
+      (Some(fromSDK(result.getError)), None, None)
+    } else {
+      (None, Option(result.getStatistics).map(fromSDK), Some(converter(result)))
+    }
+  }
+
+  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
+                                             (implicit converter: T => U): TAResponseV4[U] = {
+    val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
+    TAResponseV4[U](results, errors, stats)
+  }
+
+implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(
       ent.getName,
       ent.getEntityId
@@ -258,21 +293,13 @@ object SDKConverters {
       role.getEntity,
       role.getName
     )
+  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
+    PIIEntityV4(
+      ent.getText,
+      ent.getCategory.toString,
+      ent.getSubcategory,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength)
   }
-
-  def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
-  (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
-    if (result.isError) {
-      (Some(fromSDK(result.getError)), None, None)
-    } else {
-      (None, Option(result.getStatistics).map(fromSDK), Some(converter(result)))
-    }
-  }
-
-  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
-                                             (implicit converter: T => U): TAResponseV4[U] = {
-    val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
-    TAResponseV4[U](results, errors, stats)
-  }
-
 }
