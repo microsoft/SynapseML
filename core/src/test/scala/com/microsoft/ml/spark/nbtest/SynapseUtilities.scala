@@ -239,27 +239,29 @@ object SynapseUtilities extends HasHttpClient {
   }
 
   private def submitRun(livyUrl: String, path: String): LivyBatch = {
-    // MMLSpark info
-    val truncatedScalaVersion: String =
-      BuildInfo.scalaVersion
-        .split(".".toCharArray.head)
-        .dropRight(1)
-        .mkString(".")
-    val deploymentBuild = s"com.microsoft.ml.spark:${BuildInfo.name}_$truncatedScalaVersion:${BuildInfo.version}"
-    val repository = "https://mmlspark.azureedge.net/maven"
-    val sparkPackages: Array[String] = Array(deploymentBuild)
-    val jobName = path.split('/').last.replace(".py", "")
-    val excludes: String =
-      "org.scala-lang:scala-reflect," +
-        "org.apache.spark:spark-tags_2.12," +
-        "org.scalactic:scalactic_2.12," +
-        "org.scalatest:scalatest_2.12"
-    val packageVersion: String = sparkPackages.map(s => s.trim).mkString(",")
+    val excludes: String = "org.scala-lang:scala-reflect," +
+      "org.apache.spark:spark-tags_2.12," +
+      "org.scalactic:scalactic_2.12," +
+      "org.scalatest:scalatest_2.12"
+
     val livyPayload: String =
       s"""
          |{
          | "file" : "$path",
-         | "name" : "$jobName",
+         | "name" : "${path.split('/').last.replace(".py", "")}",
+         | "driverMemory" : "28g",
+         | "driverCores" : 4,
+         | "executorMemory" : "28g",
+         | "executorCores" : 4,
+         | "numExecutors" : 2
+         | }
+      """.stripMargin
+
+    val livyPayloadTODO: String =
+      s"""
+         |{
+         | "file" : "$path",
+         | "name" : "${path.split('/').last.replace(".py", "")}",
          | "driverMemory" : "28g",
          | "driverCores" : 4,
          | "executorMemory" : "28g",
@@ -267,8 +269,8 @@ object SynapseUtilities extends HasHttpClient {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "$packageVersion",
-         |         "spark.jars.repositories" : "$repository",
+         |         "spark.jars.packages" : "com.microsoft.ml.spark:mmlspark:${BuildInfo.version}",
+         |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
          |         "spark.executor.userClassPathFirst": "true"
