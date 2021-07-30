@@ -107,7 +107,7 @@ case class HealthcareEntityV4(assertion: Option[HealthcareEntityAssertionV4],
 case class HealthcareEntityAssertionV4(association: Option[EntityAssociationV4],
                                        certainty: Option[EntityCertaintyV4],
                                        conditionality: Option[EntityConditionalityV4])
-                                       
+
 case class EntityAssociationV4(name: String)
 case class EntityCertaintyV4(name: String)
 case class EntityConditionalityV4(name: String)
@@ -210,6 +210,16 @@ object SDKConverters {
       entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
+  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
+    PIIEntityV4(
+      ent.getText,
+      ent.getCategory.toString,
+      ent.getSubcategory,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength)
+  }
+  
   implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(
       ent.getName,
@@ -279,16 +289,6 @@ object SDKConverters {
       role.getEntity,
       role.getName
     )
-  }
-
-  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
-    PIIEntityV4(
-      ent.getText,
-      ent.getCategory.toString,
-      ent.getSubcategory,
-      ent.getConfidenceScore,
-      ent.getOffset,
-      ent.getLength)
   }
 
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
