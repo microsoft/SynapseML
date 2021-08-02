@@ -3,25 +3,23 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
+import com.microsoft.ml.spark.io.http.{HTTPResponseData, HeaderValues}
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.commons.io.IOUtils
+import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.DataType
-import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
-import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.HttpGet
-import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import java.net.URI
-import java.util.concurrent.TimeoutException
-import scala.concurrent.blocking
 
 trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
 
@@ -50,7 +48,7 @@ object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
-  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging {
+  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging with HasSetLinkedService {
 
   import TranslatorJsonProtocol._
 
@@ -139,9 +137,15 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
+  override def setServiceName(v: String): DocumentTranslator.this.type = {
+    super.setServiceName(v)
+    setUrl(s"https://$getServiceName.cognitiveservices.azure.com/" + urlPath)
+  }
+
+  def urlPath: String = "/translator/text/batch/v1.0/batches"
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      setUrl(s"https://$getServiceName.cognitiveservices.azure.com/translator/text/batch/v1.0/batches")
       getInternalTransformer(dataset.schema).transform(dataset)
     })
   }
