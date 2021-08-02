@@ -202,14 +202,6 @@ object SDKConverters {
       result.getPrimaryLanguage.getConfidenceScore,
       result.getPrimaryLanguage.getWarnings.asScala.toSeq.map(fromSDK))
   }
-
-  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
-    PIIEntityCollectionV4(
-      entity.getEntities.asScala.toSeq.map(fromSDK),
-      entity.getEntities.getRedactedText,
-      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
-  }
-
   implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
     PIIEntityV4(
       ent.getText,
@@ -219,14 +211,13 @@ object SDKConverters {
       ent.getOffset,
       ent.getLength)
   }
-  
+
   implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(
       ent.getName,
       ent.getEntityId
     )
   }
-
   implicit def fromSDK(entity: AnalyzeHealthcareEntitiesResult): HealthEntitiesResultV4 = {
     HealthEntitiesResultV4(
       entity.getId,
@@ -235,7 +226,6 @@ object SDKConverters {
       entity.getEntityRelations.asScala.toSeq.map(fromSDK)
     )
   }
-
   implicit def fromSDK(ent: HealthcareEntity): HealthcareEntityV4 = {
     HealthcareEntityV4(
       Option(ent.getAssertion).map(fromSDK),
@@ -249,7 +239,6 @@ object SDKConverters {
       ent.getText
     )
   }
-
   implicit def fromSDK(entityAssertion: HealthcareEntityAssertion): HealthcareEntityAssertionV4 = {
     HealthcareEntityAssertionV4(
       Option(entityAssertion.getAssociation).map(fromSDK),
@@ -257,40 +246,33 @@ object SDKConverters {
       Option(entityAssertion.getConditionality).map(fromSDK)
     )
   }
-
   implicit def fromSDK(entityAssociation: EntityAssociation): EntityAssociationV4 = {
     EntityAssociationV4(
       entityAssociation.toString
     )
   }
-
   implicit def fromSDK(entityConditionality: EntityConditionality): EntityConditionalityV4 = {
     EntityConditionalityV4(
       entityConditionality.toString
     )
   }
-
   implicit def fromSDK(entityCertainty: EntityCertainty): EntityCertaintyV4 = {
     EntityCertaintyV4(
       entityCertainty.toString
     )
   }
-
-
   implicit def fromSDK(rel: HealthcareEntityRelation): HealthcareEntityRelationV4 = {
     HealthcareEntityRelationV4(
       rel.getRelationType.toString,
       rel.getRoles.asScala.toSeq.map(fromSDK)
     )
   }
-
   implicit def fromSDK(role: HealthcareEntityRelationRole): HealthcareEntityRelationRoleV4 = {
     HealthcareEntityRelationRoleV4(
       role.getEntity,
       role.getName
     )
   }
-
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
   (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
     if (result.isError) {
@@ -306,3 +288,4 @@ object SDKConverters {
     TAResponseV4[U](results, errors, stats)
   }
 }
+
