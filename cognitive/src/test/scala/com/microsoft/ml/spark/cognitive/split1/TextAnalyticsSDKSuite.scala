@@ -464,7 +464,7 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
   ).toDF("lang", "text")
 
   lazy val df5: DataFrame = Seq(
-    ("en", "6-drops of Vitamin B-12 every evening")
+    ("en", "65mg of iron once per day")
   ).toDF("lang", "text")
 
   val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)

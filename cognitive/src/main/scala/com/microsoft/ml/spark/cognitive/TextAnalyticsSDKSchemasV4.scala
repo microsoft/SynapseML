@@ -118,8 +118,6 @@ case class HealthcareEntityRelationV4(relationType: String,
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4,
                                           name: String)
 
-case class HealthcareEntityRelationTypeV4(name: String)
-
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
     SentimentConfidenceScoreV4(
