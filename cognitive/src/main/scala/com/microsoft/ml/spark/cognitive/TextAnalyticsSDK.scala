@@ -18,6 +18,7 @@ import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, H
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.Identifiable.randomUID
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col

@@ -211,6 +211,12 @@ object SDKConverters {
       ent.getOffset,
       ent.getLength)
   }
+  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
+    PIIEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getRedactedText,
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
+  }
 
   implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(

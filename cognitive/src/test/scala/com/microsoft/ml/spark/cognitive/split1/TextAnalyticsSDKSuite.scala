@@ -474,7 +474,6 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     .setLocation("eastus")
     .setTextCol("text")
     .setUrl("https://eastus.api.cognitive.microsoft.com/")
-    .setOptions(options)
     .setOutputCol("output")
 
   lazy val invalidDocumentType: DataFrame = Seq(
