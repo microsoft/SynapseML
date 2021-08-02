@@ -355,7 +355,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     val output = new ImageTransformer()
       .setOutputCol("features")
       .setToTensor(true)
-      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), 255)
+      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), colorScaleFactor = 1 / 255d)
       .setTensorElementType(FloatType)
       .transform(image)
 
@@ -392,7 +392,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
       .setOutputCol("features")
       .setToTensor(true)
       .centerCrop(100, 200)
-      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), 255)
+      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), colorScaleFactor = 1 / 255d)
       .setTensorElementType(DoubleType)
       .transform(image)
 
@@ -426,7 +426,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     val output = new ImageTransformer()
       .setOutputCol("features")
       .setToTensor(true)
-      .normalize(Array(0.5), Array(1.0), 255)
+      .normalize(Array(0.5), Array(1.0), colorScaleFactor = 1 / 255d)
       .setTensorElementType(DoubleType)
       .transform(image)
 

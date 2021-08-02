@@ -86,16 +86,16 @@ class ImageTransformer(_ImageTransformer):
         self._java_obj.resize(height, width)
         return self
 
-    def resize(self, size, keepAspectRatio):
+    def resize(self, size, keep_aspect_ratio):
         """
         Resizes the image to the given size.
 
         Args:
             size (int): The size to resize to (>=0).
-            keepAspectRatio (bool): Whether to keep aspect ratio.
+            keep_aspect_ratio (bool): Whether to keep aspect ratio.
             If true, the shorter side of the image will be resized to the specified size.
         """
-        self._java_obj.resize(size, keepAspectRatio)
+        self._java_obj.resize(size, keep_aspect_ratio)
         return self
 
     def crop(self, x, y, height, width):
@@ -113,7 +113,7 @@ class ImageTransformer(_ImageTransformer):
         self._java_obj.crop(x, y, height, width)
         return self
 
-    def centerCrop(self, height: int, width: int):
+    def centerCrop(self, height, width):
         """
         Center crops the image given the width and height.
 
@@ -148,46 +148,46 @@ class ImageTransformer(_ImageTransformer):
         self._java_obj.blur(height, width)
         return self
 
-    def threshold(self, threshold, maxVal, thresholdType):
+    def threshold(self, threshold, max_val, threshold_type):
         """
         Thresholds the image, please see OpenCV threshold function documentation for more information
 
         Args:
             threshold: (double) The threshold value
-            maxVal (double): The maximum value to use
-            thresholdType (double): The type of threshold, can be binary, binary_inv, trunc, zero, zero_inv
+            max_val (double): The maximum value to use
+            threshold_type (double): The type of threshold, can be binary, binary_inv, trunc, zero, zero_inv
 
         """
-        self._java_obj.threshold(threshold, maxVal, thresholdType)
+        self._java_obj.threshold(threshold, max_val, threshold_type)
         return self
 
-    def gaussianKernel(self, apertureSize, sigma):
+    def gaussianKernel(self, aperture_size, sigma):
         """
         Blurs the image by applying a gaussian kernel
 
         Args:
-            apertureSize (double): The aperture size, which should be odd and positive
+            aperture_size (double): The aperture size, which should be odd and positive
             sigma (double): The standard deviation of the gaussian
 
         """
-        self._java_obj.gaussianKernel(apertureSize, sigma)
+        self._java_obj.gaussianKernel(aperture_size, sigma)
         return self
 
-    def flip(self, flipCode=1):
+    def flip(self, flip_code=1):
         """
         Flips the image
-        :param int flipCode: a flag to specify how to flip the image
+        :param int flip_code: a flag to specify how to flip the image
         - 0 means flipping around the x-axis (up-down)
         - positive value (for example, 1) means flipping around y-axis (left-right, default)
         - negative value (for example, -1) means flipping around both axes (diagonally)
         See OpenCV documentation for details.
         """
-        self._java_obj.flip(flipCode)
+        self._java_obj.flip(flip_code)
         return self
 
-    def normalize(self, mean, std, colorScale):
+    def normalize(self, mean, std, color_scale_factor):
         """
-        Normalizes the image by dividing by colorScale, substracting mean and dividing by std
+        Normalizes the image by multiplying the color_scale_factor, substracting mean and dividing by std
         """
-        self._java_obj.normalize(mean, std, colorScale)
+        self._java_obj.normalize(mean, std, color_scale_factor)
         return self

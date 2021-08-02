@@ -366,7 +366,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   /**
    * Normalize each channel.
    */
-  def normalizeChannels(means: Option[Array[Double]], stds: Option[Array[Double]], scale: Option[Int])
+  def normalizeChannels(means: Option[Array[Double]], stds: Option[Array[Double]], scaleFactor: Option[Double])
                        (channels: Array[Mat]): Array[Mat] = {
     val channelLength = channels.length
     require(means.forall(channelLength == _.length))
@@ -379,7 +379,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
         case ((matrix: Mat, m: Double), sd: Double) =>
           val t = new Mat(matrix.rows, matrix.cols, CvType.CV_64F)
           matrix.convertTo(t, CvType.CV_64F)
-          Core.divide(t, new Scalar(scale.getOrElse(1)), t) // Standardized
+          Core.multiply(t, new Scalar(scaleFactor.getOrElse(1d)), t) // Standardized
           Core.subtract(t, new Scalar(m), t) // Centered
           Core.divide(t, new Scalar(sd), t) // Normalized
           t
@@ -487,15 +487,16 @@ class ImageTransformer(val uid: String) extends Transformer
   def getNormalizeStd: Array[Double] = $(normalizeStd)
   def setNormalizeStd(value: Array[Double]): this.type = this.set(normalizeStd, value)
 
-  val colorScale: IntParam = new IntParam(
+  val colorScaleFactor: DoubleParam = new DoubleParam(
     this,
-    "colorScale",
-    "The scale of color. Used for normalization.",
+    "colorScaleFactor",
+    "The scale factor for color values. Used for normalization. " +
+      "The color values will be multiplied with the scale factor.",
     ParamValidators.gt(0d)
   )
 
-  def getColorScale: Int = $(colorScale)
-  def setColorScale(value: Int): this.type = this.set(colorScale, value)
+  def getColorScaleFactor: Double = $(colorScaleFactor)
+  def setColorScaleFactor(value: Double): this.type = this.set(colorScaleFactor, value)
 
   setDefault(
     inputCol -> "image",
@@ -505,23 +506,23 @@ class ImageTransformer(val uid: String) extends Transformer
     tensorElementType -> FloatType
   )
 
-  def normalize(mean: Array[Double], std: Array[Double], colorScale: Int): this.type = {
+  def normalize(mean: Array[Double], std: Array[Double], colorScaleFactor: Double): this.type = {
     this
       .setToTensor(true)
       .setNormalizeMean(mean)
       .setNormalizeStd(std)
-      .setColorScale(colorScale)
+      .setColorScaleFactor(colorScaleFactor)
   }
 
   /**
    * For py4j invocation.
    */
-  def normalize(mean: java.util.List[Double], std: java.util.List[Double], colorScale: Int): this.type = {
+  def normalize(mean: java.util.List[Double], std: java.util.List[Double], colorScaleFactor: Double): this.type = {
     this
       .setToTensor(true)
       .setNormalizeMean(mean.asScala.toArray)
       .setNormalizeStd(std.asScala.toArray)
-      .setColorScale(colorScale)
+      .setColorScaleFactor(colorScaleFactor)
   }
 
   def resize(height: Int, width: Int): this.type = {
@@ -613,7 +614,7 @@ class ImageTransformer(val uid: String) extends Transformer
       val outputColumnSchema = if ($(toTensor)) tensorUdfSchema else imageColumnSchema
       val processStep = processImage(transforms) _
       val extractStep = extractChannels(getTensorChannelOrder) _
-      val normalizeStep = normalizeChannels(get(normalizeMean), get(normalizeStd), get(colorScale)) _
+      val normalizeStep = normalizeChannels(get(normalizeMean), get(normalizeStd), get(colorScaleFactor)) _
       val toTensorStep = convertToTensor _
 
       val convertFunc = if ($(toTensor)) {
