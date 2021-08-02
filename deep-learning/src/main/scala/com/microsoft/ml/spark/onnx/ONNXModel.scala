@@ -74,7 +74,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
   def getArgMaxDict: Map[String, String] = get(argMaxDict).getOrElse(Map.empty)
 
   setDefault(
-    miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10), //scalastyle:ignore magic.number
+    miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10) //scalastyle:ignore magic.number
   )
 }
 
