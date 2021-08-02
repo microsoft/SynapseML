@@ -137,7 +137,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
-  override def setServiceName(v: String): DocumentTranslator.this.type = {
+  override def setServiceName(v: String): this.type = {
     super.setServiceName(v)
     setUrl(s"https://$getServiceName.cognitiveservices.azure.com/" + urlPath)
   }
