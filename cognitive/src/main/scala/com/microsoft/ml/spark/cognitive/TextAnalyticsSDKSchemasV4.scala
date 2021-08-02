@@ -16,10 +16,11 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
+object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
-                           statistics: Seq[Option[DocumentStatistics]],
-                           modelVersion: Option[String])
+                           statistics: Seq[Option[DocumentStatistics]])
 
 case class DetectedLanguageV4(name: String,
                               iso6391Name: String,
@@ -66,6 +67,18 @@ case class AssessmentV4(text: String,
                         isNegated: Boolean,
                         offset: Int,
                         length: Int)
+
+
+case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
+                                 redactedText: String,
+                                 warnings: Seq[TAWarningV4])
+
+case class PIIEntityV4(text: String,
+                       category: String,
+                       subCategory: String,
+                       confidenceScore: Double,
+                       offset: Int,
+                       length: Int)
 
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
@@ -150,6 +163,23 @@ object SDKConverters {
       result.getPrimaryLanguage.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
+  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
+    PIIEntityV4(
+      ent.getText,
+      ent.getCategory.toString,
+      ent.getSubcategory,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength)
+  }
+
+  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
+    PIIEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getRedactedText,
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
+  }
+
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
   (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
     if (result.isError) {
@@ -159,22 +189,10 @@ object SDKConverters {
     }
   }
 
-  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T], modelVersion: String)
+  def toResponse[T <: TextAnalyticsResult, U](rc: Iterable[T])
                                              (implicit converter: T => U): TAResponseV4[U] = {
     val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
-    TAResponseV4[U](results, errors, stats, Some(modelVersion))
-  }
-
-  implicit def fromSDK(rc: AnalyzeSentimentResultCollection): TAResponseV4[SentimentScoredDocumentV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
-  }
-
-  implicit def fromSDK(rc: ExtractKeyPhrasesResultCollection): TAResponseV4[KeyphraseV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
-  }
-
-  implicit def fromSDK(rc: DetectLanguageResultCollection): TAResponseV4[DetectedLanguageV4] = {
-    toResponse(rc.asScala, rc.getModelVersion)
+    TAResponseV4[U](results, errors, stats)
   }
 
 }

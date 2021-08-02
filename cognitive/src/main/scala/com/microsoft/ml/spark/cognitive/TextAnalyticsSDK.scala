@@ -12,56 +12,109 @@ import com.microsoft.ml.spark.cognitive.SDKConverters._
 import com.microsoft.ml.spark.core.contracts._
 import com.microsoft.ml.spark.core.schema.SparkBindings
 import com.microsoft.ml.spark.core.utils.AsyncUtils.bufferedAwait
-import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol}
+import com.microsoft.ml.spark.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.ml.spark.logging.BasicLogging
+import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize}
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.Identifiable._
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.time.temporal.ChronoUnit
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None)
-  extends Transformer with HasErrorCol with HasEndpoint with HasSubscriptionKey
-    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams
+abstract class TextAnalyticsSDKBase[T]()
+  extends Transformer with HasErrorCol with HasURL with HasSetLocation with HasSubscriptionKey
+    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize
     with ComplexParamsWritable with BasicLogging {
+
+  override def urlPath: String = ""
 
   val responseBinding: SparkBindings[TAResponseV4[T]]
 
   def invokeTextAnalytics(client: TextAnalyticsClient, text: Seq[String], lang: Seq[String]): TAResponseV4[T]
 
+  setDefault(batchSize -> 5)
+
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
-    val client = new TextAnalyticsClientBuilder()
+    if (rows.hasNext) {
+      val client = new TextAnalyticsClientBuilder()
         .retryPolicy(new RetryPolicy("Retry-After", ChronoUnit.SECONDS))
         .credential(new AzureKeyCredential(getSubscriptionKey))
-        .endpoint(getEndpoint)
+        .endpoint(getUrl)
         .buildClient()
 
-    val futures = rows.map { row =>
-      Future {
-        val results = invokeTextAnalytics(
-          client, getValue(row, text), getValue(row, language)
-        )
-        Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
-      }(ExecutionContext.global)
+      val dur = get(concurrentTimeout)
+        .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
+        .getOrElse(Duration.Inf)
+
+      val futures = rows.map { row =>
+        Future {
+          val results = invokeTextAnalytics(client, getValue(row, text), getValue(row, language))
+          Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
+        }(ExecutionContext.global)
+      }
+      bufferedAwait(futures, getConcurrency, dur)(ExecutionContext.global)
+    } else {
+      Iterator.empty
     }
-    bufferedAwait(futures, getConcurrency, Duration(getTimeout, SECONDS))(ExecutionContext.global)
+
+  }
+
+  private def repackResponse(toRow: TAResponseV4[T] => Row,
+                             fromRow: Row =>TAResponseV4[T],
+                             row: Row): Seq[Row] = {
+    val resp = fromRow(row)
+    (resp.result, resp.error, resp.statistics).zipped.toSeq.map(tup =>
+      toRow(TAResponseV4[T](Seq(tup._1), Seq(tup._2), Seq(tup._3)))
+    )
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF
-      val enc = RowEncoder(df.schema.add(getOutputCol, responseBinding.schema))
+      val shouldAutoBatch = ($(text), $(language)) match {
+        case (Right(a), Left(_)) =>
+          df.schema(a).dataType.isInstanceOf[StringType]
+        case (Left(_), Right(b)) =>
+          df.schema(b).dataType.isInstanceOf[StringType]
+        case (Right(a), Right(b)) =>
+          (df.schema(a).dataType, df.schema(b).dataType) match {
+            case (_: StringType, _: StringType) => true
+            case (_: ArrayType, _: ArrayType) => false
+            case (_: StringType, _: ArrayType) | (_: ArrayType, _: StringType) =>
+              throw new IllegalArgumentException(s"Mismatched column types. " +
+                s"Both columns $a and $b need to be StringType (for auto batching)" +
+                s" or ArrayType(StringType) (for user batching)")
+          }
+        case _ => false
+      }
+
+      val batchedDF = if (shouldAutoBatch) {
+        new FixedMiniBatchTransformer().setBatchSize(getBatchSize).transform(df)
+      } else {
+        df
+      }
+
+      val enc = RowEncoder(batchedDF.schema.add(getOutputCol, responseBinding.schema))
       val toRow = responseBinding.makeToRowConverter
-      df.mapPartitions(transformTextRows(
-        toRow,
-      ))(enc)
+      val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
+
+      if (shouldAutoBatch){
+        val toRow = responseBinding.makeToRowConverter
+        val fromRow = responseBinding.makeFromRowConverter
+        val repackResponseUDF = UDFUtils.oldUdf(repackResponse(toRow, fromRow, _), ArrayType(responseBinding.schema))
+        new FlattenBatch().transform(resultDF.withColumn(getOutputCol, repackResponseUDF(col(getOutputCol))))
+      } else {
+        resultDF
+      }
     })
   }
 
@@ -72,12 +125,13 @@ abstract class TextAnalyticsSDKBase[T](val textAnalyticsOptions: Option[TextAnal
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 }
 
-object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalyticsLanguageDetection]
+object LanguageDetectionV4 extends ComplexParamsReadable[LanguageDetectionV4]
 
-class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                                     override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
-  extends TextAnalyticsSDKBase[DetectedLanguageV4](textAnalyticsOptions) {
+class LanguageDetectionV4(override val uid: String)
+  extends TextAnalyticsSDKBase[DetectedLanguageV4]() {
   logClass()
+
+  def this() = this(Identifiable.randomUID("LanguageDetectionV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
@@ -87,18 +141,19 @@ class TextAnalyticsLanguageDetection(override val textAnalyticsOptions: Option[T
     val documents = (input, hints, hints.indices).zipped.map { (doc, hint, i) =>
       new DetectLanguageInput(i.toString, doc, hint)
     }.asJava
-    client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 }
 
-object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
+object KeyphraseExtractionV4 extends ComplexParamsReadable[KeyphraseExtractionV4]
 
-class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                                       override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
-  extends TextAnalyticsSDKBase[KeyphraseV4](textAnalyticsOptions) {
+class KeyphraseExtractionV4(override val uid: String)
+  extends TextAnalyticsSDKBase[KeyphraseV4]() {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]]  = KeyPhraseResponseV4
+  def this() = this(Identifiable.randomUID("KeyphraseExtractionV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]] = KeyPhraseResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],
@@ -106,19 +161,20 @@ class TextAnalyticsKeyphraseExtraction(override val textAnalyticsOptions: Option
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-    client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 
 }
 
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 
-class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsRequestOptionsV4] = None,
-                      override val uid: String = randomUID("TextSentimentV4"))
-  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4](textAnalyticsOptions) {
+class TextSentimentV4(override val uid: String)
+  extends TextAnalyticsSDKBase[SentimentScoredDocumentV4]() {
   logClass()
 
-  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]  = SentimentResponseV4
+  def this() = this(Identifiable.randomUID("KeyphraseExtractionV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]] = SentimentResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
                                    input: Seq[String],
@@ -126,7 +182,28 @@ class TextSentimentV4(override val textAnalyticsOptions: Option[TextAnalyticsReq
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-    client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue
+    toResponse(client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
   }
 
 }
+
+object PIIV4 extends ComplexParamsReadable[PIIV4]
+
+class PIIV4(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityCollectionV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("PIIV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+  = PIIResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[PIIEntityCollectionV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.recognizePiiEntitiesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+  }
+}
+
