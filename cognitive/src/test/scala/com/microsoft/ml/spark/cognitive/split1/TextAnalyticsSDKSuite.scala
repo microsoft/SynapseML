@@ -450,3 +450,111 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(tdf.length == 3)
   }
 }
+
+class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df3: DataFrame = Seq(
+    ("en", "20mg of ibuprofen twice a day")
+  ).toDF("lang", "text")
+
+  lazy val df4: DataFrame = Seq(
+    ("en", "1tsp of Tylenol every 4 hours")
+  ).toDF("lang", "text")
+
+  lazy val df5: DataFrame = Seq(
+    ("en", "6-drops of Vitamin B-12 every evening")
+  ).toDF("lang", "text")
+
+  val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
+
+  lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setUrl("https://eastus.api.cognitive.microsoft.com/")
+    .setOutputCol("output")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageInput: DataFrame = Seq(
+    (Seq("abc", "/."), Seq("I feel sick.", "I have severe neck and shoulder pain."))
+  ).toDF("lang", "text")
+
+  lazy val unbatchedDF: DataFrame = Seq(
+    ("en", "Woman in NAD with a h/o CAD, DM2, asthma and HTN on ramipril for 8 years awoke from sleep around"),
+    ("es", "Estoy enfermo"),
+    ("en", "Patient's brother died at the age of 64 from lung cancer. She was admitted for likely gastroparesis")
+  ).toDF("lang", "text")
+
+  test("Healthcare: Output Assertion") {
+    val replies = extractor.transform(df3.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category}"))
+
+    println("\nRelations:")
+    println("=========")
+    val relations = resFirstRow.result.head.get.entityRelation
+    relations.foreach(relation =>
+      println(s"${
+        relation.roles.map(role =>
+          s"${role.entity.text}(${role.name})").mkString(s"<--${relation.relationType}-->")
+      }"))
+  }
+
+  test("Healthcare: Invalid Document Input Type") {
+    val replies = extractor.transform(invalidDocumentType.coalesce(1))
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+  }
+
+  test("Healthcare - Batch Usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+      .select("lang", "output.result.entities")
+      .collect()
+    assert(tdf.length == 3)
+  }
+  test("Healthcare - Print Complete Entities") {
+    val replies = extractor.transform(df5.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category} " +
+      s"| subCategory: ${entity.subCategory} | length: ${entity.length} | dataSources: ${entity.dataSources}" +
+      s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
+  }
+}

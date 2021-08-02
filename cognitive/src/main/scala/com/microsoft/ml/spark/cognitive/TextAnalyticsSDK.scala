@@ -18,6 +18,7 @@ import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, H
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.Identifiable.randomUID
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
@@ -69,7 +70,7 @@ abstract class TextAnalyticsSDKBase[T]()
   }
 
   private def repackResponse(toRow: TAResponseV4[T] => Row,
-                             fromRow: Row =>TAResponseV4[T],
+                             fromRow: Row => TAResponseV4[T],
                              row: Row): Seq[Row] = {
     val resp = fromRow(row)
     (resp.result, resp.error, resp.statistics).zipped.toSeq.map(tup =>
@@ -107,7 +108,7 @@ abstract class TextAnalyticsSDKBase[T]()
       val toRow = responseBinding.makeToRowConverter
       val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
 
-      if (shouldAutoBatch){
+      if (shouldAutoBatch) {
         val toRow = responseBinding.makeToRowConverter
         val fromRow = responseBinding.makeFromRowConverter
         val repackResponseUDF = UDFUtils.oldUdf(repackResponse(toRow, fromRow, _), ArrayType(responseBinding.schema))
@@ -207,3 +208,22 @@ class PIIV4(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityColl
   }
 }
 
+object TextAnalyticsHealthcare extends ComplexParamsReadable[TextAnalyticsHealthcare]
+
+class TextAnalyticsHealthcare(override val uid: String = randomUID("TextAnalyticsHealthcare"))
+  extends TextAnalyticsSDKBase[HealthEntitiesResultV4]() {
+  logClass()
+
+  override val responseBinding: SparkBindings[TAResponseV4[HealthEntitiesResultV4]] = HealthcareResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[HealthEntitiesResultV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    val poller = client.beginAnalyzeHealthcareEntities(documents, null, Context.NONE);
+    poller.waitForCompletion()
+    toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
+  }
+}
