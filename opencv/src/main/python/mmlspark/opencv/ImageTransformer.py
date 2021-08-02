@@ -74,29 +74,22 @@ class ImageTransformer(_ImageTransformer):
     Transformer for common image processing stages.
     """
 
-    def resize(self, height, width):
-        """
-        Resizes the image to the given width and height
-
-        Args:
-            height (int): The height to resize to (>=0)
-            width (int): The width to resize to (>=0)
-
-        """
-        self._java_obj.resize(height, width)
-        return self
-
-    def resize(self, size, keep_aspect_ratio):
+    def resize(self, size, keep_aspect_ratio=True):
         """
         Resizes the image to the given size.
 
         Args:
-            size (int): The size to resize to (>=0).
+            size (int or tuple(width, height)): The size to resize to (>=0).
             keep_aspect_ratio (bool): Whether to keep aspect ratio.
             If true, the shorter side of the image will be resized to the specified size.
         """
-        self._java_obj.resize(size, keep_aspect_ratio)
-        return self
+        if type(size) is tuple:
+            height, width = (size[1], size[0])
+            self._java_obj.resize(height, width)
+            return self
+        else:
+            self._java_obj.resize(size, keep_aspect_ratio)
+            return self
 
     def crop(self, x, y, height, width):
         """
