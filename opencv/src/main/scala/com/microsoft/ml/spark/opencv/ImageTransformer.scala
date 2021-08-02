@@ -9,12 +9,12 @@ import com.microsoft.ml.spark.core.schema.{BinaryFileSchema, ImageSchemaUtils}
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
-import org.apache.spark.ml.param.{ParamMap, _}
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.ml.{ImageInjections, Transformer}
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
+import org.apache.spark.ml.{ComplexParamsWritable, ImageInjections, Transformer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.opencv.core.{Core, CvType, Mat, Rect, Scalar, Size}
+import org.opencv.core._
 import org.opencv.imgproc.Imgproc
 
 import scala.collection.JavaConverters._
@@ -415,7 +415,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   * @param uid The id of the module
   */
 class ImageTransformer(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
   logClass()
 
   import ImageTransformer._
