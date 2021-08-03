@@ -17,7 +17,7 @@ import org.apache.spark.sql.types.DoubleType
 import org.scalactic.Equality
 import org.scalatest.Assertion
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-rc3")
 class TextLIMESuite extends TransformerFuzzing[TextLIME] {
 
   import spark.implicits._

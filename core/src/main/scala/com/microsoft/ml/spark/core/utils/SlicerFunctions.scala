@@ -15,7 +15,7 @@ private[spark] object SlicerFunctions {
     Vectors.dense(indices.map(values.apply).map(n.toDouble).toArray)
   }
 
-  val DataTypeToNumericMap: Map[NumericType, Numeric[_]] = Map(
+  private val DataTypeToNumericMap: Map[NumericType, Numeric[_]] = Map(
     FloatType -> implicitly[Numeric[Float]],
     DoubleType -> implicitly[Numeric[Double]],
     ByteType -> implicitly[Numeric[Byte]],

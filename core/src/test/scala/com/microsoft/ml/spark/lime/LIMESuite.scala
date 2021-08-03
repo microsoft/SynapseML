@@ -12,7 +12,7 @@ import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.MLReadable
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-rc3")
 trait LimeTestBase extends TestBase {
 
   import spark.implicits._
@@ -42,7 +42,7 @@ trait LimeTestBase extends TestBase {
   lazy val limeModel = lime.fit(df)
 }
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.TabularLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.TabularLIME'.", since="1.0.0-rc3")
 class TabularLIMESuite extends EstimatorFuzzing[TabularLIME] with
   DataFrameEquality with LimeTestBase {
 
@@ -59,7 +59,7 @@ class TabularLIMESuite extends EstimatorFuzzing[TabularLIME] with
   override def modelReader: MLReadable[_] = TabularLIMEModel
 }
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-rc3")
 class TabularLIMEModelSuite extends TransformerFuzzing[TabularLIMEModel] with
   DataFrameEquality with LimeTestBase {
 

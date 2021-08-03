@@ -7,7 +7,7 @@ import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime.{OrtSession, _}
 import breeze.linalg.{argmax, softmax, DenseVector => BDV}
-import com.microsoft.ml.spark.HasFeedFetchMaps
+import com.microsoft.ml.spark.HasFeedFetchDicts
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.core.utils.BreezeUtils._
@@ -33,7 +33,7 @@ import scala.collection.JavaConverters._
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
 
-trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
+trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts {
   val modelPayload: ByteArrayParam = new ByteArrayParam(
     this,
     "modelPayload",
@@ -52,7 +52,9 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
   val softMaxDict: MapParam[String, String] = new MapParam[String, String](
     this,
     "softMaxDict",
-    " A between output dataframe columns, the value column will be computed from taking the softmax of key column."
+    "A map between output dataframe columns, where the value column will be computed from taking " +
+      "the softmax of the key column. If the 'rawPrediction' column contains logits outputs, then one can " +
+      "set softMaxDict to `Map(\"rawPrediction\" -> \"probability\")` to obtain the probability outputs."
   )
 
   def setSoftMaxDict(value: Map[String, String]): this.type = set(softMaxDict, value)
@@ -64,7 +66,8 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchMaps {
   val argMaxDict: MapParam[String, String] = new MapParam[String, String](
     this,
     "argMaxDict",
-    " A between output dataframe columns, the value column will be computed from taking the argmax of key column."
+    "A map between output dataframe columns, where the value column will be computed from taking " +
+      "the argmax of the key column. This can be used to convert probability output to predicted label."
   )
 
   def setArgMaxDict(value: Map[String, String]): this.type = set(argMaxDict, value)
@@ -301,10 +304,12 @@ class ONNXModel(override val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
     val inputSchema = dataset.schema
-    val outputSchema = transformValidateSchema(inputSchema, includePostProcessFields = false)
+    this.validateSchema(inputSchema)
+
+    val modelOutputSchema = getModelOutputSchema(inputSchema)
 
     implicit val enc: Encoder[Row] = RowEncoder(
-      StructType(outputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
+      StructType(modelOutputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
     )
 
     val modelPayloadBC = dataset.sparkSession.sparkContext.broadcast(this.getModelPayload)
@@ -399,11 +404,24 @@ class ONNXModel(override val uid: String)
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    transformValidateSchema(schema, includePostProcessFields = true)
+    this.validateSchema(schema)
+
+    val modelOutputSchema = getModelOutputSchema(schema)
+
+    val softmaxFields = this.getSoftMaxDict.map {
+      case (inputCol, outputCol) =>
+        getSoftMaxOutputField(inputCol, outputCol, modelOutputSchema)
+    }
+
+    val argmaxFields = this.getArgMaxDict.map {
+      case (inputCol, outputCol) =>
+        getArgMaxOutputField(inputCol, outputCol, modelOutputSchema)
+    }
+
+    (softmaxFields ++ argmaxFields).foldLeft(modelOutputSchema)(_ add _)
   }
 
-  //noinspection ScalaStyle
-  private def transformValidateSchema(schema: StructType, includePostProcessFields: Boolean): StructType = {
+  private def validateSchema(schema: StructType): Unit = {
     // Validate that input schema matches with onnx model expected input types.
     this.modelInput.foreach {
       case (onnxInputName, onnxInputInfo) =>
@@ -431,7 +449,12 @@ class ONNXModel(override val uid: String)
           throw new IllegalArgumentException(s"Output field $colName already exists in the input schema.")
         }
     }
+  }
 
+  /**
+   * Gets the output schema from the ONNX model
+   */
+  private def getModelOutputSchema(inputSchema: StructType): StructType = {
     // Get ONNX model output cols.
     val modelOutputFields = this.getFetchDict.map {
       case (colName, onnxOutputName) =>
@@ -444,24 +467,7 @@ class ONNXModel(override val uid: String)
         StructField(colName, dataType)
     }
 
-    val allFields = schema.fields ++ modelOutputFields
-
-    // Include post processing fields if any.
-    if (includePostProcessFields) {
-      val softmaxFields = this.getSoftMaxDict.map {
-        case (inputCol, outputCol) =>
-          getSoftMaxOutputField(inputCol, outputCol, StructType(allFields))
-      }
-
-      val argmaxFields = this.getArgMaxDict.map {
-        case (inputCol, outputCol) =>
-          getArgMaxOutputField(inputCol, outputCol, StructType(allFields))
-      }
-
-      StructType(allFields ++ softmaxFields ++ argmaxFields)
-    } else {
-      StructType(allFields)
-    }
+    StructType(inputSchema.fields ++ modelOutputFields)
   }
 
   private def getSoftMaxOutputField(inputCol: String, outputCol: String, schema: StructType) = {

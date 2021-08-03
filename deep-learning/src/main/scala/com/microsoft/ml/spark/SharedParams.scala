@@ -6,7 +6,7 @@ package com.microsoft.ml.spark
 import org.apache.spark.ml.param.{MapParam, Params}
 import spray.json.DefaultJsonProtocol._
 
-trait HasFeedFetchMaps extends Params {
+trait HasFeedFetchDicts extends Params {
   val feedDict: MapParam[String, String] = new MapParam[String, String](
     this,
     "feedDict",
