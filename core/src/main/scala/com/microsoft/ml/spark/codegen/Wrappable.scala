@@ -290,7 +290,7 @@ trait DotnetWrappable extends BaseWrappable {
         |using Microsoft.Spark.ML.Feature;
         |using Microsoft.Spark.Sql;
         |using Microsoft.Spark.Sql.Types;
-        |using mmlspark.dotnet.utils;
+        |using mmlspark.dotnet.wrapper;
         |$dotnetExtraEstimatorImports
         |
         |namespace $dotnetNamespace
@@ -768,5 +768,5 @@ trait RWrappable extends BaseWrappable {
 
 }
 
-trait Wrappable extends PythonWrappable with RWrappable
+trait Wrappable extends PythonWrappable with RWrappable with DotnetWrappable
 

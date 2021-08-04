@@ -48,7 +48,7 @@ object Foo extends App {
 
 }
 
-object DotNetTest extends App {
+object DotnetTest extends App {
   import WrappableExtensions._
 
   val Config = CodegenConfig(
@@ -63,20 +63,22 @@ object DotNetTest extends App {
 
   // All dotnet/spark feature samples test
   // Transformers or Estimators
-  new Bucketizer().makeDotnetFile(Config)
-  new CountVectorizer().makeDotnetFile(Config)
-  new FeatureHasher().makeDotnetFile(Config)
-  new HashingTF().makeDotnetFile(Config)
-  new IDF().makeDotnetFile(Config)
-  new NGram().makeDotnetFile(Config)
-  new SQLTransformer().makeDotnetFile(Config)
-  new StopWordsRemover().makeDotnetFile(Config)
-  new Tokenizer().makeDotnetFile(Config)
-  new Word2Vec().makeDotnetFile(Config)
-  // Models
-  new CountVectorizerModel(Array("hello", "I", "AM", "TO", "TOKENIZE")).makeDotnetFile(Config)
+//  new Bucketizer().makeDotnetFile(Config)
+//  new CountVectorizer().makeDotnetFile(Config)
+//  new FeatureHasher().makeDotnetFile(Config)
+//  new HashingTF().makeDotnetFile(Config)
+//  new IDF().makeDotnetFile(Config)
+//  new NGram().makeDotnetFile(Config)
+//  new SQLTransformer().makeDotnetFile(Config)
+//  new StopWordsRemover().makeDotnetFile(Config)
+//  new Tokenizer().makeDotnetFile(Config)
+//  new Word2Vec().makeDotnetFile(Config)
+//  // Models
+//  new CountVectorizerModel(Array("hello", "I", "AM", "TO", "TOKENIZE")).makeDotnetFile(Config)
 //  new Word2VecModel().makeDotnetFile(Config)
 //  new IDFModel().makeDotnetFile(Config)
+
+  new VectorAssembler().makeDotnetFile(Config)
 
   // Estimator example
 //  new Word2Vec().makeDotnetFile(Config)
