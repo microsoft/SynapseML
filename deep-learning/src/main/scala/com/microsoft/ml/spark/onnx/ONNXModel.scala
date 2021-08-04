@@ -81,6 +81,41 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
   )
 }
 
+/**
+ * Object model for an ONNX model:
+ * OrtSession
+ * |-InputInfo: Map[String, NodeInfo]
+ * |-OutputInfo: Map[String, NodeInfo]
+ * OrtSession is the entry point for the object model. Most importantly it defines the InputInfo and OutputInfo maps.
+ * ------------------------------------
+ * NodeInfo
+ * |-name: String
+ * |-info: ValueInfo
+ * Each NodeInfo is a name and ValueInfo tuple. ValueInfo has three implementations, explained below.
+ * ------------------------------------
+ * TensorInfo extends ValueInfo
+ * |-shape: Array[Long]
+ * |-type: OnnxJavaType
+ * TensorInfo is the most common type of ValueInfo. It defines the type of the tensor elements, and the shape.
+ * The first dimension of the tensor is assumed to be the batch size. For example, FLOAT[-1, 3, 224, 224]
+ * could represent a unlimited batch size * 3 channels * 224 height * 224 width tensor, where each element is a float.
+ * ------------------------------------
+ * SequenceInfo extends ValueInfo
+ * |-sequenceOfMaps: Boolean
+ * |-sequenceType: OnnxJavaType
+ * |-mapInfo: MapInfo
+ * |-length: Int
+ * SequenceInfo can be a sequence of values (value type specified by sequenceType) if sequenceOfMaps is false,
+ *  or a sequence of MapInfo if sequenceOfMaps is true. Sequence of MapInfo is usually used for ZipMap type of output,
+ *  where the sequence represent the batch, and each MapInfo represents probability or logits outcome per class for
+ *  each observation.
+ * ------------------------------------
+ * MapInfo extends ValueInfo
+ * |-keyType: OnnxJavaType
+ * |-valueType: OnnxJavaType
+ * |-size: Int
+ * MapInfo defines keyType, valueType and size. It is usually used inside SequenceInfo.
+ */
 object ONNXModel extends ComplexParamsReadable[ONNXModel] {
   private[onnx] def initializeOrt(modelContent: Array[Byte]): OrtSession = {
     val env: OrtEnvironment = OrtEnvironment.getEnvironment
