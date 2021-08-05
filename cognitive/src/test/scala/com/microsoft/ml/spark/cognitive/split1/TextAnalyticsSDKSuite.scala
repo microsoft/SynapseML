@@ -469,7 +469,7 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
 
-  lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare()
+  lazy val extractor: HealthcareV4 = new HealthcareV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
