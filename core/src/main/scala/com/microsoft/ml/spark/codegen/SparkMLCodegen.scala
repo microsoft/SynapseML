@@ -1,7 +1,9 @@
 package com.microsoft.ml.spark.codegen
 
+import com.microsoft.ml.spark.featurize.text.MultiNGram
 import com.microsoft.ml.spark.io.http.JSONInputParser
-import com.microsoft.ml.spark.stages.EnsembleByKey
+import com.microsoft.ml.spark.recommendation.RankingTrainValidationSplitModel
+import com.microsoft.ml.spark.stages.{EnsembleByKey, TextPreprocessor}
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.{PipelineStage, feature}
 import org.apache.spark.ml.feature._
@@ -49,6 +51,7 @@ object Foo extends App {
 }
 
 object DotnetTest extends App {
+
   import WrappableExtensions._
 
   val Config = CodegenConfig(
@@ -61,36 +64,28 @@ object DotnetTest extends App {
     topDir = "D:\\repos\\mmlspark\\core",
     targetDir = "D:\\repos\\mmlspark\\core\\")
 
+  // Test missing types fix
+  // MapParam[String, Int]
+  new EnsembleByKey().makeDotnetFile(Config)
+  // MapParam[String, String]
+  new JSONInputParser().makeDotnetFile(Config)
+  new TextPreprocessor().makeDotnetFile(Config)
+  // TypedArrayParam
+  new MultiNGram().makeDotnetFile(Config)
+  new RankingTrainValidationSplitModel().makeDotnetFile(Config)
+
   // All dotnet/spark feature samples test
-  // Transformers or Estimators
-//  new Bucketizer().makeDotnetFile(Config)
-//  new CountVectorizer().makeDotnetFile(Config)
-//  new FeatureHasher().makeDotnetFile(Config)
-//  new HashingTF().makeDotnetFile(Config)
-//  new IDF().makeDotnetFile(Config)
-//  new NGram().makeDotnetFile(Config)
-//  new SQLTransformer().makeDotnetFile(Config)
-//  new StopWordsRemover().makeDotnetFile(Config)
-//  new Tokenizer().makeDotnetFile(Config)
-//  new Word2Vec().makeDotnetFile(Config)
-//  // Models
-//  new CountVectorizerModel(Array("hello", "I", "AM", "TO", "TOKENIZE")).makeDotnetFile(Config)
-//  new Word2VecModel().makeDotnetFile(Config)
-//  new IDFModel().makeDotnetFile(Config)
-
-  new VectorAssembler().makeDotnetFile(Config)
-
-  // Estimator example
-//  new Word2Vec().makeDotnetFile(Config)
-//  // Transformer example
-//  new FeatureHasher().makeDotnetFile(Config)
-//  // UnaryTransformer example
-//  new Tokenizer().makeDotnetFile(Config)
-//  // Predictor example
-//  new LinearRegression().makeDotnetFile(Config)
-  // Model example
-//  new LinearRegressionModel().makeDotnetFile(Config)
-//  new Word2Vec().makePyFile(Config)
-//  new EnsembleByKey().makeDotnetFile(Config)
-//  new JSONInputParser().makeDotnetFile(Config)
+  //  new Bucketizer().makeDotnetFile(Config)
+  //  new CountVectorizer().makeDotnetFile(Config)
+  //  new FeatureHasher().makeDotnetFile(Config)
+  //  new HashingTF().makeDotnetFile(Config)
+  //  new IDF().makeDotnetFile(Config)
+  //  new NGram().makeDotnetFile(Config)
+  //  new SQLTransformer().makeDotnetFile(Config)
+  //  new StopWordsRemover().makeDotnetFile(Config)
+  //  new Tokenizer().makeDotnetFile(Config)
+  //  new Word2Vec().makeDotnetFile(Config)
+  //  new CountVectorizerModel(Array("hello", "I", "AM", "TO", "TOKENIZE")).makeDotnetFile(Config)
+  //  new VectorAssembler().makeDotnetFile(Config)
+  //  new LinearRegression().makeDotnetFile(Config)
 }

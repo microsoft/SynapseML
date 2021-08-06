@@ -8,13 +8,19 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import com.microsoft.ml.spark.core.env.FileUtilities
 import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.ml.spark.nn.{BallTree, ConditionalBallTree}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.{Estimator, Model, Transformer}
+import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
 import org.apache.commons.lang.StringEscapeUtils
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.types.DataType
 
 import scala.collection.Iterator.iterate
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                               pyTypeConverter: Option[String],
@@ -39,16 +45,48 @@ trait DefaultParamInfo extends StageParam {
   val doubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
   val stringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
   val stringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
-    "as.array", "IEnumerable<string>")
+    "as.array", "string[]")
   val doubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
-    "as.array", "IEnumerable<double>")
+    "as.array", "double[]")
   val intArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
-    "as.array", "IEnumerable<int>")
-  val byteArrayInfo = new ParamInfo[ByteArrayParam]("list", "IEnumerable<byte>")
-  val mapInfo = new ParamInfo[MapParam[_, _]]("dict", "IDictionary<object, object>")
-  val stringMapStringInfo = new ParamInfo[MapParam[String, String]]("dict", "IDictionary<string, string>")
-  val stringMapObjectInfo = new ParamInfo[MapParam[String, _]]("dict", "IDictionary<string, object>")
-  val unknownInfo = new ParamInfo[Param[_]]("object", "object")
+    "as.array", "int[]")
+  val byteArrayInfo = new ParamInfo[ByteArrayParam]("list", "byte[]")
+  val doubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object", "double[][]")
+  val stringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")
+  val stringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
+  val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "List<int>")
+  val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "List<double>")
+  // TODO: find corresponding .net type
+  val arrayParamMapInfo = new ParamInfo[ArrayParamMapParam]("object", "object")
+  val ballTreeInfo = new ParamInfo[BallTreeParam]("object", "object")
+  val conditionalBallTreeInfo = new ParamInfo[ConditionalBallTreeParam]("object", "object")
+  val dataFrameParamInfo = new ParamInfo[DataFrameParam]("object", "DataFrame")
+  val dataTypeInfo = new ParamInfo[DataTypeParam]("object", "object")
+  val estimatorArrayInfo = new ParamInfo[EstimatorArrayParam]("object", "object")
+  val estimatorInfo = new ParamInfo[EstimatorParam]("object", "object")
+  val evaluatorInfo = new ParamInfo[EvaluatorParam]("object", "object")
+  val paramSpaceInfo = new ParamInfo[ParamSpaceParam]("object", "object")
+  val pipelineStageInfo = new ParamInfo[PipelineStageParam]("object", "object")
+  val transformerArrayInfo = new ParamInfo[TransformerArrayParam]("object", "object")
+  val transformerInfo = new ParamInfo[TransformerParam]("object", "object")
+  val udfInfo = new ParamInfo[UDFParam]("object", "object")
+  val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")
+
+//  def getMapParamInfo[K: TypeTag, V: TypeTag](dataType: Param[Map[K, V]]): ParamInfo[_] = {
+//    typeOf[Map[K, V]] match {
+//      case t if t =:= typeOf[Map[String, String]] => stringStringMapInfo
+//      case t if t =:= typeOf[Map[String, Int]] => stringMapIntInfo
+//      case _ => throw new Exception(s"unsupported type $dataType")
+//    }
+//  }
+//
+//  def getTypedArrayParamInfo[T: TypeTag](dataType: TypedArrayParam[T]): ParamInfo[_] = {
+//    typeOf[T] match {
+//      case t if t =:= typeOf[Int] => typedArrayIntInfo
+//      case t if t =:= typeOf[Double] => typedArrayDoubleInfo
+//      case _ => throw new Exception(s"unsupported type $dataType")
+//    }
+//  }
 
   //noinspection ScalaStyle
   def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
@@ -62,17 +100,36 @@ trait DefaultParamInfo extends StageParam {
       case _: DoubleArrayParam => doubleArrayInfo
       case _: IntArrayParam => intArrayInfo
       case _: ByteArrayParam => byteArrayInfo
+      case _: DoubleArrayArrayParam => doubleArrayArrayInfo
+      case _: StringStringMapParam => stringStringMapInfo
+      case _: StringIntMapParam => stringIntMapInfo
+      case _: TypedIntArrayParam => typedIntArrayInfo
+      case _: TypedDoubleArrayParam => typedDoubleArrayInfo
+
+      case _: ArrayParamMapParam => arrayParamMapInfo
+      case _: BallTreeParam => ballTreeInfo
+      case _: ConditionalBallTreeParam => conditionalBallTreeInfo
+      case _: DataFrameParam => dataFrameParamInfo
+      case _: DataTypeParam => dataTypeInfo
+      case _: EstimatorArrayParam => estimatorArrayInfo
+      case _: EstimatorParam => estimatorInfo
+      case _: EvaluatorParam => evaluatorInfo
+      case _: ParamSpaceParam => paramSpaceInfo
+      case _: PipelineStageParam => pipelineStageInfo
+      case _: TransformerArrayParam => transformerArrayInfo
+      case _: TransformerParam => transformerInfo
+      case _: UDFParam => udfInfo
+      case _: UDPyFParam => udPyFInfo
+
       case p =>
         thisStage.getClass.getMethod(p.name)
           .getAnnotatedReturnType.getType.toString match {
           case "org.apache.spark.ml.param.Param<java.lang.String>" => stringInfo
-          case "org.apache.spark.ml.param.MapParam<java.lang.String, java.lang.String>" => stringMapStringInfo
-          case "org.apache.spark.ml.param.MapParam<java.lang.String, java.lang.Object>" => stringMapObjectInfo
-          case "org.apache.spark.ml.param.MapParam<java.lang.Object, java.lang.Object>" => mapInfo
-          case _ => unknownInfo
+          case _ => throw new Exception(s"unsupported type $dataType")
         }
-      }
+    }
   }
+
 }
 
 trait StageParam extends Params {
@@ -115,7 +172,7 @@ trait DotnetWrappable extends BaseWrappable {
         |""".stripMargin
 
   protected lazy val dotnetNamespace: String =
-    thisStage.getClass.getName.replace("com.microsoft.ml.spark", "mmlspark")
+    thisStage.getClass.getName.replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
       .split(".".toCharArray).dropRight(1).mkString(".")
 
   protected lazy val dotnetInternalWrapper = false
@@ -146,7 +203,7 @@ trait DotnetWrappable extends BaseWrappable {
     }
   }
 
-  protected def dotnetLoadMethod: String = {
+  protected def dotnetMLReadWriteMethods: String = {
     s"""|/// <summary>
         |/// Loads the <see cref=\"$dotnetClassName\"/> that was previously saved using Save(string).
         |/// </summary>
@@ -154,6 +211,14 @@ trait DotnetWrappable extends BaseWrappable {
         |/// <returns>New <see cref=\"$dotnetClassName\"/> object, loaded from path.</returns>
         |public static $dotnetClassName Load(string path) => $dotnetClassWrapperName(
         |    SparkEnvironment.JvmBridge.CallStaticJavaMethod($dotnetClassNameString, "load", path));
+        |
+        |/// <returns>a <see cref=\"ScalaMLWriter\"/> instance for this ML instance.</returns>
+        |public ScalaMLWriter Write() =>
+        |    new ScalaMLWriter((JvmObjectReference)Reference.Invoke("write"));
+        |
+        |/// <returns>an <see cref=\"ScalaMLReader\"/> instance for this ML instance.</returns>
+        |public ScalaMLReader<$dotnetClassName> Read() =>
+        |    new ScalaMLReader<$dotnetClassName>((JvmObjectReference)Reference.Invoke("read"));
         |""".stripMargin
   }
 
@@ -161,6 +226,10 @@ trait DotnetWrappable extends BaseWrappable {
     s"""|private static $dotnetClassName $dotnetClassWrapperName(object obj) =>
         |    new $dotnetClassName((JvmObjectReference)obj);
         |""".stripMargin
+  }
+
+  def dotnetAdditionalMethods: String = {
+    ""
   }
 
   protected def dotnetParamSetter(p: Param[_]): String = {
@@ -177,7 +246,7 @@ trait DotnetWrappable extends BaseWrappable {
       case _: ServiceParam[_] =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |
             |public $dotnetClassName Set${capName}Col(string value):
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
@@ -185,7 +254,7 @@ trait DotnetWrappable extends BaseWrappable {
       case _ =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |""".stripMargin
     }
   }
@@ -195,15 +264,27 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected def dotnetParamGetter(p: Param[_]): String = {
     val capName = p.name.capitalize
+    val docString =
     s"""|/// <summary>
         |/// Gets ${p.name} value for <see cref=\"${p.name}\"/>
         |/// </summary>
         |/// <returns>
         |/// ${p.name}: ${p.doc}
-        |/// </returns>
-        |public ${getParamInfo(p).dotnetType} Get$capName() =>
-        |    (${getParamInfo(p).dotnetType})Reference.Invoke(\"get$capName\");
-        |""".stripMargin
+        |/// </returns>""".stripMargin
+    p match {
+      case _: ComplexParam[_] =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName() =>
+           |    new ${getParamInfo(p).dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
+           |""".stripMargin
+      case _ =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName() =>
+           |    (${getParamInfo(p).dotnetType})Reference.Invoke(\"get$capName\");
+           |""".stripMargin
+    }
   }
 
   protected def dotnetParamGetters: String =
@@ -268,7 +349,7 @@ trait DotnetWrappable extends BaseWrappable {
     thisStage match {
       case _: Estimator[_] =>
         val companionModelImport = companionModelClassName
-          .replaceAllLiterally("com.microsoft.ml.spark", "mmlspark")
+          .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
           .replaceAllLiterally("org.apache.spark", "Microsoft.Spark")
           .split(".".toCharArray)
           .dropRight(1)
@@ -287,10 +368,10 @@ trait DotnetWrappable extends BaseWrappable {
         |using System.Collections.Generic;
         |using Microsoft.Spark.Interop;
         |using Microsoft.Spark.Interop.Ipc;
-        |using Microsoft.Spark.ML.Feature;
         |using Microsoft.Spark.Sql;
         |using Microsoft.Spark.Sql.Types;
         |using mmlspark.dotnet.wrapper;
+        |using mmlspark.dotnet.utils;
         |$dotnetExtraEstimatorImports
         |
         |namespace $dotnetNamespace
@@ -298,7 +379,7 @@ trait DotnetWrappable extends BaseWrappable {
         |    /// <summary>
         |    /// <see cref=\"$dotnetClassName\"/> implements $dotnetClassName
         |    /// </summary>
-        |    public class $dotnetClassName : $dotnetObjectBaseClass
+        |    public class $dotnetClassName : $dotnetObjectBaseClass, ScalaMLWritable, ScalaMLReadable<$dotnetClassName>
         |    {
         |        private static readonly string $dotnetClassNameString = \"${thisStage.getClass.getName}\";
         |
@@ -325,9 +406,9 @@ trait DotnetWrappable extends BaseWrappable {
         |${indent(dotnetParamSetters, 2)}
         |${indent(dotnetParamGetters, 2)}
         |${indent(dotnetExtraMethods, 2)}
-        |${indent(dotnetLoadMethod, 2)}
+        |${indent(dotnetMLReadWriteMethods, 2)}
         |${indent(dotnetWrapAsTypeMethod, 2)}
-        |
+        |${indent(dotnetAdditionalMethods, 2)}
         |    }
         |}
         |
