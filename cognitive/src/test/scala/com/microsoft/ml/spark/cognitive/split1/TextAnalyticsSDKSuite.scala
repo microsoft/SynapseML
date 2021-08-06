@@ -398,3 +398,41 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
 }
+class HealthcareSuitev4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    (Seq("us", ""), Seq("Hello World", "La carretera estaba atascada. Había mucho tráfico el día de ayer.")),
+    (Seq("fr", ""), Seq("Bonjour tout le monde", "世界您好")),
+    (Seq(""), Seq(":) :( :D")),
+  ).toDF("lang", "text")
+
+  val options: Option[TextAnalyticsRequestOptionsV4] = Some(TextAnalyticsRequestOptionsV4("", true, false))
+
+  def detector: Healthcare = new Healthcare(options)
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("lang")
+    .setOutputCol("output")
+
+  def getDetector: Healthcare = new Healthcare(options)
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("lang")
+    .setOutputCol("output")
+
+
+  test("Healthcare - Basic Usage") {
+    val replies = detector.transform(df)
+      .select("output.result.category")
+      .collect()
+
+    val data = replies.map(row => row.getList(0))
+    assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
+      data(0).get(2).toString == "negative")
+    assert(data(1).get(0).toString == "positive")
+  }
+}
