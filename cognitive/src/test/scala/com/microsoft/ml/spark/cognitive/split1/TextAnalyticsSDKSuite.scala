@@ -468,7 +468,7 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
   val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
 
   lazy val extractor: TextAnalyticsHealthcare = new TextAnalyticsHealthcare()
-    .setSubscriptionKey(textKey)
+
     .setLocation("eastus")
     .setTextCol("text")
     .setUrl("https://eastus.api.cognitive.microsoft.com/")
@@ -476,6 +476,14 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   lazy val invalidDocDf: DataFrame = Seq(
     (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageInput: DataFrame = Seq(
+    (Seq("abc", "/."), Seq("I feel sick.", "I have severe neck and shoulder pain."))
   ).toDF("lang", "text")
 
   lazy val unbatchedDF: DataFrame = Seq(
@@ -531,6 +539,7 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   test("Healthcare - Invalid Document Input") {
     val replies = extractor.transform(invalidDocDf.coalesce(1))
+
     val errors = replies
       .select(explode(col("output.error.errorMessage")))
       .collect()
