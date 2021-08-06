@@ -15,6 +15,7 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages._
 import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.linalg.SQLDataTypes._
@@ -24,7 +25,7 @@ import org.apache.spark.ml._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row, SparkSession}
 import spray.json.DefaultJsonProtocol._
 
 import java.nio._
@@ -34,6 +35,7 @@ import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
 
 trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts {
+
   val modelPayload: ByteArrayParam = new ByteArrayParam(
     this,
     "modelPayload",
@@ -41,13 +43,6 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
   )
 
   def getModelPayload: Array[Byte] = $(modelPayload)
-
-  def setModelPayload(value: Array[Byte]): this.type = this.set(modelPayload, value)
-
-  def setModelLocation(path: String): this.type = {
-    val modelBytes = SparkContext.getOrCreate().binaryFiles(path).first()._2.toArray
-    this.setModelPayload(modelBytes)
-  }
 
   val softMaxDict: MapParam[String, String] = new MapParam[String, String](
     this,
@@ -79,6 +74,34 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
   setDefault(
     miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10) //scalastyle:ignore magic.number
   )
+}
+
+//noinspection ScalaStyle
+private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
+  override def hasNext: Boolean = delegate.hasNext
+
+  override def next(): T = {
+    val t = delegate.next()
+
+    if (!delegate.hasNext) {
+      // Cleanup the resource if there is no more rows, but iterator does not have to exhaust.
+      cleanup
+    }
+
+    t
+  }
+
+  override def finalize(): Unit = {
+    try {
+      // Make sure resource is cleaned up.
+      cleanup
+    }
+    catch {
+      case _: Throwable =>
+    }
+
+    super.finalize()
+  }
 }
 
 /**
@@ -117,11 +140,10 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
  * MapInfo defines keyType, valueType and size. It is usually used inside SequenceInfo.
  */
 object ONNXModel extends ComplexParamsReadable[ONNXModel] {
-  private[onnx] def initializeOrt(modelContent: Array[Byte]): OrtSession = {
-    val env: OrtEnvironment = OrtEnvironment.getEnvironment
+  private[onnx] def initializeOrt(modelContent: Array[Byte], ortEnv: OrtEnvironment): OrtSession = {
     val options = new SessionOptions()
     options.setOptimizationLevel(OptLevel.BASIC_OPT)
-    env.createSession(modelContent, options)
+    ortEnv.createSession(modelContent, options)
   }
 
   private[onnx] def mapOnnxJavaTypeToDataType(javaType: OnnxJavaType): DataType = {
@@ -206,14 +228,19 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
     }
   }
 
-  private[onnx] def applyModel(session: OrtSession,
+  //noinspection ScalaStyle
+  private[onnx] def applyModel(modelPayloadBC: Broadcast[Array[Byte]],
                                feedMap: Map[String, String],
                                fetchMap: Map[String, String],
                                inputSchema: StructType
                               )(rows: Iterator[Row]): Iterator[Row] = {
-    val env = OrtEnvironment.getEnvironment
 
-    rows.map {
+    val payload = modelPayloadBC.value
+
+    val env = OrtEnvironment.getEnvironment
+    val session = initializeOrt(payload, env)
+
+    val results = rows.map {
       row =>
         // Each row contains a batch
         // Get the input tensors for each input node.
@@ -232,26 +259,31 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] {
         }.toMap
 
         // Run the tensors through the ONNX runtime.
-        val result = session.run(inputTensors.asJava)
+        val outputBatches: Seq[Seq[Any]] = using(session.run(inputTensors.asJava)) {
+          result =>
+            // Map the output tensors to batches.
+            fetchMap.map {
+              case (_, outputName) =>
+                val i = session.getOutputInfo.asScala.keysIterator.indexOf(outputName)
+                val outputValue: OnnxValue = result.get(i)
+                mapOnnxValueToArray(outputValue)
+            }.toSeq
+        }.get
 
-        // Map the output tensors to batches.
-        val outputBatches: Seq[Seq[Any]] = fetchMap.map {
-          case (_, outputName) =>
-            val i = session.getOutputInfo.asScala.keysIterator.indexOf(outputName)
-            val outputValue: OnnxValue = result.get(i)
-            mapOnnxValueToArray(outputValue)
-        }.toSeq
+        // Close the tensor and clean up native handles
+        inputTensors.valuesIterator.foreach {
+          _.close()
+        }
 
         // Return a row for each output batch: original payload appended with model output.
         val data = inputSchema.map(f => row.getAs[Any](f.name))
-        val resultRow = Row.fromSeq(data ++ outputBatches)
-
-        if (rows.isEmpty) {
-          session.close() // Cleanup the resource if there is no more rows.
-        }
-
-        resultRow
+        Row.fromSeq(data ++ outputBatches)
     }
+
+    new ClosableIterator[Row](results, {
+      session.close()
+      env.close()
+    })
   }
 
   private def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]) = {
@@ -324,17 +356,40 @@ class ONNXModel(override val uid: String)
   def this() = this(Identifiable.randomUID("ONNXModel"))
 
   @transient
-  lazy val modelInput: Map[String, NodeInfo] = {
-    using(initializeOrt(getModelPayload)) {
-      session => session.getInputInfo.asScala.toMap
-    }.get
+  def modelInput: Map[String, NodeInfo] = {
+    using(OrtEnvironment.getEnvironment) {
+      env =>
+        using(initializeOrt(getModelPayload, env)) {
+          session => session.getInputInfo.asScala.toMap
+        }
+    }.flatten.get
   }
 
   @transient
-  lazy val modelOutput: Map[String, NodeInfo] = {
-    using(initializeOrt(getModelPayload)) {
-      session => session.getOutputInfo.asScala.toMap
-    }.get
+  def modelOutput: Map[String, NodeInfo] = {
+    using(OrtEnvironment.getEnvironment) {
+      env =>
+        using(initializeOrt(getModelPayload, env)) {
+          session => session.getOutputInfo.asScala.toMap
+        }
+    }.flatten.get
+  }
+
+  private var broadcastedModelPayload: Option[Broadcast[Array[Byte]]] = None
+
+  def setModelPayload(value: Array[Byte]): this.type = {
+    this.broadcastedModelPayload.foreach(_.destroy)
+    broadcastedModelPayload = None
+    this.set(modelPayload, value)
+  }
+
+  def rebroadcastModelPayload(spark: SparkSession): Unit = {
+    broadcastedModelPayload = Some(spark.sparkContext.broadcast(getModelPayload))
+  }
+
+  def setModelLocation(path: String): this.type = {
+    val modelBytes = SparkContext.getOrCreate().binaryFiles(path).first()._2.toArray
+    this.setModelPayload(modelBytes)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
@@ -347,22 +402,25 @@ class ONNXModel(override val uid: String)
       StructType(modelOutputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
     )
 
-    val modelPayloadBC = dataset.sparkSession.sparkContext.broadcast(this.getModelPayload)
-
-    // The cache call is a workaround for GH issue 1075:
-    //  https://github.com/Azure/mmlspark/issues/1075
-    val batchedDF = getMiniBatcher.transform(dataset).cache()
-    val (coerced, feedDict) = coerceBatchedDf(batchedDF)
-
-    val outputDf = coerced.mapPartitions {
-      rows: Iterator[Row] =>
-        val session = initializeOrt(modelPayloadBC.value)
-        applyModel(session, feedDict, getFetchDict, inputSchema)(rows)
+    if (broadcastedModelPayload.isEmpty) {
+      println("rebroadcastModelPayload")
+      rebroadcastModelPayload(dataset.sparkSession)
     }
 
     // The cache call is a workaround for GH issue 1075:
     //  https://github.com/Azure/mmlspark/issues/1075
-    val cacheAttempted = if (outputDf.isStreaming) outputDf else outputDf.cache()
+    val batchedDF = getMiniBatcher.transform(dataset).cache().unpersist()
+    val (coerced, feedDict) = coerceBatchedDf(batchedDF)
+
+    val outputDf = coerced.mapPartitions {
+      rows: Iterator[Row] =>
+        val payloadBc = broadcastedModelPayload.get
+        applyModel(payloadBc, feedDict, getFetchDict, inputSchema)(rows)
+    }
+
+    // The cache call is a workaround for GH issue 1075:
+    //  https://github.com/Azure/mmlspark/issues/1075
+    val cacheAttempted = if (outputDf.isStreaming) outputDf else outputDf.cache().unpersist()
 
     val flattenedDF = new FlattenBatch().transform(cacheAttempted)
 
