@@ -42,7 +42,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     replies.foreach { row =>
       row.toSeq.foreach { col => println(col) }
     }
-  };
+  }
 
   test("Language Detection - Batch Usage") {
     val replies = getDetector.transform(df)
@@ -58,17 +58,15 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     assert(iso(1).get(0).toString == "fr" && iso(1).get(1).toString == "zh")
   }
 
-  test("Language Detection - Check Confidence Score") {
+  test("Language Detection - Assert Confidence Score") {
     val replies = getDetector.transform(df)
       .select("output", "output.result.confidenceScore")
       .collect()
     assert(replies(0).schema(0).name == "output", "output.result.confidenceScore")
     val firstRow = replies(0)
-    val secondRow = replies(1)
     assert(replies(0).schema(0).name == "output")
     val fromRow = DetectLanguageResponseV4.makeFromRowConverter
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
-    val resSecondRow = fromRow(secondRow.getAs[GenericRowWithSchema]("output"))
     val positiveScoreFirstRow = resFirstRow.result.head.get.confidenceScore
     assert(positiveScoreFirstRow > 0.5)
   }
@@ -88,7 +86,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     assert(codes(0).get(1).toString == "InvalidDocument")
   }
 
-  test("Invalid Subscription Key Caught") {
+  test("Language Detection - Invalid Subscription Key Caught") {
     val invalidKey = "12345"
     val caught =
       intercept[SparkException] {
@@ -100,7 +98,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     assert(caught.getMessage.contains("invalid subscription key or wrong API endpoint"))
   }
 
-  test("Wrong API Endpoint Caught") {
+  test("Language Detection - Wrong API Endpoint Caught") {
     val invalidEndpoint = "invalidendpoint"
     val caught =
       intercept[SparkException] {
@@ -112,7 +110,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     assert(caught.getMessage.contains("failed to resolve 'invalidendpoint.api.cognitive.microsoft.com'"))
   }
 
-  test("Asynch Functionality with Parameters") {
+  test("Language Detection - Async Functionality with Parameters") {
     val concurrency = 10
     val timeout = 45
 
@@ -128,7 +126,7 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
     assert(language(1).get(0).toString == "French" && language(1).get(1).toString == "Chinese")
   }
 
-  test("Asynch Incorrect Concurrency Functionality") {
+  test("Language Detection - Async Incorrect Concurrency Functionality") {
     val caught = intercept[SparkException] {
       getDetector.setConcurrency(-1)
         .setTimeout(45)
@@ -179,6 +177,20 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     .setTextCol("text")
     .setOutputCol("output")
 
+  test("Sentiment Analysis - Basic Usage") {
+    val detector: TextSentimentV4 = getDetector
+      .setLanguageCol("lang")
+
+    val replies = detector.transform(batchedDF)
+      .select("output.result.sentiment")
+      .collect()
+
+    val data = replies.map(row => row.getList(0))
+    assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
+      data(0).get(2).toString == "negative")
+    assert(data(1).get(0).toString == "positive")
+  }
+
   test("Sentiment Analysis - Output Assertion") {
     val replies = getDetector.transform(batchedDF)
       .select("output")
@@ -191,7 +203,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     }
   }
 
-  test("Sentiment - Auto batching") {
+  test("Sentiment Analysis - Auto Batching") {
     val detector: TextSentimentV4 = getDetector
       .setLanguageCol("lang")
       .setBatchSize(2)
@@ -221,20 +233,6 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       val modelCheck = outResponse.result.head.get
       modelCheck.toString.matches("\\d{4}-\\d{2}-\\d{2}")
     })
-  }
-
-  test("Sentiment Analysis - Basic Usage") {
-    val detector: TextSentimentV4 = getDetector
-      .setLanguageCol("lang")
-
-    val replies = detector.transform(batchedDF)
-      .select("output.result.sentiment")
-      .collect()
-
-    val data = replies.map(row => row.getList(0))
-    assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
-      data(0).get(2).toString == "negative")
-    assert(data(1).get(0).toString == "positive")
   }
 
   test("Sentiment Analysis - Invalid Document Input") {
@@ -276,7 +274,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("fr"), Seq("Bonjour tout le monde")),
   ).toDF("lang", "text")
 
-  lazy val unbatchedDf: DataFrame = Seq(
+  lazy val unbatchedDF: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     ("fr", "Bonjour tout le monde")
@@ -370,9 +368,9 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(codes(1).get(0).toString == "UnsupportedLanguageCode")
   }
 
-  test("Keyphrase - batch usage") {
+  test("KPE - Batch Usage") {
     extractor.setLanguageCol("lang")
-    val results = extractor.transform(unbatchedDf.coalesce(1)).cache()
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
     results.show()
     val tdf = results
       .select("lang", "output.result.keyPhrases")
@@ -395,7 +393,7 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     (Seq("us", ""), Seq("", null))
   ).toDF("lang", "text")
 
-  lazy val unbatcheddf: DataFrame = Seq(
+  lazy val unbatchedDF: DataFrame = Seq(
     ("en", "This person is named John Doe"),
     ("en", "He lives on 123 main street."),
     ("en", "His phone number was 12345677")
@@ -439,10 +437,10 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
 
-  test("PII - batch usage") {
+  test("PII - Batch Usage") {
     extractor.setLanguageCol("lang")
       .setBatchSize(2)
-    val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
     results.show()
     val tdf = results
       .select("lang", "output.result.redactedText")
@@ -476,12 +474,8 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     .setUrl("https://eastus.api.cognitive.microsoft.com/")
     .setOutputCol("output")
 
-  lazy val invalidDocumentType: DataFrame = Seq(
+  lazy val invalidDocDf: DataFrame = Seq(
     (Seq("us", ""), Seq("", null))
-  ).toDF("lang", "text")
-
-  lazy val invalidLanguageInput: DataFrame = Seq(
-    (Seq("abc", "/."), Seq("I feel sick.", "I have severe neck and shoulder pain."))
   ).toDF("lang", "text")
 
   lazy val unbatchedDF: DataFrame = Seq(
@@ -490,8 +484,27 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     ("en", "Patient's brother died at the age of 64 from lung cancer. She was admitted for likely gastroparesis")
   ).toDF("lang", "text")
 
-  test("Healthcare: Output Assertion") {
-    val replies = extractor.transform(df3.coalesce(1))
+  test("Healthcare - Basic Usage") {
+    val replies = extractor.transform(df5.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category} " +
+      s"| subCategory: ${entity.subCategory} | length: ${entity.length} | dataSources: ${entity.dataSources}" +
+      s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
+  }
+
+  test("Healthcare - Output Assertion") {
+    val replies = extractor.transform(df5.coalesce(1))
       .select("output")
       .collect()
 
@@ -516,8 +529,8 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       }"))
   }
 
-  test("Healthcare: Invalid Document Input Type") {
-    val replies = extractor.transform(invalidDocumentType.coalesce(1))
+  test("Healthcare - Invalid Document Input") {
+    val replies = extractor.transform(invalidDocDf.coalesce(1))
     val errors = replies
       .select(explode(col("output.error.errorMessage")))
       .collect()
@@ -538,23 +551,5 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       .select("lang", "output.result.entities")
       .collect()
     assert(tdf.length == 3)
-  }
-  test("Healthcare - Print Complete Entities") {
-    val replies = extractor.transform(df5.coalesce(1))
-      .select("output")
-      .collect()
-
-    val firstRow = replies(0)
-    assert(replies(0).schema(0).name == "output")
-    val fromRow = HealthcareResponseV4.makeFromRowConverter
-    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
-    val healthcareEntities = resFirstRow.result.head.get.entities
-    assert(healthcareEntities.nonEmpty)
-
-    println("Entities:")
-    println("=========")
-    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category} " +
-      s"| subCategory: ${entity.subCategory} | length: ${entity.length} | dataSources: ${entity.dataSources}" +
-      s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
   }
 }
