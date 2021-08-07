@@ -139,7 +139,7 @@ private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) exte
  * |-size: Int
  * MapInfo defines keyType, valueType and size. It is usually used inside SequenceInfo.
  */
-object ONNXModel extends ComplexParamsReadable[ONNXModel] {
+object ONNXModel extends ComplexParamsReadable[ONNXModel] with Serializable {
   private[onnx] def initializeOrt(modelContent: Array[Byte], ortEnv: OrtEnvironment): OrtSession = {
     val options = new SessionOptions()
     options.setOptimizationLevel(OptLevel.BASIC_OPT)
@@ -355,7 +355,6 @@ class ONNXModel(override val uid: String)
 
   def this() = this(Identifiable.randomUID("ONNXModel"))
 
-  @transient
   def modelInput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
@@ -365,7 +364,6 @@ class ONNXModel(override val uid: String)
     }.flatten.get
   }
 
-  @transient
   def modelOutput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
@@ -383,8 +381,10 @@ class ONNXModel(override val uid: String)
     this.set(modelPayload, value)
   }
 
-  def rebroadcastModelPayload(spark: SparkSession): Unit = {
-    broadcastedModelPayload = Some(spark.sparkContext.broadcast(getModelPayload))
+  def rebroadcastModelPayload(spark: SparkSession): Broadcast[Array[Byte]] = {
+    val bc = spark.sparkContext.broadcast(getModelPayload)
+    broadcastedModelPayload = Some(bc)
+    bc
   }
 
   def setModelLocation(path: String): this.type = {
@@ -402,27 +402,21 @@ class ONNXModel(override val uid: String)
       StructType(modelOutputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
     )
 
-    if (broadcastedModelPayload.isEmpty) {
-      println("rebroadcastModelPayload")
-      rebroadcastModelPayload(dataset.sparkSession)
-    }
+    // The cache call is a workaround for GH issue 1075:
+    //  https://github.com/Azure/mmlspark/issues/1075
+    val batchedDF = getMiniBatcher.transform(dataset)
+    val batchedCache = if (batchedDF.isStreaming) batchedDF else batchedDF.cache().unpersist()
+    val (coerced, feedDict) = coerceBatchedDf(batchedCache)
+    val fetchDict = getFetchDict
+    val modelBc = broadcastedModelPayload.getOrElse(rebroadcastModelPayload(dataset.sparkSession))
+    val modelFunc = applyModel(modelBc, feedDict, fetchDict, inputSchema) _
+    val outputDf = coerced.mapPartitions(modelFunc)
 
     // The cache call is a workaround for GH issue 1075:
     //  https://github.com/Azure/mmlspark/issues/1075
-    val batchedDF = getMiniBatcher.transform(dataset).cache().unpersist()
-    val (coerced, feedDict) = coerceBatchedDf(batchedDF)
+    val outputCache = if (outputDf.isStreaming) outputDf else outputDf.cache().unpersist()
 
-    val outputDf = coerced.mapPartitions {
-      rows: Iterator[Row] =>
-        val payloadBc = broadcastedModelPayload.get
-        applyModel(payloadBc, feedDict, getFetchDict, inputSchema)(rows)
-    }
-
-    // The cache call is a workaround for GH issue 1075:
-    //  https://github.com/Azure/mmlspark/issues/1075
-    val cacheAttempted = if (outputDf.isStreaming) outputDf else outputDf.cache().unpersist()
-
-    val flattenedDF = new FlattenBatch().transform(cacheAttempted)
+    val flattenedDF = new FlattenBatch().transform(outputCache)
 
     (softMaxTransform _ andThen argMaxTransform) (flattenedDF)
   }
@@ -536,7 +530,7 @@ class ONNXModel(override val uid: String)
     }
 
     // Validate the output col names do not conflict with input schema.
-    (this.getFetchDict.keySet ++ this.getSoftMaxDict.values).foreach {
+    (this.getFetchDict.keySet ++ this.getSoftMaxDict.values ++ this.getArgMaxDict.values).foreach {
       colName =>
         if (schema.fieldNames.map(_.toLowerCase).contains(colName.toLowerCase)) {
           throw new IllegalArgumentException(s"Output field $colName already exists in the input schema.")
