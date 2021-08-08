@@ -3,29 +3,31 @@
 
 package com.microsoft.ml.spark.onnx
 
+import ai.onnxruntime.OrtException.OrtErrorCode
 import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
-import ai.onnxruntime.{OrtSession, _}
+import ai.onnxruntime._
 import breeze.linalg.{argmax, softmax, DenseVector => BDV}
 import com.microsoft.ml.spark.HasFeedFetchDicts
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.core.env.StreamUtilities.using
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages._
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
+import org.apache.spark.internal.Logging
+import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.SQLDataTypes._
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoder, Row, SparkSession}
+import org.apache.spark.sql._
 import spray.json.DefaultJsonProtocol._
 
 import java.nio._
@@ -139,9 +141,22 @@ private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) exte
  * |-size: Int
  * MapInfo defines keyType, valueType and size. It is usually used inside SequenceInfo.
  */
-object ONNXModel extends ComplexParamsReadable[ONNXModel] with Serializable {
-  private[onnx] def initializeOrt(modelContent: Array[Byte], ortEnv: OrtEnvironment): OrtSession = {
+object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
+  private[onnx] def initializeOrt(modelContent: Array[Byte], ortEnv: OrtEnvironment, gpuDeviceId: Option[Int] = None)
+  : OrtSession = {
     val options = new SessionOptions()
+
+    try {
+      gpuDeviceId.foreach(options.addCUDA)
+    } catch {
+      case exp: OrtException if exp.getCode == OrtErrorCode.ORT_INVALID_ARGUMENT =>
+        val err = s"GPU device is found on executor nodes with id ${gpuDeviceId.get}, " +
+          s"but adding CUDA support failed. Most likely the ONNX runtime supplied to the cluster " +
+          s"does not support GPU. Please install com.microsoft.onnxruntime:onnxruntime_gpu:{version} " +
+          s"instead for optimal performance. Exception details: ${exp.toString}"
+        logError(err)
+    }
+
     options.setOptimizationLevel(OptLevel.BASIC_OPT)
     ortEnv.createSession(modelContent, options)
   }
@@ -236,9 +251,8 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Serializable {
                               )(rows: Iterator[Row]): Iterator[Row] = {
 
     val payload = modelPayloadBC.value
-
     val env = OrtEnvironment.getEnvironment
-    val session = initializeOrt(payload, env)
+    val session = initializeOrt(payload, env, GpuDeviceId)
 
     val results = rows.map {
       row =>
@@ -338,6 +352,9 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Serializable {
       case (fromDataType, toDataType) => fromDataType == toDataType
     }
   }
+
+  @transient
+  lazy val GpuDeviceId: Option[Int] = TaskContext.get().resources().get("gpu").map(_.addresses.head.toInt)
 }
 
 class ONNXModel(override val uid: String)
