@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{MapParam, Params}
+import org.apache.spark.ml.param.{MapParam, Param, Params}
 import spray.json.DefaultJsonProtocol._
 
 trait HasFeedFetchDicts extends Params {
