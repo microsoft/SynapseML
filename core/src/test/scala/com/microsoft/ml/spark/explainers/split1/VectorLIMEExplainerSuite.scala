@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.explainers.split1
 
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.ml.spark.core.test.base.{Flaky, TestBase}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.explainers.BreezeUtils._
 import com.microsoft.ml.spark.explainers.{LocalExplainer, VectorLIME}
@@ -15,7 +15,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.scalactic.Equality
 
-class VectorLIMEExplainerSuite extends TestBase
+class VectorLIMEExplainerSuite extends TestBase with Flaky
   with TransformerFuzzing[VectorLIME] {
 
   import spark.implicits._

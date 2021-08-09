@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cognitive
 import scala.collection.JavaConverters._
 import com.azure.ai.textanalytics.models._
 import com.azure.ai.textanalytics.util._
+import com.microsoft.ml.spark.cognitive.SDKConverters.fromSDK
 import com.microsoft.ml.spark.core.schema.SparkBindings
 
 import scala.language.implicitConversions
@@ -16,12 +17,13 @@ object KeyPhraseResponseV4 extends SparkBindings[TAResponseV4[KeyphraseV4]]
 
 object SentimentResponseV4 extends SparkBindings[TAResponseV4[SentimentScoredDocumentV4]]
 
+object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
+
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
-
 case class DetectedLanguageV4(name: String,
                               iso6391Name: String,
                               confidenceScore: Double,
@@ -68,19 +70,21 @@ case class AssessmentV4(text: String,
                         offset: Int,
                         length: Int)
 
+case class PIIEntityCollectionV4(entities: Seq[PIIEntityV4],
+                                 redactedText: String,
+                                 warnings: Seq[TAWarningV4])
+
+case class PIIEntityV4(text: String,
+                       category: String,
+                       subCategory: String,
+                       confidenceScore: Double,
+                       offset: Int,
+                       length: Int)
+
 case class HealthEntitiesResultV4(id: String,
                                   warnings: Seq[TAWarningV4],
                                   entities: Seq[HealthcareEntityV4],
                                   entityRelation: Seq[HealthcareEntityRelationV4])
-
-//case class HealthEntitiesOptionsV4(stringIndexType: String,
-//                                   includeStatistics: List[HealthEntitiesOptionsV4],
-//                                   modelVersion: List[HealthEntitiesOptionsV4],
-//                                   disableServiceLogs: List[HealthEntitiesOptionsV4])
-
-//case class StringIndexTypeV4(TEXT_ELEMENT_V8: StringIndexTypeV4,
-//                             UNICODE_CODE_POINT: StringIndexTypeV4,
-//                             UTF16CODE_UNIT: StringIndexTypeV4)
 
 case class HealthEntitiesOperationDetailV4(createdAt: String,
                                            expiresAt: String,
@@ -90,7 +94,7 @@ case class HealthEntitiesOperationDetailV4(createdAt: String,
 case class EntityDataSourceV4(name: String,
                               entityId: String)
 
-case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
+case class HealthcareEntityV4(assertion: Option[HealthcareEntityAssertionV4],
                               category: String,
                               confidenceScore: Double,
                               dataSources: Seq[EntityDataSourceV4],
@@ -100,17 +104,15 @@ case class HealthcareEntityV4(assertion: HealthcareEntityAssertion,
                               subCategory: String,
                               text: String)
 
-case class HealthcareEntityAssertionV4(association: EntityAssociation,
-                                       certainty: EntityCertainty,
-                                       conditionality: EntityConditionality)
+case class HealthcareEntityAssertionV4(association: Option[String],
+                                       certainty: Option[String],
+                                       conditionality: Option[String])
 
 case class HealthcareEntityRelationV4(relationType: String,
                                       roles: Seq[HealthcareEntityRelationRoleV4])
 
-case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4,
-                                          name: String)
+case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4, name: String)
 
-case class HealthcareEntityRelationTypeV4(name: String)
 
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
@@ -194,6 +196,21 @@ object SDKConverters {
       result.getPrimaryLanguage.getConfidenceScore,
       result.getPrimaryLanguage.getWarnings.asScala.toSeq.map(fromSDK))
   }
+  implicit def fromSDK(ent: PiiEntity): PIIEntityV4 = {
+    PIIEntityV4(
+      ent.getText,
+      ent.getCategory.toString,
+      ent.getSubcategory,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength)
+  }
+  implicit def fromSDK(entity: RecognizePiiEntitiesResult): PIIEntityCollectionV4 = {
+    PIIEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getRedactedText,
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
+  }
 
   implicit def fromSDK(ent: EntityDataSource): EntityDataSourceV4 = {
     EntityDataSourceV4(
@@ -201,10 +218,17 @@ object SDKConverters {
       ent.getEntityId
     )
   }
-
+  implicit def fromSDK(entity: AnalyzeHealthcareEntitiesResult): HealthEntitiesResultV4 = {
+    HealthEntitiesResultV4(
+      entity.getId,
+      entity.getWarnings.asScala.toSeq.map(fromSDK),
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntityRelations.asScala.toSeq.map(fromSDK)
+    )
+  }
   implicit def fromSDK(ent: HealthcareEntity): HealthcareEntityV4 = {
     HealthcareEntityV4(
-      ent.getAssertion,
+      Option(ent.getAssertion).map(fromSDK),
       ent.getCategory,
       ent.getConfidenceScore,
       ent.getDataSources.asScala.toSeq.map(fromSDK),
@@ -215,6 +239,13 @@ object SDKConverters {
       ent.getText
     )
   }
+  implicit def fromSDK(entityAssertion: HealthcareEntityAssertion): HealthcareEntityAssertionV4 = {
+    HealthcareEntityAssertionV4(
+      Option(entityAssertion.getAssociation).map(_.toString),
+      Option(entityAssertion.getCertainty).map(_.toString),
+      Option(entityAssertion.getConditionality).map(_.toString)
+    )
+  }
 
   implicit def fromSDK(rel: HealthcareEntityRelation): HealthcareEntityRelationV4 = {
     HealthcareEntityRelationV4(
@@ -222,23 +253,12 @@ object SDKConverters {
       rel.getRoles.asScala.toSeq.map(fromSDK)
     )
   }
-
   implicit def fromSDK(role: HealthcareEntityRelationRole): HealthcareEntityRelationRoleV4 = {
     HealthcareEntityRelationRoleV4(
       role.getEntity,
       role.getName
     )
   }
-
-  implicit def fromSDK(entity: AnalyzeHealthcareEntitiesResult): HealthEntitiesResultV4 = {
-    HealthEntitiesResultV4(
-      entity.getId,
-      entity.getWarnings.asScala.toSeq.map(fromSDK),
-      entity.getEntities.asScala.toSeq.map(fromSDK),
-      entity.getEntityRelations.asScala.toSeq.map(fromSDK)
-    )
-  }
-
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
   (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
     if (result.isError) {
@@ -253,5 +273,5 @@ object SDKConverters {
     val (errors, stats, results) = rc.map(unpackResult(_)(converter)).toSeq.unzip3
     TAResponseV4[U](results, errors, stats)
   }
-
 }
+

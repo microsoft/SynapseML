@@ -15,7 +15,7 @@ import org.scalactic.Equality
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
 
-  lazy val translatorName: String = sys.env.getOrElse("TRANSLATOR_NAME", Secrets.TranslatorName)
+  lazy val translatorName: String = "mmlspark-translator"
 }
 
 trait TranslatorUtils extends TestBase {
