@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer

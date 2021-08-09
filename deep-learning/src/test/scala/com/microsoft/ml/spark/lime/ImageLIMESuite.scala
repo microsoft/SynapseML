@@ -22,6 +22,7 @@ import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-RC3")
 class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   DataFrameEquality with TrainedCNTKModelUtils with FileReaderUtils {
 

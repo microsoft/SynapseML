@@ -3,28 +3,28 @@
 
 package com.microsoft.ml.spark.opencv
 
-import java.awt.GridLayout
-import java.nio.file.Paths
-
 import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.image.{UnrollBinaryImage, UnrollImage}
-import javax.swing._
+import com.microsoft.ml.spark.io.IOImplicits._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.DataFrameEquality
-import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
-import org.opencv.core.{Mat, MatOfByte}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row}
+import org.opencv.core.{CvType, Mat, MatOfByte}
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.scalactic.Equality
-import org.scalatest.Assertion
+
+import java.awt.GridLayout
+import java.io.File
+import javax.swing._
 
 trait OpenCVTestUtils {
-  lazy protected val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "Grocery")
+  lazy protected val fileLocation: File = FileUtilities.join(BuildInfo.datasetDir, "Images", "Grocery")
 
   protected def selectTestImageBytes(images: DataFrame): Array[Byte] = {
     images.filter(row => row.getString(4).contains("negative") && row.getString(4).endsWith("5.jpg"))
@@ -83,8 +83,8 @@ trait OpenCVTestUtils {
 
 class UnrollImageSuite extends TransformerFuzzing[UnrollImage] with OpenCVTestUtils with DataFrameEquality {
 
-  lazy val filesRoot =  BuildInfo.datasetDir
-  lazy val imagePath = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
+  lazy val filesRoot: File =  BuildInfo.datasetDir
+  lazy val imagePath: String = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
   lazy val images: DataFrame = spark.read.image.load(imagePath)
 
   test("roll and unroll") {
@@ -130,8 +130,8 @@ class UnrollImageSuite extends TransformerFuzzing[UnrollImage] with OpenCVTestUt
 class UnrollBinaryImageSuite extends TransformerFuzzing[UnrollBinaryImage]
   with OpenCVTestUtils with DataFrameEquality {
 
-  lazy val filesRoot = BuildInfo.datasetDir
-  lazy val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
+  lazy val filesRoot: File = BuildInfo.datasetDir
+  lazy val imagePath: String = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
   lazy val images: DataFrame = spark.read.image.load(imagePath)
   lazy val binaryImages: DataFrame = spark.read.binary.load(imagePath)
     .withColumn("image", col("value.bytes"))
@@ -147,14 +147,12 @@ class UnrollBinaryImageSuite extends TransformerFuzzing[UnrollBinaryImage]
 
   // This is needed for some small 256!=0 issue in unroll.
   // It only happens at one place throughout the tests though
-  override implicit lazy val dvEq: Equality[DenseVector] = new Equality[DenseVector] {
-    def areEqual(a: DenseVector, b: Any): Boolean = b match {
-      case bArr: DenseVector =>
-        a.values.zip(bArr.values).map {
-          case (x, y) if doubleEq.areEqual(x, y) => 0
-          case _ => 0
-        }.sum <= 1
-    }
+  override implicit lazy val dvEq: Equality[DenseVector] = (a: DenseVector, b: Any) => b match {
+    case bArr: DenseVector =>
+      a.values.zip(bArr.values).map {
+        case (x, y) if doubleEq.areEqual(x, y) => 0
+        case _ => 0
+      }.sum <= 1
   }
 
   override def testObjects(): Seq[TestObject[UnrollBinaryImage]] =
@@ -167,10 +165,11 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
 
   //TODO this is needed to stop the build from freezing
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    //noinspection NameBooleanParameters
     assert(true)
   }
 
-  lazy val images = spark.read.image.option("dropInvalid",true)
+  lazy val images: DataFrame = spark.read.image.option("dropInvalid", value = true)
     .load(FileUtilities.join(fileLocation, "**").toString)
 
   test("general workflow") {
@@ -185,7 +184,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
 
     outSizes.foreach { row: Row =>
-        assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
+      assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
     }
 
     val unroll = new UnrollImage()
@@ -195,12 +194,12 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     unroll.transform(preprocessed)
       .select("final")
       .collect().foreach(row =>
-        assert(row.getAs[DenseVector](0).toArray.length == 10 * 15 * 3, "unrolled image is incorrect"))
+      assert(row.getAs[DenseVector](0).toArray.length == 10 * 15 * 3, "unrolled image is incorrect"))
 
   }
 
   test("binary file input") {
-    val binaries = spark.read.binary.load(FileUtilities.join(fileLocation,"**").toString)
+    val binaries = spark.read.binary.load(FileUtilities.join(fileLocation, "**").toString)
     assert(binaries.count() == 31)
     binaries.printSchema()
 
@@ -348,4 +347,106 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
       .gaussianKernel(20, 10), images))
 
   override def reader: ImageTransformer.type = ImageTransformer
+
+  test("image transformer can convert a 3-channel image to tensor") {
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "ImageTransformer")
+    val image = spark.read.image.load(FileUtilities.join(fileLocation, "red_bgr.png").toString)
+
+    val output = new ImageTransformer()
+      .setOutputCol("features")
+      .setToTensor(true)
+      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), colorScaleFactor = 1 / 255d)
+      .setTensorElementType(FloatType)
+      .transform(image)
+
+    val row = output.select("image.height", "image.width", "image.nChannels", "image.mode", "features").head
+
+    assert(row.getAs[Int]("height") == 500)
+    assert(row.getAs[Int]("width") == 600)
+    assert(row.getAs[Int]("nChannels") == 3)
+    assert(row.getAs[Int]("mode") == 16)
+
+    val tensor = row.getAs[Seq[Seq[Seq[Float]]]]("features")
+
+    val channelRed = tensor.head
+    assert(channelRed.length == 500)
+    assert(channelRed.forall(_.length == 600))
+    assert(channelRed.flatten.forall(_ == 0.5f))
+
+    val channelGreen = tensor(1)
+    assert(channelGreen.length == 500)
+    assert(channelGreen.forall(_.length == 600))
+    assert(channelGreen.flatten.forall(_ == -0.5f))
+
+    val channelBlue = tensor(2)
+    assert(channelBlue.length == 500)
+    assert(channelBlue.forall(_.length == 600))
+    assert(channelBlue.flatten.forall(_ == -0.5f))
+  }
+
+  test("image transformer can convert a 4-channel image to tensor") {
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "ImageTransformer")
+    val image = spark.read.image.load(FileUtilities.join(fileLocation, "red_bgra.png").toString)
+
+    val output = new ImageTransformer()
+      .setOutputCol("features")
+      .setToTensor(true)
+      .centerCrop(100, 200)
+      .normalize(Array(0.5, 0.5, 0.5), Array(1.0, 1.0, 1.0), colorScaleFactor = 1 / 255d)
+      .setTensorElementType(DoubleType)
+      .transform(image)
+
+    val row = output.select("image.nChannels", "image.mode", "features").head
+
+    assert(row.getAs[Int]("nChannels") == 4)
+    assert(row.getAs[Int]("mode") == 24)
+
+    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+
+    val channelRed = tensor.head
+    assert(channelRed.length == 100)
+    assert(channelRed.forall(_.length == 200))
+    assert(channelRed.flatten.forall(_ == 0.5d))
+
+    val channelGreen = tensor(1)
+    assert(channelGreen.length == 100)
+    assert(channelGreen.forall(_.length == 200))
+    assert(channelGreen.flatten.forall(_ == -0.5d))
+
+    val channelBlue = tensor(2)
+    assert(channelBlue.length == 100)
+    assert(channelBlue.forall(_.length == 200))
+    assert(channelBlue.flatten.forall(_ == -0.5d))
+  }
+
+  test("image transformer can convert a single-channel (grayscale) image to tensor") {
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir, "Images", "ImageTransformer")
+    val image = spark.read.image.load(FileUtilities.join(fileLocation, "grayscale.jpg").toString)
+
+    val output = new ImageTransformer()
+      .setOutputCol("features")
+      .setToTensor(true)
+      .normalize(Array(0.5), Array(1.0), colorScaleFactor = 1 / 255d)
+      .setTensorElementType(DoubleType)
+      .transform(image)
+
+    val row = output.select("image.height", "image.width", "image.nChannels", "image.mode", "features").head
+
+    assert(row.getAs[Int]("height") == 200)
+    assert(row.getAs[Int]("width") == 256)
+    assert(row.getAs[Int]("nChannels") == 1)
+    assert(row.getAs[Int]("mode") == CvType.CV_8UC1)
+
+    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    assert(tensor.length == 1)
+
+    val channel = tensor.head
+    assert(channel.length == 200)
+    assert(channel.forall(_.length == 256))
+    assert(channel.flatten.forall(v => v >= -0.5d && v <= 0.5d))
+    channel.foreach {
+      // check for monotonicity, making sure each row is properly ordered.
+      row => assert((row, row.drop(1)).zipped.forall(_ < _))
+    }
+  }
 }

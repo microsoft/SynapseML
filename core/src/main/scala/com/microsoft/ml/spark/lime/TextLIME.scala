@@ -25,7 +25,7 @@ object TextLIME extends ComplexParamsReadable[TextLIME]
   *
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.TextLIME'.", since="1.0.0-rc3")
 class TextLIME(val uid: String) extends Model[TextLIME]
   with LIMEBase with Wrappable with BasicLogging {
   logClass()
