@@ -4,11 +4,10 @@
 package com.microsoft.ml.spark.codegen
 
 import java.io.File
-
 import com.microsoft.ml.spark.codegen.CodegenConfigProtocol._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import com.microsoft.ml.spark.core.test.base.TestBase
-import com.microsoft.ml.spark.core.test.fuzzing.PyTestFuzzing
+import com.microsoft.ml.spark.core.test.fuzzing.{DotnetTestFuzzing, PyTestFuzzing}
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
@@ -22,6 +21,17 @@ object TestGen {
     instantiateServices[PyTestFuzzing[_]](conf.jarName).foreach { ltc =>
       try {
         ltc.makePyTestFile(conf)
+      } catch {
+        case _: NotImplementedError =>
+          println(s"ERROR: Could not generate test for ${ltc.testClassName} because of Complex Parameters")
+      }
+    }
+  }
+
+  def generateDotnetTests(conf: CodegenConfig): Unit = {
+    instantiateServices[DotnetTestFuzzing[_]](conf.jarName).foreach { ltc =>
+      try {
+        ltc.makeDotnetTestFile(conf)
       } catch {
         case _: NotImplementedError =>
           println(s"ERROR: Could not generate test for ${ltc.testClassName} because of Complex Parameters")
@@ -76,12 +86,41 @@ object TestGen {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.testDataDir)
     clean(conf.pyTestDir)
+//    clean(conf.dotnetTestDir)
     generatePythonTests(conf)
+//    generateDotnetTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
+//    if (toDir(conf.dotnetTestOverrideDir).exists())
+//      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
     makeInitFiles(conf)
   }
+}
+
+object Foo extends App {
+  import TestGen._
+  import CodeGenUtils._
+
+  val Config = CodegenConfig(
+    rVersion = "1.0.0",
+    name = "mmlspark-core",
+    packageName = "mmlspark",
+    pythonizedVersion = "1.0.0.dev1",
+    version = "1.0.0-rc3-154-20479925-SNAPSHOT",
+    jarName = None,
+    topDir = "D:\\repos\\mmlspark\\core",
+    targetDir = "D:\\repos\\mmlspark\\core\\")
+
+  clean(Config.testDataDir)
+  clean(Config.pyTestDir)
+  generatePythonTests(Config)
+  TestBase.stopSparkSession()
+  generatePyPackageData(Config)
+  if (toDir(Config.pyTestOverrideDir).exists()){
+    FileUtils.copyDirectoryToDirectory(toDir(Config.pyTestOverrideDir), toDir(Config.pyTestDir))
+  }
+
 }

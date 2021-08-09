@@ -39,6 +39,14 @@ object CodeGen {
     }
   }
 
+  def generateDotnetClasses(conf: CodegenConfig): Unit = {
+    val instantiatedClasses = instantiateServices[DotnetWrappable](conf.jarName)
+    instantiatedClasses.foreach { w =>
+      println(w.getClass.getName)
+      w.makeDotnetFile(conf)
+    }
+  }
+
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = new File(new File(conf.pySrcDir, "mmlspark"), packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
@@ -169,7 +177,6 @@ object CodeGen {
          |""".stripMargin)
   }
 
-
   def rGen(conf: CodegenConfig): Unit = {
     println(s"Generating R for ${conf.jarName}")
     clean(conf.rSrcRoot)
@@ -191,11 +198,20 @@ object CodeGen {
     makeInitFiles(conf)
   }
 
+  def dotnetGen(conf: CodegenConfig): Unit = {
+    println(s"Generating dotnet for ${conf.jarName}")
+    clean(conf.dotnetSrcDir)
+    generateDotnetClasses(conf)
+    if (conf.dotnetSrcOverrideDir.exists())
+      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcDir))
+  }
+
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.packageDir)
     rGen(conf)
     pyGen(conf)
+    dotnetGen(conf)
   }
 
 }

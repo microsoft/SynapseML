@@ -69,7 +69,7 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
 
   def setCollapseGroup(value: Boolean): this.type = set(collapseGroup, value)
 
-  val vectorDims = new MapParam[String, Int](this, "vectorDims",
+  val vectorDims = new StringIntMapParam(this, "vectorDims",
     "the dimensions of any vector columns, used to avoid materialization")
 
   def getVectorDims: Map[String, Int] = get(vectorDims).getOrElse(Map())

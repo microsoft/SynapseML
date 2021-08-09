@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.codegen
 
 import com.microsoft.ml.spark.core.serialize.ComplexParam
-import org.apache.spark.ml.param.{Param, ParamPair, PythonWrappableParam}
+import org.apache.spark.ml.param.{DotnetWrappableParam, Param, ParamPair, PythonWrappableParam}
 
 object GenerationUtils {
   def indent(lines: String, numTabs: Int): String = {
@@ -46,6 +46,21 @@ object GenerationUtils {
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
         s"""${p.name}=${PythonWrappableParam.pyDefaultRender(v, p)}"""
+    }
+  }
+
+  def dotnetRenderParam[T](pp: ParamPair[T]): String = {
+    dotnetRenderParam(pp.param, pp.value)
+  }
+
+  def dotnetRenderParam[T](p: Param[T], v: T): String = {
+    p match {
+      case pwp: DotnetWrappableParam[T] =>
+        "." + pwp.dotnetSetterLine(v)
+      case _: ComplexParam[_] =>
+        throw new NotImplementedError("No translation found for complex parameter")
+      case _ =>
+        s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }
   }
 

@@ -205,7 +205,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   def getConvertOutputToDenseVector: Boolean = $(convertOutputToDenseVector)
 
-  val feedDict: MapParam[String, String] = new MapParam[String, String](this, "feedDict",
+  val feedDict: StringStringMapParam = new StringStringMapParam(this, "feedDict",
     " Map of CNTK Variable names (keys) and Column Names (values)")
 
   setDefault(feedDict -> Map((ArgumentPrefix + 0) -> (ArgumentPrefix + 0)))
@@ -216,7 +216,7 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   def getFeedDict: Map[String, String] = $(feedDict)
 
-  val fetchDict: MapParam[String, String] = new MapParam[String, String](this, "fetchDict",
+  val fetchDict: StringStringMapParam = new StringStringMapParam(this, "fetchDict",
     " Map of Column Names (keys) and CNTK Variable names (values)")
   setDefault(fetchDict -> Map((OutputPrefix + 0) -> (OutputPrefix + 0)))
 

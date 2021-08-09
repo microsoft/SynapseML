@@ -38,7 +38,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 
   def this() = this(Identifiable.randomUID("JSONInputParser"))
 
-  val headers: MapParam[String, String] = new MapParam[String, String](
+  val headers: StringStringMapParam = new StringStringMapParam(
     this, "headers", "headers of the request")
 
   /** @group getParam */

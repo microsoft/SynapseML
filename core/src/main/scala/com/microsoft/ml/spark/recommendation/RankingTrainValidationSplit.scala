@@ -299,21 +299,20 @@ class RankingTrainValidationSplitModel(
 
   def setValidationMetrics(value: Seq[Double]): this.type = set(validationMetrics, value)
 
-  val validationMetrics = new TypedArrayParam[Double](this, "validationMetrics", "Best Model")
+  val validationMetrics = new TypedDoubleArrayParam(this, "validationMetrics", "Best Model")
 
   /** @group getParam */
   def getValidationMetrics: Seq[_] = $(validationMetrics)
 
-  def setBestModel(value: Model[_]): this.type = set(bestModel, value)
+  def setBestModel(value: Model[_]): this.type = set(bestModel, value.asInstanceOf[Model[_ <: Model[_]]])
 
-  val bestModel: TransformerParam =
-    new TransformerParam(
+  val bestModel: ModelParam =
+    new ModelParam(
       this,
-      "bestModel", "The internal ALS model used splitter",
-      { t => t.isInstanceOf[Model[_]] })
+      "bestModel", "The internal ALS model used splitter")
 
   /** @group getParam */
-  def getBestModel: Model[_] = $(bestModel).asInstanceOf[Model[_]]
+  def getBestModel: Model[_ <: Model[_]] = $(bestModel)
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplitModel"))
 

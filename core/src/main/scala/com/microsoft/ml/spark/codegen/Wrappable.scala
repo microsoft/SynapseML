@@ -56,37 +56,63 @@ trait DefaultParamInfo extends StageParam {
   val stringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
   val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "List<int>")
   val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "List<double>")
-  // TODO: find corresponding .net type
+  // TODO: to be validated
+  val seqStringInfo = stringArrayInfo
+  // TODO: fix corresponding .net type
   val arrayParamMapInfo = new ParamInfo[ArrayParamMapParam]("object", "object")
   val ballTreeInfo = new ParamInfo[BallTreeParam]("object", "object")
   val conditionalBallTreeInfo = new ParamInfo[ConditionalBallTreeParam]("object", "object")
   val dataFrameParamInfo = new ParamInfo[DataFrameParam]("object", "DataFrame")
-  val dataTypeInfo = new ParamInfo[DataTypeParam]("object", "object")
-  val estimatorArrayInfo = new ParamInfo[EstimatorArrayParam]("object", "object")
-  val estimatorInfo = new ParamInfo[EstimatorParam]("object", "object")
-  val evaluatorInfo = new ParamInfo[EvaluatorParam]("object", "object")
+  val dataTypeInfo = new ParamInfo[DataTypeParam]("object", "DataType")
+  val estimatorArrayInfo = new ParamInfo[EstimatorArrayParam]("object", "ScalaEstimator[]")
+  val estimatorInfo = new ParamInfo[EstimatorParam]("object", "ScalaEstimator")
+  val evaluatorInfo = new ParamInfo[EvaluatorParam]("object", "ScalaEvaluator")
   val paramSpaceInfo = new ParamInfo[ParamSpaceParam]("object", "object")
-  val pipelineStageInfo = new ParamInfo[PipelineStageParam]("object", "object")
-  val transformerArrayInfo = new ParamInfo[TransformerArrayParam]("object", "object")
-  val transformerInfo = new ParamInfo[TransformerParam]("object", "object")
+  val pipelineStageInfo = new ParamInfo[PipelineStageParam]("object", "ScalaPipelineStage")
+  val transformerArrayInfo = new ParamInfo[TransformerArrayParam]("object", "ScalaTransformer[]")
+  val transformerInfo = new ParamInfo[TransformerParam]("object", "ScalaTransFormer")
+  val modelInfo = new ParamInfo[ModelParam]("object", "ScalaModel")
   val udfInfo = new ParamInfo[UDFParam]("object", "object")
   val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")
+  // TODO: add corresponding classes in .net in order for these to work
+  val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
 
-//  def getMapParamInfo[K: TypeTag, V: TypeTag](dataType: Param[Map[K, V]]): ParamInfo[_] = {
-//    typeOf[Map[K, V]] match {
-//      case t if t =:= typeOf[Map[String, String]] => stringStringMapInfo
-//      case t if t =:= typeOf[Map[String, Int]] => stringMapIntInfo
-//      case _ => throw new Exception(s"unsupported type $dataType")
-//    }
-//  }
-//
-//  def getTypedArrayParamInfo[T: TypeTag](dataType: TypedArrayParam[T]): ParamInfo[_] = {
-//    typeOf[T] match {
-//      case t if t =:= typeOf[Int] => typedArrayIntInfo
-//      case t if t =:= typeOf[Double] => typedArrayDoubleInfo
-//      case _ => throw new Exception(s"unsupported type $dataType")
-//    }
-//  }
+  //noinspection ScalaStyle
+  def getServiceParamInfo(dataType: ServiceParam[_]): ParamInfo[_] = {
+    dataType.getType match {
+      case "String" => stringInfo
+      case "Boolean" => booleanInfo
+      case "Double" => doubleInfo
+      case "Int" => intInfo
+      case "Long" => longInfo
+      case "Float" => floatInfo
+      case "Seq[String]" => seqStringInfo
+      case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => seqTimeSeriesPointInfo
+      case "Array[Byte]" => byteArrayInfo
+      case _ => throw new Exception(s"unsupported type $dataType")
+    }
+  }
+
+  //noinspection ScalaStyle
+  def getComplexParamInfo(dataType: ComplexParam[_]): ParamInfo[_] = {
+    dataType match {
+      case _: ArrayParamMapParam => arrayParamMapInfo
+      case _: BallTreeParam => ballTreeInfo
+      case _: ConditionalBallTreeParam => conditionalBallTreeInfo
+      case _: DataFrameParam => dataFrameParamInfo
+      case _: DataTypeParam => dataTypeInfo
+      case _: EstimatorArrayParam => estimatorArrayInfo
+      case _: EstimatorParam => estimatorInfo
+      case _: EvaluatorParam => evaluatorInfo
+      case _: ParamSpaceParam => paramSpaceInfo
+      case _: PipelineStageParam => pipelineStageInfo
+      case _: TransformerArrayParam => transformerArrayInfo
+      case _: TransformerParam => transformerInfo
+      case _: ModelParam => modelInfo
+      case _: UDFParam => udfInfo
+      case _: UDPyFParam => udPyFInfo
+    }
+  }
 
   //noinspection ScalaStyle
   def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
@@ -105,22 +131,7 @@ trait DefaultParamInfo extends StageParam {
       case _: StringIntMapParam => stringIntMapInfo
       case _: TypedIntArrayParam => typedIntArrayInfo
       case _: TypedDoubleArrayParam => typedDoubleArrayInfo
-
-      case _: ArrayParamMapParam => arrayParamMapInfo
-      case _: BallTreeParam => ballTreeInfo
-      case _: ConditionalBallTreeParam => conditionalBallTreeInfo
-      case _: DataFrameParam => dataFrameParamInfo
-      case _: DataTypeParam => dataTypeInfo
-      case _: EstimatorArrayParam => estimatorArrayInfo
-      case _: EstimatorParam => estimatorInfo
-      case _: EvaluatorParam => evaluatorInfo
-      case _: ParamSpaceParam => paramSpaceInfo
-      case _: PipelineStageParam => pipelineStageInfo
-      case _: TransformerArrayParam => transformerArrayInfo
-      case _: TransformerParam => transformerInfo
-      case _: UDFParam => udfInfo
-      case _: UDPyFParam => udPyFInfo
-
+      case cp: ComplexParam[_] => getComplexParamInfo(cp)
       case p =>
         thisStage.getClass.getMethod(p.name)
           .getAnnotatedReturnType.getType.toString match {
@@ -212,6 +223,13 @@ trait DotnetWrappable extends BaseWrappable {
         |public static $dotnetClassName Load(string path) => $dotnetClassWrapperName(
         |    SparkEnvironment.JvmBridge.CallStaticJavaMethod($dotnetClassNameString, "load", path));
         |
+        |/// <summary>
+        |/// Saves the object so that it can be loaded later using Load. Note that these objects
+        |/// can be shared with Scala by Loading or Saving in Scala.
+        |/// </summary>
+        |/// <param name="path">The path to save the object to</param>
+        |public void Save(string path) => Reference.Invoke("save", path);
+        |
         |/// <returns>a <see cref=\"ScalaMLWriter\"/> instance for this ML instance.</returns>
         |public ScalaMLWriter Write() =>
         |    new ScalaMLWriter((JvmObjectReference)Reference.Invoke("write"));
@@ -243,12 +261,12 @@ trait DotnetWrappable extends BaseWrappable {
           |/// </param>
           |/// <returns> New $dotnetClassName object </returns>""".stripMargin
     p match {
-      case _: ServiceParam[_] =>
+      case sp: ServiceParam[_] =>
         s"""|$docString
-            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
+            |public $dotnetClassName Set$capName(${getServiceParamInfo(sp).dotnetType} value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |
-            |public $dotnetClassName Set${capName}Col(string value):
+            |public $dotnetClassName Set${capName}Col(string value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
             |""".stripMargin
       case _ =>
@@ -278,6 +296,12 @@ trait DotnetWrappable extends BaseWrappable {
            |public ${getParamInfo(p).dotnetType} Get$capName() =>
            |    new ${getParamInfo(p).dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
            |""".stripMargin
+      case sp: ServiceParam[_] =>
+        s"""
+           |$docString
+           |public ${getServiceParamInfo(sp).dotnetType} Get$capName() =>
+           |    (${getServiceParamInfo(sp).dotnetType})Reference.Invoke(\"get$capName\");
+           |""".stripMargin
       case _ =>
         s"""
            |$docString
@@ -293,52 +317,12 @@ trait DotnetWrappable extends BaseWrappable {
   //noinspection ScalaStyle
   protected def dotnetExtraMethods: String = {
     thisStage match {
-      case _: Transformer | _: Model[_] =>
-        s"""|/// <summary>
-            |/// Executes the <see cref=\"$dotnetClassName\"/> and transforms the DataFrame to include new columns.
-            |/// </summary>
-            |/// <param name=\"dataset\">The Dataframe to be transformed.</param>
-            |/// <returns>
-            |/// <see cref=\"DataFrame\"/> containing the original data and new columns.
-            |/// </returns>
-            |override public DataFrame Transform(DataFrame dataset) =>
-            |    new DataFrame((JvmObjectReference)Reference.Invoke("transform", dataset));
-            |
-            |/// <summary>
-            |/// Check transform validity and derive the output schema from the input schema.
-            |///
-            |/// We check validity for interactions between parameters during transformSchema
-            |/// and raise an exception if any parameter value is invalid.
-            |///
-            |/// Typical implementation should first conduct verification on schema change and
-            |/// parameter validity, including complex parameter interaction checks.
-            |/// </summary>
-            |/// <param name=\"schema\">
-            |/// The <see cref=\"StructType\"/> of the <see cref=\"DataFrame\"/> which will be transformed.
-            |/// </param>
-            |/// </returns>
-            |/// The <see cref=\"StructType\"/> of the output schema that would have been derived from the
-            |/// input schema, if Transform had been called.
-            |/// </returns>
-            |public StructType TransformSchema(StructType schema) =>
-            |    new StructType(
-            |        (JvmObjectReference)Reference.Invoke(
-            |            "transformSchema",
-            |            DataType.FromJson(Reference.Jvm, schema.Json)));
-            |""".stripMargin
       case _: Estimator[_] =>
         s"""|/// <summary>Fits a model to the input data.</summary>
             |/// <param name=\"dataset\">The <see cref=\"DataFrame\"/> to fit the model to.</param>
             |/// <returns><see cref=\"${companionModelClassName.split(".".toCharArray).last}\"/></returns>
             |override public ${companionModelClassName.split(".".toCharArray).last} Fit(DataFrame dataset) =>
             |    new ${companionModelClassName.split(".".toCharArray).last}((JvmObjectReference)Reference.Invoke("fit", dataset));
-            |""".stripMargin
-      case _: Evaluator =>
-        s"""|/// <summary>Evaluates the model output.</summary>
-            |/// <param name=\"dataset\">The <see cref=\"DataFrame\"/> to evaluate the model against.</param>
-            |/// <returns>double, evaluation result</returns>
-            |override public Double Evaluate(DataFrame dataset) =>
-            |    (Double)Reference.Invoke("evaluate", dataset);
             |""".stripMargin
       case _ =>
         ""

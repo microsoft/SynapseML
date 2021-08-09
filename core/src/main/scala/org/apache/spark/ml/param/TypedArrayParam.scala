@@ -19,3 +19,23 @@ class TypedArrayParam[T](parent: Params,
   def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala)
 
 }
+
+class TypedIntArrayParam(parent: Params,
+                         name: String,
+                         doc: String,
+                         isValid: Seq[Int] => Boolean = ParamValidators.alwaysTrue)
+  extends JsonEncodableParam[Seq[Int]](parent, name, doc, isValid) {
+  type ValueType = Int
+
+  def w(v: java.util.ArrayList[Int]): ParamPair[Seq[Int]] = w(v.asScala)
+}
+
+class TypedDoubleArrayParam(parent: Params,
+                            name: String,
+                            doc: String,
+                            isValid: Seq[Double] => Boolean = ParamValidators.alwaysTrue)
+  extends JsonEncodableParam[Seq[Double]](parent, name, doc, isValid) {
+  type ValueType = Double
+
+  def w(v: java.util.ArrayList[Double]): ParamPair[Seq[Double]] = w(v.asScala)
+}

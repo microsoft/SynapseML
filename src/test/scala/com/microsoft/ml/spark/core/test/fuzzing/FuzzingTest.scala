@@ -168,6 +168,48 @@ class FuzzingTest extends TestBase {
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
   }
 
+  test("Verify all stages can be tested in dotnet") {
+    val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.automl.TuneHyperparameters",
+      "com.microsoft.ml.spark.train.TrainedRegressorModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.ml.spark.train.TrainedClassifierModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.ml.spark.isolationforest.IsolationForestModel",
+      "com.microsoft.ml.spark.nn.ConditionalKNNModel",
+      "com.microsoft.ml.spark.lightgbm.LightGBMClassificationModel",
+      "com.microsoft.ml.spark.core.serialize.TestEstimatorBase",
+      "com.microsoft.ml.spark.core.serialize.MixedParamTest",
+      "com.microsoft.ml.spark.featurize.CleanMissingDataModel",
+      "com.microsoft.ml.spark.stages.TimerModel",
+      "com.microsoft.ml.spark.featurize.DataConversion",
+      "com.microsoft.ml.spark.automl.TuneHyperparametersModel",
+      "com.microsoft.ml.spark.automl.BestModel",
+      "com.microsoft.ml.spark.nn.KNNModel",
+      "com.microsoft.ml.spark.vw.VowpalWabbitRegressionModel",
+      "com.microsoft.ml.spark.stages.ClassBalancerModel",
+      "com.microsoft.ml.spark.core.serialize.StandardParamTest",
+      "com.microsoft.ml.spark.core.serialize.ComplexParamTest",
+      "com.microsoft.ml.spark.featurize.ValueIndexerModel",
+      "com.microsoft.ml.spark.lightgbm.LightGBMRankerModel",
+      "com.microsoft.ml.spark.lightgbm.LightGBMRegressionModel",
+      "com.microsoft.ml.spark.train.ComputePerInstanceStatistics"
+    )
+    val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
+    val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
+    val classToFuzzer: Map[Class[_], DotnetTestFuzzing[_ <: PipelineStage]] =
+      dotnetTestFuzzers.map(f =>
+        (Class.forName(f.getClass.getMethod("dotnetTestObjects")
+          .getGenericReturnType.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.getTypeName),
+          f)
+      ).toMap
+    val classesWithFuzzers = classToFuzzer.keys
+    val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
+    assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
+  }
+
   // TODO verify that model UIDs match the class names, perhaps use a Trait
 
   test("Verify all pipeline stages don't have exotic characters") {
@@ -274,5 +316,8 @@ class FuzzingTest extends TestBase {
 
   private lazy val pytestFuzzers: List[PyTestFuzzing[_ <: PipelineStage]] =
     JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]()
+
+  private lazy val dotnetTestFuzzers: List[DotnetTestFuzzing[_ <: PipelineStage]] =
+    JarLoadingUtils.instantiateServices[DotnetTestFuzzing[_ <: PipelineStage]]()
 
 }

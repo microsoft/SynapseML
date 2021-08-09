@@ -229,6 +229,13 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |""".stripMargin
   }
 
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""
+       |public $dotnetClassName SetLinkedService(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLinkedService\", value));
+       |""".stripMargin
+  }
+
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
     val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
@@ -248,6 +255,13 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setLocation(value)
       |    return self
       |""".stripMargin
+  }
+
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""
+       |public $dotnetClassName SetLocation(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLocation\", value));
+       |""".stripMargin
   }
 
   def setLocation(v: String): this.type = {

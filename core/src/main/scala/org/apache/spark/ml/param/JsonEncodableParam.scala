@@ -6,6 +6,7 @@ package org.apache.spark.ml.param
 import spray.json._
 import spray.json.JsonFormat
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
@@ -48,7 +49,7 @@ object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
 }
 
-class ServiceParam[T](parent: Params,
+class ServiceParam[T: TypeTag](parent: Params,
                       name: String,
                       doc: String,
                       isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
@@ -58,7 +59,9 @@ class ServiceParam[T](parent: Params,
                      )
                      (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
-    with PythonWrappableParam[Either[T, String]] {
+    with PythonWrappableParam[Either[T, String]]
+    with DotnetWrappableParam[Either[T, String]] {
+
   type ValueType = T
 
   override def pyValue(v: Either[T, String]): String = {
@@ -74,5 +77,41 @@ class ServiceParam[T](parent: Params,
       case Right(_) => name + "Col"
     }
   }
+
+  override def dotnetValue(v: Either[T, String]): String = {
+    v match {
+      case Left(t) => DotnetWrappableParam.dotnetDefaultRender(t)
+      case Right(n) => s""""$n""""
+    }
+  }
+
+  override def dotnetName(v: Either[T, String]): String = {
+    v match {
+      case Left(_) => name
+      case Right(_) => name + "Col"
+    }
+  }
+
+  //noinspection ScalaStyle
+  override def dotnetSetterLine(v: Either[T, String]): String = {
+    v match {
+      case Left(_) => typeOf[T] match {
+        case t if t =:= typeOf[Array[String]] => s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Array[Array[Double]]] =>
+          s"""Set${dotnetName(v).capitalize}(new double[][] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Map[String, String]] =>
+          s"""Set${dotnetName(v).capitalize}(new Dictionary<string, string>() ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Map[String, Int]] =>
+          s"""Set${dotnetName(v).capitalize}(new Dictionary<string, int>() ${dotnetValue(v)})"""
+        case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+    }
+      case Right(_) =>  s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+    }
+  }
+
+  def getType: String = typeOf[T].toString
 
 }

@@ -7,7 +7,8 @@ import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
-trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
+trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T]
+  with ParamEquality[T] with ExternalDotnetWrappableParam[T] {
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""
@@ -21,10 +22,22 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
        |""".stripMargin
   }
 
+  override def dotnetValue(v: T): String = {
+    s"""${name}Model"""
+  }
+
+  override def dotnetLoadLine(modelNum: Int): String = {
+    s"""
+       |using Microsoft.Spark.ML.Feature
+       |var ${name}Model = Pipeline.Load(Path.Combine(test_data_dir, "model-$modelNum.model", "complexParams", "$name"));
+       |${name}Model = ${name}Model.GetStages().GetValue(0);
+       |""".stripMargin
+  }
+
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
       case (e1: PipelineStage, e2: PipelineStage) =>
-        ModelEquality.assertEqual(e1,e2)
+        ModelEquality.assertEqual(e1, e2)
       case _ =>
         throw new AssertionError("Values do not extend from PipelineStage type")
     }
@@ -39,7 +52,7 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
   extends ComplexParam[Estimator[_ <: Model[_]]](parent, name, doc, isValid)
     with PipelineStageWrappable[Estimator[_ <: Model[_]]] {
 
-    def this(parent: Params, name: String, doc: String) =
-      this(parent, name, doc, ParamValidators.alwaysTrue)
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
 
 }

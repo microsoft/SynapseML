@@ -6,12 +6,12 @@ package com.microsoft.ml.spark.core.test.fuzzing
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-
 import com.microsoft.ml.spark.codegen.CodegenConfig
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameEquality, ExternalPythonWrappableParam, ParamPair}
+import org.apache.spark.ml.param.{DataFrameEquality, ExternalDotnetWrappableParam,
+  ExternalPythonWrappableParam, ParamPair}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.codegen.GenerationUtils._
@@ -44,9 +44,7 @@ class TestObject[S <: PipelineStage](val stage: S,
 
 }
 
-trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
-
-  def pyTestObjects(): Seq[TestObject[S]]
+trait TestFuzzingUtils[S <: PipelineStage] {
 
   val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
@@ -64,14 +62,13 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
       case _ =>
         throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
     }
-
   }
 
   val testFitting = false
 
-  def saveTestData(conf: CodegenConfig): Unit = {
+  def saveTestData(conf: CodegenConfig, testObjects: () => Seq[TestObject[S]]): Unit = {
     testDataDir(conf).mkdirs()
-    pyTestObjects().zipWithIndex.foreach { case (to, i) =>
+    testObjects().zipWithIndex.foreach { case (to, i) =>
       saveModel(conf, to.stage, s"model-$i")
       if (testFitting) {
         saveDataset(conf, to.fitDF, s"fit-$i")
@@ -80,6 +77,151 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
       }
     }
   }
+
+}
+
+trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
+
+  def dotnetTestObjects(): Seq[TestObject[S]]
+
+  def dotnetTestInstantiateModel(stage: S, num: Int): String = {
+    val fullParamMap = stage.extractParamMap().toSeq
+    val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+
+    def instantiateModel(paramMap: Seq[ParamPair[_]]): String = {
+      val externalLoadlingLines = paramMap.flatMap { pp =>
+        pp.param match {
+          case ep: ExternalDotnetWrappableParam[_] =>
+            Some(ep.dotnetLoadLine(num))
+          case _ => None
+        }
+      }.mkString("\n")
+      s"""
+         |$externalLoadlingLines
+         |
+         |var model = new $stageName()
+         |${indent(paramMap.map(dotnetRenderParam(_)).mkString("\n"), 1)};
+         |
+         |""".stripMargin
+    }
+
+    try {
+      instantiateModel(fullParamMap)
+    } catch {
+      case _: NotImplementedError =>
+        println(s"could not generate full test for $stageName, resorting to partial test")
+        instantiateModel(partialParamMap)
+    }
+  }
+
+
+  def makeDotnetTests(testObject: TestObject[S], num: Int): String = {
+    val stage = testObject.stage
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val fittingTest = stage match {
+      case _: Estimator[_] if testFitting =>
+        s"""
+           |var fdf = spark.Read().Parquet(Path.Combine(TestDataDir, "fit-$num.parquet"));
+           |var tdf = spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |model.Fit(fdf).Transform(tdf).Show();
+           |""".stripMargin
+      case _: Transformer if testFitting =>
+        s"""
+           |var tdf = spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |model.Transform(tdf).Show();
+           |""".stripMargin
+      case _ => ""
+    }
+
+    s"""
+       |[Fact]
+       |public void Test${stageName}Constructor$num()
+       |{
+       |    void AssertCorrespondence($stageName model, string name, int num)
+       |    {
+       |        model.Write().Overwrite().Save(Path.Combine(TestDataDir, name));
+       |        _jvm.CallStaticJavaMethod("com.microsoft.ml.spark.core.utils.ModelEquality",
+       |            "assertEqual", "${stage.getClass.getName}", Path.Combine(TestDataDir, name),
+       |            Path.Combine(TestDataDir, String.Format("model-{0}.model", num)));
+       |    }
+       |${indent(dotnetTestInstantiateModel(stage, num), 1)}
+       |
+       |    AssertCorrespondence(model, "dotnet-constructor-model-$num.model", $num);
+       |
+       |${indent(fittingTest, 1)}
+       |}
+       |
+       |""".stripMargin
+  }
+
+  //noinspection ScalaStyle
+  def makeDotnetTestFile(conf: CodegenConfig): Unit = {
+    spark
+    saveTestData(conf, dotnetTestObjects)
+    val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
+    val stage = dotnetTestObjects().head.stage
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
+    val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+    val namespaceString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "mmlsparktest")
+    val testClass =
+      s"""
+         |using System;
+         |using System.IO;
+         |using System.Collections.Generic;
+         |using Microsoft.Spark.Interop.Ipc;
+         |using Microsoft.Spark.ML.Feature;
+         |using Microsoft.Spark.ML.Feature.Param;
+         |using Microsoft.Spark.Sql;
+         |using Microsoft.Spark.Sql.Types;
+         |using Xunit;
+         |using mmlsparktest.utils;
+         |using $importPathString;
+         |
+         |namespace $namespaceString
+         |{
+         |    public class FeaturesFixture
+         |    {
+         |        public FeaturesFixture()
+         |        {
+         |            sparkFixture = new SparkFixture();
+         |        }
+         |
+         |        public SparkFixture sparkFixture { get; private set; }
+         |    }
+         |
+         |    public class $testClassName : IClassFixture<FeaturesFixture>
+         |    {
+         |        public const string TestDataDir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}";
+         |        private readonly SparkSession _spark;
+         |        private readonly IJvmBridge _jvm;
+         |        public $testClassName(FeaturesFixture fixture)
+         |        {
+         |            _spark = fixture.sparkFixture.Spark;
+         |            _jvm = fixture.sparkFixture.Jvm;
+         |        }
+         |
+         |${indent(generatedTests.mkString("\n\n"), 2)}
+         |    }
+         |
+         |}
+         |
+         |""".stripMargin
+
+    val testFolders = namespaceString.split(".".toCharArray)
+    val testDir = FileUtilities.join((Seq(conf.dotnetTestDir.toString) ++ testFolders.toSeq): _*)
+    testDir.mkdirs()
+    Files.write(
+      FileUtilities.join(testDir, "Test" + testClassName.capitalize + ".cs").toPath,
+      testClass.getBytes(StandardCharsets.UTF_8))
+  }
+
+}
+
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
+
+  def pyTestObjects(): Seq[TestObject[S]]
 
   def pyTestInstantiateModel(stage: S, num: Int): String = {
     val fullParamMap = stage.extractParamMap().toSeq
@@ -146,7 +288,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
   def makePyTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf)
+    saveTestData(conf, pyTestObjects)
     val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
     val stage = pyTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -298,11 +440,13 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 }
 
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] {
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 
   def pyTestObjects(): Seq[TestObject[S]] = testObjects()
+
+  def dotnetTestObjects(): Seq[TestObject[S]] = testObjects()
 
   def serializationTestObjects(): Seq[TestObject[S]] = testObjects()
 

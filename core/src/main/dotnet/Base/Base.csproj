@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
+  </PropertyGroup>
+
+</Project>

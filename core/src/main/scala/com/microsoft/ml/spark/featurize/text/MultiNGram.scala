@@ -32,7 +32,7 @@ class MultiNGram(override val uid: String)
 
   setDefault(outputCol, uid + "_output")
 
-  val lengths = new TypedArrayParam[Int](
+  val lengths = new TypedIntArrayParam(
     this,
     "lengths",
     "the collection of lengths to use for ngram extraction"

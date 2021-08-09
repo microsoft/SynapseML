@@ -116,7 +116,8 @@ trait DataFrameEquality extends Serializable {
   */
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)
   extends ComplexParam[DataFrame](parent, name, doc, isValid)
-    with ExternalPythonWrappableParam[DataFrame] with ParamEquality[DataFrame] with DataFrameEquality {
+    with ExternalPythonWrappableParam[DataFrame] with ParamEquality[DataFrame] with DataFrameEquality
+    with ExternalDotnetWrappableParam[DataFrame] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
@@ -127,6 +128,15 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
 
   override def pyLoadLine(modelNum: Int): String = {
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
+  }
+
+  override def dotnetValue(v: DataFrame): String = {
+    s"""${name}DF"""
+  }
+
+  override def dotnetLoadLine(modelNum: Int): String = {
+    s"""var ${name}DF = spark.Read().Parquet(
+       |    Path.Combine(test_data_dir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
   }
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
