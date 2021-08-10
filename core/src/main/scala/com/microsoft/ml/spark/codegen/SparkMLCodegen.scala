@@ -64,15 +64,16 @@ object DotnetTest extends App {
     topDir = "D:\\repos\\mmlspark\\core",
     targetDir = "D:\\repos\\mmlspark\\core\\")
 
-  // Test missing types fix
-  // MapParam[String, Int]
-  new EnsembleByKey().makeDotnetFile(Config)
-  // MapParam[String, String]
-  new JSONInputParser().makeDotnetFile(Config)
-  new TextPreprocessor().makeDotnetFile(Config)
-  // TypedArrayParam
-  new MultiNGram().makeDotnetFile(Config)
-  new RankingTrainValidationSplitModel().makeDotnetFile(Config)
+//  // Test missing types fix
+//  // MapParam[String, Int]
+//  new EnsembleByKey().makeDotnetFile(Config)
+//  // MapParam[String, String]
+//  new JSONInputParser().makeDotnetFile(Config)
+//  new TextPreprocessor().makeDotnetFile(Config)
+//  // TypedArrayParam
+//  new MultiNGram().makeDotnetFile(Config)
+//  // ModelParam
+//  new RankingTrainValidationSplitModel().makeDotnetFile(Config)
 
   // All dotnet/spark feature samples test
   //  new Bucketizer().makeDotnetFile(Config)
