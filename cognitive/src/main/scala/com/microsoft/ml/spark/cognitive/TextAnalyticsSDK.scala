@@ -229,3 +229,23 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
     toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
   }
 }
+
+object NERV4 extends ComplexParamsReadable[NERV4]
+
+class NERV4(override val uid: String) extends TextAnalyticsSDKBase[NERCollectionV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("NERV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[NERCollectionV4]]
+  = NERResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[NERCollectionV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.recognizeEntitiesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+  }
+}
