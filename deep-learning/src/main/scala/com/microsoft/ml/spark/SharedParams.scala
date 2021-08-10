@@ -3,11 +3,11 @@
 
 package com.microsoft.ml.spark
 
-import org.apache.spark.ml.param.{MapParam, Param, Params}
+import org.apache.spark.ml.param.{MapParam, Param, Params, StringStringMapParam}
 import spray.json.DefaultJsonProtocol._
 
 trait HasFeedFetchDicts extends Params {
-  val feedDict: MapParam[String, String] = new MapParam[String, String](
+  val feedDict: StringStringMapParam = new StringStringMapParam(
     this,
     "feedDict",
     " Provide a map from CNTK/ONNX model input variable names (keys) to column names of the input dataframe (values)"
@@ -19,7 +19,7 @@ trait HasFeedFetchDicts extends Params {
 
   def getFeedDict: Map[String, String] = $(feedDict)
 
-  val fetchDict: MapParam[String, String] = new MapParam[String, String](
+  val fetchDict: StringStringMapParam = new StringStringMapParam(
     this,
     "fetchDict",
     "Provide a map from column names of the output dataframe (keys) to CNTK/ONNX model output variable names (values)"
