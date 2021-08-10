@@ -246,7 +246,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(codes(0).get(0).toString == "InvalidDocument")
   }
 
-  test("Sentiment Analysis - Check Confidence Score") {
+  test("Sentiment Analysis - Assert Confidence Score") {
     val replies = getDetector.transform(batchedDF)
       .select("output")
       .collect()
@@ -399,6 +399,16 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     ("en", "His phone number was 12345677")
   ).toDF("lang", "text")
 
+  lazy val df1: DataFrame = Seq(
+    ("en", "6-drops of Vitamin B-12 every evening")
+  ).toDF("lang", "text")
+
+  def getDetector: PIIV4 = new PIIV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setOutputCol("output")
+
   df.printSchema()
   df.show(10, false)
 
@@ -446,6 +456,20 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
       .select("lang", "output.result.redactedText")
       .collect()
     assert(tdf.length == 3)
+  }
+  test("PII - Assert Non-Empty Redacted Text") {
+    val replies = extractor.transform(df1.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = PIIResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val redactedText = resFirstRow.result.head.get.redactedText
+    assert(redactedText.nonEmpty)
+
+    println("The redactedText is: " + redactedText)
   }
 }
 
@@ -531,6 +555,23 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
         relation.roles.map(role =>
           s"${role.entity.text}(${role.name})").mkString(s"<--${relation.relationType}-->")
       }"))
+  }
+  test("Healthcare: Print Confidence Scores") {
+    val replies = extractor.transform(df3.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities and Confidence Scores:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} " +
+      s"| confidenceScore: ${entity.confidenceScore}"))
   }
 
   test("Healthcare - Invalid Document Input") {
