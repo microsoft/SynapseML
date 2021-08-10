@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.cntk
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.CNTKUtils._
 import com.microsoft.CNTK.{CNTKExtensions, DataType => CNTKDataType, SerializableFunction => CNTKFunction, _}
+import com.microsoft.ml.spark.HasFeedFetchDicts
 import com.microsoft.ml.spark.cntk.ConversionUtils.GVV
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.schema.DatasetExtensions.findUnusedColumnName
@@ -144,7 +145,7 @@ private object CNTKModelUtils extends java.io.Serializable {
 object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
-  with HasMiniBatcher with Wrappable with BasicLogging {
+  with HasMiniBatcher with HasFeedFetchDicts with Wrappable with BasicLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -178,24 +179,6 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     setModel(CNTKFunction.loadModelFromBytes(modelBytes))
   }
 
-  val batchInput = new BooleanParam(this, "batchInput",
-    "whether to use a batcher")
-
-  setDefault(batchInput -> true)
-
-  def setBatchInput(v: Boolean): this.type = set(batchInput, v)
-
-  def getBatchInput: Boolean = $(batchInput)
-
-  val shapeOutput = new BooleanParam(this, "shapeOutput",
-    "whether to shape the output")
-
-  setDefault(shapeOutput -> false)
-
-  def setShapeOutput(v: Boolean): this.type = set(shapeOutput, v)
-
-  def getShapeOutput: Boolean = $(shapeOutput)
-
   val convertOutputToDenseVector = new BooleanParam(this, "convertOutputToDenseVector",
     "whether to convert the output to dense vectors")
 
@@ -205,26 +188,10 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   def getConvertOutputToDenseVector: Boolean = $(convertOutputToDenseVector)
 
-  val feedDict: StringStringMapParam = new StringStringMapParam(this, "feedDict",
-    " Map of CNTK Variable names (keys) and Column Names (values)")
-
-  setDefault(feedDict -> Map((ArgumentPrefix + 0) -> (ArgumentPrefix + 0)))
-
-  def setFeedDict(value: Map[String, String]): this.type = set(feedDict, value)
-
-  def setFeedDict(k: String, v: String): this.type = set(feedDict, Map(k -> v))
-
-  def getFeedDict: Map[String, String] = $(feedDict)
-
-  val fetchDict: StringStringMapParam = new StringStringMapParam(this, "fetchDict",
-    " Map of Column Names (keys) and CNTK Variable names (values)")
-  setDefault(fetchDict -> Map((OutputPrefix + 0) -> (OutputPrefix + 0)))
-
-  def setFetchDict(value: Map[String, String]): this.type = set("fetchDict", value)
-
-  def setFetchDict(k: String, v: String): this.type = set(fetchDict, Map(k -> v))
-
-  def getFetchDict: Map[String, String] = $(fetchDict)
+  setDefault(
+    feedDict -> Map((ArgumentPrefix + 0) -> (ArgumentPrefix + 0)),
+    fetchDict -> Map((OutputPrefix + 0) -> (OutputPrefix + 0))
+  )
 
   // Alternative Input APIs
 
@@ -370,18 +337,21 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
     }
   }
 
+  val batchInput = new BooleanParam(this, "batchInput",
+    "whether to use a batcher")
+
+  def setBatchInput(v: Boolean): this.type = set(batchInput, v)
+
+  def getBatchInput: Boolean = $(batchInput)
+
+  setDefault(
+    batchInput -> true,
+    miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10) //scalastyle:ignore magic.number
+  )
+
   /** Returns the dimensions of the required input */
   def getInputShapes: List[Array[Int]] = {
     getModel.getArguments.asScala.map(_.getShape.getDimensions.map(_.toInt)).toList
-  }
-
-  setDefault(miniBatcher -> new FixedMiniBatchTransformer().setBatchSize(10)) //scalastyle:ignore magic.number
-
-  private def getElementType(t: DataType): DataType = {
-    t match {
-      case ArrayType(et, _) => getElementType(et)
-      case et => et
-    }
   }
 
   def transformSchema(schema: StructType): StructType = {
@@ -418,8 +388,8 @@ class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexP
 
   private val coercionPrefix = s"coerced_$uid"
 
-  private def coerceType(schema: StructType, colName: String, targetElementType: DataType):
-  (Option[(UserDefinedFunction, String)]) = {
+  private def coerceType(schema: StructType, colName: String, targetElementType: DataType)
+  : Option[(UserDefinedFunction, String)] = {
     val colType = schema(colName).dataType match {
       case ArrayType(dt, _) => dt
     }

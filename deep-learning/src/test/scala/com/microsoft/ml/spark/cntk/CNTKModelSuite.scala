@@ -116,7 +116,6 @@ class CNTKModelSuite extends LinuxOnly with ImageTestUtils with TransformerFuzzi
     assert(m.getInputShapes.map(_.toList) === List(List(32, 32, 3), List(10)))
     assert(m.getOutputNode === "OUTPUT_3")
     assert(m.getOutputNodeIndex === 3)
-    assert(m.getShapeOutput === false)
     assert(m.getInputCol === inputCol)
     assert(m.getOutputCol === outputCol)
   }

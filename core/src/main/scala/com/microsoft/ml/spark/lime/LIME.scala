@@ -164,10 +164,10 @@ trait LIMEBase extends LIMEParams with ComplexParamsWritable {
 
 }
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-rc3")
 object TabularLIME extends ComplexParamsReadable[TabularLIME]
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
   with LIMEParams with Wrappable with ComplexParamsWritable with BasicLogging {
   logClass()
@@ -200,10 +200,10 @@ class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
   }
 }
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-rc3")
 object TabularLIMEModel extends ComplexParamsReadable[TabularLIMEModel]
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
   with LIMEBase with Wrappable with BasicLogging {
   logClass()
@@ -256,7 +256,7 @@ class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
 
 }
 
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-rc3")
 object ImageLIME extends ComplexParamsReadable[ImageLIME]
 
 /** Distributed implementation of
@@ -264,7 +264,7 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   *
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
-@deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-RC3")
+@deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-rc3")
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
   with Wrappable with HasModifier with HasCellSize with BasicLogging {
   logClass()
