@@ -11,7 +11,7 @@ import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.nn.{BallTree, ConditionalBallTree}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.{Estimator, Model, PipelineStage, Transformer}
+import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.commons.lang.StringEscapeUtils
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
@@ -20,7 +20,6 @@ import org.apache.spark.sql.types.DataType
 
 import scala.collection.Iterator.iterate
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
 
 case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                               pyTypeConverter: Option[String],
@@ -54,8 +53,10 @@ trait DefaultParamInfo extends StageParam {
   val doubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object", "double[][]")
   val stringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")
   val stringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
+  val arrayMapInfo = new ParamInfo[ArrayMapParam]("object", "Dictionary<string, object>[]")
   val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "List<int>")
   val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "List<double>")
+  val untypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
   // TODO: to be validated
   val seqStringInfo = stringArrayInfo
   // TODO: fix corresponding .net type
@@ -74,6 +75,7 @@ trait DefaultParamInfo extends StageParam {
   val modelInfo = new ParamInfo[ModelParam]("object", "ScalaModel")
   val udfInfo = new ParamInfo[UDFParam]("object", "object")
   val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")
+  val complexUnknownInfo = new ParamInfo[ComplexParam[_]]("object", "object")
   // TODO: add corresponding classes in .net in order for these to work
   val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
   val seqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
@@ -113,6 +115,7 @@ trait DefaultParamInfo extends StageParam {
       case _: ModelParam => modelInfo
       case _: UDFParam => udfInfo
       case _: UDPyFParam => udPyFInfo
+      case _ => complexUnknownInfo
     }
   }
 
@@ -131,8 +134,10 @@ trait DefaultParamInfo extends StageParam {
       case _: DoubleArrayArrayParam => doubleArrayArrayInfo
       case _: StringStringMapParam => stringStringMapInfo
       case _: StringIntMapParam => stringIntMapInfo
+      case _: ArrayMapParam => arrayMapInfo
       case _: TypedIntArrayParam => typedIntArrayInfo
       case _: TypedDoubleArrayParam => typedDoubleArrayInfo
+      case _: UntypedArrayParam => untypedArrayInfo
       case cp: ComplexParam[_] => getComplexParamInfo(cp)
       case p =>
         thisStage.getClass.getMethod(p.name)
@@ -446,8 +451,10 @@ trait PythonWrappable extends BaseWrappable {
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {
-    val argLines = thisStage.params.map { p =>
-      s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
+    val argLines = thisStage.params.map {
+      case sp: ServiceParam[_] =>
+        s"""${sp.name} (${getServiceParamInfo(sp).pyType}): ${sp.doc}"""
+      case p => s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
     }.mkString("\n")
     s"""|"\""
         |Args:
@@ -462,7 +469,10 @@ trait PythonWrappable extends BaseWrappable {
 
   protected lazy val pyParamsDefinitions: String = {
     thisStage.params.map { p =>
-      val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
+      val typeConverterString = p match {
+        case sp: ServiceParam[_] => getServiceParamInfo(sp).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
+        case _ => getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
+      }
       s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
           |""".stripMargin
     }.mkString("\n")
@@ -755,14 +765,14 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rSetterLines: String = {
-    thisStage.params.map { p =>
-      val value = getParamInfo(p)
-        .rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
-      p match {
-        case p: ServiceParam[_] =>
-          s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
-        case p =>
-          s"""invoke("set${p.name.capitalize}", $value)"""
+    thisStage.params.map {
+      case sp: ServiceParam[_] => {
+        val value = getServiceParamInfo(sp).rTypeConverter.map(tc => s"$tc(${sp.name})").getOrElse(sp.name)
+        s"""invoke("set${sp.name.capitalize}Col", ${sp.name}Col) %>%\ninvoke("set${sp.name.capitalize}", $value)"""
+      }
+      case p => {
+        val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
+        s"""invoke("set${p.name.capitalize}", $value)"""
       }
     }.mkString(" %>%\n")
   }

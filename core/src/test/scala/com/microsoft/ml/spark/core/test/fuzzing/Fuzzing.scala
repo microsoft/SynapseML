@@ -66,9 +66,9 @@ trait TestFuzzingUtils[S <: PipelineStage] {
 
   val testFitting = false
 
-  def saveTestData(conf: CodegenConfig, testObjects: () => Seq[TestObject[S]]): Unit = {
+  def saveTestData(conf: CodegenConfig, testObjects: Seq[TestObject[S]]): Unit = {
     testDataDir(conf).mkdirs()
-    testObjects().zipWithIndex.foreach { case (to, i) =>
+    testObjects.zipWithIndex.foreach { case (to, i) =>
       saveModel(conf, to.stage, s"model-$i")
       if (testFitting) {
         saveDataset(conf, to.fitDF, s"fit-$i")
@@ -158,7 +158,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   //noinspection ScalaStyle
   def makeDotnetTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf, dotnetTestObjects)
+    saveTestData(conf, dotnetTestObjects())
     val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
     val stage = dotnetTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -284,7 +284,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
   def makePyTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf, pyTestObjects)
+    saveTestData(conf, pyTestObjects())
     val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
     val stage = pyTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last

@@ -111,16 +111,16 @@ object TestGen {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.testDataDir)
     clean(conf.pyTestDir)
-//    clean(conf.dotnetTestDir)
+    clean(conf.dotnetTestDir)
     generatePythonTests(conf)
-//    generateDotnetTests(conf)
+    generateDotnetTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
-//    if (toDir(conf.dotnetTestOverrideDir).exists())
-//      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
+    if (toDir(conf.dotnetTestOverrideDir).exists())
+      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
     makeInitFiles(conf)
   }
 }

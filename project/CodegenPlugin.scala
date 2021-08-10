@@ -8,7 +8,7 @@ import sbt.{Def, _}
 import spray.json._
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
-  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
+  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
 }
 
 import CodegenConfigProtocol._
@@ -20,6 +20,7 @@ case class CodegenConfig(name: String,
                          version: String,
                          pythonizedVersion: String,
                          rVersion: String,
+                         dotnetVersion: String,
                          packageName: String)
 
 //noinspection ScalaStyle
@@ -37,6 +38,7 @@ object CodegenPlugin extends AutoPlugin {
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
     val rVersion = settingKey[String]("R version")
+    val dotnetVersion = settingKey[String]("Dotnet version")
     val genPackageNamespace = settingKey[String]("genPackageNamespace")
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
     val codegenJarName = settingKey[Option[String]]("codegenJarName")
@@ -59,6 +61,10 @@ object CodegenPlugin extends AutoPlugin {
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+
+    val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
+    val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
+    val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
@@ -97,6 +103,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion.value,
         rVersion.value,
+        dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -109,6 +116,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion.value,
         rVersion.value,
+        dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -155,6 +163,9 @@ object CodegenPlugin extends AutoPlugin {
       } else {
         version.value
       }
+    },
+    dotnetVersion := {
+      version.value
     },
     packageR := {
       createCondaEnvTask.value
