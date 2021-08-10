@@ -96,7 +96,8 @@ class ServiceParam[T: TypeTag](parent: Params,
   override def dotnetSetterLine(v: Either[T, String]): String = {
     v match {
       case Left(_) => typeOf[T] match {
-        case t if t =:= typeOf[Array[String]] => s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Array[String]] | t =:= typeOf[Seq[String]] =>
+          s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""
@@ -106,6 +107,8 @@ class ServiceParam[T: TypeTag](parent: Params,
           s"""Set${dotnetName(v).capitalize}(new Dictionary<string, string>() ${dotnetValue(v)})"""
         case t if t =:= typeOf[Map[String, Int]] =>
           s"""Set${dotnetName(v).capitalize}(new Dictionary<string, int>() ${dotnetValue(v)})"""
+        case t if t =:= typeOf[Seq[(String, String)]] =>
+          s"""Set${dotnetName(v).capitalize}(new Tuple<string, string>[] ${dotnetValue(v)})"""
         case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
     }
       case Right(_) =>  s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""

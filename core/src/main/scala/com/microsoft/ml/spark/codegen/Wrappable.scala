@@ -76,6 +76,8 @@ trait DefaultParamInfo extends StageParam {
   val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")
   // TODO: add corresponding classes in .net in order for these to work
   val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
+  val seqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
+  val seqStringTupleInfo = new ParamInfo[ServiceParam[_]]("object", "Tuple<string, string>[]")
 
   //noinspection ScalaStyle
   def getServiceParamInfo(dataType: ServiceParam[_]): ParamInfo[_] = {
@@ -84,11 +86,11 @@ trait DefaultParamInfo extends StageParam {
       case "Boolean" => booleanInfo
       case "Double" => doubleInfo
       case "Int" => intInfo
-      case "Long" => longInfo
-      case "Float" => floatInfo
       case "Seq[String]" => seqStringInfo
       case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => seqTimeSeriesPointInfo
       case "Array[Byte]" => byteArrayInfo
+      case "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" => seqTargetInputInfo
+      case "Seq[(String, String)]" => seqStringTupleInfo
       case _ => throw new Exception(s"unsupported type $dataType")
     }
   }

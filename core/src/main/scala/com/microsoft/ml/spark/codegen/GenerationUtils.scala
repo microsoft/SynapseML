@@ -4,7 +4,9 @@
 package com.microsoft.ml.spark.codegen
 
 import com.microsoft.ml.spark.core.serialize.ComplexParam
-import org.apache.spark.ml.param.{DotnetWrappableParam, Param, ParamPair, PythonWrappableParam}
+import org.apache.spark.ml.param._
+
+import scala.reflect.runtime.universe._
 
 object GenerationUtils {
   def indent(lines: String, numTabs: Int): String = {
@@ -49,16 +51,38 @@ object GenerationUtils {
     }
   }
 
-  def dotnetRenderParam[T](pp: ParamPair[T]): String = {
+  def dotnetRenderParam[T: TypeTag](pp: ParamPair[T]): String = {
     dotnetRenderParam(pp.param, pp.value)
   }
 
-  def dotnetRenderParam[T](p: Param[T], v: T): String = {
+  //noinspection ScalaStyle
+  def dotnetRenderParam[T: TypeTag](p: Param[T], v: T): String = {
     p match {
       case pwp: DotnetWrappableParam[T] =>
         "." + pwp.dotnetSetterLine(v)
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
+      case _: StringArrayParam =>
+        s""".Set${p.name.capitalize}(new string[] ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      case _: DoubleArrayParam =>
+        s""".Set${p.name.capitalize}(new double[] ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      case _: IntArrayParam =>
+        s""".Set${p.name.capitalize}(new int[] ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      case _: ByteArrayParam =>
+        s""".Set${p.name.capitalize}(new byte[] ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      // TODO: fix default render for double[][]
+      case _: DoubleArrayArrayParam =>
+        s""".Set${p.name.capitalize}(new double[][] ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      case _: StringStringMapParam =>
+        s""".Set${p.name.capitalize}(
+           |new Dictionary<string, string>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+      case _: StringIntMapParam =>
+        s""".Set${p.name.capitalize}(
+           |new Dictionary<string, int>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+      case _: TypedIntArrayParam =>
+        s""".Set${p.name.capitalize}(new List<int>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+      case _: TypedDoubleArrayParam =>
+        s""".Set${p.name.capitalize}(new List<double>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
       case _ =>
         s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }

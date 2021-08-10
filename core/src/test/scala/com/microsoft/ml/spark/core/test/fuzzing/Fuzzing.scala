@@ -167,6 +167,9 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val namespaceString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "mmlsparktest")
     val testClass =
       s"""
+         |// Copyright (C) Microsoft Corporation. All rights reserved.
+         |// Licensed under the MIT License. See LICENSE in project root for information.
+         |
          |using System;
          |using System.IO;
          |using System.Collections.Generic;
@@ -177,29 +180,22 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using Microsoft.Spark.Sql.Types;
          |using Xunit;
          |using mmlsparktest.utils;
+         |using mmlsparktest.helper;
          |using $importPathString;
          |
          |namespace $namespaceString
          |{
-         |    public class FeaturesFixture
-         |    {
-         |        public FeaturesFixture()
-         |        {
-         |            sparkFixture = new SparkFixture();
-         |        }
          |
-         |        public SparkFixture sparkFixture { get; private set; }
-         |    }
-         |
-         |    public class $testClassName : IClassFixture<FeaturesFixture>
+         |    [Collection("MMLSpark Tests")]
+         |    public class $testClassName
          |    {
          |        public const string TestDataDir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}";
          |        private readonly SparkSession _spark;
          |        private readonly IJvmBridge _jvm;
-         |        public $testClassName(FeaturesFixture fixture)
+         |        public $testClassName(SparkFixture fixture)
          |        {
-         |            _spark = fixture.sparkFixture.Spark;
-         |            _jvm = fixture.sparkFixture.Jvm;
+         |            _spark = fixture.Spark;
+         |            _jvm = fixture.Jvm;
          |        }
          |
          |${indent(generatedTests.mkString("\n\n"), 2)}

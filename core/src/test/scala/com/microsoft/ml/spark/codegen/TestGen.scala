@@ -39,6 +39,31 @@ object TestGen {
     }
   }
 
+  def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
+    if (!conf.dotnetSrcDir.exists()) {
+      conf.dotnetSrcDir.mkdir()
+    }
+    writeFile(join(conf.dotnetTestDir, "mmlsparktest", "SparkFixtureHelper.cs"),
+      s"""
+         |// Copyright (C) Microsoft Corporation. All rights reserved.
+         |// Licensed under the MIT License. See LICENSE in project root for information.
+         |
+         |using mmlsparktest.utils;
+         |using Xunit;
+         |
+         |namespace mmlsparktest.helper
+         |{
+         |    [CollectionDefinition("MMLSpark Tests")]
+         |    public class MMLSparkCollection: ICollectionFixture<SparkFixture>
+         |    {
+         |        // This class has no code, and is never created. Its purpose is simply
+         |        // to be the place to apply [CollectionDefinition] and all the
+         |        // ICollectionFixture<> interfaces.
+         |    }
+         |}
+         |""".stripMargin)
+  }
+
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = new File(new File(conf.pyTestDir,  "mmlsparktest"), packageFolder)
     if (!dir.exists()){
@@ -98,29 +123,4 @@ object TestGen {
 //      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
     makeInitFiles(conf)
   }
-}
-
-object Foo extends App {
-  import TestGen._
-  import CodeGenUtils._
-
-  val Config = CodegenConfig(
-    rVersion = "1.0.0",
-    name = "mmlspark-core",
-    packageName = "mmlspark",
-    pythonizedVersion = "1.0.0.dev1",
-    version = "1.0.0-rc3-154-20479925-SNAPSHOT",
-    jarName = None,
-    topDir = "D:\\repos\\mmlspark\\core",
-    targetDir = "D:\\repos\\mmlspark\\core\\")
-
-  clean(Config.testDataDir)
-  clean(Config.pyTestDir)
-  generatePythonTests(Config)
-  TestBase.stopSparkSession()
-  generatePyPackageData(Config)
-  if (toDir(Config.pyTestOverrideDir).exists()){
-    FileUtils.copyDirectoryToDirectory(toDir(Config.pyTestOverrideDir), toDir(Config.pyTestDir))
-  }
-
 }
