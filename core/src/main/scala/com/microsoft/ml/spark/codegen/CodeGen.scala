@@ -177,6 +177,41 @@ object CodeGen {
          |""".stripMargin)
   }
 
+  //noinspection ScalaStyle
+  def generateDotnetProjFile(conf: CodegenConfig): Unit = {
+    if (!conf.dotnetSrcDir.exists()) {
+      conf.dotnetSrcDir.mkdir()
+    }
+    writeFile(join(conf.dotnetSrcDir, "mmlspark", "projectSetup.csproj"),
+      s"""<Project Sdk="Microsoft.NET.Sdk">
+         |
+         |  <PropertyGroup>
+         |    <TargetFramework>net5.0</TargetFramework>
+         |    <Nullable>enable</Nullable>
+         |  </PropertyGroup>
+         |
+         |  <ItemGroup>
+         |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+         |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+         |  </ItemGroup>
+         |
+         |  <ItemGroup>
+         |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
+         |  </ItemGroup>
+         |
+         |  <PropertyGroup>
+         |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+         |  </PropertyGroup>
+         |
+         |  <PropertyGroup>
+         |    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
+         |  </PropertyGroup>
+         |
+         |</Project>
+         |
+         |""".stripMargin)
+  }
+
   def rGen(conf: CodegenConfig): Unit = {
     println(s"Generating R for ${conf.jarName}")
     clean(conf.rSrcRoot)
@@ -204,6 +239,7 @@ object CodeGen {
     generateDotnetClasses(conf)
     if (conf.dotnetSrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcDir))
+    generateDotnetProjFile(conf)
   }
 
   def main(args: Array[String]): Unit = {

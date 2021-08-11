@@ -48,10 +48,10 @@ object TestGen {
          |// Copyright (C) Microsoft Corporation. All rights reserved.
          |// Licensed under the MIT License. See LICENSE in project root for information.
          |
-         |using mmlsparktest.utils;
+         |using MMLSparktest.Utils;
          |using Xunit;
          |
-         |namespace mmlsparktest.helper
+         |namespace MMLSparktest.Helper
          |{
          |    [CollectionDefinition("MMLSpark Tests")]
          |    public class MMLSparkCollection: ICollectionFixture<SparkFixture>

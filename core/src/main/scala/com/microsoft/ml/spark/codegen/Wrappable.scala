@@ -12,6 +12,7 @@ import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.commons.lang.StringEscapeUtils
+import org.apache.commons.lang.StringUtils.capitalize
 
 import scala.collection.Iterator.iterate
 
@@ -52,7 +53,7 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected lazy val dotnetNamespace: String =
     thisStage.getClass.getName.replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
-      .split(".".toCharArray).dropRight(1).mkString(".")
+      .split(".".toCharArray).map(capitalize).dropRight(1).mkString(".")
 
   protected lazy val dotnetInternalWrapper = false
 
@@ -137,6 +138,11 @@ trait DotnetWrappable extends BaseWrappable {
             |public $dotnetClassName Set${capName}Col(string value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
             |""".stripMargin
+      case _: ComplexParam[_] =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(object value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |""".stripMargin
       case _ =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
@@ -161,8 +167,7 @@ trait DotnetWrappable extends BaseWrappable {
       case _: ComplexParam[_] =>
         s"""
            |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName() =>
-           |    new ${getParamInfo(p).dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
+           |public object Get$capName() => Reference.Invoke(\"get$capName\");
            |""".stripMargin
       case sp: ServiceParam[_] =>
         s"""
@@ -203,8 +208,10 @@ trait DotnetWrappable extends BaseWrappable {
       case _: Estimator[_] =>
         val companionModelImport = companionModelClassName
           .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+          .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
           .replaceAllLiterally("org.apache.spark", "Microsoft.Spark")
           .split(".".toCharArray)
+          .map(capitalize)
           .dropRight(1)
           .mkString(".")
         s"using $companionModelImport;"
@@ -223,8 +230,8 @@ trait DotnetWrappable extends BaseWrappable {
         |using Microsoft.Spark.Interop.Ipc;
         |using Microsoft.Spark.Sql;
         |using Microsoft.Spark.Sql.Types;
-        |using mmlspark.dotnet.wrapper;
-        |using mmlspark.dotnet.utils;
+        |using MMLSpark.Dotnet.Wrapper;
+        |using MMLSpark.Dotnet.Utils;
         |$dotnetExtraEstimatorImports
         |
         |namespace $dotnetNamespace

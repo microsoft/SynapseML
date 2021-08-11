@@ -10,12 +10,12 @@ import com.microsoft.ml.spark.codegen.CodegenConfig
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameEquality, ExternalDotnetWrappableParam,
-  ExternalPythonWrappableParam, ParamPair}
+import org.apache.spark.ml.param.{DataFrameEquality, ExternalDotnetWrappableParam, ExternalPythonWrappableParam, ParamPair}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.codegen.GenerationUtils._
 import com.microsoft.ml.spark.core.test.base.TestBase
+import org.apache.commons.lang.StringUtils.capitalize
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -163,8 +163,12 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val stage = dotnetTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
-    val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
-    val namespaceString = importPath.mkString(".").replaceAllLiterally("com.microsoft.ml.spark", "mmlsparktest")
+    val importPathString = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .split(".".toCharArray).map(capitalize).mkString(".")
+    val namespaceString = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.ml.spark", "MMLSparktest")
+      .split(".".toCharArray).map(capitalize).mkString(".")
     val testClass =
       s"""
          |// Copyright (C) Microsoft Corporation. All rights reserved.
@@ -179,8 +183,8 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using Microsoft.Spark.Sql;
          |using Microsoft.Spark.Sql.Types;
          |using Xunit;
-         |using mmlsparktest.utils;
-         |using mmlsparktest.helper;
+         |using MMLSparktest.Utils;
+         |using MMLSparktest.Helper;
          |using $importPathString;
          |
          |namespace $namespaceString

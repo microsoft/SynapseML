@@ -14,7 +14,7 @@ using Microsoft.Spark.ML.Feature.Param;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 
-namespace mmlspark.dotnet.wrapper
+namespace MMLSpark.Dotnet.Wrapper
 {
 
     public class Params<T> : Identifiable, IJvmObjectReferenceProvider

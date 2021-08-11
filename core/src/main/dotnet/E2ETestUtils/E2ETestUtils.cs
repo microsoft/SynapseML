@@ -17,7 +17,7 @@ using Microsoft.Spark.ML.Feature;
 using Microsoft.Spark.ML.Feature.Param;
 using Xunit;
 
-namespace mmlsparktest.utils
+namespace MMLSparktest.Utils
 {
     /// <summary>
     /// Creates a temporary folder that is automatically cleaned up when disposed.

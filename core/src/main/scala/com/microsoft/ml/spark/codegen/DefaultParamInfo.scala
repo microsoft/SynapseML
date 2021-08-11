@@ -58,7 +58,7 @@ trait DefaultParamInfo extends StageParam {
   val paramSpaceInfo = new ParamInfo[ParamSpaceParam]("object", "object")
   val pipelineStageInfo = new ParamInfo[PipelineStageParam]("object", "ScalaPipelineStage")
   val transformerArrayInfo = new ParamInfo[TransformerArrayParam]("object", "ScalaTransformer[]")
-  val transformerInfo = new ParamInfo[TransformerParam]("object", "ScalaTransFormer")
+  val transformerInfo = new ParamInfo[TransformerParam]("object", "ScalaTransformer")
   val modelInfo = new ParamInfo[ModelParam]("object", "ScalaModel")
   val udfInfo = new ParamInfo[UDFParam]("object", "object")
   val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")

@@ -9,7 +9,7 @@ using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
 
-namespace mmlspark.dotnet.utils
+namespace MMLSpark.Dotnet.Utils
 {
 
     public interface MLWriter : IJvmObjectReferenceProvider
