@@ -10,7 +10,8 @@ import com.microsoft.ml.spark.codegen.CodegenConfig
 import com.microsoft.ml.spark.core.env.FileUtilities
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameEquality, ExternalDotnetWrappableParam, ExternalPythonWrappableParam, ParamPair}
+import org.apache.spark.ml.param.{DataFrameEquality, ExternalDotnetWrappableParam,
+  ExternalPythonWrappableParam, ParamPair}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.ml.spark.codegen.GenerationUtils._
