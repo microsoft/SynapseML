@@ -17,16 +17,17 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.Identifiable._
+import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.Identifiable.randomUID
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.time.temporal.ChronoUnit
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class TextAnalyticsSDKBase[T]()
@@ -69,7 +70,7 @@ abstract class TextAnalyticsSDKBase[T]()
   }
 
   private def repackResponse(toRow: TAResponseV4[T] => Row,
-                             fromRow: Row =>TAResponseV4[T],
+                             fromRow: Row => TAResponseV4[T],
                              row: Row): Seq[Row] = {
     val resp = fromRow(row)
     (resp.result, resp.error, resp.statistics).zipped.toSeq.map(tup =>
@@ -107,7 +108,7 @@ abstract class TextAnalyticsSDKBase[T]()
       val toRow = responseBinding.makeToRowConverter
       val resultDF = batchedDF.mapPartitions(transformTextRows(toRow))(enc)
 
-      if (shouldAutoBatch){
+      if (shouldAutoBatch) {
         val toRow = responseBinding.makeToRowConverter
         val fromRow = responseBinding.makeFromRowConverter
         val repackResponseUDF = UDFUtils.oldUdf(repackResponse(toRow, fromRow, _), ArrayType(responseBinding.schema))
@@ -125,11 +126,13 @@ abstract class TextAnalyticsSDKBase[T]()
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 }
 
-object TextAnalyticsLanguageDetection extends ComplexParamsReadable[TextAnalyticsLanguageDetection]
+object LanguageDetectionV4 extends ComplexParamsReadable[LanguageDetectionV4]
 
-class TextAnalyticsLanguageDetection(override val uid: String = randomUID("TextAnalyticsLanguageDetection"))
+class LanguageDetectionV4(override val uid: String)
   extends TextAnalyticsSDKBase[DetectedLanguageV4]() {
   logClass()
+
+  def this() = this(Identifiable.randomUID("LanguageDetectionV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
@@ -143,11 +146,13 @@ class TextAnalyticsLanguageDetection(override val uid: String = randomUID("TextA
   }
 }
 
-object TextAnalyticsKeyphraseExtraction extends ComplexParamsReadable[TextAnalyticsKeyphraseExtraction]
+object KeyphraseExtractionV4 extends ComplexParamsReadable[KeyphraseExtractionV4]
 
-class TextAnalyticsKeyphraseExtraction(override val uid: String = randomUID("TextAnalyticsKeyphraseExtraction"))
+class KeyphraseExtractionV4(override val uid: String)
   extends TextAnalyticsSDKBase[KeyphraseV4]() {
   logClass()
+
+  def this() = this(Identifiable.randomUID("KeyphraseExtractionV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]] = KeyPhraseResponseV4
 
@@ -164,9 +169,11 @@ class TextAnalyticsKeyphraseExtraction(override val uid: String = randomUID("Tex
 
 object TextSentimentV4 extends ComplexParamsReadable[TextSentimentV4]
 
-class TextSentimentV4(override val uid: String = randomUID("TextSentimentV4"))
+class TextSentimentV4(override val uid: String)
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4]() {
   logClass()
+
+  def this() = this(Identifiable.randomUID("KeyphraseExtractionV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]] = SentimentResponseV4
 
@@ -181,11 +188,12 @@ class TextSentimentV4(override val uid: String = randomUID("TextSentimentV4"))
 
 }
 
-object TextAnalyticsPIIV4 extends ComplexParamsReadable[TextAnalyticsPIIV4]
+object PIIV4 extends ComplexParamsReadable[PIIV4]
 
-class TextAnalyticsPIIV4(override val uid: String = randomUID("TextAnalyticsPIIV4"))
-  extends TextAnalyticsSDKBase[PIIEntityCollectionV4]() {
+class PIIV4(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityCollectionV4]() {
   logClass()
+
+  def this() = this(Identifiable.randomUID("PIIV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
   = PIIResponseV4
@@ -200,3 +208,24 @@ class TextAnalyticsPIIV4(override val uid: String = randomUID("TextAnalyticsPIIV
   }
 }
 
+object HealthcareV4 extends ComplexParamsReadable[HealthcareV4]
+
+class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[HealthEntitiesResultV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("HealthcareV4"))
+
+
+  override val responseBinding: SparkBindings[TAResponseV4[HealthEntitiesResultV4]] = HealthcareResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[HealthEntitiesResultV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    val poller = client.beginAnalyzeHealthcareEntities(documents, null, Context.NONE);
+    poller.waitForCompletion()
+    toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
+  }
+}

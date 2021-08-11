@@ -11,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, explode}
 
-class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextKey {
+class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
 
@@ -25,9 +25,7 @@ class DetectedLanguageSuitev4 extends TestBase with DataFrameEquality with TextK
     (Seq("us", ""), Seq("", null))
   ).toDF("lang", "text")
 
-
-
-  def getDetector: TextAnalyticsLanguageDetection = new TextAnalyticsLanguageDetection()
+  def getDetector: LanguageDetectionV4 = new LanguageDetectionV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
@@ -280,11 +278,11 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     (Seq("fr"), Seq("Bonjour tout le monde")),
   ).toDF("lang", "text")
 
-  lazy val unbatcheddf: DataFrame = Seq(
-    ("en","Hello world. This is some input text that I love."),
+  lazy val unbatchedDf: DataFrame = Seq(
+    ("en", "Hello world. This is some input text that I love."),
     ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
     ("fr", "Bonjour tout le monde")
-  ).toDF("lang","text" )
+  ).toDF("lang", "text")
 
   lazy val blankLanguageDf: DataFrame = Seq(
     (Seq("", ""), Seq("Hello world. This is some input text that I love.",
@@ -301,7 +299,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
   ).toDF("lang", "text")
 
 
-  def extractor: TextAnalyticsKeyphraseExtraction = new TextAnalyticsKeyphraseExtraction()
+  def extractor: KeyphraseExtractionV4 = new KeyphraseExtractionV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
@@ -375,9 +373,9 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(codes(1).get(0).toString == "UnsupportedLanguageCode")
   }
 
-  test("Keyphrase - batch usage"){
-   extractor.setLanguageCol("lang")
-    val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
+  test("Keyphrase - batch usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDf.coalesce(1)).cache()
     results.show()
     val tdf = results
       .select("lang", "output.result.keyPhrases")
@@ -385,7 +383,6 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     assert(tdf.length == 3)
   }
 }
-
 
 class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
@@ -402,28 +399,26 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
   ).toDF("lang", "text")
 
   lazy val unbatcheddf: DataFrame = Seq(
-    ("en","This person is named John Doe"),
+    ("en", "This person is named John Doe"),
     ("en", "He lives on 123 main street."),
     ("en", "His phone number was 12345677")
-  ).toDF("lang","text" )
+  ).toDF("lang", "text")
 
   df.printSchema()
   df.show(10, false)
 
-  def extractor: TextAnalyticsPIIV4 = new TextAnalyticsPIIV4()
+  def extractor: PIIV4 = new PIIV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
-    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
-
 
   test("PII - Basic Usage") {
     val replies = extractor.transform(df)
       .select("output.result.redactedText")
       .collect()
-   assert(replies(0).schema(0).name == "redactedText")
+    assert(replies(0).schema(0).name == "redactedText")
     df.printSchema()
     df.show(10, false)
     replies.foreach { row =>
@@ -447,14 +442,122 @@ class PIISuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
 
-  test("PII - batch usage"){
+  test("PII - batch usage") {
     extractor.setLanguageCol("lang")
       .setBatchSize(2)
     val results = extractor.transform(unbatcheddf.coalesce(1)).cache()
     results.show()
     val tdf = results
-    .select("lang", "output.result.redactedText")
-    .collect()
+      .select("lang", "output.result.redactedText")
+      .collect()
     assert(tdf.length == 3)
+  }
+}
+
+class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df3: DataFrame = Seq(
+    ("en", "20mg of ibuprofen twice a day")
+  ).toDF("lang", "text")
+
+  lazy val df4: DataFrame = Seq(
+    ("en", "1tsp of Tylenol every 4 hours")
+  ).toDF("lang", "text")
+
+  lazy val df5: DataFrame = Seq(
+    ("en", "6-drops of Vitamin B-12 every evening")
+  ).toDF("lang", "text")
+
+  val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
+
+  lazy val extractor: HealthcareV4 = new HealthcareV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setUrl("https://eastus.api.cognitive.microsoft.com/")
+    .setOutputCol("output")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  lazy val invalidLanguageInput: DataFrame = Seq(
+    (Seq("abc", "/."), Seq("I feel sick.", "I have severe neck and shoulder pain."))
+  ).toDF("lang", "text")
+
+  lazy val unbatchedDF: DataFrame = Seq(
+    ("en", "Woman in NAD with a h/o CAD, DM2, asthma and HTN on ramipril for 8 years awoke from sleep around"),
+    ("es", "Estoy enfermo"),
+    ("en", "Patient's brother died at the age of 64 from lung cancer. She was admitted for likely gastroparesis")
+  ).toDF("lang", "text")
+
+  test("Healthcare: Output Assertion") {
+    val replies = extractor.transform(df3.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category}"))
+
+    println("\nRelations:")
+    println("=========")
+    val relations = resFirstRow.result.head.get.entityRelation
+    relations.foreach(relation =>
+      println(s"${
+        relation.roles.map(role =>
+          s"${role.entity.text}(${role.name})").mkString(s"<--${relation.relationType}-->")
+      }"))
+  }
+
+  test("Healthcare: Invalid Document Input Type") {
+    val replies = extractor.transform(invalidDocumentType.coalesce(1))
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+  }
+
+  test("Healthcare - Batch Usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+      .select("lang", "output.result.entities")
+      .collect()
+    assert(tdf.length == 3)
+  }
+  test("Healthcare - Print Complete Entities") {
+    val replies = extractor.transform(df5.coalesce(1))
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = HealthcareResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val healthcareEntities = resFirstRow.result.head.get.entities
+    assert(healthcareEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    healthcareEntities.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category} " +
+      s"| subCategory: ${entity.subCategory} | length: ${entity.length} | dataSources: ${entity.dataSources}" +
+      s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
   }
 }
