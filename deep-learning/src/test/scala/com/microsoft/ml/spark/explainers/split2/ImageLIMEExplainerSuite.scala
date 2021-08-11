@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers.split2
 
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.explainers.{ImageExplainersSuite, ImageFormat, ImageLIME, LocalExplainer}
 import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
