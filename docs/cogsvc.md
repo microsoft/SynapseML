@@ -10,7 +10,7 @@ Azure Cognitive Services on Spark enable working with Azure’s Intelligent Serv
 
 ## Usage
 To see an example of Cognitive Services on Spark in action, take a look at [this sample notebook](../notebooks/CognitiveServices%20-%20Celebrity%20Quote%20Analysis.ipynb).
-To see an example of Text Analytics in Azure Synapse, refer to [this sample notebook](../notebooks/TextAnalytics%20-%20PIIExample%20in%20Synapse.ipynb). 
+
 ## Cognitive Services on Apache Spark™
 Currently, the following Cognitive Services are available on Apache Spark™ through MMLSpark:
 ### Vision
