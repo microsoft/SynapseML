@@ -561,3 +561,48 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
   }
 }
+
+
+class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    (Seq("en", "en"), Seq("Our tour guide took us up the Space Needle during our trip to Seattle last week.",
+      "Pike place market is my favorite Seattle attraction.")),
+    (Seq("en"), Seq("It's incredibly sunny outside! I'm so happy"))
+  ).toDF("lang", "text")
+
+
+  def extractor: EntityLinkingV4 = new EntityLinkingV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("lang")
+    .setOutputCol("output")
+
+  test("Entity Linking - Basic Usage") {
+    val replies = extractor.transform(df)
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = LinkedEntityResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val linkedEntities = resFirstRow.result.head.get.entities
+    assert(linkedEntities.nonEmpty)
+
+    println("Entities:")
+    println("=========")
+    linkedEntities.foreach(entity => println(s"entity: ${entity.name} | url: ${entity.url}"))
+
+    println("\nMatches:")
+    println("=========")
+    linkedEntities.foreach(entity =>
+      println(s"${
+        entity.matches.map(matches =>
+          s"${matches.text}(${matches.confidenceScore})").mkString(s"<--${linkedEntities.toString()}-->")
+      }"))
+  }
+}

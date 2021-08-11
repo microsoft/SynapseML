@@ -21,6 +21,8 @@ object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
+object LinkedEntityResponseV4 extends  SparkBindings[TAResponseV4[LinkedEntityCollectionV4]]
+
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
@@ -112,6 +114,22 @@ case class HealthcareEntityRelationV4(relationType: String,
                                       roles: Seq[HealthcareEntityRelationRoleV4])
 
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4, name: String)
+
+case class LinkedEntityCollectionV4(entities: Seq[LinkedEntityV4],
+                                    warnings: Seq[TAWarningV4])
+
+case class LinkedEntityV4(name: String,
+                          matches: Seq[LinkedEntityMatchV4],
+                          language: String,
+                          dataSourceEntityId: String,
+                          url: String,
+                          dataSource: String,
+                          bingEntitySearchApiId: String)
+
+case class LinkedEntityMatchV4(text: String,
+                               confidenceScore: Double,
+                               offset: Int,
+                               length: Int)
 
 
 object SDKConverters {
@@ -259,6 +277,35 @@ object SDKConverters {
       role.getName
     )
   }
+
+  implicit def fromSDK(entity: RecognizeLinkedEntitiesResult): LinkedEntityCollectionV4 = {
+    LinkedEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK)
+    )
+  }
+
+  implicit def fromSDK(ent: LinkedEntity): LinkedEntityV4 = {
+    LinkedEntityV4(
+      ent.getName,
+      ent.getMatches.asScala.toSeq.map(fromSDK),
+      ent.getLanguage,
+      ent.getDataSourceEntityId,
+      ent.getUrl,
+      ent.getDataSource,
+      ent.getBingEntitySearchApiId
+    )
+  }
+
+  implicit def fromSDK(ent: LinkedEntityMatch): LinkedEntityMatchV4 = {
+    LinkedEntityMatchV4(
+      ent.getText,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength
+    )
+  }
+
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
   (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
     if (result.isError) {

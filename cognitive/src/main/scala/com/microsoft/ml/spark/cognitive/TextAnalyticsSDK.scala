@@ -229,3 +229,23 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
     toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
   }
 }
+
+object EntityLinkingV4 extends ComplexParamsReadable[EntityLinkingV4]
+
+class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[LinkedEntityCollectionV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("PIIV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[LinkedEntityCollectionV4]]
+  = LinkedEntityResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[LinkedEntityCollectionV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.recognizeLinkedEntitiesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+  }
+}
