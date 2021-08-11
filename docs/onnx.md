@@ -50,3 +50,5 @@ For GPU clusters, please refer to [this page](https://onnxruntime.ai/docs/refere
 4. Call `transform` method to run inference on the input DataFrame.
 
 ## Example
+
+[Interpretability - Image Explainers](../notebooks/Interpretability%20-%20Image%20Explainers.ipynb)
