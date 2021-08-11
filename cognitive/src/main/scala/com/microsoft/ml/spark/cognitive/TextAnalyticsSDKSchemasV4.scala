@@ -21,8 +21,6 @@ object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
-object OpinionMiningResponseV4 extends SparkBindings[TAResponseV4[OpinionMiningCollectionV4]]
-
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
@@ -40,6 +38,13 @@ case class TextDocumentInputs(id: String, text: String)
 case class TextAnalyticsRequestOptionsV4(modelVersion: String,
                                          includeStatistics: Boolean,
                                          disableServiceLogs: Boolean)
+case class AnalyzeSentimentOptionsV4(modelVersion: String,
+                                     includeStatistics: Boolean,
+                                     disableServiceLogs: Boolean,
+                                     isIncludeOpinionMining: Boolean,
+                                     setIncludeOpinionMining: Boolean,
+                                     getStringIndexType: String,
+                                     setStringIndexType: String)
 
 case class KeyphraseV4(keyPhrases: Seq[String], warnings: Seq[TAWarningV4])
 
@@ -114,14 +119,6 @@ case class HealthcareEntityRelationV4(relationType: String,
                                       roles: Seq[HealthcareEntityRelationRoleV4])
 
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4, name: String)
-
-case class OpinionMiningCollectionV4(entities: Seq[OpinionMiningEntityV4], warnings: Seq[TAWarningV4])
-
-case class OpinionMiningEntityV4(text: String,
-                                 category: String,
-                                 subCategory: String,
-                                 confidenceScore: Double,
-                                 offset: Int)
 
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
@@ -267,19 +264,6 @@ object SDKConverters {
       role.getEntity,
       role.getName
     )
-  }
-  implicit def fromSDK(entity: CategorizedEntity): OpinionMiningEntityV4 = {
-    OpinionMiningEntityV4(
-      entity.getText,
-      entity.getCategory.toString,
-      entity.getSubcategory,
-      entity.getConfidenceScore,
-      entity.getOffset)
-  }
-  implicit def fromSDK(entity: RecognizeEntitiesResult): OpinionMiningCollectionV4 = {
-    OpinionMiningCollectionV4(
-      entity.getEntities.asScala.toSeq.map(fromSDK),
-      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):

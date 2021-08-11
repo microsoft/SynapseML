@@ -5,6 +5,7 @@ package com.microsoft.ml.spark.cognitive.split1
 
 import com.azure.ai.textanalytics.TextAnalyticsClient
 import com.azure.ai.textanalytics.models.{AnalyzeSentimentOptions, DocumentSentiment}
+import com.azure.ai.textanalytics.models._
 import com.microsoft.ml.spark.cognitive._
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.SparkException
@@ -604,49 +605,5 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       .select("lang", "output.result.entities")
       .collect()
     assert(tdf.length == 3)
-  }
-}
-
-class OpinionMiningSuiteV4 extends TestBase with DataFrameEquality with TextKey {
-
-  import spark.implicits._
-
-  lazy val opinionDf: DataFrame = Seq(
-    (Seq("en", "en", "en"), Seq("Bad atmosphere. ",
-      "Not close to plenty of restaurants, hotels, and transit!",
-      "Staff are not friendly and helpful."))
-  ).toDF("lang", "text")
-
-  def getDetector: OpinionMiningV4 = new OpinionMiningV4()
-    .setSubscriptionKey(textKey)
-    .setLocation("eastus")
-    .setTextCol("text")
-    .setOutputCol("output")
-
-  test("Sentiment Analysis - Assert Opinion Mining") {
-    val replies = getDetector.transform(opinionDf)
-      .select("output")
-      .collect()
-    val document = "Bad atmosphere. " +
-      "Not close to plenty of restaurants, hotels, and transit! " +
-      "Staff are not friendly and helpful."
-    printf("Document = %s%n", document)
-    val options = new AnalyzeSentimentOptions().setIncludeOpinionMining(true)
-
-    //    final DocumentSentiment documentSentiment =
-    //      TextAnalyticsClient.analyzeSentiment(document, "en", options);
-
-    val fromRow = SentimentResponseV4.makeFromRowConverter
-    replies.foreach(row => {
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      val documentSentiment = outResponse.result.head.get.sentiment
-      val posScore = outResponse.result.head.get.confidenceScores.positive
-      val negScore = outResponse.result.head.get.confidenceScores.negative
-      val neuScore = outResponse.result.head.get.confidenceScores.neutral
-
-      printf("Recognized document sentiment: %s, positive score: %f, " +
-        "neutral score: %f, negative score: %f.%n", documentSentiment,
-        posScore, neuScore, negScore)
-    })
   }
 }
