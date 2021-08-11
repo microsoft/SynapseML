@@ -40,8 +40,8 @@ object TestGen {
   }
 
   def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
-    if (!conf.dotnetSrcDir.exists()) {
-      conf.dotnetSrcDir.mkdir()
+    if (!conf.dotnetTestDir.exists()) {
+      conf.dotnetTestDir.mkdir()
     }
     writeFile(join(conf.dotnetTestDir, "mmlsparktest", "SparkFixtureHelper.cs"),
       s"""
@@ -61,6 +61,47 @@ object TestGen {
          |        // ICollectionFixture<> interfaces.
          |    }
          |}
+         |""".stripMargin)
+  }
+
+  def generateDotnetTestProjFile(conf: CodegenConfig): Unit = {
+    if (!conf.dotnetTestDir.exists()) {
+      conf.dotnetTestDir.mkdir()
+    }
+    writeFile(join(conf.dotnetTestDir, "mmlsparktest", "TestProjectSetup.csproj"),
+      s"""<Project Sdk="Microsoft.NET.Sdk">
+         |
+         |  <PropertyGroup>
+         |    <TargetFramework>net5.0</TargetFramework>
+         |  </PropertyGroup>
+         |
+         |  <ItemGroup>
+         |    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.1" />
+         |    <PackageReference Include="MSTest.TestAdapter" Version="2.1.1" />
+         |    <PackageReference Include="MSTest.TestFramework" Version="2.1.1" />
+         |    <PackageReference Include="coverlet.collector" Version="1.3.0" />
+         |    <PackageReference Include="xunit" Version="2.4.1" />
+         |    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+         |      <PrivateAssets>all</PrivateAssets>
+         |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+         |    </PackageReference>
+         |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+         |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+         |  </ItemGroup>
+         |
+         |  <ItemGroup>
+         |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
+         |  </ItemGroup>
+         |
+         |  <PropertyGroup>
+         |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+         |  </PropertyGroup>
+         |
+         |  <PropertyGroup>
+         |    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
+         |  </PropertyGroup>
+         |
+         |</Project>
          |""".stripMargin)
   }
 

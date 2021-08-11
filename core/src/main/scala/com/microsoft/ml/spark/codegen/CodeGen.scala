@@ -182,7 +182,7 @@ object CodeGen {
     if (!conf.dotnetSrcDir.exists()) {
       conf.dotnetSrcDir.mkdir()
     }
-    writeFile(join(conf.dotnetSrcDir, "mmlspark", "projectSetup.csproj"),
+    writeFile(join(conf.dotnetSrcDir, "mmlspark", "ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
