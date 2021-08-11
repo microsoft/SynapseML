@@ -573,6 +573,15 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
     (Seq("en"), Seq("It's incredibly sunny outside! I'm so happy"))
   ).toDF("lang", "text")
 
+  lazy val unbatchedDF: DataFrame = Seq(
+    ("en", "Our tour guide took us up the Space Needle during our trip to Seattle last week."),
+    ("en", "Pike place market is my favorite Seattle attraction"),
+    ("en", "It's incredibly sunny outside! I'm so happy")
+  ).toDF("lang", "text")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
 
   def extractor: EntityLinkingV4 = new EntityLinkingV4()
     .setSubscriptionKey(textKey)
@@ -581,7 +590,7 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
     .setLanguageCol("lang")
     .setOutputCol("output")
 
-  test("Entity Linking - Basic Usage") {
+  test("Entity Linking -  Output Assertion") {
     val replies = extractor.transform(df)
       .select("output")
       .collect()
@@ -595,14 +604,40 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
     println("Entities:")
     println("=========")
-    linkedEntities.foreach(entity => println(s"entity: ${entity.name} | url: ${entity.url}"))
+    linkedEntities.foreach(entity => println(s"entity: ${entity.name} | url: ${entity.url}  " +
+      s"| data source: ${entity.dataSource}"))
 
     println("\nMatches:")
     println("=========")
     linkedEntities.foreach(entity =>
       println(s"${
         entity.matches.map(matches =>
-          s"${matches.text}(${matches.confidenceScore})").mkString(s"<--${linkedEntities.toString()}-->")
+          s"${matches.text} (confidence: ${matches.confidenceScore}) " +
+            s"(length: ${matches.length})").mkString(s"<--${linkedEntities.toString()}-->")
       }"))
+  }
+
+  test("Entity Linking - Batch Usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+      .select("lang", "output.result.entities")
+      .collect()
+    assert(tdf.length == 3)
+  }
+
+  test("Entity Linking: Invalid Document Input Type") {
+    val replies = extractor.transform(invalidDocumentType.coalesce(1))
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
   }
 }
