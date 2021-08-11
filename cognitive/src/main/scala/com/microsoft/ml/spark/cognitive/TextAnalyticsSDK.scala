@@ -229,3 +229,22 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
     toResponse(poller.getFinalResult.asScala.flatMap(_.asScala))
   }
 }
+object OpinionMiningV4 extends ComplexParamsReadable[OpinionMiningV4]
+ class OpinionMiningV4(override val uid: String)
+  extends TextAnalyticsSDKBase[OpinionMiningV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("OpinionMiningV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[OpinionMiningCollectionV4]] = OpinionMiningResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[OpinionMiningV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.analyzeSentiment(documents, null, Context.NONE).getValue.asScala)
+  }
+
+}
