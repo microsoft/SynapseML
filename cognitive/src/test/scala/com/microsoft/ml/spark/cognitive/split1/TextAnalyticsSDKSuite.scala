@@ -180,6 +180,9 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       "Staff are not friendly and helpful."))
   ).toDF("lang", "text")
 
+
+  val options: AnalyzeSentimentOptions = new AnalyzeSentimentOptions().setIncludeOpinionMining(true)
+
   def getDetector: TextSentimentV4 = new TextSentimentV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
@@ -198,6 +201,31 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(data(0).get(0).toString == "negative" && data(0).get(1).toString == "positive" &&
       data(0).get(2).toString == "negative")
     assert(data(1).get(0).toString == "positive")
+  }
+
+  test("Sentiment Analysis - Opinion Mining") {
+    val replies = getDetector.transform(opinionDf)
+      .select("output")
+      .collect()
+    val document = "Bad atmosphere. " +
+      "Not close to plenty of restaurants, hotels, and transit! " +
+      "Staff are not friendly and helpful."
+
+    printf("Document = %s%n", document)
+
+    val options = new AnalyzeSentimentOptions().setIncludeOpinionMining(true)
+    val fromRow = SentimentResponseV4.makeFromRowConverter
+    replies.foreach(row => {
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      val documentSentiment = outResponse.result.head.get.sentiment
+      val posScore = outResponse.result.head.get.confidenceScores.positive
+      val negScore = outResponse.result.head.get.confidenceScores.negative
+      val neuScore = outResponse.result.head.get.confidenceScores.neutral
+
+      printf("Recognized document sentiment: %s, positive score: %f, " +
+        "neutral score: %f, negative score: %f.%n", documentSentiment,
+        posScore, neuScore, negScore, options.isIncludeOpinionMining)
+    })
   }
 
   test("Sentiment Analysis - Output Assertion") {
