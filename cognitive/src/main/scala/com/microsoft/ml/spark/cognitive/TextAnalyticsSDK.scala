@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 abstract class TextAnalyticsSDKBase[T]()
   extends Transformer with HasErrorCol with HasURL with HasSetLocation with HasSubscriptionKey
-    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize
+    with TextAnalyticsInputParams with HasOutputCol with ConcurrencyParams with HasBatchSize with HasOptions
     with ComplexParamsWritable with BasicLogging {
 
   override def urlPath: String = ""
@@ -234,6 +234,25 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
   }
 }
 
+object EntityLinkingV4 extends ComplexParamsReadable[EntityLinkingV4]
+
+class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[LinkedEntityCollectionV4]() {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("EntityLinkingV4"))
+
+  override val responseBinding: SparkBindings[TAResponseV4[LinkedEntityCollectionV4]]
+  = LinkedEntityResponseV4
+
+  override def invokeTextAnalytics(client: TextAnalyticsClient,
+                                   input: Seq[String],
+                                   lang: Seq[String]): TAResponseV4[LinkedEntityCollectionV4] = {
+    val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
+      new TextDocumentInput(i.toString, doc).setLanguage(lang)
+    }.asJava
+    toResponse(client.recognizeLinkedEntitiesBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+  }
+}
 object NERV4 extends ComplexParamsReadable[NERV4]
 
 class NERV4(override val uid: String) extends TextAnalyticsSDKBase[NERCollectionV4]() {
