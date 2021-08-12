@@ -597,11 +597,11 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
     val firstRow = replies(0)
     assert(replies(0).schema(0).name == "output")
+
     val fromRow = LinkedEntityResponseV4.makeFromRowConverter
     val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
     val linkedEntities = resFirstRow.result.head.get.entities
     assert(linkedEntities.nonEmpty)
-
     println("Entities:")
     println("=========")
     linkedEntities.foreach(entity => println(s"entity: ${entity.name} | url: ${entity.url}  " +
@@ -615,6 +615,8 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
           s"${matches.text} (confidence: ${matches.confidenceScore}) " +
             s"(length: ${matches.length})").mkString(s"<--${linkedEntities.toString()}-->")
       }"))
+
+    assert(linkedEntities.toList.head.name == "Space Needle")
   }
 
   test("Entity Linking - Batch Usage") {

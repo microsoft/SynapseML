@@ -150,7 +150,7 @@ trait HasOptions extends HasServiceParams {
 }
 
 
-    object URLEncodingUtils {
+object URLEncodingUtils {
 
   private case class NameValuePairInternal(t: (String, String)) extends NameValuePair {
     override def getName: String = t._1

@@ -235,7 +235,7 @@ object EntityLinkingV4 extends ComplexParamsReadable[EntityLinkingV4]
 class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[LinkedEntityCollectionV4]() {
   logClass()
 
-  def this() = this(Identifiable.randomUID("PIIV4"))
+  def this() = this(Identifiable.randomUID("EntityLinkingV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[LinkedEntityCollectionV4]]
   = LinkedEntityResponseV4
