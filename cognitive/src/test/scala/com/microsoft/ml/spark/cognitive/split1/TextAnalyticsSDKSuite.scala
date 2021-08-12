@@ -221,16 +221,21 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
       val documentSentiment = outResponse.result.head.get.sentiment
       val opinions = outResponse.result.head.get.sentences.head.opinions
+      val opinionTarget = outResponse.result.head.get.sentences.head.opinions.get.head.target
+      val opinionAssess = outResponse.result.head.get.sentences.head.opinions.get.head.assessments
       val sentenceScores = outResponse.result.head.get.confidenceScores
       val posScore = outResponse.result.head.get.confidenceScores.positive
       val negScore = outResponse.result.head.get.confidenceScores.negative
       val neuScore = outResponse.result.head.get.confidenceScores.neutral
 
       assert(opinions.isDefined)
+      assert(!opinionAssess.isEmpty)
+      assert(!opinionTarget.text.isEmpty)
+      assert(!opinionTarget.sentiment.isEmpty)
 
       printf("Recognized document sentiment: %s, positive score: %f, " +
         "neutral score: %f, negative score: %f.%n", documentSentiment,
-        posScore, neuScore, negScore)
+        posScore, neuScore, negScore, opinions.get.head.assessments)
     })
   }
 
