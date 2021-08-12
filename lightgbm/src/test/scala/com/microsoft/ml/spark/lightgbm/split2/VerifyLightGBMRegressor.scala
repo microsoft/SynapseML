@@ -18,6 +18,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{avg, col, lit, when}
 
 // scalastyle:off magic.number
+
 /** Tests to validate the functionality of LightGBM module.
   */
 class VerifyLightGBMRegressor extends Benchmarks
@@ -121,7 +122,7 @@ class VerifyLightGBMRegressor extends Benchmarks
       .withColumnRenamed("M-class flares production by this region", labelCol)
 
     LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df2)
-    }.cache()
+  }.cache()
 
   def regressionEvaluator: RegressionEvaluator = {
     new RegressionEvaluator()
@@ -142,7 +143,9 @@ class VerifyLightGBMRegressor extends Benchmarks
   test("Verify LightGBM Regressor with bad column names fails early") {
     val baseModelWithBadSlots = baseModel.setSlotNames(Range(0, 22).map(i =>
       "Invalid characters \",:[]{} " + i).toArray)
-    interceptWithoutLogging[IllegalArgumentException]{baseModelWithBadSlots.fit(flareDF).transform(flareDF).collect()}
+    interceptWithoutLogging[IllegalArgumentException] {
+      baseModelWithBadSlots.fit(flareDF).transform(flareDF).collect()
+    }
   }
 
   test("Verify LightGBM Regressor with tweedie distribution") {
