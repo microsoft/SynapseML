@@ -75,11 +75,10 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected lazy val dotnetObjectBaseClass: String = {
     thisStage match {
-      case _: Estimator[_] => s"ScalaEstimator<$dotnetClassName, " +
-        s"${companionModelClassName.split(".".toCharArray).last}>"
+      case _: Estimator[_] => s"ScalaEstimator<${companionModelClassName.split(".".toCharArray).last}>"
       case _: Model[_] => s"ScalaModel<$dotnetClassName>"
-      case _: Transformer => s"ScalaTransformer<$dotnetClassName>"
-      case _: Evaluator => s"ScalaEvaluator<$dotnetClassName>"
+      case _: Transformer => s"ScalaTransformer"
+      case _: Evaluator => s"ScalaEvaluator"
     }
   }
 

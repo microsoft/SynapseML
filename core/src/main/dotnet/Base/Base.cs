@@ -17,7 +17,7 @@ using Microsoft.Spark.Interop.Ipc;
 namespace MMLSpark.Dotnet.Wrapper
 {
 
-    public class Params<T> : Identifiable, IJvmObjectReferenceProvider
+    public class Params : Identifiable, IJvmObjectReferenceProvider
     {
 
         internal Params(string className)
@@ -97,8 +97,8 @@ namespace MMLSpark.Dotnet.Wrapper
         /// <param name="param"><see cref="Param"/> to set the value of</param>
         /// <param name="value">The value to use</param>
         /// <returns>The object that contains the newly set <see cref="Param"/></returns>
-        public T Set(Param param, object value) =>
-            WrapAsType((JvmObjectReference)Reference.Invoke("set", param, value));
+        public T Set<T>(Param param, object value) =>
+            WrapAsType<T>((JvmObjectReference)Reference.Invoke("set", param, value));
 
         /// <summary>
         /// Clears any value that was previously set for this <see cref="Param"/>. The value is
@@ -106,10 +106,10 @@ namespace MMLSpark.Dotnet.Wrapper
         /// </summary>
         /// <param name="param">The <see cref="Param"/> to set back to its original value</param>
         /// <returns>Object reference that was used to clear the <see cref="Param"/></returns>
-        public T Clear(Param param) =>
-            WrapAsType((JvmObjectReference)Reference.Invoke("clear", param));
+        public T Clear<T>(Param param) =>
+            WrapAsType<T>((JvmObjectReference)Reference.Invoke("clear", param));
 
-        protected static T WrapAsType(JvmObjectReference reference)
+        protected static T WrapAsType<T>(JvmObjectReference reference)
         {
             ConstructorInfo constructor = typeof(T)
                 .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
@@ -128,7 +128,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaPipelineStage"/> A stage in a pipeline, either an Estimator or a Transformer.
     /// </summary>
-    public class ScalaPipelineStage<T> : Params<T>
+    public class ScalaPipelineStage : Params
     {
 
         public ScalaPipelineStage(string className) : base(className)
@@ -170,7 +170,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaTransformer"/> Abstract class for transformers that transform one dataset into another.
     /// </summary>
-    public abstract class ScalaTransformer<T> : ScalaPipelineStage<T>
+    public abstract class ScalaTransformer : ScalaPipelineStage
     {
 
         public ScalaTransformer(string className) : base(className)
@@ -200,7 +200,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaEstimator"/> Abstract class for estimators that fit models to data.
     /// </summary>
-    public abstract class ScalaEstimator<E, M> : ScalaPipelineStage<E> where M : ScalaModel<M>
+    public abstract class ScalaEstimator<M> : ScalaPipelineStage where M : ScalaModel<M>
     {
 
         public ScalaEstimator(string className) : base(className)
@@ -222,7 +222,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaModel"/> Abstract class for models that are fitted by estimators.
     /// </summary>
-    public abstract class ScalaModel<M> : ScalaTransformer<M> where M : ScalaModel<M>
+    public abstract class ScalaModel<M> : ScalaTransformer where M : ScalaModel<M>
     {
         public ScalaModel(string className) : base(className)
         {
@@ -241,7 +241,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaEvaluator"/> Abstract class for evaluators that compute metrics from predictions.
     /// </summary>
-    public abstract class ScalaEvaluator<T> : Params<T>
+    public abstract class ScalaEvaluator : Params
     {
 
         public ScalaEvaluator(string className) : base(className)
