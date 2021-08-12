@@ -91,6 +91,7 @@ object TestGen {
          |
          |  <ItemGroup>
          |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
+         |    <ProjectReference Include="${conf.dotnetSrcDir.getAbsolutePath}\\mmlspark\\ProjectSetup.csproj" />
          |  </ItemGroup>
          |
          |  <PropertyGroup>

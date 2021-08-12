@@ -24,6 +24,12 @@
 .vscode
 .idea
 
+# .NET plugins and build
+.metals
+.net
+/core/src/main/dotnet/bin
+/core/src/main/dotnet/obj
+
 # Vagrant configuration
 /tools/vagrant/.vagrant
 
