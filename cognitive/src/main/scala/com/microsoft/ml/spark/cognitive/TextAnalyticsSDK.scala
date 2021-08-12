@@ -185,7 +185,9 @@ class TextSentimentV4(override val uid: String)
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
-    toResponse(client.analyzeSentimentBatchWithResponse(documents, null, Context.NONE).getValue.asScala)
+
+    val options = new AnalyzeSentimentOptions().setIncludeOpinionMining(true)
+    toResponse(client.analyzeSentimentBatchWithResponse(documents, options, Context.NONE).getValue.asScala)
 
   }
 }

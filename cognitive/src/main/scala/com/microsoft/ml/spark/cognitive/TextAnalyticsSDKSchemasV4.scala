@@ -60,11 +60,11 @@ case class SentimentScoredDocumentV4(sentiment: String,
 case class SentimentSentenceV4(text: String,
                                sentiment: String,
                                confidenceScores: SentimentConfidenceScoreV4,
-                               opinion: Option[Seq[OpinionV4]],
+                               opinions: Option[Seq[OpinionV4]],
                                offset: Int,
                                length: Int)
 
-case class OpinionV4(target: TargetV4, assessment: Seq[AssessmentV4])
+case class OpinionV4(target: TargetV4, assessments: Seq[AssessmentV4])
 
 case class TargetV4(text: String,
                     sentiment: String,

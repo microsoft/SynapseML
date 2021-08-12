@@ -213,18 +213,22 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
 
     printf("Document = %s%n", document)
 
-    val options = new AnalyzeSentimentOptions().setIncludeOpinionMining(true)
+
     val fromRow = SentimentResponseV4.makeFromRowConverter
     replies.foreach(row => {
       val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
       val documentSentiment = outResponse.result.head.get.sentiment
+      val opinions = outResponse.result.head.get.sentences.head.opinions
+      val sentenceScores = outResponse.result.head.get.confidenceScores
       val posScore = outResponse.result.head.get.confidenceScores.positive
       val negScore = outResponse.result.head.get.confidenceScores.negative
       val neuScore = outResponse.result.head.get.confidenceScores.neutral
 
+      assert(opinions.isDefined)
+
       printf("Recognized document sentiment: %s, positive score: %f, " +
         "neutral score: %f, negative score: %f.%n", documentSentiment,
-        posScore, neuScore, negScore, options.isIncludeOpinionMining)
+        posScore, neuScore, negScore)
     })
   }
 
