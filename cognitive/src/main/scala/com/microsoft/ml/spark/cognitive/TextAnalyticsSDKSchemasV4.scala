@@ -21,6 +21,8 @@ object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
+object NERResponseV4 extends SparkBindings[TAResponseV4[NERCollectionV4]]
+
 case class TAResponseV4[T](result: Seq[Option[T]],
                            error: Seq[Option[TAErrorV4]],
                            statistics: Seq[Option[DocumentStatistics]])
@@ -119,6 +121,14 @@ case class HealthcareEntityRelationV4(relationType: String,
                                       roles: Seq[HealthcareEntityRelationRoleV4])
 
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4, name: String)
+
+case class NERCollectionV4(entities: Seq[NEREntityV4], warnings: Seq[TAWarningV4])
+
+case class NEREntityV4(text: String,
+                       category: String,
+                       subCategory: String,
+                       confidenceScore: Double,
+                       offset: Int)
 
 object SDKConverters {
   implicit def fromSDK(score: SentimentConfidenceScores): SentimentConfidenceScoreV4 = {
@@ -264,6 +274,19 @@ object SDKConverters {
       role.getEntity,
       role.getName
     )
+  }
+  implicit def fromSDK(entity: CategorizedEntity): NEREntityV4 = {
+    NEREntityV4(
+      entity.getText,
+      entity.getCategory.toString,
+      entity.getSubcategory,
+      entity.getConfidenceScore,
+      entity.getOffset)
+  }
+  implicit def fromSDK(entity: RecognizeEntitiesResult): NERCollectionV4 = {
+    NERCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
