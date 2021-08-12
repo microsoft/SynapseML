@@ -592,7 +592,7 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   test("Entity Linking -  Output Assertion") {
     val replies = extractor.transform(df)
-      .select("output")
+     .select("output")
       .collect()
 
     val firstRow = replies(0)
@@ -643,3 +643,84 @@ class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(codes(0).get(0).toString == "InvalidDocument")
   }
 }
+class NERSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val invalidDocDf: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("language", "text")
+
+  lazy val unbatchedDf: DataFrame = Seq(
+    ("en", "Jeff bought three dozen eggs because there was a 50% discount."),
+    ("en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
+  ).toDF("language", "text")
+
+  lazy val batchedDf: DataFrame = Seq(
+    (Seq("en"), Seq("Jeff bought three dozen eggs because there was a 50% discount."))
+  ).toDF("language", "text")
+
+  def extractor: NERV4 = new NERV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("language")
+    .setOutputCol("output")
+
+  test("NER - Output Assertion") {
+    val replies = extractor.transform(batchedDf)
+      .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+    val fromRow = NERResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val firstRowOutput = resFirstRow.result.head.get.entities
+    assert(firstRowOutput.nonEmpty)
+
+    println("Output: ")
+    println("=========")
+    firstRowOutput.foreach(entity => println(s"entity: ${entity.text} | category: ${entity.category} |" +
+      s" confidence score: ${entity.confidenceScore}"))
+  }
+
+  test("NER - Basic Batch Usage") {
+    val results = extractor.transform(unbatchedDf.coalesce(1)).cache()
+    val matches = results.withColumn("match",
+      col("output.result")
+        .getItem(0)
+        .getItem("entities")
+        .getItem(0))
+      .select("match")
+
+    val firstRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
+    assert(firstRow.getAs[String]("text") === "Jeff")
+    assert(firstRow.getAs[Int]("offset") === 0)
+    assert(firstRow.getAs[Double]("confidenceScore") > 0.7)
+    assert(firstRow.getAs[String]("category") === "Person")
+
+    val secondRow = matches.collect()(1)(0).asInstanceOf[GenericRowWithSchema]
+    assert(secondRow.getAs[String]("text") === "Great Depression")
+    assert(secondRow.getAs[Int]("offset") === 4)
+    assert(secondRow.getAs[Double]("confidenceScore") > 0.7)
+    assert(secondRow.getAs[String]("category") === "Event")
+  }
+  test("NER - Invalid Document Input") {
+    val replies = extractor.transform(invalidDocDf)
+    val errors = replies
+    .select(explode(col("output.error.errorMessage")))
+    .collect()
+    val codes = replies
+    .select(explode(col("output.error.errorCode")))
+    .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+
+    assert(errors(1).get(0).toString == "Document text is empty.")
+    assert(codes(1).get(0).toString == "InvalidDocument")
+}
+}
+
+
