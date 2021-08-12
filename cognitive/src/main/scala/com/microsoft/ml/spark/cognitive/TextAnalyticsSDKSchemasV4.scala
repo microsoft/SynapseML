@@ -21,6 +21,7 @@ object PIIResponseV4 extends SparkBindings[TAResponseV4[PIIEntityCollectionV4]]
 
 object HealthcareResponseV4 extends SparkBindings[TAResponseV4[HealthEntitiesResultV4]]
 
+object LinkedEntityResponseV4 extends  SparkBindings[TAResponseV4[LinkedEntityCollectionV4]]
 object NERResponseV4 extends SparkBindings[TAResponseV4[NERCollectionV4]]
 
 case class TAResponseV4[T](result: Seq[Option[T]],
@@ -115,6 +116,21 @@ case class HealthcareEntityRelationV4(relationType: String,
 
 case class HealthcareEntityRelationRoleV4(entity: HealthcareEntityV4, name: String)
 
+case class LinkedEntityCollectionV4(entities: Seq[LinkedEntityV4],
+                                    warnings: Seq[TAWarningV4])
+
+case class LinkedEntityV4(name: String,
+                          matches: Seq[LinkedEntityMatchV4],
+                          language: String,
+                          dataSourceEntityId: String,
+                          url: String,
+                          dataSource: String,
+                          bingEntitySearchApiId: String)
+
+case class LinkedEntityMatchV4(text: String,
+                               confidenceScore: Double,
+                               offset: Int,
+                               length: Int)
 case class NERCollectionV4(entities: Seq[NEREntityV4], warnings: Seq[TAWarningV4])
 
 case class NEREntityV4(text: String,
@@ -269,6 +285,35 @@ object SDKConverters {
       role.getName
     )
   }
+
+  implicit def fromSDK(entity: RecognizeLinkedEntitiesResult): LinkedEntityCollectionV4 = {
+    LinkedEntityCollectionV4(
+      entity.getEntities.asScala.toSeq.map(fromSDK),
+      entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK)
+    )
+  }
+
+  implicit def fromSDK(ent: LinkedEntity): LinkedEntityV4 = {
+    LinkedEntityV4(
+      ent.getName,
+      ent.getMatches.asScala.toSeq.map(fromSDK),
+      ent.getLanguage,
+      ent.getDataSourceEntityId,
+      ent.getUrl,
+      ent.getDataSource,
+      ent.getBingEntitySearchApiId
+    )
+  }
+
+  implicit def fromSDK(ent: LinkedEntityMatch): LinkedEntityMatchV4 = {
+    LinkedEntityMatchV4(
+      ent.getText,
+      ent.getConfidenceScore,
+      ent.getOffset,
+      ent.getLength
+    )
+  }
+
   implicit def fromSDK(entity: CategorizedEntity): NEREntityV4 = {
     NEREntityV4(
       entity.getText,

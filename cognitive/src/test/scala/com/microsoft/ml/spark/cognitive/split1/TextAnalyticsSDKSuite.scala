@@ -28,11 +28,12 @@ class DetectedLanguageSuiteV4 extends TestBase with DataFrameEquality with TextK
   def getDetector: LanguageDetectionV4 = new LanguageDetectionV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setLanguageCol("lang")
     .setOutputCol("output")
 
-  test("Language Detection - Output Assertion") {
+  test("Language Detection - Output Assertion"){
     val replies = getDetector.transform(df)
       .select("output")
       .collect()
@@ -176,6 +177,7 @@ class TextSentimentSuiteV4 extends TestBase with DataFrameEquality with TextKey 
   def getDetector: TextSentimentV4 = new TextSentimentV4()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setTextCol("text")
     .setOutputCol("output")
 
@@ -301,6 +303,7 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
+    .setOptions(TextAnalyticsRequestOptionsV4("", true, false))
     .setLanguageCol("lang")
     .setOutputCol("output")
 
@@ -558,6 +561,88 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
   }
 }
+
+
+class LinkedEntitySuiteV4 extends TestBase with DataFrameEquality with TextKey {
+
+  import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    (Seq("en", "en"), Seq("Our tour guide took us up the Space Needle during our trip to Seattle last week.",
+      "Pike place market is my favorite Seattle attraction.")),
+    (Seq("en"), Seq("It's incredibly sunny outside! I'm so happy"))
+  ).toDF("lang", "text")
+
+  lazy val unbatchedDF: DataFrame = Seq(
+    ("en", "Our tour guide took us up the Space Needle during our trip to Seattle last week."),
+    ("en", "Pike place market is my favorite Seattle attraction"),
+    ("en", "It's incredibly sunny outside! I'm so happy")
+  ).toDF("lang", "text")
+
+  lazy val invalidDocumentType: DataFrame = Seq(
+    (Seq("us", ""), Seq("", null))
+  ).toDF("lang", "text")
+
+  def extractor: EntityLinkingV4 = new EntityLinkingV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setLanguageCol("lang")
+    .setOutputCol("output")
+
+  test("Entity Linking -  Output Assertion") {
+    val replies = extractor.transform(df)
+     .select("output")
+      .collect()
+
+    val firstRow = replies(0)
+    assert(replies(0).schema(0).name == "output")
+
+    val fromRow = LinkedEntityResponseV4.makeFromRowConverter
+    val resFirstRow = fromRow(firstRow.getAs[GenericRowWithSchema]("output"))
+    val linkedEntities = resFirstRow.result.head.get.entities
+    assert(linkedEntities.nonEmpty)
+    println("Entities:")
+    println("=========")
+    linkedEntities.foreach(entity => println(s"entity: ${entity.name} | url: ${entity.url}  " +
+      s"| data source: ${entity.dataSource}"))
+
+    println("\nMatches:")
+    println("=========")
+    linkedEntities.foreach(entity =>
+      println(s"${
+        entity.matches.map(matches =>
+          s"${matches.text} (confidence: ${matches.confidenceScore}) " +
+            s"(length: ${matches.length})").mkString(s"<--${linkedEntities.toString()}-->")
+      }"))
+
+    assert(linkedEntities.toList.head.name == "Space Needle")
+  }
+
+  test("Entity Linking - Batch Usage") {
+    extractor.setLanguageCol("lang")
+    val results = extractor.transform(unbatchedDF.coalesce(1)).cache()
+    results.show()
+    val tdf = results
+      .select("lang", "output.result.entities")
+      .collect()
+    assert(tdf.length == 3)
+  }
+
+  test("Entity Linking: Invalid Document Input Type") {
+    val replies = extractor.transform(invalidDocumentType.coalesce(1))
+    val errors = replies
+      .select(explode(col("output.error.errorMessage")))
+      .collect()
+
+    val codes = replies
+      .select(explode(col("output.error.errorCode")))
+      .collect()
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+  }
+}
 class NERSuiteV4 extends TestBase with DataFrameEquality with TextKey {
 
   import spark.implicits._
@@ -637,3 +722,5 @@ class NERSuiteV4 extends TestBase with DataFrameEquality with TextKey {
     assert(codes(1).get(0).toString == "InvalidDocument")
 }
 }
+
+
