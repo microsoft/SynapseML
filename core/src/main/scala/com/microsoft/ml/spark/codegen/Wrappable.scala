@@ -137,7 +137,19 @@ trait DotnetWrappable extends BaseWrappable {
             |public $dotnetClassName Set${capName}Col(string value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
             |""".stripMargin
-      case _: ComplexParam[_] =>
+      case _: EstimatorParam | _: EstimatorArrayParam | _: ModelParam =>
+        s"""|$docString
+            |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : ScalaModel<M> =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
+            |""".stripMargin
+      // TODO: Fix UDF & UDPyF confusion
+      case _: UDFParam | _: UDPyFParam =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(object value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |""".stripMargin
+      // TODO: Fix these objects
+      case _: ParamSpaceParam | _: BallTreeParam | _: ConditionalBallTreeParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(object value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));

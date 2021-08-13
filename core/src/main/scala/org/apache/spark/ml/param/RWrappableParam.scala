@@ -47,7 +47,7 @@ trait RWrappableParam[T] extends Param[T] {
 
   val name: String
 
-  type InnerType = T
+  type RInnerType = T
 
   def rValue(v: T): String
 

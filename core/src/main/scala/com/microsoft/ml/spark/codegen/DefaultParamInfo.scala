@@ -44,26 +44,7 @@ trait DefaultParamInfo extends StageParam {
   val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "List<int>")
   val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "List<double>")
   val untypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
-  // TODO: to be validated
-  val seqStringInfo = stringArrayInfo
-  // TODO: fix corresponding .net type
-  val arrayParamMapInfo = new ParamInfo[ArrayParamMapParam]("object", "object")
-  val ballTreeInfo = new ParamInfo[BallTreeParam]("object", "object")
-  val conditionalBallTreeInfo = new ParamInfo[ConditionalBallTreeParam]("object", "object")
-  val dataFrameParamInfo = new ParamInfo[DataFrameParam]("object", "DataFrame")
-  val dataTypeInfo = new ParamInfo[DataTypeParam]("object", "DataType")
-  val estimatorArrayInfo = new ParamInfo[EstimatorArrayParam]("object", "ScalaEstimator[]")
-  val estimatorInfo = new ParamInfo[EstimatorParam]("object", "ScalaEstimator")
-  val evaluatorInfo = new ParamInfo[EvaluatorParam]("object", "ScalaEvaluator")
-  val paramSpaceInfo = new ParamInfo[ParamSpaceParam]("object", "object")
-  val pipelineStageInfo = new ParamInfo[PipelineStageParam]("object", "ScalaPipelineStage")
-  val transformerArrayInfo = new ParamInfo[TransformerArrayParam]("object", "ScalaTransformer[]")
-  val transformerInfo = new ParamInfo[TransformerParam]("object", "ScalaTransformer")
-  val modelInfo = new ParamInfo[ModelParam]("object", "ScalaModel")
-  val udfInfo = new ParamInfo[UDFParam]("object", "object")
-  val udPyFInfo = new ParamInfo[UDPyFParam]("object", "object")
-  val complexUnknownInfo = new ParamInfo[ComplexParam[_]]("object", "object")
-  // TODO: add corresponding classes in .net in order for these to work
+
   val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
   val seqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
   val seqStringTupleInfo = new ParamInfo[ServiceParam[_]]("object", "Tuple<string, string>[]")
@@ -75,7 +56,7 @@ trait DefaultParamInfo extends StageParam {
       case "Boolean" => booleanInfo
       case "Double" => doubleInfo
       case "Int" => intInfo
-      case "Seq[String]" => seqStringInfo
+      case "Seq[String]" => stringArrayInfo
       case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => seqTimeSeriesPointInfo
       case "Array[Byte]" => byteArrayInfo
       case "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" => seqTargetInputInfo
@@ -87,22 +68,8 @@ trait DefaultParamInfo extends StageParam {
   //noinspection ScalaStyle
   def getComplexParamInfo(dataType: ComplexParam[_]): ParamInfo[_] = {
     dataType match {
-      case _: ArrayParamMapParam => arrayParamMapInfo
-      case _: BallTreeParam => ballTreeInfo
-      case _: ConditionalBallTreeParam => conditionalBallTreeInfo
-      case _: DataFrameParam => dataFrameParamInfo
-      case _: DataTypeParam => dataTypeInfo
-      case _: EstimatorArrayParam => estimatorArrayInfo
-      case _: EstimatorParam => estimatorInfo
-      case _: EvaluatorParam => evaluatorInfo
-      case _: ParamSpaceParam => paramSpaceInfo
-      case _: PipelineStageParam => pipelineStageInfo
-      case _: TransformerArrayParam => transformerArrayInfo
-      case _: TransformerParam => transformerInfo
-      case _: ModelParam => modelInfo
-      case _: UDFParam => udfInfo
-      case _: UDPyFParam => udPyFInfo
-      case _ => complexUnknownInfo
+      case w: WrappableParam[_] => new ParamInfo[ComplexParam[_]]("object", w.dotnetParamInfo)
+      case _ => throw new Exception(s"unsupported Complex Param type $dataType")
     }
   }
 

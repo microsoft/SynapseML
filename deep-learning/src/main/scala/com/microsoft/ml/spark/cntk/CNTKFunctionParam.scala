@@ -4,12 +4,11 @@
 package com.microsoft.ml.spark.cntk
 
 import java.io.{ByteArrayOutputStream, ObjectOutputStream}
-
 import com.microsoft.CNTK.SerializableFunction
 import com.microsoft.ml.spark.core.env.StreamUtilities
 import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.utils.ParamEquality
-import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.{Params, WrappableParam}
 import org.scalactic.TripleEquals._
 
 /** Param for ByteArray.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
@@ -19,7 +18,7 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
                         isValid: SerializableFunction => Boolean)
 
   extends ComplexParam[SerializableFunction](parent, name, doc, isValid)
-    with ParamEquality[SerializableFunction] {
+    with ParamEquality[SerializableFunction] with WrappableParam[SerializableFunction] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, { _ => true })
@@ -43,4 +42,9 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
         throw new AssertionError("Values did not have DataFrame type")
     }
   }
+
+  override def dotnetValue(v: SerializableFunction): String = s"""${name}Param"""
+
+  override def dotnetParamInfo: String = "object"
+
 }

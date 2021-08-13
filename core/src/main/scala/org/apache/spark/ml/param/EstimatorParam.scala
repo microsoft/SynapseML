@@ -51,9 +51,11 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
   */
 class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimator[_ <: Model[_]] => Boolean)
   extends ComplexParam[Estimator[_ <: Model[_]]](parent, name, doc, isValid)
-    with PipelineStageWrappable[Estimator[_ <: Model[_]]] {
+    with PipelineStageWrappable[Estimator[_ <: Model[_]]] with WrappableParam[Estimator[_ <: Model[_]]] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
+
+  override def dotnetParamInfo: String = "ScalaEstimator<M>"
 
 }

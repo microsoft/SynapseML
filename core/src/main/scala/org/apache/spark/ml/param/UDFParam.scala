@@ -14,7 +14,7 @@ import org.scalactic.TripleEquals._
   */
 class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFunction => Boolean)
   extends ComplexParam[UserDefinedFunction](parent, name, doc, isValid)
-    with ParamEquality[UserDefinedFunction] {
+    with ParamEquality[UserDefinedFunction] with WrappableParam[UserDefinedFunction] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
@@ -30,4 +30,9 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
         throw new AssertionError("Values did not have UserDefinedFunction type")
     }
   }
+
+  override def dotnetValue(v: UserDefinedFunction): String = s"""${name}Param"""
+
+  override def dotnetParamInfo: String = "UserDefinedFunction"
+
 }

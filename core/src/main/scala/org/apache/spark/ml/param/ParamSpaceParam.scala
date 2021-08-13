@@ -15,9 +15,13 @@ abstract class ParamSpace {
   * types but not ParamSpace.
   */
 class ParamSpaceParam(parent: Params, name: String, doc: String, isValid: ParamSpace => Boolean)
-    extends ComplexParam[ParamSpace](parent, name, doc, isValid) {
+    extends ComplexParam[ParamSpace](parent, name, doc, isValid) with WrappableParam[ParamSpace] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
+
+  override def dotnetValue(v: ParamSpace): String = s"""${name}Param"""
+
+  override def dotnetParamInfo: String = "object"
 
 }

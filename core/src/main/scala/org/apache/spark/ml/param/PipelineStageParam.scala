@@ -11,8 +11,12 @@ import org.apache.spark.ml.PipelineStage
   */
 class PipelineStageParam(parent: Params, name: String, doc: String, isValid: PipelineStage => Boolean)
   extends ComplexParam[PipelineStage](parent, name, doc, isValid)
-    with PipelineStageWrappable[PipelineStage] {
+    with PipelineStageWrappable[PipelineStage] with WrappableParam[PipelineStage] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
+
+  override def dotnetValue(v: PipelineStage): String = s"""${name}Param"""
+
+  override def dotnetParamInfo: String = "ScalaPipelineStage"
 }

@@ -9,9 +9,14 @@ import com.microsoft.ml.spark.core.serialize.ComplexParam
   * types but not Array of ParamMaps.
   */
 class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Array[ParamMap] => Boolean)
-  extends ComplexParam[Array[ParamMap]](parent, name, doc, isValid) {
+  extends ComplexParam[Array[ParamMap]](parent, name, doc, isValid)
+    with WrappableParam[Array[ParamMap]] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
+
+  override def dotnetValue(v: Array[ParamMap]): String = s"""${name}Param"""
+
+  override def dotnetParamInfo: String = "ParamMap[]"
 
 }
