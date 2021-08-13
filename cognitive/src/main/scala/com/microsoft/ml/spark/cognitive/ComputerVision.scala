@@ -329,7 +329,7 @@ class RecognizeText(override val uid: String)
   override protected def responseDataType: DataType = RTResponse.schema
 }
 
-object Read extends ComplexParamsReadable[Read] {
+object ReadImage extends ComplexParamsReadable[ReadImage] {
   def flatten(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = ReadResponse.makeFromRowConverter
     new UDFTransformer()
@@ -344,14 +344,14 @@ object Read extends ComplexParamsReadable[Read] {
   }
 }
 
-class Read(override val uid: String)
+class ReadImage(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
 
-  def this() = this(Identifiable.randomUID("Read"))
+  def this() = this(Identifiable.randomUID("ReadImage"))
 
   val language = new ServiceParam[String](this, "language",
     "IThe BCP-47 language code of the text in the document. Currently," +
