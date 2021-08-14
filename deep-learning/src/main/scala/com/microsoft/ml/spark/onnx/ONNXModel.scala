@@ -31,6 +31,7 @@ import org.apache.spark.{SparkContext, TaskContext}
 import spray.json.DefaultJsonProtocol._
 
 import java.nio._
+import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
@@ -414,6 +415,10 @@ class ONNXModel(override val uid: String)
     }.flatten.get
   }
 
+  def modelInputJava: util.Map[String, NodeInfo] = {
+    collection.mutable.Map(modelInput.toSeq: _*).asJava
+  }
+
   def modelOutput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
@@ -421,6 +426,10 @@ class ONNXModel(override val uid: String)
           session => session.getOutputInfo.asScala.toMap
         }
     }.flatten.get
+  }
+
+  def modelOutputJava: util.Map[String, NodeInfo] = {
+    collection.mutable.Map(modelOutput.toSeq: _*).asJava
   }
 
   private var broadcastedModelPayload: Option[Broadcast[Array[Byte]]] = None
