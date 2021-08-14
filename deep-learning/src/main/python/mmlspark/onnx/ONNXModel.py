@@ -35,27 +35,6 @@ class ONNXModel(_ONNXModel):
         location (str): The location of the model, either on local or HDFS
     """
 
-    def _transfer_map_from_java(self, param):
-        """
-        Transforms the embedded com.microsoft.ml.spark.core.serialize.params from the companion Java object.
-        """
-        if self._java_obj.hasParam(param.name):
-            java_param = self._java_obj.getParam(param.name)
-            if self._java_obj.isSet(java_param):
-                java_map = self._java_obj.getOrDefault(java_param).toList()
-                pairs = [java_map.apply(i) for i in range(java_map.length())]
-                py_map = {p._1(): p._2() for p in pairs}
-                self._set(**{param.name: py_map})
-
-    def _transfer_map_to_java(self, param):
-        """
-        Transforms the embedded com.microsoft.ml.spark.core.serialize.params to the companion Java object.
-        """
-        value = self.extractParamMap()[param]
-        java_param = self._java_obj.getParam(param.name)
-        pair = java_param.w(value)
-        self._java_obj.set(pair)
-
     def setModelLocation(self, location):
         self._java_obj = self._java_obj.setModelLocation(location)
         return self
