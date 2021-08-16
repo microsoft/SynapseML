@@ -34,6 +34,7 @@ import java.nio._
 import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
 
@@ -263,20 +264,30 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
     }
   }
 
-  private def flattenNestedSeq[T: ClassTag](nestedSeq: Seq[_]): Seq[T] = {
-    nestedSeq.flatMap {
-      case x: T => Array(x)
-      case s: Seq[_] =>
-        flattenNestedSeq(s)
-    }
-  }
-
   private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Unit = {
     nestedSeq.foreach {
       case x: T => bufferWrite(x)
       case s: Seq[_] =>
         writeNestedSeqToBuffer(s, bufferWrite)
     }
+  }
+
+  private def writeNestedSeqToStringBuffer(nestedSeq: Seq[_], size: Int): ArrayBuffer[String] = {
+    var i = 0
+    val buffer = ArrayBuffer.fill[String](size)("")
+
+    def innerWrite(nestedSeq: Seq[_]): Unit = {
+      nestedSeq.foreach {
+        case x: String =>
+          buffer.update(i, x)
+          i = i + 1
+        case s: Seq[_] =>
+          innerWrite(s)
+      }
+    }
+
+    innerWrite(nestedSeq)
+    buffer
   }
 
   private[onnx] def selectGpuDevice(deviceType: Option[String]): Option[Int] = {
@@ -382,7 +393,7 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.STRING =>
-        val flattened = flattenNestedSeq[String](batchedValues).toArray
+        val flattened = writeNestedSeqToStringBuffer(batchedValues, size).toArray
         OnnxTensor.createTensor(env, flattened, shape)
       case other =>
         throw new NotImplementedError(s"Tensor input type $other not supported. " +
