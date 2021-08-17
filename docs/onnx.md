@@ -11,14 +11,6 @@ description: Learn how to use the ONNX model transformer to run inference for an
 
 MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
 
-## Setup and installation
-
-In addition to the mmlspark-core and mmlspark-deep-learning jars, the ONNX model transformer also depends on the ONNX runtime library.
-
-For CPU clusters, the maven coordinate is `com.microsoft.onnxruntime:onnxruntime:1.8.1` and for GPU clusters, the maven coordinate is `com.microsoft.onnxruntime:onnxruntime_gpu:1.8.1`.
-
-For GPU clusters, please refer to [this page](https://onnxruntime.ai/docs/reference/execution-providers/CUDA-ExecutionProvider.html#requirements) for additional GPU packages dependencies.
-
 ## Usage
 
 1. Create a `com.microsoft.ml.spark.onnx.ONNXModel` object and use `setModelLocation` or `setModelPayload` to load the ONNX model.
