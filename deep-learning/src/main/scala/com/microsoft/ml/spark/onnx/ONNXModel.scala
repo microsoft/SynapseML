@@ -31,8 +31,10 @@ import org.apache.spark.{SparkContext, TaskContext}
 import spray.json.DefaultJsonProtocol._
 
 import java.nio._
+import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
 
@@ -262,14 +264,30 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
     }
   }
 
-  private def flattenNested[T: ClassTag](nestedSeq: Seq[_]): Seq[T] = {
-    nestedSeq.flatMap {
-      case x: T => Array(x)
+  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Unit = {
+    nestedSeq.foreach {
+      case x: T => bufferWrite(x)
       case s: Seq[_] =>
-        flattenNested(s)
-      case a: Array[_] =>
-        flattenNested(a)
+        writeNestedSeqToBuffer(s, bufferWrite)
     }
+  }
+
+  private def writeNestedSeqToStringBuffer(nestedSeq: Seq[_], size: Int): ArrayBuffer[String] = {
+    var i = 0
+    val buffer = ArrayBuffer.fill[String](size)("")
+
+    def innerWrite(nestedSeq: Seq[_]): Unit = {
+      nestedSeq.foreach {
+        case x: String =>
+          buffer.update(i, x)
+          i = i + 1
+        case s: Seq[_] =>
+          innerWrite(s)
+      }
+    }
+
+    innerWrite(nestedSeq)
+    buffer
   }
 
   private[onnx] def selectGpuDevice(deviceType: Option[String]): Option[Int] = {
@@ -336,36 +354,47 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
     })
   }
 
-  private def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]) = {
-    val classTag = ClassTag(tensorInfo.`type`.clazz)
-    val flattened: Array[_] = flattenNested(batchedValues)(classTag).toArray
-
+  private def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]): OnnxTensor = {
     val shape: Array[Long] = tensorInfo.getShape
     // the first dimension of the shape can be -1 when multiple inputs are allowed. Setting it to the real
     // input size. Otherwise we cannot create the tensor from the 1D array buffer.
     shape(0) = batchedValues.length
+    val size = shape.product.toInt
 
     tensorInfo.`type` match {
       case OnnxJavaType.FLOAT =>
-        val buffer = FloatBuffer.wrap(flattened.map(_.asInstanceOf[Float]))
+        val buffer = FloatBuffer.allocate(size)
+        writeNestedSeqToBuffer[Float](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.DOUBLE =>
-        val buffer = DoubleBuffer.wrap(flattened.map(_.asInstanceOf[Double]))
+        val buffer = DoubleBuffer.allocate(size)
+        writeNestedSeqToBuffer[Double](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT8 =>
-        val buffer = ByteBuffer.wrap(flattened.map(_.asInstanceOf[Byte]))
+        val buffer = ByteBuffer.allocate(size)
+        writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT16 =>
-        val buffer = ShortBuffer.wrap(flattened.map(_.asInstanceOf[Short]))
+        val buffer = ShortBuffer.allocate(size)
+        writeNestedSeqToBuffer[Short](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT32 =>
-        val buffer = IntBuffer.wrap(flattened.map(_.asInstanceOf[Int]))
+        val buffer = IntBuffer.allocate(size)
+        writeNestedSeqToBuffer[Int](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT64 =>
-        val buffer = LongBuffer.wrap(flattened.map(_.asInstanceOf[Long]))
+        val buffer = LongBuffer.allocate(size)
+        writeNestedSeqToBuffer[Long](batchedValues, buffer.put(_))
+        buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.STRING =>
-        OnnxTensor.createTensor(env, flattened.map(_.asInstanceOf[String]), shape)
+        val flattened = writeNestedSeqToStringBuffer(batchedValues, size).toArray
+        OnnxTensor.createTensor(env, flattened, shape)
       case other =>
         throw new NotImplementedError(s"Tensor input type $other not supported. " +
           s"Only FLOAT, DOUBLE, INT8, INT16, INT32, INT64, STRING types are supported.")
@@ -414,6 +443,10 @@ class ONNXModel(override val uid: String)
     }.flatten.get
   }
 
+  def modelInputJava: util.Map[String, NodeInfo] = {
+    collection.mutable.Map(modelInput.toSeq: _*).asJava
+  }
+
   def modelOutput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
@@ -421,6 +454,10 @@ class ONNXModel(override val uid: String)
           session => session.getOutputInfo.asScala.toMap
         }
     }.flatten.get
+  }
+
+  def modelOutputJava: util.Map[String, NodeInfo] = {
+    collection.mutable.Map(modelOutput.toSeq: _*).asJava
   }
 
   private var broadcastedModelPayload: Option[Broadcast[Array[Byte]]] = None
