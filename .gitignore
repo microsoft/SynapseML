@@ -44,6 +44,7 @@ htmlcov
 # Files created by remark-link
 package-lock.json
 node_modules/
+.Rproj.user
 
 # Notebook Test Files
 /notebooks/*.py
