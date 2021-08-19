@@ -50,7 +50,9 @@ object DatabricksUtilities extends HasHttpClient {
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
-    Map("pypi" -> Map("package" -> "Pillow"))
+    Map("pypi" -> Map("package" -> "Pillow")),
+    Map("pypi" -> Map("package" -> "onnxmltools")),
+    Map("pypi" -> Map("package" -> "lightgbm"))
   ).toJson.compactPrint
 
   // Execution Params

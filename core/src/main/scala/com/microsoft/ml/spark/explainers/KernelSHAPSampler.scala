@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{sum, DenseVector => BDV}
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import org.apache.commons.math3.util.CombinatoricsUtils.{binomialCoefficientDouble => comb}
 import org.apache.spark.ml.linalg.Vector
 
