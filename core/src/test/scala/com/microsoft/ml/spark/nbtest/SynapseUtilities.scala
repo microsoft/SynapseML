@@ -52,8 +52,8 @@ object SynapseUtilities extends HasHttpClient {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
-  val StorageAccount: String = "mmlsparkbuildsynapse"
-  val StorageContainer: String = "build"
+  val StorageAccount: String = "mmlsparkeuap"
+  val StorageContainer: String = "synapse"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
@@ -246,19 +246,6 @@ object SynapseUtilities extends HasHttpClient {
       "org.scalatest:scalatest_2.12"
 
     val livyPayload: String =
-      s"""
-         |{
-         | "file" : "$path",
-         | "name" : "${path.split('/').last.replace(".py", "")}",
-         | "driverMemory" : "28g",
-         | "driverCores" : 4,
-         | "executorMemory" : "28g",
-         | "executorCores" : 4,
-         | "numExecutors" : 2
-         | }
-      """.stripMargin
-
-    val livyPayloadTODO: String =
       s"""
          |{
          | "file" : "$path",
