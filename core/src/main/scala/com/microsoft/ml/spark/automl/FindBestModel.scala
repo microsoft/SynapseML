@@ -9,7 +9,8 @@ import com.microsoft.ml.spark.core.metrics.MetricConstants
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.train.ComputeModelStatistics
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArray, TransformerArrayParam, TransformerParam}
+import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params,
+  TransformerArray, TransformerArrayParam, TransformerParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
