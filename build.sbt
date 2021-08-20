@@ -221,7 +221,7 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
-  .settings((settings ++ Seq(
+  .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.114"),
     resolvers += speechResolver,
     name := "mmlspark-lightgbm"
