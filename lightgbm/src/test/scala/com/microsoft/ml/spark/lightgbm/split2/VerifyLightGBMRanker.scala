@@ -5,10 +5,9 @@ package com.microsoft.ml.spark.lightgbm.split2
 
 import com.microsoft.ml.spark.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.CardinalityTypes._
 import com.microsoft.ml.spark.lightgbm.dataset.{DatasetUtils => CardinalityUtils}
 import com.microsoft.ml.spark.lightgbm.split1.LightGBMTestUtils
-import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils, TrainUtils}
+import com.microsoft.ml.spark.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vectors
@@ -77,10 +76,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
 
   test("Throws error when group column is not long, int or string") {
     val df = rankingDF.withColumn(queryCol, from_json(lit("{}"), StructType(Seq())))
-
-    // Throws SparkException instead of IllegalArgumentException because the type
-    // inspection is part of the spark job instead of before it
-    assertThrows[SparkException] {
+    assertThrows[IllegalArgumentException] {
       baseModel.fit(df).transform(df).collect()
     }
   }

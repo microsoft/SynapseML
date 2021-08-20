@@ -104,8 +104,8 @@ object ClusterUtil {
     }
   }
 
-  def getDriverHost(dataset: Dataset[_]): String = {
-    val blockManager = BlockManagerUtils.getBlockManager(dataset)
+  def getDriverHost(spark: SparkSession): String = {
+    val blockManager = BlockManagerUtils.getBlockManager(spark)
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") Some(getHostToIP(blockManagerId.host))
       else None
@@ -120,11 +120,11 @@ object ClusterUtil {
   }
 
   /** Returns a list of executor id and host.
-    * @param dataset The dataset containing the current spark session.
+    * @param spark The current spark session.
     * @return List of executors as an array of (id,host).
     */
-  def getExecutors(dataset: Dataset[_]): Array[(Int, String)] = {
-    val blockManager = BlockManagerUtils.getBlockManager(dataset)
+  def getExecutors(spark: SparkSession): Array[(Int, String)] = {
+    val blockManager = BlockManagerUtils.getBlockManager(spark)
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") None
       else Some((blockManagerId.executorId.toInt, getHostToIP(blockManagerId.host)))
@@ -142,35 +142,33 @@ object ClusterUtil {
     * @param numTasksPerExec The number of tasks per executor.
     * @return The number of executors * number of tasks.
     */
-  def getNumExecutorTasks(dataset: Dataset[_], numTasksPerExec: Int, log: Logger): Int = {
-    val executors = getExecutors(dataset)
+  def getNumExecutorTasks(spark: SparkSession, numTasksPerExec: Int, log: Logger): Int = {
+    val executors = getExecutors(spark)
     log.info(s"Retrieving executors...")
     if (!executors.isEmpty) {
       log.info(s"Retrieved num executors ${executors.length} with num tasks per executor $numTasksPerExec")
       executors.length * numTasksPerExec
     } else {
       log.info(s"Could not retrieve executors from blockmanager, trying to get from configuration...")
-      val master = dataset.sparkSession.sparkContext.master
+      val master = spark.sparkContext.master
+
+      //TODO make this less brittle
       val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
       master match {
-        case rx(null)  => {
+        case rx(null)  =>
           log.info(s"Retrieved local() = 1 executor by default")
           1
-        }
-        case rx("*")   => {
+        case rx("*")   =>
           log.info(s"Retrieved local(*) = ${Runtime.getRuntime.availableProcessors()} executors")
           Runtime.getRuntime.availableProcessors()
-        }
-        case rx(cores) => {
+        case rx(cores) =>
           log.info(s"Retrieved local(cores) = $cores executors")
           cores.toInt
-        }
-        case _         => {
-          val numExecutors = BlockManagerUtils.getBlockManager(dataset)
+        case _         =>
+          val numExecutors = BlockManagerUtils.getBlockManager(spark)
             .master.getMemoryStatus.size
           log.info(s"Using default case = $numExecutors executors")
           numExecutors
-        }
       }
     }
   }

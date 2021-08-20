@@ -10,18 +10,11 @@ import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.core.env.StreamUtilities._
 import com.microsoft.ml.spark.core.utils.FaultToleranceUtils
 import com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster
-import com.microsoft.ml.spark.lightgbm.dataset.{DatasetUtils, LightGBMDataset}
+import com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset
 import com.microsoft.ml.spark.lightgbm.params.{ClassifierTrainParams, TrainParams}
 import org.apache.spark.{BarrierTaskContext, TaskContext}
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.attribute._
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
-
-import scala.collection.mutable.ListBuffer
 
 case class NetworkParams(defaultListenPort: Int, addr: String, port: Int, barrierExecutionMode: Boolean)
 case class ColumnParams(labelColumn: String, featuresColumn: String, weightColumn: Option[String],
@@ -198,7 +191,7 @@ private object TrainUtils extends Serializable {
   }
 
   private def findOpenPort(defaultListenPort: Int, numTasksPerExec: Int, log: Logger): Socket = {
-    val basePort = defaultListenPort + (LightGBMUtils.getWorkerId() * numTasksPerExec)
+    val basePort = defaultListenPort + (LightGBMUtils.getWorkerId * numTasksPerExec)
     if (basePort > LightGBMConstants.MaxPort) {
       throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
     }

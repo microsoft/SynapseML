@@ -3,7 +3,6 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.net.URI
 import com.microsoft.ml.spark.codegen.Wrappable
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
@@ -22,8 +21,10 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
 
+import java.net.URI
 import scala.collection.JavaConverters._
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -204,7 +205,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
   protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
     new CustomInputParser().setNullableUDF(inputFunc(schema))
   }
-
 }
 
 trait HasInternalJsonOutputParser {
@@ -214,11 +214,35 @@ trait HasInternalJsonOutputParser {
   protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new JSONOutputParser().setDataType(responseDataType)
   }
-
 }
 
-trait HasSetLocation extends Wrappable {
-  override def pyAdditionalMethods: String = {
+trait HasUrlPath {
+  def urlPath: String
+}
+
+trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey with HasUrlPath {
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def setLinkedService(self, value):
+      |    self._java_obj = self._java_obj.setLinkedService(value)
+      |    return self
+      |""".stripMargin
+  }
+
+  def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setUrl(endpoint + urlPath)
+    setSubscriptionKey(key)
+  }
+}
+
+trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setLocation(self, value):
       |    self._java_obj = self._java_obj.setLocation(value)
@@ -226,7 +250,9 @@ trait HasSetLocation extends Wrappable {
       |""".stripMargin
   }
 
-  def setLocation(v: String): this.type
+  def setLocation(v: String): this.type = {
+    setUrl(s"https://$v.api.cognitive.microsoft.com/" + urlPath)
+  }
 }
 
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer

@@ -1,6 +1,5 @@
 import java.io.{File, PrintWriter}
 import java.net.URL
-
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 
@@ -40,7 +39,7 @@ val dependencies = coreDependencies ++ extraDependencies
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
-val omittedDeps = Set(s"spark-core_${scalaMajorVersion}", s"spark-mllib_${scalaMajorVersion}", "org.scala-lang")
+val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajorVersion", "org.scala-lang")
 // skip dependency elements with a scope
 
 def pomPostFunc(node: XmlNode): scala.xml.Node = {
@@ -66,7 +65,7 @@ pomPostProcess := pomPostFunc
 val speechResolver = "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2020-08-27.tgz"
+val datasetName = "datasets-2021-07-27.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -118,6 +117,7 @@ generatePythonDoc := {
   val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
   val codegenDir = join(targetDir, "generated")
   val dir = join(codegenDir, "src", "python", "mmlspark")
+  join(dir, "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
@@ -194,7 +194,7 @@ ThisBuild / publishMavenStyle := true
 
 lazy val core = (project in file("core"))
   .enablePlugins(BuildInfoPlugin && SbtPlugin)
-  .settings((settings ++ Seq(
+  .settings(settings ++ Seq(
     libraryDependencies ++= dependencies,
     buildInfoKeys ++= Seq[BuildInfoKey](
       datasetDir,
@@ -205,15 +205,18 @@ lazy val core = (project in file("core"))
     ),
     name := "mmlspark-core",
     buildInfoPackage := "com.microsoft.ml.spark.build",
-  )): _*)
+  ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
   .enablePlugins(SbtPlugin)
-  .dependsOn(core % "test->test;compile->compile")
-  .settings((settings ++ Seq(
-    libraryDependencies += ("com.microsoft.cntk" % "cntk" % "2.4"),
+  .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
+  .settings(settings ++ Seq(
+    libraryDependencies ++= Seq(
+      "com.microsoft.cntk" % "cntk" % "2.4",
+      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
+    ),
     name := "mmlspark-deep-learning",
-  )): _*)
+  ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
   .enablePlugins(SbtPlugin)
@@ -222,32 +225,32 @@ lazy val lightgbm = (project in file("lightgbm"))
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.114"),
     resolvers += speechResolver,
     name := "mmlspark-lightgbm"
-  )): _*)
+  ): _*)
 
 lazy val vw = (project in file("vw"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
-  .settings((settings ++ Seq(
+  .settings(settings ++ Seq(
     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
     name := "mmlspark-vw"
-  )): _*)
+  ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
-  .settings((settings ++ Seq(
+  .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
     resolvers += speechResolver,
     name := "mmlspark-cognitive"
-  )): _*)
+  ): _*)
 
 lazy val opencv = (project in file("opencv"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
-  .settings((settings ++ Seq(
+  .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
     name := "mmlspark-opencv"
-  )): _*)
+  ): _*)
 
 lazy val root = (project in file("."))
   .aggregate(core, deepLearning, cognitive, vw, lightgbm, opencv)
@@ -296,7 +299,7 @@ pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
 pgpSecretRing := {
   val temp = File.createTempFile("secret", ".asc")
   new PrintWriter(temp) {
-    write(Secrets.pgpPrivate);
+    write(Secrets.pgpPrivate)
     close()
   }
   temp
@@ -304,7 +307,7 @@ pgpSecretRing := {
 pgpPublicRing := {
   val temp = File.createTempFile("public", ".asc")
   new PrintWriter(temp) {
-    write(Secrets.pgpPublic);
+    write(Secrets.pgpPublic)
     close()
   }
   temp

@@ -3,31 +3,28 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.net.URI
-import java.util.concurrent.TimeoutException
 import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.ml.spark.io.http.HandlingUtils._
 import com.microsoft.ml.spark.io.http._
+import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
-import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, StringEntity}
+import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import org.apache.http.entity.ContentType
-import org.apache.spark.ml.ComplexParamsReadable
-import com.microsoft.ml.spark.io.http.HandlingUtils._
-import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.spark.injections.UDFUtils
 
-import scala.concurrent.blocking
+import java.net.URI
+import java.util.concurrent.TimeoutException
 import scala.collection.JavaConverters._
+import scala.concurrent.blocking
 import scala.language.existentials
 
 trait HasImageUrl extends HasServiceParams {
@@ -185,13 +182,13 @@ object OCR extends ComplexParamsReadable[OCR] with Serializable {
 
 class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageInput with HasDetectOrientation
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+  with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("OCR"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/ocr")
+  def urlPath: String = "/vision/v2.0/ocr"
 
   override def responseDataType: DataType = OCRResponse.schema
 }
@@ -211,42 +208,11 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
   }
 }
 
+trait BasicAsyncReply extends HasAsyncReply {
 
-trait HasAsyncReply extends Params {
-  val backoffs: IntArrayParam = new IntArrayParam(
-    this, "backoffs", "array of backoffs to use in the handler")
-
-  /** @group getParam */
-  def getBackoffs: Array[Int] = $(backoffs)
-
-  /** @group setParam */
-  def setBackoffs(value: Array[Int]): this.type = set(backoffs, value)
-
-  val maxPollingRetries: IntParam = new IntParam(
-    this, "maxPollingRetries", "number of times to poll")
-
-  /** @group getParam */
-  def getMaxPollingRetries: Int = $(maxPollingRetries)
-
-  /** @group setParam */
-  def setMaxPollingRetries(value: Int): this.type = set(maxPollingRetries, value)
-
-  val pollingDelay: IntParam = new IntParam(
-    this, "pollingDelay", "number of milliseconds to wait between polling")
-
-  /** @group getParam */
-  def getPollingDelay: Int = $(pollingDelay)
-
-  /** @group setParam */
-  def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
-
-  //scalastyle:off magic.number
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
-  //scalastyle:on magic.number
-
-  private def queryForResult(key: Option[String],
-                             client: CloseableHttpClient,
-                             location: URI): Option[HTTPResponseData] = {
+  protected def queryForResult(key: Option[String],
+                               client: CloseableHttpClient,
+                               location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -287,15 +253,56 @@ trait HasAsyncReply extends Params {
       response
     }
   }
+}
+
+
+trait HasAsyncReply extends Params {
+  val backoffs: IntArrayParam = new IntArrayParam(
+    this, "backoffs", "array of backoffs to use in the handler")
+
+  /** @group getParam */
+  def getBackoffs: Array[Int] = $(backoffs)
+
+  /** @group setParam */
+  def setBackoffs(value: Array[Int]): this.type = set(backoffs, value)
+
+  val maxPollingRetries: IntParam = new IntParam(
+    this, "maxPollingRetries", "number of times to poll")
+
+  /** @group getParam */
+  def getMaxPollingRetries: Int = $(maxPollingRetries)
+
+  /** @group setParam */
+  def setMaxPollingRetries(value: Int): this.type = set(maxPollingRetries, value)
+
+  val pollingDelay: IntParam = new IntParam(
+    this, "pollingDelay", "number of milliseconds to wait between polling")
+
+  /** @group getParam */
+  def getPollingDelay: Int = $(pollingDelay)
+
+  /** @group setParam */
+  def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
+
+  //scalastyle:off magic.number
+  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
+  //scalastyle:on magic.number
+
+  protected def queryForResult(key: Option[String],
+                               client: CloseableHttpClient,
+                               location: URI): Option[HTTPResponseData]
+
+  protected def handlingFunc(client: CloseableHttpClient,
+                             request: HTTPRequestData): HTTPResponseData
 
 }
 
 
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
-    with HasAsyncReply
+    with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
@@ -317,13 +324,12 @@ class RecognizeText(override val uid: String)
 
   def setModeCol(v: String): this.type = setVectorParam(mode, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/recognizeText")
+  def urlPath: String = "/vision/v2.0/recognizeText"
 
   override protected def responseDataType: DataType = RTResponse.schema
 }
 
-object Read extends ComplexParamsReadable[Read] {
+object ReadImage extends ComplexParamsReadable[ReadImage] {
   def flatten(inputCol: String, outputCol: String): UDFTransformer = {
     val fromRow = ReadResponse.makeFromRowConverter
     new UDFTransformer()
@@ -338,14 +344,14 @@ object Read extends ComplexParamsReadable[Read] {
   }
 }
 
-class Read(override val uid: String)
+class ReadImage(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
-    with HasAsyncReply
+    with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
 
-  def this() = this(Identifiable.randomUID("Read"))
+  def this() = this(Identifiable.randomUID("ReadImage"))
 
   val language = new ServiceParam[String](this, "language",
     "IThe BCP-47 language code of the text in the document. Currently," +
@@ -363,8 +369,7 @@ class Read(override val uid: String)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v3.1/read/analyze")
+  def urlPath: String = "/vision/v3.1/read/analyze"
 
   override protected def responseDataType: DataType = ReadResponse.schema
 }
@@ -375,7 +380,8 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
@@ -386,16 +392,15 @@ class GenerateThumbnails(override val uid: String)
 
   override def responseDataType: DataType = BinaryType
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/generateThumbnail")
-
+  def urlPath: String = "/vision/v2.0/generateThumbnail"
 }
 
 object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
 
 class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging {
+    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   val visualFeatures = new ServiceParam[Seq[String]](
@@ -455,9 +460,7 @@ class AnalyzeImage(override val uid: String)
 
   override def responseDataType: DataType = AIResponse.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/analyze")
-
+  def urlPath: String = "/vision/v2.0/analyze"
 }
 
 object RecognizeDomainSpecificContent
@@ -484,7 +487,7 @@ object RecognizeDomainSpecificContent
 class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasServiceParams with HasCognitiveServiceInput
-    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasInternalJsonOutputParser with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
@@ -498,8 +501,7 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   override def responseDataType: DataType = DSIRResponse.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0")
+  def urlPath: String = "/vision/v2.0"
 
   override protected def prepareUrl: Row => String = { r => getUrl + s"/models/${getValue(r, model)}/analyze" }
 
@@ -509,13 +511,13 @@ object TagImage extends ComplexParamsReadable[TagImage]
 
 class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/tag")
+  def urlPath: String = "/vision/v2.0/tag"
 
   override def responseDataType: DataType = TagImagesResponse.schema
 
@@ -537,15 +539,15 @@ object DescribeImage extends ComplexParamsReadable[DescribeImage]
 
 class DescribeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
-    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging {
+    with HasImageInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 
   override def responseDataType: DataType = DescribeImageResponse.schema
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/vision/v2.0/describe")
+  def urlPath: String = "/vision/v2.0/describe"
 
   val maxCandidates = new ServiceParam[Int](this, "maxCandidates", "Maximum candidate descriptions to return",
     isURLParam = true

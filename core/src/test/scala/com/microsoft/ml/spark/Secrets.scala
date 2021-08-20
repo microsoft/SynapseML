@@ -10,7 +10,7 @@ import spray.json._
 import DefaultJsonProtocol._
 
 object Secrets {
-  private val KvName = "mmlspark-keys"
+  private val KvName = "mmlspark-build-keys"
   private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
@@ -48,7 +48,10 @@ object Secrets {
   lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingSearchKey: String = getSecret("bing-search-key")
+  lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
+  lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
+  lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
 
 }

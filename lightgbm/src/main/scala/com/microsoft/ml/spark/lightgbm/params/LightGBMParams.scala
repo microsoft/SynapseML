@@ -52,11 +52,19 @@ trait LightGBMExecutionParams extends Wrappable {
   def setTimeout(value: Double): this.type = set(timeout, value)
 
   val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
-    "Use new barrier execution mode in Beta testing, off by default.")
+    "Barrier execution mode which uses a barrier stage, off by default.")
   setDefault(useBarrierExecutionMode -> false)
 
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
+
+  val useSingleDatasetMode = new BooleanParam(this, "useSingleDatasetMode",
+    "Use single dataset execution mode to create a single native dataset per executor (singleton) " +
+      "to reduce memory and communication overhead. Note this is disabled when running spark in local mode.")
+  setDefault(useSingleDatasetMode -> false)
+
+  def getUseSingleDatasetMode: Boolean = $(useSingleDatasetMode)
+  def setUseSingleDatasetMode(value: Boolean): this.type = set(useSingleDatasetMode, value)
 
   val numBatches = new IntParam(this, "numBatches",
     "If greater than 0, splits data into separate batches during training")

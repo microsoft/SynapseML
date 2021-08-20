@@ -3,27 +3,26 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import com.microsoft.ml.spark.cognitive._
-import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
-import org.apache.spark.ml.param.{Param, ServiceParam}
-import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.types._
-import AnomalyDetectorProtocol._
+import com.microsoft.ml.spark.cognitive.AnomalyDetectorProtocol._
 import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import com.microsoft.ml.spark.io.http.ErrorUtils
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.sql.functions.{arrays_zip, col, collect_list, explode, size, struct, udf}
-import spray.json._
+import org.apache.spark.ml.param.{Param, ServiceParam}
+import org.apache.spark.ml.util._
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.language.existentials
 
 abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with HasSetLinkedService {
 
   val granularity = new ServiceParam[String](this, "granularity",
     """
@@ -113,7 +112,6 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, period)
     ).toJson.compactPrint))
   }
-
 }
 
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
@@ -127,8 +125,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/last/detect")
+  def urlPath: String = "/anomalydetector/v1.0/timeseries/last/detect"
 
   override def responseDataType: DataType = ADLastResponse.schema
 
@@ -145,8 +142,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
+  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
@@ -242,8 +238,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   }
 
-  def setLocation(v: String): this.type =
-    setUrl(s"https://$v.api.cognitive.microsoft.com/anomalydetector/v1.0/timeseries/entire/detect")
+  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 

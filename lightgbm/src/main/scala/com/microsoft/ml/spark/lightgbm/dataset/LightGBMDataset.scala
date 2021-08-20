@@ -6,6 +6,7 @@ package com.microsoft.ml.spark.lightgbm.dataset
 import com.microsoft.lightgbm.SwigPtrWrapper
 import com.microsoft.ml.lightgbm._
 import com.microsoft.ml.spark.lightgbm.LightGBMUtils
+import com.microsoft.ml.spark.lightgbm.dataset.DatasetUtils.countCardinality
 
 import scala.reflect.ClassTag
 
@@ -165,6 +166,13 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
       // Free column
       colArray.foreach(lightgbmlib.delete_intArray)
     }
+  }
+
+  def addGroupColumn[T](rows: Array[T]): Unit = {
+    // Convert to distinct count (note ranker should have sorted within partition by group id)
+    // We use a triplet of a list of cardinalities, last unique value and unique value count
+    val groupCardinality = countCardinality(rows)
+    addIntField(groupCardinality, "group", groupCardinality.length)
   }
 
   def setFeatureNames(featureNamesOpt: Option[Array[String]], numCols: Int): Unit = {

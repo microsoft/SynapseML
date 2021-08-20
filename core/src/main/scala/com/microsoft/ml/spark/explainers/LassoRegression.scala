@@ -2,7 +2,7 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.ml.spark.explainers
-import breeze.linalg.{norm, sum, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{isClose, sum, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.numerics.abs
 
 import scala.annotation.tailrec
@@ -26,18 +26,25 @@ private[spark] case class CoordinateDescentLasso(alpha: Double, maxIterations: I
     (0 until currBeta.length) foreach {
       j =>
         newBeta(j) = 0d
-        val r = y - (x * newBeta)
         val xj = x(::, j)
-        val arg1 = xj dot r
-        val arg2 = this.alpha * x.rows
-        newBeta(j) = softThresholdingOp(arg1, arg2) / (xj dot xj)
+        val squaredLength = xj dot xj
+        newBeta(j) = if (squaredLength == 0d) {
+          // Since x_j is centered, zero squared magnitude indicates that x_j has single value.
+          // Setting the coefficient to zero in this case.
+          0d
+        } else {
+          val r = y - (x * newBeta)
+          val arg1 = xj dot r
+          val arg2 = this.alpha * x.rows
+          softThresholdingOp(arg1, arg2) / squaredLength
+        }
     }
 
     newBeta
   }
 
   private def converged(tol: Double)(oldBeta: BDV[Double], newBeta: BDV[Double]): Boolean = {
-    norm((oldBeta - newBeta) / oldBeta) < tol
+    isClose(oldBeta, newBeta, tol)
   }
 
   @tailrec
