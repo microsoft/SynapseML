@@ -46,6 +46,8 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   /** @group setParam */
   def setEstimatorParamMaps(value: Array[ParamMap]): this.type = set(estimatorParamMaps, value)
 
+  def setEstimatorParamMaps(value: ArrayParamMap): this.type = set(estimatorParamMaps, value.getParamMaps)
+
   /** @group setParam */
   def setEvaluator(value: Evaluator): this.type = set(evaluator, value)
 

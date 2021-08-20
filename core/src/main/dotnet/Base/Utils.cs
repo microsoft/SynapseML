@@ -27,7 +27,7 @@ namespace MMLSpark.Dotnet.Utils
 
     }
 
-    public class ScalaMLWriter: MLWriter, IJvmObjectReferenceProvider
+    public class ScalaMLWriter : MLWriter, IJvmObjectReferenceProvider
     {
         public ScalaMLWriter(JvmObjectReference jvmObject) => Reference = jvmObject;
 
@@ -78,7 +78,8 @@ namespace MMLSpark.Dotnet.Utils
 
         public JvmObjectReference Reference { get; private set; }
 
-        public T Load(string path){
+        public T Load(string path)
+        {
             return WrapAsType((JvmObjectReference)Reference.Invoke("load", path));
         }
 
@@ -99,7 +100,7 @@ namespace MMLSpark.Dotnet.Utils
                         (parameters[0].ParameterType == typeof(JvmObjectReference));
                 });
 
-            return (T)constructor.Invoke(new object[] {reference});
+            return (T)constructor.Invoke(new object[] { reference });
         }
     }
 
@@ -110,6 +111,22 @@ namespace MMLSpark.Dotnet.Utils
 
         /// <summary>Reads an ML instance from the input path</summary>
         T Load(string path) => Read().Load(path);
+    }
+
+    public class Helper
+    {
+        public static (string, string) GetUnderlyingType(JvmObjectReference jvmObject)
+        {
+            JvmObjectReference jvmClass = (JvmObjectReference)jvmObject.Invoke("getClass");
+            string returnClass = (string)jvmClass.Invoke("getTypeName");
+            var dotnetClass = returnClass.Replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+                .Replace("org.apache.spark.ml", "Microsoft.Spark.ML")
+                .Split(".".ToCharArray());
+            var renameClass = dotnetClass.Select(x => new string(char.ToUpper(x[0]) + x.Substring(1))).ToArray();
+            string constructorClass = string.Join(".", renameClass);
+            string methodName = "WrapAs" + dotnetClass[dotnetClass.Length - 1];
+            return (constructorClass, methodName);
+        }
     }
 
 }

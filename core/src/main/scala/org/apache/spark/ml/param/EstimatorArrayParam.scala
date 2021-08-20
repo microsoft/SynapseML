@@ -21,6 +21,17 @@ class EstimatorArrayParam(parent: Params, name: String, doc: String, isValid: Ar
 
   override def dotnetValue(v: Array[Estimator[_]]): String = s"""${name}Param"""
 
-  override def dotnetParamInfo: String = "ScalaEstimator<M>[]"
+  override def dotnetParamInfo: String = "EstimatorArray"
+
+}
+
+class EstimatorArray {
+
+  private var estimators: Array[Estimator[_]] = Array()
+
+  def addEstimator(value: Estimator[_]): Unit =
+    this.estimators = this.estimators :+ value
+
+  def getEstimators: Array[Estimator[_]] = this.estimators
 
 }

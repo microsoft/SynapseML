@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Spark.Interop;
@@ -10,6 +11,30 @@ using MMLSpark.Dotnet.Wrapper;
 
 namespace Microsoft.Spark.ML.Feature.Param
 {
+
+    // <summary>
+    /// A param and its value.
+    /// </summary>
+    public sealed class ParamPair<T> : IJvmObjectReferenceProvider
+    {
+        private static readonly string s_ParamPairClassName = "org.apache.spark.ml.param.ParamPair";
+
+        /// <summary>
+        /// Creates a new instance of a <see cref="ParamPair"/>
+        /// </summary>
+        public ParamPair(Param param, T value)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_ParamPairClassName, param, value))
+        {
+        }
+
+        internal ParamPair(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+        }
+
+        public JvmObjectReference Reference { get; private set; }
+    }
+
     // <summary>
     /// Param for Estimator.  Needed as spark has explicit 
     /// com.microsoft.ml.spark.core.serialize.params for many different types but not Estimator.
@@ -25,29 +50,31 @@ namespace Microsoft.Spark.ML.Feature.Param
         {
         }
 
-        internal ParamMap(JvmObjectReference jvmObject)
+        public ParamMap(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
         }
 
         public JvmObjectReference Reference { get; private set; }
 
-        public T Put<T>(Param param, object value) => 
-            WrapAsType<T>((JvmObjectReference)Reference.Invoke("put", param, value));
+        public ParamMap Put(Param param, object value) =>
+            WrapAsParamMap((JvmObjectReference)Reference.Invoke("put", param, value));
 
-        protected static T WrapAsType<T>(JvmObjectReference reference)
-        {
-            ConstructorInfo constructor = typeof(T)
-                .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Single(c =>
-                {
-                    ParameterInfo[] parameters = c.GetParameters();
-                    return (parameters.Length == 1) &&
-                        (parameters[0].ParameterType == typeof(JvmObjectReference));
-                });
+        public override string ToString() =>
+            (string)Reference.Invoke("toString");
 
-            return (T)constructor.Invoke(new object[] { reference });
-        }
+
+        private static ParamMap WrapAsParamMap(object obj) =>
+            new ParamMap((JvmObjectReference)obj);
 
     }
+
+    // <summary>
+    /// Represents the parameter values.
+    /// </summary>
+    public abstract class ParamSpace
+    {
+        public abstract IEnumerable<ParamMap> ParamMaps();
+    }
+
 }

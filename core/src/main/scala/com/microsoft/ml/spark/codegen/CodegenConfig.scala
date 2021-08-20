@@ -15,6 +15,7 @@ case class CodegenConfig(name: String,
                          version: String,
                          pythonizedVersion: String,
                          rVersion: String,
+                         dotnetVersion: String,
                          packageName: String) {
   def generatedDir: File = new File(targetDir, "generated")
   def packageDir: File = new File(generatedDir, "package")
@@ -91,5 +92,5 @@ case class CodegenConfig(name: String,
 }
 
 object CodegenConfigProtocol extends DefaultJsonProtocol  {
-  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
+  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
 }

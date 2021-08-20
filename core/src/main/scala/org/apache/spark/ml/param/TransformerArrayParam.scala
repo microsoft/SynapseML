@@ -21,6 +21,17 @@ class TransformerArrayParam(parent: Params, name: String, doc: String, isValid: 
 
   override def dotnetValue(v: Array[Transformer]): String = s"""${name}Param"""
 
-  override def dotnetParamInfo: String = "ScalaTransformer[]"
+  override def dotnetParamInfo: String = "TransformerArray"
+
+}
+
+class TransformerArray {
+
+  private var transformers: Array[Transformer] = Array()
+
+  def addTransformer(value: Transformer): Unit =
+    this.transformers = this.transformers :+ value
+
+  def getTransformers: Array[Transformer] = this.transformers
 
 }

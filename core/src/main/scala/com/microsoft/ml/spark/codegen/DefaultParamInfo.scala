@@ -41,8 +41,8 @@ trait DefaultParamInfo extends StageParam {
   val stringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")
   val stringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
   val arrayMapInfo = new ParamInfo[ArrayMapParam]("object", "Dictionary<string, object>[]")
-  val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "List<int>")
-  val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "List<double>")
+  val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "int[]")
+  val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "double[]")
   val untypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
 
   val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")

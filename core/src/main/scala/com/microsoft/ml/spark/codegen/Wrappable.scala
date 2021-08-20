@@ -52,7 +52,9 @@ trait DotnetWrappable extends BaseWrappable {
         |""".stripMargin
 
   protected lazy val dotnetNamespace: String =
-    thisStage.getClass.getName.replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+    thisStage.getClass.getName
+      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).dropRight(1).mkString(".")
 
   protected lazy val dotnetInternalWrapper = false
@@ -137,7 +139,13 @@ trait DotnetWrappable extends BaseWrappable {
             |public $dotnetClassName Set${capName}Col(string value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
             |""".stripMargin
-      case _: EstimatorParam | _: EstimatorArrayParam | _: ModelParam =>
+      case _: DataTypeParam =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
+            |    DataType.FromJson(Reference.Jvm, value.Json)));
+            |""".stripMargin
+      case _: EstimatorParam | _: ModelParam =>
         s"""|$docString
             |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : ScalaModel<M> =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
@@ -165,26 +173,95 @@ trait DotnetWrappable extends BaseWrappable {
   protected def dotnetParamSetters: String =
     thisStage.params.map(dotnetParamSetter).mkString("\n")
 
+  //noinspection ScalaStyle
   protected def dotnetParamGetter(p: Param[_]): String = {
     val capName = p.name.capitalize
     val docString =
-    s"""|/// <summary>
-        |/// Gets ${p.name} value for <see cref=\"${p.name}\"/>
-        |/// </summary>
-        |/// <returns>
-        |/// ${p.name}: ${p.doc}
-        |/// </returns>""".stripMargin
+      s"""|/// <summary>
+          |/// Gets ${p.name} value for <see cref=\"${p.name}\"/>
+          |/// </summary>
+          |/// <returns>
+          |/// ${p.name}: ${p.doc}
+          |/// </returns>""".stripMargin
     p match {
-      case _: ComplexParam[_] =>
-        s"""
-           |$docString
-           |public object Get$capName() => Reference.Invoke(\"get$capName\");
-           |""".stripMargin
       case sp: ServiceParam[_] =>
         s"""
            |$docString
            |public ${getServiceParamInfo(sp).dotnetType} Get$capName() =>
            |    (${getServiceParamInfo(sp).dotnetType})Reference.Invoke(\"get$capName\");
+           |""".stripMargin
+      case _: DataTypeParam =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName()
+           |{
+           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+           |    string json = (string)jvmObject.Invoke(\"json\");
+           |    return DataType.ParseDataType(json);
+           |}
+           |""".stripMargin
+      case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName()
+           |{
+           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+           |    return (${getParamInfo(p).dotnetType})jvmObject.Invoke(\"array\");
+           |}
+           |""".stripMargin
+      case _: EstimatorParam | _: ModelParam =>
+        s"""
+           |$docString
+           |public object Get$capName()
+           |{
+           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+           |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
+           |    Type type = Type.GetType(constructorClass);
+           |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+           |    return method.Invoke(null, new object[] {jvmObject});
+           |}
+           |""".stripMargin
+      case _: ArrayParamMapParam =>
+        s"""
+           |$docString
+           |public ParamMap[] Get$capName()
+           |{
+           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+           |    ParamMap[] result = new ParamMap[jvmObjects.Length];
+           |    for (int i=0; i < jvmObjects.Length; i++)
+           |    {
+           |        result[i] = new ParamMap(jvmObjects[i]);
+           |    }
+           |    return result;
+           |}
+           |""".stripMargin
+      case _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam | _: DataFrameParam =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName() =>
+           |    new ${getParamInfo(p).dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
+           |""".stripMargin
+      case _: TransformerArrayParam | _: EstimatorArrayParam =>
+        s"""
+           |$docString
+           |public object[] Get$capName()
+           |{
+           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
+           |    object[] result = new object[jvmObjects.Length];
+           |    for (int i=0; i < jvmObjects.Length; i++)
+           |    {
+           |        var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
+           |        Type type = Type.GetType(constructorClass);
+           |        MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+           |        result[i] = method.Invoke(null, new object[] {jvmObjects[i]});
+           |    }
+           |    return result;
+           |}
+           |""".stripMargin
+      case _: ComplexParam[_] =>
+        s"""
+           |$docString
+           |public object Get$capName() => Reference.Invoke(\"get$capName\");
            |""".stripMargin
       case _ =>
         s"""
@@ -237,6 +314,8 @@ trait DotnetWrappable extends BaseWrappable {
         |
         |using System;
         |using System.Collections.Generic;
+        |using System.Linq;
+        |using System.Reflection;
         |using Microsoft.Spark.Interop;
         |using Microsoft.Spark.Interop.Ipc;
         |using Microsoft.Spark.Sql;

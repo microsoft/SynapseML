@@ -51,6 +51,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   /** @group setParam */
   def setModels(value: Array[Estimator[_]]): this.type = set(models, value)
 
+  def setModels(value: EstimatorArray): this.type = set(models, value.getEstimators)
+
   val numFolds = new IntParam(this, "numFolds", "Number of folds")
 
   /** @group getParam */

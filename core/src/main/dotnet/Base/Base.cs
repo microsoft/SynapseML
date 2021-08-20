@@ -167,9 +167,9 @@ namespace MMLSpark.Dotnet.Wrapper
     }
 
     /// <summary>
-    /// <see cref="ScalaTransformer"/> Abstract class for transformers that transform one dataset into another.
+    /// <see cref="ScalaTransformer"/> Class for transformers that transform one dataset into another.
     /// </summary>
-    public abstract class ScalaTransformer : ScalaPipelineStage
+    public class ScalaTransformer : ScalaPipelineStage
     {
 
         public ScalaTransformer(string className) : base(className)
@@ -197,9 +197,9 @@ namespace MMLSpark.Dotnet.Wrapper
     }
 
     /// <summary>
-    /// <see cref="ScalaEstimator"/> Abstract class for estimators that fit models to data.
+    /// <see cref="ScalaEstimator"/> Class for estimators that fit models to data.
     /// </summary>
-    public abstract class ScalaEstimator<M> : ScalaPipelineStage where M : ScalaModel<M>
+    public class ScalaEstimator<M> : ScalaPipelineStage where M : ScalaModel<M>
     {
 
         public ScalaEstimator(string className) : base(className)
@@ -214,14 +214,15 @@ namespace MMLSpark.Dotnet.Wrapper
         {
         }
 
-        public abstract M Fit(DataFrame dataset);
+        public virtual M Fit(DataFrame dataset) =>
+            WrapAsType<M>((JvmObjectReference)Reference.Invoke("fit", dataset));
 
     }
 
     /// <summary>
-    /// <see cref="ScalaModel"/> Abstract class for models that are fitted by estimators.
+    /// <see cref="ScalaModel"/> Class for models that are fitted by estimators.
     /// </summary>
-    public abstract class ScalaModel<M> : ScalaTransformer where M : ScalaModel<M>
+    public class ScalaModel<M> : ScalaTransformer where M : ScalaModel<M>
     {
         public ScalaModel(string className) : base(className)
         {
@@ -238,9 +239,9 @@ namespace MMLSpark.Dotnet.Wrapper
     }
 
     /// <summary>
-    /// <see cref="ScalaEvaluator"/> Abstract class for evaluators that compute metrics from predictions.
+    /// <see cref="ScalaEvaluator"/> Class for evaluators that compute metrics from predictions.
     /// </summary>
-    public abstract class ScalaEvaluator : Params
+    public class ScalaEvaluator : Params
     {
 
         public ScalaEvaluator(string className) : base(className)
