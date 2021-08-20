@@ -51,5 +51,7 @@ object Secrets {
   lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
+  lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
+  lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
 
 }
