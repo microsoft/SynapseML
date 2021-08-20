@@ -1,4 +1,4 @@
-FROM openjdk:8-jdk-slim-buster
+FROM openjdk:17-ea-22-jdk-oracle
 LABEL maintainer="Dalitso Banda dalitsohb@gmail.com"
 
 # Get Spark from US Apache mirror.
