@@ -3,9 +3,14 @@
 
 package com.microsoft.ml.spark.explainers
 
+import com.microsoft.ml.spark.core.utils.SlicerFunctions
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{array, col}
+import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.types._
 
 trait CanValidateSchema {
@@ -149,4 +154,37 @@ trait HasExplainTarget extends Params with CanValidateSchema {
   }
 
   setDefault(targetClasses -> Array.empty[Int])
+
+  /**
+    * This function supports a variety of target column types:
+    * - NumericType: in the case of a regression model
+    * - VectorType: in the case of a typical Spark ML classification model with probability output
+    * - ArrayType(NumericType): in the case where the output was converted to an array of numeric types.
+    * - MapType(IntegerType, NumericType): this is to support ZipMap type of output for sklearn models via ONNX runtime.
+    */
+
+  private[explainers] def extractTarget(schema: StructType, targetClassesCol: String): Column = {
+    val toVector = UDFUtils.oldUdf(
+      (values: Seq[Double]) => Vectors.dense(values.toArray),
+      VectorType
+    )
+
+    val target = schema(getTargetCol).dataType match {
+      case _: NumericType =>
+        toVector(array(col(getTargetCol)))
+      case VectorType =>
+        SlicerFunctions.vectorSlicer(col(getTargetCol), col(targetClassesCol))
+      case ArrayType(elementType: NumericType, _) =>
+        SlicerFunctions.arraySlicer(elementType)(col(getTargetCol), col(targetClassesCol))
+      case MapType(_: IntegerType, valueType: NumericType, _) =>
+        SlicerFunctions.mapSlicer(valueType)(col(getTargetCol), col(targetClassesCol))
+      case other =>
+        throw new IllegalArgumentException(
+          s"Only numeric types, vector type, array of numeric types and map types with numeric value type " +
+            s"are supported as target column. The current type is $other."
+        )
+    }
+
+    target
+  }
 }
