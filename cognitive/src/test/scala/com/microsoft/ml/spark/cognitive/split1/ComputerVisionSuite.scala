@@ -442,7 +442,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.select("tags.tags"), df2.select("tags.tags"))(eq)
+    super.assertDFEq(df1.select("tags.tags.name"), df2.select("tags.tags.name"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
