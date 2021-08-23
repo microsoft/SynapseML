@@ -81,7 +81,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
 
-- job: E2E
+- job: DatabricksE2E
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-18.04
@@ -122,7 +122,7 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-- job: E2E_Synapse
+- job: SynapseE2E
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-18.04
