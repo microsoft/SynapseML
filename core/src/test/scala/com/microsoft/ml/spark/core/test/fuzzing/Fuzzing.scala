@@ -47,9 +47,7 @@ class TestObject[S <: PipelineStage](val stage: S,
 
 }
 
-trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
-
-  def dotnetTestObjects(): Seq[TestObject[S]]
+trait TestFuzzingUtils[S <: PipelineStage] {
 
   val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
@@ -67,12 +65,17 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       case _ =>
         throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
     }
-
   }
 
   val testFitting = false
 
-  def saveTestData(conf: CodegenConfig): Unit = {
+}
+
+trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
+
+  def dotnetTestObjects(): Seq[TestObject[S]]
+
+  def saveDotnetTestData(conf: CodegenConfig): Unit = {
     testDataDir(conf).mkdirs()
     dotnetTestObjects().zipWithIndex.foreach { case (to, i) =>
       saveModel(conf, to.stage, s"model-$i")
@@ -158,7 +161,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   //noinspection ScalaStyle
   def makeDotnetTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf)
+    saveDotnetTestData(conf)
     val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
     val stage = dotnetTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -219,32 +222,11 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
 
 }
 
-trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
 
   def pyTestObjects(): Seq[TestObject[S]]
 
-  val testClassName: String = this.getClass.getName.split(".".toCharArray).last
-
-  def testDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.testDataDir, this.getClass.getName.split(".".toCharArray).last)
-
-  def saveDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
-    df.write.mode("overwrite").parquet(new File(testDataDir(conf), s"$name.parquet").toString)
-  }
-
-  def saveModel(conf: CodegenConfig, model: S, name: String): Unit = {
-    model match {
-      case writable: MLWritable =>
-        writable.write.overwrite().save(new File(testDataDir(conf), s"$name.model").toString)
-      case _ =>
-        throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
-    }
-
-  }
-
-  val testFitting = false
-
-  def saveTestData(conf: CodegenConfig): Unit = {
+  def savePyTestData(conf: CodegenConfig): Unit = {
     testDataDir(conf).mkdirs()
     pyTestObjects().zipWithIndex.foreach { case (to, i) =>
       saveModel(conf, to.stage, s"model-$i")
@@ -322,7 +304,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
   def makePyTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf)
+    savePyTestData(conf)
     val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
     val stage = pyTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last

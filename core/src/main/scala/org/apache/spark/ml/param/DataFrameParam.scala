@@ -135,7 +135,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   }
 
   override def dotnetLoadLine(modelNum: Int): String = {
-    s"""var ${name}DF = spark.Read().Parquet(
+    s"""var ${name}DF = _spark.Read().Parquet(
        |    Path.Combine(test_data_dir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
   }
 
