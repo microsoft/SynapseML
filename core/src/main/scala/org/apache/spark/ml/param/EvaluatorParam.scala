@@ -15,7 +15,8 @@ class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluat
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetValue(v: Evaluator): String = s"""${name}Param"""
+  override def dotnetValue(v: Evaluator): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetParamInfo: String = "ScalaEvaluator"
 

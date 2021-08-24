@@ -101,9 +101,7 @@ class ServiceParam[T: TypeTag](parent: Params,
         case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Seq[(String, String)]] =>
-          s"""Set${dotnetName(v).capitalize}(new (string, string)[] ${dotnetValue(v)})"""
-        case _ => throw new NotImplementedError(s"No translation found for type $v")
+        case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
       }
       case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
     }

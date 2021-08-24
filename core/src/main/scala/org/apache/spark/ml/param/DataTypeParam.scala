@@ -13,7 +13,8 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetValue(v: DataType): String = s"""${name}Param"""
+  override def dotnetValue(v: DataType): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetParamInfo: String = "DataType"
 

@@ -20,7 +20,8 @@ class ParamSpaceParam(parent: Params, name: String, doc: String, isValid: ParamS
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetValue(v: ParamSpace): String = s"""${name}Param"""
+  override def dotnetValue(v: ParamSpace): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetParamInfo: String = "object"
 

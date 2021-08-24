@@ -16,7 +16,11 @@ import org.apache.commons.lang.StringUtils.capitalize
 
 import scala.collection.Iterator.iterate
 
-trait BaseWrappable extends DefaultParamInfo {
+trait BaseWrappable extends Params {
+
+  import DefaultParamInfo._
+
+  protected val thisStage: Params = this
 
   protected lazy val copyrightLines: String =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -38,6 +42,14 @@ trait BaseWrappable extends DefaultParamInfo {
         typeArgs.last
     }
     modelTypeArg.getTypeName
+  }
+
+  def getParamInfo(p: Param[_]): ParamInfo[_] = {
+    thisStage.getClass.getMethod(p.name)
+      .getAnnotatedReturnType.getType.toString match {
+      case "org.apache.spark.ml.param.Param<java.lang.String>" => StringInfo
+      case _ => getGeneralParamInfo(p)
+    }
   }
 
 }
@@ -74,10 +86,8 @@ trait PythonWrappable extends BaseWrappable {
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {
-    val argLines = thisStage.params.map {
-      case sp: ServiceParam[_] =>
-        s"""${sp.name} (${getServiceParamInfo(sp).pyType}): ${sp.doc}"""
-      case p => s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
+    val argLines = thisStage.params.map { p =>
+      s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
     }.mkString("\n")
     s"""|"\""
         |Args:
@@ -92,10 +102,7 @@ trait PythonWrappable extends BaseWrappable {
 
   protected lazy val pyParamsDefinitions: String = {
     thisStage.params.map { p =>
-      val typeConverterString = p match {
-        case sp: ServiceParam[_] => getServiceParamInfo(sp).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-        case _ => getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-      }
+      val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
       s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
           |""".stripMargin
     }.mkString("\n")
@@ -388,14 +395,13 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rSetterLines: String = {
-    thisStage.params.map {
-      case sp: ServiceParam[_] => {
-        val value = getServiceParamInfo(sp).rTypeConverter.map(tc => s"$tc(${sp.name})").getOrElse(sp.name)
-        s"""invoke("set${sp.name.capitalize}Col", ${sp.name}Col) %>%\ninvoke("set${sp.name.capitalize}", $value)"""
-      }
-      case p => {
-        val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
-        s"""invoke("set${p.name.capitalize}", $value)"""
+    thisStage.params.map { p =>
+      val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
+      p match {
+        case p: ServiceParam[_] =>
+          s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
+        case p =>
+          s"""invoke("set${p.name.capitalize}", $value)"""
       }
     }.mkString(" %>%\n")
   }

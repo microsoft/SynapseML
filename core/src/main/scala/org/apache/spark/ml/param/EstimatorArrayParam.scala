@@ -19,7 +19,8 @@ class EstimatorArrayParam(parent: Params, name: String, doc: String, isValid: Ar
   /** Creates a param pair with the given value (for Java). */
   def w(value: java.util.List[Estimator[_]]): ParamPair[Array[Estimator[_]]] = w(value.asScala.toArray)
 
-  override def dotnetValue(v: Array[Estimator[_]]): String = s"""${name}Param"""
+  override def dotnetValue(v: Array[Estimator[_]]): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetParamInfo: String = "EstimatorArray"
 

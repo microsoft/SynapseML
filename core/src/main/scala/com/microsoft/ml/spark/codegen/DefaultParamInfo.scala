@@ -23,44 +23,70 @@ case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
 
 }
 
-trait DefaultParamInfo extends StageParam {
-  val booleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
-  val intInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
-  val longInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
-  val floatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
-  val doubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
-  val stringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
-  val stringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
-    "as.array", "string[]")
-  val doubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
-    "as.array", "double[]")
-  val intArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
-    "as.array", "int[]")
-  val byteArrayInfo = new ParamInfo[ByteArrayParam]("list", "byte[]")
-  val doubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object", "double[][]")
-  val stringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")
-  val stringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
-  val arrayMapInfo = new ParamInfo[ArrayMapParam]("object", "Dictionary<string, object>[]")
-  val typedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "int[]")
-  val typedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "double[]")
-  val untypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
+object DefaultParamInfo {
 
-  val seqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
-  val seqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
-  val seqStringTupleInfo = new ParamInfo[ServiceParam[_]]("object", "Tuple<string, string>[]")
+  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
+  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
+  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
+  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
+  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
+  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
+  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
+    "as.array", "string[]")
+  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
+    "as.array", "double[]")
+  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
+    "as.array", "int[]")
+  val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list", "byte[]")
+  val DoubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object", "double[][]")
+  val StringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")
+  val StringIntMapInfo = new ParamInfo[StringIntMapParam]("dict", "Dictionary<string, int>")
+  val ArrayMapInfo = new ParamInfo[ArrayMapParam]("object", "Dictionary<string, object>[]")
+  val TypedIntArrayInfo = new ParamInfo[TypedIntArrayParam]("object", "int[]")
+  val TypedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "double[]")
+  val UntypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
+
+  val SeqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
+  val SeqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
+  val SeqTextAndTranslationInfo = new ParamInfo[ServiceParam[_]]("object", "TextAndTranslation[]")
+
+  //noinspection ScalaStyle
+  def getGeneralParamInfo(dataType: Param[_]): ParamInfo[_] = {
+    dataType match {
+      case _: BooleanParam => BooleanInfo
+      case _: IntParam => IntInfo
+      case _: LongParam => LongInfo
+      case _: FloatParam => FloatInfo
+      case _: DoubleParam => DoubleInfo
+      case _: StringArrayParam => StringArrayInfo
+      case _: DoubleArrayParam => DoubleArrayInfo
+      case _: IntArrayParam => IntArrayInfo
+      case _: ByteArrayParam => ByteArrayInfo
+      case _: DoubleArrayArrayParam => DoubleArrayArrayInfo
+      case _: StringStringMapParam => StringStringMapInfo
+      case _: StringIntMapParam => StringIntMapInfo
+      case _: ArrayMapParam => ArrayMapInfo
+      case _: TypedIntArrayParam => TypedIntArrayInfo
+      case _: TypedDoubleArrayParam => TypedDoubleArrayInfo
+      case _: UntypedArrayParam => UntypedArrayInfo
+      case sp: ServiceParam[_] => getServiceParamInfo(sp)
+      case cp: ComplexParam[_] => getComplexParamInfo(cp)
+      case p => throw new Exception(s"unsupported type $p")
+    }
+  }
 
   //noinspection ScalaStyle
   def getServiceParamInfo(dataType: ServiceParam[_]): ParamInfo[_] = {
     dataType.getType match {
-      case "String" => stringInfo
-      case "Boolean" => booleanInfo
-      case "Double" => doubleInfo
-      case "Int" => intInfo
-      case "Seq[String]" => stringArrayInfo
-      case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => seqTimeSeriesPointInfo
-      case "Array[Byte]" => byteArrayInfo
-      case "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" => seqTargetInputInfo
-      case "Seq[(String, String)]" => seqStringTupleInfo
+      case "String" => StringInfo
+      case "Boolean" => BooleanInfo
+      case "Double" => DoubleInfo
+      case "Int" => IntInfo
+      case "Seq[String]" => StringArrayInfo
+      case "Array[Byte]" => ByteArrayInfo
+      case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => SeqTimeSeriesPointInfo
+      case "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" => SeqTargetInputInfo
+      case "Seq[com.microsoft.ml.spark.cognitive.TextAndTranslation]" => SeqTextAndTranslationInfo
       case _ => throw new Exception(s"unsupported type $dataType")
     }
   }
@@ -73,37 +99,4 @@ trait DefaultParamInfo extends StageParam {
     }
   }
 
-  //noinspection ScalaStyle
-  def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
-    dataType match {
-      case _: BooleanParam => booleanInfo
-      case _: IntParam => intInfo
-      case _: LongParam => longInfo
-      case _: FloatParam => floatInfo
-      case _: DoubleParam => doubleInfo
-      case _: StringArrayParam => stringArrayInfo
-      case _: DoubleArrayParam => doubleArrayInfo
-      case _: IntArrayParam => intArrayInfo
-      case _: ByteArrayParam => byteArrayInfo
-      case _: DoubleArrayArrayParam => doubleArrayArrayInfo
-      case _: StringStringMapParam => stringStringMapInfo
-      case _: StringIntMapParam => stringIntMapInfo
-      case _: ArrayMapParam => arrayMapInfo
-      case _: TypedIntArrayParam => typedIntArrayInfo
-      case _: TypedDoubleArrayParam => typedDoubleArrayInfo
-      case _: UntypedArrayParam => untypedArrayInfo
-      case cp: ComplexParam[_] => getComplexParamInfo(cp)
-      case p =>
-        thisStage.getClass.getMethod(p.name)
-          .getAnnotatedReturnType.getType.toString match {
-          case "org.apache.spark.ml.param.Param<java.lang.String>" => stringInfo
-          case _ => throw new Exception(s"unsupported type $dataType")
-        }
-    }
-  }
-
-}
-
-trait StageParam extends Params {
-  protected val thisStage: Params = this
 }

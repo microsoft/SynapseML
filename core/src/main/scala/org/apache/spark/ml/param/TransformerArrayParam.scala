@@ -19,7 +19,8 @@ class TransformerArrayParam(parent: Params, name: String, doc: String, isValid: 
   /** Creates a param pair with the given value (for Java). */
   def w(value: java.util.List[Transformer]): ParamPair[Array[Transformer]] = w(value.asScala.toArray)
 
-  override def dotnetValue(v: Array[Transformer]): String = s"""${name}Param"""
+  override def dotnetValue(v: Array[Transformer]): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetParamInfo: String = "TransformerArray"
 

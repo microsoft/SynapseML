@@ -15,6 +15,7 @@ import java.nio.file.Files
 
 trait DotnetWrappable extends BaseWrappable {
 
+  import DefaultParamInfo._
   import GenerationUtils._
 
   protected lazy val dotnetCopyrightLines: String =
