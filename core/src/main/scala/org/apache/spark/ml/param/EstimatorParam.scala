@@ -28,9 +28,8 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
 
   override def dotnetLoadLine(modelNum: Int): String = {
     s"""
-       |using Microsoft.Spark.ML;
        |var ${name}Model = Pipeline.Load(
-       |    Path.Combine(test_data_dir, "model-$modelNum.model", "complexParams", "$name"));
+       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
        |${name}Model = ${name}Model.GetStages().GetValue(0);
        |""".stripMargin
   }

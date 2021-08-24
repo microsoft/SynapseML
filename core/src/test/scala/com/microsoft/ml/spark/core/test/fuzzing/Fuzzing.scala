@@ -181,6 +181,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using System.IO;
          |using System.Collections.Generic;
          |using Microsoft.Spark.Interop.Ipc;
+         |using Microsoft.Spark.ML;
          |using Microsoft.Spark.ML.Feature;
          |using Microsoft.Spark.ML.Feature.Param;
          |using Microsoft.Spark.Sql;
