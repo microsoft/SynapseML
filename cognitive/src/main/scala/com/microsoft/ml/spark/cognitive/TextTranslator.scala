@@ -370,13 +370,15 @@ class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
 
 trait HasTextAndTranslationInput extends HasServiceParams {
 
-  val textAndTranslation = new ServiceParam[Seq[(String, String)]](
+  import TranslatorJsonProtocol._
+
+  val textAndTranslation = new ServiceParam[Seq[TextAndTranslation]](
     this, "textAndTranslation", " A string specifying the translated text" +
       " previously returned by the Dictionary lookup operation.")
 
-  def getTextAndTranslation: Seq[(String, String)] = getScalarParam(textAndTranslation)
+  def getTextAndTranslation: Seq[TextAndTranslation] = getScalarParam(textAndTranslation)
 
-  def setTextAndTranslation(v: Seq[(String, String)]): this.type = setScalarParam(textAndTranslation, v)
+  def setTextAndTranslation(v: Seq[TextAndTranslation]): this.type = setScalarParam(textAndTranslation, v)
 
   def getTextAndTranslationCol: String = getVectorParam(textAndTranslation)
 
@@ -388,6 +390,9 @@ object DictionaryExamples extends ComplexParamsReadable[DictionaryExamples]
 
 class DictionaryExamples(override val uid: String) extends TextTranslatorBase(uid)
   with HasTextAndTranslationInput with HasFromLanguage with HasToLanguage with BasicLogging {
+
+  import TranslatorJsonProtocol._
+
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryExamples"))
@@ -398,7 +403,7 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
     r =>
       Some(new StringEntity(
         getValue(r, textAndTranslation).asInstanceOf[Seq[Row]]
-          .map(x => Map("Text" -> x.getString(0), "Translation" -> x.getString(1)))
+          .map(x => TextAndTranslation(x.getString(0), x.getString(1)))
           .toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 

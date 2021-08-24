@@ -125,13 +125,13 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
-           |var fdf = spark.Read().Parquet(Path.Combine(TestDataDir, "fit-$num.parquet"));
-           |var tdf = spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |var fdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "fit-$num.parquet"));
+           |var tdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
            |model.Fit(fdf).Transform(tdf).Show();
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
-           |var tdf = spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |var tdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
            |model.Transform(tdf).Show();
            |""".stripMargin
       case _ => ""

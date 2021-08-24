@@ -156,11 +156,23 @@ trait DotnetWrappable extends BaseWrappable {
           |/// </returns>""".stripMargin
     p match {
       case sp: ServiceParam[_] =>
-        s"""
-           |$docString
-           |public ${getServiceParamInfo(sp).dotnetType} Get$capName() =>
-           |    (${getServiceParamInfo(sp).dotnetType})Reference.Invoke(\"get$capName\");
-           |""".stripMargin
+        getServiceParamInfo(sp).dotnetType match {
+            // TODO: fix the getters for these three ServiceParam
+          case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" |
+               "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" |
+               "Seq[com.microsoft.ml.spark.cognitive.TextAndTranslation]" =>
+            s"""
+               |$docString
+               |public object Get$capName() =>
+               |    Reference.Invoke(\"get$capName\");
+               |""".stripMargin
+          case _ =>
+            s"""
+               |$docString
+               |public ${getServiceParamInfo(sp).dotnetType} Get$capName() =>
+               |    (${getServiceParamInfo(sp).dotnetType})Reference.Invoke(\"get$capName\");
+               |""".stripMargin
+        }
       case _: DataTypeParam =>
         s"""
            |$docString

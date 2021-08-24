@@ -5,7 +5,6 @@ package org.apache.spark.ml.param
 
 import spray.json._
 import java.lang.{StringBuilder => JStringBuilder}
-import scala.reflect.runtime.universe._
 
 trait DotnetPrinter extends CompactPrinter {
 
@@ -59,7 +58,8 @@ trait DotnetWrappableParam[T] extends Param[T] {
 
   def dotnetSetterLine(v: T): String = {
     v match {
-      case _: Array[String] => s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
+      case _: Array[String] | _: Seq[String] =>
+        s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
       case _: Array[Double] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
       case _: Array[Int] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
       case _: Array[Byte] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""

@@ -50,14 +50,14 @@ object ServiceParam {
 }
 
 class ServiceParam[T: TypeTag](parent: Params,
-                      name: String,
-                      doc: String,
-                      isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
-                      val isRequired: Boolean = false,
-                      val isURLParam: Boolean = false,
-                      val toValueString: T => String = { x: T => x.toString }
-                     )
-                     (@transient implicit val dataFormat: JsonFormat[T])
+                               name: String,
+                               doc: String,
+                               isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
+                               val isRequired: Boolean = false,
+                               val isURLParam: Boolean = false,
+                               val toValueString: T => String = { x: T => x.toString }
+                              )
+                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
     with PythonWrappableParam[Either[T, String]]
     with DotnetWrappableParam[Either[T, String]] {
@@ -101,17 +101,11 @@ class ServiceParam[T: TypeTag](parent: Params,
         case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
         case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Array[Array[Double]]] =>
-          s"""Set${dotnetName(v).capitalize}(new double[][] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Map[String, String]] =>
-          s"""Set${dotnetName(v).capitalize}(new Dictionary<string, string>() ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Map[String, Int]] =>
-          s"""Set${dotnetName(v).capitalize}(new Dictionary<string, int>() ${dotnetValue(v)})"""
         case t if t =:= typeOf[Seq[(String, String)]] =>
-          s"""Set${dotnetName(v).capitalize}(new Tuple<string, string>[] ${dotnetValue(v)})"""
-        case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
-    }
-      case Right(_) =>  s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+          s"""Set${dotnetName(v).capitalize}(new (string, string)[] ${dotnetValue(v)})"""
+        case _ => throw new NotImplementedError(s"No translation found for type $v")
+      }
+      case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
     }
   }
 

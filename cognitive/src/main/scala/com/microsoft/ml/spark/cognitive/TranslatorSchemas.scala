@@ -67,6 +67,8 @@ case class BackTranslation(normalizedText: String,
                            numExamples: Int,
                            frequencyCount: Int)
 
+case class TextAndTranslation(text: String, translation: String)
+
 object DictionaryExamplesResponse extends SparkBindings[DictionaryExamplesResponse]
 
 case class DictionaryExamplesResponse(normalizedSource: String,
@@ -131,4 +133,5 @@ object TranslatorJsonProtocol extends DefaultJsonProtocol {
   implicit val DocumentTranslationInputFormat: RootJsonFormat[DocumentTranslationInput] =
     jsonFormat1(DocumentTranslationInput.apply)
 
+  implicit val TextAndTranslationInputFormat: RootJsonFormat[TextAndTranslation] = jsonFormat2(TextAndTranslation.apply)
 }

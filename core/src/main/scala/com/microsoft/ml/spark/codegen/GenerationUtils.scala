@@ -58,7 +58,7 @@ object GenerationUtils {
   //noinspection ScalaStyle
   def dotnetRenderParam[T: TypeTag](p: Param[T], v: T): String = {
     p match {
-      case pwp: DotnetWrappableParam[T] =>
+      case pwp: ExternalDotnetWrappableParam[T] =>
         "." + pwp.dotnetSetterLine(v)
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
@@ -80,9 +80,9 @@ object GenerationUtils {
         s""".Set${p.name.capitalize}(
            |new Dictionary<string, int>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
       case _: TypedIntArrayParam =>
-        s""".Set${p.name.capitalize}(new List<int>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+        s""".Set${p.name.capitalize}(new int[]() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
       case _: TypedDoubleArrayParam =>
-        s""".Set${p.name.capitalize}(new List<double>() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+        s""".Set${p.name.capitalize}(new double[]() ${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
       case _ =>
         s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }
