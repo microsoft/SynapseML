@@ -2,11 +2,13 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 using System;
+using System.Reflection;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
 using MMLSpark.Dotnet.Wrapper;
 using MMLSpark.Dotnet.Utils;
+using Microsoft.Spark.Interop.Internal.Java.Util;
 
 namespace Microsoft.Spark.ML
 {
@@ -39,16 +41,28 @@ namespace Microsoft.Spark.ML
         {
         }
 
-        public Pipeline SetStages(ScalaPipelineStage[] value) =>
-            WrapAsPipeline((JvmObjectReference)Reference.Invoke("setStages", value));
+        public Pipeline SetStages(ScalaPipelineStage[] value)
+        {
+            var arrayList = new ArrayList(SparkEnvironment.JvmBridge);
+            foreach (var pipelineStage in value)
+            {
+                arrayList.Add(pipelineStage);
+            }
+            return WrapAsPipeline((JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+                "com.microsoft.ml.spark.codegen.PipelineHelper", "setStages", Reference, (object)arrayList));
+        }
+
 
         public ScalaPipelineStage[] GetStages()
         {
             JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke("getStages");
             ScalaPipelineStage[] result = new ScalaPipelineStage[jvmObjects.Length];
-            for (int i=0; i < jvmObjects.Length; i++)
+            for (int i = 0; i < jvmObjects.Length; i++)
             {
-                result[i] = new ScalaPipelineStage(jvmObjects[i]);
+                var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
+                Type type = Type.GetType(constructorClass);
+                MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+                result[i] = method.Invoke(null, new object[] {jvmObjects[i]}) as ScalaPipelineStage;
             }
             return result;
         }

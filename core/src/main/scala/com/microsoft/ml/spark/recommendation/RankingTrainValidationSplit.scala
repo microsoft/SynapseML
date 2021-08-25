@@ -19,6 +19,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 import spray.json.DefaultJsonProtocol._
+import scala.collection.JavaConverters._
 
 import scala.annotation.tailrec
 
@@ -46,7 +47,8 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   /** @group setParam */
   def setEstimatorParamMaps(value: Array[ParamMap]): this.type = set(estimatorParamMaps, value)
 
-  def setEstimatorParamMaps(value: ArrayParamMap): this.type = set(estimatorParamMaps, value.getParamMaps)
+  def setEstimatorParamMaps(value: java.util.ArrayList[ParamMap]): this.type =
+    set(estimatorParamMaps, value.asScala.toArray)
 
   /** @group setParam */
   def setEvaluator(value: Evaluator): this.type = set(evaluator, value)

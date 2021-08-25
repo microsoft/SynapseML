@@ -67,7 +67,8 @@ object GenerationUtils {
       case _: StringArrayParam | _: DoubleArrayParam | _: IntArrayParam | _: ByteArrayParam | _: DoubleArrayArrayParam |
            _: StringStringMapParam | _: StringIntMapParam | _: ArrayMapParam |
            _: TypedIntArrayParam | _: TypedDoubleArrayParam | _: UntypedArrayParam =>
-        s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType} ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+        s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType}
+           |    ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
       case _ =>
         s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }

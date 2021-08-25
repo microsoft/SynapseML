@@ -19,9 +19,11 @@ namespace MMLSpark.Dotnet.Utils
             this.value = value;
         }
 
-        internal TimeSeriesPoint(JvmObjectReference jvmObject)
+        public TimeSeriesPoint(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
+            this.timestamp = (string)Reference.Invoke("timestamp");
+            this.value = (double)Reference.Invoke("value");
         }
 
         public JvmObjectReference Reference { get; private set; }
@@ -39,9 +41,11 @@ namespace MMLSpark.Dotnet.Utils
             this.translation = translation;
         }
 
-        internal TextAndTranslation(JvmObjectReference jvmObject)
+        public TextAndTranslation(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
+            this.text = (string)Reference.Invoke("text");
+            this.translation = (string)Reference.Invoke("translation");
         }
 
         public JvmObjectReference Reference { get; private set; }
@@ -66,9 +70,20 @@ namespace MMLSpark.Dotnet.Utils
             this.storageSource = storageSource;
         }
 
-        internal TargetInput(JvmObjectReference jvmObject)
+        public TargetInput(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
+            this.category = (string)Reference.Invoke("category");
+            JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke("glossaries");
+            Glossary[] glossaries = new Glossary[jvmObjects.Length];
+            for (int i=0; i<jvmObjects.Length; i++)
+            {
+                glossaries[i] = new Glossary(jvmObjects[i]);
+            }
+            this.glossaries = glossaries;
+            this.targetUrl = (string)Reference.Invoke("targetUrl");
+            this.language = (string)Reference.Invoke("language");
+            this.storageSource = (string)Reference.Invoke("storageSource");
         }
 
         public JvmObjectReference Reference { get; private set; }
@@ -90,9 +105,13 @@ namespace MMLSpark.Dotnet.Utils
             this.version = version;
         }
 
-        internal Glossary(JvmObjectReference jvmObject)
+        public Glossary(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
+            this.format = (string)Reference.Invoke("format");
+            this.glossaryUrl = (string)Reference.Invoke("glossaryUrl");
+            this.storageSource = (string)Reference.Invoke("storageSource");
+            this.version = (string)Reference.Invoke("version");
         }
 
         public JvmObjectReference Reference { get; private set; }

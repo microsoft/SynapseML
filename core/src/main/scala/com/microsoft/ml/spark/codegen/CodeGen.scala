@@ -187,7 +187,6 @@ object CodeGen {
          |
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
-         |    <Nullable>enable</Nullable>
          |  </PropertyGroup>
          |
          |  <ItemGroup>

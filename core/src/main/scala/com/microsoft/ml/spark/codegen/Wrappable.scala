@@ -45,11 +45,16 @@ trait BaseWrappable extends Params {
   }
 
   def getParamInfo(p: Param[_]): ParamInfo[_] = {
-    thisStage.getClass.getMethod(p.name)
-      .getAnnotatedReturnType.getType.toString match {
-      case "org.apache.spark.ml.param.Param<java.lang.String>" => StringInfo
-      case _ => getGeneralParamInfo(p)
+    try {
+      thisStage.getClass.getMethod(p.name)
+        .getAnnotatedReturnType.getType.toString match {
+        case "org.apache.spark.ml.param.Param<java.lang.String>" => StringInfo
+        case _ => getGeneralParamInfo(p)
+      }
+    } catch {
+      case _: Exception => getGeneralParamInfo(p)
     }
+
   }
 
 }

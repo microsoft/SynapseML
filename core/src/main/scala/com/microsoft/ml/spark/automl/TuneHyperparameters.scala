@@ -27,6 +27,7 @@ import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.reflect.internal.util.ScalaClassLoader
 import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 /** Tunes model hyperparameters
   *
@@ -51,7 +52,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   /** @group setParam */
   def setModels(value: Array[Estimator[_]]): this.type = set(models, value)
 
-  def setModels(value: EstimatorArray): this.type = set(models, value.getEstimators)
+  def setModels(value: java.util.ArrayList[Estimator[_]]): this.type = set(models, value.asScala.toArray)
 
   val numFolds = new IntParam(this, "numFolds", "Number of folds")
 
