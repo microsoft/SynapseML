@@ -443,6 +443,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          nslookup mmlspark-translator.cognitiveservices.azure.com
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
