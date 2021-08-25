@@ -4,12 +4,12 @@
 package com.microsoft.ml.spark.codegen
 
 import java.io.File
-
 import com.microsoft.ml.spark.codegen.CodegenConfigProtocol._
 import com.microsoft.ml.spark.core.env.FileUtilities._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
 import com.microsoft.ml.spark.core.utils.JarLoadingUtils.instantiateServices
+import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 import spray.json._
 
 object CodeGenUtils {
@@ -20,6 +20,8 @@ object CodeGenUtils {
 
 
 object CodeGen {
+
+  type Foo = Estimator[_ <: Model[_]]
 
   import CodeGenUtils._
 
