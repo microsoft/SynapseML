@@ -1,10 +1,9 @@
 import java.io.File
-
 import BuildUtils.{join, runCmd, singleUploadToBlob, zipFolder}
 import CondaPlugin.autoImport.{activateCondaEnv, condaEnvLocation, createCondaEnvTask}
 import org.apache.commons.io.FileUtils
 import sbt.Keys._
-import sbt.{Def, _}
+import sbt.{Def, Global, Tags, _}
 import spray.json._
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
@@ -33,7 +32,8 @@ object CodegenPlugin extends AutoPlugin {
     runCmd(activateCondaEnv ++ cmd, wd, Map("R_LIBS" -> libPath, "R_USER_LIBS" -> libPath))
   }
 
-  val RInstall = Tags.Tag("rInstall")
+  val RInstallTag = Tags.Tag("rInstall")
+  val TestGenTag = Tags.Tag("testGen")
 
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
@@ -73,7 +73,8 @@ object CodegenPlugin extends AutoPlugin {
   import autoImport._
 
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
-    Global / concurrentRestrictions += Tags.limit(RInstall, 1)
+    Global / concurrentRestrictions ++= Seq(
+      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -89,7 +90,16 @@ object CodegenPlugin extends AutoPlugin {
       rCmd(activateCondaEnv.value,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
-  } tag(RInstall)
+  } tag(RInstallTag)
+
+  def testGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
+    }
+  } tag(TestGenTag)
 
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
@@ -142,14 +152,7 @@ object CodegenPlugin extends AutoPlugin {
         (Compile / runMain).toTask(s" com.microsoft.ml.spark.codegen.CodeGen $arg").value
       }
     }.value),
-    testgen := (Def.taskDyn {
-      (Compile / compile).value
-      (Test / compile).value
-      val arg = testgenArgs.value
-      Def.task {
-        (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
-      }
-    }.value),
+    testgen := testGenImpl.value,
     pythonizedVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head + ".dev1"
