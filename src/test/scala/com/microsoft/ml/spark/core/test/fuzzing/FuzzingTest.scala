@@ -173,6 +173,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in dotnet") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.cognitive.DocumentTranslator",
       "com.microsoft.ml.spark.automl.TuneHyperparameters",
       "com.microsoft.ml.spark.train.TrainedRegressorModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",
