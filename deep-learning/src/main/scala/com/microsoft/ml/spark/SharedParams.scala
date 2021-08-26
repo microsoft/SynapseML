@@ -5,6 +5,7 @@ package com.microsoft.ml.spark
 
 import org.apache.spark.ml.param.{MapParam, Param, Params, StringStringMapParam}
 import spray.json.DefaultJsonProtocol._
+import scala.collection.JavaConverters._
 
 trait HasFeedFetchDicts extends Params {
   val feedDict: StringStringMapParam = new StringStringMapParam(
@@ -14,6 +15,8 @@ trait HasFeedFetchDicts extends Params {
   )
 
   def setFeedDict(value: Map[String, String]): this.type = set(feedDict, value)
+
+  def setFeedDict(value: java.util.HashMap[String, String]): this.type = set(feedDict, value.asScala.toMap)
 
   def setFeedDict(k: String, v: String): this.type = set(feedDict, Map(k -> v))
 
@@ -25,7 +28,9 @@ trait HasFeedFetchDicts extends Params {
     "Provide a map from column names of the output dataframe (keys) to CNTK/ONNX model output variable names (values)"
   )
 
-  def setFetchDict(value: Map[String, String]): this.type = set("fetchDict", value)
+  def setFetchDict(value: Map[String, String]): this.type = set(fetchDict, value)
+
+  def setFetchDict(value: java.util.HashMap[String, String]): this.type = set(fetchDict, value.asScala.toMap)
 
   def setFetchDict(k: String, v: String): this.type = set(fetchDict, Map(k -> v))
 

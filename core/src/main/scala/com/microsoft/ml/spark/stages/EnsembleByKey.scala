@@ -15,6 +15,9 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
 import spray.json.DefaultJsonProtocol._
 
+import scala.collection.JavaConverters
+import scala.collection.JavaConverters._
+
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
 class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
@@ -75,6 +78,8 @@ class EnsembleByKey(val uid: String) extends Transformer with Wrappable with Def
   def getVectorDims: Map[String, Int] = get(vectorDims).getOrElse(Map())
 
   def setVectorDims(value: Map[String, Int]): this.type = set(vectorDims, value)
+
+  def setVectorDims(value: java.util.HashMap[String, Int]): this.type = set(vectorDims, value.asScala.toMap)
 
   setDefault(collapseGroup -> true)
 

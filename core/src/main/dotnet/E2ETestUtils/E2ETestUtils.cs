@@ -264,7 +264,7 @@ namespace MMLSparktest.Utils
 
         public string GetMMLSparkPackage()
         {
-            return "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-202-8d2b5a30-20210825-1509-SNAPSHOT";
+            return "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-205-c837431c-20210826-1724-SNAPSHOT";
         }
 
         public string AddMMLSparkRepo()

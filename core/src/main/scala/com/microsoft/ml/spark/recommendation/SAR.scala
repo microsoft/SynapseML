@@ -257,4 +257,49 @@ trait SARParams extends Wrappable with RecommendationParams {
   setDefault(timeDecayCoeff -> 30, activityTimeFormat -> "yyyy/MM/dd'T'h:mm:ss", supportThreshold -> 4,
     ratingCol -> C.RatingCol, userCol -> C.UserCol, itemCol -> C.ItemCol, similarityFunction ->
       "jaccard", timeCol -> "time", startTimeFormat -> "EEE MMM dd HH:mm:ss Z yyyy")
+
+  /** @group setParam */
+  def setPredictionCol(value: String): this.type = set(predictionCol, value)
+
+  /** @group setParam */
+  def setSeed(value: Long): this.type = set(seed, value)
+
+  /** @group setParam */
+  def setMaxIter(value: Int): this.type = set(maxIter, value)
+
+  /** @group setParam */
+  def setColdStartStrategy(value: String): this.type = set(coldStartStrategy, value)
+
+  /** @group setParam */
+  def setNonnegative(value: Boolean): this.type = set(nonnegative, value)
+
+  /** @group setParam */
+  def setIntermediateStorageLevel(value: String): this.type = set(intermediateStorageLevel, value)
+
+  /** @group setParam */
+  def setRank(value: Int): this.type = set(rank, value)
+
+  /** @group setParam */
+  def setImplicitPrefs(value: Boolean): this.type = set(implicitPrefs, value)
+
+  /** @group setParam */
+  def setNumUserBlocks(value: Int): this.type = set(numUserBlocks, value)
+
+  /** @group setParam */
+  def setNumItemBlocks(value: Int): this.type = set(numItemBlocks, value)
+
+  /** @group setParam */
+  def setFinalStorageLevel(value: String): this.type = set(finalStorageLevel, value)
+
+  /** @group setParam */
+  def setCheckpointInterval(value: Int): this.type = set(checkpointInterval, value)
+
+  /** @group setParam */
+  def setAlpha(value: Double): this.type = set(alpha, value)
+
+  /** @group setParam */
+  def setBlockSize(value: Int): this.type = set(blockSize, value)
+
+  /** @group setParam */
+  def setRegParam(value: Double): this.type = set(regParam, value)
 }

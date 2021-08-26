@@ -130,7 +130,7 @@ trait DotnetWrappable extends BaseWrappable {
             |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : ScalaModel<M> =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |""".stripMargin
-      case _: ArrayParamMapParam | _: TransformerArrayParam =>
+      case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
             |{
@@ -189,10 +189,10 @@ trait DotnetWrappable extends BaseWrappable {
                |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
                |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
                |    $dType results =
-               |        new ${dType.substring(0, dType.length-2)}[jvmObjects.Length];
+               |        new ${dType.substring(0, dType.length - 2)}[jvmObjects.Length];
                |    for (int i = 0; i < results.Length; i++)
                |    {
-               |        results[i] = new ${dType.substring(0, dType.length-2)}(jvmObjects[i]);
+               |        results[i] = new ${dType.substring(0, dType.length - 2)}(jvmObjects[i]);
                |    }
                |    return results;
                |}
@@ -229,28 +229,21 @@ trait DotnetWrappable extends BaseWrappable {
            |    return (${getParamInfo(p).dotnetType})jvmObject.Invoke(\"array\");
            |}
            |""".stripMargin
-      case _: EstimatorParam | _: ModelParam =>
+      case _: EstimatorParam | _: ModelParam | _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam =>
+        val dType = p match {
+          case _: EstimatorParam | _: ModelParam =>
+            getParamInfo(p).dotnetType.substring(5, getParamInfo(p).dotnetType.length - 3) + "<object>"
+          case _ => getParamInfo(p).dotnetType
+        }
         s"""
            |$docString
-           |public object Get$capName()
+           |public $dType Get$capName()
            |{
            |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
            |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
            |    Type type = Type.GetType(constructorClass);
            |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |    return method.Invoke(null, new object[] {jvmObject});
-           |}
-           |""".stripMargin
-      case _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-           |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
-           |    Type type = Type.GetType(constructorClass);
-           |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |    return method.Invoke(null, new object[] {jvmObject}) as ${getParamInfo(p).dotnetType};
+           |    return ($dType)method.Invoke(null, new object[] {jvmObject});
            |}
            |""".stripMargin
       case _: ArrayParamMapParam =>
@@ -267,36 +260,20 @@ trait DotnetWrappable extends BaseWrappable {
            |    return result;
            |}
            |""".stripMargin
-      case _: TransformerArrayParam =>
+      case _: TransformerArrayParam | _: EstimatorArrayParam =>
+        val dType = getParamInfo(p).dotnetType.substring(0, getParamInfo(p).dotnetType.length - 2)
         s"""
            |$docString
-           |public ScalaTransformer[] Get$capName()
+           |public $dType[] Get$capName()
            |{
            |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    ScalaTransformer[] result = new ScalaTransformer[jvmObjects.Length];
+           |    $dType[] result = new $dType[jvmObjects.Length];
            |    for (int i=0; i < jvmObjects.Length; i++)
            |    {
            |        var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
            |        Type type = Type.GetType(constructorClass);
            |        MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |        result[i] = method.Invoke(null, new object[] {jvmObjects[i]}) as ScalaTransformer;
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case _: EstimatorArrayParam =>
-        s"""
-           |$docString
-           |public object[] Get$capName()
-           |{
-           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    object[] result = new object[jvmObjects.Length];
-           |    for (int i=0; i < jvmObjects.Length; i++)
-           |    {
-           |        var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
-           |        Type type = Type.GetType(constructorClass);
-           |        MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |        result[i] = method.Invoke(null, new object[] {jvmObjects[i]});
+           |        result[i] = ($dType)method.Invoke(null, new object[] {jvmObjects[i]});
            |    }
            |    return result;
            |}

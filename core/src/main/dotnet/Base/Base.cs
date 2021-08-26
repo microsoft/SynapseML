@@ -196,10 +196,19 @@ namespace MMLSpark.Dotnet.Wrapper
 
     }
 
+    public interface Estimator<out M>
+    {
+    }
+
+    public interface Model<out M>
+    {
+    }
+    
+
     /// <summary>
     /// <see cref="ScalaEstimator"/> Class for estimators that fit models to data.
     /// </summary>
-    public class ScalaEstimator<M> : ScalaPipelineStage where M : ScalaModel<M>
+    public class ScalaEstimator<M> : ScalaPipelineStage, Estimator<M> where M : ScalaModel<M>
     {
 
         public ScalaEstimator(string className) : base(className)
@@ -222,7 +231,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaModel"/> Class for models that are fitted by estimators.
     /// </summary>
-    public class ScalaModel<M> : ScalaTransformer where M : ScalaModel<M>
+    public class ScalaModel<M> : ScalaTransformer, Model<M> where M : ScalaModel<M>
     {
         public ScalaModel(string className) : base(className)
         {

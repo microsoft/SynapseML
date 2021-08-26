@@ -26,13 +26,15 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
     s"""${name}Model"""
   }
 
-  override def dotnetLoadLine(modelNum: Int): String = {
-    s"""
-       |var ${name}Model = Pipeline.Load(
-       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-       |${name}Model = ${name}Model.GetStages().GetValue(0);
-       |""".stripMargin
-  }
+//  override def dotnetLoadLine(modelNum: Int): String = {
+//    s"""
+//       |var ${name}Load = Pipeline.Load(
+//       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
+//       |var ${name}Model = ${name}Load.GetStages()[0];
+//       |""".stripMargin
+//  }
+  override def dotnetLoadLine(modelNum: Int): String =
+    throw new NotImplementedError("No translation found for complex parameter")
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
