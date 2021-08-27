@@ -20,6 +20,7 @@ import org.apache.spark.sql.types._
 import scala.math.Ordering
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
+import scala.collection.JavaConverters._
 
 object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
   def validateAndTransformSchema(schema: StructType, outputCol: String): StructType = {
@@ -121,6 +122,9 @@ class ValueIndexerModel(val uid: String)
 
   /** @group setParam */
   def setLevels(value: Array[_]): this.type = set(levels, value.asInstanceOf[Array[Any]])
+
+  /** @group setParam */
+  def setLevels(value: java.util.ArrayList[Any]): this.type = set(levels, value.asScala.toArray)
 
   /** The datatype of the levels as a jason string
     *

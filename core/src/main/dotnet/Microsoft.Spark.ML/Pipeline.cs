@@ -49,7 +49,7 @@ namespace Microsoft.Spark.ML
                 arrayList.Add(pipelineStage);
             }
             return WrapAsPipeline((JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-                "com.microsoft.ml.spark.codegen.PipelineHelper", "setStages", Reference, (object)arrayList));
+                "com.microsoft.ml.spark.codegen.DotnetHelper", "setPipelineStages", Reference, (object)arrayList));
         }
 
 
@@ -62,7 +62,7 @@ namespace Microsoft.Spark.ML
                 var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
                 Type type = Type.GetType(constructorClass);
                 MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-                result[i] = method.Invoke(null, new object[] {jvmObjects[i]}) as ScalaPipelineStage;
+                result[i] = (ScalaPipelineStage)method.Invoke(null, new object[] {jvmObjects[i]});
             }
             return result;
         }

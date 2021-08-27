@@ -164,11 +164,16 @@ object TestGen {
     clean(conf.testDataDir)
     clean(conf.pyTestDir)
     generatePythonTests(conf)
+    generateDotnetTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
+    if (toDir(conf.dotnetTestOverrideDir).exists())
+      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
     makeInitFiles(conf)
+    generateDotnetTestProjFile(conf)
+    generateDotnetHelperFile(conf)
   }
 }

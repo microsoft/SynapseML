@@ -14,10 +14,27 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.collection.JavaConverters._
 
-object PipelineHelper {
+object DotnetHelper {
 
-  def setStages(pipeline: Pipeline, value: java.util.ArrayList[_ <: PipelineStage]): Pipeline =
+  def setPipelineStages(pipeline: Pipeline, value: java.util.ArrayList[_ <: PipelineStage]): Pipeline =
     pipeline.setStages(value.asScala.toArray)
+
+  def convertToJavaMap(value: Map[_, _]): java.util.Map[_, _] = value.asJava
+
+  // TODO: support more types for UntypedArrayParam
+  def mapScalaToJava(value: java.lang.Object): Any = {
+    value match {
+      case i: java.lang.Integer => i.toInt
+      case d: java.lang.Double => d.toDouble
+      case f: java.lang.Float => f.toFloat
+      case b: java.lang.Boolean => b.booleanValue()
+      case l: java.lang.Long => l.toLong
+      case s: java.lang.Short => s.toShort
+      case by: java.lang.Byte => by.toByte
+      case c: java.lang.Character => c.toChar
+      case _ => value
+    }
+  }
 }
 
 trait DotnetWrappable extends BaseWrappable {
@@ -125,12 +142,24 @@ trait DotnetWrappable extends BaseWrappable {
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
             |    DataType.FromJson(Reference.Jvm, value.Json)));
             |""".stripMargin
+      case _: StringStringMapParam | _: StringIntMapParam =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
+            |{
+            |    var hashMap = new HashMap(SparkEnvironment.JvmBridge);
+            |    foreach (var item in value)
+            |    {
+            |        hashMap.Put(item.Key, item.Value);
+            |    }
+            |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)hashMap));
+            |}
+            |""".stripMargin
       case _: EstimatorParam | _: ModelParam =>
         s"""|$docString
             |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : ScalaModel<M> =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |""".stripMargin
-      case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam =>
+      case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam | _: UntypedArrayParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
             |{
@@ -138,6 +167,24 @@ trait DotnetWrappable extends BaseWrappable {
             |    foreach (var v in value)
             |    {
             |        arrayList.Add(v);
+            |    }
+            |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)arrayList));
+            |}
+            |""".stripMargin
+      case _: ArrayMapParam =>
+        s"""|$docString
+            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
+            |{
+            |    var arrayList = new ArrayList(SparkEnvironment.JvmBridge);
+            |    HashMap hashMap;
+            |    foreach (var v in value)
+            |    {
+            |        hashMap = new HashMap(SparkEnvironment.JvmBridge);
+            |        foreach (var item in v)
+            |        {
+            |            hashMap.Put(item.Key, item.Value);
+            |        }
+            |        arrayList.Add(hashMap);
             |    }
             |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)arrayList));
             |}
@@ -188,13 +235,13 @@ trait DotnetWrappable extends BaseWrappable {
                |{
                |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
                |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
-               |    $dType results =
+               |    $dType result =
                |        new ${dType.substring(0, dType.length - 2)}[jvmObjects.Length];
-               |    for (int i = 0; i < results.Length; i++)
+               |    for (int i = 0; i < result.Length; i++)
                |    {
-               |        results[i] = new ${dType.substring(0, dType.length - 2)}(jvmObjects[i]);
+               |        result[i] = new ${dType.substring(0, dType.length - 2)}(jvmObjects[i]);
                |    }
-               |    return results;
+               |    return result;
                |}
                |""".stripMargin
           case _ =>
@@ -220,6 +267,29 @@ trait DotnetWrappable extends BaseWrappable {
            |    return DataType.ParseDataType(json);
            |}
            |""".stripMargin
+      case _: StringStringMapParam | _: StringIntMapParam =>
+        val valType = p match {
+          case _: StringStringMapParam => "string"
+          case _: StringIntMapParam => "int"
+          case _ => throw new Exception(s"unsupported value type $p")
+        }
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName()
+           |{
+           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+           |    JvmObjectReference hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+           |        "com.microsoft.ml.spark.codegen.DotnetHelper", "convertToJavaMap", jvmObject);
+           |    JvmObjectReference[] keySet = (JvmObjectReference[])(
+           |        (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
+           |    ${getParamInfo(p).dotnetType} result = new ${getParamInfo(p).dotnetType}();
+           |    foreach (var k in keySet)
+           |    {
+           |        result.Add((string)k.Invoke("toString"), ($valType)hashMap.Invoke("get", k));
+           |    }
+           |    return result;
+           |}
+           |""".stripMargin
       case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
         s"""
            |$docString
@@ -227,6 +297,50 @@ trait DotnetWrappable extends BaseWrappable {
            |{
            |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
            |    return (${getParamInfo(p).dotnetType})jvmObject.Invoke(\"array\");
+           |}
+           |""".stripMargin
+      case _: UntypedArrayParam =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName()
+           |{
+           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
+           |    object[] result = new object[jvmObjects.Length];
+           |    for (int i = 0; i < result.Length; i++)
+           |    {
+           |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+           |            "com.microsoft.ml.spark.codegen.DotnetHelper", "mapScalaToJava", (object)jvmObjects[i]);
+           |    }
+           |    return result;
+           |}
+           |""".stripMargin
+      case _: ArrayMapParam =>
+        s"""
+           |$docString
+           |public ${getParamInfo(p).dotnetType} Get$capName()
+           |{
+           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
+           |    Dictionary<string, object>[] result = new Dictionary<string, object>[jvmObjects.Length];
+           |    JvmObjectReference hashMap;
+           |    JvmObjectReference[] keySet;
+           |    Dictionary<string, object> dic;
+           |    object val;
+           |    for (int i = 0; i < result.Length; i++)
+           |    {
+           |        hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+           |            "com.microsoft.ml.spark.codegen.DotnetHelper", "convertToJavaMap", jvmObjects[i]);
+           |        keySet = (JvmObjectReference[])(
+           |            (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
+           |        dic = new Dictionary<string, object>();
+           |        foreach (var k in keySet)
+           |        {
+           |            val = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+           |                "com.microsoft.ml.spark.codegen.DotnetHelper", "mapScalaToJava", hashMap.Invoke("get", k));
+           |            dic.Add((string)k.Invoke("toString"), val);
+           |        }
+           |        result[i] = dic;
+           |    }
+           |    return result;
            |}
            |""".stripMargin
       case _: EstimatorParam | _: ModelParam | _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam =>

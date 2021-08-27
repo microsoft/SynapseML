@@ -35,9 +35,24 @@ namespace Microsoft.Spark.Interop.Internal.Java.Util
         /// Returns the value to which the specified key is mapped, 
         /// or null if this map contains no mapping for the key.
         /// </summary>
-        /// <param name="key">The HashMap key</param>
+        /// <param name="value">value whose presence in this map is to be tested</param>
         public object Get(object key) =>
             Reference.Invoke("get", key);
+
+        /// <summary>
+        /// Returns true if this map maps one or more keys to the specified value.
+        /// </summary>
+        /// <param name="key">The HashMap key</param>
+        /// <return>true if this map maps one or more keys to the specified value</return>
+        public bool ContainsValue(object value) =>
+            (bool)Reference.Invoke("containsValue", value);
+
+        public object[] KeySet()
+        {
+            JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke("keySet");
+            var result = (object[])jvmObject.Invoke("toArray");
+            return result;
+        }
 
     }
 }

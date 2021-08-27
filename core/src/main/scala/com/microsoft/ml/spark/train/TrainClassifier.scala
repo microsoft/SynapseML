@@ -16,6 +16,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *
@@ -287,7 +288,9 @@ class TrainedClassifierModel(val uid: String)
 
   def getLevels: Array[Any] = $(levels)
 
-  def setLevels(v: Array[Any]): this.type = set(levels, v)
+  def setLevels(v: Array[_]): this.type = set(levels, v.asInstanceOf[Array[Any]])
+
+  def setLevels(v: java.util.ArrayList[Any]): this.type = set(levels, v.asScala.toArray)
 
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
