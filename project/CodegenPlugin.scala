@@ -34,6 +34,7 @@ object CodegenPlugin extends AutoPlugin {
 
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
+  val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
 
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
@@ -62,6 +63,7 @@ object CodegenPlugin extends AutoPlugin {
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
 
+    val dotnetTestgen = TaskKey[Unit]("dotnetTestgen", "Generate Dotnet Tests")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
@@ -74,7 +76,7 @@ object CodegenPlugin extends AutoPlugin {
 
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
-      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1))
+      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(DotnetTestGenTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -100,6 +102,15 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
     }
   } tag(TestGenTag)
+
+  def dotnetTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetTestGen $arg").value
+    }
+  } tag(DotnetTestGenTag)
 
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
@@ -239,6 +250,7 @@ object CodegenPlugin extends AutoPlugin {
         new File(codegenDir.value, "test/python/")
       )
     },
+    dotnetTestgen := dotnetTestGenImpl.value,
     targetDir := {
       artifactPath.in(packageBin).in(Compile).value.getParentFile
     },
