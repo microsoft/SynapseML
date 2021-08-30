@@ -15,6 +15,10 @@ trait DotnetPrinter extends CompactPrinter {
         sb.append("new []")
         printArray(e, sb)
       }
+      case JsObject(e) => {
+        sb.append("new Dictionary<string, object>")
+        printObject(e, sb)
+      }
       case e => print(e, sb)
     }
     sb.append("}")

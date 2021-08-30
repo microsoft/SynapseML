@@ -70,7 +70,15 @@ object GenerationUtils {
         s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType}
            |    ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
       case _ =>
-        s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+        val capName = p.name match {
+          case "xgboostDartMode" => "XGBoostDartMode"
+          case "parallelism" => p.parent.split("_".toCharArray).head match {
+            case "VowpalWabbitContextualBandit" => "ParallelismForParamListFit"
+            case _ => p.name.capitalize
+          }
+          case _ => p.name.capitalize
+        }
+        s""".Set$capName(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }
   }
 

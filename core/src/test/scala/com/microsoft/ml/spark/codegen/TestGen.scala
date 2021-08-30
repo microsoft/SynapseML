@@ -40,10 +40,11 @@ object TestGen {
   }
 
   def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
-    if (!conf.dotnetTestDir.exists()) {
-      conf.dotnetTestDir.mkdir()
+    val dir = new File(conf.dotnetTestDir,  "mmlsparktest")
+    if (!dir.exists()){
+      dir.mkdirs()
     }
-    writeFile(join(conf.dotnetTestDir, "mmlsparktest", "SparkFixtureHelper.cs"),
+    writeFile(new File(dir, "SparkFixtureHelper.cs"),
       s"""
          |// Copyright (C) Microsoft Corporation. All rights reserved.
          |// Licensed under the MIT License. See LICENSE in project root for information.
@@ -64,11 +65,24 @@ object TestGen {
          |""".stripMargin)
   }
 
+  // noinspection ScalaStyle
   def generateDotnetTestProjFile(conf: CodegenConfig): Unit = {
-    if (!conf.dotnetTestDir.exists()) {
-      conf.dotnetTestDir.mkdir()
+    val dir = new File(conf.dotnetTestDir,  "mmlsparktest")
+    if (!dir.exists()){
+      dir.mkdirs()
     }
-    writeFile(join(conf.dotnetTestDir, "mmlsparktest", "TestProjectSetup.csproj"),
+    val curProject = conf.name match {
+      case "mmlspark-deep-learning" => "deepLearning"
+      case _ => conf.name.split("-".toCharArray).last
+    }
+    val curPath = conf.dotnetSrcDir.getAbsolutePath
+    val corePath = curPath.replace(curProject, "core")
+    val referenceCore = conf.name match {
+      case "mmlspark-opencv" =>
+        s"""<ProjectReference Include="$corePath\\mmlspark\\CoreProjectSetup.csproj" />"""
+      case _ => ""
+    }
+    writeFile(new File(dir, "TestProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
@@ -91,7 +105,8 @@ object TestGen {
          |
          |  <ItemGroup>
          |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
-         |    <ProjectReference Include="${conf.dotnetSrcDir.getAbsolutePath}\\mmlspark\\ProjectSetup.csproj" />
+         |    <ProjectReference Include="$curPath\\mmlspark\\${curProject.capitalize}ProjectSetup.csproj" />
+         |    $referenceCore
          |  </ItemGroup>
          |
          |  <PropertyGroup>

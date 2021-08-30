@@ -181,10 +181,14 @@ object CodeGen {
 
   //noinspection ScalaStyle
   def generateDotnetProjFile(conf: CodegenConfig): Unit = {
+    val packageName = conf.name match {
+      case "mmlspark-deep-learning" => "DeepLearning"
+      case _ => conf.name.split("-".toCharArray).last.capitalize
+    }
     if (!conf.dotnetSrcDir.exists()) {
       conf.dotnetSrcDir.mkdir()
     }
-    writeFile(join(conf.dotnetSrcDir, "mmlspark", "ProjectSetup.csproj"),
+    writeFile(new File(join(conf.dotnetSrcDir, "mmlspark"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>

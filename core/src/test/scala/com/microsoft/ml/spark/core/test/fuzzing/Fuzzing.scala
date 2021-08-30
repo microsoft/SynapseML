@@ -90,7 +90,10 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   def dotnetTestInstantiateModel(stage: S, num: Int): String = {
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val fullStageName = stage.getClass.getName
+      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
+      .split(".".toCharArray).map(capitalize).mkString(".")
 
     def instantiateModel(paramMap: Seq[ParamPair[_]]): String = {
       val externalLoadlingLines = paramMap.flatMap { pp =>
@@ -103,7 +106,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       s"""
          |$externalLoadlingLines
          |
-         |var model = new $stageName()
+         |var model = new $fullStageName()
          |${indent(paramMap.map(dotnetRenderParam(_)).mkString("\n"), 1)};
          |
          |""".stripMargin
@@ -113,7 +116,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       instantiateModel(fullParamMap)
     } catch {
       case _: NotImplementedError =>
-        println(s"could not generate full test for $stageName, resorting to partial test")
+        println(s"could not generate full test for $fullStageName, resorting to partial test")
         instantiateModel(partialParamMap)
     }
   }
@@ -122,6 +125,10 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   def makeDotnetTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val fullStageName = stage.getClass.getName
+      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
+      .split(".".toCharArray).map(capitalize).mkString(".")
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
@@ -141,7 +148,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
        |[Fact]
        |public void Test${stageName}Constructor$num()
        |{
-       |    void AssertCorrespondence($stageName model, string name, int num)
+       |    void AssertCorrespondence($fullStageName model, string name, int num)
        |    {
        |        model.Write().Overwrite().Save(Path.Combine(TestDataDir, name));
        |        _jvm.CallStaticJavaMethod("com.microsoft.ml.spark.core.utils.ModelEquality",
@@ -164,13 +171,14 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     saveDotnetTestData(conf)
     val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
     val stage = dotnetTestObjects().head.stage
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).mkString(".")
     val namespaceString = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.ml.spark", "MMLSparktest")
+      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
       .split(".".toCharArray).map(capitalize).mkString(".")
     val testClass =
       s"""

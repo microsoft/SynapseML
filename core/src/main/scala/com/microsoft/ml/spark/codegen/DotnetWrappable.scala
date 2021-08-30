@@ -118,7 +118,14 @@ trait DotnetWrappable extends BaseWrappable {
 
   //noinspection ScalaStyle
   protected def dotnetParamSetter(p: Param[_]): String = {
-    val capName = p.name.capitalize
+    val capName = p.name match {
+      case "xgboostDartMode" => "XGBoostDartMode"
+      case "parallelism" => dotnetClassName match {
+        case "VowpalWabbitContextualBandit" => "ParallelismForParamListFit"
+        case _ => p.name.capitalize
+      }
+      case _ => p.name.capitalize
+    }
     val docString =
       s"""|/// <summary>
           |/// Sets ${p.name} value for <see cref=\"${p.name}\"/>
