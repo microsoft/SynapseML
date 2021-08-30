@@ -9,7 +9,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.{col, collect_list, lit, struct}
+import org.apache.spark.sql.functions.{col, collect_list, lit, sort_array, struct}
 
 trait AnomalyKey {
   lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
@@ -39,7 +39,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
-    .agg(collect_list(col("inputs")).alias("inputs"))
+    .agg(sort_array(collect_list(col("inputs"))).alias("inputs"))
 
   lazy val df2: DataFrame = Seq(
     ("2000-01-24T08:46:00Z", 826.0),
@@ -61,7 +61,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
-    .agg(collect_list(col("inputs")).alias("inputs"))
+    .agg(sort_array(collect_list(col("inputs"))).alias("inputs"))
 
 }
 
