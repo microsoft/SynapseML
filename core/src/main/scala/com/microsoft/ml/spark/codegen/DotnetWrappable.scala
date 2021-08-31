@@ -351,20 +351,15 @@ trait DotnetWrappable extends BaseWrappable {
            |}
            |""".stripMargin
       case _: EstimatorParam | _: ModelParam | _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam =>
-        val dType = p match {
-          case _: EstimatorParam | _: ModelParam =>
-            getParamInfo(p).dotnetType.substring(5, getParamInfo(p).dotnetType.length - 3) + "<object>"
-          case _ => getParamInfo(p).dotnetType
-        }
         s"""
            |$docString
-           |public $dType Get$capName()
+           |public ${p.asInstanceOf[WrappableParam[_]].dotnetReturnType} Get$capName()
            |{
            |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
            |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
            |    Type type = Type.GetType(constructorClass);
            |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |    return ($dType)method.Invoke(null, new object[] {jvmObject});
+           |    return (${p.asInstanceOf[WrappableParam[_]].dotnetReturnType})method.Invoke(null, new object[] {jvmObject});
            |}
            |""".stripMargin
       case _: ArrayParamMapParam =>

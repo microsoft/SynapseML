@@ -18,6 +18,6 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
   override def dotnetValue(v: Array[ParamMap]): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "ParamMap[]"
+  override def dotnetType: String = "ParamMap[]"
 
 }

@@ -139,7 +139,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
        |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
   }
 
-  override def dotnetParamInfo: String = "DataFrame"
+  override def dotnetType: String = "DataFrame"
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {

@@ -32,41 +32,16 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
 }
 
 class StringStringMapParam(parent: Params, name: String, doc: String, isValid: Map[String, String] => Boolean)
-  extends Param[Map[String, String]](parent, name, doc, isValid) {
+  extends MapParam[String, String](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
-
-  /** Creates a param pair with a `java.util.HashMap` of values (for Java and Python). */
-  def w(value: java.util.HashMap[String, String]): ParamPair[Map[String, String]] = {
-    this.->(value.asScala.toMap)
-  }
-
-  override def jsonEncode(value: Map[String, String]): String = {
-    value.toJson.compactPrint
-  }
-
-  override def jsonDecode(json: String): Map[String, String] = {
-    json.parseJson.convertTo[Map[String, String]]
-  }
 }
 
 class StringIntMapParam(parent: Params, name: String, doc: String, isValid: Map[String, Int] => Boolean)
-  extends Param[Map[String, Int]](parent, name, doc, isValid) {
+  extends MapParam[String, Int](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  /** Creates a param pair with a `java.util.HasMap` of values (for Java and Python). */
-  def w(value: java.util.HashMap[String, Int]): ParamPair[Map[String, Int]] = {
-    this.->(value.asScala.toMap)
-  }
-
-  override def jsonEncode(value: Map[String, Int]): String = {
-    value.toJson.compactPrint
-  }
-
-  override def jsonDecode(json: String): Map[String, Int] = {
-    json.parseJson.convertTo[Map[String, Int]]
-  }
 }

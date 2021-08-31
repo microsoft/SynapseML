@@ -23,6 +23,6 @@ class ParamSpaceParam(parent: Params, name: String, doc: String, isValid: ParamS
   override def dotnetValue(v: ParamSpace): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "object"
+  override def dotnetType: String = "object"
 
 }

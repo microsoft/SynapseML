@@ -22,6 +22,6 @@ class EstimatorArrayParam(parent: Params, name: String, doc: String, isValid: Ar
   override def dotnetValue(v: Array[Estimator[_]]): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "Estimator<object>[]"
+  override def dotnetType: String = "Estimator<object>[]"
 
 }

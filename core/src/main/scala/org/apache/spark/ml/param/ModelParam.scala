@@ -17,5 +17,7 @@ class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetParamInfo: String = "ScalaModel<M>"
+  override def dotnetType: String = "ScalaModel<M>"
+
+  override def dotnetReturnType: String = "Model<object>"
 }

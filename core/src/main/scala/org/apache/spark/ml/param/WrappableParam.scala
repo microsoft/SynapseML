@@ -5,6 +5,8 @@ package org.apache.spark.ml.param
 
 trait WrappableParam[T] extends DotnetWrappableParam[T] {
 
-  def dotnetParamInfo: String
+  def dotnetType: String
+
+  def dotnetReturnType: String = dotnetType
 
 }

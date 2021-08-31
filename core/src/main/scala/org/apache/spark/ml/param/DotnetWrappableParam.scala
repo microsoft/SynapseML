@@ -60,8 +60,6 @@ trait DotnetWrappableParam[T] extends Param[T] {
 
   val name: String
 
-  type dotnetInnerType = T
-
   def dotnetValue(v: T): String
 
   def dotnetName(v: T): String = {

@@ -22,6 +22,6 @@ class TransformerArrayParam(parent: Params, name: String, doc: String, isValid: 
   override def dotnetValue(v: Array[Transformer]): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "ScalaTransformer[]"
+  override def dotnetType: String = "ScalaTransformer[]"
 
 }

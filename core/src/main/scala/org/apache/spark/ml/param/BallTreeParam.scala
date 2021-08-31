@@ -17,7 +17,7 @@ class BallTreeParam(parent: Params, name: String, doc: String, isValid: BallTree
   override def dotnetValue(v: BallTree[_]): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "object"
+  override def dotnetType: String = "object"
 
 }
 
@@ -34,6 +34,6 @@ class ConditionalBallTreeParam(parent: Params,
   override def dotnetValue(v: ConditionalBallTree[_, _]): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "object"
+  override def dotnetType: String = "object"
 
 }

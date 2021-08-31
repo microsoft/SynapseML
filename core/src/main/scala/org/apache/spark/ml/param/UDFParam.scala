@@ -34,13 +34,6 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
   override def dotnetValue(v: UserDefinedFunction): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "UserDefinedFunction"
-
-//  override def dotnetLoadLine(modelNum: Int): String = {
-//    s"""
-//       |var complexParamsReader = new ComplexParamsReader();
-//       |var ${name}Param = complexParamsReader.Load(
-//       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
-//  }
+  override def dotnetType: String = "UserDefinedFunction"
 
 }

@@ -43,7 +43,7 @@ object GenerationUtils {
   def pyRenderParam[T](p: Param[T], v: T): String = {
     p match {
       case pwp: PythonWrappableParam[_] =>
-        pwp.pyConstructorLine(v.asInstanceOf[pwp.pyInnerType])
+        pwp.pyConstructorLine(v.asInstanceOf[pwp.InnerType])
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>

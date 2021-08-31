@@ -185,6 +185,8 @@ object CodeGen {
       case "mmlspark-deep-learning" => "DeepLearning"
       case _ => conf.name.split("-".toCharArray).last.capitalize
     }
+    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
+      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
     if (!conf.dotnetSrcDir.exists()) {
       conf.dotnetSrcDir.mkdir()
     }
@@ -201,7 +203,7 @@ object CodeGen {
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
+         |    <ProjectReference Include="$dotnetBasePath" />
          |  </ItemGroup>
          |
          |  <PropertyGroup>

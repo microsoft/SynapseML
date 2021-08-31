@@ -127,7 +127,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaPipelineStage"/> A stage in a pipeline, either an Estimator or a Transformer.
     /// </summary>
-    public class ScalaPipelineStage : Params
+    public abstract class ScalaPipelineStage : Params
     {
 
         public ScalaPipelineStage(string className) : base(className)
@@ -169,7 +169,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaTransformer"/> Class for transformers that transform one dataset into another.
     /// </summary>
-    public class ScalaTransformer : ScalaPipelineStage
+    public abstract class ScalaTransformer : ScalaPipelineStage
     {
 
         public ScalaTransformer(string className) : base(className)
@@ -208,7 +208,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaEstimator"/> Class for estimators that fit models to data.
     /// </summary>
-    public class ScalaEstimator<M> : ScalaPipelineStage, Estimator<M> where M : ScalaModel<M>
+    public abstract class ScalaEstimator<M> : ScalaPipelineStage, Estimator<M> where M : ScalaModel<M>
     {
 
         public ScalaEstimator(string className) : base(className)
@@ -231,7 +231,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaModel"/> Class for models that are fitted by estimators.
     /// </summary>
-    public class ScalaModel<M> : ScalaTransformer, Model<M> where M : ScalaModel<M>
+    public abstract class ScalaModel<M> : ScalaTransformer, Model<M> where M : ScalaModel<M>
     {
         public ScalaModel(string className) : base(className)
         {
@@ -250,7 +250,7 @@ namespace MMLSpark.Dotnet.Wrapper
     /// <summary>
     /// <see cref="ScalaEvaluator"/> Class for evaluators that compute metrics from predictions.
     /// </summary>
-    public class ScalaEvaluator : Params
+    public abstract class ScalaEvaluator : Params
     {
 
         public ScalaEvaluator(string className) : base(className)

@@ -16,5 +16,5 @@ class PipelineStageParam(parent: Params, name: String, doc: String, isValid: Pip
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetParamInfo: String = "ScalaPipelineStage"
+  override def dotnetType: String = "ScalaPipelineStage"
 }

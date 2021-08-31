@@ -20,5 +20,5 @@ class FObjParam(parent: Params, name: String, doc: String,
 
   override def dotnetValue(v: FObjTrait): String = s"""${name}Param"""
 
-  override def dotnetParamInfo: String = "object"
+  override def dotnetType: String = "object"
 }

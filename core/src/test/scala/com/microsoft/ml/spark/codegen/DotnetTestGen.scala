@@ -64,6 +64,8 @@ object DotnetTestGen {
       case "mmlspark-deep-learning" => "deepLearning"
       case _ => conf.name.split("-".toCharArray).last
     }
+    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
+      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
     val curPath = conf.dotnetSrcDir.getAbsolutePath
     val corePath = curPath.replace(curProject, "core")
     val referenceCore = conf.name match {
@@ -93,7 +95,7 @@ object DotnetTestGen {
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <ProjectReference Include="..\\..\\..\\..\\..\\..\\..\\..\\core\\src\\main\\dotnet\\dotnetBase.csproj" />
+         |    <ProjectReference Include="$dotnetBasePath" />
          |    <ProjectReference Include="$curPath\\mmlspark\\${curProject.capitalize}ProjectSetup.csproj" />
          |    $referenceCore
          |  </ItemGroup>

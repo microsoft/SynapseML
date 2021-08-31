@@ -20,6 +20,6 @@ class LightGBMBoosterParam(parent: Params, name: String, doc: String,
 
   override def dotnetValue(v: LightGBMBooster): String = s"""${name}Param"""
 
-  override def dotnetParamInfo: String = "LightGBMBooster"
+  override def dotnetType: String = "LightGBMBooster"
 
 }

@@ -94,7 +94,7 @@ object DefaultParamInfo {
   //noinspection ScalaStyle
   def getComplexParamInfo(dataType: ComplexParam[_]): ParamInfo[_] = {
     dataType match {
-      case w: WrappableParam[_] => new ParamInfo[ComplexParam[_]]("object", w.dotnetParamInfo)
+      case w: WrappableParam[_] => new ParamInfo[ComplexParam[_]]("object", w.dotnetType)
       case _ => throw new Exception(s"unsupported Complex Param type $dataType")
     }
   }

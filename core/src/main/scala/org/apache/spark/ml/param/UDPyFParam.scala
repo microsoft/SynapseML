@@ -19,6 +19,6 @@ class UDPyFParam(parent: Params, name: String, doc: String, isValid: UserDefined
   override def dotnetValue(v: UserDefinedPythonFunction): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
-  override def dotnetParamInfo: String = "UserDefinedPythonFunction"
+  override def dotnetType: String = "UserDefinedPythonFunction"
 
 }

@@ -45,6 +45,6 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
 
   override def dotnetValue(v: SerializableFunction): String = s"""${name}Param"""
 
-  override def dotnetParamInfo: String = "object"
+  override def dotnetType: String = "object"
 
 }
