@@ -314,7 +314,10 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     #- template: templates/ivy_cache.yml
-    - bash: https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh
+    - bash: |
+          curl https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh
+          chmod +x dotnet-install.sh
+          ./dotnet-install.sh
       displayName: Download .NET SDK
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
