@@ -359,7 +359,8 @@ trait DotnetWrappable extends BaseWrappable {
            |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
            |    Type type = Type.GetType(constructorClass);
            |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |    return (${p.asInstanceOf[WrappableParam[_]].dotnetReturnType})method.Invoke(null, new object[] {jvmObject});
+           |    return (${p.asInstanceOf[WrappableParam[_]].dotnetReturnType})method.Invoke(
+           |        null, new object[] {jvmObject});
            |}
            |""".stripMargin
       case _: ArrayParamMapParam =>
