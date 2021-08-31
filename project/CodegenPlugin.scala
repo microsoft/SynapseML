@@ -35,6 +35,7 @@ object CodegenPlugin extends AutoPlugin {
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
+  val PyTestGenTag = Tags.Tag("pyTestGen")
 
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
@@ -62,8 +63,9 @@ object CodegenPlugin extends AutoPlugin {
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+    val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
-    val dotnetTestgen = TaskKey[Unit]("dotnetTestgen", "Generate Dotnet Tests")
+    val dotnetTestgen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
@@ -88,11 +90,11 @@ object CodegenPlugin extends AutoPlugin {
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (join(rSrcDir,"tests").exists()){
+    if (join(rSrcDir, "tests").exists()) {
       rCmd(activateCondaEnv.value,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
-  } tag(RInstallTag)
+  } tag (RInstallTag)
 
   def testGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -101,7 +103,16 @@ object CodegenPlugin extends AutoPlugin {
     Def.task {
       (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
     }
-  } tag(TestGenTag)
+  } tag (TestGenTag)
+
+  def pyTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.PyTestGen $arg").value
+    }
+  } tag (PyTestGenTag)
 
   def dotnetTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -110,7 +121,7 @@ object CodegenPlugin extends AutoPlugin {
     Def.task {
       (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetTestGen $arg").value
     }
-  } tag(DotnetTestGenTag)
+  } tag (DotnetTestGenTag)
 
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
@@ -164,6 +175,7 @@ object CodegenPlugin extends AutoPlugin {
       }
     }.value),
     testgen := testGenImpl.value,
+    pyTestgen := pyTestGenImpl.value,
     pythonizedVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head + ".dev1"
@@ -236,7 +248,7 @@ object CodegenPlugin extends AutoPlugin {
     },
     testPython := {
       installPipPackage.value
-      testgen.value
+      pyTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       runCmd(
         activateCondaEnv.value ++ Seq("python",
@@ -251,6 +263,18 @@ object CodegenPlugin extends AutoPlugin {
       )
     },
     dotnetTestgen := dotnetTestGenImpl.value,
+    testDotnet := {
+      codegen.value
+      dotnetTestgen.value
+      val mainTargetDir = join(baseDirectory.value.getParent, "target")
+      runCmd(
+        Seq("dotnet",
+          "test",
+          s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}"
+        ),
+        new File(codegenDir.value, "test/dotnet/")
+      )
+    },
     targetDir := {
       artifactPath.in(packageBin).in(Compile).value.getParentFile
     },

@@ -47,42 +47,41 @@ class TestObject[S <: PipelineStage](val stage: S,
 
 }
 
-trait TestFuzzingUtils[S <: PipelineStage] {
+trait TestFuzzingUtil {
 
   val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
-  def testDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.testDataDir, this.getClass.getName.split(".".toCharArray).last)
+  val testFitting = false
+}
 
-  def saveDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
-    df.write.mode("overwrite").parquet(new File(testDataDir(conf), s"$name.parquet").toString)
+trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
+
+  def dotnetTestObjects(): Seq[TestObject[S]]
+
+  def dotnetTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
+    conf.dotnetTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def saveDotnetDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(dotnetTestDataDir(conf), s"$name.parquet").toString)
   }
 
-  def saveModel(conf: CodegenConfig, model: S, name: String): Unit = {
+  def saveDotnetModel(conf: CodegenConfig, model: S, name: String): Unit = {
     model match {
       case writable: MLWritable =>
-        writable.write.overwrite().save(new File(testDataDir(conf), s"$name.model").toString)
+        writable.write.overwrite().save(new File(dotnetTestDataDir(conf), s"$name.model").toString)
       case _ =>
         throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
     }
   }
 
-  val testFitting = false
-
-}
-
-trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
-
-  def dotnetTestObjects(): Seq[TestObject[S]]
-
   def saveDotnetTestData(conf: CodegenConfig): Unit = {
-    testDataDir(conf).mkdirs()
+    dotnetTestDataDir(conf).mkdirs()
     dotnetTestObjects().zipWithIndex.foreach { case (to, i) =>
-      saveModel(conf, to.stage, s"model-$i")
+      saveDotnetModel(conf, to.stage, s"model-$i")
       if (testFitting) {
-        saveDataset(conf, to.fitDF, s"fit-$i")
-        saveDataset(conf, to.transDF, s"trans-$i")
-        to.validateDF.foreach(saveDataset(conf, _, s"val-$i"))
+        saveDotnetDataset(conf, to.fitDF, s"fit-$i")
+        saveDotnetDataset(conf, to.transDF, s"trans-$i")
+        to.validateDF.foreach(saveDotnetDataset(conf, _, s"val-$i"))
       }
     }
   }
@@ -169,6 +168,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   def makeDotnetTestFile(conf: CodegenConfig): Unit = {
     spark
     saveDotnetTestData(conf)
+    val testDataDirString = dotnetTestDataDir(conf).toString
     val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
     val stage = dotnetTestObjects().head.stage
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
@@ -194,6 +194,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using Microsoft.Spark.ML.Feature.Param;
          |using Microsoft.Spark.Sql;
          |using Microsoft.Spark.Sql.Types;
+         |using MMLSpark.Dotnet.Wrapper;
          |using Xunit;
          |using MMLSparktest.Utils;
          |using MMLSparktest.Helper;
@@ -205,7 +206,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |    [Collection("MMLSpark Tests")]
          |    public class $testClassName
          |    {
-         |        public const string TestDataDir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}";
+         |        public const string TestDataDir = "${testDataDirString.replaceAllLiterally("\\", "\\\\")}";
          |        private readonly SparkSession _spark;
          |        private readonly IJvmBridge _jvm;
          |        public $testClassName(SparkFixture fixture)
@@ -231,18 +232,34 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
 
 }
 
-trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtils[S] {
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
 
   def pyTestObjects(): Seq[TestObject[S]]
 
+  def pyTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
+    conf.pyTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def savePyDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(pyTestDataDir(conf), s"$name.parquet").toString)
+  }
+
+  def savePyModel(conf: CodegenConfig, model: S, name: String): Unit = {
+    model match {
+      case writable: MLWritable =>
+        writable.write.overwrite().save(new File(pyTestDataDir(conf), s"$name.model").toString)
+      case _ =>
+        throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
+    }
+  }
+
   def savePyTestData(conf: CodegenConfig): Unit = {
-    testDataDir(conf).mkdirs()
+    pyTestDataDir(conf).mkdirs()
     pyTestObjects().zipWithIndex.foreach { case (to, i) =>
-      saveModel(conf, to.stage, s"model-$i")
+      savePyModel(conf, to.stage, s"model-$i")
       if (testFitting) {
-        saveDataset(conf, to.fitDF, s"fit-$i")
-        saveDataset(conf, to.transDF, s"trans-$i")
-        to.validateDF.foreach(saveDataset(conf, _, s"val-$i"))
+        savePyDataset(conf, to.fitDF, s"fit-$i")
+        savePyDataset(conf, to.transDF, s"trans-$i")
+        to.validateDF.foreach(savePyDataset(conf, _, s"val-$i"))
       }
     }
   }
@@ -326,7 +343,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |from os.path import join
          |import json
          |
-         |test_data_dir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
+         |test_data_dir = "${pyTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
          |
          |class $testClassName(unittest.TestCase):

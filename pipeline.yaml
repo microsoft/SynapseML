@@ -307,6 +307,25 @@ jobs:
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
+- job: DotnetTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    #- template: templates/ivy_cache.yml
+    - bash: https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh
+      displayName: Download .NET SDK
+    - task: AzureCLI@1
+      displayName: 'Test Dotnet Code'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate mmlspark
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (sbt coverage testDotnet)
 
 - job: RTests
   cancelTimeoutInMinutes: 0

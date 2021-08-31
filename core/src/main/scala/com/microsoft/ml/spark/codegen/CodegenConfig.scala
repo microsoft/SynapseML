@@ -18,36 +18,59 @@ case class CodegenConfig(name: String,
                          dotnetVersion: String,
                          packageName: String) {
   def generatedDir: File = new File(targetDir, "generated")
+
   def packageDir: File = new File(generatedDir, "package")
+
   def srcDir: File = new File(generatedDir, "src")
+
   def testDir: File = new File(generatedDir, "test")
+
   def docDir: File = new File(generatedDir, "doc")
+
   def testDataDir: File = new File(generatedDir, "test-data")
 
   //Python Codegen Constant
   def pySrcDir: File = new File(srcDir, "python")
+
   def pyPackageDir: File = new File(packageDir, "python")
+
   def pyTestDir: File = new File(testDir, "python")
+
+  def pyTestDataDir: File = new File(testDataDir, "python")
+
   def pySrcOverrideDir: File = new File(topDir, "src/main/python")
+
   def pyTestOverrideDir: File = new File(topDir, "src/test/python")
 
   //R Codegen Constants
   def rSrcRoot: File = new File(srcDir, "R")
+
   def rSrcDir: File = new File(rSrcRoot, "mmlspark/R")
+
   def rPackageDir: File = new File(packageDir, "R")
+
   def rTestDir: File = new File(rSrcRoot, "mmlspark/tests")
+
   def rTestOverrideDir: File = new File(topDir, "src/test/R")
+
   def rSrcOverrideDir: File = new File(topDir, "src/main/R")
 
   //Dotnet Codegen Constants
   def dotnetSrcDir: File = new File(srcDir, "dotnet")
+
   def dotnetPackageDir: File = new File(packageDir, "dotnet")
+
   def dotnetTestDir: File = new File(testDir, "dotnet")
+
+  def dotnetTestDataDir: File = new File(testDataDir, "dotnet")
+
   def dotnetSrcOverrideDir: File = new File(topDir, "src/main/dotnet")
+
   def dotnetTestOverrideDir: File = new File(topDir, "src/test/dotnet")
 
   //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
   def internalPrefix: String = "_"
+
   def scopeDepth: String = " " * 4
 
   def copyrightLines: String =
@@ -81,16 +104,8 @@ case class CodegenConfig(name: String,
         |$importString
         |""".stripMargin
   }
-
-  def dotnetCsprojFile: String = {
-    s"""|<Project Sdk=\"Microsoft.NET.Sdk\">
-        |
-        |
-        |
-        |""".stripMargin
-  }
 }
 
-object CodegenConfigProtocol extends DefaultJsonProtocol  {
+object CodegenConfigProtocol extends DefaultJsonProtocol {
   implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
 }

@@ -112,7 +112,7 @@ object DotnetTestGen {
 
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
-    clean(conf.testDataDir)
+    clean(conf.dotnetTestDataDir)
     clean(conf.dotnetTestDir)
     generateDotnetTests(conf)
     TestBase.stopSparkSession()

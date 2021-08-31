@@ -6,6 +6,7 @@ package org.apache.spark.ml.param
 import com.microsoft.ml.spark.core.serialize.ComplexParam
 import com.microsoft.ml.spark.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
+import org.apache.spark.ml.Pipeline
 
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T]
   with ParamEquality[T] with ExternalDotnetWrappableParam[T] {
@@ -26,13 +27,19 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
     s"""${name}Model"""
   }
 
-//  override def dotnetLoadLine(modelNum: Int): String = {
+//  // TODO: add this back once we support all underlyingTypes & fix assemblies access for Pipeline.GetStages
+//  override def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
+//    val underlyingType = Pipeline.load(
+//      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
+//      .getStages.head.getClass.getTypeName.split(".".toCharArray).last
+//
 //    s"""
 //       |var ${name}Load = Pipeline.Load(
 //       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-//       |var ${name}Model = ${name}Load.GetStages()[0];
+//       |var ${name}Model = ($underlyingType)${name}Load.GetStages()[0];
 //       |""".stripMargin
 //  }
+
   override def dotnetLoadLine(modelNum: Int): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
