@@ -34,6 +34,10 @@ trait TranslatorUtils extends TestBase {
   lazy val textDf5: DataFrame = Seq(List("The word <mstrans:dictionary translation=wordomatic>word " +
     "or phrase</mstrans:dictionary> is a dictionary entry.")).toDF("text")
 
+  lazy val textDf6: DataFrame = Seq("Hi, this is Synapse!", "Yes!").toDF("text")
+
+  lazy val textDf7: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans")).toDF("text", "language")
+
 }
 
 class TranslateSuite extends TransformerFuzzing[Translate]
@@ -62,6 +66,39 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     assert(
       translationTextTest(
         translate.setToLanguage(Seq("zh-Hans")), textDf2, "你好，你叫什么名字？\n再见"
+      )
+    )
+
+    assert(
+      translationTextTest(
+        translate.setToLanguage("zh-Hans"), textDf6, "嗨， 这是突触！"
+      )
+    )
+
+    val translate1: Translate = new Translate()
+      .setSubscriptionKey(translatorKey)
+      .setLocation("eastus")
+      .setText("Hi, this is Synapse!")
+      .setOutputCol("translation")
+      .setConcurrency(5)
+
+    assert(
+      translationTextTest(
+        translate1.setToLanguage("zh-Hans"), textDf6, "嗨， 这是突触！"
+      )
+    )
+
+    val translate2: Translate = new Translate()
+      .setSubscriptionKey(translatorKey)
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setToLanguageCol("language")
+      .setOutputCol("translation")
+      .setConcurrency(5)
+
+    assert(
+      translationTextTest(
+        translate2, textDf7, "嗨， 这是突触！"
       )
     )
   }

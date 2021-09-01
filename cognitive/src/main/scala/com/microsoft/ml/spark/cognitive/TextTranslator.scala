@@ -38,6 +38,8 @@ trait HasTextInput extends HasServiceParams {
 
   def setText(v: Seq[String]): this.type = setScalarParam(text, v)
 
+  def setText(v: String): this.type = setScalarParam(text, Seq(v))
+
   def getTextCol: String = getVectorParam(text)
 
   def setTextCol(v: String): this.type = setVectorParam(text, v)
@@ -76,9 +78,15 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
-      Some(new StringEntity(
-        getValueOpt(r, text)
-          .map(x => x.map(y => Map("Text" -> y))).toJson.compactPrint, ContentType.APPLICATION_JSON))
+      val textVal = getValueOpt(r, text)
+      if (textVal.nonEmpty) {
+        val content = textVal.get.getClass.getName match {
+          case "java.lang.String" => Seq(Map("Text" -> textVal.get.asInstanceOf[String])).toJson.compactPrint
+          case _ => textVal.get.map(x => Map("Text" -> x)).toJson.compactPrint
+        }
+        Some(new StringEntity(content, ContentType.APPLICATION_JSON))
+      }
+      else Some(new StringEntity(Map("Text" -> "").toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 }
 
@@ -135,7 +143,10 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
       val appended = if (!urlParams.isEmpty) {
         "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
           getValueOpt(row, p).map {
-            v => replaceName(p.name) -> p.toValueString(v)
+            v =>
+              if (p.name == "toLanguage" & v.getClass.getName == "java.lang.String")
+                replaceName(p.name) -> p.toValueString(Seq(v))
+              else replaceName(p.name) -> p.toValueString(v)
           }
         ).toMap)
       } else {
@@ -170,6 +181,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
     toValueString = { seq => seq.mkString(",") })
 
   def setToLanguage(v: Seq[String]): this.type = setScalarParam(toLanguage, v)
+
+  def setToLanguage(v: String): this.type = setScalarParam(toLanguage, Seq(v))
 
   def setToLanguageCol(v: String): this.type = setVectorParam(toLanguage, v)
 
