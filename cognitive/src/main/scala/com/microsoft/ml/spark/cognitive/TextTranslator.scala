@@ -143,10 +143,7 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
       val appended = if (!urlParams.isEmpty) {
         "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
           getValueOpt(row, p).map {
-            v =>
-              if (p.name == "toLanguage" & v.getClass.getName == "java.lang.String")
-                replaceName(p.name) -> p.toValueString(Seq(v))
-              else replaceName(p.name) -> p.toValueString(v)
+            v => replaceName(p.name) -> p.toValueString(v)
           }
         ).toMap)
       } else {
@@ -172,6 +169,38 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   def this() = this(Identifiable.randomUID("Translate"))
 
   def urlPath: String = "translate"
+
+  override protected def prepareUrl: Row => String = {
+    val urlParams: Array[ServiceParam[Any]] =
+      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+
+    // This semicolon is needed to avoid argument confusion
+    def replaceName(s: String): String = {
+      if (s == "fromLanguage") {
+        "from"
+      } else if (s == "toLanguage") {
+        "to"
+      } else {
+        s
+      }
+    }
+    { row: Row =>
+      val base = getUrl + "?api-version=3.0"
+      val appended = if (!urlParams.isEmpty) {
+        "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+          getValueOpt(row, p).map {
+            v =>
+              if (p.name == "toLanguage" & v.getClass.getName == "java.lang.String")
+                replaceName(p.name) -> p.toValueString(Seq(v))
+              else replaceName(p.name) -> p.toValueString(v)
+          }
+        ).toMap)
+      } else {
+        ""
+      }
+      base + appended
+    }
+  }
 
   val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
