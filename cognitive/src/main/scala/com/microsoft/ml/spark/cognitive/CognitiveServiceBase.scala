@@ -78,23 +78,22 @@ trait HasServiceParams extends Params {
 
   protected def emptyParamData[T](row: Row, p: ServiceParam[T]): Boolean = {
     if (get(p).isEmpty && getDefault(p).isEmpty) {
-      throw new NullPointerException(s"required param undefined: $p")
+      true
     } else {
       val value = getOrDefault(p)
       value match {
         case Left(_) => false
-        case Right(colName) => {
-          if (Option(row.get(row.fieldIndex(colName))).isEmpty)
-            throw new NullPointerException(s"required param $p colName undefined: $colName")
-          else false
-        }
-        case _ => throw new IllegalArgumentException(s"unsupported datatype of required param: $p")
+        case Right(colName) =>
+          Option(row.get(row.fieldIndex(colName))).isEmpty
+        case _ => true
       }
     }
   }
 
   protected def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
-    emptyParamData(row, p)
+    if (emptyParamData(row, p))
+      throw new NullPointerException(s"required param undefined: $p")
+    else false
   }
 
   protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
