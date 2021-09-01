@@ -186,8 +186,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   val textType = new ServiceParam[String](this, "textType", "Defines whether the text being" +
     " translated is plain text or HTML text. Any HTML needs to be a well-formed, complete element. Possible values" +
     " are: plain (default) or html.", {
-    case Left(_) => true
-    case Right(s) => Set("plain", "html")(s)
+    case Left(s) => Set("plain", "html")(s)
+    case Right(_) => true
   }, isURLParam = true)
 
   def setTextType(v: String): this.type = setScalarParam(textType, v)
@@ -206,8 +206,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   val profanityAction = new ServiceParam[String](this, "profanityAction", "Specifies how" +
     " profanities should be treated in translations. Possible values are: NoAction (default), Marked or Deleted. ",
     {
-      case Left(_) => true
-      case Right(s) => Set("NoAction", "Marked", "Deleted")(s)
+      case Left(s) => Set("NoAction", "Marked", "Deleted")(s)
+      case Right(_) => true
     }, isURLParam = true)
 
   def setProfanityAction(v: String): this.type = setScalarParam(profanityAction, v)
@@ -216,8 +216,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   val profanityMarker = new ServiceParam[String](this, "profanityMarker", "Specifies how" +
     " profanities should be marked in translations. Possible values are: Asterisk (default) or Tag.", {
-    case Left(_) => true
-    case Right(s) => Set("Asterisk", "Tag")(s)
+    case Left(s) => Set("Asterisk", "Tag")(s)
+    case Right(_) => true
   }, isURLParam = true)
 
   def setProfanityMarker(v: String): this.type = setScalarParam(profanityMarker, v)
