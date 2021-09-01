@@ -66,6 +66,14 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     )
   }
 
+  test("Translate triggers errors if required fields not set") {
+    try {
+      translate.transform(textDf2).collect()
+    } catch {
+      case e: Exception => assert(e.getCause.getMessage.contains("required param undefined"))
+    }
+  }
+
   test("Translate with transliteration") {
     val results = translate
       .setToLanguage(Seq("zh-Hans"))
@@ -146,7 +154,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   override def testObjects(): Seq[TestObject[Translate]] =
-    Seq(new TestObject(translate, textDf1))
+    Seq(new TestObject(translate.setToLanguage(Seq("zh-Hans")), textDf1))
 
   override def reader: MLReadable[_] = Translate
 }
