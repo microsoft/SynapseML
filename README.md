@@ -93,7 +93,7 @@ See our [notebooks](notebooks/) for all examples.
 
 [example 2]: notebooks/Regression%20-%20Flight%20Delays.ipynb "Regression Example with Flight Delay Dataset"
 
-[example 3]: notebooks/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb "Quantile Regression with LightGBM"
+[example 3]: notebooks/LightGBM%20-%20Overview.ipynb "Quantile Regression with LightGBM"
 
 [example 4]: notebooks/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb "Amazon Book Reviews - TextFeaturizer"
 
