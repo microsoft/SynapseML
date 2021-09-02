@@ -46,8 +46,13 @@ package-lock.json
 node_modules/
 .Rproj.user
 
+# Notebook Test Files
+/notebooks/*.py
+/notebooks/*.txt
+
 # R output
 *.Rout
 
 # Misc
 .bsp
+website/.docusaurus

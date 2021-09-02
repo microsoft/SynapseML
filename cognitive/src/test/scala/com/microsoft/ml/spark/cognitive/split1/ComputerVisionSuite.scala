@@ -237,17 +237,17 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
   override def reader: MLReadable[_] = RecognizeText
 }
 
-class ReadSuite extends TransformerFuzzing[Read]
+class ReadImageSuite extends TransformerFuzzing[ReadImage]
   with CognitiveKey with Flaky with OCRUtils {
 
-  lazy val read: Read = new Read()
+  lazy val readImage: ReadImage = new ReadImage()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("ocr")
     .setConcurrency(5)
 
-  lazy val bytesRead: Read = new Read()
+  lazy val bytesReadImage: ReadImage = new ReadImage()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageBytesCol("imageBytes")
@@ -262,7 +262,7 @@ class ReadSuite extends TransformerFuzzing[Read]
   }
 
   test("Basic Usage with URL") {
-    val results = df.mlTransform(read, Read.flatten("ocr", "ocr"))
+    val results = df.mlTransform(readImage, ReadImage.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
@@ -271,7 +271,7 @@ class ReadSuite extends TransformerFuzzing[Read]
   }
 
   test("Basic Usage with pdf") {
-    val results = pdfDf.mlTransform(read, Read.flatten("ocr", "ocr"))
+    val results = pdfDf.mlTransform(readImage, ReadImage.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
@@ -282,7 +282,7 @@ class ReadSuite extends TransformerFuzzing[Read]
   }
 
   test("Basic Usage with Bytes") {
-    val results = bytesDF.mlTransform(bytesRead, Read.flatten("ocr", "ocr"))
+    val results = bytesDF.mlTransform(bytesReadImage, ReadImage.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
@@ -290,10 +290,10 @@ class ReadSuite extends TransformerFuzzing[Read]
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
 
-  override def testObjects(): Seq[TestObject[Read]] =
-    Seq(new TestObject(read, df))
+  override def testObjects(): Seq[TestObject[ReadImage]] =
+    Seq(new TestObject(readImage, df))
 
-  override def reader: MLReadable[_] = Read
+  override def reader: MLReadable[_] = ReadImage
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
@@ -442,7 +442,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.select("tags.tags"), df2.select("tags.tags"))(eq)
+    super.assertDFEq(df1.select("tags.tags.name"), df2.select("tags.tags.name"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
