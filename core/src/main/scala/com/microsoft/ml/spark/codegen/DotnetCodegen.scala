@@ -27,15 +27,16 @@ object DotnetCodegen {
 
   //noinspection ScalaStyle
   def generateDotnetProjFile(conf: CodegenConfig): Unit = {
-    val packageName = conf.name match {
-      case "mmlspark-deep-learning" => "DeepLearning"
-      case _ => conf.name.split("-".toCharArray).last.capitalize
-    }
-    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
-      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
     if (!conf.dotnetSrcDir.exists()) {
       conf.dotnetSrcDir.mkdir()
     }
+    val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
+    val packageName = curName match {
+      case "deep-learning" => "deepLearning"
+      case s => s.capitalize
+    }
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+      .replaceAllLiterally(curName, "core")
     writeFile(new File(join(conf.dotnetSrcDir, "mmlspark"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
@@ -70,7 +71,7 @@ object DotnetCodegen {
     clean(conf.dotnetSrcDir)
     generateDotnetClasses(conf)
     if (conf.dotnetSrcOverrideDir.exists())
-      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcDir))
+      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcHelperDir))
     generateDotnetProjFile(conf)
   }
 

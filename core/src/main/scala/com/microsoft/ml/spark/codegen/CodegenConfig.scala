@@ -66,6 +66,8 @@ case class CodegenConfig(name: String,
 
   def dotnetSrcOverrideDir: File = new File(topDir, "src/main/dotnet")
 
+  def dotnetSrcHelperDir: File = new File(dotnetSrcDir, "helper")
+
   def dotnetTestOverrideDir: File = new File(topDir, "src/test/dotnet")
 
   //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")

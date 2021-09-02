@@ -67,7 +67,7 @@ object CodegenPlugin extends AutoPlugin {
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val dotnetTestgen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
-    val dotnetCodeGen = TaskKey[Unit]("dotnetCodeGem", "Generate dotnet code")
+    val dotnetCodeGen = TaskKey[Unit]("dotnetCodeGen", "Generate dotnet code")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
@@ -131,7 +131,7 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.CodeGen $arg").value
+      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetCodegen $arg").value
     }
   } tag (DotnetCodeGenTag)
 

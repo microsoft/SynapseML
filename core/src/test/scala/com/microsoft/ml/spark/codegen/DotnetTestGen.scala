@@ -60,12 +60,13 @@ object DotnetTestGen {
     if (!dir.exists()){
       dir.mkdirs()
     }
-    val curProject = conf.name match {
-      case "mmlspark-deep-learning" => "deepLearning"
-      case _ => conf.name.split("-".toCharArray).last
+    val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
+    val curProject = curName match {
+      case "deep-learning" => "deepLearning"
+      case s => s
     }
-    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
-      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+      .replaceAllLiterally(curName, "core")
     val curPath = conf.dotnetSrcDir.getAbsolutePath
     val corePath = curPath.replace(curProject, "core")
     val referenceCore = conf.name match {
