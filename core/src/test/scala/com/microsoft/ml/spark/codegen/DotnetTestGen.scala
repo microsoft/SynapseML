@@ -29,7 +29,7 @@ object DotnetTestGen {
   }
 
   def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "mmlsparktest")
+    val dir = new File(conf.dotnetTestDir,  "MMLSparktest")
     if (!dir.exists()){
       dir.mkdirs()
     }
@@ -56,7 +56,7 @@ object DotnetTestGen {
 
   // noinspection ScalaStyle
   def generateDotnetTestProjFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "mmlsparktest")
+    val dir = new File(conf.dotnetTestDir,  "MMLSparktest")
     if (!dir.exists()){
       dir.mkdirs()
     }
