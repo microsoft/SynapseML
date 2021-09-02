@@ -36,7 +36,11 @@ trait TranslatorUtils extends TestBase {
 
   lazy val textDf6: DataFrame = Seq("Hi, this is Synapse!", "Yes!").toDF("text")
 
-  lazy val textDf7: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans")).toDF("text", "language")
+  lazy val textDf7: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans"),
+    (null, "zh-Hans"))
+    .toDF("text", "language")
+
+  lazy val textDf8: DataFrame = Seq(("test", null)).toDF("text", "language")
 
 }
 
@@ -81,7 +85,6 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setText("Hi, this is Synapse!")
       .setOutputCol("translation")
       .setConcurrency(5)
-
     assert(
       translationTextTest(
         translate1.setToLanguage("zh-Hans"), textDf6, "嗨， 这是突触！"
@@ -95,17 +98,22 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setToLanguageCol("language")
       .setOutputCol("translation")
       .setConcurrency(5)
-
-    assert(
-      translationTextTest(
-        translate2, textDf7, "嗨， 这是突触！"
-      )
-    )
+    val results = translate2.transform(textDf7)
+      .withColumn("translation", flatten(col("translation.translations")))
+      .withColumn("translation", col("translation.text"))
+      .select("translation").collect()
+    assert(results.head.getSeq(0).mkString("") == "嗨， 这是突触！")
+    assert(results(1).get(0) == null)
   }
 
   test("Translate triggers errors if required fields not set") {
     try {
       translate.transform(textDf2).collect()
+    } catch {
+      case e: Exception => assert(e.getCause.getMessage.contains("required param undefined"))
+    }
+    try {
+      translate.setToLanguageCol("language").transform(textDf8).collect()
     } catch {
       case e: Exception => assert(e.getCause.getMessage.contains("required param undefined"))
     }

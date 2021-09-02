@@ -92,7 +92,7 @@ trait HasServiceParams extends Params {
 
   protected def shouldSkip(row: Row): Boolean = getRequiredParams.exists { p =>
     if (emptyParamData(row, p))
-      throw new NullPointerException(s"required param undefined: $p")
+      throw new IllegalArgumentException(s"required param undefined: $p")
     else false
   }
 
