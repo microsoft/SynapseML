@@ -3,14 +3,19 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.core.schema.DatasetExtensions
+import com.microsoft.ml.spark.io.http.SimpleHTTPTransformer
 import com.microsoft.ml.spark.logging.BasicLogging
-import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpRequestBase}
+import com.microsoft.ml.spark.stages.{DropColumns, Lambda, UDFTransformer}
+import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
-import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
+import org.apache.spark.sql.functions.{array, col, lit, struct}
+import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -74,84 +79,117 @@ trait HasToLanguage extends HasServiceParams {
   def getToLanguageCol: String = getVectorParam(toLanguage)
 }
 
-trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r =>
-      val textVal = getValueOpt(r, text)
-      if (textVal.nonEmpty) {
-        val content = textVal.get.getClass.getName match {
-          case "java.lang.String" => Seq(Map("Text" -> textVal.get.asInstanceOf[String])).toJson.compactPrint
-          case _ => textVal.get.map(x => Map("Text" -> x)).toJson.compactPrint
-        }
-        Some(new StringEntity(content, ContentType.APPLICATION_JSON))
-      }
-      else Some(new StringEntity(Map("Text" -> "").toJson.compactPrint, ContentType.APPLICATION_JSON))
-  }
-}
-
-abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSubscriptionRegion
-  with HasSetLocation with HasSetLinkedService {
-
-  protected val subscriptionRegionHeaderName = "Ocp-Apim-Subscription-Region"
-
-  override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
+trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with HasSubscriptionRegion {
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
-    val rowToUrl = prepareUrl
-    val rowToEntity = prepareEntity;
     { row: Row =>
       if (shouldSkip(row)) {
         None
+      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
+        None
       } else {
-        val req = prepareMethod()
-        req.setURI(new URI(rowToUrl(row)))
-        getValueOpt(row, subscriptionKey).foreach(
-          req.setHeader(subscriptionKeyHeaderName, _))
-        getValueOpt(row, subscriptionRegion).foreach(
-          req.setHeader(subscriptionRegionHeaderName, _)
-        )
-        req.setHeader("Content-Type", contentType(row))
+        val urlParams: Array[ServiceParam[Any]] =
+          getUrlParams.asInstanceOf[Array[ServiceParam[Any]]]
 
-        req match {
-          case er: HttpEntityEnclosingRequestBase =>
-            rowToEntity(row).foreach(er.setEntity)
-          case _ =>
+        val texts = getValue(row, text)
+
+        val base = getUrl + "?api-version=3.0"
+        val appended = if (!urlParams.isEmpty) {
+          "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+            getValueOpt(row, p).map {
+              val pName = p.name match {
+                case "fromLanguage" => "from"
+                case "toLanguage" => "to"
+                case s => s
+              }
+              v => pName -> p.toValueString(v)
+            }
+          ).toMap)
+        } else {
+          ""
         }
-        Some(req)
+
+        val post = new HttpPost(base + appended)
+        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
+        post.setHeader("Content-Type", "application/json; charset=UTF-8")
+
+        val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
+        post.setEntity(new StringEntity(json, "UTF-8"))
+        Some(post)
       }
     }
   }
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+}
 
-    // This semicolon is needed to avoid argument confusion
-    def replaceName(s: String): String = {
-      if (s == "fromLanguage") {
-        "from"
-      } else if (s == "toLanguage") {
-        "to"
-      } else {
-        s
+abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
+  with HasInternalJsonOutputParser with HasSubscriptionRegion
+  with HasSetLocation with HasSetLinkedService {
+
+
+  protected def reshapeColumns(schema: StructType, parameterNames: Seq[String])
+  : Seq[(Transformer, String, String)] = {
+
+    def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
+      val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
+      getVectorParamMap.get(parameterName).flatMap {
+        case c if schema(c).dataType == StringType =>
+          Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
+            getVectorParam(parameterName),
+            reshapedColName))
+        case _ => None
       }
     }
-    { row: Row =>
-      val base = getUrl + "?api-version=3.0"
-      val appended = if (!urlParams.isEmpty) {
-        "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map {
-            v => replaceName(p.name) -> p.toValueString(v)
-          }
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
+
+    parameterNames.flatMap(x => reshapeToArray(x))
   }
+
+  // noinspection ScalaStyle
+  protected def customGetInternalTransformer(schema: StructType,
+                                             parameterNames: Seq[String]): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+
+    val reshapeCols = reshapeColumns(schema, parameterNames)
+
+    val newColumnMapping = reshapeCols.map {
+      case (_, oldCol, newCol) => (oldCol, newCol)
+    }.toMap
+
+    val columnsToGroup = getVectorParamMap.values.size match {
+      case 0 => getVectorParamMap.values.toList.map(col) match {
+        case Nil => Seq(lit(false).alias("placeholder"))
+        case l => l
+      }
+      case _ => getVectorParamMap.map { case (_, oldCol) =>
+        val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
+        col(newCol).alias(oldCol)
+      }.toSeq
+    }
+
+    val stages = reshapeCols.map(_._1).toArray ++ Array(
+      Lambda(_.withColumn(
+        dynamicParamColName,
+        struct(columnsToGroup: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(getHandler)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCols(Array(
+        dynamicParamColName) ++ newColumnMapping.values.toArray.asInstanceOf[Array[String]])
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+  }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel =
+    customGetInternalTransformer(schema, Seq("text"))
 
   override def setLocation(v: String): this.type = {
     setSubscriptionRegion(v)
@@ -170,37 +208,50 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-
-    // This semicolon is needed to avoid argument confusion
-    def replaceName(s: String): String = {
-      if (s == "fromLanguage") {
-        "from"
-      } else if (s == "toLanguage") {
-        "to"
-      } else {
-        s
-      }
-    }
+  override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
-      val base = getUrl + "?api-version=3.0"
-      val appended = if (!urlParams.isEmpty) {
-        "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map {
-            v =>
-              if (p.name == "toLanguage" & v.getClass.getName == "java.lang.String")
-                replaceName(p.name) -> p.toValueString(Seq(v))
-              else replaceName(p.name) -> p.toValueString(v)
-          }
-        ).toMap)
+      if (shouldSkip(row)) {
+        None
+      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
+        None
+      } else if (getValue(row, toLanguage).forall(Option(_).isEmpty)) {
+        None
       } else {
-        ""
+        val urlParams: Array[ServiceParam[Any]] =
+          getUrlParams.asInstanceOf[Array[ServiceParam[Any]]]
+
+        val texts = getValue(row, text)
+
+        val base = getUrl + "?api-version=3.0"
+        val appended = if (!urlParams.isEmpty) {
+          "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+            getValueOpt(row, p).map {
+              val pName = p.name match {
+                case "fromLanguage" => "from"
+                case "toLanguage" => "to"
+                case s => s
+              }
+              v => pName -> p.toValueString(v)
+            }
+          ).toMap)
+        } else {
+          ""
+        }
+
+        val post = new HttpPost(base + appended)
+        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
+        post.setHeader("Content-Type", "application/json; charset=UTF-8")
+
+        val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
+        post.setEntity(new StringEntity(json, "UTF-8"))
+        Some(post)
       }
-      base + appended
     }
   }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel =
+    customGetInternalTransformer(schema, Seq("text", "toLanguage"))
 
   val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage", "Specifies the language of the output" +
     " text. The target language must be one of the supported languages included in the translation scope." +
@@ -420,6 +471,8 @@ trait HasTextAndTranslationInput extends HasServiceParams {
 
   def setTextAndTranslation(v: Seq[(String, String)]): this.type = setScalarParam(textAndTranslation, v)
 
+  def setTextAndTranslation(v: (String, String)): this.type = setScalarParam(textAndTranslation, Seq(v))
+
   def getTextAndTranslationCol: String = getVectorParam(textAndTranslation)
 
   def setTextAndTranslationCol(v: String): this.type = setVectorParam(textAndTranslation, v)
@@ -429,20 +482,66 @@ trait HasTextAndTranslationInput extends HasServiceParams {
 object DictionaryExamples extends ComplexParamsReadable[DictionaryExamples]
 
 class DictionaryExamples(override val uid: String) extends TextTranslatorBase(uid)
-  with HasTextAndTranslationInput with HasFromLanguage with HasToLanguage with BasicLogging {
+  with HasTextAndTranslationInput with HasFromLanguage with HasToLanguage
+  with HasCognitiveServiceInput with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DictionaryExamples"))
 
   def urlPath: String = "dictionary/examples"
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r =>
-      Some(new StringEntity(
-        getValue(r, textAndTranslation).asInstanceOf[Seq[Row]]
-          .map(x => Map("Text" -> x.getString(0), "Translation" -> x.getString(1)))
-          .toJson.compactPrint, ContentType.APPLICATION_JSON))
+  override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
+    { row: Row =>
+      if (shouldSkip(row)) {
+        None
+      } else {
+        val urlParams: Array[ServiceParam[Any]] =
+          getUrlParams.asInstanceOf[Array[ServiceParam[Any]]]
+
+        val textAndTranslations = getValue(row, textAndTranslation)
+        if (textAndTranslations.isEmpty)
+          None
+        else {
+
+          val base = getUrl + "?api-version=3.0"
+          val appended = if (!urlParams.isEmpty) {
+            "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+              getValueOpt(row, p).map {
+                val pName = p.name match {
+                  case "fromLanguage" => "from"
+                  case "toLanguage" => "to"
+                  case s => s
+                }
+                v => pName -> p.toValueString(v)
+              }
+            ).toMap)
+          } else {
+            ""
+          }
+
+          val post = new HttpPost(base + appended)
+          getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+          getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
+          post.setHeader("Content-Type", "application/json; charset=UTF-8")
+
+          val json = textAndTranslations.head.getClass.getTypeName match {
+            case "scala.Tuple2" => textAndTranslations.map(
+              t => Map("Text" -> t._1, "Translation" -> t._2)).toJson.compactPrint
+            case _ => textAndTranslations.asInstanceOf[Seq[Row]].map(
+              s => Map("Text" -> s.getString(0), "Translation" -> s.getString(1))).toJson.compactPrint
+          }
+
+          post.setEntity(new StringEntity(json, "UTF-8"))
+          Some(post)
+        }
+      }
+    }
   }
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel =
+    customGetInternalTransformer(schema, Seq("textAndTranslation"))
 
   override def responseDataType: DataType = ArrayType(DictionaryExamplesResponse.schema)
 }

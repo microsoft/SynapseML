@@ -10,7 +10,6 @@ import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, flatten}
-import org.scalactic.Equality
 
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
@@ -42,6 +41,8 @@ trait TranslatorUtils extends TestBase {
 
   lazy val textDf8: DataFrame = Seq(("test", null)).toDF("text", "language")
 
+  lazy val emptyDf: DataFrame = Seq("").toDF()
+
 }
 
 class TranslateSuite extends TransformerFuzzing[Translate]
@@ -55,29 +56,20 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     .setConcurrency(5)
 
   def translationTextTest(translator: Translate,
-                          df: DataFrame,
-                          expectString: String): Boolean = {
-    val results = translator
+                          df: DataFrame): DataFrame = {
+    translator
       .transform(df)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    val headStr = results.head.getSeq(0).mkString("\n")
-    headStr === expectString
+      .select("translation")
   }
 
   test("Translate multiple pieces of text with language autodetection") {
-    assert(
-      translationTextTest(
-        translate.setToLanguage(Seq("zh-Hans")), textDf2, "你好，你叫什么名字？\n再见"
-      )
-    )
+    val result1 = translationTextTest(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
+    assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\n再见")
 
-    assert(
-      translationTextTest(
-        translate.setToLanguage("zh-Hans"), textDf6, "嗨， 这是突触！"
-      )
-    )
+    val result2 = translationTextTest(translate.setToLanguage("zh-Hans"), textDf6).collect()
+    assert(result2(0).getSeq(0).mkString("\n") == "嗨， 这是突触！")
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -85,11 +77,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setText("Hi, this is Synapse!")
       .setOutputCol("translation")
       .setConcurrency(5)
-    assert(
-      translationTextTest(
-        translate1.setToLanguage("zh-Hans"), textDf6, "嗨， 这是突触！"
-      )
-    )
+    val result3 = translationTextTest(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
+    assert(result3(0).getSeq(0).mkString("\n") == "嗨， 这是突触！")
 
     val translate2: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -98,12 +87,9 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setToLanguageCol("language")
       .setOutputCol("translation")
       .setConcurrency(5)
-    val results = translate2.transform(textDf7)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation").collect()
-    assert(results.head.getSeq(0).mkString("") == "嗨， 这是突触！")
-    assert(results(1).get(0) == null)
+    val result4 = translationTextTest(translate2, textDf7).collect()
+    assert(result4(0).getSeq(0).mkString("") == "嗨， 这是突触！")
+    assert(result4(1).get(0) == null)
   }
 
   test("Translate triggers errors if required fields not set") {
@@ -133,31 +119,22 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate to multiple languages") {
-    assert(
-      translationTextTest(
-        translate.setToLanguage(Seq("zh-Hans", "de")), textDf1, "你好，你叫什么名字？\nHallo, wie heißt du?"
-      )
-    )
+    val result1 = translationTextTest(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
+    assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\nHallo, wie heißt du?")
   }
 
   test("Handle profanity") {
-    assert(
-      translationTextTest(
-        translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"),
-        textDf3,
-        "Das ist ***." // problem with Rest API "freaking" -> the marker disappears *** no difference
-      )
-    )
+    val result1 = translationTextTest(
+      translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"), textDf3).collect()
+    assert(result1(0).getSeq(0).mkString("\n") == "Das ist ***.")
+    // problem with Rest API "freaking" -> the marker disappears *** no difference
   }
 
   test("Translate content with markup and decide what's translated") {
-    assert(
-      translationTextTest(
-        translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"),
-        textDf4,
-        "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>"
-      )
-    )
+    val result1 = translationTextTest(
+      translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
+    assert(result1(0).getSeq(0).mkString("\n") ==
+      "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
   }
 
   test("Obtain alignment information") {
@@ -191,11 +168,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate with dynamic dictionary") {
-    assert(
-      translationTextTest(
-        translate.setToLanguage(Seq("de")), textDf5, "Das Wort wordomatic ist ein Wörterbucheintrag."
-      )
-    )
+    val result1 = translationTextTest(translate.setToLanguage(Seq("de")), textDf5).collect()
+    assert(result1(0).getSeq(0).mkString("\n") == "Das Wort wordomatic ist ein Wörterbucheintrag.")
   }
 
   override def testObjects(): Seq[TestObject[Translate]] =
@@ -323,21 +297,35 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
     .setLocation("eastus")
     .setFromLanguage("en")
     .setToLanguage("es")
-    .setTextAndTranslationCol("textAndTranslation")
     .setOutputCol("result")
 
-  test("Dictionary Examples") {
-    val results = dictionaryExamples.transform(dictDf)
+  def dictionaryExamplesTest(dictExamples: DictionaryExamples,
+                          df: DataFrame): DataFrame = {
+    dictExamples
+      .transform(df)
       .withColumn("examples", flatten(col("result.examples")))
       .withColumn("sourceTerm", col("examples.sourceTerm"))
       .withColumn("targetTerm", col("examples.targetTerm"))
-      .select("sourceTerm", "targetTerm").collect()
-    assert(results.head.getSeq(0).head.toString === "fly")
-    assert(results.head.getSeq(1).head.toString === "volar")
+      .select("sourceTerm", "targetTerm")
+  }
+
+  test("Dictionary Examples") {5
+    val result1 = dictionaryExamplesTest(dictionaryExamples
+      .setTextAndTranslationCol("textAndTranslation"), dictDf)
+      .collect()
+    assert(result1.head.getSeq(0).head.toString === "fly")
+    assert(result1.head.getSeq(1).head.toString === "volar")
+
+    val result2 = dictionaryExamplesTest(dictionaryExamples
+      .setTextAndTranslation(("fly", "volar")), emptyDf)
+      .collect()
+
+    assert(result2.head.getSeq(0).head.toString === "fly")
+    assert(result2.head.getSeq(1).head.toString === "volar")
   }
 
   override def testObjects(): Seq[TestObject[DictionaryExamples]] =
-    Seq(new TestObject(dictionaryExamples, dictDf))
+    Seq(new TestObject(dictionaryExamples.setTextAndTranslationCol("textAndTranslation"), dictDf))
 
   override def reader: MLReadable[_] = DictionaryExamples
 }
