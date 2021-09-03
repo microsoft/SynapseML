@@ -300,7 +300,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
     .setOutputCol("result")
 
   def dictionaryExamplesTest(dictExamples: DictionaryExamples,
-                          df: DataFrame): DataFrame = {
+                             df: DataFrame): DataFrame = {
     dictExamples
       .transform(df)
       .withColumn("examples", flatten(col("result.examples")))
@@ -309,7 +309,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
       .select("sourceTerm", "targetTerm")
   }
 
-  test("Dictionary Examples") {5
+  test("Dictionary Examples") {
     val result1 = dictionaryExamplesTest(dictionaryExamples
       .setTextAndTranslationCol("textAndTranslation"), dictDf)
       .collect()
