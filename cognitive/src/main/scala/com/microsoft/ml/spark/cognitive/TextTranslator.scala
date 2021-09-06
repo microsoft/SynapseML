@@ -126,7 +126,7 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
 
 abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with HasSubscriptionRegion
-  with HasSetLocation with HasSetLinkedService {
+  with HasSetLocation with HasSetLinkedServiceUsingLocation {
 
 
   protected def reshapeColumns(schema: StructType, parameterNames: Seq[String])
