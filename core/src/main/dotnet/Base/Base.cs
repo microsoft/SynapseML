@@ -16,7 +16,7 @@ using Microsoft.Spark.Interop.Ipc;
 namespace MMLSpark.Dotnet.Wrapper
 {
 
-    public class Params : Identifiable, IJvmObjectReferenceProvider
+    public abstract class Params : Identifiable, IJvmObjectReferenceProvider
     {
 
         internal Params(string className)
@@ -34,7 +34,7 @@ namespace MMLSpark.Dotnet.Wrapper
             Reference = jvmObject;
         }
 
-        public JvmObjectReference Reference { get; private set; }
+        public JvmObjectReference Reference { get; init; }
 
         /// <summary>
         /// Returns the JVM toString value rather than the .NET ToString default
@@ -130,15 +130,15 @@ namespace MMLSpark.Dotnet.Wrapper
     public abstract class ScalaPipelineStage : Params
     {
 
-        public ScalaPipelineStage(string className) : base(className)
+        internal ScalaPipelineStage(string className) : base(className)
         {
         }
 
-        public ScalaPipelineStage(string className, string uid) : base(className, uid)
+        internal ScalaPipelineStage(string className, string uid) : base(className, uid)
         {
         }
 
-        public ScalaPipelineStage(JvmObjectReference jvmObject) : base(jvmObject)
+        internal ScalaPipelineStage(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
@@ -172,15 +172,15 @@ namespace MMLSpark.Dotnet.Wrapper
     public abstract class ScalaTransformer : ScalaPipelineStage
     {
 
-        public ScalaTransformer(string className) : base(className)
+        internal ScalaTransformer(string className) : base(className)
         {
         }
 
-        public ScalaTransformer(string className, string uid) : base(className, uid)
+        internal ScalaTransformer(string className, string uid) : base(className, uid)
         {
         }
 
-        public ScalaTransformer(JvmObjectReference jvmObject) : base(jvmObject)
+        internal ScalaTransformer(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
@@ -211,15 +211,15 @@ namespace MMLSpark.Dotnet.Wrapper
     public abstract class ScalaEstimator<M> : ScalaPipelineStage, Estimator<M> where M : ScalaModel<M>
     {
 
-        public ScalaEstimator(string className) : base(className)
+        internal ScalaEstimator(string className) : base(className)
         {
         }
 
-        public ScalaEstimator(string className, string uid) : base(className, uid)
+        internal ScalaEstimator(string className, string uid) : base(className, uid)
         {
         }
 
-        public ScalaEstimator(JvmObjectReference jvmObject) : base(jvmObject)
+        internal ScalaEstimator(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
@@ -233,15 +233,15 @@ namespace MMLSpark.Dotnet.Wrapper
     /// </summary>
     public abstract class ScalaModel<M> : ScalaTransformer, Model<M> where M : ScalaModel<M>
     {
-        public ScalaModel(string className) : base(className)
+        internal ScalaModel(string className) : base(className)
         {
         }
 
-        public ScalaModel(string className, string uid) : base(className, uid)
+        internal ScalaModel(string className, string uid) : base(className, uid)
         {
         }
 
-        public ScalaModel(JvmObjectReference jvmObject) : base(jvmObject)
+        internal ScalaModel(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
@@ -253,15 +253,15 @@ namespace MMLSpark.Dotnet.Wrapper
     public abstract class ScalaEvaluator : Params
     {
 
-        public ScalaEvaluator(string className) : base(className)
+        internal ScalaEvaluator(string className) : base(className)
         {
         }
 
-        public ScalaEvaluator(string className, string uid) : base(className, uid)
+        internal ScalaEvaluator(string className, string uid) : base(className, uid)
         {
         }
 
-        public ScalaEvaluator(JvmObjectReference jvmObject) : base(jvmObject)
+        internal ScalaEvaluator(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
@@ -271,7 +271,7 @@ namespace MMLSpark.Dotnet.Wrapper
         public virtual double Evaluate(DataFrame dataset) =>
             (double)Reference.Invoke("evaluate", dataset);
 
-        public Boolean IsLargerBetter => true;
+        public bool IsLargerBetter => true;
 
     }
 

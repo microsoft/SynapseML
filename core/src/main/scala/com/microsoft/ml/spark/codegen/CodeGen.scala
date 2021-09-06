@@ -195,6 +195,8 @@ object CodeGen {
          |
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
+         |    <LangVersion>9.0</LangVersion>
+         |    <RootNamespace>MMLSpark.$packageName</RootNamespace>
          |  </PropertyGroup>
          |
          |  <ItemGroup>

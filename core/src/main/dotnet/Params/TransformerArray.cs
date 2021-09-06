@@ -29,7 +29,7 @@ namespace Microsoft.Spark.ML.Feature.Param
             Reference = jvmObject;
         }
 
-        public JvmObjectReference Reference { get; private set; }
+        public JvmObjectReference Reference { get; init; }
 
         public void AddTransformer(ScalaTransformer value) =>
             Reference.Invoke("addTransformer", value);

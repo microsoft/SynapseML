@@ -79,6 +79,7 @@ object DotnetTestGen {
          |
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
+         |    <LangVersion>9.0</LangVersion>
          |  </PropertyGroup>
          |
          |  <ItemGroup>
