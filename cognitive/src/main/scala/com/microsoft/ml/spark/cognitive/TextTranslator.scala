@@ -84,7 +84,7 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput {
 
 abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSubscriptionRegion
-  with HasSetLocation with HasSetLinkedService {
+  with HasSetLocation with HasSetLinkedServiceUsingLocation {
 
   protected val subscriptionRegionHeaderName = "Ocp-Apim-Subscription-Region"
 

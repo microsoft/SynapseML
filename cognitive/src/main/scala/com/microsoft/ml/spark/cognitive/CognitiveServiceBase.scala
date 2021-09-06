@@ -248,6 +248,19 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
   }
 }
 
+trait HasSetLinkedServiceUsingLocation extends HasSetLinkedService with HasSetLocation {
+  override def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val locationMethod = linkedServiceClass.get.getMethod("getLocation", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val location = locationMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setLocation(location)
+    setSubscriptionKey(key)
+  }
+}
+
 trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
