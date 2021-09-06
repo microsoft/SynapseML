@@ -23,7 +23,7 @@ trait TranslatorUtils extends TestBase {
 
   lazy val textDf1: DataFrame = Seq(List("Hello, what is your name?")).toDF("text")
 
-  lazy val textDf2: DataFrame = Seq(List("Hello, what is your name?", "Bye")).toDF("text")
+  lazy val  textDf2: DataFrame = Seq(List("Hello, what is your name?", "Bye")).toDF("text")
 
   lazy val textDf3: DataFrame = Seq(List("This is bullshit.")).toDF("text")
 
@@ -33,13 +33,9 @@ trait TranslatorUtils extends TestBase {
   lazy val textDf5: DataFrame = Seq(List("The word <mstrans:dictionary translation=wordomatic>word " +
     "or phrase</mstrans:dictionary> is a dictionary entry.")).toDF("text")
 
-  lazy val textDf6: DataFrame = Seq("Hi, this is Synapse!", "Yes!").toDF("text")
-
-  lazy val textDf7: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans"),
-    (null, "zh-Hans"))
+  lazy val textDf6: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans"),
+    (null, "zh-Hans"), ("test", null))
     .toDF("text", "language")
-
-  lazy val textDf8: DataFrame = Seq(("test", null)).toDF("text", "language")
 
   lazy val emptyDf: DataFrame = Seq("").toDF()
 
@@ -68,9 +64,6 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     val result1 = translationTextTest(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
     assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\n再见")
 
-    val result2 = translationTextTest(translate.setToLanguage("zh-Hans"), textDf6).collect()
-    assert(result2(0).getSeq(0).mkString("\n") == "嗨， 这是突触！")
-
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
       .setLocation("eastus")
@@ -87,22 +80,18 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setToLanguageCol("language")
       .setOutputCol("translation")
       .setConcurrency(5)
-    val result4 = translationTextTest(translate2, textDf7).collect()
+    val result4 = translationTextTest(translate2, textDf6).collect()
     assert(result4(0).getSeq(0).mkString("") == "嗨， 这是突触！")
     assert(result4(1).get(0) == null)
+    assert(result4(2).get(0) == null)
   }
 
-  test("Translate triggers errors if required fields not set") {
-    try {
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
       translate.transform(textDf2).collect()
-    } catch {
-      case e: Exception => assert(e.getCause.getMessage.contains("required param undefined"))
     }
-    try {
-      translate.setToLanguageCol("language").transform(textDf8).collect()
-    } catch {
-      case e: Exception => assert(e.getCause.getMessage.contains("required param undefined"))
-    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("toLanguage"))
   }
 
   test("Translate with transliteration") {
@@ -203,6 +192,20 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     assert(results.head.getSeq(1).mkString("\n") === "Latn\nLatn")
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new Transliterate()
+        .setSubscriptionKey(translatorKey)
+        .setLocation("eastus")
+        .setTextCol("text")
+        .transform(textDf2).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("language"))
+    assert(caught.getMessage.contains("fromScript"))
+    assert(caught.getMessage.contains("toScript"))
+  }
+
   override def testObjects(): Seq[TestObject[Transliterate]] =
     Seq(new TestObject(transliterate, transDf))
 
@@ -279,6 +282,19 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
     assert(headStr === "volar\nmosca\noperan\npilotar\nmoscas\nmarcha")
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new DictionaryLookup()
+        .setSubscriptionKey(translatorKey)
+        .setLocation("eastus")
+        .setTextCol("text")
+        .transform(textDf2).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("fromLanguage"))
+    assert(caught.getMessage.contains("toLanguage"))
+  }
+
   override def testObjects(): Seq[TestObject[DictionaryLookup]] =
     Seq(new TestObject(dictionaryLookup, dictDf))
 
@@ -322,6 +338,18 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
 
     assert(result2.head.getSeq(0).head.toString === "fly")
     assert(result2.head.getSeq(1).head.toString === "volar")
+  }
+
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new DictionaryExamples()
+        .setSubscriptionKey(translatorKey)
+        .setLocation("eastus")
+        .transform(dictDf).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("fromLanguage"))
+    assert(caught.getMessage.contains("toLanguage"))
   }
 
   override def testObjects(): Seq[TestObject[DictionaryExamples]] =

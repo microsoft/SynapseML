@@ -151,6 +151,12 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
                                              parameterNames: Seq[String]): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
 
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
     val reshapeCols = reshapeColumns(schema, parameterNames)
 
     val newColumnMapping = reshapeCols.map {
