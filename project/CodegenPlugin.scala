@@ -66,7 +66,7 @@ object CodegenPlugin extends AutoPlugin {
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
-    val dotnetTestgen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
+    val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
     val dotnetCodeGen = TaskKey[Unit]("dotnetCodeGen", "Generate dotnet code")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
@@ -275,10 +275,10 @@ object CodegenPlugin extends AutoPlugin {
       )
     },
     dotnetCodeGen := dotnetCodeGenImpl.value,
-    dotnetTestgen := dotnetTestGenImpl.value,
+    dotnetTestGen := dotnetTestGenImpl.value,
     testDotnet := {
       dotnetCodeGen.value
-      dotnetTestgen.value
+      dotnetTestGen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       runCmd(
         Seq("dotnet",
