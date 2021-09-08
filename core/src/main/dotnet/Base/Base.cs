@@ -198,12 +198,17 @@ namespace MMLSpark.Dotnet.Wrapper
 
     public interface Estimator<out M>
     {
+        M Fit(DataFrame dataset);
+
     }
 
     public interface Model<out M>
     {
+
+        bool HasParent();
+
     }
-    
+
 
     /// <summary>
     /// <see cref="ScalaEstimator"/> Class for estimators that fit models to data.
@@ -244,6 +249,12 @@ namespace MMLSpark.Dotnet.Wrapper
         internal ScalaModel(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
+
+        public M SetParent(ScalaEstimator<M> parent) =>
+            WrapAsType<M>((JvmObjectReference)Reference.Invoke("setParent", parent));
+
+        public bool HasParent() =>
+            (bool)Reference.Invoke("hasParent");
 
     }
 

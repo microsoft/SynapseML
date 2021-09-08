@@ -318,9 +318,19 @@ jobs:
           curl https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh -o dotnet-install.sh
           chmod +x dotnet-install.sh
           ./dotnet-install.sh
-      displayName: Download .NET SDK
-    - bash: curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
-      displayName: Download spark
+      displayName: Install .NET SDK
+    - bash: |
+          curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
+          tar -xzvf spark-3.1.2-bin-hadoop3.2.tgz ~/bin
+          export SPARK_HOME=~/bin/spark-3.1.2-bin-hadoop3.2/
+          export PATH="$SPARK_HOME/bin:$PATH"
+          source ~/.bashrc
+      displayName: Install Apache Spark
+    - bash: |
+        curl https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -o Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz
+        tar -xzvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz ~/bin
+        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0/
+      displayName: Install .NET for Apache Spark
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
