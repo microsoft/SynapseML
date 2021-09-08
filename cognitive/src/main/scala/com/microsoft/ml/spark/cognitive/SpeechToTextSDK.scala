@@ -77,7 +77,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
   with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging
-  with HasSetLinkedService {
+  with HasSetLinkedServiceUsingLocation {
 
   type ResponseType <: SharedSpeechFields
 
@@ -198,16 +198,6 @@ abstract class SpeechSDKBase extends Transformer
 
   def urlPath: String = "/sts/v1.0/issuetoken"
 
-  override def setLinkedService(v: String): this.type = {
-    val classPath = "mssparkutils.cognitiveService"
-    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-    val locationMethod = linkedServiceClass.get.getMethod("getLocation", v.getClass)
-    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
-    val location = locationMethod.invoke(linkedServiceClass.get, v).toString
-    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
-    setLocation(location)
-    setSubscriptionKey(key)
-  }
 
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))
