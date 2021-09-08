@@ -328,8 +328,9 @@ jobs:
           source ~/.bashrc
       displayName: Install Apache Spark
     - bash: |
-        curl https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -o Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz
-        tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -C ~/bin
+        curl https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.zip -o Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.zip
+        sudo apt-get install unzip
+        unzip Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.zip -d ~/bin/
         export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0/
       displayName: Install .NET for Apache Spark
     - task: AzureCLI@1
