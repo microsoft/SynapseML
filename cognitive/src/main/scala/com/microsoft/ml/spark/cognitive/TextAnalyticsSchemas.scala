@@ -107,19 +107,19 @@ case class NEREntityV3(text: String,
 
 // NER Pii Schemas
 
-object NERPiiResponseV3 extends SparkBindings[TAResponse[NERPiiDocV3]]
+object PIIResponseV3 extends SparkBindings[TAResponse[PIIDocV3]]
 
-case class NERPiiDocV3(id: String,
-                       entities: Seq[NERPiiEntityV3],
-                       warnings: Seq[TAWarning],
-                       statistics: Option[DocumentStatistics])
+case class PIIDocV3(id: String,
+                    entities: Seq[PIIEntityV3],
+                    warnings: Seq[TAWarning],
+                    statistics: Option[DocumentStatistics])
 
-case class NERPiiEntityV3(text: String,
-                          category: String,
-                          subcategory: Option[String] = None,
-                          offset: Integer,
-                          length: Integer,
-                          confidenceScore: Double)
+case class PIIEntityV3(text: String,
+                       category: String,
+                       subcategory: Option[String] = None,
+                       offset: Integer,
+                       length: Integer,
+                       confidenceScore: Double)
 
 // KeyPhrase Schemas
 

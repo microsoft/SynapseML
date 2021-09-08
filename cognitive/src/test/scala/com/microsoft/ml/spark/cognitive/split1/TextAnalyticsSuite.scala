@@ -397,7 +397,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
   override def reader: MLReadable[_] = NER
 }
 
-class NERPiiSuiteV3 extends TransformerFuzzing[NERPii] with TextKey {
+class PIISuiteV3 extends TransformerFuzzing[PII] with TextKey {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -407,7 +407,7 @@ class NERPiiSuiteV3 extends TransformerFuzzing[NERPii] with TextKey {
     ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
   ).toDF("id", "language", "text")
 
-  lazy val n: NERPii = new NERPii()
+  lazy val n: PII = new PII()
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setLanguage("en")
@@ -432,8 +432,8 @@ class NERPiiSuiteV3 extends TransformerFuzzing[NERPii] with TextKey {
 
   }
 
-  override def testObjects(): Seq[TestObject[NERPii]] =
-    Seq(new TestObject[NERPii](n, df))
+  override def testObjects(): Seq[TestObject[PII]] =
+    Seq(new TestObject[PII](n, df))
 
-  override def reader: MLReadable[_] = NERPii
+  override def reader: MLReadable[_] = PII
 }

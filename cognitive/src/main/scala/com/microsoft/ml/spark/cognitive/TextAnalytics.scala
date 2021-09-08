@@ -293,14 +293,14 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
   def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
 }
 
-object NERPii extends ComplexParamsReadable[NERPii]
+object PII extends ComplexParamsReadable[PII]
 
-class NERPii(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
   logClass()
 
-  def this() = this(Identifiable.randomUID("NERPii"))
+  def this() = this(Identifiable.randomUID("PII"))
 
-  override def responseDataType: StructType = NERPiiResponseV3.schema
+  override def responseDataType: StructType = PIIResponseV3.schema
 
   def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
 }
