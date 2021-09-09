@@ -310,7 +310,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
     println(results)
 
     assert(results(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
-    assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "carretera", "ayer"))
+    assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "día", "carretera", "ayer"))
   }
 
   override def testObjects(): Seq[TestObject[KeyPhraseExtractor]] =
