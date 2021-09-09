@@ -334,14 +334,11 @@ jobs:
         tar -xzvf spark-3.1.2-bin-hadoop3.2.tgz -C ~/bin
         export SPARK_HOME=~/bin/spark-3.1.2-bin-hadoop3.2/
         export PATH="$SPARK_HOME/bin:$PATH"
-        source ~/.bashrc
       displayName: Install Apache Spark
     - bash: |
         wget https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz
         tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -C ~/bin/
         export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
-        source ~/.bashrc
-        echo $DOTNET_WORKER_DIR
       displayName: Install .NET for Apache Spark
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
@@ -350,8 +347,8 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
-          export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
-          source activate mmlspark
+          echo $SPARK_HOME
+          echo $DOTNET_WORKER_DIR
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet)
 
