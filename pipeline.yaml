@@ -315,23 +315,34 @@ jobs:
   steps:
     #- template: templates/ivy_cache.yml
     - bash: |
-          curl https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh -o dotnet-install.sh
-          chmod +x dotnet-install.sh
-          ./dotnet-install.sh
+        wget https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb
+        rm packages-microsoft-prod.deb
+      displayName: Add Microsoft package singing key and repository
+    - bash: |
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https
+        sudo apt-get update
+        sudo apt-get install -y dotnet-sdk-5.0
       displayName: Install .NET SDK
     - bash: |
-          curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
-          mkdir ~/bin
-          tar -xzvf spark-3.1.2-bin-hadoop3.2.tgz -C ~/bin
-          export SPARK_HOME=~/bin/spark-3.1.2-bin-hadoop3.2/
-          export PATH="$SPARK_HOME/bin:$PATH"
-          source ~/.bashrc
+        sudo apt-get install openjdk-8-jre
+      displayName: Install Java
+    - bash: |
+        curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
+        mkdir ~/bin
+        tar -xzvf spark-3.1.2-bin-hadoop3.2.tgz -C ~/bin
+        export SPARK_HOME=~/bin/spark-3.1.2-bin-hadoop3.2/
+        export PATH="$SPARK_HOME/bin:$PATH"
+        source ~/.bashrc
       displayName: Install Apache Spark
     - bash: |
         wget https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz
         tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -C ~/bin/
-        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0/
       displayName: Install .NET for Apache Spark
+    - bash: |
+        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0/
+      displayName: Set DOTNET_WORKER_DIR
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
