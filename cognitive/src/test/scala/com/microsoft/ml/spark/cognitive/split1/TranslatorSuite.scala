@@ -51,7 +51,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     .setOutputCol("translation")
     .setConcurrency(5)
 
-  def translationTextTest(translator: Translate,
+  def getTranslationTextResult(translator: Translate,
                           df: DataFrame): DataFrame = {
     translator
       .transform(df)
@@ -61,7 +61,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate multiple pieces of text with language autodetection") {
-    val result1 = translationTextTest(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
+    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
     assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\n再见")
 
     val translate1: Translate = new Translate()
@@ -70,7 +70,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setText("Hi, this is Synapse!")
       .setOutputCol("translation")
       .setConcurrency(5)
-    val result3 = translationTextTest(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
+    val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
     assert(result3(0).getSeq(0).mkString("\n") == "嗨， 这是突触！")
 
     val translate2: Translate = new Translate()
@@ -80,7 +80,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setToLanguageCol("language")
       .setOutputCol("translation")
       .setConcurrency(5)
-    val result4 = translationTextTest(translate2, textDf6).collect()
+    val result4 = getTranslationTextResult(translate2, textDf6).collect()
     assert(result4(0).getSeq(0).mkString("") == "嗨， 这是突触！")
     assert(result4(1).get(0) == null)
     assert(result4(2).get(0) == null)
@@ -108,19 +108,19 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate to multiple languages") {
-    val result1 = translationTextTest(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
+    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
     assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\nHallo, wie heißt du?")
   }
 
   test("Handle profanity") {
-    val result1 = translationTextTest(
+    val result1 = getTranslationTextResult(
       translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"), textDf3).collect()
     assert(result1(0).getSeq(0).mkString("\n") == "Das ist ***.")
     // problem with Rest API "freaking" -> the marker disappears *** no difference
   }
 
   test("Translate content with markup and decide what's translated") {
-    val result1 = translationTextTest(
+    val result1 = getTranslationTextResult(
       translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
     assert(result1(0).getSeq(0).mkString("\n") ==
       "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
@@ -157,7 +157,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate with dynamic dictionary") {
-    val result1 = translationTextTest(translate.setToLanguage(Seq("de")), textDf5).collect()
+    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("de")), textDf5).collect()
     assert(result1(0).getSeq(0).mkString("\n") == "Das Wort wordomatic ist ein Wörterbucheintrag.")
   }
 
