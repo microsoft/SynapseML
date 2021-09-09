@@ -340,8 +340,8 @@ jobs:
         wget https://github.com/dotnet/spark/releases/download/v2.0.0/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz
         tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -C ~/bin/
         export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
-        echo $DOTNET_WORKER_DIR
         source ~/.bashrc
+        echo $DOTNET_WORKER_DIR
       displayName: Install .NET for Apache Spark
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
@@ -350,6 +350,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
           source activate mmlspark
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet)
