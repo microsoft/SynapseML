@@ -52,8 +52,8 @@ object SynapseUtilities extends HasHttpClient {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 20 * 60 * 1000
-  val StorageAccount: String = "mmlsparkeuap"
-  val StorageContainer: String = "synapse"
+  val StorageAccount: String = "mmlsparkbuildsynapse"
+  val StorageContainer: String = "build"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 

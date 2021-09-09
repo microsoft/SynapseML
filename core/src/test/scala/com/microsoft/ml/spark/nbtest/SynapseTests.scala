@@ -16,7 +16,7 @@ import scala.sys.process.Process
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
-  ignore("Synapse") {
+  test("Synapse") {
 
     val os = sys.props("os.name").toLowerCase
     os match {
@@ -33,8 +33,8 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val workspaceName = "mmlspark"
-    val sparkPools = Array("buildpool", "buildpool2", "buildpool3")
+    val workspaceName = "mmlsparkbuild"
+    val sparkPools = Array("buildpool1", "buildpool2", "buildpool3")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
