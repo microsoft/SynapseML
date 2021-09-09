@@ -105,6 +105,22 @@ case class NEREntityV3(text: String,
                      length: Integer,
                      confidenceScore: Double)
 
+// NER Pii Schemas
+
+object PIIResponseV3 extends SparkBindings[TAResponse[PIIDocV3]]
+
+case class PIIDocV3(id: String,
+                    entities: Seq[PIIEntityV3],
+                    warnings: Seq[TAWarning],
+                    statistics: Option[DocumentStatistics])
+
+case class PIIEntityV3(text: String,
+                       category: String,
+                       subcategory: Option[String] = None,
+                       offset: Integer,
+                       length: Integer,
+                       confidenceScore: Double)
+
 // KeyPhrase Schemas
 
 object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
