@@ -341,7 +341,8 @@ jobs:
         tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.0.0.tar.gz -C ~/bin/
       displayName: Install .NET for Apache Spark
     - bash: |
-        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0/
+        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
+        echo $DOTNET_WORKER_DIR
       displayName: Set DOTNET_WORKER_DIR
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
