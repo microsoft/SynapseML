@@ -494,9 +494,8 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(
-      df1.select("descriptions.description.tags"),
-      df2.select("descriptions.description.tags"))(eq)
+    super.assertDFEq(df1.select("descriptions.description.tags", "descriptions.description.captions.text"),
+      df2.select("descriptions.description.tags", "descriptions.description.captions.text"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[DescribeImage]] =

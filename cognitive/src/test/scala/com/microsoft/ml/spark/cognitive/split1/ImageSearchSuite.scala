@@ -103,6 +103,20 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
     assert(ddf.collect().head.getAs[Row]("images") != null)
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new BingImageSearch()
+        .setSubscriptionKey(searchKey)
+        .setOffsetCol("offsets")
+        .setCount(10)
+        .setImageType("photo")
+        .setOutputCol("images")
+        .transform(requestParameters).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("q"))
+  }
+
   override lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame] {
     def areEqual(a: DataFrame, b: Any): Boolean =
       (a.schema === b.asInstanceOf[DataFrame].schema) &&

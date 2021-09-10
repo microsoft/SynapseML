@@ -92,6 +92,12 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
 
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
     def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
       val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
       getVectorParamMap.get(parameterName).flatMap {
