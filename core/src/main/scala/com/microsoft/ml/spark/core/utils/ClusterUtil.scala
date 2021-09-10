@@ -127,6 +127,7 @@ object ClusterUtil {
     val blockManager = BlockManagerUtils.getBlockManager(spark)
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") None
+      else if (blockManagerId.executorId == "fallback") None
       else Some((blockManagerId.executorId.toInt, getHostToIP(blockManagerId.host)))
     }).toArray
   }
