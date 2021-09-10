@@ -71,8 +71,8 @@ trait HasModelID extends HasServiceParams {
 trait HasLocale extends HasServiceParams {
   val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
     " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
-    case Left(_) => true
-    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+    case Left(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+    case Right(_) => true
   }, isURLParam = true)
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
