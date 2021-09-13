@@ -90,7 +90,7 @@ class AssociationGapTransformer(override val uid: String)
       )
 
     // We handle the case that if A == B, then the gap is 0.0
-    // If not handled, then A == B == 0.0 results in Double.NegativeInfinity - Double.NegativeInfinity = NaN
+    // If not handled, A == B == 0.0 for some measures equals Double.NegativeInfinity - Double.NegativeInfinity = NaN
     val gapFunc = (colA: Column, colB: Column) => when(colA === colB, lit(0d)).otherwise(colA - colB)
 
     val gapTuples = metrics.flatMap {
@@ -137,10 +137,13 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
                               positiveCountCol: String,
                               totalCountCol: String) {
 
-  def toMap: Map[String, Column] = Map("dp" -> dp, "pmi" -> pmi)
-
-  // We handle the case ln(0.0) = -inf
-  def pmi: Column = when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
+  def toMap: Map[String, Column] = Map("dp" -> dp, "pmi" -> pmi, "n_pmi" -> npmi)
 
   def dp: Column = col(sensitivePositiveCountCol) / col(sensitiveCountCol)
+
+  // If dp == 0.0, then we don't calculate its log, but rather assume that ln(0.0) = -inf
+  def pmi: Column = when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
+
+  // If pmi == -inf and positiveCol == 0.0, then we don't calculate pmi / ln(0.0) because -inf / -inf = NaN
+  def npmi: Column = when(col(positiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(positiveCountCol))
 }
