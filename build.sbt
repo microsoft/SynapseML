@@ -213,8 +213,10 @@ lazy val deepLearning = (project in file("deep-learning"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cntk" % "cntk" % "2.4",
-      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
+      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1",
+      "org.apache.tvm" % "tvm4j-full-linux-x86_64" % "0.0.1-SNAPSHOT"
     ),
+    resolvers += speechResolver,
     name := "mmlspark-deep-learning",
   ): _*)
 
