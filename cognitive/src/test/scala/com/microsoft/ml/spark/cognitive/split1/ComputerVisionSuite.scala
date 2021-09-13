@@ -442,7 +442,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.select("tags.tags"), df2.select("tags.tags"))(eq)
+    super.assertDFEq(df1.select("tags.tags.name"), df2.select("tags.tags.name"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
@@ -491,6 +491,11 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     val tags = results.select("descriptions").take(1).head
       .getStruct(0).getStruct(0).getSeq[String](0).toSet
     assert(tags("person") && tags("glasses"))
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(df1.select("descriptions.description.tags", "descriptions.description.captions.text"),
+      df2.select("descriptions.description.tags", "descriptions.description.captions.text"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[DescribeImage]] =

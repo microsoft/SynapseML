@@ -16,7 +16,7 @@ import scala.sys.process.Process
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
-  test("Synapse") {
+  ignore("Synapse") {
 
     val os = sys.props("os.name").toLowerCase
     os match {
