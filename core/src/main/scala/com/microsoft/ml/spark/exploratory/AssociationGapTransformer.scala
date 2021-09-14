@@ -137,13 +137,57 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
                               positiveCountCol: String,
                               totalCountCol: String) {
 
-  def toMap: Map[String, Column] = Map("dp" -> dp, "pmi" -> pmi, "n_pmi" -> npmi)
+  def toMap: Map[String, Column] = Map(
+    "dp" -> dp,
+    "sdc" -> sdc,
+    "ji" -> ji,
+    "llr" -> llr,
+    "pmi" -> pmi,
+    "n_pmi_y" -> nPmiY,
+    "n_pmi_xy" -> nPmiXY,
+    "s_pmi" -> sPmi,
+    "krc" -> krc,
+    "t_test" -> tTest
+  )
 
-  def dp: Column = col(sensitivePositiveCountCol) / col(sensitiveCountCol)
+  def dp: Column =
+    col(sensitivePositiveCountCol) / col(sensitiveCountCol)
+
+  def sdc: Column =
+    col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol))
+
+  def ji: Column =
+    col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol) - col(sensitivePositiveCountCol))
+
+  def llr: Column =
+    log(col(sensitivePositiveCountCol) / col(positiveCountCol))
 
   // If dp == 0.0, then we don't calculate its log, but rather assume that ln(0.0) = -inf
-  def pmi: Column = when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
+  def pmi: Column =
+    when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
 
   // If pmi == -inf and positiveCol == 0.0, then we don't calculate pmi / ln(0.0) because -inf / -inf = NaN
-  def npmi: Column = when(col(positiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(positiveCountCol))
+  def nPmiY: Column =
+    when(col(positiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(positiveCountCol))
+
+  def nPmiXY: Column =
+    when(col(sensitivePositiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(sensitivePositiveCountCol))
+
+  def sPmi: Column =
+    when(col(sensitiveCountCol) * col(positiveCountCol) === lit(0d), lit(0d))
+      .otherwise(log(pow(sensitivePositiveCountCol, 2) / (col(sensitiveCountCol) * col(positiveCountCol))))
+
+  def krc: Column = {
+    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * col(sensitiveCountCol) - lit(2) *
+      col(positiveCountCol) + lit(2) * col(sensitivePositiveCountCol))
+    val b = col(totalCountCol) * (lit(2) * col(sensitiveCountCol) + lit(2) * col(positiveCountCol) -
+      lit(4) * col(sensitivePositiveCountCol) - lit(1))
+    val c = pow(totalCountCol, 2) * sqrt((col(sensitiveCountCol) - pow(sensitiveCountCol, 2)) * (col(positiveCountCol) -
+      pow(positiveCountCol, 2)))
+    (a + b) / c
+  }
+
+  def tTest: Column =
+    (col(sensitivePositiveCountCol) - (col(sensitiveCountCol) * col(positiveCountCol))) /
+      sqrt(col(sensitiveCountCol) * col(positiveCountCol))
 }
