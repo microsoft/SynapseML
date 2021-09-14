@@ -150,33 +150,42 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
     "t_test" -> tTest
   )
 
+  // Demographic Parity
   def dp: Column =
     col(sensitivePositiveCountCol) / col(sensitiveCountCol)
 
+  // Sorensen-Dice Coefficient
   def sdc: Column =
     col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol))
 
+  // Jaccard Index
   def ji: Column =
     col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol) - col(sensitivePositiveCountCol))
 
+  // Log-Likelihood Ratio
   def llr: Column =
     log(col(sensitivePositiveCountCol) / col(positiveCountCol))
 
+  // Pointwise Mutual Information
   // If dp == 0.0, then we don't calculate its log, but rather assume that ln(0.0) = -inf
   def pmi: Column =
     when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
 
+  // Normalized Pointwise Mutual Information, p(y) normalization
   // If pmi == -inf and positiveCol == 0.0, then we don't calculate pmi / ln(0.0) because -inf / -inf = NaN
   def nPmiY: Column =
     when(col(positiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(positiveCountCol))
 
+  // Normalized Pointwise Mutual Information, p(x,y) normalization
   def nPmiXY: Column =
     when(col(sensitivePositiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(sensitivePositiveCountCol))
 
+  // Squared Pointwise Mutual Information
   def sPmi: Column =
     when(col(sensitiveCountCol) * col(positiveCountCol) === lit(0d), lit(0d))
       .otherwise(log(pow(sensitivePositiveCountCol, 2) / (col(sensitiveCountCol) * col(positiveCountCol))))
 
+  // Kendall Rank Correlation
   def krc: Column = {
     val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * col(sensitiveCountCol) - lit(2) *
       col(positiveCountCol) + lit(2) * col(sensitivePositiveCountCol))
@@ -187,6 +196,7 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
     (a + b) / c
   }
 
+  // t-test
   def tTest: Column =
     (col(sensitivePositiveCountCol) - (col(sensitiveCountCol) * col(positiveCountCol))) /
       sqrt(col(sensitiveCountCol) * col(positiveCountCol))
