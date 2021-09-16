@@ -241,6 +241,19 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
   }
 }
 
+trait HasSetLinkedServiceUsingLocation extends HasSetLinkedService with HasSetLocation {
+  override def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val locationMethod = linkedServiceClass.get.getMethod("getLocation", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val location = locationMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setLocation(location)
+    setSubscriptionKey(key)
+  }
+}
+
 trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
@@ -276,6 +289,12 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
     val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
     assert(badColumns.isEmpty,
       s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
 
     val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
       case Nil => Seq(lit(false).alias("placeholder"))

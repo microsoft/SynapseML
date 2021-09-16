@@ -98,6 +98,18 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
     assert(numMatches === List(1, 2, 2))
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new FindSimilarFace()
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation("eastus")
+        .setOutputCol("similar")
+        .transform(faceIdDF).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("faceId"))
+  }
+
   override def testObjects(): Seq[TestObject[FindSimilarFace]] =
     Seq(new TestObject(findSimilar, faceIdDF))
 
@@ -145,6 +157,18 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
       row.getSeq[Row](0).length
     )
     assert(numMatches === List(2, 2, 2))
+  }
+
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new GroupFaces()
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation("eastus")
+        .setOutputCol("grouping")
+        .transform(faceIdDF).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("faceIds"))
   }
 
   override def testObjects(): Seq[TestObject[GroupFaces]] =
@@ -227,6 +251,19 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
       .getItem(0).getItem("candidates").getItem(0).getItem("personId"))
       .collect().map(_.getString(0))
     assert(matches === List(satyaId, bradId, bradId))
+  }
+
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new IdentifyFaces()
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation("eastus")
+        .setPersonGroupId(pgId)
+        .setOutputCol("identified_faces")
+        .transform(df).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("faceIds"))
   }
 
   override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
