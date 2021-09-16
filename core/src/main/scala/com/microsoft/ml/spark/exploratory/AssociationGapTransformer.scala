@@ -109,6 +109,13 @@ class AssociationGapTransformer(override val uid: String)
       )
   }
 
+  private def validateSchema(schema: StructType): Unit = {
+    val labelCol = schema(getLabelCol)
+    if (!labelCol.dataType.isInstanceOf[NumericType]) {
+      throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
+    }
+  }
+
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
@@ -122,13 +129,6 @@ class AssociationGapTransformer(override val uid: String)
           getAssociationGapsCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
         Nil
     )
-  }
-
-  private def validateSchema(schema: StructType): Unit = {
-    val labelCol = schema(getLabelCol)
-    if (!labelCol.dataType.isInstanceOf[NumericType]) {
-      throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
-    }
   }
 }
 
