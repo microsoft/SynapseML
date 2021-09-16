@@ -180,13 +180,14 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
 
   // Squared Pointwise Mutual Information
   def sPmi: Column = when(pSensitive * pPositive === lit(0d), lit(0d))
-    .otherwise(log(pow(sensitivePositiveCountCol, 2) / (pSensitive * pPositive)))
+    .otherwise(log(pow(pSensitivePositive, 2) / (pSensitive * pPositive)))
 
   // Kendall Rank Correlation
   def krc: Column = {
-    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pSensitive - lit(2) * pPositive + lit(2) * pSensitivePositive)
+    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pSensitive - lit(2) * pPositive +
+      lit(2) * pSensitivePositive + lit(2) * pSensitive * pPositive)
     val b = col(totalCountCol) * (lit(2) * pSensitive + lit(2) * pPositive - lit(4) * pSensitivePositive - lit(1))
-    val c = pow(totalCountCol, 2) * sqrt((pSensitive - pow(pSensitive, 2)) * (pPositive - pow(positiveCountCol, 2)))
+    val c = pow(totalCountCol, 2) * sqrt((pSensitive - pow(pSensitive, 2)) * (pPositive - pow(pPositive, 2)))
     (a + b) / c
   }
 

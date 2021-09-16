@@ -52,15 +52,15 @@ class AssociationGapTransformerSuite extends TestBase {
     val pmiGap: Double = log(pYgivenX1) - log(pYgivenX2)
     val nPmiYGap: Double = log(pYgivenX1) / log(pY) - log(pYgivenX2) / log(pY)
     val nPmiXYGap: Double = log(pYgivenX1) / log(pX1andY) - log(pYgivenX2) / log(pX2andY)
-    val sqPmiGap: Double = log(pow(pX1andY, 2) / (pX1 * pY)) - log(pow(pX2andY, 2) / (pX2 * pY))
+    val sPmiGap: Double = log(pow(pX1andY, 2) / (pX1 * pY)) - log(pow(pX2andY, 2) / (pX2 * pY))
     val krcGap: Double = {
       val aX1 = pow(numRows, 2) * (1 - 2 * pX1 - 2 * pY + 2 * pX1andY + 2 * pX1 * pY)
       val bX1 = numRows * (2 * pX1 + 2 * pY - 4 * pX1andY - 1)
-      val cX1 = pow(numRows, 2) * sqrt(pX1 - pow(pX1, 2) * (pY - pow(pY, 2)))
+      val cX1 = pow(numRows, 2) * sqrt((pX1 - pow(pX1, 2)) * (pY - pow(pY, 2)))
 
       val aX2 = pow(numRows, 2) * (1 - 2 * pX2 - 2 * pY + 2 * pX2andY + 2 * pX2 * pY)
       val bX2 = numRows * (2 * pX2 + 2 * pY - 4 * pX2andY - 1)
-      val cX2 = pow(numRows, 2) * sqrt(pX2 - pow(pX2, 2) * (pY - pow(pY, 2)))
+      val cX2 = pow(numRows, 2) * sqrt((pX2 - pow(pX2, 2)) * (pY - pow(pY, 2)))
 
       (aX1 + bX1) / cX1 - (aX2 + bX2) / cX2
     }
@@ -99,5 +99,41 @@ class AssociationGapTransformerSuite extends TestBase {
 
   test("AssociationGapTransformer can calculate Demographic Parity") {
     assert(abs(actualGenderMaleFemale("dp")) == abs(expectedGenderMaleFemale.dpGap))
+  }
+
+  test("AssociationGapTransformer can calculate Sorensen-Dice Coefficient") {
+    assert(abs(actualGenderMaleFemale("sdc")) == abs(expectedGenderMaleFemale.sdcGap))
+  }
+
+  test("AssociationGapTransformer can calculate Jaccard Index") {
+    assert(abs(actualGenderMaleFemale("ji")) == abs(expectedGenderMaleFemale.jiGap))
+  }
+
+  test("AssociationGapTransformer can calculate Log-Likelihood Ratio") {
+    assert(abs(actualGenderMaleFemale("llr")) == abs(expectedGenderMaleFemale.llrGap))
+  }
+
+  test("AssociationGapTransformer can calculate Pointwise Mutual Information") {
+    assert(abs(actualGenderMaleFemale("pmi")) == abs(expectedGenderMaleFemale.pmiGap))
+  }
+
+  test("AssociationGapTransformer can calculate Normalized Pointwise Mutual Information, p(y) normalization") {
+    assert(abs(actualGenderMaleFemale("n_pmi_y")) == abs(expectedGenderMaleFemale.nPmiYGap))
+  }
+
+  test("AssociationGapTransformer can calculate Normalized Pointwise Mutual Information, p(x,y) normalization") {
+    assert(abs(actualGenderMaleFemale("n_pmi_xy")) == abs(expectedGenderMaleFemale.nPmiXYGap))
+  }
+
+  test("AssociationGapTransformer can calculate Squared Pointwise Mutual Information") {
+    assert(abs(actualGenderMaleFemale("s_pmi")) == abs(expectedGenderMaleFemale.sPmiGap))
+  }
+
+  test("AssociationGapTransformer can calculate Kendall Rank Correlation") {
+    assert(abs(actualGenderMaleFemale("krc")) == abs(expectedGenderMaleFemale.krcGap))
+  }
+
+  test("AssociationGapTransformer can calculate t-test") {
+    assert(abs(actualGenderMaleFemale("t_test")) == abs(expectedGenderMaleFemale.tTestGap))
   }
 }
