@@ -1,15 +1,16 @@
 package com.microsoft.ml.spark.exploratory
 
-import scala.math.{abs, log, pow, sqrt}
 import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
+
+import scala.math.{abs, log, pow, sqrt}
 
 class AssociationGapTransformerSuite extends TestBase {
 
   import spark.implicits._
 
-  private lazy val testDfGenderEthnicity: DataFrame = Seq(
+  private lazy val testDfSimulated: DataFrame = Seq(
     (0, "FEMALE", "Asian", 3035, 20657),
     (1, "OTHER", "Other", 1065, 30909),
     (0, "FEMALE", "White", 1056, 10901),
@@ -23,7 +24,7 @@ class AssociationGapTransformerSuite extends TestBase {
     (0, "OTHER", "White", 2063, 30860)
   ) toDF("Label", "Gender", "Ethnicity", "Usage", "Income")
 
-  private lazy val associationGapGenderEthnicity: AssociationGapTransformer = {
+  private lazy val associationGapSimulated: AssociationGapTransformer = {
     spark
     new AssociationGapTransformer()
       .setSensitiveCols(Array("Gender", "Ethnicity"))
@@ -31,12 +32,10 @@ class AssociationGapTransformerSuite extends TestBase {
       .setVerbose(true)
   }
 
-  test("AssociationGapTransformer can calculate Association Gaps for 2 sensitive columns: Gender and Ethnicity") {
-    val associationMeasures = associationGapGenderEthnicity.transform(testDfGenderEthnicity)
-
-    associationMeasures.show(truncate = false)
-
-    associationMeasures.printSchema()
+  test("AssociationGapTransformer can calculate Association Gaps for 2 sensitive columns") {
+    val associationGaps = associationGapSimulated.transform(testDfSimulated)
+    associationGaps.show(truncate = false)
+    associationGaps.printSchema()
   }
 
   case class GapCalculator(numRows: Double, pY: Double, pX1: Double, pX1andY: Double, pX2: Double, pX2andY: Double) {
