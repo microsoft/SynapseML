@@ -136,6 +136,11 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
                               sensitiveCountCol: String,
                               positiveCountCol: String,
                               totalCountCol: String) {
+  val pPositive: Column = col(positiveCountCol) / col(totalCountCol)
+  val pSensitive: Column = col(sensitiveCountCol) / col(totalCountCol)
+  val pSensitivePositive: Column = col(sensitivePositiveCountCol) / col(sensitiveCountCol)
+  val pPositiveGivenSensitive: Column = pSensitivePositive / pSensitive
+  val pSensitiveGivenPositive: Column = pSensitivePositive / pPositive
 
   def toMap: Map[String, Column] = Map(
     "dp" -> dp,
@@ -151,53 +156,40 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
   )
 
   // Demographic Parity
-  def dp: Column =
-    col(sensitivePositiveCountCol) / col(sensitiveCountCol)
+  def dp: Column = pSensitivePositive / pSensitive
 
   // Sorensen-Dice Coefficient
-  def sdc: Column =
-    col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol))
+  def sdc: Column = pSensitivePositive / (pSensitive + pPositive)
 
   // Jaccard Index
-  def ji: Column =
-    col(sensitivePositiveCountCol) / (col(sensitiveCountCol) + col(positiveCountCol) - col(sensitivePositiveCountCol))
+  def ji: Column = pSensitivePositive / (pSensitive + pPositive - pSensitivePositive)
 
   // Log-Likelihood Ratio
-  def llr: Column =
-    log(col(sensitivePositiveCountCol) / col(positiveCountCol))
+  def llr: Column = log(pSensitivePositive / pPositive)
 
   // Pointwise Mutual Information
   // If dp == 0.0, then we don't calculate its log, but rather assume that ln(0.0) = -inf
-  def pmi: Column =
-    when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
+  def pmi: Column = when(dp === lit(0d), lit(Double.NegativeInfinity)).otherwise(log(dp))
 
   // Normalized Pointwise Mutual Information, p(y) normalization
   // If pmi == -inf and positiveCol == 0.0, then we don't calculate pmi / ln(0.0) because -inf / -inf = NaN
-  def nPmiY: Column =
-    when(col(positiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(positiveCountCol))
+  def nPmiY: Column = when(pPositive === lit(0d), lit(0d)).otherwise(pmi / log(pPositive))
 
   // Normalized Pointwise Mutual Information, p(x,y) normalization
-  def nPmiXY: Column =
-    when(col(sensitivePositiveCountCol) === lit(0d), lit(0d)).otherwise(pmi / log(sensitivePositiveCountCol))
+  def nPmiXY: Column = when(pSensitivePositive === lit(0d), lit(0d)).otherwise(pmi / log(pSensitivePositive))
 
   // Squared Pointwise Mutual Information
-  def sPmi: Column =
-    when(col(sensitiveCountCol) * col(positiveCountCol) === lit(0d), lit(0d))
-      .otherwise(log(pow(sensitivePositiveCountCol, 2) / (col(sensitiveCountCol) * col(positiveCountCol))))
+  def sPmi: Column = when(pSensitive * pPositive === lit(0d), lit(0d))
+    .otherwise(log(pow(sensitivePositiveCountCol, 2) / (pSensitive * pPositive)))
 
   // Kendall Rank Correlation
   def krc: Column = {
-    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * col(sensitiveCountCol) - lit(2) *
-      col(positiveCountCol) + lit(2) * col(sensitivePositiveCountCol))
-    val b = col(totalCountCol) * (lit(2) * col(sensitiveCountCol) + lit(2) * col(positiveCountCol) -
-      lit(4) * col(sensitivePositiveCountCol) - lit(1))
-    val c = pow(totalCountCol, 2) * sqrt((col(sensitiveCountCol) - pow(sensitiveCountCol, 2)) * (col(positiveCountCol) -
-      pow(positiveCountCol, 2)))
+    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pSensitive - lit(2) * pPositive + lit(2) * pSensitivePositive)
+    val b = col(totalCountCol) * (lit(2) * pSensitive + lit(2) * pPositive - lit(4) * pSensitivePositive - lit(1))
+    val c = pow(totalCountCol, 2) * sqrt((pSensitive - pow(pSensitive, 2)) * (pPositive - pow(positiveCountCol, 2)))
     (a + b) / c
   }
 
   // t-test
-  def tTest: Column =
-    (col(sensitivePositiveCountCol) - (col(sensitiveCountCol) * col(positiveCountCol))) /
-      sqrt(col(sensitiveCountCol) * col(positiveCountCol))
+  def tTest: Column = (pSensitivePositive - (pSensitive * pPositive)) / sqrt(pSensitive * pPositive)
 }
