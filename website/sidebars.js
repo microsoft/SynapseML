@@ -1,14 +1,4 @@
-const {listPaths,listDeprecatedPaths} = require('./src/plugins/components');
 const {listNotebookPaths} = require('./src/plugins/notebooks');
-
-let inputs_docs = listPaths("inputs");
-let processors_docs = listPaths("processors");
-let outputs_docs = listPaths("outputs");
-let caches_docs = listPaths("caches");
-let rate_limits_docs = listPaths("rate_limits");
-let buffers_docs = listPaths("buffers");
-let metrics_docs = listPaths("metrics");
-let tracers_docs = listPaths("tracers");
 
 let notebooks_as_docs = listNotebookPaths("Azure Search");
 let notebooks_cl_docs = listNotebookPaths("Classification");

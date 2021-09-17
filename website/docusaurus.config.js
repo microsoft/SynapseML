@@ -1,5 +1,4 @@
 const path = require('path');
-const {components} = require('./src/plugins/components');
 const {all_examples} = require('./src/plugins/notebooks');
 
 module.exports = {
@@ -11,18 +10,7 @@ module.exports = {
   organizationName: 'Microsoft',
   projectName: 'synapseml',
   customFields: {
-    examples: all_examples(),
-    components: {
-      inputs: components("inputs"),
-      processors: components("processors"),
-      conditions: components("conditions"),
-      outputs: components("outputs"),
-      caches: components("caches"),
-      rate_limits: components("rate_limits"),
-      buffers: components("buffers"),
-      metrics: components("metrics"),
-      tracers: components("tracers"),
-    },
+    examples: all_examples()
   },
   themeConfig: {
     prism: {
@@ -138,7 +126,6 @@ module.exports = {
     ],
   ],
   plugins: [
-    path.resolve(__dirname, './src/plugins/cookbooks'),
     path.resolve(__dirname, './src/plugins/redirects'),
   ],
 };

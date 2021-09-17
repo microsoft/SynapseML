@@ -1,0 +1,282 @@
+{
+  "version-1.0.0/docs": [
+    {
+      "type": "doc",
+      "id": "version-1.0.0/about"
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Notebooks",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-1.0.0/notebooks/about"
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Azure Search",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Azure Search/AzureSearchIndex - Met Artworks"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Classification",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Classification/Classification - Adult Census with Vowpal Wabbit"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Classification/Classification - Adult Census"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Classification/Classification - Before and After MMLSpark"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Classification/Classification - Twitter Sentiment with Vowpal Wabbit"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Cognitive Services",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Cognitive Services/Cognitive Services - Overview"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Cognitive Services/CognitiveServices - Celebrity Quote Analysis"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Conditional KNN",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Conditional KNN/ConditionalKNN - Exploring Art Across Cultures"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "CyberML",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/CyberML/CyberML - Anomalous Access Detection"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Deep Learning",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Deep Learning/DeepLearning - BiLSTM Medical Entity Extraction"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Deep Learning/DeepLearning - CIFAR10 Convolutional Network"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Deep Learning/DeepLearning - Flower Image Classification"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Deep Learning/DeepLearning - Transfer Learning"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "HTTP",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/HTTP/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/HTTP/HttpOnSpark - Working with Arbitrary Web APIs"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "HyperParameter Tuning",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/HyperParameter Tuning/HyperParameterTuning - Fighting Breast Cancer"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "LightGBM",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/LightGBM/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/LightGBM/LightGBM - Overview"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Model Interpretation",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Model Interpretation/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Model Interpretation/Interpretability - Image Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Model Interpretation/Interpretability - Tabular SHAP explainer"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Model Interpretation/Interpretability - Text Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Model Interpretation/ModelInterpretation - Snow Leopard Detection"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "OpenCV",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/OpenCV/OpenCV - Pipeline Image Transformations"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Regression",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Regression/Regression -  Flight Delays with DataCleaning"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Regression/Regression - Auto Imports"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Regression/Regression - Flight Delays"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Spark Serving",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Spark Serving/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Spark Serving/SparkServing - Deploying a Classifier"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Text Analytics",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Text Analytics/TextAnalytics - Amazon Book Reviews with Word2Vec"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Text Analytics/TextAnalytics - Amazon Book Reviews"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Vowpal Wabbit",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Vowpal Wabbit/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/notebooks/Vowpal Wabbit/Vowpal Wabbit - Overview"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Guides",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-1.0.0/guides/getting_started"
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Azure Synapse",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/guides/synapse/about"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
