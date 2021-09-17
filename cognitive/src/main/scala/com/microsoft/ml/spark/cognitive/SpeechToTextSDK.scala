@@ -36,6 +36,7 @@ import java.util.UUID
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.existentials
+import scala.reflect.internal.util.ScalaClassLoader
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
@@ -76,7 +77,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
   with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging
-  with HasSetLinkedService {
+  with HasSetLinkedServiceUsingLocation {
 
   type ResponseType <: SharedSpeechFields
 
@@ -196,6 +197,7 @@ abstract class SpeechSDKBase extends Transformer
   def setProfanityCol(v: String): this.type = setVectorParam(profanity, v)
 
   def urlPath: String = "/sts/v1.0/issuetoken"
+
 
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))

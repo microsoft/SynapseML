@@ -34,6 +34,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.cognitive.DocumentTranslator",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.ml.spark.featurize.ValueIndexerModel",
       "com.microsoft.ml.spark.cntk.train.CNTKLearner",
@@ -81,6 +82,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.cognitive.DocumentTranslator",
       "com.microsoft.ml.spark.automl.BestModel",
       "com.microsoft.ml.spark.automl.TuneHyperparameters",
       "com.microsoft.ml.spark.automl.TuneHyperparametersModel",
@@ -128,6 +130,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.ml.spark.cognitive.DocumentTranslator",
       "com.microsoft.ml.spark.automl.TuneHyperparameters",
       "com.microsoft.ml.spark.train.TrainedRegressorModel",
       "com.microsoft.ml.spark.vw.VowpalWabbitContextualBanditModel",

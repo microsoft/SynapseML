@@ -3,25 +3,24 @@
 
 package com.microsoft.ml.spark.cognitive
 
+import com.microsoft.ml.spark.build.BuildInfo
 import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
+import com.microsoft.ml.spark.io.http.{HTTPResponseData, HeaderValues}
 import com.microsoft.ml.spark.logging.BasicLogging
+import org.apache.commons.io.IOUtils
+import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.DataType
-import com.microsoft.ml.spark.build.BuildInfo
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
-import com.microsoft.ml.spark.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.HttpGet
-import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import java.net.URI
-import java.util.concurrent.TimeoutException
-import scala.concurrent.blocking
+import scala.reflect.internal.util.ScalaClassLoader
 
 trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
 
@@ -50,7 +49,7 @@ object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
-  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging {
+  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging with HasSetLinkedService {
 
   import TranslatorJsonProtocol._
 
@@ -139,9 +138,26 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
+  override def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val nameMethod = linkedServiceClass.get.getMethod("getName", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val name = nameMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setServiceName(name)
+    setSubscriptionKey(key)
+  }
+
+  override def setServiceName(v: String): this.type = {
+    super.setServiceName(v)
+    setUrl(s"https://$getServiceName.cognitiveservices.azure.com/" + urlPath)
+  }
+
+  def urlPath: String = "/translator/text/batch/v1.0/batches"
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      setUrl(s"https://$getServiceName.cognitiveservices.azure.com/translator/text/batch/v1.0/batches")
       getInternalTransformer(dataset.schema).transform(dataset)
     })
   }

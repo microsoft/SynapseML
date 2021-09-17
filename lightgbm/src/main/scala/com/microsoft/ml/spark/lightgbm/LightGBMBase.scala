@@ -224,8 +224,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         val badSlotNames = slotNames.flatMap(slotName =>
           if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
         if (!badSlotNames.isEmpty) {
-          val errorMsg = s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}"
-          throw new IllegalArgumentException(errorMsg)
+          throw new IllegalArgumentException(
+            s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
+            " \n Special characters \" , : \\ [ ] { } will cause unexpected behavior in LGBM unless changed." +
+            " This error can be fixed by renaming the problematic columns prior to vector assembly.")
         }
       })
     }

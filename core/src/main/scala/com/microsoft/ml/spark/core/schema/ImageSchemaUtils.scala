@@ -20,11 +20,10 @@ object ImageSchemaUtils {
         StructField("data", BinaryType, true) :: Nil)
   }
 
-  val ImageSchemaNullable = StructType(StructField("image", ColumnSchemaNullable, true) :: Nil)
+  val ImageSchemaNullable: StructType = StructType(StructField("image", ColumnSchemaNullable, nullable = true) :: Nil)
 
   def isImage(dataType: DataType): Boolean = {
-    dataType == ImageSchema.columnSchema ||
-      dataType == ColumnSchemaNullable
+    DataType.equalsStructurally(dataType, ImageSchema.columnSchema, ignoreNullability = true)
   }
 
   def isImage(dataType: StructField): Boolean = {

@@ -5,7 +5,7 @@ package com.microsoft.ml.spark.explainers
 
 import breeze.linalg.{norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
-import com.microsoft.ml.spark.explainers.BreezeUtils._
+import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -152,6 +152,8 @@ private[explainers] class LIMETabularSampler(val instance: Row, val featureStats
         (instance.get(i), 1d)
       case (_: ContinuousFeatureStats, i) =>
         (instance.getAsDouble(i), instance.getAsDouble(i))
+      case (_, _) =>
+        throw new NotImplementedError("invalid state")
     }.unzip
 
     (Row.fromSeq(identityRow), Vectors.dense(identityState.toArray), 0d)

@@ -6,6 +6,7 @@ from pyspark.sql import DataFrame, SQLContext
 from pyspark.ml.common import _to_java_object_rdd, _java2py
 import pyspark
 from pyspark.ml import PipelineModel
+from pyspark.sql.types import DataType
 
 
 @staticmethod
@@ -21,7 +22,7 @@ def _mml_from_java(java_stage):
         """
         Loads Python class from its name.
         """
-        parts = clazz.split('.')
+        parts = clazz.split(".")
         module = ".".join(parts[:-1])
         m = __import__(module)
         for comp in parts[1:]:
@@ -41,8 +42,7 @@ def _mml_from_java(java_stage):
     elif hasattr(py_type, "_from_java"):
         py_stage = py_type._from_java(java_stage)
     else:
-        raise NotImplementedError("This Java stage cannot be loaded into Python currently: %r"
-                                  % stage_name)
+        raise NotImplementedError("This Java stage cannot be loaded into Python currently: %r" % stage_name)
     return py_stage
 
 
@@ -68,6 +68,8 @@ def _mml_py2java(sc, obj):
         pass
     elif isinstance(obj, (int, float, bool, bytes, str)):
         pass
+    elif isinstance(obj, DataType):
+        obj = sc._jvm.org.apache.spark.sql.types.DataType.fromJson(obj.json())
     else:
         data = bytearray(PickleSerializer().dumps(obj))
         obj = sc._jvm.org.apache.spark.ml.python.MLSerDe.loads(data)

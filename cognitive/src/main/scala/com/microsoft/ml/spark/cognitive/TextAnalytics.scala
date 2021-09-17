@@ -92,6 +92,12 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
 
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
     def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
       val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
       getVectorParamMap.get(parameterName).flatMap {
@@ -291,6 +297,18 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
   override def responseDataType: StructType = NERResponseV3.schema
 
   def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
+}
+
+object PII extends ComplexParamsReadable[PII]
+
+class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("PII"))
+
+  override def responseDataType: StructType = PIIResponseV3.schema
+
+  def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
 }
 
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
