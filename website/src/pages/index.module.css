@@ -84,22 +84,17 @@
   margin: 10px;
 }
 
-.meltwaterImg {
-  max-height: 30px;
+.microsoftImg {
+  max-height: 80px;
   padding: 10px;
 }
 
-.humanImg {
-  max-height: 40px;
-  padding: 0 10px;
-}
-
-.infosumImg {
-  max-height: 40px;
+.theMetImg {
+  max-height: 80px;
   padding: 10px;
 }
 
-.communityImg {
-  max-height: 40px;
+.mitImg {
+  max-height: 60px;
   padding: 10px;
 }

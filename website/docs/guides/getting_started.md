@@ -1,144 +1,123 @@
 ---
 title: Getting Started
-description: Getting started with Benthos
+description: Getting started with SynapseML
 ---
 
-Woops! You fell for the marketing hype. Let's try and get through this together.
+## Setup and installation
 
-<div style={{textAlign: 'center'}}><img style={{maxWidth: '300px'}} src="/img/teacher-blob.svg" /></div>
+### Python
 
-## Install
+To try out MMLSpark on a Python (or Conda) installation you can get Spark
+installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
+the above example, or from python:
 
-The easiest way to install Benthos is with this handy script:
-
-```sh
-curl -Lsf https://sh.benthos.dev | bash
+```python
+import pyspark
+spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
+            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3") \
+            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
+            .getOrCreate()
+import mmlspark
 ```
 
-Or you can grab an archive containing Benthos from the [releases page][releases].
+### SBT
+
+If you are building a Spark application in Scala, add the following lines to
+your `build.sbt`:
+
+```scala
+resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"
+
+```
+
+### Spark package
+
+MMLSpark can be conveniently installed on existing Spark clusters via the
+`--packages` option, examples:
+
+```bash
+spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
+pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
+spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
+```
+
+This can be used in other Spark contexts too. For example, you can use MMLSpark
+in [AZTK](https://github.com/Azure/aztk/) by adding it to the
+[`.aztk/spark-defaults.conf`](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark) file.
+
+### Databricks
+
+To install MMLSpark on the [Databricks
+cloud](http://community.cloud.databricks.com), create a new [library from Maven
+coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
+in your workspace.
+
+For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3` 
+with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
+attached to your target cluster(s).
+
+Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
+
+You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
+
+`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc3.dbc`
+
+### Apache Livy and HDInsight
+
+To install MMLSpark from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
+
+Excluding certain packages from the library may be necessary due to current issues with Livy 0.5
+
+```
+%%configure -f
+{
+    "name": "mmlspark",
+    "conf": {
+        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3",
+        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.11,org.scalactic:scalactic_2.11,org.scalatest:scalatest_2.11"
+    }
+}
+```
 
 ### Docker
 
-If you have docker installed you can pull the latest official Benthos image with:
+The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
+do so, run the following command:
 
-```sh
-docker pull jeffail/benthos
-docker run --rm -v /path/to/your/config.yaml:/benthos.yaml jeffail/benthos
+```bash
+docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release
 ```
 
-### Homebrew
+Navigate to <http://localhost:8888/> in your web browser to run the sample
+notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
-On macOS, Benthos can be installed via Homebrew:
-
-```sh
-brew install benthos
+> To read the EULA for using the docker image, run 
+``` bash
+docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula
 ```
 
-### Serverless
+### GPU VM Setup
 
-For information about serverless deployments of Benthos check out the serverless section [here][serverless].
+MMLSpark can be used to train deep learning models on GPU nodes from a Spark
+application.  See the instructions for [setting up an Azure GPU
+VM](docs/gpu-setup.md).
 
-## Run
 
-A Benthos stream pipeline is configured with a single [config file][configuration], you can generate a fresh one with:
 
-```shell
-benthos create > config.yaml
-```
+### Building from source
 
-The main sections that make up a config are `input`, `pipeline` and `output`. When you generate a fresh config it'll simply pipe `stdin` to `stdout` like this:
+MMLSpark has recently transitioned to a new build infrastructure. 
+For detailed developer docs please see the [Developer Readme](docs/developer-readme.md)
 
-```yaml
-input:
-  type: stdin
+If you are an existing mmlspark developer, you will need to reconfigure your 
+development setup. We now support platform independent development and 
+better integrate with intellij and SBT.
+ If you encounter issues please reach out to our support email!
 
-pipeline:
-  processors: []
+### R (Beta)
 
-output:
-  type: stdout
-```
-
-Eventually we'll want to configure a more useful [input][inputs] and [output][outputs], but for now this is useful for quickly testing processors. You can execute this config with:
-
-```sh
-benthos -c ./config.yaml
-```
-
-Anything you write to stdin will get written unchanged to stdout, cool! Resist the temptation to play with this for hours, there's more stuff to try out.
-
-Next, let's add some processing steps in order to mutate messages. The most powerful one is the [`bloblang` processor][processors.bloblang] which allows us to perform mappings, let's add a mapping to uppercase our messages:
-
-```yaml
-input:
-  type: stdin
-
-pipeline:
-  processors:
-    - bloblang: root = content().uppercase()
-
-output:
-  type: stdout
-```
-
-Now your messages should come out in all caps, how whacky! IT'S LIKE BENTHOS IS SHOUTING BACK AT YOU!
-
-You can add as many [processing steps][processors] as you like, and since processors are what make Benthos powerful they are worth experimenting with. Let's create a more advanced pipeline that works with JSON documents:
-
-```yaml
-input:
-  type: stdin
-
-pipeline:
-  processors:
-    - sleep:
-        duration: 500ms
-    - bloblang: |
-        root.doc = this
-        root.first_name = this.names.index(0).uppercase()
-        root.last_name = this.names.index(-1).hash("sha256").encode("base64")
-
-output:
-  type: stdout
-```
-
-First, we sleep for 500 milliseconds just to keep the suspense going. Next, we restructure our input JSON document by nesting it within a field `doc`, we map the upper-cased first element of `names` to a new field `first_name`. Finally, we map the hashed and base64 encoded value of the last element of `names` to a new field `last_name`.
-
-Try running that config with some sample documents:
-
-```sh
-echo '
-{"id":"1","names":["celine","dion"]}
-{"id":"2","names":["chad","robert","kroeger"]}' | benthos -c ./config.yaml
-```
-
-You should see (amongst some logs):
-
-```sh
-{"doc":{"id":"1","names":["celine","dion"]},"first_name":"CELINE","last_name":"1VvPgCW9sityz5XAMGdI2BTA7/44Wb3cANKxqhiCo50="}
-{"doc":{"id":"2","names":["chad","robert","kroeger"]},"first_name":"CHAD","last_name":"uXXg5wCKPjpyj/qbivPbD9H9CZ5DH/F0Q1Twytnt2hQ="}
-```
-
-How exciting! I don't know about you but I'm going to need to lie down for a while. Now that you are a Benthos expert might I suggest you peruse these sections to see if anything tickles your fancy?
-
-- [Bloblang Walkthrough][bloblang.walkthrough]
-- [Inputs][inputs]
-- [Processors][processors]
-- [Outputs][outputs]
-- [Monitoring][monitoring]
-- [Cookbooks][cookbooks]
-- [More about configuration][configuration]
-
-[processors.bloblang]: /docs/components/processors/bloblang
-[proc_proc_field]: /docs/components/processors/process_field
-[proc_text]: /docs/components/processors/text
-[processors]: /docs/components/processors/about
-[inputs]: /docs/components/inputs/about
-[outputs]: /docs/components/outputs/about
-[jmespath]: http://jmespath.org/
-[releases]: https://github.com/Jeffail/benthos/releases
-[serverless]: /docs/guides/serverless/about
-[configuration]: /docs/configuration/about
-[monitoring]: /docs/guides/monitoring
-[cookbooks]: /cookbooks
-[bloblang.walkthrough]: /docs/guides/bloblang/walkthrough
+To try out MMLSpark using the R autogenerated wrappers [see our
+instructions](docs/R-setup.md).  Note: This feature is still under development
+and some necessary custom wrappers may be missing.

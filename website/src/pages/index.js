@@ -1,190 +1,77 @@
-import React from 'react';
-import classnames from 'classnames';
-import Layout from '@theme/Layout';
-import Link from '@docusaurus/Link';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import useBaseUrl from '@docusaurus/useBaseUrl';
-import styles from './index.module.css';
+import React from "react";
+import classnames from "classnames";
+import Layout from "@theme/Layout";
+import Link from "@docusaurus/Link";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import useBaseUrl from "@docusaurus/useBaseUrl";
+import styles from "./index.module.css";
 import CodeSnippet from "@site/src/theme/CodeSnippet";
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-const installs = [
-  {
-    label: 'Curl',
-    snippet: `# Install
-curl -Lsf https://sh.benthos.dev | bash
-
-# Make a config
-benthos create nats/protobuf/aws_sqs > ./config.yaml
-
-# Run
-benthos -c ./config.yaml`
-  },
-  {
-    label: 'Homebrew',
-    snippet: `# Install
-brew install benthos
-
-# Make a config
-benthos create nats/protobuf/aws_sqs > ./config.yaml
-
-# Run
-benthos -c ./config.yaml`
-  },
-  {
-    label: 'Docker',
-    snippet: `# Pull
-docker pull jeffail/benthos
-
-# Make a config
-docker run --rm jeffail/benthos create nats/protobuf/aws_sqs > ./config.yaml
-
-# Run
-docker run --rm -v $(pwd)/config.yaml:/benthos.yaml jeffail/benthos`
-  },
-]
-
-const snippets = [
-  {
-    label: 'Mapping',
-    further: '/docs/guides/bloblang/about',
-    config: `input:
-  gcp_pubsub:
-    project: foo
-    subscription: bar
-
-pipeline:
-  processors:
-    - bloblang: |
-        root.message = this
-        root.meta.link_count = this.links.length()
-        root.user.age = this.user.age.number()
-
-output:
-  redis_streams:
-    url: tcp://TODO:6379
-    stream: baz
-    max_in_flight: 20`,
-  },
-  {
-    label: 'Multiplexing',
-    further: '/docs/components/outputs/about#multiplexing-outputs',
-    config: `input:
-  kafka:
-    addresses: [ TODO ]
-    topics: [ foo, bar ]
-    consumer_group: foogroup
-
-output:
-  switch:
-    cases:
-      - check: doc.tags.contains("AWS")
-        output:
-          aws_sqs:
-            url: https://sqs.us-west-2.amazonaws.com/TODO/TODO
-            max_in_flight: 20
-
-      - output:
-          redis_pubsub:
-            url: tcp://TODO:6379
-            channel: baz
-            max_in_flight: 20`,
-  },
-  {
-    label: 'Enrichments',
-    further: '/cookbooks/enrichments',
-    config: `input:
-  mqtt:
-    urls: [ tcp://TODO:1883 ]
-    topics: [ foo ]
-
-pipeline:
-  processors:
-    - branch:
-        request_map: |
-          root.id = this.doc.id
-          root.content = this.doc.body
-        processors:
-          - aws_lambda:
-              function: sentiment_analysis
-        result_map: root.results.sentiment = this
-
-output:
-  aws_s3:
-    bucket: TODO
-    path: '\${! meta("partition") }/\${! timestamp_unix_nano() }.tar.gz'
-    batching:
-      count: 100
-      period: 10s
-      processors:
-        - archive:
-            format: tar
-        - compress:
-            algorithm: gzip`,
-  },
-];
-
-function Snippet({label, config}) {
-  return (
-    <CodeSnippet className={styles.configSnippet} snippet={config}></CodeSnippet>
-  );
-}
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 const features = [
   {
-    title: 'Simple',
-    imageUrl: 'img/simple.svg',
+    title: "Simple",
+    imageUrl: "img/simple.svg",
     description: (
       <>
         <p>
-          Quickly create, train, and use distributed machine learning tools in only a few lines of code.   
+          Quickly create, train, and use distributed machine learning tools in
+          only a few lines of code.
         </p>
       </>
     ),
   },
   {
-    title: 'Scalable',
-    imageUrl: 'img/scalable3.svg',
+    title: "Scalable",
+    imageUrl: "img/scalable3.svg",
     description: (
       <>
         <p>
-         Scale ML workloads to hundreds of machines on your <a href="https://spark.apache.org/">Apache Spark</a> cluster.
+          Scale ML workloads to hundreds of machines on your{" "}
+          <a href="https://spark.apache.org/">Apache Spark</a> cluster.
         </p>
       </>
     ),
   },
   {
-    title: 'Multilingual',
-    imageUrl: 'img/multilingual.svg',
+    title: "Multilingual",
+    imageUrl: "img/multilingual.svg",
     description: (
       <>
         <p>
-        Use SynapseML from any Spark compatible language including Python, Scala, R, Java, .NET and C#.
+          Use SynapseML from any Spark compatible language including Python,
+          Scala, R, Java, .NET and C#.
         </p>
       </>
     ),
   },
   {
-    title: 'Open',
-    imageUrl: 'img/Blobextended.svg',
+    title: "Open",
+    imageUrl: "img/opensource-blue.jpg",
     description: (
       <>
         <p>
-          SynapseML is Open Source and can be installed and used on any Spark 3 infrastructure including your local machine, Databricks, Synapse Analytics, and others.
+          SynapseML is Open Source and can be installed and used on any Spark 3
+          infrastructure including your local machine, Databricks, Synapse
+          Analytics, and others.
         </p>
       </>
     ),
   },
 ];
 
-function Feature({imageUrl, title, description}) {
+function Feature({ imageUrl, title, description }) {
   const imgUrl = useBaseUrl(imageUrl);
   return (
-    <div className={classnames('col col--6', styles.feature)}>
+    <div className={classnames("col col--6", styles.feature)}>
       {imgUrl && (
         <div className="text--center">
-          <img className={classnames('padding-vert--md', styles.featureImage)} src={imgUrl} alt={title} />
+          <img
+            className={classnames("padding-vert--md", styles.featureImage)}
+            src={imgUrl}
+            alt={title}
+          />
         </div>
       )}
       <h3>{title}</h3>
@@ -195,30 +82,35 @@ function Feature({imageUrl, title, description}) {
 
 function Home() {
   const context = useDocusaurusContext();
-  const {siteConfig = {}} = context;
+  const { siteConfig = {} } = context;
   return (
     <Layout
       title={`${siteConfig.title}`}
       description="Simple and Distributed Machine Learning"
-      keywords={["benthos","stream processor","data engineering","ETL","ELT","event processor","go","golang"]}>
-      <header className={classnames('hero', styles.heroBanner)}>
+      keywords={[
+        "SynapseML",
+        "Machine Learning"
+      ]}
+    >
+      <header className={classnames("hero", styles.heroBanner)}>
         <div className="container">
           <div className="row">
-            <div className={classnames('col col--5 col--offset-1')}>
+            <div className={classnames("col col--5 col--offset-1")}>
               <h1 className="hero__title">{siteConfig.title}</h1>
               <p className="hero__subtitle">{siteConfig.tagline}</p>
               <div className={styles.buttons}>
                 <Link
                   className={classnames(
-                    'button button--outline button--primary button--lg',
-                    styles.getStarted,
+                    "button button--outline button--primary button--lg",
+                    styles.getStarted
                   )}
-                  to={useBaseUrl('docs/guides/getting_started')}>
+                  to={useBaseUrl("docs/guides/getting_started")}
+                >
                   Get Started
                 </Link>
               </div>
             </div>
-            <div className={classnames('col col--5')}>
+            <div className={classnames("col col--5")}>
               <img className={styles.heroImg} src="img/logo.svg" />
             </div>
           </div>
@@ -238,72 +130,132 @@ function Home() {
         )}
         <div className="container">
           <div className="row">
-            <div className={classnames(`${styles.pitch} col col--6`)}>
+            <div className={classnames(`${styles.pitch} col`)}>
               <h2>It's boringly easy to use</h2>
               <p>
-                Written in Go, deployed as a static binary, declarative configuration. <a href="https://github.com/Jeffail/benthos">Open source</a> and cloud native as utter heck.
+                TOBECHANGED: Written in Scala, and support multiple languages.{" "}
+                <a href="https://github.com/microsoft/SynapseML">Open source</a>{" "}
+                and cloud native as utter heck.
               </p>
-              {installs && installs.length && (
-                <Tabs defaultValue={installs[0].label} values={installs.map((props, idx) => {
-                  return {label:props.label, value:props.label};
-                })}>
-                  {installs.map((props, idx) => (
-                    <TabItem value={props.label}>
-                      <CodeSnippet snippet={props.snippet} lang="bash"></CodeSnippet>
-                    </TabItem>
-                  ))}
-                </Tabs>
-              )}
-            </div>
-            <div className={classnames('col col--6')}>
-                {snippets && snippets.length && (
-                  <section className={styles.configSnippets}>
-                    <Tabs defaultValue={snippets[0].label} values={snippets.map((props, idx) => {
-                      return {label:props.label, value:props.label};
-                    })}>
-                      {snippets.map((props, idx) => (
-                        <TabItem value={props.label}>
-                          <>
-                          <Snippet key={idx} {...props} />
-                          <Link
-                            className={classnames('button button--outline button--secondary')}
-                            to={props.further}>
-                            Read more
-                          </Link>
-                          </>
-                        </TabItem>
-                      ))}
-                    </Tabs>
-                  </section>
-                )}
+              <Tabs
+                defaultValue="Spark Packages"
+                values={[
+                  { label: "Spark Packages", value: "Spark Packages" },
+                  { label: "Databricks", value: "Databricks" },
+                  { label: "Docker", value: "Docker" },
+                  { label: "Python", value: "Python" },
+                  { label: "SBT", value: "SBT" },
+                ]}
+              >
+                <TabItem value="Spark Packages">
+                  MMLSpark can be conveniently installed on existing Spark
+                  clusters via the --packages option, examples:
+                  <CodeSnippet
+                    snippet={`spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
+pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
+spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  This can be used in other Spark contexts too. For example, you
+                  can use MMLSpark in{" "}
+                  <a href="https://github.com/Azure/aztk/">AZTK</a> by adding it
+                  to the{" "}
+                  <a href="https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark">
+                    .aztk/spark-defaults.conf file
+                  </a>
+                  .
+                </TabItem>
+                <TabItem value="Databricks">
+                  <p>
+                    To install MMLSpark on the{" "}
+                    <a href="http://community.cloud.databricks.com">
+                      Databricks cloud
+                    </a>
+                    , create a new{" "}
+                    <a href="https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages">
+                      library from Maven coordinates
+                    </a>{" "}
+                    in your workspace.
+                  </p>
+                  <p>
+                    For the coordinates use:
+                    <CodeSnippet
+                      snippet={`com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3`}
+                      lang="bash"
+                    ></CodeSnippet>
+                    with the resolver:
+                    <CodeSnippet
+                      snippet={`https://mmlspark.azureedge.net/maven`}
+                      lang="bash"
+                    ></CodeSnippet>
+                    Ensure this library is attached to your target cluster(s).
+                  </p>
+                  <p>
+                    Finally, ensure that your Spark cluster has at least Spark
+                    2.4 and Scala 2.11.
+                  </p>
+                  You can use MMLSpark in both your Scala and PySpark notebooks.
+                  To get started with our example notebooks import the following
+                  databricks archive:
+                  <CodeSnippet
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc3.dbc`}
+                    lang="bash"
+                  ></CodeSnippet>
+                </TabItem>
+                <TabItem value="Docker">
+                  The easiest way to evaluate MMLSpark is via our pre-built
+                  Docker container. To do so, run the following command:
+                  <CodeSnippet
+                    snippet={`docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  <p>
+                    Navigate to{" "}
+                    <a href="http://localhost:8888">http://localhost:8888</a> in
+                    your web browser to run the sample notebooks. See the{" "}
+                    <a href="https://github.com/microsoft/SynapseML/blob/master/docs/docker.md">
+                      documentation
+                    </a>{" "}
+                    for more on Docker use.
+                  </p>
+                  To read the EULA for using the docker image, run
+                  <CodeSnippet
+                    snippet={`docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`}
+                    lang="bash"
+                  ></CodeSnippet>
+                </TabItem>
+                <TabItem value="Python">
+                  To try out MMLSpark on a Python (or Conda) installation you
+                  can get Spark installed via pip with
+                  <CodeSnippet
+                    snippet={`pip install pyspark`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  You can then use pyspark as in the above example, or from
+                  python:
+                  <CodeSnippet
+                    snippet={`import pyspark
+spark = pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate()
+import mmlspark`}
+                    lang="python"
+                  ></CodeSnippet>
+                </TabItem>
+                <TabItem value="SBT">
+                  If you are building a Spark application in Scala, add the
+                  following lines to your build.sbt:
+                  <CodeSnippet
+                    snippet={`resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"`}
+                    lang="jsx"
+                  ></CodeSnippet>
+                </TabItem>
+              </Tabs>
             </div>
           </div>
         </div>
-        <section className={styles.loveSection}>
-          <div className="container">
-            <div className="row">
-              <div className={classnames('col col--6')}>
-                <h3>Sponsored by the following heroes</h3>
-                <a href="https://www.meltwater.com/" className={styles.sponsorLink}><img className={styles.meltwaterImg} src="/img/sponsors/mw_logo.png" /></a>
-                <a href="https://www.humansecurity.com" className={styles.sponsorLink}><img className={styles.humanImg} src="/img/sponsors/HUMAN_logo.png" /></a>
-                <a href="https://www.infosum.com/" className={styles.sponsorLink}><img className={styles.infosumImg} src="/img/sponsors/infosum_logo.png" /></a>
-                <a href="https://community.com/" className={styles.sponsorLink}><img className={styles.communityImg} src="/img/sponsors/community.svg" /></a>
-              </div>
-              <div className={classnames('col col--6', styles.loveSectionPlea)}>
-                <div>
-                  <a href="https://github.com/sponsors/Jeffail">
-                    <img className={styles.loveImg} src="img/blobheart.svg" alt="Blob Heart" />
-                  </a>
-                </div>
-                <Link
-                  className={classnames('button button--danger')}
-                  to="https://github.com/sponsors/Jeffail">
-                  Become a sponsor
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
     </Layout>
   );

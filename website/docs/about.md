@@ -1,53 +1,56 @@
 ---
-title: What is Benthos for?
+title: SynapseML
 sidebar_label: About
-hide_title: false
+hide_title: true
 ---
 
-<div style={{textAlign: 'center'}}><img src="/img/what-is-blob.svg" /></div>
+<div style={{textAlign: 'left'}}><img src="/img/logo.svg" /></div>
 
-Benthos is a declarative data streaming service that solves a wide range of data engineering problems with simple, chained, stateless [processing steps][docs.processors]. It implements transaction based resiliency with back pressure, so when connecting to at-least-once sources and sinks it's able to guarantee at-least-once delivery without needing to persist messages during transit.
+# SynapseML
 
-import ReactPlayer from 'react-player/youtube';
+MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
+[Apache Spark](https://github.com/apache/spark) in several new directions.
+MMLSpark adds many deep learning and data science tools to the Spark ecosystem,
+including seamless integration of Spark Machine Learning pipelines with [Microsoft Cognitive Toolkit
+(CNTK)](https://github.com/Microsoft/CNTK), [LightGBM](https://github.com/Microsoft/LightGBM) and
+[OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
+for a variety of datasources.
 
-<div class='container margin-vert--lg'>
-  <div class='row row--no-gutters'>
-    <ReactPlayer
-        class='col'
-        height='300px'
-        url='https://www.youtube.com/embed/88DSzCFV4Ng'
-        controls='true'
-    />
-  </div>
-</div>
+MMLSpark also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users
+can embed **any** web service into their SparkML models. In this vein, MMLSpark provides easy to use
+SparkML transformers for a wide variety of [Microsoft Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/). For production grade deployment, the Spark Serving project enables high throughput,
+sub-millisecond latency web services, backed by your Spark cluster.
 
-It's [simple to deploy][docs.guides.getting_started], comes with a wide range of [connectors](#components), and is totally data agnostic, making it easy to drop into your existing infrastructure. Benthos has functionality that overlaps with integration frameworks, log aggregators and ETL workflow engines, and can therefore be used to complement these traditional data engineering tools or act as a simpler alternative.
-
-Benthos is ready to commit to this relationship, are you?
+MMLSpark requires Scala 2.11, Spark 2.4+, and Python 3.5+.
+See the API documentation [for
+Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html).
 
 import Link from '@docusaurus/Link';
 
 <Link to="/docs/guides/getting_started" className="button button--lg button--outline button--block button--primary">Get Started</Link>
 
-## Components
+## Examples
 
-import ComponentsByCategory from '@theme/ComponentsByCategory';
+import NotebookExamples from "@theme/NotebookExamples";
 
-### Inputs
+<NotebookExamples/>
 
-<ComponentsByCategory type="inputs"></ComponentsByCategory>
+## Explore our Features
 
----
+import FeatureCards from "@theme/FeatureCards";
 
-### Processors
+<FeatureCards/>
 
-<ComponentsByCategory type="processors"></ComponentsByCategory>
+## Papers
 
----
+- [Large Scale Intelligent Microservices](https://arxiv.org/abs/2009.08044)
 
-### Outputs
+- [Conditional Image Retrieval](https://arxiv.org/abs/2007.07177)
 
-<ComponentsByCategory type="outputs"></ComponentsByCategory>
+- [MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales](https://arxiv.org/abs/1810.08744)
+
+- [Flexible and Scalable Deep Learning with MMLSpark](https://arxiv.org/abs/1804.04031)
 
 [guides]: /cookbooks
 [docs.guides.getting_started]: /docs/guides/getting_started

@@ -1,4 +1,5 @@
 const {listPaths,listDeprecatedPaths} = require('./src/plugins/components');
+const {listNotebookPaths} = require('./src/plugins/notebooks');
 
 let inputs_docs = listPaths("inputs");
 let processors_docs = listPaths("processors");
@@ -9,6 +10,22 @@ let buffers_docs = listPaths("buffers");
 let metrics_docs = listPaths("metrics");
 let tracers_docs = listPaths("tracers");
 
+let notebooks_as_docs = listNotebookPaths("Azure Search");
+let notebooks_cl_docs = listNotebookPaths("Classification");
+let notebooks_cs_docs = listNotebookPaths("Cognitive Services");
+let notebooks_cknn_docs = listNotebookPaths("Conditional KNN");
+let notebooks_cml_docs = listNotebookPaths("CyberML");
+let notebooks_dl_docs = listNotebookPaths("Deep Learning");
+let notebooks_http_docs = listNotebookPaths("HTTP");
+let notebooks_ht_docs = listNotebookPaths("HyperParameter Tuning");
+let notebooks_lgbm_docs = listNotebookPaths("LightGBM");
+let notebooks_mi_docs = listNotebookPaths("Model Interpretation");
+let notebooks_opencv_docs = listNotebookPaths("OpenCV");
+let notebooks_rg_docs = listNotebookPaths("Regression");
+let notebooks_ss_docs = listNotebookPaths("Spark Serving");
+let notebooks_ta_docs = listNotebookPaths("Text Analytics");
+let notebooks_vw_docs = listNotebookPaths("Vowpal Wabbit");
+
 module.exports = {
   docs: [
     {
@@ -17,69 +34,84 @@ module.exports = {
     },
     {
       type: 'category',
-      label: 'Configuration',
+      label: 'Notebooks',
       items: [
-        'configuration/about',
-        'configuration/resources',
-        'configuration/batching',
-        'configuration/windowed_processing',
-        'configuration/metadata',
-        'configuration/error_handling',
-        'configuration/interpolation',
-        'configuration/field_paths',
-        'configuration/processing_pipelines',
-        'configuration/unit_testing',
-        'configuration/templating',
-        'configuration/dynamic_inputs_and_outputs',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Components',
-      items: [
-        'components/about',
-        'components/http/about',
+        'notebooks/about',
         {
           type: 'category',
-          label: 'Inputs',
-          items: inputs_docs,
+          label: 'Azure Search',
+          items: notebooks_as_docs,
         },
         {
           type: 'category',
-          label: 'Processors',
-          items: processors_docs,
+          label: 'Classification',
+          items: notebooks_cl_docs,
         },
         {
           type: 'category',
-          label: 'Outputs',
-          items: outputs_docs,
+          label: 'Cognitive Services',
+          items: notebooks_cs_docs,
         },
         {
           type: 'category',
-          label: 'Caches',
-          items: caches_docs,
+          label: 'Conditional KNN',
+          items: notebooks_cknn_docs,
         },
         {
           type: 'category',
-          label: 'Rate Limits',
-          items: rate_limits_docs,
+          label: 'CyberML',
+          items: notebooks_cml_docs,
         },
         {
           type: 'category',
-          label: 'Buffers',
-          items: buffers_docs,
+          label: 'Deep Learning',
+          items: notebooks_dl_docs,
         },
         {
           type: 'category',
-          label: 'Metrics',
-          items: metrics_docs,
+          label: 'HTTP',
+          items: notebooks_http_docs,
         },
         {
           type: 'category',
-          label: 'Tracers',
-          items: tracers_docs,
+          label: 'HyperParameter Tuning',
+          items: notebooks_ht_docs,
         },
-        'components/logger/about'
+        {
+          type: 'category',
+          label: 'LightGBM',
+          items: notebooks_lgbm_docs,
+        },
+        {
+          type: 'category',
+          label: 'Model Interpretation',
+          items: notebooks_mi_docs,
+        },
+        {
+          type: 'category',
+          label: 'OpenCV',
+          items: notebooks_opencv_docs,
+        },
+        {
+          type: 'category',
+          label: 'Regression',
+          items: notebooks_rg_docs,
+        },
+        {
+          type: 'category',
+          label: 'Spark Serving',
+          items: notebooks_ss_docs,
+        },
+        {
+          type: 'category',
+          label: 'Text Analytics',
+          items: notebooks_ta_docs,
+        },
+        {
+          type: 'category',
+          label: 'Vowpal Wabbit',
+          items: notebooks_vw_docs,
+        },
       ],
     },
     {
@@ -89,45 +121,10 @@ module.exports = {
         'guides/getting_started',
         {
           type: 'category',
-          label: 'Bloblang',
+          label: 'Azure Synapse',
           items: [
-            'guides/bloblang/about',
-            'guides/bloblang/walkthrough',
-            'guides/bloblang/functions',
-            'guides/bloblang/methods',
-            'guides/bloblang/advanced',
+            'guides/synapse/about',
           ],
-        },
-        'guides/monitoring',
-        'guides/performance_tuning',
-        'guides/sync_responses',
-        'guides/aws',
-        'guides/gcp',
-        {
-          type: 'category',
-          label: 'Serverless',
-          items: [
-            'guides/serverless/about',
-            'guides/serverless/lambda',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Streams Mode',
-          items: [
-            'guides/streams_mode/about',
-            'guides/streams_mode/using_config_files',
-            'guides/streams_mode/using_rest_api',
-            'guides/streams_mode/streams_api',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Migration',
-          items: [
-            'guides/migration/v2',
-            'guides/migration/v3',
-          ]
         }
       ],
     },

@@ -1,5 +1,6 @@
 const path = require('path');
 const {components} = require('./src/plugins/components');
+const {all_examples} = require('./src/plugins/notebooks');
 
 module.exports = {
   title: 'Synapse ML',
@@ -7,9 +8,10 @@ module.exports = {
   url: 'https://www.benthos.dev',
   baseUrl: '/',
   favicon: 'img/favicon.ico',
-  organizationName: 'Jeffail',
+  organizationName: 'Microsoft',
   projectName: 'synapseml',
   customFields: {
+    examples: all_examples(),
     components: {
       inputs: components("inputs"),
       processors: components("processors"),
@@ -40,14 +42,35 @@ module.exports = {
       },
       items: [
         {to: 'docs/about', label: 'Docs', position: 'left'},
-        {to: 'cookbooks', label: 'Cookbooks', position: 'left'},
         {to: 'blog', label: 'Blog', position: 'left'},
         {to: 'videos', label: 'Videos', position: 'left'},
         {
-          href: 'https://github.com/Azure/mmlspark',
+          href: 'https://github.com/microsoft/SynapseML',
           position: 'right',
           label: 'Github'
         },
+        {
+          type: 'docsVersionDropdown',
+          position: 'right',
+        },
+        {
+          type: 'localeDropdown',
+          position: 'right',
+        },
+        {
+          label: 'developer docs',
+          position: 'right',
+          items: [
+            {
+              label: 'Python',
+              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/mmlspark.html',
+            },
+            {
+              label: 'Scala',
+              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#com.microsoft.ml.spark.package',
+            }
+          ]
+        }
       ],
     },
     footer: {
@@ -75,7 +98,7 @@ module.exports = {
             },
             {
               label: 'GitHub',
-              href: 'https://github.com/Azure/mmlspark',
+              href: 'https://github.com/microsoft/SynapseML',
             },
           ],
         },
@@ -102,8 +125,6 @@ module.exports = {
       {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl:
-            'https://github.com/Jeffail/benthos/edit/master/website/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
