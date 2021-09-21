@@ -312,8 +312,8 @@ class RecognizeText(override val uid: String)
       "printed text recognition is performed. If 'Handwritten' is specified," +
       " handwriting recognition is performed",
     {
-      case Left(_) => true
-      case Right(s) => Set("Printed", "Handwritten")(s)
+      case Left(s) => Set("Printed", "Handwritten")(s)
+      case Right(_) => true
     }, isURLParam = true)
 
   def getMode: String = getScalarParam(mode)
@@ -361,8 +361,8 @@ class ReadImage(override val uid: String)
       " so only provide a language code if you would like to force the documented" +
       " to be processed as that specific language.",
     {
-      case Left(_) => true
-      case Right(s) => Set("en", "nl", "fr", "de", "it", "pt", "es")(s)
+      case Left(s) => Set("en", "nl", "fr", "de", "it", "pt", "es")(s)
+      case Right(_) => true
     }, isURLParam = true)
 
   def setLanguage(v: String): this.type = setScalarParam(language, v)
