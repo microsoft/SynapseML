@@ -97,33 +97,26 @@ class AggregateMeasureTransformer(override val uid: String)
         sum(col(countSensitiveProbNormCol) * functions.log(countSensitiveProbNormCol)).alias("SumLog")
       )
 
+    calculateAggregateMeasures(benefits, numBenefits)
+  }
+
+  private def calculateAggregateMeasures(benefitsDf: DataFrame, numBenefits: Double): DataFrame = {
     val metrics = AggregateMetrics(
       "Product", "PowerMean", "NegativeSumLog", "SumLog", numBenefits, getAlpha, getErrorTolerance).toMap
 
-    val aggregateMetricsDf = metrics.foldLeft(benefits) {
+    val aggregateMetricsDf = metrics.foldLeft(benefitsDf) {
       case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
     }
 
-    aggregateMetricsDf.show()
+    if (getVerbose)
+      aggregateMetricsDf.cache().show()
 
-    calculateAggregateMeasures(aggregateMetricsDf, metrics)
-  }
-
-  private def calculateAggregateMeasures(aggregateMetricsDf: DataFrame,
-                                         metrics: Map[String, Column]): DataFrame = {
-    val gapTuples = metrics.flatMap {
+    val measureTuples = metrics.flatMap {
       case (metricName, _) =>
         lit(metricName) :: col(metricName) :: Nil
     }.toSeq
 
-    val measureTuples = if (getVerbose) Seq(
-      lit("product"), col("Product"),
-      lit("power_mean"), col("PowerMean"),
-      lit("negative_sum_log"), col("NegativeSumLog"),
-      lit("sum_log"), col("SumLog")
-    ) else Seq.empty
-
-    aggregateMetricsDf.withColumn(getAggregateMeasuresCol, map(gapTuples ++ measureTuples: _*))
+    aggregateMetricsDf.withColumn(getAggregateMeasuresCol, map(measureTuples: _*))
       .select(
         col(getAggregateMeasuresCol)
       )
