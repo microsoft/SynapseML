@@ -12,37 +12,65 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.stat.Summarizer
 
 
-trait ICEFeatureParams extends Params {
-  val feature = new Param[String] (this, "feature", "Feature to explain")
+trait ICEFeatureParams extends Params with HasNumSamples {
+  val feature = new Param[String] (
+    this,
+    "feature",
+    "Feature to explain"
+  )
   def getFeature: String = $(feature)
   def setFeature(value: String): this.type = set(feature, value)
 
-  val featureType = new Param[String] (this, "featureType", "Type of feature to explain")
+  val featureType = new Param[String] (
+    this,
+    "featureType",
+    "Type of feature to explain",
+    ParamValidators.inArray(Array("discrete", "continuous"))
+  )
   def getFeatureType: String = $(featureType)
   def setFeatureType(value: String): this.type = set(featureType, value)
 
-  val topNValues = new IntParam (this, "topNValues", "topNValues")
+  val topNValues = new IntParam (
+    this,
+    "topNValues",
+    "topNValues",
+    ParamValidators.gt(0)
+  )
   def getTopNValues: Int = $(topNValues)
   def setTopNValues(value: Int): this.type = set(topNValues, value)
 
-  val nSplits = new IntParam (this, "nSplits", "nSplits")
+  val nSplits = new IntParam (
+    this,
+    "nSplits",
+    "nSplits",
+    ParamValidators.gt(0)
+  )
   def getNSplits: Int = $(nSplits)
   def setNSplits(value: Int): this.type = set(nSplits, value)
 
-  val rangeMax = new DoubleParam(this, "rangeMax", "rangeMax")
+  val rangeMax = new DoubleParam(
+    this,
+    "rangeMax",
+    "rangeMax",
+    ParamValidators.gtEq(0.0)
+  )
   def getRangeMax: Double = $(rangeMax)
   def setRangeMax(value: Double): this.type = set(rangeMax, value)
 
-  val rangeMin = new DoubleParam(this, "rangeMin", "rangeMin")
+  val rangeMin = new DoubleParam(
+    this,
+    "rangeMin",
+    "rangeMin",
+    ParamValidators.gtEq(0.0)
+  )
   def getRangeMin: Double = $(rangeMin)
   def setRangeMin(value: Double): this.type = set(rangeMin, value)
 
-  setDefault(featureType -> "discrete", topNValues -> 100, nSplits -> 20)
+  setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, nSplits -> 20)
 
 }
 
 class ICETransformer(override val uid: String) extends Transformer
-  with HasNumSamples
   with HasExplainTarget
   with HasModel
   with ICEFeatureParams
@@ -57,25 +85,20 @@ class ICETransformer(override val uid: String) extends Transformer
     this(Identifiable.randomUID("ICETransformer"))
   }
 
-  def transform(instances: Dataset[_]): DataFrame = {
+  def transform(ds: Dataset[_]): DataFrame = {
 
-    val df = instances.toDF
-    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+    val df = ds.toDF
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
-      .withColumn(idCol, monotonically_increasing_id())
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
+    transformSchema(df.schema)
 
     val values = $(featureType).toLowerCase match {
       case "discrete" =>
         collectDiscreteValues(dfWithId, $(feature), $(topNValues))
       case "continuous" =>
         collectSplits(dfWithId, $(feature), $(nSplits), get(rangeMin), get(rangeMax))
-      case other =>
-        throw new IllegalArgumentException(
-          s"The feature type can only be 'discrete' or 'continuous'. Instead it is set to '$other'"
-        )
     }
 
     val dataType = dfWithId.schema($(feature)).dataType
@@ -165,6 +188,7 @@ class ICETransformer(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
+    assert(!schema.fieldNames.contains(feature.name), s"The schema does not contain column ${feature.name}")
     this.validateSchema(schema)
     schema.add(getOutputCol, ArrayType(VectorType))
   }

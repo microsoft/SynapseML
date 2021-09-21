@@ -69,4 +69,6 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
   val outputCon1 = iceCon.transform(new_data)
   outputCon1.show()
 
+  println("Finished")
+
 }
