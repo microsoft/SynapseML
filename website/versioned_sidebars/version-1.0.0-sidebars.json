@@ -7,6 +7,47 @@
     {
       "collapsed": true,
       "type": "category",
+      "label": "Getting Started",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-1.0.0/guides/installation"
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Detailed Setups",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/guides/setups/docker"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/guides/setups/R-setup"
+            },
+            {
+              "type": "doc",
+              "id": "version-1.0.0/guides/setups/developer-readme"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Azure Synapse",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-1.0.0/guides/synapse/about"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
       "label": "Notebooks",
       "items": [
         {
@@ -251,28 +292,6 @@
             {
               "type": "doc",
               "id": "version-1.0.0/notebooks/Vowpal Wabbit/Vowpal Wabbit - Overview"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "collapsed": true,
-      "type": "category",
-      "label": "Guides",
-      "items": [
-        {
-          "type": "doc",
-          "id": "version-1.0.0/guides/getting_started"
-        },
-        {
-          "collapsed": true,
-          "type": "category",
-          "label": "Azure Synapse",
-          "items": [
-            {
-              "type": "doc",
-              "id": "version-1.0.0/guides/synapse/about"
             }
           ]
         }

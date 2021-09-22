@@ -24,6 +24,29 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'Getting Started',
+      items: [
+        'guides/installation',
+        {
+          type: 'category',
+          label: 'Detailed Setups',
+          items: [
+            'guides/setups/docker',
+            'guides/setups/R-setup',
+            'guides/setups/developer-readme',
+          ]
+        },
+        {
+          type: 'category',
+          label: 'Azure Synapse',
+          items: [
+            'guides/synapse/about',
+          ],
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Notebooks',
       items: [
         'notebooks/about',
@@ -102,20 +125,6 @@ module.exports = {
           label: 'Vowpal Wabbit',
           items: notebooks_vw_docs,
         },
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Guides',
-      items: [
-        'guides/getting_started',
-        {
-          type: 'category',
-          label: 'Azure Synapse',
-          items: [
-            'guides/synapse/about',
-          ],
-        }
       ],
     },
   ],

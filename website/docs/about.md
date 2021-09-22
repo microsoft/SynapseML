@@ -1,6 +1,6 @@
 ---
 title: SynapseML
-sidebar_label: About
+sidebar_label: Introduction
 hide_title: true
 ---
 
@@ -28,7 +28,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 import Link from '@docusaurus/Link';
 
-<Link to="/docs/guides/getting_started" className="button button--lg button--outline button--block button--primary">Get Started</Link>
+<Link to="/docs/guides/installation" className="button button--lg button--outline button--block button--primary">Get Started</Link>
 
 ## Examples
 

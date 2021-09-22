@@ -33,11 +33,6 @@ module.exports = {
         {to: 'blog', label: 'Blog', position: 'left'},
         {to: 'videos', label: 'Videos', position: 'left'},
         {
-          href: 'https://github.com/microsoft/SynapseML',
-          position: 'right',
-          label: 'Github'
-        },
-        {
           type: 'docsVersionDropdown',
           position: 'right',
         },
@@ -51,14 +46,20 @@ module.exports = {
           items: [
             {
               label: 'Python',
-              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/mmlspark.html',
+              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/pyspark/mmlspark.html',
             },
             {
               label: 'Scala',
-              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#com.microsoft.ml.spark.package',
+              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/scala/com/microsoft/ml/spark/index.html',
             }
           ]
-        }
+        },
+        {
+          href: 'https://github.com/microsoft/SynapseML',
+          position: 'right',
+          className: 'header-github-link',
+          'aria-label': 'GitHub repository',
+        },
       ],
     },
     footer: {
@@ -68,8 +69,8 @@ module.exports = {
           title: 'Docs',
           items: [
             {
-              label: 'Getting started',
-              to: 'docs/guides/getting_started',
+              label: 'Installation',
+              to: 'docs/guides/installation',
             },
             {
               label: 'Videos',
