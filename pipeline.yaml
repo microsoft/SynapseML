@@ -348,17 +348,17 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        publishTestResults: true
         inlineScript: |
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet) || (sbt coverage testDotnet) || (sbt coverage testDotnet)
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage report'
       inputs:
-        testResultsFiles: '**/**/coverage.cobertura.xml'
-        failTaskOnFailedTests: true
-      condition: succeededOrFailed()
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '**/**/coverage.cobertura.xml'
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
