@@ -58,10 +58,8 @@ class AggregateMeasureTransformer(override val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = {
     validateSchema(dataset.schema)
 
-    val df = dataset
-      // Convert label into binary
-      .withColumn(getLabelCol, when(col(getLabelCol).cast(LongType) > lit(0L), lit(1L)).otherwise(lit(0L)))
-      .cache
+    val df = dataset.cache
+    val numRows = df.count.toDouble
 
     val Row(numRows: Double, numTrueLabels: Double) =
       df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
@@ -73,13 +71,11 @@ class AggregateMeasureTransformer(override val uid: String)
     val countSensitiveProbCol = DatasetExtensions.findUnusedColumnName("countSensitiveProb", dataset.schema)
     val countSensitiveProbNormCol = DatasetExtensions.findUnusedColumnName("countSensitiveProbNorm", dataset.schema)
 
-    val counts = df
+    val benefits = df
       .groupBy(getSensitiveCols map col: _*)
       .agg(
-//        sum(getLabelCol).cast(DoubleType).alias(countSensitivePositiveCol),
         count("*").cast(DoubleType).alias(countSensitiveCol)
       )
-//      .withColumn(countPositiveCol, lit(numTrueLabels))
       .withColumn(countAllCol, lit(numRows))
       .withColumn(countSensitiveProbCol, col(countSensitiveCol) / col(countAllCol))
 
@@ -100,26 +96,24 @@ class AggregateMeasureTransformer(override val uid: String)
     calculateAggregateMeasures(benefits, numBenefits)
   }
 
-  private def calculateAggregateMeasures(benefitsDf: DataFrame, numBenefits: Double): DataFrame = {
-    val metrics = AggregateMetrics(
-      "Product", "PowerMean", "NegativeSumLog", "SumLog", numBenefits, getAlpha, getErrorTolerance).toMap
+  private def calculateAggregateMeasures(benefitsDf: DataFrame, benefitCol: String): DataFrame = {
+    val Row(numBenefits: Double, meanBenefits: Double) =
+      benefitsDf.agg(count("*").cast(DoubleType), mean(benefitCol).cast(DoubleType)).head
 
-    val aggregateMetricsDf = metrics.foldLeft(benefitsDf) {
-      case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
-    }
+    val metricsMap = AggregateMetrics(benefitCol, numBenefits, meanBenefits, getEpsilon, getErrorTolerance).toMap
+    val metricsCols = metricsMap.values.toSeq
+
+    val aggDf = benefitsDf.agg(metricsCols.head, metricsCols.tail: _*)
 
     if (getVerbose)
-      aggregateMetricsDf.cache().show()
+      aggDf.cache.show(truncate = false)
 
-    val measureTuples = metrics.flatMap {
+    val measureTuples = metricsMap.flatMap {
       case (metricName, _) =>
         lit(metricName) :: col(metricName) :: Nil
     }.toSeq
 
-    aggregateMetricsDf.withColumn(getAggregateMeasuresCol, map(measureTuples: _*))
-      .select(
-        col(getAggregateMeasuresCol)
-      )
+    aggDf.withColumn(getAggregateMeasuresCol, map(measureTuples: _*)).select(getAggregateMeasuresCol)
   }
 
   private def validateSchema(schema: StructType): Unit = {
@@ -156,14 +150,25 @@ case class AggregateMetrics(productCol: String,
     "thiel_t_index" -> thielTIndex
   )
 
-  def atkinsonIndex: Column = when(
-    abs(lit(alpha)) < errorTolerance,
-    lit(1d) - pow(productCol, 1d / numBenefits))
-    .otherwise(
-      lit(1d) - pow(powerMeanCol, 1d / alpha)
+  def atkinsonIndex: Column = {
+    val alpha = 1d - epsilon
+    val productExpression = exp(sum(log(normBenefit)))
+    val powerMeanExpression = sum(pow(normBenefit, alpha)) / numBenefits
+    when(
+      abs(lit(alpha)) < errorTolerance,
+      lit(1d) - pow(productExpression, 1d / numBenefits)
+    ).otherwise(
+      lit(1d) - pow(powerMeanExpression, 1d / alpha)
     )
+  }
 
-  def thielLIndex: Column = col(negativeSumLogCol) / numBenefits
+  def thielLIndex: Column = {
+    val negativeSumLog = sum(log(normBenefit) * -1d)
+    negativeSumLog / numBenefits
+  }
 
-  def thielTIndex: Column = col(sumLogCol) / numBenefits
+  def thielTIndex: Column = {
+    val sumLog = sum(normBenefit * log(normBenefit))
+    sumLog / numBenefits
+  }
 }
