@@ -353,6 +353,31 @@ jobs:
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet)
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/**/coverage.cobertura.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token)
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
 
 - job: RTests
   cancelTimeoutInMinutes: 0

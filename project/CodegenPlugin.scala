@@ -283,7 +283,9 @@ object CodegenPlugin extends AutoPlugin {
       runCmd(
         Seq("dotnet",
           "test",
-          s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}"
+          s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
+          "--collect:\"XPlat Code Coverage\"",
+          s"--results-directory:${join(mainTargetDir, s"${name.value}")}"
         ),
         new File(codegenDir.value, "test/dotnet/")
       )
