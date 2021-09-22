@@ -6,9 +6,9 @@ import com.microsoft.ml.spark.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions}
 
 class AggregateMeasureTransformer(override val uid: String)
   extends Transformer
@@ -33,15 +33,15 @@ class AggregateMeasureTransformer(override val uid: String)
 
   def setAggregateMeasuresCol(value: String): this.type = set(aggregateMeasuresCol, value)
 
-  val alpha = new Param[Double](
+  val epsilon = new Param[Double](
     this,
-    "alpha",
-    "Alpha value for Atkinson Index."
+    "epsilon",
+    "Epsilon value for Atkinson Index. Inverse of alpha (1 - alpha)."
   )
 
-  def getAlpha: Double = $(alpha)
+  def getEpsilon: Double = $(epsilon)
 
-  def setAlpha(value: Double): this.type = set(alpha, value)
+  def setEpsilon(value: Double): this.type = set(epsilon, value)
 
   val errorTolerance = new Param[Double](
     this,
@@ -53,7 +53,7 @@ class AggregateMeasureTransformer(override val uid: String)
 
   def setErrorTolerance(value: Double): this.type = set(errorTolerance, value)
 
-  setDefault(aggregateMeasuresCol -> "AggregateMeasures", alpha -> 0d, errorTolerance -> 1e-12)
+  setDefault(aggregateMeasuresCol -> "AggregateMeasures", epsilon -> 1d, errorTolerance -> 1e-12)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     validateSchema(dataset.schema)
@@ -61,15 +61,9 @@ class AggregateMeasureTransformer(override val uid: String)
     val df = dataset.cache
     val numRows = df.count.toDouble
 
-    val Row(numRows: Double, numTrueLabels: Double) =
-      df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
-
-    val countSensitivePositiveCol = DatasetExtensions.findUnusedColumnName("countSensitivePositive", dataset.schema)
-    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", dataset.schema)
-    val countPositiveCol = DatasetExtensions.findUnusedColumnName("countPositive", dataset.schema)
-    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", dataset.schema)
-    val countSensitiveProbCol = DatasetExtensions.findUnusedColumnName("countSensitiveProb", dataset.schema)
-    val countSensitiveProbNormCol = DatasetExtensions.findUnusedColumnName("countSensitiveProbNorm", dataset.schema)
+    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", df.schema)
+    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", df.schema)
+    val countSensitiveProbCol = DatasetExtensions.findUnusedColumnName("countSensitiveProb", df.schema)
 
     val benefits = df
       .groupBy(getSensitiveCols map col: _*)
@@ -79,21 +73,10 @@ class AggregateMeasureTransformer(override val uid: String)
       .withColumn(countAllCol, lit(numRows))
       .withColumn(countSensitiveProbCol, col(countSensitiveCol) / col(countAllCol))
 
-    counts.show()
+    if (getVerbose)
+      benefits.cache.show(numRows = 20, truncate = false)
 
-    val Row(numBenefits: Double, meanBenefits: Double) =
-      counts.agg(count("*").cast(DoubleType), mean(countSensitiveProbCol).cast(DoubleType)).head
-
-    val benefits = counts
-      .withColumn(countSensitiveProbNormCol, col(countSensitiveProbCol) / lit(meanBenefits))
-      .agg(
-        exp(sum(functions.log(countSensitiveProbNormCol))).alias("Product"),
-        (sum(pow(countSensitiveProbNormCol, getAlpha)) / numBenefits).alias("PowerMean"),
-        sum(lit(-1d) * functions.log(countSensitiveProbNormCol)).alias("NegativeSumLog"),
-        sum(col(countSensitiveProbNormCol) * functions.log(countSensitiveProbNormCol)).alias("SumLog")
-      )
-
-    calculateAggregateMeasures(benefits, numBenefits)
+    calculateAggregateMeasures(benefits, countSensitiveProbCol)
   }
 
   private def calculateAggregateMeasures(benefitsDf: DataFrame, benefitCol: String): DataFrame = {
@@ -116,38 +99,33 @@ class AggregateMeasureTransformer(override val uid: String)
     aggDf.withColumn(getAggregateMeasuresCol, map(measureTuples: _*)).select(getAggregateMeasuresCol)
   }
 
-  private def validateSchema(schema: StructType): Unit = {
-    val labelCol = schema(getLabelCol)
-    if (!labelCol.dataType.isInstanceOf[NumericType]) {
-      throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
-    }
-  }
-
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
 
     StructType(
-        StructField(
-          getAggregateMeasuresCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
+      StructField(
+        getAggregateMeasuresCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
         Nil
     )
   }
+
+  private def validateSchema(schema: StructType): Unit = {
+  }
 }
 
-case class AggregateMetrics(productCol: String,
-                            powerMeanCol: String,
-                            negativeSumLogCol: String,
-                            sumLogCol: String,
+case class AggregateMetrics(benefitCol: String,
                             numBenefits: Double,
-                            alpha: Double,
+                            meanBenefits: Double,
+                            epsilon: Double,
                             errorTolerance: Double) {
+  private val normBenefit = col(benefitCol) / meanBenefits
 
   def toMap: Map[String, Column] = Map(
-    "atkinson_index" -> atkinsonIndex,
-    "thiel_l_index" -> thielLIndex,
-    "thiel_t_index" -> thielTIndex
+    "atkinson_index" -> atkinsonIndex.alias("atkinson_index"),
+    "thiel_l_index" -> thielLIndex.alias("thiel_l_index"),
+    "thiel_t_index" -> thielTIndex.alias("thiel_t_index")
   )
 
   def atkinsonIndex: Column = {
