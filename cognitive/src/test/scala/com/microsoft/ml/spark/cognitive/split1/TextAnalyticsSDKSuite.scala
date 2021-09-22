@@ -164,10 +164,9 @@ class LanguageDetectionSuiteV4 extends TestBase with DataFrameEquality with Text
 
   test("Language Detection - Overriding request options and including statistics") {
     val replies = getDetector
-      .setOptions(TextAnalyticsRequestOptionsV4(
-        modelVersion = "latest",
-        includeStatistics = true,
-        disableServiceLogs = false))
+      .setModelVersion("latest")
+      .setIncludeStatistics(true)
+      .setDisableServiceLogs(false)
       .transform(df)
       .select("output.statistics")
       .collect()
@@ -180,10 +179,9 @@ class LanguageDetectionSuiteV4 extends TestBase with DataFrameEquality with Text
     val caught =
       intercept[SparkException] {
         getDetector
-          .setOptions(TextAnalyticsRequestOptionsV4(
-            modelVersion = "oopsie doopsie",
-            includeStatistics = false,
-            disableServiceLogs = false))
+          .setModelVersion("invalid model")
+          .setIncludeStatistics(true)
+          .setDisableServiceLogs(false)
           .transform(df)
           .collect()
       }
@@ -193,10 +191,9 @@ class LanguageDetectionSuiteV4 extends TestBase with DataFrameEquality with Text
 
   test("Language Detection - Disable logs") {
     val replies = getDetector
-      .setOptions(TextAnalyticsRequestOptionsV4(
-        modelVersion = "latest",
-        includeStatistics = false,
-        disableServiceLogs = true))
+      .setModelVersion("latest")
+      .setIncludeStatistics(false)
+      .setDisableServiceLogs(true)
       .transform(df)
       .select("output.result")
       .collect()
@@ -243,6 +240,25 @@ class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with Text
     .setLocation("eastus")
     .setTextCol("text")
     .setOutputCol("output")
+
+  test("Sentiment Analysis - Include Opinion Mining") {
+    val replies = getDetector
+      .setIncludeOpinionMining(true)
+      .transform(batchedDF)
+      .select("output")
+      .collect()
+    assert(replies(0).schema(0).name == "output")
+    df.printSchema()
+    df.show()
+    val fromRow = SentimentResponseV4.makeFromRowConverter
+
+    replies.foreach { row =>
+
+      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
+      println("Target text - " + outResponse.result.head.get.sentences.head.opinions.get.head.target.text)
+      println("Target sentiment - " + outResponse.result.head.get.sentences.head.opinions.get.head.target.sentiment)
+    }
+  }
 
   test("Sentiment Analysis - Output Assertion") {
     val replies = getDetector.transform(batchedDF)
@@ -303,6 +319,17 @@ class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with Text
   }
 
   test("Sentiment Analysis - Invalid Document Input") {
+    val replies = getDetector.transform(invalidDocDf)
+      .select("output.error.errorMessage", "output.error.errorCode")
+      .collect()
+    val errors = replies.map(row => row.getList(0))
+    val codes = replies.map(row => row.getList(1))
+
+    assert(errors(0).get(0).toString == "Document text is empty.")
+    assert(codes(0).get(0).toString == "InvalidDocument")
+  }
+
+  test("Sentiment Analysis - Opinion Mining") {
     val replies = getDetector.transform(invalidDocDf)
       .select("output.error.errorMessage", "output.error.errorCode")
       .collect()
@@ -530,8 +557,6 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
   lazy val df5: DataFrame = Seq(
     ("en", "6-drops of Vitamin B-12 every evening")
   ).toDF("lang", "text")
-
-  val options: TextAnalyticsRequestOptionsV4 = new TextAnalyticsRequestOptionsV4("", true, false)
 
   lazy val extractor: HealthcareV4 = new HealthcareV4()
     .setSubscriptionKey(textKey)
