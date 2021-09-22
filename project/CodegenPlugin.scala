@@ -37,7 +37,6 @@ object CodegenPlugin extends AutoPlugin {
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
   val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
-  val TestDotnetTag = Tags.Tag("testDotnet")
 
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
@@ -82,7 +81,7 @@ object CodegenPlugin extends AutoPlugin {
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
       Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(DotnetTestGenTag, 1),
-      Tags.limit(DotnetCodeGenTag, 1), Tags.limit(TestDotnetTag, 1))
+      Tags.limit(DotnetCodeGenTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -135,22 +134,6 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetCodegen $arg").value
     }
   } tag (DotnetCodeGenTag)
-
-  def testDotnetImpl: Def.Initialize[Task[Unit]] = Def.task {
-    dotnetCodeGen.value
-    dotnetTestGen.value
-    val mainTargetDir = join(baseDirectory.value.getParent, "target")
-    runCmd(
-      Seq("dotnet",
-        "test",
-        s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
-        "--collect:\"XPlat Code Coverage\"",
-        s"--results-directory:${join(mainTargetDir, s"${name.value}")}",
-        "-- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura"
-      ),
-      new File(codegenDir.value, "test/dotnet/")
-    )
-  } tag (TestDotnetTag)
 
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
@@ -293,7 +276,21 @@ object CodegenPlugin extends AutoPlugin {
     },
     dotnetCodeGen := dotnetCodeGenImpl.value,
     dotnetTestGen := dotnetTestGenImpl.value,
-    testDotnet := testDotnetImpl.value,
+    testDotnet := {
+      dotnetCodeGen.value
+      dotnetTestGen.value
+      val mainTargetDir = join(baseDirectory.value.getParent, "target")
+      runCmd(
+        Seq("dotnet",
+          "test",
+          s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
+          "--collect:\"XPlat Code Coverage\"",
+          s"--results-directory:${join(mainTargetDir, s"${name.value}")}",
+          "-- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura"
+        ),
+        new File(codegenDir.value, "test/dotnet/")
+      )
+    },
     targetDir := {
       artifactPath.in(packageBin).in(Compile).value.getParentFile
     },
