@@ -1,0 +1,18 @@
+.videoContainer {
+  text-align: center;
+  width: 100%;
+  margin: 40px 0;
+}
+
+.videosTitle {
+  margin-top: 20px;
+}
+
+.watchNowButton {
+  background-color: #00bbf1;
+  padding: 9px 15px;
+  color: white;
+  border: 0;
+  height: 50px;
+  width: 300px;
+}

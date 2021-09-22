@@ -1,0 +1,50 @@
+element {
+  --ifm-global-radius: 0.4rem;
+  --ifm-card-border-radius: calc(var(--ifm-global-radius)*2);
+}
+
+.layout_grid_row {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-template-rows: auto auto;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-column-gap: 32px;
+  grid-row-gap: 32px;
+}
+
+
+.feature_card {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  text-align: center;
+  align-items: center;
+  padding: 4% 1%;
+  justify-content: center;
+  -webkit-box-pack: start;
+  -webkit-box-align: center;
+}
+
+.card {
+  background-color: #fff;
+  border-radius: var(--ifm-card-border-radius);
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.card__image {
+  padding-top: 0;
+  display: inline-block;
+}
+
+.card__body {
+  padding-bottom: 0;
+  padding: 1rem 1rem;
+}
+
+.card__footer {
+  margin-top: auto;
+  padding: 1rem 1rem;
+}
