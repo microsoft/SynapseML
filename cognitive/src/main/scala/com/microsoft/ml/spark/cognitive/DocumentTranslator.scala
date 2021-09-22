@@ -20,6 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import java.net.URI
+import scala.reflect.internal.util.ScalaClassLoader
 
 trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
 
@@ -135,6 +136,17 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
                 fetchGlossaries(row),
                 row.getString(2), row.getString(3), Option(row.getString(4))))
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
+  }
+
+  override def setLinkedService(v: String): this.type = {
+    val classPath = "mssparkutils.cognitiveService"
+    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
+    val nameMethod = linkedServiceClass.get.getMethod("getName", v.getClass)
+    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
+    val name = nameMethod.invoke(linkedServiceClass.get, v).toString
+    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    setServiceName(name)
+    setSubscriptionKey(key)
   }
 
   override def setServiceName(v: String): this.type = {

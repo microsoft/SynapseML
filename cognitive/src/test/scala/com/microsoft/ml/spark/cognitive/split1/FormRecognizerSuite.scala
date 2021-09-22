@@ -535,6 +535,18 @@ class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
         """"SALESPERSON","SERVICE ADDRESS:","SHIP TO:","SHIPPED VIA","TERMS","TOTAL","UNIT PRICE"]}}""").stripMargin)
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new GetCustomModel()
+        .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+        .setIncludeKeys(true)
+        .setOutputCol("model")
+        .transform(pathDf).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("modelId"))
+  }
+
   override def testObjects(): Seq[TestObject[GetCustomModel]] =
     Seq(new TestObject(getCustomModel, pathDf))
 
@@ -584,6 +596,17 @@ class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
     assert(results.head.getString(1)
       .contains("""Tables: Invoice Number | Invoice Date | Invoice Due Date | Charges | VAT ID"""))
     assert(results.head.getString(2) === "")
+  }
+
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new AnalyzeCustomModel()
+        .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+        .setImageUrlCol("source").setOutputCol("form")
+        .transform(imageDf4).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("modelId"))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeCustomModel]] =

@@ -304,6 +304,12 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
     assert(badColumns.isEmpty,
       s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
     val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
       case Nil => Seq(lit(false).alias("placeholder"))
       case l => l
