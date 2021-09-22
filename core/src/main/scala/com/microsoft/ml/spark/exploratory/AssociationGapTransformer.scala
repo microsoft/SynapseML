@@ -50,10 +50,10 @@ class AssociationGapTransformer(override val uid: String)
     val Row(numRows: Double, numTrueLabels: Double) =
       df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
 
-    val countSensitivePositiveCol = DatasetExtensions.findUnusedColumnName("countSensitivePositive", dataset.schema)
-    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", dataset.schema)
-    val countPositiveCol = DatasetExtensions.findUnusedColumnName("countPositive", dataset.schema)
-    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", dataset.schema)
+    val countSensitivePositiveCol = DatasetExtensions.findUnusedColumnName("countSensitivePositive", df.schema)
+    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", df.schema)
+    val countPositiveCol = DatasetExtensions.findUnusedColumnName("countPositive", df.schema)
+    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", df.schema)
     val sensitiveValueCol = "SensitiveValue"
 
     val counts = getSensitiveCols.map {
