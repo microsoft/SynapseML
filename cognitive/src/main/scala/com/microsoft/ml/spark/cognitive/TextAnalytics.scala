@@ -244,20 +244,18 @@ class KeyPhraseExtractorV2(override val uid: String)
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 
-trait HasSetModelVersion extends CognitiveServicesBase {
+class TextSentiment(override val uid: String)
+  extends TextAnalyticsBase(uid) with BasicLogging {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("TextSentiment"))
+
   val modelVersion = new ServiceParam[String](this, "modelVersion",
     "This value indicates which model will be used for scoring." +
       " If a model-version is not specified, the API should default to the latest," +
       " non-preview version.", isURLParam = true)
 
   def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
-}
-
-class TextSentiment(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("TextSentiment"))
 
   val showStats = new ServiceParam[Boolean](this, "showStats",
     "if set to true, response will contain input and document level statistics.", isURLParam = true)
