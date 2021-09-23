@@ -252,12 +252,14 @@ class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with Text
     df.show()
     val fromRow = SentimentResponseV4.makeFromRowConverter
 
-    replies.foreach { row =>
+    val outResponse = fromRow(replies(0).getAs[GenericRowWithSchema]("output"))
 
-      val outResponse = fromRow(row.getAs[GenericRowWithSchema]("output"))
-      println("Target text - " + outResponse.result.head.get.sentences.head.opinions.get.head.target.text)
-      println("Target sentiment - " + outResponse.result.head.get.sentences.head.opinions.get.head.target.sentiment)
-    }
+    val opinions = outResponse.result.head.get.sentences.head.opinions
+
+    assert(opinions != null)
+
+    assert(opinions.get.head.target.text == "rain")
+    assert(opinions.get.head.target.sentiment == "negative")
   }
 
   test("Sentiment Analysis - Output Assertion") {
