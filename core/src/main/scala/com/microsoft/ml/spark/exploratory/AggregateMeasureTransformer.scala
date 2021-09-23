@@ -124,8 +124,8 @@ case class AggregateMetrics(benefitCol: String,
 
   def toMap: Map[String, Column] = Map(
     "atkinson_index" -> atkinsonIndex.alias("atkinson_index"),
-    "thiel_l_index" -> thielLIndex.alias("thiel_l_index"),
-    "thiel_t_index" -> thielTIndex.alias("thiel_t_index")
+    "theil_l_index" -> theilLIndex.alias("theil_l_index"),
+    "theil_t_index" -> theilTIndex.alias("theil_t_index")
   )
 
   def atkinsonIndex: Column = {
@@ -140,12 +140,12 @@ case class AggregateMetrics(benefitCol: String,
     )
   }
 
-  def thielLIndex: Column = {
+  def theilLIndex: Column = {
     val negativeSumLog = sum(log(normBenefit) * -1d)
     negativeSumLog / numBenefits
   }
 
-  def thielTIndex: Column = {
+  def theilTIndex: Column = {
     val sumLog = sum(normBenefit * log(normBenefit))
     sumLog / numBenefits
   }
