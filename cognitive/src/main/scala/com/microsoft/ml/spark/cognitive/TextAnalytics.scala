@@ -263,7 +263,7 @@ class TextSentiment(override val uid: String)
 
   override def responseDataType: StructType = SentimentResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/sentiment"
+  def urlPath: String = "/text/analytics/v3.1/sentiment"
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
@@ -284,7 +284,7 @@ class KeyPhraseExtractor(override val uid: String)
 
   override def responseDataType: StructType = KeyPhraseResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/keyPhrases"
+  def urlPath: String = "/text/analytics/v3.1/keyPhrases"
 }
 
 object NER extends ComplexParamsReadable[NER]
@@ -296,7 +296,7 @@ class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
 
   override def responseDataType: StructType = NERResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
+  def urlPath: String = "/text/analytics/v3.1/entities/recognition/general"
 }
 
 object PII extends ComplexParamsReadable[PII]
@@ -321,7 +321,7 @@ class LanguageDetector(override val uid: String)
 
   override def responseDataType: StructType = DetectLanguageResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/languages"
+  def urlPath: String = "/text/analytics/v3.1/languages"
 }
 
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
@@ -334,5 +334,5 @@ class EntityDetector(override val uid: String)
 
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/entities/linking"
+  def urlPath: String = "/text/analytics/v3.1/entities/linking"
 }
