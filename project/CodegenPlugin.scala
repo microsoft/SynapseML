@@ -284,10 +284,8 @@ object CodegenPlugin extends AutoPlugin {
         Seq("dotnet",
           "test",
           s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
-          "--configuration $(buildConfiguration)",
           "--collect:\"XPlat Code Coverage\"",
-          s"--results-directory:${join(mainTargetDir, s"${name.value}")}",
-          "-- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura"
+          s"--results-directory:${join(mainTargetDir, s"${name.value}")}"
         ),
         new File(codegenDir.value, "test/dotnet/")
       )
