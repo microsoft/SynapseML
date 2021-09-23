@@ -1,9 +1,10 @@
 ---
 title: First Model
+hide_title: true
 description: First Model
 ---
 
-## Your First Model
+# Your First Model
 
 In this example, we construct a basic classification model to predict a person's
 income level given demographics data such as education level or marital status.

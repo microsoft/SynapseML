@@ -73,6 +73,27 @@ module.exports = {
               to: 'docs/getting_started/installation',
             },
             {
+              label: 'Getting Started',
+              to: 'docs/getting_started/first_example',
+            },
+            {
+              label: 'Python API Reference',
+              to: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/pyspark/mmlspark.html',
+            },
+            {
+              label: 'Scala API Reference',
+              to: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/scala/com/microsoft/ml/spark/index.html',
+            },
+          ],
+        },
+        {
+          title: 'More',
+          items: [
+            {
+              label: 'Blog',
+              to: 'blog',
+            },
+            {
               label: 'Videos',
               to: 'videos',
             },
@@ -82,21 +103,8 @@ module.exports = {
           title: 'Community',
           items: [
             {
-              label: 'Join the chat',
-              to: 'community',
-            },
-            {
               label: 'GitHub',
               href: 'https://github.com/microsoft/SynapseML',
-            },
-          ],
-        },
-        {
-          title: 'Social',
-          items: [
-            {
-              label: 'Get in touch',
-              to: 'community',
             },
           ],
         },
@@ -125,9 +133,6 @@ module.exports = {
         },
       },
     ],
-  ],
-  plugins: [
-    path.resolve(__dirname, './src/plugins/redirects'),
   ],
 };
 
