@@ -342,6 +342,15 @@ jobs:
         export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.0.0
         echo "##vso[task.setvariable variable=DOTNET_WORKER_DIR]$DOTNET_WORKER_DIR"
       displayName: Install .NET for Apache Spark
+    - task: UseDotNet@2
+      inputs:
+        version: '5.0.x'
+        includePreviewVersions: true # Required for preview versions
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet build'
+      inputs:
+        command: 'build'
+        configuration: $(buildConfiguration)
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
@@ -353,7 +362,12 @@ jobs:
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testDotnet) || (sbt coverage testDotnet) || (sbt coverage testDotnet)
+          (sbt coverage testDotnet)
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage report'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
     - task: PublishCodeCoverageResults@1
       displayName: 'Publish code coverage report'
       inputs:
