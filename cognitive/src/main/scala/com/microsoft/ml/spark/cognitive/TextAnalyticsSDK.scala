@@ -174,7 +174,12 @@ class LanguageDetectionV4(override val uid: String)
       new DetectLanguageInput(i.toString, doc, hint)
     }.asJava
 
-    val response = client.detectLanguageBatchWithResponse(documents, null, Context.NONE).getValue
+    val options = new TextAnalyticsRequestOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.detectLanguageBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -195,8 +200,12 @@ class KeyphraseExtractionV4(override val uid: String)
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
+    val options = new TextAnalyticsRequestOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
 
-    val response = client.extractKeyPhrasesBatchWithResponse(documents, null, Context.NONE).getValue
+    val response = client.extractKeyPhrasesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -246,7 +255,12 @@ class PIIV4(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityColl
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizePiiEntitiesBatchWithResponse(documents, null, Context.NONE).getValue
+    val options = new RecognizePiiEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizePiiEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -266,8 +280,12 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
+    val options = new AnalyzeHealthcareEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
 
-    val poller = client.beginAnalyzeHealthcareEntities(documents, null, Context.NONE)
+    val poller = client.beginAnalyzeHealthcareEntities(documents, options, Context.NONE)
     poller.waitForCompletion()
 
     val pagedResults = poller.getFinalResult.asScala
@@ -291,7 +309,12 @@ class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[Lin
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizeLinkedEntitiesBatchWithResponse(documents, null, Context.NONE).getValue
+    val options = new RecognizeLinkedEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizeLinkedEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -312,7 +335,12 @@ class NERV4(override val uid: String) extends TextAnalyticsSDKBase[NERCollection
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizeEntitiesBatchWithResponse(documents, null, Context.NONE).getValue
+    val options = new RecognizeEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizeEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }

@@ -332,13 +332,6 @@ object SDKConverters {
       entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
   }
 
-//  def toSDK(textAnalyticsRequestOptionsV4: TextAnalyticsRequestOptionsV4): TextAnalyticsRequestOptions = {
-//    new TextAnalyticsRequestOptions()
-//      .setModelVersion(textAnalyticsRequestOptionsV4.modelVersion)
-//      .setIncludeStatistics(textAnalyticsRequestOptionsV4.includeStatistics)
-//      .setServiceLogsDisabled(textAnalyticsRequestOptionsV4.disableServiceLogs)
-//  }
-
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):
   (Option[TAErrorV4], Option[DocumentStatistics], Option[U]) = {
     if (result.isError) {
