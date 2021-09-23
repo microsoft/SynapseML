@@ -71,8 +71,8 @@ trait HasModelID extends HasServiceParams {
 trait HasLocale extends HasServiceParams {
   val locale = new ServiceParam[String](this, "locale", "Locale of the receipt. Supported" +
     " locales: en-AU, en-CA, en-GB, en-IN, en-US.", {
-    case Left(_) => true
-    case Right(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+    case Left(s) => Set("en-AU", "en-CA", "en-GB", "en-IN", "en-US")(s)
+    case Right(_) => true
   }, isURLParam = true)
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
@@ -258,7 +258,7 @@ object ListCustomModels extends ComplexParamsReadable[ListCustomModels]
 
 class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasSetLocation with BasicLogging {
+  with HasSetLocation with HasSetLinkedService with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ListCustomModels"))
@@ -283,7 +283,7 @@ object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
 
 class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasSetLocation with BasicLogging with HasModelID {
+  with HasSetLocation with HasSetLinkedService with BasicLogging with HasModelID {
   logClass()
 
   def this() = this(Identifiable.randomUID("GetCustomModel"))

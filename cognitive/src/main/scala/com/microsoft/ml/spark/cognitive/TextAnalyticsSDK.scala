@@ -30,12 +30,33 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 trait HasOptions extends HasServiceParams {
-  val options = new Param[TextAnalyticsRequestOptionsV4](
-    this, name = "options", "text analytics request options")
+  val modelVersion = new Param[String](
+    this, name = "modelVersion", "modelVersion option")
 
-  def getOptions: Option[TextAnalyticsRequestOptionsV4] = get(options)
+  def getModelVersion: Option[String] = get(modelVersion)
 
-  def setOptions(v: TextAnalyticsRequestOptionsV4): this.type = set(options, v)
+  def setModelVersion(v: String): this.type = set(modelVersion, v)
+
+  val includeStatistics = new Param[Boolean](
+    this, name = "includeStatistics", "includeStatistics option")
+
+  def getIncludeStatistics: Option[Boolean] = get(includeStatistics)
+
+  def setIncludeStatistics(v: Boolean): this.type = set(includeStatistics, v)
+
+  val disableServiceLogs = new Param[Boolean](
+    this, name = "disableServiceLogs", "disableServiceLogs option")
+
+  def getDisableServiceLogs: Option[Boolean] = get(disableServiceLogs)
+
+  def setDisableServiceLogs(v: Boolean): this.type = set(disableServiceLogs, v)
+
+  val includeOpinionMining = new Param[Boolean](
+    this, name = "includeOpinionMining", "includeOpinionMining option")
+
+  def getIncludeOpinionMining: Option[Boolean] = get(includeOpinionMining)
+
+  def setIncludeOpinionMining(v: Boolean): this.type = set(includeOpinionMining, v)
 
 }
 
@@ -49,7 +70,6 @@ abstract class TextAnalyticsSDKBase[T]()
   val responseBinding: SparkBindings[TAResponseV4[T]]
 
   def invokeTextAnalytics(client: TextAnalyticsClient,
-                          options: Option[TextAnalyticsRequestOptions],
                           text: Seq[String],
                           lang: Seq[String]): TAResponseV4[T]
 
@@ -68,14 +88,9 @@ abstract class TextAnalyticsSDKBase[T]()
         .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
         .getOrElse(Duration.Inf)
 
-      val requestOptions = get(options) match {
-        case Some(o) => Some(toSDK(o))
-        case None => None
-      }
-
       val futures = rows.map { row =>
         Future {
-          val results = invokeTextAnalytics(client, requestOptions, getValue(row, text), getValue(row, language))
+          val results = invokeTextAnalytics(client, getValue(row, text), getValue(row, language))
           Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
         }(ExecutionContext.global)
       }
@@ -153,14 +168,18 @@ class LanguageDetectionV4(override val uid: String)
   override val responseBinding: SparkBindings[TAResponseV4[DetectedLanguageV4]] = DetectLanguageResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    hints: Seq[String]): TAResponseV4[DetectedLanguageV4] = {
     val documents = (input, hints, input.indices).zipped.map { (doc, hint, i) =>
       new DetectLanguageInput(i.toString, doc, hint)
     }.asJava
 
-    val response = client.detectLanguageBatchWithResponse(documents, options.orNull, Context.NONE).getValue
+    val options = new TextAnalyticsRequestOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.detectLanguageBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -176,14 +195,17 @@ class KeyphraseExtractionV4(override val uid: String)
   override val responseBinding: SparkBindings[TAResponseV4[KeyphraseV4]] = KeyPhraseResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[KeyphraseV4] = {
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
+    val options = new TextAnalyticsRequestOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
 
-    val response = client.extractKeyPhrasesBatchWithResponse(documents, options.orNull, Context.NONE).getValue
+    val response = client.extractKeyPhrasesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -194,19 +216,25 @@ class TextSentimentV4(override val uid: String)
   extends TextAnalyticsSDKBase[SentimentScoredDocumentV4]() {
   logClass()
 
-  def this() = this(Identifiable.randomUID("KeyphraseExtractionV4"))
+  def this() = this(Identifiable.randomUID("TextSentimentV4"))
 
   override val responseBinding: SparkBindings[TAResponseV4[SentimentScoredDocumentV4]] = SentimentResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[SentimentScoredDocumentV4] = {
+
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.analyzeSentimentBatchWithResponse(documents, options.orNull, Context.NONE).getValue
+    val options = new AnalyzeSentimentOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+      .setIncludeOpinionMining(getIncludeOpinionMining.getOrElse(true))
+
+    val response = client.analyzeSentimentBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -221,14 +249,18 @@ class PIIV4(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityColl
   override val responseBinding: SparkBindings[TAResponseV4[PIIEntityCollectionV4]] = PIIResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[PIIEntityCollectionV4] = {
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizePiiEntitiesBatchWithResponse(documents, null, Context.NONE).getValue
+    val options = new RecognizePiiEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizePiiEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -243,14 +275,17 @@ class HealthcareV4(override val uid: String) extends TextAnalyticsSDKBase[Health
   override val responseBinding: SparkBindings[TAResponseV4[HealthEntitiesResultV4]] = HealthcareResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[HealthEntitiesResultV4] = {
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
+    val options = new AnalyzeHealthcareEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
 
-    val poller = client.beginAnalyzeHealthcareEntities(documents, null, Context.NONE)
+    val poller = client.beginAnalyzeHealthcareEntities(documents, options, Context.NONE)
     poller.waitForCompletion()
 
     val pagedResults = poller.getFinalResult.asScala
@@ -268,14 +303,18 @@ class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[Lin
   override val responseBinding: SparkBindings[TAResponseV4[LinkedEntityCollectionV4]] = LinkedEntityResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[LinkedEntityCollectionV4] = {
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizeLinkedEntitiesBatchWithResponse(documents, options.orNull, Context.NONE).getValue
+    val options = new RecognizeLinkedEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizeLinkedEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }
@@ -290,14 +329,18 @@ class NERV4(override val uid: String) extends TextAnalyticsSDKBase[NERCollection
   override val responseBinding: SparkBindings[TAResponseV4[NERCollectionV4]] = NERResponseV4
 
   override def invokeTextAnalytics(client: TextAnalyticsClient,
-                                   options: Option[TextAnalyticsRequestOptions],
                                    input: Seq[String],
                                    lang: Seq[String]): TAResponseV4[NERCollectionV4] = {
     val documents = (input, lang, lang.indices).zipped.map { (doc, lang, i) =>
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val response = client.recognizeEntitiesBatchWithResponse(documents, options.orNull, Context.NONE).getValue
+    val options = new RecognizeEntitiesOptions()
+      .setModelVersion(getModelVersion.getOrElse("latest"))
+      .setIncludeStatistics(getIncludeStatistics.getOrElse(false))
+      .setServiceLogsDisabled(getDisableServiceLogs.getOrElse(false))
+
+    val response = client.recognizeEntitiesBatchWithResponse(documents, options, Context.NONE).getValue
     toResponse(response.asScala, response.getModelVersion)
   }
 }

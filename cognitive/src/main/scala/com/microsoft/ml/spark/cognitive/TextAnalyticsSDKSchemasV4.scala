@@ -39,10 +39,6 @@ case class TAWarningV4(warningCode: String, message: String)
 
 case class TextDocumentInputs(id: String, text: String)
 
-case class TextAnalyticsRequestOptionsV4(modelVersion: String,
-                                         includeStatistics: Boolean,
-                                         disableServiceLogs: Boolean)
-
 case class KeyphraseV4(keyPhrases: Seq[String], warnings: Seq[TAWarningV4])
 
 case class SentimentConfidenceScoreV4(negative: Double, neutral: Double, positive: Double)
@@ -55,11 +51,11 @@ case class SentimentScoredDocumentV4(sentiment: String,
 case class SentimentSentenceV4(text: String,
                                sentiment: String,
                                confidenceScores: SentimentConfidenceScoreV4,
-                               opinion: Option[Seq[OpinionV4]],
+                               opinions: Option[Seq[OpinionV4]],
                                offset: Int,
                                length: Int)
 
-case class OpinionV4(target: TargetV4, assessment: Seq[AssessmentV4])
+case class OpinionV4(target: TargetV4, assessments: Seq[AssessmentV4])
 
 case class TargetV4(text: String,
                     sentiment: String,
@@ -334,13 +330,6 @@ object SDKConverters {
     NERCollectionV4(
       entity.getEntities.asScala.toSeq.map(fromSDK),
       entity.getEntities.getWarnings.asScala.toSeq.map(fromSDK))
-  }
-
-  def toSDK(textAnalyticsRequestOptionsV4: TextAnalyticsRequestOptionsV4): TextAnalyticsRequestOptions = {
-    new TextAnalyticsRequestOptions()
-      .setModelVersion(textAnalyticsRequestOptionsV4.modelVersion)
-      .setIncludeStatistics(textAnalyticsRequestOptionsV4.includeStatistics)
-      .setServiceLogsDisabled(textAnalyticsRequestOptionsV4.disableServiceLogs)
   }
 
   def unpackResult[T <: TextAnalyticsResult, U](result: T)(implicit converter: T => U):

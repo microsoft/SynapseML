@@ -310,7 +310,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
     println(results)
 
     assert(results(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
-    assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "carretera", "ayer"))
+    assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "día", "carretera", "ayer"))
   }
 
   override def testObjects(): Seq[TestObject[KeyPhraseExtractor]] =
@@ -395,4 +395,45 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
     Seq(new TestObject[NER](n, df))
 
   override def reader: MLReadable[_] = NER
+}
+
+class PIISuiteV3 extends TransformerFuzzing[PII] with TextKey {
+  import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    ("1", "en", "My SSN is 859-98-0987"),
+    ("2", "en",
+      "Your ABA number - 111000025 - is the first 9 digits in the lower left hand corner of your personal check."),
+    ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
+  ).toDF("id", "language", "text")
+
+  lazy val n: PII = new PII()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
+    .setLanguage("en")
+    .setOutputCol("response")
+
+  test("Basic Usage") {
+    val results = n.transform(df)
+    val matches = results.withColumn("match",
+      col("response")
+        .getItem(0)
+        .getItem("entities")
+        .getItem(0))
+      .select("match")
+
+    val testRow = matches.collect().head(0).asInstanceOf[GenericRowWithSchema]
+
+    assert(testRow.getAs[String]("text") === "859-98-0987")
+    assert(testRow.getAs[Int]("offset") === 10)
+    assert(testRow.getAs[Int]("length") === 11)
+    assert(testRow.getAs[Double]("confidenceScore") > 0.6)
+    assert(testRow.getAs[String]("category") === "USSocialSecurityNumber")
+
+  }
+
+  override def testObjects(): Seq[TestObject[PII]] =
+    Seq(new TestObject[PII](n, df))
+
+  override def reader: MLReadable[_] = PII
 }

@@ -72,6 +72,19 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     result.NBest.get.head.Display.contains("this is a test")
   }
 
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new SpeechToText()
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation(region)
+        .setOutputCol("text")
+        .transform(df).collect()
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("audioData"))
+    assert(caught.getMessage.contains("language"))
+  }
+
   override def testObjects(): Seq[TestObject[SpeechToText]] =
     Seq(new TestObject(stt, df))
 
