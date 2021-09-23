@@ -40,7 +40,7 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
 
 
   val output = ice.transform(new_data)
-  output.show()
+  output.show(false)
 
   val iceCon = new ICETransformer()
 
@@ -52,7 +52,7 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
     .setTargetClasses(Array(1))
 
   val outputCon = iceCon.transform(new_data)
-  outputCon.show()
+  outputCon.show(false)
 
 
   val iceCon1 = new ICETransformer()
@@ -66,9 +66,24 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
     .setRangeMax(100.0)
     .setTargetClasses(Array(1))
 
-  val outputCon1 = iceCon.transform(new_data)
-  outputCon1.show()
+  val outputCon1 = iceCon1.transform(new_data)
+  outputCon1.show(false)
 
-  println("Finished")
+
+  val pdp = new ICETransformer()
+
+  pdp.setModel(model)
+    .setOutputCol("iceValues")
+    .setTargetCol("probability")
+    .setFeature("col4")
+    .setFeatureType("continuous")
+    .setRangeMin(0.0)
+    .setRangeMax(100.0)
+    .setNSplits(3)
+    .setTargetClasses(Array(1))
+    .setKind("average")
+
+  val pdpOutput = pdp.transform(new_data)
+  pdpOutput.show(false)
 
 }

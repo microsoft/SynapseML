@@ -3,12 +3,11 @@ import com.microsoft.ml.spark.core.contracts.HasOutputCol
 import com.microsoft.ml.spark.core.schema.DatasetExtensions
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamMap, Params}
+import org.apache.spark.ml.param.{DoubleParam, IntParam, ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.ml.param._
 import org.apache.spark.ml.stat.Summarizer
 
 
@@ -66,7 +65,16 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getRangeMin: Double = $(rangeMin)
   def setRangeMin(value: Double): this.type = set(rangeMin, value)
 
-  setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, nSplits -> 20)
+  val kind = new Param[String] (
+    this,
+    "kind",
+    "pdp or ice",
+    ParamValidators.inArray(Array("average", "individual"))
+  )
+  def getKind: String = $(kind)
+  def setKind(value: String): this.type = set(kind, value)
+
+  setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, nSplits -> 20, kind -> "individual")
 
 }
 
@@ -88,55 +96,72 @@ class ICETransformer(override val uid: String) extends Transformer
   def transform(ds: Dataset[_]): DataFrame = {
 
     val df = ds.toDF
+    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
+      .withColumn(idCol, monotonically_increasing_id())
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
     transformSchema(df.schema)
+    val feature = this.getFeature
 
-    val values = $(featureType).toLowerCase match {
+    val values = getFeatureType.toLowerCase match {
       case "discrete" =>
-        collectDiscreteValues(dfWithId, $(feature), $(topNValues))
+        collectDiscreteValues(dfWithId)
       case "continuous" =>
-        collectSplits(dfWithId, $(feature), $(nSplits), get(rangeMin), get(rangeMax))
+        collectSplits(dfWithId, get(rangeMin), get(rangeMax))
     }
 
-    val dataType = dfWithId.schema($(feature)).dataType
+    val dataType = dfWithId.schema(feature).dataType
     val explodeFunc = explode(array(values.map(v => lit(v).cast(dataType)): _*))
 
-    val predicted = getModel.transform(dfWithId.withColumn($(feature), explodeFunc))
+    val predicted = getModel.transform(dfWithId.withColumn(feature, explodeFunc))
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
 
     val explainTarget = extractTarget(predicted.schema, targetClasses)
     val result = predicted.withColumn(targetCol, explainTarget)
 
-    result
-      .groupBy($(feature))
-      .agg(Summarizer.mean(col(targetCol)).alias("__feature__importance__"))
-      .withColumnRenamed($(feature), "__feature__value__")
-      .withColumn("__feature__name__", lit($(feature)))
-      .select("__feature__name__", "__feature__value__", "__feature__importance__")
+    //result.show()
+
+    getKind.toLowerCase match {
+      case "average" =>
+        result
+            .groupBy(feature)
+            .agg(Summarizer.mean(col(targetCol)).alias("__feature__importance__"))
+            .withColumnRenamed(feature, "__feature__value__")
+            .withColumn("__feature__name__", lit(feature))
+            .select("__feature__name__", "__feature__value__", "__feature__importance__")
+      case "individual" =>
+        // storing as a map feature -> target value
+        result.groupBy("id")
+          .agg(collect_list(feature).alias("feature_list"), collect_list(targetCol).alias("target_list"))
+          .withColumn("__feature__importance__", map_from_arrays(col("feature_list"), col("target_list")))
+          .select(idCol, "__feature__importance__")
+          .orderBy(idCol)
+
+    }
   }
 
-  private def collectDiscreteValues[_](df: DataFrame, feature: String, topNValues: Int): Array[_] = {
+  private def collectDiscreteValues[_](df: DataFrame): Array[_] = {
     val values = df
-      .groupBy(col(feature))
+      .groupBy(col(getFeature))
       .agg(count("*").as("__feature__count__"))
       .orderBy(col("__feature__count__").desc)
-      .head(topNValues)
+      .head(getTopNValues)
       .map(row => row.get(0))
     values
   }
 
-  private def collectSplits(df: DataFrame, feature: String, nSplits: Int,
-                            rangeMin: Option[Double], rangeMax: Option[Double]): Array[Double] = {
+  private def collectSplits(df: DataFrame, rangeMin: Option[Double], rangeMax: Option[Double]): Array[Double] = {
     def createNSplits(n: Int)(from: Double, to: Double): Seq[Double] = {
       (0 to n) map {
         i => (to - from) / n * i + from
       }
     }
 
+    val feature = getFeature
     val featureCol = df.schema(feature)
+    val nSplits = getNSplits
 
     val createSplits = createNSplits(nSplits) _
 
@@ -182,6 +207,7 @@ class ICETransformer(override val uid: String) extends Transformer
           createSplits(mi, ma)
       }
     }
+
     values.toArray
   }
 
