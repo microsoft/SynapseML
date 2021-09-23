@@ -295,7 +295,7 @@ class TextSentiment(override val uid: String)
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
