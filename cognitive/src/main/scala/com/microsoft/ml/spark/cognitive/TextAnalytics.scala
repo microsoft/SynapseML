@@ -15,7 +15,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StringType, _}
+import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -243,6 +243,16 @@ class KeyPhraseExtractorV2(override val uid: String)
 
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
+
+trait HasSetModelVersion extends CognitiveServicesBase {
+  val modelVersion = new ServiceParam[String](this, "modelVersion",
+    "This value indicates which model will be used for scoring." +
+      " If a model-version is not specified, the API should default to the latest," +
+      " non-preview version.", isURLParam = true)
+
+  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+}
+
 class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging {
   logClass()
@@ -254,12 +264,18 @@ class TextSentiment(override val uid: String)
 
   def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
 
-  val modelVersion = new ServiceParam[String](this, "modelVersion",
-    "This value indicates which model will be used for scoring." +
-      " If a model-version is not specified, the API should default to the latest," +
-      " non-preview version.", isURLParam = true)
+  val opinionMining = new ServiceParam[Boolean](this, "opinionMining",
+    "if set to true, response will contain not only sentiment prediction but also opinion mining " +
+      "(aspect-based sentiment analysis) results.", isURLParam = true)
 
-  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+  val stringIndexType = new ServiceParam[String](this, "stringIndexType",
+    "Specifies the method used to interpret string offsets. " +
+      "Defaults to Text Elements (Graphemes) according to Unicode v8.0.0. " +
+      "For additional information see https://aka.ms/text-analytics-offsets", isURLParam = true)
+
+  def setOpinionMining(v: Boolean): this.type = setScalarParam(opinionMining, v)
+
+  def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
 
   override def responseDataType: StructType = SentimentResponseV3.schema
 
