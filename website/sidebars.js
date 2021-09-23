@@ -1,20 +1,10 @@
-const {listNotebookPaths} = require('./src/plugins/notebooks');
+const {listExamplePaths} = require('./src/plugins/examples');
 
-let notebooks_as_docs = listNotebookPaths("Azure Search");
-let notebooks_cl_docs = listNotebookPaths("Classification");
-let notebooks_cs_docs = listNotebookPaths("Cognitive Services");
-let notebooks_cknn_docs = listNotebookPaths("Conditional KNN");
-let notebooks_cml_docs = listNotebookPaths("CyberML");
-let notebooks_dl_docs = listNotebookPaths("Deep Learning");
-let notebooks_http_docs = listNotebookPaths("HTTP");
-let notebooks_ht_docs = listNotebookPaths("HyperParameter Tuning");
-let notebooks_lgbm_docs = listNotebookPaths("LightGBM");
-let notebooks_mi_docs = listNotebookPaths("Model Interpretation");
-let notebooks_opencv_docs = listNotebookPaths("OpenCV");
-let notebooks_rg_docs = listNotebookPaths("Regression");
-let notebooks_ss_docs = listNotebookPaths("Spark Serving");
-let notebooks_ta_docs = listNotebookPaths("Text Analytics");
-let notebooks_vw_docs = listNotebookPaths("Vowpal Wabbit");
+let examples_cl_docs = listExamplePaths("classification");
+let examples_dl_docs = listExamplePaths("deep_learning");
+let examples_mi_docs = listExamplePaths("model_interpretability");
+let examples_rg_docs = listExamplePaths("regression");
+let examples_ta_docs = listExamplePaths("text_analytics");
 
 module.exports = {
   docs: [
@@ -26,105 +16,103 @@ module.exports = {
       type: 'category',
       label: 'Getting Started',
       items: [
-        'guides/installation',
+        'getting_started/installation',
+        'getting_started/first_example',
+        'getting_started/first_model',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Features',
+      items: [
+        'features/Cognitive Services - Overview',
         {
           type: 'category',
-          label: 'Detailed Setups',
+          label: 'LightGBM',
           items: [
-            'guides/setups/docker',
-            'guides/setups/R-setup',
-            'guides/setups/developer-readme',
+            'features/lightgbm/about',
+            'features/lightgbm/LightGBM - Overview',
+          ]
+        },
+        'features/ONNX - Inference on Spark',
+        {
+          type: 'category',
+          label: 'Vowpal Wabbit',
+          items: [
+            'features/vw/about',
+            'features/vw/Vowpal Wabbit - Overview',
           ]
         },
         {
           type: 'category',
-          label: 'Azure Synapse',
+          label: 'Model Interpretability',
           items: [
-            'guides/synapse/about',
-          ],
+            'features/model_interpretability/about',
+            'features/model_interpretability/Model Interpretability - Snow Leopard Detection',
+          ]
+        },
+        {
+          type: 'category',
+          label: 'HTTP on Spark',
+          items: [
+            'features/http/about',
+            'features/http/HttpOnSpark - Working with Arbitrary Web APIs',
+          ]
+        },
+        {
+          type: 'category',
+          label: 'Spark Serving',
+          items: [
+            'features/spark_serving/about',
+            'features/spark_serving/SparkServing - Deploying a Classifier',
+          ]
         },
       ],
     },
     {
       type: 'category',
-      label: 'Notebooks',
+      label: 'Examples',
       items: [
-        'notebooks/about',
-        {
-          type: 'category',
-          label: 'Azure Search',
-          items: notebooks_as_docs,
-        },
+        'examples/about',
+        'examples/AzureSearchIndex - Met Artworks',
+        'examples/CognitiveServices - Celebrity Quote Analysis',
+        'examples/ConditionalKNN - Exploring Art Across Cultures',
+        'examples/CyberML - Anomalous Access Detection',
+        'examples/HyperParameterTuning - Fighting Breast Cancer',
+        'examples/OpenCV - Pipeline Image Transformations',
         {
           type: 'category',
           label: 'Classification',
-          items: notebooks_cl_docs,
-        },
-        {
-          type: 'category',
-          label: 'Cognitive Services',
-          items: notebooks_cs_docs,
-        },
-        {
-          type: 'category',
-          label: 'Conditional KNN',
-          items: notebooks_cknn_docs,
-        },
-        {
-          type: 'category',
-          label: 'CyberML',
-          items: notebooks_cml_docs,
+          items: examples_cl_docs,
         },
         {
           type: 'category',
           label: 'Deep Learning',
-          items: notebooks_dl_docs,
+          items: examples_dl_docs,
         },
         {
           type: 'category',
-          label: 'HTTP',
-          items: notebooks_http_docs,
-        },
-        {
-          type: 'category',
-          label: 'HyperParameter Tuning',
-          items: notebooks_ht_docs,
-        },
-        {
-          type: 'category',
-          label: 'LightGBM',
-          items: notebooks_lgbm_docs,
-        },
-        {
-          type: 'category',
-          label: 'Model Interpretation',
-          items: notebooks_mi_docs,
-        },
-        {
-          type: 'category',
-          label: 'OpenCV',
-          items: notebooks_opencv_docs,
+          label: 'Model Interpretability',
+          items: examples_mi_docs,
         },
         {
           type: 'category',
           label: 'Regression',
-          items: notebooks_rg_docs,
-        },
-        {
-          type: 'category',
-          label: 'Spark Serving',
-          items: notebooks_ss_docs,
+          items: examples_rg_docs,
         },
         {
           type: 'category',
           label: 'Text Analytics',
-          items: notebooks_ta_docs,
+          items: examples_ta_docs,
         },
-        {
-          type: 'category',
-          label: 'Vowpal Wabbit',
-          items: notebooks_vw_docs,
-        },
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Reference',
+      items: [
+        'reference/developer-readme',
+        'reference/contributing_guide',
       ],
     },
   ],

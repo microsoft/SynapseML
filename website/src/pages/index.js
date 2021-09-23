@@ -6,8 +6,140 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./index.module.css";
 import CodeSnippet from "@site/src/theme/CodeSnippet";
+import SampleSnippet from "@site/src/theme/SampleSnippet";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+
+const snippets = [
+  {
+    label: "Text Analytics",
+    further:
+      "/docs/features/Cognitive%20Services%20-%20Overview#text-analytics-sample",
+    config: `from mmlspark.cognitive import *
+from pyspark.sql.functions import col
+import os
+
+# A general Cognitive Services key for Text Analytics and Computer Vision (or use separate keys that belong to each service)
+service_key = os.environ["TEXT_API_KEY"]
+
+# Create a dataframe that's tied to it's column names
+df = spark.createDataFrame([
+  ("I am so happy today, its sunny!", "en-US"),
+  ("I am frustrated by this rush hour traffic", "en-US"),
+  ("The cognitive services on spark aint bad", "en-US"),
+], ["text", "language"])
+
+# Run the Text Analytics service with options
+sentiment = (TextSentiment()
+    .setTextCol("text")
+    .setLocation("eastus")
+    .setSubscriptionKey(service_key)
+    .setOutputCol("sentiment")
+    .setErrorCol("error")
+    .setLanguageCol("language"))
+
+# Show the results of your text query in a table format
+display(sentiment.transform(df).select("text", col("sentiment")[0].getItem("sentiment").alias("sentiment")))`,
+  },
+  {
+    label: "Deep Learning",
+    further: "/docs/features/ONNX%20-%20Inference%20on%20Spark",
+    config: `# Load the ONNX payload into an ONNXModel, and inspect the model inputs and outputs.
+from mmlspark.onnx import ONNXModel
+
+onnx_ml = ONNXModel().setModelPayload(model_payload_ml)
+
+print("Model inputs:" + str(onnx_ml.getModelInputs()))
+print("Model outputs:" + str(onnx_ml.getModelOutputs()))
+
+# Map the model input to the input dataframe's column name (FeedDict), and map the output dataframe's column names to the model outputs (FetchDict).
+onnx_ml = (
+  onnx_ml
+    .setDeviceType("CPU")
+    .setFeedDict({"input": "features"})
+    .setFetchDict({"probability": "probabilities", "prediction": "label"})
+    .setMiniBatchSize(5000)
+)
+
+# Create some testing data and transform the data through the ONNX model.
+from pyspark.ml.feature import VectorAssembler
+import pandas as pd
+import numpy as np
+
+n = 1000 * 1000
+m = 95
+test = np.random.rand(n, m)
+testPdf = pd.DataFrame(test)
+cols = list(map(str, testPdf.columns))
+testDf = spark.createDataFrame(testPdf)
+testDf = testDf.union(testDf).repartition(200)
+testDf = VectorAssembler().setInputCols(cols).setOutputCol("features").transform(testDf).drop(*cols).cache()
+
+display(onnx_ml.transform(testDf))
+    `,
+  },
+  {
+    label: "Model Interpretability",
+    further: "/docs/features/model_interpretability/about",
+    config: `from mmlspark.explainers import *
+import urllib.request
+
+# We download an image for interpretation.
+test_image_url = (
+  "https://mmlspark.blob.core.windows.net/publicwasb/explainers/images/david-lusvardi-dWcUncxocQY-unsplash.jpg"
+)
+with urllib.request.urlopen(test_image_url) as url:
+  barr = url.read()
+
+# Create a dataframe from the downloaded image, and use ResNet50 model to infer the image.
+image_df = spark.createDataFrame([(bytearray(barr),)], ["image"])
+network = ModelDownloader(spark, "dbfs:/Models/").downloadByName("ResNet50")
+model = ImageFeaturizer(inputCol="image", outputCol="probability", cutOutputLayers=0).setModel(network)
+
+predicted = (
+  model.transform(image_df)
+  .withColumn("top2pred", arg_top(col("probability"), lit(2)))
+  .withColumn("top2prob", vec_slice(col("probability"), col("top2pred")))
+)
+
+# Use the LIME image explainer to explain the model's top 2 classes' probabilities.
+lime = (
+  ImageLIME()
+  .setModel(model)
+  .setOutputCol("weights")
+  .setInputCol("image")
+  .setCellSize(50.0)
+  .setModifier(20.0)
+  .setNumSamples(500)
+  .setMetricsCol("r2")
+  .setTargetCol("probability")
+  .setTargetClassesCol("top2pred")
+  .setSamplingFraction(0.7)
+)
+
+lime_result = (
+  lime.transform(predicted)
+  .withColumn("weights_piano", col("weights").getItem(0))
+  .withColumn("weights_cello", col("weights").getItem(1))
+  .withColumn("r2_piano", vec_access("r2", lit(0)))
+  .withColumn("r2_cello", vec_access("r2", lit(1)))
+  .cache()
+)
+
+display(lime_result.select(col("weights_piano"), col("r2_piano"), col("weights_cello"), col("r2_cello")))
+    `,
+  },
+  {
+    label: "LightGBM",
+    further: "/docs/features/lightgbm/about",
+    config: `from mmlspark.lightgbm import LightGBMRegressor
+model = LightGBMRegressor(application='quantile',
+                          alpha=0.3,
+                          learningRate=0.3,
+                          numIterations=100,
+                          numLeaves=31).fit(train)`,
+  },
+];
 
 const features = [
   {
@@ -87,10 +219,7 @@ function Home() {
     <Layout
       title={`${siteConfig.title}`}
       description="Simple and Distributed Machine Learning"
-      keywords={[
-        "SynapseML",
-        "Machine Learning"
-      ]}
+      keywords={["SynapseML", "Machine Learning"]}
     >
       <header className={classnames("hero", styles.heroBanner)}>
         <div className="container">
@@ -104,7 +233,7 @@ function Home() {
                     "button button--outline button--primary button--lg",
                     styles.getStarted
                   )}
-                  to={useBaseUrl("docs/guides/installation")}
+                  to={useBaseUrl("docs/getting_started/installation")}
                 >
                   Get Started
                 </Link>
@@ -117,6 +246,31 @@ function Home() {
         </div>
       </header>
       <main>
+        <div className="container">
+          <div className="row">
+            <div className={classnames("col col--12")}>
+              {snippets && snippets.length && (
+                <section className={styles.configSnippets}>
+                  <Tabs
+                    defaultValue={snippets[0].label}
+                    values={snippets.map((props, idx) => {
+                      return { label: props.label, value: props.label };
+                    })}
+                  >
+                    {snippets.map((props, idx) => (
+                      <TabItem key={idx} value={props.label}>
+                        <SampleSnippet
+                          className={styles.configSnippet}
+                          {...props}
+                        ></SampleSnippet>
+                      </TabItem>
+                    ))}
+                  </Tabs>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
         {features && features.length && (
           <section className={styles.features}>
             <div className="container margin-vert--md">
@@ -131,9 +285,9 @@ function Home() {
         <div className="container">
           <div className="row">
             <div className={classnames(`${styles.pitch} col`)}>
-              <h2>It's boringly easy to use</h2>
+              <h2>Installation</h2>
               <p>
-                TOBECHANGED: Written in Scala, and support multiple languages.{" "}
+                Written in Scala, and support multiple languages.{" "}
                 <a href="https://github.com/microsoft/SynapseML">Open source</a>{" "}
                 and cloud native as utter heck.
               </p>

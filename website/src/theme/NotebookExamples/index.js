@@ -1,9 +1,6 @@
 import React from "react";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-
 import NotebookCard from "@theme/NotebookCard";
 
 

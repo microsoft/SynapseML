@@ -1,5 +1,5 @@
 const path = require('path');
-const {all_examples} = require('./src/plugins/notebooks');
+const {all_examples} = require('./src/plugins/examples');
 
 module.exports = {
   title: 'Synapse ML',
@@ -70,7 +70,7 @@ module.exports = {
           items: [
             {
               label: 'Installation',
-              to: 'docs/guides/installation',
+              to: 'docs/getting_started/installation',
             },
             {
               label: 'Videos',

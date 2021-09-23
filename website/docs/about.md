@@ -28,7 +28,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 import Link from '@docusaurus/Link';
 
-<Link to="/docs/guides/installation" className="button button--lg button--outline button--block button--primary">Get Started</Link>
+<Link to="/docs/getting_started/installation" className="button button--lg button--outline button--block button--primary">Get Started</Link>
 
 ## Examples
 
@@ -51,7 +51,3 @@ import FeatureCards from "@theme/FeatureCards";
 - [MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales](https://arxiv.org/abs/1810.08744)
 
 - [Flexible and Scalable Deep Learning with MMLSpark](https://arxiv.org/abs/1804.04031)
-
-[guides]: /cookbooks
-[docs.guides.getting_started]: /docs/guides/getting_started
-[docs.processors]: /docs/components/processors/about

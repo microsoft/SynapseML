@@ -7,7 +7,7 @@ function NotebookCard(props) {
   const {url} = props;
 
   return (
-    <Link to={`/docs/notebooks/${url.url_path}`} className={styles.notebookCard}>
+    <Link to={`/docs/${url.url_path}`} className={styles.notebookCard}>
       <strong>{url.name}</strong>
     </Link>
   );
