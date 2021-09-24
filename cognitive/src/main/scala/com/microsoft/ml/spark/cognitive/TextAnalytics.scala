@@ -15,7 +15,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StringType, _}
+import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -176,6 +176,31 @@ trait HasLanguage extends HasServiceParams {
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 }
 
+trait HasModelVersion extends HasServiceParams {
+  val modelVersion = new ServiceParam[String](this, "modelVersion",
+    "This value indicates which model will be used for scoring." +
+      " If a model-version is not specified, the API should default to the latest," +
+      " non-preview version.", isURLParam = true)
+
+  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+}
+
+trait HasShowStats extends HasServiceParams {
+  val showStats = new ServiceParam[Boolean](this, "showStats",
+    "if set to true, response will contain input and document level statistics.", isURLParam = true)
+
+  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
+}
+
+trait HasStringIndexType extends HasServiceParams {
+  val stringIndexType = new ServiceParam[String](this, "stringIndexType",
+    "Specifies the method used to interpret string offsets. " +
+      "Defaults to Text Elements (Graphemes) according to Unicode v8.0.0. " +
+      "For additional information see https://aka.ms/text-analytics-offsets", isURLParam = true)
+
+  def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
+}
+
 object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
 class TextSentimentV2(override val uid: String)
@@ -244,26 +269,20 @@ class KeyPhraseExtractorV2(override val uid: String)
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 class TextSentiment(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TextSentiment"))
 
-  val showStats = new ServiceParam[Boolean](this, "showStats",
-    "if set to true, response will contain input and document level statistics.", isURLParam = true)
+  val opinionMining = new ServiceParam[Boolean](this, "opinionMining",
+    "if set to true, response will contain not only sentiment prediction but also opinion mining " +
+      "(aspect-based sentiment analysis) results.", isURLParam = true)
 
-  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
-
-  val modelVersion = new ServiceParam[String](this, "modelVersion",
-    "This value indicates which model will be used for scoring." +
-      " If a model-version is not specified, the API should default to the latest," +
-      " non-preview version.", isURLParam = true)
-
-  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+  def setOpinionMining(v: Boolean): this.type = setScalarParam(opinionMining, v)
 
   override def responseDataType: StructType = SentimentResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/sentiment"
+  def urlPath: String = "/text/analytics/v3.1/sentiment"
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
@@ -271,40 +290,51 @@ class TextSentiment(override val uid: String)
       request
     }
   }
-
 }
 
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
 
   override def responseDataType: StructType = KeyPhraseResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/keyPhrases"
+  def urlPath: String = "/text/analytics/v3.1/keyPhrases"
 }
 
 object NER extends ComplexParamsReadable[NER]
 
-class NER(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+class NER(override val uid: String)
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("NER"))
 
   override def responseDataType: StructType = NERResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/entities/recognition/general"
+  def urlPath: String = "/text/analytics/v3.1/entities/recognition/general"
 }
 
 object PII extends ComplexParamsReadable[PII]
 
-class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+class PII(override val uid: String)
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("PII"))
+
+  val domain = new ServiceParam[String](this, "domain",
+    "if specified, will set the PII domain to include only a subset of the entity categories. " +
+      "Possible values include: 'PHI', 'none'.", isURLParam = true)
+  val piiCategories = new ServiceParam[Seq[String]](this, "piiCategories",
+    "describes the PII categories to return", isURLParam = true)
+
+  def setDomain(v: String): this.type = setScalarParam(domain, v)
+
+  def setPiiCategories(v: Seq[String]): this.type = setScalarParam(piiCategories, v)
 
   override def responseDataType: StructType = PIIResponseV3.schema
 
@@ -314,25 +344,25 @@ class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLog
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetector"))
 
   override def responseDataType: StructType = DetectLanguageResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/languages"
+  def urlPath: String = "/text/analytics/v3.1/languages"
 }
 
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
 class EntityDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetector"))
 
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
 
-  def urlPath: String = "/text/analytics/v3.0/entities/linking"
+  def urlPath: String = "/text/analytics/v3.1/entities/linking"
 }
