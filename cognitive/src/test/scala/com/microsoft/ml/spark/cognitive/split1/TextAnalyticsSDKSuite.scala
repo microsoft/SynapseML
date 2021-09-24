@@ -235,16 +235,21 @@ class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with Text
     (Seq("abc", "/."), Seq("Today is a wonderful day.", "I hate the cold"))
   ).toDF("lang", "text")
 
+  lazy val keyColDF: DataFrame = Seq(
+    ("testKey1", Seq("Hello I love text Analytics")),
+    ("testKey2", Seq("rain is bad"))
+  ).toDF("keyCol", "text")
+
   def getDetector: TextSentimentV4 = new TextSentimentV4()
-    .setSubscriptionKey(textKey)
-    .setLocation("eastus")
+    .setSubscriptionKeyCol("keyCol")
+    .setLocation("eastus2euap")
     .setTextCol("text")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Include Opinion Mining") {
     val replies = getDetector
       .setIncludeOpinionMining(true)
-      .transform(batchedDF)
+      .transform(keyColDF)
       .select("output")
       .collect()
     assert(replies(0).schema(0).name == "output")

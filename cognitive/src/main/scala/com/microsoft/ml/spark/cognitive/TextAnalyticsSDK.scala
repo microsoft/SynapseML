@@ -78,9 +78,10 @@ abstract class TextAnalyticsSDKBase[T]()
   protected def transformTextRows(toRow: TAResponseV4[T] => Row)
                                  (rows: Iterator[Row]): Iterator[Row] = {
     if (rows.hasNext) {
+      val key = new AzureKeyCredential("placeholder")
       val client = new TextAnalyticsClientBuilder()
         .retryPolicy(new RetryPolicy("Retry-After", ChronoUnit.SECONDS))
-        .credential(new AzureKeyCredential(getSubscriptionKey))
+        .credential(key)
         .endpoint(getUrl)
         .buildClient()
 
@@ -90,6 +91,7 @@ abstract class TextAnalyticsSDKBase[T]()
 
       val futures = rows.map { row =>
         Future {
+          key.update(getValue(row, subscriptionKey))
           val results = invokeTextAnalytics(client, getValue(row, text), getValue(row, language))
           Row.fromSeq(row.toSeq ++ Seq(toRow(results))) // Adding a new column
         }(ExecutionContext.global)
