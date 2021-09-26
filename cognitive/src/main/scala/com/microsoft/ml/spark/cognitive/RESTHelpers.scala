@@ -28,6 +28,8 @@ object RESTHelpers {
     cm
   }
 
+  lazy val IfSynapse: Boolean = sys.env.getOrElse("AZURE_SERVICE", "None") == "Microsoft.ProjectArcadia"
+
   lazy val Client: CloseableHttpClient = HttpClientBuilder
     .create().setConnectionManager(ConnectionManager)
     .setDefaultRequestConfig(RequestConfigVal).build()
