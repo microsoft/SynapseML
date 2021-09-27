@@ -1,11 +1,8 @@
 ---
 title: Regression - Flight Delays
 hide_title: true
-type: notebook
 status: stable
-categories: ["Regression"]
 ---
-
 ## Regression - Flight Delays
 
 In this example, we run a linear regression on the *Flight Delay* dataset to predict the delay times.
@@ -13,6 +10,14 @@ In this example, we run a linear regression on the *Flight Delay* dataset to pre
 We demonstrate how to use the `TrainRegressor` and the `ComputePerInstanceStatistics` APIs.
 
 First, import the packages.
+
+
+```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
 
 
 ```python
@@ -63,8 +68,11 @@ Save, load, or Score the regressor on the test data.
 
 
 ```python
-import random
-model_name = "dbfs:/flightDelayModel.mml"
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    model_name = "/models/flightDelayModel.mml"
+else:
+    model_name = "dbfs:/flightDelayModel.mml"
+
 model.write().overwrite().save(model_name)
 flightDelayModel = TrainedRegressorModel.load(model_name)
 

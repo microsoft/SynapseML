@@ -1,33 +1,33 @@
 ---
-title: ModelInterpretation - Snow Leopard Detection
+title: ModelInterpretability - Snow Leopard Detection
 hide_title: true
-type: notebook
 status: stable
-categories: ["Model Interpretation"]
 ---
-
-
 ## Automated Snow Leopard Detection with Microsoft ML for Apache Spark
 
-<img src="/img/notebooks/SLTrust.png" width="900" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/SLTrust.PNG" width="900" />
 
 
 ```python
 import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+    from notebookutils.mssparkutils.credentials import getSecret
+    os.environ["BING_IMAGE_SEARCH_KEY"] = getSecret("mmlspark-keys", "bing-image-search-key")
 
 # WARNING this notebook requires alot of memory.
 # If you get a heap space error, try dropping the number of images bing returns
 # or by writing out the images to parquet first
 
 # Replace the following with a line like: BING_IMAGE_SEARCH_KEY =  "hdwo2oyd3o928s....."
-BING_IMAGE_SEARCH_KEY = os.environ["BING_IMAGE_SEARCH_KEY"] #please add your key here
+BING_IMAGE_SEARCH_KEY = os.environ["BING_IMAGE_SEARCH_KEY"]
 ```
 
 
 ```python
 from mmlspark.cognitive import *
 from mmlspark.core.spark import FluentAPI
-import os
 from pyspark.sql.functions import lit
 
 def bingPhotoSearch(name, queries, pages):
@@ -49,7 +49,7 @@ def bingPhotoSearch(name, queries, pages):
 
 ```
 
-<img src="/img/notebooks/cog_services.png" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/SparkSummit2/cog_services.png" width="900" />
 
 
 ```python
@@ -62,23 +62,7 @@ def displayDF(df, n=5, image_cols = set(["urls"])):
 <!DOCTYPE html>
 <html>
 <head>
-<style>
-table {
-    font-family: arial, sans-serif;
-    border-collapse: collapse;
-    width: 300;
-}
 
-td, th {
-    border: 1px solid #dddddd;
-    text-align: left;
-    padding: 8px;
-}
-
-tr:nth-child(even) {
-    background-color: #dddddd;
-}
-</style>
 </head>"""
   
   table = []
@@ -126,23 +110,37 @@ randomWords.show()
 
 ```python
 randomLinks = randomWords \
+
   .mlTransform(BingImageSearch()
+
     .setSubscriptionKey(BING_IMAGE_SEARCH_KEY)
+
     .setCount(10)
+
     .setQueryCol("words")
+
     .setOutputCol("images")) \
+
   .mlTransform(BingImageSearch.getUrlTransformer("images", "urls")) \
+
   .withColumn("label", lit("other")) \
+
   .limit(400)
+
   
+
 displayDF(randomLinks)
 ```
 
 
 ```python
 images = snowLeopardUrls.union(randomLinks).distinct().repartition(100)\
+
   .mlTransform(BingImageSearch.downloadFromUrls("urls", "image", concurrency=5, timeout=5000))\
+
   .dropna()
+
+
 
 train, test = images.randomSplit([.7,.3], seed=1)
 ```
@@ -150,67 +148,120 @@ train, test = images.randomSplit([.7,.3], seed=1)
 
 ```python
 from pyspark.ml import Pipeline
+
 from pyspark.ml.feature import StringIndexer
+
 from pyspark.ml.classification import LogisticRegression
+
 from pyspark.sql.functions import udf
+
 from mmlspark.downloader import ModelDownloader
+
 from mmlspark.cntk import ImageFeaturizer
+
 from mmlspark.stages import UDFTransformer
+
 from pyspark.sql.types import *
 
+
+
 def getIndex(row):
+
   return float(row[1])
 
-try:
-  network = ModelDownloader(spark, "Models/").downloadByName("ResNet50")
-except:
+
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
+  network = ModelDownloader(spark, "abfss://synapse@mmlsparkeuap.dfs.core.windows.net/models/").downloadByName("ResNet50")
+
+else:
+
   network = ModelDownloader(spark, "dbfs:/Models/").downloadByName("ResNet50")
 
+
+
 model = Pipeline(stages=[
+
   StringIndexer(inputCol = "labels", outputCol="index"),
+
   ImageFeaturizer(inputCol="image", outputCol="features", cutOutputLayers=1).setModel(network),
+
   LogisticRegression(maxIter=5, labelCol="index", regParam=10.0),
+
   UDFTransformer()\
+
       .setUDF(udf(getIndex, DoubleType()))\
+
       .setInputCol("probability")\
+
       .setOutputCol("leopard_prob")
+
 ])
+
+
 
 fitModel = model.fit(train)
 ```
 
-<img src="/img/notebooks/SLPipeline.png" width="900" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/SLPipeline.PNG" width="900" />
 
 
 ```python
 def plotConfusionMatrix(df, label, prediction, classLabels):
+
   from mmlspark.plot import confusionMatrix
+
   import matplotlib.pyplot as plt
+
   fig = plt.figure(figsize=(4.5, 4.5))
+
   confusionMatrix(df, label, prediction, classLabels)
+
   display(fig)
 
-plotConfusionMatrix(fitModel.transform(test), "index", "prediction", fitModel.stages[0].labels)
+
+
+if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
+
+  plotConfusionMatrix(fitModel.transform(test), "index", "prediction", fitModel.stages[0].labels)
 ```
 
 
 ```python
 import urllib.request
+
 from mmlspark.lime import ImageLIME
 
+
+
 test_image_url = "https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/snow_leopard1.jpg"
+
 with urllib.request.urlopen(test_image_url) as url:
+
     barr = url.read()
+
 test_subsample = spark.createDataFrame([(bytearray(barr),)], ["image"])
 
+
+
 lime = ImageLIME()\
+
   .setModel(fitModel)\
+
   .setPredictionCol("leopard_prob")\
+
   .setOutputCol("weights")\
+
   .setInputCol("image")\
+
   .setCellSize(100.0)\
+
   .setModifier(50.0)\
+
   .setNSamples(300)
+
+
 
 result = lime.transform(test_subsample)
 ```
@@ -237,8 +288,9 @@ def plot_superpixels(row):
     display()
 
 # Gets first row from the LIME-transformed data frame
-plot_superpixels(result.take(1)[0])
+if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
+    plot_superpixels(result.take(1)[0])
 ```
 
 ### Your results will look like:
-<img src="/img/notebooks/lime_results.png" width="900" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/lime_results.png" width="900" />

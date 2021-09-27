@@ -1,43 +1,129 @@
 ---
 title: Vowpal Wabbit - Overview
 hide_title: true
-type: notebook
 status: stable
-categories: ["Vowpal Wabbit"]
 ---
+<img width="200" src="https://mmlspark.blob.core.windows.net/graphics/emails/vw-blue-dark-orange.svg" />
 
-<img src="/img/notebooks/vw-blue-dark-orange.svg" width="200"/>
+
 
 # VowalWabbit 
 
+
+
 [VowpalWabbit](https://github.com/VowpalWabbit/vowpal_wabbit) (VW) is a machine learning system which
+
 pushes the frontier of machine learning with techniques such as online, hashing, allreduce,
+
 reductions, learning2search, active, and interactive learning. 
+
 VowpalWabbit is a popular choice in ad-tech due to it's speed and cost efficacy. 
+
 Furthermore it includes many advances in the area of reinforcement learning (e.g. contextual bandits). 
 
-### Usage:
+
+
+### Advantages of VowpalWabbit
+
+
+
+-  **Composability**: VowpalWabbit models can be incorporated into existing
+
+    SparkML Pipelines, and used for batch, streaming, and serving workloads.
+
+-  **Small footprint**: VowpalWabbit memory consumption is rather small and can be controlled through '-b 18' or setNumBits method.   
+
+    This determines the size of the model (e.g. 2^18 * some_constant).
+
+-  **Feature Interactions**: Feature interactions (e.g. quadratic, cubic,... terms) are created on-the-fly within the most inner
+
+    learning loop in VW.
+
+    Interactions can be specified by using the -q parameter and passing the first character of the namespaces that should be _interacted_. 
+
+    The VW namespace concept is mapped to Spark using columns. The column name is used as namespace name, thus one sparse or dense Spark ML vector corresponds to the features of a single namespace. 
+
+    To allow passing of multiple namespaces the VW estimator (classifier or regression) expose an additional property called _additionalFeatures_. Users can pass an array of column names.
+
+-  **Simple deployment**: all native dependencies are packaged into a single jars (including boost and zlib).
+
+-  **VowpalWabbit command line arguments**: users can pass VW command line arguments to control the learning process.
+
+-  **VowpalWabbit binary models** Users can supply an inital VowpalWabbit model to start the training which can be produced outside of 
+
+    VW on Spark by invoking _setInitialModel_ and pass the model as a byte array. Similarly users can access the binary model by invoking
+
+    _getModel_ on the trained model object.
+
+-  **Java-based hashing** VWs version of murmur-hash was re-implemented in Java (praise to [JackDoe](https://github.com/jackdoe)) 
+
+    providing a major performance improvement compared to passing input strings through JNI and hashing in C++.
+
+-  **Cross language** VowpalWabbit on Spark is available on Spark, PySpark, and SparklyR.
+
+
+
+### Limitations of VowpalWabbit on Spark
+
+
+
+-  **Linux and CentOS only** The native binaries included with the published jar are built Linux and CentOS only.
+
+    We're working on creating a more portable version by statically linking Boost and lib C++.
+
+-  **Limited Parsing** Features implemented in the native VW parser (e.g. ngrams, skips, ...) are not yet implemented in
+
+    VowpalWabbitFeaturizer.
+
+
+
+### VowpalWabbit Usage:
+
+
 
 -  VowpalWabbitClassifier: used to build classification models.
+
 -  VowpalWabbitRegressor: used to build regression models.
+
 -  VowpalWabbitFeaturizer: used for feature hashing and extraction. For details please visit [here](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Feature-Hashing-and-Extraction).
+
 -  VowpalWabbitContextualBandit: used to solve contextual bandits problems. For algorithm details please visit [here](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms).
 
 ## Heart Disease Detection with VowalWabbit Classifier
 
-<img src="/img/notebooks/heart-disease.png" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/heart disease.png" width="800" />
 
 #### Read dataset
 
 
 ```python
+import os
+
+
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+```
+
+
+```python
 df = spark.read.format("csv")\
+
   .option("header", True)\
+
   .option("inferSchema", True)\
+
   .load("wasbs://publicwasb@mmlspark.blob.core.windows.net/heart_disease_prediction_data.csv")
+
 # print dataset basic info
+
 print("records read: " + str(df.count()))
+
 print("Schema: ")
+
 df.printSchema()
 ```
 
@@ -320,7 +406,9 @@ axe.set_title("Vowpal Wabbit")
 
 ## Quantile Regression for Drug Discovery with VowpalWabbitRegressor
 
-<img src="/img/notebooks/drug.png" width="800"/>
+
+
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/drug.png" width="800" />
 
 #### Read dataset
 

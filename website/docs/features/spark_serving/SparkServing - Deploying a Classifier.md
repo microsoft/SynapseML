@@ -1,14 +1,19 @@
 ---
 title: SparkServing - Deploying a Classifier
 hide_title: true
-type: notebook
 status: stable
-categories: ["Spark Serving"]
 ---
-
 ## Model Deployment with Spark Serving 
 In this example, we try to predict incomes from the *Adult Census* dataset. Then we will use Spark serving to deploy it as a realtime web service. 
 First, we import needed packages:
+
+
+```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
 
 
 ```python

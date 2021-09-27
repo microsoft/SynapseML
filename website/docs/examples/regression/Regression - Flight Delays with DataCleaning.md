@@ -1,11 +1,8 @@
 ---
-title: Regression -  Flight Delays with DataCleaning
+title: Regression - Flight Delays with DataCleaning
 hide_title: true
-type: notebook
 status: stable
-categories: ["Regression"]
 ---
-
 ## Regression -  Flight Delays with DataCleaning
 
 This example notebook is similar to
@@ -25,6 +22,14 @@ This sample demonstrates how to use the following APIs:
   ](http://mmlspark.azureedge.net/docs/pyspark/DataConversion.html)
 
 First, import the pandas package
+
+
+```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
 
 
 ```python

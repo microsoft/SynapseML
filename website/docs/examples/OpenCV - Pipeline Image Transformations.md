@@ -1,11 +1,8 @@
 ---
 title: OpenCV - Pipeline Image Transformations
 hide_title: true
-type: notebook
 status: stable
-categories: ["OpenCV"]
 ---
-
 ## OpenCV - Pipeline Image Transformations
 
 This example shows how to manipulate the collection of images.
@@ -18,6 +15,11 @@ sub-fields (path, height, width, OpenCV type and OpenCV bytes).
 
 
 ```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+
 import mmlspark
 import numpy as np
 from mmlspark.opencv import toNDArray
@@ -93,7 +95,7 @@ from mmlspark.opencv import ImageTransformer
 
 tr = (ImageTransformer()                  # images are resized and then cropped
       .setOutputCol("transformed")
-      .resize(height = 200, width = 200)
+      .resize(size=(200, 200))
       .crop(0, 0, height = 180, width = 180) )
 
 small = tr.transform(images).select("transformed")

@@ -1,11 +1,8 @@
 ---
 title: DeepLearning - Transfer Learning
 hide_title: true
-type: notebook
 status: stable
-categories: ["Deep Learning"]
 ---
-
 ## DeepLearning - Transfer Learning
 
 Classify automobile vs airplane using DNN featurization and transfer learning

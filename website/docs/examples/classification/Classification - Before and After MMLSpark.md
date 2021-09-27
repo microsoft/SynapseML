@@ -1,16 +1,13 @@
 ---
 title: Classification - Before and After MMLSpark
 hide_title: true
-type: notebook
 status: stable
-categories: ["Classification"]
 ---
-
 ## Classification - Before and After MMLSpark
 
 ### 1. Introduction
 
-<img src="/img/notebooks/bookstore-photo.jpg" title="Image from https://images-na.ssl-images-amazon.com/images/G/01/img16/books/bookstore/landing-page/1000638_books_landing-page_bookstore-photo-01.jpg" />
+<p><img src="https://images-na.ssl-images-amazon.com/images/G/01/img16/books/bookstore/landing-page/1000638_books_landing-page_bookstore-photo-01.jpg"  title="Image from https://images-na.ssl-images-amazon.com/images/G/01/img16/books/bookstore/landing-page/1000638_books_landing-page_bookstore-photo-01.jpg" /><br /></p>
 
 In this tutorial, we perform the same classification task in two
 different ways: once using plain **`pyspark`** and once using the
@@ -22,6 +19,14 @@ The task is simple: Predict whether a user's review of a book sold on
 Amazon is good (rating > 3) or bad based on the text of the review.  We
 accomplish this by training LogisticRegression learners with different
 hyperparameters and choosing the best model.
+
+
+```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
 
 ### 2. Read the data
 

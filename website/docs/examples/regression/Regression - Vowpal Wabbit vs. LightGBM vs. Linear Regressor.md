@@ -1,11 +1,8 @@
 ---
 title: Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor
 hide_title: true
-type: notebook
 status: stable
-categories: ["Regression", "Vowpal Wabbit", "LightGBM"]
 ---
-
 # Vowpal Wabbit and LightGBM for a Regression Problem
 
 This notebook shows how to build simple regression models by using 
@@ -16,10 +13,15 @@ This notebook shows how to build simple regression models by using
 
 
 ```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
+
+
+```python
 import math
-from matplotlib.colors import ListedColormap, Normalize
-from matplotlib.cm import get_cmap
-import matplotlib.pyplot as plt
 from mmlspark.train import ComputeModelStatistics
 from mmlspark.vw import VowpalWabbitRegressor, VowpalWabbitFeaturizer
 from mmlspark.lightgbm import LightGBMRegressor
@@ -42,9 +44,7 @@ boston = load_boston()
 
 feature_cols = ['f' + str(i) for i in range(boston.data.shape[1])]
 header = ['target'] + feature_cols
-df = spark.createDataFrame(
-    pd.DataFrame(data=np.column_stack((boston.target, boston.data)), columns=header)
-).repartition(1)
+df = spark.createDataFrame(pd.DataFrame(data=np.column_stack((boston.target, boston.data)), columns=header)).repartition(1)
 print("Dataframe has {} rows".format(df.count()))
 display(df.limit(10).toPandas())
 ```
@@ -52,8 +52,6 @@ display(df.limit(10).toPandas())
 
 ```python
 train_data, test_data = df.randomSplit([0.75, 0.25], seed=42)
-train_data.cache()
-test_data.cache()
 ```
 
 Following is the summary of the training set.
@@ -71,24 +69,6 @@ features = train_data.columns[1:]
 values = train_data.drop('target').toPandas()
 ncols = 5
 nrows = math.ceil(len(features) / ncols)
-
-yy = [r['target'] for r in train_data.select('target').collect()]
-
-f, axes = plt.subplots(nrows, ncols, sharey=True, figsize=(30,10))
-f.tight_layout()
-
-for irow in range(nrows):
-    axes[irow][0].set_ylabel('target')
-    for icol in range(ncols):
-        try:
-            feat = features[irow*ncols + icol]
-            xx = values[feat]
-
-            axes[irow][icol].scatter(xx, yy, s=10, alpha=0.25)
-            axes[irow][icol].set_xlabel(feat)
-            axes[irow][icol].get_yaxis().set_ticks([])
-        except IndexError:
-            f.delaxes(axes[irow][icol])
 ```
 
 ## Baseline - Spark MLlib Linear Regressor
@@ -97,10 +77,7 @@ First, we set a baseline performance by using Linear Regressor in Spark MLlib.
 
 
 ```python
-featurizer = VectorAssembler(
-    inputCols=feature_cols,
-    outputCol='features'
-)
+featurizer = VectorAssembler(inputCols=feature_cols, outputCol='features')
 lr_train_data = featurizer.transform(train_data)['target', 'features']
 lr_test_data = featurizer.transform(test_data)['target', 'features']
 display(lr_train_data.limit(10).toPandas())
@@ -109,9 +86,7 @@ display(lr_train_data.limit(10).toPandas())
 
 ```python
 # By default, `maxIter` is 100. Other params you may want to change include: `regParam`, `elasticNetParam`, etc.
-lr = LinearRegression(
-    labelCol='target',
-)
+lr = LinearRegression(labelCol='target')
 
 lr_model = lr.fit(lr_train_data)
 lr_predictions = lr_model.transform(lr_test_data)
@@ -130,8 +105,7 @@ We evaluate the prediction result by using `mmlspark.train.ComputeModelStatistic
 metrics = ComputeModelStatistics(
     evaluationMetric='regression',
     labelCol='target',
-    scoresCol='prediction'
-).transform(lr_predictions)
+    scoresCol='prediction').transform(lr_predictions)
 
 results = metrics.toPandas()
 results.insert(0, 'model', ['Spark MLlib - Linear Regression'])
@@ -146,8 +120,8 @@ Perform VW-style feature hashing. Many types (numbers, string, bool, map of stri
 ```python
 vw_featurizer = VowpalWabbitFeaturizer(
     inputCols=feature_cols,
-    outputCol='features',
-)
+    outputCol='features')
+
 vw_train_data = vw_featurizer.transform(train_data)['target', 'features']
 vw_test_data = vw_featurizer.transform(test_data)['target', 'features']
 display(vw_train_data.limit(10).toPandas())
@@ -162,8 +136,7 @@ args = "--holdout_off --loss_function quantile -l 7 -q :: --power_t 0.3"
 vwr = VowpalWabbitRegressor(
     labelCol='target',
     args=args,
-    numPasses=100,
-)
+    numPasses=100)
 
 # To reduce number of partitions (which will effect performance), use `vw_train_data.repartition(1)`
 vw_train_data_2 = vw_train_data.repartition(1).cache()
@@ -179,15 +152,14 @@ display(vw_predictions.limit(10).toPandas())
 metrics = ComputeModelStatistics(
     evaluationMetric='regression',
     labelCol='target',
-    scoresCol='prediction'
-).transform(vw_predictions)
+    scoresCol='prediction').transform(vw_predictions)
 
 vw_result = metrics.toPandas()
 vw_result.insert(0, 'model', ['Vowpal Wabbit'])
 results = results.append(
     vw_result,
-    ignore_index=True
-)
+    ignore_index=True)
+
 display(results)
 ```
 
@@ -196,19 +168,32 @@ display(results)
 
 ```python
 lgr = LightGBMRegressor(
+
     objective='quantile',
+
     alpha=0.2,
+
     learningRate=0.3,
+
     numLeaves=31,
+
     labelCol='target',
-    numIterations=100,
-)
+
+    numIterations=100)
+
+
 
 # Using one partition since the training dataset is very small
+
 repartitioned_data = lr_train_data.repartition(1).cache()
+
 print(repartitioned_data.count())
+
 lg_model = lgr.fit(repartitioned_data)
+
 lg_predictions = lg_model.transform(lr_test_data)
+
+
 
 display(lg_predictions.limit(10).toPandas())
 ```
@@ -216,50 +201,125 @@ display(lg_predictions.limit(10).toPandas())
 
 ```python
 metrics = ComputeModelStatistics(
+
     evaluationMetric='regression',
+
     labelCol='target',
-    scoresCol='prediction'
-).transform(lg_predictions)
+
+    scoresCol='prediction').transform(lg_predictions)
+
+
 
 lg_result = metrics.toPandas()
+
 lg_result.insert(0, 'model', ['LightGBM'])
+
+
+
 results = results.append(
+
     lg_result,
-    ignore_index=True
-)
+
+    ignore_index=True)
+
+
+
 display(results)
 ```
 
 Following figure shows the actual-vs.-prediction graphs of the results:
 
-<img src="/img/notebooks/regression_comparison.png" width="1102" alt="lr-vw-lg" />
+
+
+<img width="1102" alt="lr-vw-lg" src="https://user-images.githubusercontent.com/42475935/64071975-4c3e9600-cc54-11e9-8b1f-9a1ee300f445.png"/>
 
 
 ```python
-cmap = get_cmap('YlOrRd')
+if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
 
-target = np.array(test_data.select('target').collect()).flatten()
-model_preds = [
-    ("Spark MLlib Linear Regression", lr_predictions),
-    ("Vowpal Wabbit", vw_predictions),
-    ("LightGBM", lg_predictions)
-]
+    from matplotlib.colors import ListedColormap, Normalize
 
-f, axes = plt.subplots(1, len(model_preds), sharey=True, figsize=(18, 6))
-f.tight_layout()
+    from matplotlib.cm import get_cmap
 
-for i, (model_name, preds) in enumerate(model_preds):
-    preds = np.array(preds.select('prediction').collect()).flatten()
-    err = np.absolute(preds - target)
+    import matplotlib.pyplot as plt
 
-    norm = Normalize()
-    clrs = cmap(np.asarray(norm(err)))[:, :-1]
-    axes[i].scatter(preds, target, s=60, c=clrs, edgecolors='#888888', alpha=0.75)
-    axes[i].plot((0, 60), (0, 60), linestyle='--', color='#888888')
-    axes[i].set_xlabel('Predicted values')
-    if i ==0:
-        axes[i].set_ylabel('Actual values')
-    axes[i].set_title(model_name)
+
+
+    f, axes = plt.subplots(nrows, ncols, sharey=True, figsize=(30,10))
+
+    f.tight_layout()
+
+    yy = [r['target'] for r in train_data.select('target').collect()]
+
+    for irow in range(nrows):
+
+        axes[irow][0].set_ylabel('target')
+
+        for icol in range(ncols):
+
+            try:
+
+                feat = features[irow*ncols + icol]
+
+                xx = values[feat]
+
+                axes[irow][icol].scatter(xx, yy, s=10, alpha=0.25)
+
+                axes[irow][icol].set_xlabel(feat)
+
+                axes[irow][icol].get_yaxis().set_ticks([])
+
+            except IndexError:
+
+                f.delaxes(axes[irow][icol])
+
+
+
+    cmap = get_cmap('YlOrRd')
+
+
+
+    target = np.array(test_data.select('target').collect()).flatten()
+
+    model_preds = [
+
+        ("Spark MLlib Linear Regression", lr_predictions),
+
+        ("Vowpal Wabbit", vw_predictions),
+
+        ("LightGBM", lg_predictions)]
+
+
+
+    f, axes = plt.subplots(1, len(model_preds), sharey=True, figsize=(18, 6))
+
+    f.tight_layout()
+
+
+
+    for i, (model_name, preds) in enumerate(model_preds):
+
+        preds = np.array(preds.select('prediction').collect()).flatten()
+
+        err = np.absolute(preds - target)
+
+
+
+        norm = Normalize()
+
+        clrs = cmap(np.asarray(norm(err)))[:, :-1]
+
+        axes[i].scatter(preds, target, s=60, c=clrs, edgecolors='#888888', alpha=0.75)
+
+        axes[i].plot((0, 60), (0, 60), linestyle='--', color='#888888')
+
+        axes[i].set_xlabel('Predicted values')
+
+        if i ==0:
+
+            axes[i].set_ylabel('Actual values')
+
+        axes[i].set_title(model_name)
 ```
 
 

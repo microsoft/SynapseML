@@ -1,14 +1,11 @@
 ---
 title: ConditionalKNN - Exploring Art Across Cultures
 hide_title: true
-type: notebook
 status: stable
-categories: ["Conditional KNN"]
 ---
-
 # Exploring Art across Culture and Medium with Fast, Conditional, k-Nearest Neighbors
 
-<img src="/img/notebooks/cross_cultural_matches.jpg"  width="600"/>
+<img src="https://mmlspark.blob.core.windows.net/graphics/art/cross_cultural_matches.jpg"  width="600"/>
 
 This notebook serves as a guideline for match-finding via k-nearest-neighbors. In the code below, we will set up code that allows queries involving cultures and mediums of art amassed from the Metropolitan Museum of Art in NYC and the Rijksmuseum in Amsterdam.
 
@@ -20,6 +17,7 @@ Import necessary Python libraries and prepare dataset.
 
 
 ```python
+from pyspark.sql.types import BooleanType
 from pyspark.sql.types import *
 from pyspark.ml.feature import Normalizer
 from pyspark.sql.functions import lit, array, array_contains, udf, col, struct
@@ -30,6 +28,13 @@ from io import BytesIO
 import requests
 import numpy as np
 import matplotlib.pyplot as plt
+
+import os
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+
 ```
 
 Our dataset comes from a table containing artwork information from both the Met and Rijks museums. The schema is as follows:
@@ -52,8 +57,10 @@ Our dataset comes from a table containing artwork information from both the Met 
 
 ```python
 # loads the dataset and the two trained CKNN models for querying by medium and culture
-df = spark.read.parquet("wasbs://publicwasb@mmlspark.blob.core.windows.net/met_and_rijks.parquet")
+df = spark.read.parquet(
+    "wasbs://publicwasb@mmlspark.blob.core.windows.net/met_and_rijks.parquet")
 display(df.drop("Norm_Features"))
+
 ```
 
 #### Define categories to be queried on
@@ -61,16 +68,14 @@ We will be using two kNN models: one for culture, and one for medium. The catego
 
 
 ```python
-from pyspark.sql.types import BooleanType
-
-#mediums = ['prints', 'drawings', 'ceramics', 'textiles', 'paintings', "musical instruments","glass", 'accessories', 'photographs',  "metalwork", 
+# mediums = ['prints', 'drawings', 'ceramics', 'textiles', 'paintings', "musical instruments","glass", 'accessories', 'photographs',  "metalwork",
 #           "sculptures", "weapons", "stone", "precious", "paper", "woodwork", "leatherwork", "uncategorized"]
 
 mediums = ['paintings', 'glass', 'ceramics']
 
-#cultures = ['african (general)', 'american', 'ancient american', 'ancient asian', 'ancient european', 'ancient middle-eastern', 'asian (general)', 
-#            'austrian', 'belgian', 'british', 'chinese', 'czech', 'dutch', 'egyptian']#, 'european (general)', 'french', 'german', 'greek', 
-#            'iranian', 'italian', 'japanese', 'latin american', 'middle eastern', 'roman', 'russian', 'south asian', 'southeast asian', 
+# cultures = ['african (general)', 'american', 'ancient american', 'ancient asian', 'ancient european', 'ancient middle-eastern', 'asian (general)',
+#            'austrian', 'belgian', 'british', 'chinese', 'czech', 'dutch', 'egyptian']#, 'european (general)', 'french', 'german', 'greek',
+#            'iranian', 'italian', 'japanese', 'latin american', 'middle eastern', 'roman', 'russian', 'south asian', 'southeast asian',
 #            'spanish', 'swiss', 'various']
 
 cultures = ['japanese', 'american', 'african (general)']
@@ -83,9 +88,11 @@ medium_set = set(mediums)
 culture_set = set(cultures)
 selected_ids = {"AK-RBK-17525-2", "AK-MAK-1204", "AK-RAK-2015-2-9"}
 
-small_df = df.where(udf(lambda medium, culture, id_val: (medium in medium_set) or (culture in culture_set) or (id_val in selected_ids), BooleanType())("Classification", "Culture", "id"))
+small_df = df.where(udf(lambda medium, culture, id_val: (medium in medium_set) or (
+    culture in culture_set) or (id_val in selected_ids), BooleanType())("Classification", "Culture", "id"))
 
 small_df.count()
+
 ```
 
 ### Define and fit ConditionalKNN models
@@ -94,21 +101,22 @@ Below, we create ConditionalKNN models for both the medium and culture columns; 
 
 ```python
 medium_cknn = (ConditionalKNN()
-  .setOutputCol("Matches")
-  .setFeaturesCol("Norm_Features")
-  .setValuesCol("Thumbnail_Url")
-  .setLabelCol("Classification")
-  .fit(small_df))
+               .setOutputCol("Matches")
+               .setFeaturesCol("Norm_Features")
+               .setValuesCol("Thumbnail_Url")
+               .setLabelCol("Classification")
+               .fit(small_df))
 ```
 
 
 ```python
 culture_cknn = (ConditionalKNN()
-  .setOutputCol("Matches")
-  .setFeaturesCol("Norm_Features")
-  .setValuesCol("Thumbnail_Url")
-  .setLabelCol("Culture")
-  .fit(small_df))
+                .setOutputCol("Matches")
+                .setFeaturesCol("Norm_Features")
+                .setValuesCol("Thumbnail_Url")
+                .setLabelCol("Culture")
+                .fit(small_df))
+
 ```
 
 #### Define matching and visualizing methods
@@ -120,11 +128,11 @@ After the intial dataset and category setup, we prepare methods that will query 
 
 ```python
 def add_matches(classes, cknn, df):
-  results = df
-  for label in classes:
-    results = (cknn.transform(results.withColumn("conditioner", array(lit(label))))
-                 .withColumnRenamed("Matches", "Matches_{}".format(label)))
-  return results
+    results = df
+    for label in classes:
+        results = (cknn.transform(results.withColumn("conditioner", array(lit(label))))
+                   .withColumnRenamed("Matches", "Matches_{}".format(label)))
+    return results
 ```
 
 `plot_urls()` calls `plot_img` to visualize top matches for each category into a grid.
@@ -132,35 +140,37 @@ def add_matches(classes, cknn, df):
 
 ```python
 def plot_img(axis, url, title):
-  try:
-      response = requests.get(url)
-      img = Image.open(BytesIO(response.content)).convert('RGB')
-      axis.imshow(img, aspect="equal")
-  except:
-      pass
-  if title is not None: axis.set_title(title,  fontsize=4)
-  axis.axis("off")
+    try:
+        response = requests.get(url)
+        img = Image.open(BytesIO(response.content)).convert('RGB')
+        axis.imshow(img, aspect="equal")
+    except:
+        pass
+    if title is not None:
+        axis.set_title(title,  fontsize=4)
+    axis.axis("off")
+
 
 def plot_urls(url_arr, titles, filename):
-  nx, ny = url_arr.shape
-  
-  plt.figure(figsize=(nx*5, ny*5), dpi=1600)
-  fig, axes = plt.subplots(ny,nx)
-  
-  # reshape required in the case of 1 image query
-  if len(axes.shape) == 1:
-    axes = axes.reshape(1, -1)
-    
-  for i in range(nx):
-     for j in range(ny):
-          if j == 0:
-            plot_img(axes[j, i], url_arr[i,j], titles[i])
-          else:
-            plot_img(axes[j, i],  url_arr[i,j], None)
-            
-  plt.savefig(filename, dpi=1600) # saves the results as a PNG
+    nx, ny = url_arr.shape
 
-  display(plt.show())
+    plt.figure(figsize=(nx*5, ny*5), dpi=1600)
+    fig, axes = plt.subplots(ny, nx)
+
+    # reshape required in the case of 1 image query
+    if len(axes.shape) == 1:
+        axes = axes.reshape(1, -1)
+
+    for i in range(nx):
+        for j in range(ny):
+            if j == 0:
+                plot_img(axes[j, i], url_arr[i, j], titles[i])
+            else:
+                plot_img(axes[j, i],  url_arr[i, j], None)
+
+    plt.savefig(filename, dpi=1600)  # saves the results as a PNG
+
+    display(plt.show())
 ```
 
 ### Putting it all together
@@ -171,32 +181,42 @@ Below, we define `test_all()` to take in the data, CKNN models, the art id value
 # main method to test a particular dataset with two CKNN models and a set of art IDs, saving the result to filename.png
 
 def test_all(data, cknn_medium, cknn_culture, test_ids, root):
-  is_nice_obj = udf(lambda obj: obj in test_ids, BooleanType())
-  test_df = data.where(is_nice_obj("id"))
-  
-  results_df_medium = add_matches(mediums, cknn_medium, test_df)
-  results_df_culture = add_matches(cultures, cknn_culture, results_df_medium)
-  
-  results = results_df_culture.collect()
-  
-  original_urls = [row["Thumbnail_Url"] for row in results]
-  
-  culture_urls = [ [row["Matches_{}".format(label)][0]["value"] for row in results] for label in cultures]
-  culture_url_arr = np.array([original_urls] + culture_urls)[:, :]
-  plot_urls(culture_url_arr, ["Original"] + cultures, root + "matches_by_culture.png")
-  
-  medium_urls = [ [row["Matches_{}".format(label)][0]["value"] for row in results] for label in mediums]
-  medium_url_arr = np.array([original_urls] + medium_urls)[:, :]
-  plot_urls(medium_url_arr, ["Original"] + mediums, root + "matches_by_medium.png")
-  
-  return results_df_culture
+    is_nice_obj = udf(lambda obj: obj in test_ids, BooleanType())
+    test_df = data.where(is_nice_obj("id"))
+
+    results_df_medium = add_matches(mediums, cknn_medium, test_df)
+    results_df_culture = add_matches(cultures, cknn_culture, results_df_medium)
+
+    results = results_df_culture.collect()
+
+    original_urls = [row["Thumbnail_Url"] for row in results]
+
+    culture_urls = [[row["Matches_{}".format(
+        label)][0]["value"] for row in results] for label in cultures]
+    culture_url_arr = np.array([original_urls] + culture_urls)[:, :]
+    plot_urls(culture_url_arr, ["Original"] +
+              cultures, root + "matches_by_culture.png")
+
+    medium_urls = [[row["Matches_{}".format(
+        label)][0]["value"] for row in results] for label in mediums]
+    medium_url_arr = np.array([original_urls] + medium_urls)[:, :]
+    plot_urls(medium_url_arr, ["Original"] +
+              mediums, root + "matches_by_medium.png")
+
+    return results_df_culture
+
 ```
 
 ### Demo
 The following cell performs batched queries given desired image IDs and a filename to save the visualization.
 
 
+<img src="https://mmlspark.blob.core.windows.net/graphics/art/cross_cultural_matches.jpg"  width="600"/>
+
+
 ```python
 # sample query
-result_df = test_all(small_df, medium_cknn, culture_cknn, selected_ids, root=".")
+result_df = test_all(small_df, medium_cknn, culture_cknn,
+                     selected_ids, root=".")
+
 ```

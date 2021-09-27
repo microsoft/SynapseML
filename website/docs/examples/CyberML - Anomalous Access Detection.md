@@ -1,12 +1,8 @@
 ---
 title: CyberML - Anomalous Access Detection
 hide_title: true
-type: notebook
 status: stable
-categories: ["CyberML"]
 ---
-
-
 # CyberML - Anomalous Access Detection
 
 Here we demonstrate a novel CyberML model which can learn user access patterns and then automatically detect anomalous user access based on learned behavior.
@@ -40,7 +36,7 @@ Repository: https://mmlspark.azureedge.net/maven
 # Setup & Initialization
 
 
-```python
+```
 # this is used to produce the synthetic dataset for this test
 from mmlspark.cyber.dataset import DataFactory
 
@@ -51,14 +47,14 @@ from pyspark.sql import functions as f, types as t
 ```
 
 
-```python
+```
 spark.sparkContext.setCheckpointDir('dbfs:/checkpoint_path/')
 ```
 
 # Loadup datasets
 
 
-```python
+```
 factory = DataFactory(
   num_hr_users = 25,
   num_hr_resources = 50,
@@ -78,12 +74,12 @@ outgroup_df = spark.createDataFrame(factory.create_clustered_inter_test_data()).
 ```
 
 
-```python
+```
 training_df.show()
 ```
 
 
-```python
+```
 print(training_df.count())
 print(ingroup_df.count())
 print(outgroup_df.count())
@@ -92,7 +88,7 @@ print(outgroup_df.count())
 # Model setup & training
 
 
-```python
+```
 access_anomaly = AccessAnomaly(
   tenantCol='tenant_id',
   userCol='user',
@@ -103,19 +99,19 @@ access_anomaly = AccessAnomaly(
 ```
 
 
-```python
+```
 model = access_anomaly.fit(training_df)
 ```
 
 # Apply model & show result stats
 
 
-```python
+```
 ingroup_scored_df = model.transform(ingroup_df)
 ```
 
 
-```python
+```
 ingroup_scored_df.agg(
   f.min('anomaly_score').alias('min_anomaly_score'),
   f.max('anomaly_score').alias('max_anomaly_score'),
@@ -125,12 +121,12 @@ ingroup_scored_df.agg(
 ```
 
 
-```python
+```
 outgroup_scored_df = model.transform(outgroup_df)
 ```
 
 
-```python
+```
 outgroup_scored_df.agg(
   f.min('anomaly_score').alias('min_anomaly_score'),
   f.max('anomaly_score').alias('max_anomaly_score'),
@@ -142,7 +138,7 @@ outgroup_scored_df.agg(
 # Examine results
 
 
-```python
+```
 #
 # Select a subset of results to send to Log Analytics
 #
@@ -185,7 +181,7 @@ display(results_to_la)
 # Display all resource accesses by users with highest anomalous score
 
 
-```python
+```
 from plotly import __version__
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot, offline
 
@@ -199,7 +195,7 @@ offline.init_notebook_mode()
 ```
 
 
-```python
+```
 #Find all server accesses of users with high predicted scores
 # For display, limit to top 25 results
 results_to_display = results_to_la.orderBy(
@@ -250,7 +246,7 @@ fileShare_accesses = (top_non_anomalous_accesses
 ```
 
 
-```python
+```
 # get unique users and file shares
 high_scores_df = fileShare_accesses.toPandas()
 unique_arr = np.append(high_scores_df.user.unique(), high_scores_df.res.unique())
@@ -286,7 +282,7 @@ display_df = pd.concat(frames, sort=True)
 ```
 
 
-```python
+```
 data_trace = dict(
     type='sankey',
     domain = dict(
@@ -325,4 +321,9 @@ fig = dict(data=[data_trace], layout=layout)
 p = plot(fig, output_type='div')
 
 displayHTML(p)
+```
+
+
+```
+
 ```

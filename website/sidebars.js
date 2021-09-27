@@ -1,10 +1,17 @@
 const {listExamplePaths} = require('./src/plugins/examples');
 
-let examples_cl_docs = listExamplePaths("classification");
-let examples_dl_docs = listExamplePaths("deep_learning");
-let examples_mi_docs = listExamplePaths("model_interpretability");
-let examples_rg_docs = listExamplePaths("regression");
-let examples_ta_docs = listExamplePaths("text_analytics");
+let features_http_docs = listExamplePaths("features", "http");
+let features_lightgbm_docs = listExamplePaths("features", "lightgbm");
+let features_mi_docs = listExamplePaths("features", "model_interpretability");
+let features_ss_docs = listExamplePaths("features", "spark_serving");
+let features_vw_docs = listExamplePaths("features", "vw");
+
+let examples_cl_docs = listExamplePaths("examples", "classification");
+let examples_cs_docs = listExamplePaths("examples", "cognitive_services");
+let examples_dl_docs = listExamplePaths("examples", "deep_learning");
+let examples_mi_docs = listExamplePaths("examples", "model_interpretability");
+let examples_rg_docs = listExamplePaths("examples", "regression");
+let examples_ta_docs = listExamplePaths("examples", "text_analytics");
 
 module.exports = {
   docs: [
@@ -25,14 +32,11 @@ module.exports = {
       type: 'category',
       label: 'Features',
       items: [
-        'features/Cognitive Services - Overview',
+        'features/CognitiveServices - Overview',
         {
           type: 'category',
           label: 'LightGBM',
-          items: [
-            'features/lightgbm/about',
-            'features/lightgbm/LightGBM - Overview',
-          ]
+          items: features_lightgbm_docs,
         },
         'features/ONNX - Inference on Spark',
         {
@@ -48,7 +52,7 @@ module.exports = {
           label: 'Model Interpretability',
           items: [
             'features/model_interpretability/about',
-            'features/model_interpretability/Model Interpretability - Snow Leopard Detection',
+            'features/model_interpretability/ModelInterpretability - Snow Leopard Detection',
           ]
         },
         {
@@ -75,7 +79,6 @@ module.exports = {
       items: [
         'examples/about',
         'examples/AzureSearchIndex - Met Artworks',
-        'examples/CognitiveServices - Celebrity Quote Analysis',
         'examples/ConditionalKNN - Exploring Art Across Cultures',
         'examples/CyberML - Anomalous Access Detection',
         'examples/HyperParameterTuning - Fighting Breast Cancer',
@@ -84,6 +87,11 @@ module.exports = {
           type: 'category',
           label: 'Classification',
           items: examples_cl_docs,
+        },
+        {
+          type: 'category',
+          label: 'Cognitive Services',
+          items: examples_cs_docs,
         },
         {
           type: 'category',

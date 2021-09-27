@@ -1,11 +1,8 @@
 ---
 title: Interpretability - Tabular SHAP explainer
 hide_title: true
-type: notebook
 status: stable
-categories: ["Model Interpretation"]
 ---
-
 ## Interpretability - Tabular SHAP explainer
 
 In this example, we use Kernel SHAP to explain a tabular classification model built from the Adults Census dataset.
@@ -142,4 +139,4 @@ fig.show()
 
 Your results will look like:
 
-<img src="/img/notebooks/tabular-shap.png" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/explainers/tabular-shap.png" />

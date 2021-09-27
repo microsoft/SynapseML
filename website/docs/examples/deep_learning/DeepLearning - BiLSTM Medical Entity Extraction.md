@@ -1,11 +1,8 @@
 ---
 title: DeepLearning - BiLSTM Medical Entity Extraction
 hide_title: true
-type: notebook
 status: stable
-categories: ["Deep Learning"]
 ---
-
 ## DeepLearning - BiLSTM Medical Entity Extraction
 
 In this tutorial we use a Bidirectional LSTM entity extractor from the MMLSPark

@@ -1,11 +1,8 @@
 ---
 title: Regression - Auto Imports
 hide_title: true
-type: notebook
 status: stable
-categories: ["Regression"]
 ---
-
 ## Regression - Auto Imports
 
 This sample notebook is based on the Gallery [Sample 6: Train, Test, Evaluate
@@ -29,6 +26,14 @@ This sample demonstrates the use of several members of the mmlspark library:
 
 First, import the pandas package so that we can read and parse the datafile
 using `pandas.read_csv()`
+
+
+```python
+import os
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+```
 
 
 ```python

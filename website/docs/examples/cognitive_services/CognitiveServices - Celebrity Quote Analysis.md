@@ -1,14 +1,11 @@
 ---
 title: CognitiveServices - Celebrity Quote Analysis
 hide_title: true
-type: notebook
 status: stable
-categories: ["Cognitive Services"]
 ---
-
 # Celebrity Quote Analysis with The Cognitive Services on Spark
 
-<img src="/img/notebooks/cog_services.png" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/SparkSummit2/cog_services.png" width="800" />
 
 
 ```python
@@ -17,6 +14,14 @@ from pyspark.ml import PipelineModel
 from pyspark.sql.functions import col, udf
 from pyspark.ml.feature import SQLTransformer
 import os
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+    from notebookutils.mssparkutils.credentials import getSecret
+    os.environ['VISION_API_KEY'] = getSecret("mmlspark-keys", "mmlspark-cs-key")
+    os.environ['TEXT_API_KEY'] = getSecret("mmlspark-keys", "mmlspark-cs-key")
+    os.environ['BING_IMAGE_SEARCH_KEY'] = getSecret("mmlspark-keys", "mmlspark-bing-search-key")
 
 #put your service keys here
 TEXT_API_KEY          = os.environ["TEXT_API_KEY"]
@@ -28,7 +33,7 @@ BING_IMAGE_SEARCH_KEY = os.environ["BING_IMAGE_SEARCH_KEY"]
 
 Here we define two Transformers to extract celebrity quote images.
 
-<img src="/img/notebooks/cog_services_step_1.png" width="600" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/step%201.png" width="600" />
 
 
 ```python
@@ -50,7 +55,7 @@ getUrls = BingImageSearch.getUrlTransformer("images", "url")
 ### Recognizing Images of Celebrities
 This block identifies the name of the celebrities for each of the images returned by the Bing Image Search.
 
-<img src="/img/notebooks/cog_services_step_2.png" width="600" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/step%202.png" width="600" />
 
 
 ```python
@@ -68,7 +73,7 @@ firstCeleb = SQLTransformer(statement="SELECT *, celebs.result.celebrities[0].na
 ### Reading the quote from the image.
 This stage performs OCR on the images to recognize the quotes.
 
-<img src="/img/notebooks/cog_services_step_3.png" width="600" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/step%203.png" width="600" />
 
 
 ```python
@@ -93,7 +98,7 @@ getText = UDFTransformer().setUDF(udf(getTextFunction)).setInputCol("ocr").setOu
 
 ### Understanding the Sentiment of the Quote
 
-<img src="/img/notebooks/cog_services_step_4.png" width="600" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/step4.jpg" width="600" />
 
 
 ```python
@@ -111,7 +116,7 @@ getSentiment = SQLTransformer(statement="SELECT *, sentiment[0].sentiment as sen
 
 Now that we have built the stages of our pipeline its time to chain them together into a single model that can be used to process batches of incoming data
 
-<img src="/img/notebooks/full_pipe_2.jpg" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/full_pipe_2.jpg" width="800" />
 
 
 ```python

@@ -1,11 +1,8 @@
 ---
 title: HyperParameterTuning - Fighting Breast Cancer
 hide_title: true
-type: notebook
 status: stable
-categories: ["HyperParameter Tuning"]
 ---
-
 ## HyperParameterTuning - Fighting Breast Cancer
 
 We can do distributed randomized grid search hyperparameter tuning with MMLSpark.

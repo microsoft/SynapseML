@@ -1,12 +1,8 @@
 ---
-title: ONNX Inference on Spark
+title: ONNX - Inference on Spark
 hide_title: true
-type: notebook
 status: stable
-categories: ["Deep Learning"]
 ---
-
-
 ## ONNX Inference on Spark
 
 

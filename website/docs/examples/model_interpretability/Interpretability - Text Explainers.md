@@ -1,12 +1,8 @@
 ---
 title: Interpretability - Text Explainers
 hide_title: true
-type: notebook
 status: stable
-categories: ["Model Interpretation"]
 ---
-
-
 ## Interpretability - Text Explainers
 
 In this example, we use LIME and Kernel SHAP explainers to explain a text classification model.
@@ -14,7 +10,7 @@ In this example, we use LIME and Kernel SHAP explainers to explain a text classi
 First we import the packages and define some UDFs and a plotting function we will need later.
 
 
-```python
+```
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
 from pyspark.ml.feature import StopWordsRemover, HashingTF, IDF, Tokenizer
@@ -30,7 +26,7 @@ vec_access = udf(lambda v, i: float(v[i]), FloatType())
 Load training data, and convert rating to binary label.
 
 
-```python
+```
 data = (
     spark.read.parquet("wasbs://publicwasb@mmlspark.blob.core.windows.net/BookReviewsFromAmazon10K.parquet")
     .withColumn("label", (col("rating") > 3).cast(LongType()))
@@ -43,7 +39,7 @@ data.limit(10).toPandas()
 We train a text classification model, and randomly sample 10 rows to explain.
 
 
-```python
+```
 train, test = data.randomSplit([0.60, 0.40])
 
 pipeline = Pipeline(
@@ -68,7 +64,7 @@ explain_instances = prediction.orderBy(rand()).limit(10)
 ```
 
 
-```python
+```
 def plotConfusionMatrix(df, label, prediction, classLabels):
     from mmlspark.plot import confusionMatrix
     import matplotlib.pyplot as plt
@@ -84,7 +80,7 @@ plotConfusionMatrix(model.transform(test), "label", "prediction", [0, 1])
 First we use the LIME text explainer to explain the model's predicted probability for a given observation.
 
 
-```python
+```
 lime = TextLIME(
     model=model,
     outputCol="weights",
@@ -113,7 +109,7 @@ Then we use the Kernel SHAP text explainer to explain the model's predicted prob
 > Notice that we drop the base value from the SHAP output before displaying the SHAP values. The base value is the model output for an empty string.
 
 
-```python
+```
 shap = TextSHAP(
     model=model,
     outputCol="shaps",

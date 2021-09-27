@@ -1,11 +1,8 @@
 ---
 title: Classification - Adult Census
 hide_title: true
-type: notebook
 status: stable
-categories: ["Classification"]
 ---
-
 ## Classification - Adult Census
 
 In this example, we try to predict incomes from the *Adult Census* dataset.
@@ -14,7 +11,19 @@ First, we import the packages (use `help(mmlspark)` to view contents),
 
 
 ```python
+import os
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+```
+
+
+```python
 import numpy as np
+
 import pandas as pd
 ```
 
@@ -23,8 +32,11 @@ Now let's read the data and split it to train and test sets:
 
 ```python
 data = spark.read.parquet("wasbs://publicwasb@mmlspark.blob.core.windows.net/AdultCensusIncome.parquet")
+
 data = data.select(["education", "marital-status", "hours-per-week", "income"])
+
 train, test = data.randomSplit([0.75, 0.25], seed=123)
+
 train.limit(10).toPandas()
 ```
 
@@ -38,23 +50,21 @@ and so on.  The parameter `numFeatures` controls the number of hashed features.
 
 ```python
 from mmlspark.train import TrainClassifier
+
 from pyspark.ml.classification import LogisticRegression
+
 model = TrainClassifier(model=LogisticRegression(), labelCol="income", numFeatures=256).fit(train)
-```
-
-After the model is trained, we score it against the test dataset and view metrics.
-
-
-```python
-from mmlspark.train import ComputeModelStatistics, TrainedClassifierModel
-prediction = model.transform(test)
-metrics = ComputeModelStatistics().transform(prediction)
-metrics.limit(10).toPandas()
 ```
 
 Finally, we save the model so it can be used in a scoring program.
 
 
 ```python
-model.write().overwrite().save("dbfs:/AdultCensus.mml")
+if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
+
+    model.write().overwrite().save("dbfs:/AdultCensus.mml")
+
+else:
+
+    model.write().overwrite().save("abfss://synapse@mmlsparkeuap.dfs.core.windows.net/models/AdultCensus.mml")
 ```

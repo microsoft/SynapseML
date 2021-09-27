@@ -1,11 +1,8 @@
 ---
 title: HttpOnSpark - Working with Arbitrary Web APIs
 hide_title: true
-type: notebook
 status: stable
-categories: ["HTTP"]
 ---
-
 ### Use "dogs as a service" in a distributed fashion with HTTP on Spark
 
 In this example we will use the simple HTTP Transformer to call a public webAPI that returns random images of dogs. The service does not use the json payload, but this is for example purposes. 
@@ -16,13 +13,20 @@ A call to the dog service returns json objects structured like:
 
 If you visit the link you can download the image:
 
-<img src="/img/notebooks/dog.jpg" />
+<img src="https://images.dog.ceo//breeds//lhasa//n02098413_2536.jpg"
+      />
 
 
 
 
 
 ```python
+import os
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+
 from pyspark.sql.functions import struct
 from pyspark.sql.types import *
 from mmlspark.io.http import *

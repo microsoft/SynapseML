@@ -1,12 +1,8 @@
 ---
 title: LightGBM - Overview
 hide_title: true
-type: notebook
 status: stable
-categories: ["LightGBM"]
 ---
-
-
 # LightGBM
 
 [LightGBM](https://github.com/Microsoft/LightGBM) is an open-source,
@@ -40,7 +36,7 @@ many other machine learning tasks. LightGBM is part of Microsoft's
 
 ## Bankruptcy Prediction with LightGBM Classifier
 
-<img src="/img/notebooks/bankruptcy_image.png" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/bankruptcy image.png" width="800" />
 
 In this example, we use LightGBM to build a classification model in order to predict bankruptcy.
 
@@ -48,13 +44,33 @@ In this example, we use LightGBM to build a classification model in order to pre
 
 
 ```python
+import os
+
+
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+```
+
+
+```python
 df = spark.read.format("csv")\
+
   .option("header", True)\
+
   .option("inferSchema", True)\
+
   .load("wasbs://publicwasb@mmlspark.blob.core.windows.net/company_bankruptcy_prediction_data.csv")
+
 # print dataset size
+
 print("records read: " + str(df.count()))
+
 print("Schema: ")
+
 df.printSchema()
 ```
 
@@ -75,12 +91,19 @@ train, test = df.randomSplit([0.85, 0.15], seed=1)
 
 ```python
 from pyspark.ml.feature import VectorAssembler
+
 feature_cols = df.columns[1:]
+
 featurizer = VectorAssembler(
+
     inputCols=feature_cols,
+
     outputCol='features'
+
 )
+
 train_data = featurizer.transform(train)['Bankrupt?', 'features']
+
 test_data = featurizer.transform(test)['Bankrupt?', 'features']
 ```
 
@@ -96,6 +119,7 @@ display(train_data.groupBy("Bankrupt?").count())
 
 ```python
 from mmlspark.lightgbm import LightGBMClassifier
+
 model = LightGBMClassifier(objective="binary", featuresCol="features", labelCol="Bankrupt?", isUnbalance=True)
 ```
 
@@ -109,8 +133,22 @@ By calling "saveNativeModel", it allows you to extract the underlying lightGBM m
 
 ```python
 from mmlspark.lightgbm import LightGBMClassificationModel
-model.saveNativeModel("/lgbmclassifier.model")
-model = LightGBMClassificationModel.loadNativeModelFromFile("/lgbmclassifier.model")
+
+
+
+if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
+    model.saveNativeModel("/models/lgbmclassifier.model")
+
+    model = LightGBMClassificationModel.loadNativeModelFromFile("/models/lgbmclassifier.model")
+
+else:
+
+    model.saveNativeModel("/lgbmclassifier.model")
+
+    model = LightGBMClassificationModel.loadNativeModelFromFile("/lgbmclassifier.model")
+
+
 ```
 
 #### Feature Importances Visualization
@@ -118,25 +156,45 @@ model = LightGBMClassificationModel.loadNativeModelFromFile("/lgbmclassifier.mod
 
 ```python
 import pandas as pd
+
 import matplotlib.pyplot as plt
 
+
+
 feature_importances = model.getFeatureImportances()
+
 fi = pd.Series(feature_importances,index = feature_cols)
+
 fi = fi.sort_values(ascending = True)
+
 f_index = fi.index
+
 f_values = fi.values
+
  
+
 # print feature importances 
+
 print ('f_index:',f_index)
+
 print ('f_values:',f_values)
 
+
+
 # plot
+
 x_index = list(range(len(fi)))
+
 x_index = [x/len(fi) for x in x_index]
+
 plt.rcParams['figure.figsize'] = (20,20)
+
 plt.barh(x_index,f_values,height = 0.028 ,align="center",color = 'tan',tick_label=f_index)
+
 plt.xlabel('importances')
+
 plt.ylabel('features')
+
 plt.show()
 ```
 
@@ -157,7 +215,7 @@ display(metrics)
 
 ## Quantile Regression for Drug Discovery with LightGBMRegressor
 
-<img src="/img/notebooks/drug.png" width="800" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/drug.png" width="800" />
 
 In this example, we show how to use LightGBM to build a simple regression model.
 

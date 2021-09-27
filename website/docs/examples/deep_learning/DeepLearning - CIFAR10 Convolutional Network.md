@@ -1,11 +1,8 @@
 ---
 title: DeepLearning - CIFAR10 Convolutional Network
 hide_title: true
-type: notebook
 status: stable
-categories: ["Deep Learning"]
 ---
-
 ## DeepLearning - CIFAR10 Convolutional Network
 
 
