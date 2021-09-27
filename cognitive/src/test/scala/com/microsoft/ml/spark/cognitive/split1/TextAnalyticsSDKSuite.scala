@@ -210,7 +210,7 @@ class LanguageDetectionSuiteV4 extends TransformerFuzzing[LanguageDetectionV4] w
   override def reader: MLReadable[_] = LanguageDetectionV4
 }
 
-class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class SentimentAnalysisSuiteV4 extends TransformerFuzzing[TextSentimentV4] with TextKey {
 
   import spark.implicits._
 
@@ -371,9 +371,15 @@ class SentimentAnalysisSuiteV4 extends TestBase with DataFrameEquality with Text
     assert(negativeScoreFirstRow > 0.5)
     assert(positiveScoreSecondRow > 0.5)
   }
+
+  override def testObjects(): Seq[TestObject[TextSentimentV4]] = Seq(new TestObject(
+    getDetector, df
+  ))
+
+  override def reader: MLReadable[_] = TextSentimentV4
 }
 
-class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class KeyPhraseExtractionSuiteV4 extends TransformerFuzzing[KeyphraseExtractionV4] with TextKey {
 
   import spark.implicits._
 
@@ -485,9 +491,15 @@ class KeyPhraseExtractionSuiteV4 extends TestBase with DataFrameEquality with Te
       .collect()
     assert(tdf.length == 3)
   }
+
+  override def testObjects(): Seq[TestObject[KeyphraseExtractionV4]] = Seq(new TestObject(
+    getExtractor, df2
+  ))
+
+  override def reader: MLReadable[_] = KeyphraseExtractionV4
 }
 
-class PIIExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class PIIExtractionSuiteV4 extends TransformerFuzzing[PIIV4] with TextKey {
 
   import spark.implicits._
 
@@ -555,9 +567,15 @@ class PIIExtractionSuiteV4 extends TestBase with DataFrameEquality with TextKey 
       .collect()
     assert(tdf.length == 3)
   }
+
+  override def testObjects(): Seq[TestObject[PIIV4]] = Seq(new TestObject(
+    extractor, df
+  ))
+
+  override def reader: MLReadable[_] = PIIV4
 }
 
-class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class HealthcareSuiteV4 extends TransformerFuzzing[HealthcareV4] with TextKey {
 
   import spark.implicits._
 
@@ -662,9 +680,15 @@ class HealthcareSuiteV4 extends TestBase with DataFrameEquality with TextKey {
       s"| subCategory: ${entity.subCategory} | length: ${entity.length} | dataSources: ${entity.dataSources}" +
       s"normalizedText: ${entity.normalizedText} | confidenceScore: ${entity.confidenceScore}"))
   }
+
+  override def testObjects(): Seq[TestObject[HealthcareV4]] = Seq(new TestObject(
+    extractor, df3
+  ))
+
+  override def reader: MLReadable[_] = HealthcareV4
 }
 
-class EntityLinkingSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class EntityLinkingSuiteV4 extends TransformerFuzzing[EntityLinkingV4] with TextKey {
 
   import spark.implicits._
 
@@ -743,11 +767,23 @@ class EntityLinkingSuiteV4 extends TestBase with DataFrameEquality with TextKey 
     assert(errors(0).get(0).toString == "Document text is empty.")
     assert(codes(0).get(0).toString == "InvalidDocument")
   }
+
+  override def testObjects(): Seq[TestObject[EntityLinkingV4]] = Seq(new TestObject(
+    extractor, df
+  ))
+
+  override def reader: MLReadable[_] = EntityLinkingV4
 }
 
-class NamedEntityRecognitionSuiteV4 extends TestBase with DataFrameEquality with TextKey {
+class NamedEntityRecognitionSuiteV4 extends TransformerFuzzing[NERV4] with TextKey {
 
   import spark.implicits._
+
+  lazy val df: DataFrame = Seq(
+    (Seq("en", "en"), Seq("Our tour guide took us up the Space Needle during our trip to Seattle last week.",
+      "Pike place market is my favorite Seattle attraction.")),
+    (Seq("en"), Seq("It's incredibly sunny outside! I'm so happy"))
+  ).toDF("lang", "text")
 
   lazy val invalidDocDf: DataFrame = Seq(
     (Seq("us", ""), Seq("", null))
@@ -824,6 +860,12 @@ class NamedEntityRecognitionSuiteV4 extends TestBase with DataFrameEquality with
     assert(errors(1).get(0).toString == "Document text is empty.")
     assert(codes(1).get(0).toString == "InvalidDocument")
   }
+
+  override def testObjects(): Seq[TestObject[NERV4]] = Seq(new TestObject(
+    extractor, df
+  ))
+
+  override def reader: MLReadable[_] = NERV4
 }
 
 
