@@ -353,7 +353,7 @@ jobs:
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testDotnet)
+          (sbt coverage testDotnet) || (sbt coverage testDotnet) || (sbt coverage testDotnet)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
