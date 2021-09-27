@@ -358,7 +358,7 @@ jobs:
       displayName: 'Publish Test Results'
       inputs:
         testRunner: VSTest
-        testResultsFiles: '**/dotnet_test_results_*.xml'
+        testResultsFiles: '**/dotnet_test_results_*.trx'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
     - task: AzureCLI@1

@@ -284,7 +284,8 @@ object CodegenPlugin extends AutoPlugin {
         Seq("dotnet",
           "test",
           s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
-          s"""--logger:"xunit;LogFilePath=${join(mainTargetDir, s"dotnet_test_results_${name.value}.xml")}""""
+          "--logger",
+          s""""trx;LogFileName=${join(mainTargetDir, s"dotnet_test_results_${name.value}.trx")}""""
         ),
         new File(codegenDir.value, "test/dotnet/")
       )

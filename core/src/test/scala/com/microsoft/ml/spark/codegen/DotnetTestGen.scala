@@ -92,7 +92,6 @@ object DotnetTestGen {
          |      <PrivateAssets>all</PrivateAssets>
          |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
          |    </PackageReference>
-         |    <PackageReference Include="XunitXml.TestLogger" Version="3.0.66" />
          |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
