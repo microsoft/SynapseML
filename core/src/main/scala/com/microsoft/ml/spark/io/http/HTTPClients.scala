@@ -46,9 +46,10 @@ private[ml] trait HTTPClient extends BaseClient
     cm
   }
 
-  protected val internalClient: Client = HttpClientBuilder.create()
-    .setConnectionManager(connectionManager)
-    .setDefaultRequestConfig(requestConfig).build()
+  //protected val internalClient: Client = HttpClientBuilder.create()
+  //  .setConnectionManager(connectionManager)
+  //  .setDefaultRequestConfig(requestConfig).build()
+  protected val internalClient: Client = new HttpClientsInSynapse().httpClient
 
   override def close(): Unit = {
     internalClient.close()
