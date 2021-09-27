@@ -344,18 +344,6 @@ class PII(override val uid: String)
   def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
 }
 
-object PII extends ComplexParamsReadable[PII]
-
-class PII(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("PII"))
-
-  override def responseDataType: StructType = PIIResponseV3.schema
-
-  def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
-}
-
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
