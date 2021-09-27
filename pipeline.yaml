@@ -354,16 +354,12 @@ jobs:
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet)
-    - task: PublishCodeCoverageResults@1
-      displayName: 'Publish code coverage report'
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
       inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
-    - task: PublishCodeCoverageResults@1
-      displayName: 'Publish code coverage report'
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: '**/**/coverage.cobertura.xml'
+        testResultsFiles: '**/dotnet_test_results_*.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
