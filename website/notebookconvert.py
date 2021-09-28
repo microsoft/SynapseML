@@ -50,9 +50,12 @@ def convert_allnotebooks_in_folder(folder, outputdir):
             
             if not os.path.exists(finaldir):
                 os.mkdir(finaldir)
-            
-            convert_notebook_to_markdown(os.path.join(folder, nb), finaldir)
+
             md = nb.replace(".ipynb", ".md")
+            if os.path.exists(os.path.join(finaldir, md)):
+                os.remove(os.path.join(finaldir, md))
+
+            convert_notebook_to_markdown(os.path.join(folder, nb), finaldir)
             add_header_to_markdown(finaldir, md)
 
 def main():

@@ -8,11 +8,8 @@ status: stable
 
 ```python
 from pyspark.ml import Transformer, Estimator, Pipeline
-
 from pyspark.ml.classification import LogisticRegression
-
 from mmlspark.downloader import ModelDownloader
-
 import os, sys, time
 ```
 
@@ -24,14 +21,9 @@ model = ModelDownloader(spark, "dbfs:/models/").downloadByName("ResNet50")
 
 ```python
 # Load the images
-
 # use flowers_and_labels.parquet on larger cluster in order to get better results
-
 imagesWithLabels = spark.read.parquet("wasbs://publicwasb@mmlspark.blob.core.windows.net/flowers_and_labels2.parquet") \
-
     .withColumnRenamed("bytes","image").sample(.1)
-
-
 
 imagesWithLabels.printSchema()
 ```
@@ -41,44 +33,24 @@ imagesWithLabels.printSchema()
 
 ```python
 from mmlspark.opencv import ImageTransformer
-
 from mmlspark.image import UnrollImage
-
 from mmlspark.cntk import ImageFeaturizer
-
 from mmlspark.stages import *
 
-
-
 # Make some featurizers
-
 it = ImageTransformer()\
-
     .setOutputCol("scaled")\
-
     .resize(size=(60, 60))
 
-
-
 ur = UnrollImage()\
-
     .setInputCol("scaled")\
-
     .setOutputCol("features")
-
     
-
 dc1 = DropColumns().setCols(["scaled", "image"])
-
-
 
 lr1 = LogisticRegression().setMaxIter(8).setFeaturesCol("features").setLabelCol("labels")
 
-
-
 dc2 = DropColumns().setCols(["features"])
-
-
 
 basicModel = Pipeline(stages=[it, ur, dc1, lr1, dc2])
 ```

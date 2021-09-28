@@ -10,65 +10,40 @@ In this example, we show how to build a sentiment classification model using Vow
 
 ```python
 import os
-
 import re
-
 import urllib.request
-
 import numpy as np
-
 import pandas as pd
-
 from zipfile import ZipFile
-
 from bs4 import BeautifulSoup
-
 from pyspark.sql.functions import udf, rand, when, col
-
 from pyspark.sql.types import StructType, StructField, DoubleType, StringType
-
 from pyspark.ml import Pipeline
-
 from pyspark.ml.feature import CountVectorizer, RegexTokenizer
-
 from mmlspark.vw import VowpalWabbitClassifier
-
 from mmlspark.train import ComputeModelStatistics
-
 from pyspark.mllib.evaluation import BinaryClassificationMetrics
-
 import matplotlib.pyplot as plt
 ```
 
 
 ```python
 if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
-
     from pyspark.sql import SparkSession
-
     spark = SparkSession.builder.getOrCreate()
 ```
 
 
 ```python
 # URL to download the sentiment140 dataset and data file names
-
 DATA_URL = "http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip"
-
 TRAIN_FILENAME = "training.1600000.processed.noemoticon.csv"
-
 TEST_FILENAME = "testdata.manual.2009.06.14.csv"
-
 # Folder for storing the downloaded data
-
 DATA_FOLDER = "data"
-
 # Data column names
-
 COL_NAMES = ["label", "id", "date", "query_string", "user", "text"]
-
 # Text encoding type of the data
-
 ENCODING = "iso-8859-1"
 ```
 
@@ -79,33 +54,19 @@ We use [Sentiment140](http://help.sentiment140.com/for-students/?source=post_pag
 
 ```python
 def download_data(url, data_folder=DATA_FOLDER, filename="downloaded_data.zip"):
-
     """Download and extract data from url"""
-
     
-
     data_dir = "./" + DATA_FOLDER
-
     if not os.path.exists(data_dir): os.makedirs(data_dir)
-
     downloaded_filepath = os.path.join(data_dir, filename)
-
     print("Downloading data...")
-
     urllib.request.urlretrieve(url, downloaded_filepath)
-
     print("Extracting data...")
-
     zipfile = ZipFile(downloaded_filepath)
-
     zipfile.extractall(data_dir)
-
     zipfile.close()
-
     print("Finished data downloading and extraction.")
-
     
-
 download_data(DATA_URL)
 ```
 
@@ -114,9 +75,7 @@ Let's read the training data into a Spark DataFrame.
 
 ```python
 df_train = pd.read_csv(os.path.join(".", DATA_FOLDER, TRAIN_FILENAME), 
-
                        header=None, names=COL_NAMES, encoding=ENCODING)
-
 df_train = spark.createDataFrame(df_train, verifySchema=False)
 ```
 
@@ -143,11 +102,8 @@ Before training the model, we randomly permute the data to mix negative and posi
 
 ```python
 df_train = df_train.orderBy(rand()) \
-
                    .limit(100000) \
-
                    .withColumn("label", when(col("label") > 0, 1.0).otherwise(0.0)) \
-
                    .select(["label", "text"])
 ```
 
@@ -158,35 +114,20 @@ Now we are ready to define a pipeline which consists of feture engineering steps
 
 ```python
 # Specify featurizers
-
 tokenizer = RegexTokenizer(inputCol="text",
-
                            outputCol="words")
 
-
-
 count_vectorizer = CountVectorizer(inputCol="words",
-
                                    outputCol="features")
 
-
-
 # Define VW classification model
-
 args = "--loss_function=logistic --quiet --holdout_off"
-
 vw_model = VowpalWabbitClassifier(featuresCol="features", 
-
                                   labelCol="label", 
-
                                   args=args, 
-
                                   numPasses=10)
 
-
-
 # Create a pipeline
-
 vw_pipeline = Pipeline(stages=[tokenizer, count_vectorizer, vw_model])
 ```
 
@@ -204,9 +145,7 @@ After training the model, we evaluate the performance of the model using the tes
 
 ```python
 df_test = pd.read_csv(os.path.join(".", DATA_FOLDER, TEST_FILENAME), 
-
                        header=None, names=COL_NAMES, encoding=ENCODING)
-
 df_test = spark.createDataFrame(df_test, verifySchema=False)
 ```
 
@@ -215,95 +154,58 @@ We only use positive and negative tweets in the test set to evaluate the model, 
 
 ```python
 print("Number of test samples before filtering: ", df_test.count())
-
 df_test = df_test.filter(col("label") != 2.0) \
-
                  .withColumn("label", when(col("label") > 0, 1.0).otherwise(0.0)) \
-
                  .select(["label", "text"])
-
 print("Number of test samples after filtering: ", df_test.count())
 ```
 
 
 ```python
 # Make predictions
-
 predictions = vw_trained.transform(df_test)
-
 predictions.limit(10).toPandas()
 ```
 
 
 ```python
 # Compute model performance metrics
-
 metrics = ComputeModelStatistics(evaluationMetric="classification", 
-
                                  labelCol="label", 
-
                                  scoredLabelsCol="prediction").transform(predictions)
-
 metrics.toPandas()
 ```
 
 
 ```python
 # Utility class for plotting ROC curve (https://stackoverflow.com/questions/52847408/pyspark-extract-roc-curve)
-
 class CurveMetrics(BinaryClassificationMetrics):
-
     def __init__(self, *args):
-
         super(CurveMetrics, self).__init__(*args)
 
-
-
     def get_curve(self, method):
-
         rdd = getattr(self._java_model, method)().toJavaRDD()
-
         points = []
-
         for row in rdd.collect():
-
             points += [(float(row._1()), float(row._2()))]
-
         return points
 
-
-
 preds = predictions.select("label", "probability") \
-
                    .rdd.map(lambda row: (float(row["probability"][1]), float(row["label"])))
-
 roc_points = CurveMetrics(preds).get_curve("roc")
 
-
-
 # Plot ROC curve
-
 fig = plt.figure()
-
 x_val = [x[0] for x in roc_points]
-
 y_val = [x[1] for x in roc_points]
-
 plt.title("ROC curve on test set")
-
 plt.xlabel("False positive rate")
-
 plt.ylabel("True positive rate")
-
 plt.plot(x_val, y_val)
-
 # Use display() if you're on Azure Databricks or you can do plt.show()
-
 plt.show()
 ```
 
 You should see an ROC curve like the following after the above cell is executed. 
-
-
 
 <img src="https://user-images.githubusercontent.com/20047467/69376052-9b0a3380-0c77-11ea-9266-11aa44350cbe.png" width="400" height="320" />

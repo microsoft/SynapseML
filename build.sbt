@@ -277,6 +277,14 @@ setupTask := {
   getDatasetsTask.value
 }
 
+val convertNotebooks = TaskKey[Unit]("convertNotebooks",
+  "convert notebooks to markdown for website display")
+convertNotebooks := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value.getParent, "mmlspark/website/notebookconvert.py")}")
+  )
+}
+
 sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "MMLSpark", "mmlspark-support@microsot.com"))
 homepage := Some(url("https://github.com/Azure/mmlspark"))

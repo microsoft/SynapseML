@@ -33,7 +33,6 @@ object CodegenPlugin extends AutoPlugin {
 
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
-  val ConvertNBTag = Tags.Tag("convertNotebooks")
 
   object autoImport {
     val pythonizedVersion = settingKey[String]("Pythonized version")
@@ -63,15 +62,13 @@ object CodegenPlugin extends AutoPlugin {
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
-
-    val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown")
   }
 
   import autoImport._
 
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
-      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(ConvertNBTag, 1))
+      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -97,13 +94,6 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
     }
   } tag(TestGenTag)
-
-  def convertNBImpl: Def.Initialize[Task[Unit]] = Def.task {
-    runCmd(
-      Seq("python", s"${join(baseDirectory.value.getParent, "website/notebookconvert.py")}")
-    )
-  } tag(ConvertNBTag)
-
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -237,7 +227,6 @@ object CodegenPlugin extends AutoPlugin {
         new File(codegenDir.value, "test/python/")
       )
     },
-    convertNotebooks := convertNBImpl.value,
     targetDir := {
       artifactPath.in(packageBin).in(Compile).value.getParentFile
     },

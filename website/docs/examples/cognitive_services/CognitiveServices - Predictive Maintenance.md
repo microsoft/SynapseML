@@ -33,102 +33,59 @@ Make note of the endpoint and the key for this resource, you'll need it in this 
 Let's start by adding your key and location.
 
 
-```python
+```
 import os
 
-
-
 service_key =  os.environ["ANOMALY_API_KEY"] # Paste your anomaly detector key here
-
 location = "westus2" # Paste your anomaly detector location here
-
-
 
 assert (service_key is not None)
 ```
-
-
-
-
 
 ## Read data into a DataFrame
 
 Next, let's read the IoTSignals file into a DataFrame. Open a new notebook in your Synapse workspace and create a DataFrame from the file.
 
 
-```python
+```
 df_signals = spark.read.csv("wasbs://publicwasb@mmlspark.blob.core.windows.net/iot/IoTSignals.csv", header=True, inferSchema=True)
 ```
 
-
-
-
-
 ### Run anomaly detection using Cognitive Services on Spark
-
-
 
 The goal is to find instances where the signals from the IoT devices were outputting anomalous values so that we can see when something is going wrong and do predictive maintenance. To do that, let's use Anomaly Detector on Spark:
 
 
-```python
+```
 from pyspark.sql.functions import col, struct
-
 from mmlspark.cognitive import SimpleDetectAnomalies
-
 from mmlspark.core.spark import FluentAPI
 
-
-
 detector = (SimpleDetectAnomalies()
-
     .setSubscriptionKey(service_key)
-
     .setLocation(location)
-
     .setOutputCol("anomalies")
-
     .setGroupbyCol("grouping")
-
     .setSensitivity(95)
-
     .setGranularity("secondly"))
 
-
-
 df_anomaly = (df_signals
-
     .where(col("unitSymbol") == 'RPM')
-
     .withColumn("timestamp", col("dateTime").cast("string"))
-
     .withColumn("value", col("measureValue").cast("double"))
-
     .withColumn("grouping", struct("deviceId"))
-
     .mlTransform(detector)).cache()
-
-
 
 df_anomaly.createOrReplaceTempView('df_anomaly')
 ```
 
-
-
-
-
 Let's take a look at the data:
 
 
-```python
+```
 df_anomaly.select("timestamp","value","deviceId","anomalies.isAnomaly").show(3)
 
-
 ```
-
-
-
-
 
 This cell should yield a result that looks like:
 
@@ -143,76 +100,42 @@ This cell should yield a result that looks like:
 IoTSignals.csv has signals from multiple IoT devices. We'll focus on a specific device and visualize anomalous outputs from the device.
 
 
-```python
+```
 df_anomaly_single_device = spark.sql("""
-
 select
-
   timestamp,
-
   measureValue,
-
   anomalies.expectedValue,
-
   anomalies.expectedValue + anomalies.upperMargin as expectedUpperValue,
-
   anomalies.expectedValue - anomalies.lowerMargin as expectedLowerValue,
-
   case when anomalies.isAnomaly=true then 1 else 0 end as isAnomaly
-
 from
-
   df_anomaly
-
 where deviceid = 'dev-1' and timestamp < '2020-04-29'
-
 order by timestamp
-
 limit 200""")
 ```
-
-
-
-
 
 Now that we have created a dataframe that represents the anomalies for a particular device, we can visualize these anomalies:
 
 
-```python
+```
 import matplotlib.pyplot as plt
-
 from pyspark.sql.functions import col
 
-
-
 adf = df_anomaly_single_device.toPandas()
-
 adf_subset = df_anomaly_single_device.where(col("isAnomaly") == 1).toPandas()
 
-
-
 plt.figure(figsize=(23,8))
-
 plt.plot(adf['timestamp'],adf['expectedUpperValue'], color='darkred', linestyle='solid', linewidth=0.25, label='UpperMargin')
-
 plt.plot(adf['timestamp'],adf['expectedValue'], color='darkgreen', linestyle='solid', linewidth=2, label='Expected Value')
-
 plt.plot(adf['timestamp'],adf['measureValue'], 'b', color='royalblue', linestyle='dotted', linewidth=2, label='Actual')
-
 plt.plot(adf['timestamp'],adf['expectedLowerValue'],  color='black', linestyle='solid', linewidth=0.25, label='Lower Margin')
-
 plt.plot(adf_subset['timestamp'],adf_subset['measureValue'], 'ro', label = 'Anomaly')
-
 plt.legend()
-
 plt.title('RPM Anomalies with Confidence Intervals')
-
 plt.show()
 ```
-
-
-
-
 
 If successful, your output will look like this:
 

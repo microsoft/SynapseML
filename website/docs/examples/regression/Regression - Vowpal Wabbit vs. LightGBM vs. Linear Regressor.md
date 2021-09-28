@@ -168,32 +168,18 @@ display(results)
 
 ```python
 lgr = LightGBMRegressor(
-
     objective='quantile',
-
     alpha=0.2,
-
     learningRate=0.3,
-
     numLeaves=31,
-
     labelCol='target',
-
     numIterations=100)
 
-
-
 # Using one partition since the training dataset is very small
-
 repartitioned_data = lr_train_data.repartition(1).cache()
-
 print(repartitioned_data.count())
-
 lg_model = lgr.fit(repartitioned_data)
-
 lg_predictions = lg_model.transform(lr_test_data)
-
-
 
 display(lg_predictions.limit(10).toPandas())
 ```
@@ -201,124 +187,68 @@ display(lg_predictions.limit(10).toPandas())
 
 ```python
 metrics = ComputeModelStatistics(
-
     evaluationMetric='regression',
-
     labelCol='target',
-
     scoresCol='prediction').transform(lg_predictions)
 
-
-
 lg_result = metrics.toPandas()
-
 lg_result.insert(0, 'model', ['LightGBM'])
 
-
-
 results = results.append(
-
     lg_result,
-
     ignore_index=True)
-
-
 
 display(results)
 ```
 
 Following figure shows the actual-vs.-prediction graphs of the results:
 
-
-
-<img width="1102" alt="lr-vw-lg" src="https://user-images.githubusercontent.com/42475935/64071975-4c3e9600-cc54-11e9-8b1f-9a1ee300f445.png"/>
+<img width="1102" alt="lr-vw-lg" src="https://user-images.githubusercontent.com/42475935/64071975-4c3e9600-cc54-11e9-8b1f-9a1ee300f445.png" />
 
 
 ```python
 if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
-
     from matplotlib.colors import ListedColormap, Normalize
-
     from matplotlib.cm import get_cmap
-
     import matplotlib.pyplot as plt
 
-
-
     f, axes = plt.subplots(nrows, ncols, sharey=True, figsize=(30,10))
-
     f.tight_layout()
-
     yy = [r['target'] for r in train_data.select('target').collect()]
-
     for irow in range(nrows):
-
         axes[irow][0].set_ylabel('target')
-
         for icol in range(ncols):
-
             try:
-
                 feat = features[irow*ncols + icol]
-
                 xx = values[feat]
-
                 axes[irow][icol].scatter(xx, yy, s=10, alpha=0.25)
-
                 axes[irow][icol].set_xlabel(feat)
-
                 axes[irow][icol].get_yaxis().set_ticks([])
-
             except IndexError:
-
                 f.delaxes(axes[irow][icol])
-
-
 
     cmap = get_cmap('YlOrRd')
 
-
-
     target = np.array(test_data.select('target').collect()).flatten()
-
     model_preds = [
-
         ("Spark MLlib Linear Regression", lr_predictions),
-
         ("Vowpal Wabbit", vw_predictions),
-
         ("LightGBM", lg_predictions)]
 
-
-
     f, axes = plt.subplots(1, len(model_preds), sharey=True, figsize=(18, 6))
-
     f.tight_layout()
 
-
-
     for i, (model_name, preds) in enumerate(model_preds):
-
         preds = np.array(preds.select('prediction').collect()).flatten()
-
         err = np.absolute(preds - target)
 
-
-
         norm = Normalize()
-
         clrs = cmap(np.asarray(norm(err)))[:, :-1]
-
         axes[i].scatter(preds, target, s=60, c=clrs, edgecolors='#888888', alpha=0.75)
-
         axes[i].plot((0, 60), (0, 60), linestyle='--', color='#888888')
-
         axes[i].set_xlabel('Predicted values')
-
         if i ==0:
-
             axes[i].set_ylabel('Actual values')
-
         axes[i].set_title(model_name)
 ```
 
