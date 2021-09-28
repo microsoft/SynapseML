@@ -244,18 +244,24 @@ class SentimentAnalysisSuiteV4 extends TransformerFuzzing[TextSentimentV4] with 
   ).toDF("lang", "text")
 
   lazy val keyColDF: DataFrame = Seq(
-    ("testKey1", Seq("Hello I love text Analytics")),
-    ("testKey2", Seq("rain is bad"))
+    (textKey, Seq("Hello I love text Analytics")),
+    (textKey, Seq("rain is bad"))
   ).toDF("keyCol", "text")
 
-  def getDetector: TextSentimentV4 = new TextSentimentV4()
+  def getDetectorKeyCol: TextSentimentV4 = new TextSentimentV4()
     .setSubscriptionKeyCol("keyCol")
-    .setLocation("eastus2euap")
+    .setLocation("eastus")
+    .setTextCol("text")
+    .setOutputCol("output")
+
+  def getDetector: TextSentimentV4 = new TextSentimentV4()
+    .setSubscriptionKey(textKey)
+    .setLocation("eastus")
     .setTextCol("text")
     .setOutputCol("output")
 
   test("Sentiment Analysis - Include Opinion Mining") {
-    val replies = getDetector
+    val replies = getDetectorKeyCol
       .setIncludeOpinionMining(true)
       .transform(keyColDF)
       .select("output")
@@ -271,8 +277,8 @@ class SentimentAnalysisSuiteV4 extends TransformerFuzzing[TextSentimentV4] with 
 
     assert(opinions != null)
 
-    assert(opinions.get.head.target.text == "rain")
-    assert(opinions.get.head.target.sentiment == "negative")
+    assert(opinions.get.head.target.text == "text Analytics")
+    assert(opinions.get.head.target.sentiment == "positive")
   }
 
   test("Sentiment Analysis - Output Assertion") {
@@ -421,7 +427,7 @@ class KeyPhraseExtractionSuiteV4 extends TransformerFuzzing[KeyphraseExtractionV
       .select(explode(col("output.result.keyPhrases")))
       .collect()
 
-    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
+    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "día", "carretera", "ayer"))
     assert(replies(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
     assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
   }
@@ -445,7 +451,7 @@ class KeyPhraseExtractionSuiteV4 extends TransformerFuzzing[KeyphraseExtractionV
       .select(explode(col("output.result.keyPhrases")))
       .collect()
 
-    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "carretera", "ayer"))
+    assert(replies(1).getSeq[String](0).toSet == Set("mucho tráfico", "día", "carretera", "ayer"))
     assert(replies(2).getSeq[String](0).toSet == Set("Bonjour", "monde"))
     assert(replies(0).getSeq[String](0).toSet == Set("Hello world", "input text"))
   }
@@ -802,7 +808,7 @@ class NamedEntityRecognitionSuiteV4 extends TransformerFuzzing[NERV4] with TextK
     .setSubscriptionKey(textKey)
     .setLocation("eastus")
     .setTextCol("text")
-    .setLanguageCol("language")
+    .setLanguageCol("lang")
     .setOutputCol("output")
 
   test("NER - Output Assertion") {
