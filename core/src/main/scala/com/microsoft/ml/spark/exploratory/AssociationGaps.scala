@@ -10,7 +10,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
-class AssociationGapTransformer(override val uid: String)
+class AssociationGaps(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
     with DataImbalanceParams
@@ -21,7 +21,7 @@ class AssociationGapTransformer(override val uid: String)
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("AssociationGapTransformer"))
+  def this() = this(Identifiable.randomUID("AssociationGaps"))
 
   val featureNameCol = "FeatureName"
   val classACol = "ClassA"

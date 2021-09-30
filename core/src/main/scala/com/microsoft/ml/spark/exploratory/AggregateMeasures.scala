@@ -10,7 +10,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-class AggregateMeasureTransformer(override val uid: String)
+class AggregateMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
     with DataImbalanceParams
@@ -21,7 +21,7 @@ class AggregateMeasureTransformer(override val uid: String)
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("AggregateMeasureTransformer"))
+  def this() = this(Identifiable.randomUID("AggregateMeasures"))
 
   val aggregateMeasuresCol = new Param[String](
     this,
