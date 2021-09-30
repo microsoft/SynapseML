@@ -346,7 +346,7 @@ class EntityLinkingV4(override val uid: String) extends TextAnalyticsSDKBase[Lin
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val options = new RecognizeLinkedEntitiesOptions()
+    val options = new TextAnalyticsRequestOptions()
       .setModelVersion(getValue(row, modelVersion))
       .setIncludeStatistics(getValue(row, includeStatistics))
       .setServiceLogsDisabled(getValue(row, disableServiceLogs))
@@ -374,7 +374,7 @@ class NERV4(override val uid: String) extends TextAnalyticsSDKBase[NERCollection
       new TextDocumentInput(i.toString, doc).setLanguage(lang)
     }.asJava
 
-    val options = new RecognizeEntitiesOptions()
+    val options = new TextAnalyticsRequestOptions()
       .setModelVersion(getValue(row, modelVersion))
       .setIncludeStatistics(getValue(row, includeStatistics))
       .setServiceLogsDisabled(getValue(row, disableServiceLogs))

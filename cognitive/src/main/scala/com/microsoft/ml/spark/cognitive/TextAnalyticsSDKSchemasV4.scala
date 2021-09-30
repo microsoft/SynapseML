@@ -256,7 +256,7 @@ object SDKConverters {
   implicit def fromSDK(ent: HealthcareEntity): HealthcareEntityV4 = {
     HealthcareEntityV4(
       Option(ent.getAssertion).map(fromSDK),
-      ent.getCategory,
+      ent.getCategory.toString,
       ent.getConfidenceScore,
       ent.getDataSources.asScala.toSeq.map(fromSDK),
       ent.getLength,
