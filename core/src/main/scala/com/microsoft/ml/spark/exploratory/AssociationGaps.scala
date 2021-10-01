@@ -23,9 +23,35 @@ class AssociationGaps(override val uid: String)
 
   def this() = this(Identifiable.randomUID("AssociationGaps"))
 
-  val featureNameCol = "FeatureName"
-  val classACol = "ClassA"
-  val classBCol = "ClassB"
+  val featureNameCol = new Param[String](
+    this,
+    "featureNameCol",
+    "Output column name for feature names."
+  )
+
+  def getFeatureNameCol: String = $(featureNameCol)
+
+  def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
+
+  val classACol = new Param[String](
+    this,
+    "classACol",
+    "Output column name for the first feature value to compare."
+  )
+
+  def getClassACol: String = $(classACol)
+
+  def setClassACol(value: String): this.type = set(classACol, value)
+
+  val classBCol = new Param[String](
+    this,
+    "classBCol",
+    "Output column name for the second feature value to compare."
+  )
+
+  def getClassBCol: String = $(classBCol)
+
+  def setClassBCol(value: String): this.type = set(classBCol, value)
 
   val associationGapsCol = new Param[String](
     this,
@@ -37,7 +63,12 @@ class AssociationGaps(override val uid: String)
 
   def setAssociationGapsCol(value: String): this.type = set(associationGapsCol, value)
 
-  setDefault(associationGapsCol -> "AssociationGaps")
+  setDefault(
+    featureNameCol -> "FeatureName",
+    classACol -> "ClassA",
+    classBCol -> "ClassB",
+    associationGapsCol -> "AssociationGaps"
+  )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     validateSchema(dataset.schema)
@@ -66,7 +97,7 @@ class AssociationGaps(override val uid: String)
           )
           .withColumn(countPositiveCol, lit(numTrueLabels))
           .withColumn(countAllCol, lit(numRows))
-          .withColumn(featureNameCol, lit(sensitiveCol))
+          .withColumn(getFeatureNameCol, lit(sensitiveCol))
           .withColumn(sensitiveValueCol, col(sensitiveCol))
     }.reduce(_ union _)
 
@@ -85,7 +116,7 @@ class AssociationGaps(override val uid: String)
     val combinations = associationMetricsDf.alias("A")
       .crossJoin(associationMetricsDf.alias("B"))
       .filter(
-        col(s"A.$featureNameCol") === col(s"B.$featureNameCol")
+        col(s"A.$getFeatureNameCol") === col(s"B.$getFeatureNameCol")
           && col(s"A.$sensitiveValueCol") > col(s"B.$sensitiveValueCol")
       )
 
@@ -102,17 +133,24 @@ class AssociationGaps(override val uid: String)
 
     combinations.withColumn(getAssociationGapsCol, map(gapTuples ++ measureTuples: _*))
       .select(
-        col(s"A.$featureNameCol").alias(featureNameCol),
-        col(s"A.$sensitiveValueCol").alias(classACol),
-        col(s"B.$sensitiveValueCol").alias(classBCol),
+        col(s"A.$getFeatureNameCol").alias(getFeatureNameCol),
+        col(s"A.$sensitiveValueCol").alias(getClassACol),
+        col(s"B.$sensitiveValueCol").alias(getClassBCol),
         col(getAssociationGapsCol)
       )
   }
 
   private def validateSchema(schema: StructType): Unit = {
-    val labelCol = schema(getLabelCol)
-    if (!labelCol.dataType.isInstanceOf[NumericType]) {
-      throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
+    getSensitiveCols.foreach {
+      c =>
+        schema(c).dataType match {
+          case ByteType | ShortType | IntegerType | LongType | StringType =>
+          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
+        }
+    }
+    schema(getLabelCol).dataType match {
+      case ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType =>
+      case _ => throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
     }
   }
 
@@ -122,9 +160,9 @@ class AssociationGaps(override val uid: String)
     validateSchema(schema)
 
     StructType(
-      StructField(featureNameCol, StringType, nullable = false) ::
-        StructField(classACol, StringType, nullable = true) ::
-        StructField(classBCol, StringType, nullable = true) ::
+      StructField(getFeatureNameCol, StringType, nullable = false) ::
+        StructField(getClassACol, StringType, nullable = true) ::
+        StructField(getClassBCol, StringType, nullable = true) ::
         StructField(
           getAssociationGapsCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
         Nil

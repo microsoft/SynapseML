@@ -53,7 +53,11 @@ class AggregateMeasures(override val uid: String)
 
   def setErrorTolerance(value: Double): this.type = set(errorTolerance, value)
 
-  setDefault(aggregateMeasuresCol -> "AggregateMeasures", epsilon -> 1d, errorTolerance -> 1e-12)
+  setDefault(
+    aggregateMeasuresCol -> "AggregateMeasures",
+    epsilon -> 1d,
+    errorTolerance -> 1e-12
+  )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     validateSchema(dataset.schema)
@@ -63,7 +67,7 @@ class AggregateMeasures(override val uid: String)
 
     val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", df.schema)
     val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", df.schema)
-    val countSensitiveProbCol = DatasetExtensions.findUnusedColumnName("countSensitiveProb", df.schema)
+    val probSensitiveCol = DatasetExtensions.findUnusedColumnName("probSensitive", df.schema)
 
     val benefits = df
       .groupBy(getSensitiveCols map col: _*)
@@ -71,12 +75,13 @@ class AggregateMeasures(override val uid: String)
         count("*").cast(DoubleType).alias(countSensitiveCol)
       )
       .withColumn(countAllCol, lit(numRows))
-      .withColumn(countSensitiveProbCol, col(countSensitiveCol) / col(countAllCol))
+      // P(sensitive)
+      .withColumn(probSensitiveCol, col(countSensitiveCol) / col(countAllCol))
 
     if (getVerbose)
       benefits.cache.show(numRows = 20, truncate = false)
 
-    calculateAggregateMeasures(benefits, countSensitiveProbCol)
+    calculateAggregateMeasures(benefits, probSensitiveCol)
   }
 
   private def calculateAggregateMeasures(benefitsDf: DataFrame, benefitCol: String): DataFrame = {
@@ -112,6 +117,13 @@ class AggregateMeasures(override val uid: String)
   }
 
   private def validateSchema(schema: StructType): Unit = {
+    getSensitiveCols.foreach {
+      c =>
+        schema(c).dataType match {
+          case ByteType | ShortType | IntegerType | LongType | StringType =>
+          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
+        }
+    }
   }
 }
 

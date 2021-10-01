@@ -33,5 +33,7 @@ trait DataImbalanceParams extends Params {
 
   def setVerbose(value: Boolean): this.type = set(verbose, value)
 
-  setDefault(verbose -> false)
+  setDefault(
+    verbose -> false
+  )
 }
