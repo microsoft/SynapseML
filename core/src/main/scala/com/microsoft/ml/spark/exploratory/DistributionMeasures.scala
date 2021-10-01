@@ -51,7 +51,8 @@ class DistributionMeasures(override val uid: String)
       .groupBy(getSensitiveCols map col: _*)
       .agg(count("*").cast(DoubleType).alias(countSensitiveCol))
       .withColumn(countAllCol, lit(numRows))
-      .withColumn(countSensitiveProbCol, col(countSensitiveCol) / col(countAllCol))
+      // P(sensitive)
+      .withColumn(probSensitiveCol, col(countSensitiveCol) / col(countAllCol))
 
     if (getVerbose)
       benefits.cache.show(numRows = 20, truncate = false)
@@ -78,9 +79,8 @@ class DistributionMeasures(override val uid: String)
     if (getVerbose)
       distributionMeasures.cache.show(truncate = false)
 
-    // We instantiate a dummy class to access the metric names (keys) from .toMap
-    val measureTuples = DistributionMetrics("", 0d, 0d, 0d).toMap.flatMap {
-      case (metricName, _) =>
+    val measureTuples = distributionMeasures.schema.fieldNames.filterNot(_ == getFeatureNameCol).flatMap {
+      metricName =>
         lit(metricName) :: col(metricName) :: Nil
     }.toSeq
 
@@ -103,6 +103,13 @@ class DistributionMeasures(override val uid: String)
   }
 
   private def validateSchema(schema: StructType): Unit = {
+    getSensitiveCols.foreach {
+      c =>
+        schema(c).dataType match {
+          case ByteType | ShortType | IntegerType | LongType | StringType =>
+          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
+        }
+    }
   }
 }
 
@@ -122,12 +129,12 @@ case class DistributionMetrics(observedCol: String,
     //    "chi_sq_p_value" -> chiSqPValue.alias("chi_sq_p_value")
   )
 
-  def klDivergence: Column = entropy(col(observedCol), lit(referenceProbability))
+  def klDivergence: Column = entropy(col(observedCol), Some(lit(referenceProbability)))
 
   def jsDistance: Column = {
     val averageObsRef = (col(observedCol) + lit(referenceProbability)) / 2d
-    val entropyObsAvg = entropy(col(observedCol), averageObsRef)
-    val entropyRefAvg = entropy(lit(referenceProbability), averageObsRef)
+    val entropyObsAvg = entropy(col(observedCol), Some(averageObsRef))
+    val entropyRefAvg = entropy(lit(referenceProbability), Some(averageObsRef))
     sqrt((entropyRefAvg + entropyObsAvg) / 2d)
   }
 
@@ -145,9 +152,9 @@ case class DistributionMetrics(observedCol: String,
   // Need to implement
   def chiSqPValue: Column = lit(0d)
 
-  private def entropy(distA: Column, distB: Column = null): Column = {
-    if (distB != null) {
-      sum(distA * log(distA / distB))
+  private def entropy(distA: Column, distB: Option[Column] = None): Column = {
+    if (distB.isDefined) {
+      sum(distA * log(distA / distB)) // CHECK: division by zero, log of zero
     } else {
       sum(distA * log(distA)) * -1d
     }
