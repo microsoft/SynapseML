@@ -86,11 +86,11 @@ trait DataImbalanceTestBase extends TestBase {
 
     val absDiffObsRef: Array[Double] = (observedProbabilities, referenceProbabilities).zipped.map((a, b) => abs(a - b))
 
-    val klDivergence: Double = entropy(observedProbabilities, referenceProbabilities)
+    val klDivergence: Double = entropy(observedProbabilities, Some(referenceProbabilities))
     val jsDistance: Double = {
       val averageObsRef = (observedProbabilities, referenceProbabilities).zipped.map((a, b) => (a + b) / 2d)
-      val entropyRefAvg = entropy(referenceProbabilities, averageObsRef)
-      val entropyObsAvg = entropy(observedProbabilities, averageObsRef)
+      val entropyRefAvg = entropy(referenceProbabilities, Some(averageObsRef))
+      val entropyObsAvg = entropy(observedProbabilities, Some(averageObsRef))
       sqrt((entropyRefAvg + entropyObsAvg) / 2d)
     }
     val infNormDistance: Double = absDiffObsRef.max
@@ -99,9 +99,9 @@ trait DataImbalanceTestBase extends TestBase {
     val chiSqTestStatistic: Double = pow(numObservations - referenceNumObservations, 2) / referenceNumObservations
     //    val chiSqPValue: Double = ???
 
-    def entropy(distA: Array[Double], distB: Array[Double] = null): Double = {
-      if (distB != null) {
-        val logQuotient = (distA, distB).zipped.map((a, b) => log(a / b))
+    def entropy(distA: Array[Double], distB: Option[Array[Double]] = None): Double = {
+      if (distB.isDefined) {
+        val logQuotient = (distA, distB.get).zipped.map((a, b) => log(a / b))
         (distA, logQuotient).zipped.map(_ * _).sum
       } else {
         -1d * distA.map(x => x * log(x)).sum
