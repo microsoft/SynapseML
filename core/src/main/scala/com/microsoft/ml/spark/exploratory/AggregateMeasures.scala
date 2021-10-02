@@ -33,7 +33,7 @@ class AggregateMeasures(override val uid: String)
 
   def setAggregateMeasuresCol(value: String): this.type = set(aggregateMeasuresCol, value)
 
-  val epsilon = new Param[Double](
+  val epsilon = new DoubleParam(
     this,
     "epsilon",
     "Epsilon value for Atkinson Index. Inverse of alpha (1 - alpha)."
@@ -43,7 +43,7 @@ class AggregateMeasures(override val uid: String)
 
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
-  val errorTolerance = new Param[Double](
+  val errorTolerance = new DoubleParam(
     this,
     "errorTolerance",
     "Error tolerance value for Atkinson Index."

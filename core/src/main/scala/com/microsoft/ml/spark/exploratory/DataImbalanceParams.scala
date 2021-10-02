@@ -1,6 +1,6 @@
 package com.microsoft.ml.spark.exploratory
 
-import org.apache.spark.ml.param.{Param, Params, StringArrayParam}
+import org.apache.spark.ml.param.{BooleanParam, Param, Params, StringArrayParam}
 
 trait DataImbalanceParams extends Params {
   val sensitiveCols = new StringArrayParam(
@@ -23,7 +23,7 @@ trait DataImbalanceParams extends Params {
 
   def setLabelCol(value: String): this.type = set(labelCol, value)
 
-  val verbose = new Param[Boolean](
+  val verbose = new BooleanParam(
     this,
     "verbose",
     "Whether to show intermediate measures and calculations, such as Positive Rate."
