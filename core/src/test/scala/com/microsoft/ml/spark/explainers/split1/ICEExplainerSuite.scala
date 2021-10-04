@@ -12,16 +12,15 @@ import com.microsoft.ml.spark.explainers.ICETransformer
 class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransformer] {
 
   import spark.implicits._
-  val data: DataFrame = (1 to 100).flatMap(_ => Seq(
+  val dataDF: DataFrame = (1 to 100).flatMap(_ => Seq(
     (-5d, "a", -5d, 0),
     (-5d, "b", -5d, 0),
     (5d, "a", 5d, 1),
     (5d, "b", 5d, 1)
   )).toDF("col1", "col2", "col3", "label")
 
-  val new_data = data.withColumn("col4", rand()*100)
-
-  new_data.show()
+  val data: DataFrame = dataDF.withColumn("col4", rand()*100)
+  data.show()
 
   val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),
@@ -29,61 +28,69 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
     new VectorAssembler().setInputCols(Array("col1", "col2_enc", "col3", "col4")).setOutputCol("features"),
     new LogisticRegression().setLabelCol("label").setFeaturesCol("features")
   ))
+  val model: PipelineModel = pipeline.fit(data)
 
-
-  val model: PipelineModel = pipeline.fit(new_data)
 
   val ice = new ICETransformer()
-
-  ice.setModel(model).setOutputCol("iceValues").setTargetCol("probability").setFeature("col1")
+  ice.setModel(model)
+    .setOutputCol("iceValues")
+    .setTargetCol("probability")
+    .setFeature("col1")
     .setTargetClasses(Array(1))
-
-
-  val output = ice.transform(new_data)
+  val output: DataFrame = ice.transform(data)
   output.show(false)
 
   val iceCon = new ICETransformer()
-
   iceCon.setModel(model)
     .setOutputCol("iceValues")
     .setTargetCol("probability")
-    .setFeature("col4")
-    .setFeatureType("continuous")
+    .setContinuousFeature(feature = "col4", nSplits = 20)
     .setTargetClasses(Array(1))
-
-  val outputCon = iceCon.transform(new_data)
+  val outputCon: DataFrame = iceCon.transform(data)
   outputCon.show(false)
 
 
   val iceCon1 = new ICETransformer()
-
   iceCon1.setModel(model)
     .setOutputCol("iceValues")
     .setTargetCol("probability")
-    .setFeature("col4")
-    .setFeatureType("continuous")
-    .setRangeMin(0.0)
-    .setRangeMax(100.0)
+    .setContinuousFeature(
+      feature = "col4",
+      nSplits = 20,
+      rangeMin = Some(0.0),
+      rangeMax = Some(100.0)
+    )
     .setTargetClasses(Array(1))
-
-  val outputCon1 = iceCon1.transform(new_data)
+  val outputCon1: DataFrame = iceCon1.transform(data)
   outputCon1.show(false)
 
 
   val pdp = new ICETransformer()
-
   pdp.setModel(model)
     .setOutputCol("iceValues")
     .setTargetCol("probability")
-    .setFeature("col4")
-    .setFeatureType("continuous")
-    .setRangeMin(0.0)
-    .setRangeMax(100.0)
-    .setNSplits(3)
+    .setContinuousFeature(
+      feature =  "col4",
+      nSplits = 3,
+      rangeMin = Some(0.0),
+      rangeMax = Some(100.0)
+    )
     .setTargetClasses(Array(1))
     .setKind("average")
-
-  val pdpOutput = pdp.transform(new_data)
+  val pdpOutput: DataFrame = pdp.transform(data)
   pdpOutput.show(false)
+
+  val pdpDisc = new ICETransformer()
+  pdpDisc.setModel(model)
+    .setOutputCol("iceValues")
+    .setTargetCol("probability")
+    .setDiscreteFeature(
+      feature = "col4",
+      topN = 2
+    )
+    .setTargetClasses(Array(1))
+    .setKind("average")
+  val pdpOutputDisc: DataFrame = pdpDisc.transform(data)
+  pdpOutputDisc.show(false)
 
 }

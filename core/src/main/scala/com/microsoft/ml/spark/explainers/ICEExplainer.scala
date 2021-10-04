@@ -15,7 +15,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val feature = new Param[String] (
     this,
     "feature",
-    "Feature to explain"
+    "The feature to explain."
   )
   def getFeature: String = $(feature)
   def setFeature(value: String): this.type = set(feature, value)
@@ -23,7 +23,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val featureType = new Param[String] (
     this,
     "featureType",
-    "Type of feature to explain",
+    "Whether the feature is discrete or continuous.",
     ParamValidators.inArray(Array("discrete", "continuous"))
   )
   def getFeatureType: String = $(featureType)
@@ -32,7 +32,8 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val topNValues = new IntParam (
     this,
     "topNValues",
-    "topNValues",
+    "At most how many discrete values do we collect for discrete features. " +
+      "The features are ranked by occurrence in descending order.",
     ParamValidators.gt(0)
   )
   def getTopNValues: Int = $(topNValues)
@@ -41,7 +42,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val nSplits = new IntParam (
     this,
     "nSplits",
-    "nSplits",
+    "How many ways to split the value range for continuous feature.",
     ParamValidators.gt(0)
   )
   def getNSplits: Int = $(nSplits)
@@ -50,31 +51,45 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val rangeMax = new DoubleParam(
     this,
     "rangeMax",
-    "rangeMax",
+    "Specifies the max value of the range for continuous features. " +
+      "If not specified, it will be computed from the background dataset.",
     ParamValidators.gtEq(0.0)
   )
-  def getRangeMax: Double = $(rangeMax)
+  def getRangeMax: Option[Double] = get(rangeMax)
   def setRangeMax(value: Double): this.type = set(rangeMax, value)
 
   val rangeMin = new DoubleParam(
     this,
     "rangeMin",
-    "rangeMin",
+    "Specifies the min value of the range for continuous features. " +
+      "If not specified, it will be computed from the background dataset.",
     ParamValidators.gtEq(0.0)
   )
-  def getRangeMin: Double = $(rangeMin)
+  def getRangeMin: Option[Double] = get(rangeMin)
   def setRangeMin(value: Double): this.type = set(rangeMin, value)
 
   val kind = new Param[String] (
     this,
     "kind",
-    "pdp or ice",
+    "Whether to return the partial dependence averaged across all the samples in the dataset or one line per sample.",
     ParamValidators.inArray(Array("average", "individual"))
   )
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
-  setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, nSplits -> 20, kind -> "individual")
+  def setDiscreteFeature(feature: String, topN: Int): this.type = {
+    this.setFeature(feature).setFeatureType("discrete").setTopNValues(topN)
+  }
+
+  def setContinuousFeature(feature: String, nSplits: Int,
+                           rangeMin: Option[Double] = None,
+                           rangeMax: Option[Double] = None): this.type = {
+    rangeMin.foreach(this.setRangeMin)
+    rangeMax.foreach(this.setRangeMax)
+    this.setFeature(feature).setFeatureType("continuous").setNSplits(nSplits)
+  }
+
+  setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, kind -> "individual")
 
 }
 
@@ -84,11 +99,6 @@ class ICETransformer(override val uid: String) extends Transformer
   with ICEFeatureParams
   with HasOutputCol {
 
-  /* transform:
-         1) gives feature values 
-         2) individual series plots 
-
-    */
   def this() = {
     this(Identifiable.randomUID("ICETransformer"))
   }
@@ -96,7 +106,7 @@ class ICETransformer(override val uid: String) extends Transformer
   def transform(ds: Dataset[_]): DataFrame = {
 
     val df = ds.toDF
-    val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+    val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
       .withColumn(idCol, monotonically_increasing_id())
@@ -109,19 +119,18 @@ class ICETransformer(override val uid: String) extends Transformer
       case "discrete" =>
         collectDiscreteValues(dfWithId)
       case "continuous" =>
-        collectSplits(dfWithId, get(rangeMin), get(rangeMax))
+        collectSplits(dfWithId)
     }
 
     val dataType = dfWithId.schema(feature).dataType
-    val explodeFunc = explode(array(values.map(v => lit(v).cast(dataType)): _*))
+    val explodeFunc = explode(array(values.map(v => lit(v)): _*).cast(ArrayType(dataType)))
 
-    val predicted = getModel.transform(dfWithId.withColumn(feature, explodeFunc))
+    val sampled = dfWithId.orderBy(rand()).limit(getNumSamples).cache()
+    val predicted = getModel.transform(sampled.withColumn(feature, explodeFunc))
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
 
     val explainTarget = extractTarget(predicted.schema, targetClasses)
     val result = predicted.withColumn(targetCol, explainTarget)
-
-    //result.show()
 
     getKind.toLowerCase match {
       case "average" =>
@@ -133,12 +142,11 @@ class ICETransformer(override val uid: String) extends Transformer
             .select("__feature__name__", "__feature__value__", "__feature__importance__")
       case "individual" =>
         // storing as a map feature -> target value
-        result.groupBy("id")
+        val iceFeatures = result.groupBy("idCol")
           .agg(collect_list(feature).alias("feature_list"), collect_list(targetCol).alias("target_list"))
           .withColumn("__feature__importance__", map_from_arrays(col("feature_list"), col("target_list")))
           .select(idCol, "__feature__importance__")
-          .orderBy(idCol)
-
+        sampled.join(iceFeatures, idCol)
     }
   }
 
@@ -152,22 +160,20 @@ class ICETransformer(override val uid: String) extends Transformer
     values
   }
 
-  private def collectSplits(df: DataFrame, rangeMin: Option[Double], rangeMax: Option[Double]): Array[Double] = {
-    def createNSplits(n: Int)(from: Double, to: Double): Seq[Double] = {
-      (0 to n) map {
-        i => (to - from) / n * i + from
-      }
+  private def createNSplits(n: Int)(from: Double, to: Double): Seq[Double] = {
+    (0 to n) map {
+      i => (to - from) / n * i + from
     }
+  }
 
-    val feature = getFeature
+  private def collectSplits(df: DataFrame): Array[Double] = {
+    val (feature, nSplits, rangeMin, rangeMax) = (getFeature, getNSplits, getRangeMin, getRangeMax)
     val featureCol = df.schema(feature)
-    val nSplits = getNSplits
 
     val createSplits = createNSplits(nSplits) _
 
     val values = if (rangeMin.isDefined && rangeMax.isDefined) {
       val (mi, ma) = (rangeMin.get, rangeMax.get)
-
       // The ranges are defined
       featureCol.dataType match {
         case _@(ByteType | IntegerType | LongType | ShortType) =>
