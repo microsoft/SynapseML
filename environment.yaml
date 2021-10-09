@@ -20,4 +20,4 @@ dependencies:
     - pytest-cov
     - nbconvert
     - ipython
-    - pytest --codeblocks
+    - pytest-codeblocks

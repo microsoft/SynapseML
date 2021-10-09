@@ -289,7 +289,10 @@ function Home() {
               <p>
                 Written in Scala, and support multiple languages.{" "}
                 <a href="https://github.com/microsoft/SynapseML">Open source</a>{" "}
-                and cloud native as utter heck.
+                and cloud native.
+              </p>
+              <p>
+                Note: SynpaseML is built-in for <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">Azure Synapse.</a>
               </p>
               <Tabs
                 defaultValue="Spark Packages"
