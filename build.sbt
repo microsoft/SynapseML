@@ -285,6 +285,14 @@ convertNotebooks := {
   )
 }
 
+val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
+  "test code blocks inside markdowns under folder website/docs/documentation")
+testWebsiteDocs := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value.getParent, "mmlspark/website/doctest.py")}")
+  )
+}
+
 sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "MMLSpark", "mmlspark-support@microsot.com"))
 homepage := Some(url("https://github.com/Azure/mmlspark"))

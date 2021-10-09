@@ -23,7 +23,7 @@ def convert_allnotebooks_in_folder(folder, outputdir):
 
             finaldir = os.path.join(outputdir, "examples")
 
-            if nb.startswith("CognitiveServices - Overview") or nb.startswith("ONNX"):
+            if nb.startswith("CognitiveServices - Overview"):
                 finaldir = os.path.join(outputdir, "features")
             elif nb.startswith("Classification"):
                 finaldir = os.path.join(outputdir, "examples", "classification")
@@ -43,6 +43,8 @@ def convert_allnotebooks_in_folder(folder, outputdir):
                 finaldir = os.path.join(outputdir, "features", "lightgbm")
             elif nb.startswith("ModelInterpretability"):
                 finaldir = os.path.join(outputdir, "features", "model_interpretability")
+            elif nb.startswith("ONNX"):
+                finaldir = os.path.join(outputdir, "features", "onnx")
             elif nb.startswith("SparkServing"):
                 finaldir = os.path.join(outputdir, "features", "spark_serving")
             elif nb.startswith("Vowpal Wabbit"):

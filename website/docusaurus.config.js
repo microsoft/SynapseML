@@ -1,16 +1,18 @@
 const path = require('path');
 const {all_examples} = require('./src/plugins/examples');
+let version = "1.0.0-rc3-179-327be83c-SNAPSHOT";
 
 module.exports = {
   title: 'Synapse ML',
   tagline: 'Simple and Distributed Machine Learning',
-  url: 'https://www.benthos.dev',
+  url: 'https://www.synapseml.dev',
   baseUrl: '/',
   favicon: 'img/favicon.ico',
   organizationName: 'Microsoft',
   projectName: 'synapseml',
   customFields: {
-    examples: all_examples()
+    examples: all_examples(),
+    version: "1.0.0-rc3-179-327be83c-SNAPSHOT",
   },
   themeConfig: {
     prism: {
@@ -46,11 +48,11 @@ module.exports = {
           items: [
             {
               label: 'Python',
-              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/pyspark/mmlspark.html',
+              href: `https://mmlspark.blob.core.windows.net/docs/${version}/pyspark/mmlspark.html`,
             },
             {
               label: 'Scala',
-              href: 'https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/scala/com/microsoft/ml/spark/index.html',
+              href: `https://mmlspark.blob.core.windows.net/docs/${version}/scala/com/microsoft/ml/spark/index.html`,
             }
           ]
         },

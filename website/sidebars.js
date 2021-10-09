@@ -3,6 +3,7 @@ const {listExamplePaths} = require('./src/plugins/examples');
 let features_http_docs = listExamplePaths("features", "http");
 let features_lightgbm_docs = listExamplePaths("features", "lightgbm");
 let features_mi_docs = listExamplePaths("features", "model_interpretability");
+let features_onnx_docs = listExamplePaths("features", "onnx");
 let features_ss_docs = listExamplePaths("features", "spark_serving");
 let features_vw_docs = listExamplePaths("features", "vw");
 
@@ -32,44 +33,36 @@ module.exports = {
       type: 'category',
       label: 'Features',
       items: [
-        'features/CognitiveServices - Overview',
+        'features/CognitiveServices - Overview',        
+        {
+          type: 'category',
+          label: 'HTTP on Spark',
+          items: features_http_docs,
+        },
         {
           type: 'category',
           label: 'LightGBM',
           items: features_lightgbm_docs,
         },
-        'features/ONNX - Inference on Spark',
-        {
-          type: 'category',
-          label: 'Vowpal Wabbit',
-          items: [
-            'features/vw/about',
-            'features/vw/Vowpal Wabbit - Overview',
-          ]
-        },
         {
           type: 'category',
           label: 'Model Interpretability',
-          items: [
-            'features/model_interpretability/about',
-            'features/model_interpretability/ModelInterpretability - Snow Leopard Detection',
-          ]
+          items: features_mi_docs,
         },
         {
           type: 'category',
-          label: 'HTTP on Spark',
-          items: [
-            'features/http/about',
-            'features/http/HttpOnSpark - Working with Arbitrary Web APIs',
-          ]
+          label: 'ONNX',
+          items: features_onnx_docs,
         },
         {
           type: 'category',
           label: 'Spark Serving',
-          items: [
-            'features/spark_serving/about',
-            'features/spark_serving/SparkServing - Deploying a Classifier',
-          ]
+          items: features_ss_docs,
+        },
+        {
+          type: 'category',
+          label: 'Vowpal Wabbit',
+          items: features_vw_docs,
         },
       ],
     },
@@ -113,6 +106,21 @@ module.exports = {
           label: 'Text Analytics',
           items: examples_ta_docs,
         },
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Transformers',
+      items: [
+        'documentation/transformers/transformers_cognitive',
+        'documentation/transformers/transformers_core',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Models',
+      items: [
+        'documentation/models/models_deep_learning',
       ],
     },
     {
