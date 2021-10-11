@@ -45,6 +45,8 @@ val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajo
 def pomPostFunc(node: XmlNode): scala.xml.Node = {
   new RuleTransformer(new RewriteRule {
     override def transform(node: XmlNode): XmlNodeSeq = node match {
+      case e: Elem if e.label == "extraDependencyAttributes" =>
+        Comment("Removed Dependency Attributes")
       case e: Elem if e.label == "dependency"
         && e.child.exists(child => child.label == "scope") =>
         Comment(
