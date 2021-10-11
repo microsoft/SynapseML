@@ -14,11 +14,12 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsWritable, ImageInjections, Transformer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.opencv.core._
-import org.opencv.imgproc.Imgproc
+import org.bytedeco.opencv.global.{opencv_core => Core}
+import org.bytedeco.opencv.global.{opencv_imgproc => ImgProc}
+import org.bytedeco.opencv.opencv_core._
 
+import java.nio.DoubleBuffer
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
 //scalastyle:off field.name
 /** Image processing stage.
@@ -71,10 +72,12 @@ class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params
     val sz = if (params.isDefinedAt(ResizeImage.size)) {
       val specifiedSize = params(ResizeImage.size).asInstanceOf[Int]
       if (params(ResizeImage.keepAspectRatio).asInstanceOf[Boolean]) {
-        val (originalWidth, originalHeight) = (image.width, image.height)
+        val (originalWidth, originalHeight) = (image.cols, image.rows)
         val shorterSize = math.min(originalWidth, originalHeight)
         val ratio = 1.0 * specifiedSize / shorterSize
-        val (targetWidth, targetHeight) = (math.round(ratio * originalWidth), math.round(ratio * originalHeight))
+        val (targetWidth, targetHeight) = (
+          math.round(ratio * originalWidth).toInt, math.round(ratio * originalHeight).toInt
+        )
         new Size(targetWidth, targetHeight)
       } else {
         new Size(specifiedSize, specifiedSize)
@@ -82,10 +85,10 @@ class ResizeImage(params: Map[String, Any]) extends ImageTransformerStage(params
     } else {
       val height: Double = params(ResizeImage.height).asInstanceOf[Int].toDouble
       val width: Double = params(ResizeImage.width).asInstanceOf[Int].toDouble
-      new Size(width, height)
+      new Size(width.toInt, height.toInt)
     }
 
-    Imgproc.resize(image, resized, sz)
+    ImgProc.resize(image, resized, sz)
     resized
   }
 }
@@ -140,8 +143,8 @@ class CenterCropImage(params: Map[String, Any]) extends ImageTransformerStage(pa
   override val stageName: String = CenterCropImage.stageName
 
   override def apply(image: Mat): Mat = {
-    val (cropWidth, cropHeight) = (math.min(width, image.width), math.min(height, image.height))
-    val (midX, midY) = (image.width / 2, image.height / 2)
+    val (cropWidth, cropHeight) = (math.min(width, image.cols), math.min(height, image.rows))
+    val (midX, midY) = (image.cols / 2, image.rows / 2)
     val rect = new Rect(midX - cropWidth / 2, midY - cropHeight / 2, cropWidth, cropHeight)
     new Mat(image, rect)
   }
@@ -165,7 +168,7 @@ class ColorFormat(params: Map[String, Any]) extends ImageTransformerStage(params
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.cvtColor(image, dst, format)
+    ImgProc.cvtColor(image, dst, format)
     dst
   }
 }
@@ -206,13 +209,13 @@ object Flip {
   * @param params Map of parameters and values
   */
 class Blur(params: Map[String, Any]) extends ImageTransformerStage(params) {
-  val height: Double = params(Blur.height).asInstanceOf[Double]
-  val width: Double = params(Blur.width).asInstanceOf[Double]
+  val height: Int = params(Blur.height).asInstanceOf[Double].toInt
+  val width: Int = params(Blur.width).asInstanceOf[Double].toInt
   override val stageName: String = Blur.stageName
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.blur(image, dst, new Size(height, width))
+    ImgProc.blur(image, dst, new Size(height, width))
     dst
   }
 }
@@ -238,7 +241,7 @@ class Threshold(params: Map[String, Any]) extends ImageTransformerStage(params) 
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    Imgproc.threshold(image, dst, threshold, maxVal, thresholdType)
+    ImgProc.threshold(image, dst, threshold, maxVal, thresholdType)
     dst
   }
 }
@@ -266,8 +269,8 @@ class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(par
 
   override def apply(image: Mat): Mat = {
     val dst = new Mat()
-    val kernel = Imgproc.getGaussianKernel(appertureSize, sigma)
-    Imgproc.filter2D(image, dst, -1, kernel)
+    val kernel = ImgProc.getGaussianKernel(appertureSize, sigma)
+    ImgProc.filter2D(image, dst, -1, kernel)
     dst
   }
 }
@@ -291,16 +294,16 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     val ocvType = ImageSchema.getMode(row)
     val bytes = ImageSchema.getData(row)
 
-    val img = new Mat(height, width, ocvType)
-    img.put(0, 0, bytes)
-    (path, img)
+    val mat = new Mat(height, width, ocvType)
+    mat.data().put(bytes: _*)
+    (path, mat)
   }
 
-  /** Convert from OpenCV format to Dataframe Row; unroll if needed. */
+  /** Convert from JavaCV format to Dataframe Row; unroll if needed. */
   private def mat2row(img: Mat, path: String = ""): Row = {
-    val ocvBytes = new Array[Byte](img.total.toInt * img.elemSize.toInt)
-    img.get(0, 0, ocvBytes) //extract OpenCV bytes
-    Row(path, img.height, img.width, img.channels(), img.`type`, ocvBytes)
+    val cvBytes = new Array[Byte](img.total.toInt * img.elemSize.toInt)
+    img.data().get(cvBytes) //extract bytes from JavaCV Mat
+    Row(path, img.rows, img.cols, img.channels(), img.`type`, cvBytes)
   }
 
   /**
@@ -343,22 +346,26 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     // Also remove alpha channel if nChannels is 4.
     val converted = if (image.channels == 4) {
       // remove alpha channel and order color channels if necessary
-      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
-      val colorConversion = if (channelOrder.toLowerCase == "rgb") Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
-      Imgproc.cvtColor(image, dest, colorConversion)
+      val dest = new Mat(image.rows, image.cols, Core.CV_8UC3)
+      val colorConversion = if (channelOrder.toLowerCase == "rgb")
+        ImgProc.COLOR_BGRA2RGB
+      else
+        ImgProc.COLOR_BGRA2BGR
+
+      ImgProc.cvtColor(image, dest, colorConversion)
       dest
     } else if (image.channels == 3 && channelOrder.toLowerCase == "rgb") {
       // Reorder channel if nChannel is 3 and intended tensor channel order is RGB.
-      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
-      Imgproc.cvtColor(image, dest, Imgproc.COLOR_BGR2RGB)
+      val dest = new Mat(image.rows, image.cols, Core.CV_8UC3)
+      ImgProc.cvtColor(image, dest, ImgProc.COLOR_BGR2RGB)
       dest
     } else {
       image
     }
 
     val channelLength = converted.channels
-    val channelMats = ListBuffer.fill(channelLength)(Mat.zeros(converted.rows, converted.cols, CvType.CV_8U))
-    Core.split(converted, channelMats.asJava)
+    val channelMats = Seq.fill(channelLength)(Mat.zeros(converted.rows, converted.cols, Core.CV_8U).asMat())
+    Core.split(converted, new MatVector(channelMats: _*))
 
     channelMats.toArray
   }
@@ -377,19 +384,22 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
       .zip(stds.getOrElse(Array.fill(channelLength)(1d)))
       .map {
         case ((matrix: Mat, m: Double), sd: Double) =>
-          val t = new Mat(matrix.rows, matrix.cols, CvType.CV_64F)
-          matrix.convertTo(t, CvType.CV_64F)
-          Core.multiply(t, new Scalar(scaleFactor.getOrElse(1d)), t) // Standardized
-          Core.subtract(t, new Scalar(m), t) // Centered
-          Core.divide(t, new Scalar(sd), t) // Normalized
-          t
+          val t = new Mat(matrix.rows, matrix.cols, Core.CV_64F)
+          matrix.convertTo(t, Core.CV_64F)
+          val standardize = Core.multiply(_: Mat, scaleFactor.getOrElse(1d))
+          val center = Core.subtract(_: MatExpr, new Scalar(m))
+          val normalize = Core.divide(_: MatExpr, sd)
+          (standardize andThen center andThen normalize) (t).asMat
       }
   }
 
   private def to2DArray(m: Mat): Array[Array[Double]] = {
+    val buffer = m.createBuffer[DoubleBuffer]
     val array = Array.ofDim[Double](m.rows, m.cols)
     array.indices foreach {
-      i => m.get(i, 0, array(i))
+      i =>
+        // The buffer keeps jumping ahead by m.cols steps, so no need to increment offset.
+        buffer.get(array(i), 0, m.cols)
     }
 
     array
@@ -602,10 +612,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-
-      //  load native OpenCV library on each partition
-      // TODO: figure out more elegant way
-      val df = OpenCVUtils.loadOpenCV(dataset.toDF)
+      val df = dataset.toDF
       val inputDataType = df.schema(getInputCol).dataType
       val decodeMode = getDecodeType(inputDataType)
 

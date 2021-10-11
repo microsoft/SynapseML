@@ -33,9 +33,17 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1"
 ).map(d => d excludeAll (excludes: _*))
-val dependencies = coreDependencies ++ extraDependencies
+
+lazy val opencvLibDep =
+  Seq(
+    "org.bytedeco" % "javacpp" % "1.5.6",
+    "org.bytedeco" % "opencv" % "4.5.3-1.5.6",
+    "org.bytedeco" % "opencv-platform" % "4.5.3-1.5.6"
+  )
+
+val dependencies = coreDependencies ++ extraDependencies ++ opencvLibDep
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
@@ -249,7 +257,7 @@ lazy val opencv = (project in file("opencv"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
+    libraryDependencies ++= opencvLibDep,
     name := "mmlspark-opencv"
   ): _*)
 
