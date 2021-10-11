@@ -26,14 +26,14 @@ Both explainers extends from `org.apache.spark.ml.Transformer`. After setting up
 
 To see examples of model interpretability on Spark in action, take a look at these sample notebooks:
 
-- [Tabular SHAP explainer](../notebooks/Interpretability%20-%20Tabular%20SHAP%20explainer.ipynb)
-- [Image explainers](../notebooks/Interpretability%20-%20Image%20Explainers.ipynb)
-- [Text explainers](../notebooks/Interpretability%20-%20Text%20Explainers.ipynb)
+- [Tabular SHAP explainer](/docs/examples/model_interpretability/Interpretability%20-%20Tabular%20SHAP%20explainer)
+- [Image explainers](/docs/examples/model_interpretability/Interpretability%20-%20Image%20Explainers)
+- [Text explainers](/docs/examples/model_interpretability/Interpretability%20-%20Text%20Explainers)
 
 |                        | Tabular models              | Vector models             | Image models            | Text models           |
 |------------------------|-----------------------------|---------------------------|-------------------------|-----------------------|
-| LIME explainers        | [TabularLIME](#TabularLIME) | [VectorLIME](#VectorLIME) | [ImageLIME](#ImageLIME) | [TextLIME](#TextLIME) |
-| Kernel SHAP explainers | [TabularSHAP](#TabularSHAP) | [VectorSHAP](#VectorSHAP) | [ImageSHAP](#ImageSHAP) | [TextSHAP](#TextSHAP) |
+| LIME explainers        | [TabularLIME](#tabularlime) | [VectorLIME](#vectorlime) | [ImageLIME](#imagelime) | [TextLIME](#textlime) |
+| Kernel SHAP explainers | [TabularSHAP](#tabularshap) | [VectorSHAP](#vectorshap) | [ImageSHAP](#imageshap) | [TextSHAP](#textshap) |
 
 ### Common local explainer params
 
@@ -49,7 +49,7 @@ All local explainers support the following params:
 
 ### Common LIME explainer params
 
-All LIME based explainers ([TabularLIME](#TabularLIME), [VectorLIME](#VectorLIME), [ImageLIME](#ImageLIME), [TextLIME](#TextLIME)) support the following params:
+All LIME based explainers ([TabularLIME](#tabularlime), [VectorLIME](#vectorlime), [ImageLIME](#imagelime), [TextLIME](#textlime)) support the following params:
 
 | Param          | Type     | Default                         | Description                                               |
 |----------------|----------|---------------------------------|-----------------------------------------------------------|
@@ -60,7 +60,7 @@ All LIME based explainers ([TabularLIME](#TabularLIME), [VectorLIME](#VectorLIME
 
 ### Common SHAP explainer params
   
-All Kernel SHAP based explainers ([TabularSHAP](#TabularSHAP), [VectorSHAP](#VectorSHAP), [ImageSHAP](#ImageSHAP), [TextSHAP](#TextSHAP)) support the following params:
+All Kernel SHAP based explainers ([TabularSHAP](#tabularshap), [VectorSHAP](#vectorshap), [ImageSHAP](#imageshap), [TextSHAP](#textshap)) support the following params:
 
 | Param      | Type     | Default                         | Description                                    |
 |------------|----------|---------------------------------|------------------------------------------------|
@@ -70,7 +70,7 @@ All Kernel SHAP based explainers ([TabularSHAP](#TabularSHAP), [VectorSHAP](#Vec
 
 ### Tabular model explainer params
 
-All tabular model explainers ([TabularLIME](#TabularLIME), [TabularSHAP](#TabularSHAP)) support the following params:
+All tabular model explainers ([TabularLIME](#tabularlime), [TabularSHAP](#tabularshap)) support the following params:
 
 | Param          | Type            | Default | Description                                                                                                  |
 |----------------|-----------------|---------|--------------------------------------------------------------------------------------------------------------|
@@ -79,7 +79,7 @@ All tabular model explainers ([TabularLIME](#TabularLIME), [TabularSHAP](#Tabula
 
 ### Vector model explainer params
 
-All vector model explainers ([VectorLIME](#VectorLIME), [VectorSHAP](#VectorSHAP)) support the following params:
+All vector model explainers ([VectorLIME](#vectorlime), [VectorSHAP](#vectorshap)) support the following params:
 
 | Param          | Type        | Default | Description                                                                                                    |
 |----------------|-------------|---------|----------------------------------------------------------------------------------------------------------------|
@@ -88,7 +88,7 @@ All vector model explainers ([VectorLIME](#VectorLIME), [VectorSHAP](#VectorSHAP
 
 ### Image model explainer params
 
-All image model explainers ([ImageLIME](#ImageLIME), [ImageSHAP](#ImageSHAP)) support the following params:
+All image model explainers ([ImageLIME](#imagelime), [ImageSHAP](#imageshap)) support the following params:
 
 | Param         | Type     | Default       | Description                                                        |
 |---------------|----------|---------------|--------------------------------------------------------------------|
@@ -99,7 +99,7 @@ All image model explainers ([ImageLIME](#ImageLIME), [ImageSHAP](#ImageSHAP)) su
 
 ### Text model explainer params
 
-All text model explainers ([TextLIME](#TextLIME), [TextSHAP](#TextSHAP)) support the following params:
+All text model explainers ([TextLIME](#textlime), [TextSHAP](#textshap)) support the following params:
 
 | Param     | Type     | Default  | Description                                            |
 |-----------|----------|----------|--------------------------------------------------------|

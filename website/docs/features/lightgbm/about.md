@@ -55,7 +55,7 @@ model = LightGBMRegressor(application='quantile',
 ```
 
 For an end to end application, check out the LightGBM [notebook
-example](../notebooks/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb).
+example](/docs/features/lightgbm/LightGBM%20-%20Overview).
 
 ### Architecture
 

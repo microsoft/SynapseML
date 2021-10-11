@@ -66,7 +66,7 @@ this process:
   case of your algorithm, with instructions in step-by-step manner. (The same
   notebook could be used for testing the code.)
 - Add in-line ScalaDoc comments to your source code, to generate the [API
-  reference documentation](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-148-87ec5f74-SNAPSHOT/pyspark/mmlspark.html)
+  reference documentation](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.html)
 
 #### Open a pull request
 

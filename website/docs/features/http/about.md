@@ -16,7 +16,7 @@ sidebar_label: About
 -   **Easy to Use**: High-level APIs for automatic parsing of requests,
     abstracting all HTTP knowledge to under the hood.
 -   **Accessible from Multiple Languages**: Usable in Python and Scala.
-    Native integration with Scala's [Apache HTTP Core].  Native
+    Native integration with Scala's Apache HTTP Core.  Native
     integration with [Python Requests] library coming soon!
 -   **Composable**: Pipeline Stage APIs allow users to embed and compose
     web services with SparkML machine learning models.
