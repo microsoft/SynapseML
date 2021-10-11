@@ -14,7 +14,7 @@ const snippets = [
   {
     label: "Text Analytics",
     further:
-      "/docs/features/Cognitive%20Services%20-%20Overview#text-analytics-sample",
+      "/docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
     config: `from mmlspark.cognitive import *
 from pyspark.sql.functions import col
 import os
@@ -43,7 +43,7 @@ display(sentiment.transform(df).select("text", col("sentiment")[0].getItem("sent
   },
   {
     label: "Deep Learning",
-    further: "/docs/features/ONNX%20-%20Inference%20on%20Spark",
+    further: "/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
     config: `# Load the ONNX payload into an ONNXModel, and inspect the model inputs and outputs.
 from mmlspark.onnx import ONNXModel
 
