@@ -14,15 +14,15 @@ and evaluating the model on the Automobile Imports data set.
 
 This sample demonstrates the use of several members of the mmlspark library:
 - [`TrainRegressor`
-  ](http://mmlspark.azureedge.net/docs/pyspark/TrainRegressor.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.train.html?#module-mmlspark.train.TrainRegressor)
 - [`SummarizeData`
-  ](http://mmlspark.azureedge.net/docs/pyspark/SummarizeData.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.stages.html?#module-mmlspark.stages.SummarizeData)
 - [`CleanMissingData`
-  ](http://mmlspark.azureedge.net/docs/pyspark/CleanMissingData.html)
-- [`ComputeStatistics`
-  ](http://mmlspark.azureedge.net/docs/pyspark/ComputeStatistics.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.featurize.html?#module-mmlspark.featurize.CleanMissingData)
+- [`ComputeModelStatistics`
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.train.html?#module-mmlspark.train.ComputeModelStatistics)
 - [`FindBestModel`
-  ](http://mmlspark.azureedge.net/docs/pyspark/FindBestModel.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.automl.html?#module-mmlspark.automl.FindBestModel)
 
 First, import the pandas package so that we can read and parse the datafile
 using `pandas.read_csv()`

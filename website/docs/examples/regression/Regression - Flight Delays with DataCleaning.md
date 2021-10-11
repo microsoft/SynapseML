@@ -6,7 +6,7 @@ status: stable
 ## Regression -  Flight Delays with DataCleaning
 
 This example notebook is similar to
-[Notebook 102](102 - Regression Example with Flight Delay Dataset.ipynb).
+[Regression - Flight Delays](https://github.com/microsoft/SynapseML/blob/master/notebooks/Regression%20-%20Flight%20Delays.ipynb).
 In this example, we will demonstrate the use of `DataConversion()` in two
 ways.  First, to convert the data type of several columns after the dataset
 has been read in to the Spark DataFrame instead of specifying the data types
@@ -15,11 +15,11 @@ instead of iterating over the columns and applying the `StringIndexer`.
 
 This sample demonstrates how to use the following APIs:
 - [`TrainRegressor`
-  ](http://mmlspark.azureedge.net/docs/pyspark/TrainRegressor.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.train.html?#module-mmlspark.train.TrainRegressor)
 - [`ComputePerInstanceStatistics`
-  ](http://mmlspark.azureedge.net/docs/pyspark/ComputePerInstanceStatistics.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.train.html?#module-mmlspark.train.ComputePerInstanceStatistics)
 - [`DataConversion`
-  ](http://mmlspark.azureedge.net/docs/pyspark/DataConversion.html)
+  ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3-179-327be83c-SNAPSHOT/pyspark/mmlspark.featurize.html?#module-mmlspark.featurize.DataConversion)
 
 First, import the pandas package
 
