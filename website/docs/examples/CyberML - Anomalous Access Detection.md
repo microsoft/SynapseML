@@ -28,7 +28,7 @@ Note: the data does NOT contain information about departments, this information 
 # Create an Azure Databricks cluster and install the following libs
 
 1. In Cluster Libraries install from library source Maven:
-Coordinates: com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
+Coordinates: com.microsoft.ml.spark:mmlspark:1.0.0-rc4
 Repository: https://mmlspark.azureedge.net/maven
 
 2. In Cluster Libraries install from PyPI the library called plotly
