@@ -44,3 +44,10 @@ import Face from './cognitive/_Face.md';
 import SpeechToText from './cognitive/_SpeechToText.md';
 
 <SpeechToText/>
+
+# Azure Search
+
+import AzureSearch from './cognitive/_AzureSearch.md';
+
+<AzureSearch/>
+
