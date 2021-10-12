@@ -4,9 +4,9 @@
 
 [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
 
-[![Version](https://img.shields.io/badge/version-1.0.0--rc2-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+[![Version](https://img.shields.io/badge/version-1.0.0--rc4-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
 MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
@@ -22,10 +22,10 @@ can embed **any** web service into their SparkML models. In this vein, MMLSpark 
 SparkML transformers for a wide variety of [Microsoft Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/). For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
-MMLSpark requires Scala 2.11, Spark 2.4+, and Python 3.5+.
+MMLSpark requires Scala 2.12, Spark 3.0+, and Python 3.6+.
 See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html).
+Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/index.html).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -149,7 +149,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3") \
+            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
 import mmlspark
@@ -162,7 +162,7 @@ your `build.sbt`:
 
 ```scala
 resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc4"
 
 ```
 
@@ -172,9 +172,9 @@ MMLSpark can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
+spark-shell --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
+pyspark --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
+spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use MMLSpark
@@ -189,7 +189,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3` 
+For the coordinates use: `com.microsoft.ml.spark:mmlspark:1.0.0-rc4` 
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
@@ -197,7 +197,7 @@ Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc3.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc4.dbc`
 
 ### Apache Livy and HDInsight
 
@@ -210,7 +210,7 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "mmlspark",
     "conf": {
-        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3",
+        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark:1.0.0-rc4",
         "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.11,org.scalactic:scalactic_2.11,org.scalatest:scalatest_2.11"
     }
