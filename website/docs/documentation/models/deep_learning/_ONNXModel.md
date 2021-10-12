@@ -7,7 +7,7 @@ import DocTable from "@theme/DocumentationTable";
 import pyspark
 import os
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 ``` 

@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -69,13 +69,13 @@ import org.apache.spark.sql.functions.{col, flatten}
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?", "Bye")).toDF("text")
 
-val translate = new Translate()
+val translate = (new Translate()
                   .setSubscriptionKey(translatorKey)
                   .setLocation("eastus")
                   .setTextCol("text")
                   .setToLanguage(Seq("zh-Hans", "fr"))
                   .setOutputCol("translation")
-                  .setConcurrency(5)
+                  .setConcurrency(5))
 
 display(translate
       .transform(df)
@@ -140,14 +140,14 @@ import org.apache.spark.sql.functions.col
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("こんにちは", "さようなら")).toDF("text")
 
-val transliterate = new Transliterate()
+val transliterate = (new Transliterate()
                         .setSubscriptionKey(translatorKey)
                         .setLocation("eastus")
                         .setLanguage("ja")
                         .setFromScript("Jpan")
                         .setToScript("Latn")
                         .setTextCol("text")
-                        .setOutputCol("result")
+                        .setOutputCol("result"))
 
 display(transliterate
     .transform(df)
@@ -208,11 +208,11 @@ import org.apache.spark.sql.functions.col
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?")).toDF("text")
 
-val detect = new Detect()
+val detect = (new Detect()
             .setSubscriptionKey(translatorKey)
             .setLocation("eastus")
             .setTextCol("text")
-            .setOutputCol("result")
+            .setOutputCol("result"))
 
 display(detect
     .transform(df)
@@ -272,11 +272,11 @@ import org.apache.spark.sql.functions.{col, flatten}
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?")).toDF("text")
 
-val breakSentence = new BreakSentence()
+val breakSentence = (new BreakSentence()
                         .setSubscriptionKey(translatorKey)
                         .setLocation("eastus")
                         .setTextCol("text")
-                        .setOutputCol("result")
+                        .setOutputCol("result"))
 
 display(breakSentence
     .transform(df)
@@ -339,13 +339,13 @@ import org.apache.spark.sql.functions.{col, flatten}
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("fly")).toDF("text")
 
-val dictionaryLookup = new DictionaryLookup()
+val dictionaryLookup = (new DictionaryLookup()
                         .setSubscriptionKey(translatorKey)
                         .setLocation("eastus")
                         .setFromLanguage("en")
                         .setToLanguage("es")
                         .setTextCol("text")
-                        .setOutputCol("result")
+                        .setOutputCol("result"))
 
 display(dictionaryLookup
       .transform(df)
@@ -407,12 +407,12 @@ import org.apache.spark.sql.functions.{col, flatten}
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
 
-val dictionaryExamples = new DictionaryExamples()
+val dictionaryExamples = (new DictionaryExamples()
                         .setSubscriptionKey(translatorKey)
                         .setLocation("eastus")
                         .setFromLanguage("en")
                         .setToLanguage("es")
-                        .setOutputCol("result")
+                        .setOutputCol("result"))
 
 display(dictionaryExamples
     .transform(df)
@@ -465,12 +465,12 @@ import spark.implicits._
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val translatorName = sys.env.getOrElse("TRANSLATOR_NAME", None)
 
-val documentTranslator = new DocumentTranslator()
+val documentTranslator = (new DocumentTranslator()
                         .setSubscriptionKey(translatorKey)
                         .setServiceName(translatorName)
                         .setSourceUrlCol("sourceUrl")
                         .setTargetsCol("targets")
-                        .setOutputCol("translationStatus")
+                        .setOutputCol("translationStatus"))
 ```
 
 </TabItem>

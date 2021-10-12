@@ -16,7 +16,7 @@ To get started, import mmlspark and configurate service keys.
 
 ```python
 import mmlspark
-mmlspark.__spark_package_version__ # current version: 1.0.0-rc3-6-a862d6b1-SNAPSHOT
+mmlspark.__spark_package_version__
 
 from mmlspark.cognitive import *
 from notebookutils import mssparkutils

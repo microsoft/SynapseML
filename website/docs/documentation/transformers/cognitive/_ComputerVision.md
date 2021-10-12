@@ -11,7 +11,7 @@ import mmlspark
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -67,12 +67,12 @@ val df = Seq(
   ).toDF("url")
 
 
-val ocr = new OCR()
+val ocr = (new OCR()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setImageUrlCol("url")
         .setDetectOrientation(true)
-        .setOutputCol("ocr")
+        .setOutputCol("ocr"))
 
 display(ocr.transform(df))
 ```
@@ -135,14 +135,14 @@ val df = Seq(
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
   ).toDF("url", "language")
 
-val ai = new AnalyzeImage()
+val ai = (new AnalyzeImage()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setImageUrlCol("url")
         .setLanguageCol("language")
         .setVisualFeatures(Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
         .setDetails(Seq("Celebrities", "Landmarks"))
-        .setOutputCol("features")
+        .setOutputCol("features"))
 
 display(ai.transform(df).select("url", "features"))
 ```
@@ -203,13 +203,13 @@ val df = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
   ).toDF("url")
 
-val rt = new RecognizeText()
+val rt = (new RecognizeText()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setImageUrlCol("url")
         .setMode("Printed")
         .setOutputCol("ocr")
-        .setConcurrency(5)
+        .setConcurrency(5))
 
 display(rt.transform(df))
 ```
@@ -269,12 +269,12 @@ val df = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
   ).toDF("url")
 
-val ri = new ReadImage()
+val ri = (new ReadImage()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setImageUrlCol("url")
         .setOutputCol("ocr")
-        .setConcurrency(5)
+        .setConcurrency(5))
 
 display(ri.transform(df))
 ```
@@ -330,12 +330,12 @@ val df = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
   ).toDF("url")
 
-val celeb = new RecognizeDomainSpecificContent()
+val celeb = (new RecognizeDomainSpecificContent()
                 .setSubscriptionKey(cognitiveKey)
                 .setModel("celebrities")
                 .setLocation("eastus")
                 .setImageUrlCol("url")
-                .setOutputCol("celebs")
+                .setOutputCol("celebs"))
 
 display(celeb.transform(df))
 ```
@@ -393,14 +393,14 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
   ).toDF("url")
 
-val gt = new GenerateThumbnails()
+val gt = (new GenerateThumbnails()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setHeight(50)
         .setWidth(50)
         .setSmartCropping(true)
         .setImageUrlCol("url")
-        .setOutputCol("thumbnails")
+        .setOutputCol("thumbnails"))
 
 display(gt.transform(df))
 ```
@@ -455,11 +455,11 @@ val df = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
   ).toDF("url")
 
-val ti = new TagImage()
+val ti = (new TagImage()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setImageUrlCol("url")
-        .setOutputCol("tags")
+        .setOutputCol("tags"))
 
 display(ti.transform(df))
 ```
@@ -515,12 +515,12 @@ val df = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
   ).toDF("url")
 
-val di = new DescribeImage()
+val di = (new DescribeImage()
         .setSubscriptionKey(cognitiveKey)
         .setLocation("eastus")
         .setMaxCandidates(3)
         .setImageUrlCol("url")
-        .setOutputCol("descriptions")
+        .setOutputCol("descriptions"))
 
 display(di.transform(df))
 ```

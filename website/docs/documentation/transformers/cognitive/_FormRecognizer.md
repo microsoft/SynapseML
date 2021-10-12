@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten, regexp_replace, explode, create_map, lit
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -72,12 +72,12 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
   ).toDF("source")
 
-val analyzeLayout = new AnalyzeLayout()
+val analyzeLayout = (new AnalyzeLayout()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setImageUrlCol("source")
                         .setOutputCol("layout")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(analyzeLayout.transform(imageDf)
 ```
@@ -135,12 +135,12 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"
   ).toDF("source")
 
-val analyzeReceipts = new AnalyzeReceipts()
+val analyzeReceipts = (new AnalyzeReceipts()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setImageUrlCol("source")
                         .setOutputCol("receipts")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(analyzeReceipts.transform(imageDf))
 ```
@@ -196,12 +196,12 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"
   ).toDF("source")
 
-val analyzeBusinessCards = new AnalyzeBusinessCards()
+val analyzeBusinessCards = (new AnalyzeBusinessCards()
                               .setSubscriptionKey(cognitiveKey)
                               .setLocation("eastus")
                               .setImageUrlCol("source")
                               .setOutputCol("businessCards")
-                              .setConcurrency(5)
+                              .setConcurrency(5))
 
 display(analyzeBusinessCards.transform(imageDf)
 ```
@@ -260,12 +260,12 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
   ).toDF("source")
 
-val analyzeInvoices = new AnalyzeInvoices()
+val analyzeInvoices = (new AnalyzeInvoices()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setImageUrlCol("source")
                         .setOutputCol("invoices")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(analyzeInvoices.transform(imageD4))
 ```
@@ -324,12 +324,12 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"
   ).toDF("source")
 
-val analyzeIDDocuments = new AnalyzeIDDocuments()
+val analyzeIDDocuments = (new AnalyzeIDDocuments()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setImageUrlCol("source")
                         .setOutputCol("ids")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(analyzeIDDocuments.transform(imageDf))
 ```
@@ -394,13 +394,13 @@ val imageDf = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
   ).toDF("source")
 
-val analyzeCustomModel = new AnalyzeCustomModel()
+val analyzeCustomModel = (new AnalyzeCustomModel()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setModelId(modelId)
                         .setImageUrlCol("source")
                         .setOutputCol("output")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(analyzeCustomModel.transform(imageDf))
 ```
@@ -459,13 +459,13 @@ val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" // put your own modelId here
 val emptyDf = Seq("").toDF()
 
-val getCustomModel = new GetCustomModel()
+val getCustomModel = (new GetCustomModel()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setModelId(modelId)
                         .setIncludeKeys(true)
                         .setOutputCol("model")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(getCustomModel.transform(emptyDf))
 ```
@@ -520,12 +520,12 @@ import spark.implicits._
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val emptyDf = Seq("").toDF()
 
-val listCustomModels = new ListCustomModels()
+val listCustomModels = (new ListCustomModels()
                         .setSubscriptionKey(cognitiveKey)
                         .setLocation("eastus")
                         .setOp("full")
                         .setOutputCol("models")
-                        .setConcurrency(5)
+                        .setConcurrency(5))
 
 display(listCustomModels.transform(emptyDf))
 ```

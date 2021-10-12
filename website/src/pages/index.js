@@ -308,9 +308,9 @@ function Home() {
                   MMLSpark can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar`}
+                    snippet={`spark-shell --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
+pyspark --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
+spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar`}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -337,7 +337,7 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
                   <p>
                     For the coordinates use:
                     <CodeSnippet
-                      snippet={`com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3`}
+                      snippet={`com.microsoft.ml.spark:mmlspark:1.0.0-rc4`}
                       lang="bash"
                     ></CodeSnippet>
                     with the resolver:
@@ -355,7 +355,7 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
                   To get started with our example notebooks import the following
                   databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc3.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc4.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -393,7 +393,7 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
                   <CodeSnippet
                     snippet={`import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate()
 import mmlspark`}
@@ -405,7 +405,7 @@ import mmlspark`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"`}
+libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc4"`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>

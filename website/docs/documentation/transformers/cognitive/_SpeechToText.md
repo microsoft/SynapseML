@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -72,13 +72,13 @@ val df: DataFrame = Seq(
     Tuple1(audioBytes)
   ).toDF("audio")
 
-val stt = new SpeechToText()
+val stt = (new SpeechToText()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("text")
     .setAudioDataCol("audio")
     .setLanguage("en-US")
-    .setFormat("simple")
+    .setFormat("simple"))
 
 display(stt.transform(df))
 ```
@@ -137,13 +137,13 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"
   ).toDF("url")
 
-val speech_to_text = new SpeechToTextSDK()
+val speech_to_text = (new SpeechToTextSDK()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("text")
     .setAudioDataCol("url")
     .setLanguage("en-US")
-    .setProfanity("Masked")
+    .setProfanity("Masked"))
 
 display(speech_to_text.transform(df))
 ```

@@ -23,8 +23,8 @@ sub-millisecond latency web services, backed by your Spark cluster.
 
 MMLSpark requires Scala 2.11, Spark 2.4+, and Python 3.5+.
 See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html).
+Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/index.html).
 
 import Link from '@docusaurus/Link';
 

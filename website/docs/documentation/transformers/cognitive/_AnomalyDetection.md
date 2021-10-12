@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -81,7 +81,7 @@ import spark.implicits._
 import org.apache.spark.sql.functions.{col, collect_list, lit, sort_array, struct}
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
-val df = Seq(
+val df = (Seq(
     ("1972-01-01T00:00:00Z", 826.0),
     ("1972-02-01T00:00:00Z", 799.0),
     ("1972-03-01T00:00:00Z", 890.0),
@@ -101,15 +101,15 @@ val df = Seq(
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
-    .agg(sort_array(collect_list(col("inputs"))).alias("inputs"))
+    .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
 
-val dla = new DetectLastAnomaly()
+val dla = (new DetectLastAnomaly()
             .setSubscriptionKey(anomalyKey)
             .setLocation("westus2")
             .setOutputCol("anomalies")
             .setSeriesCol("inputs")
             .setGranularity("monthly")
-            .setErrorCol("errors")
+            .setErrorCol("errors"))
 
 display(dla.transform(df))
 ```
@@ -178,7 +178,7 @@ import com.microsoft.ml.spark.cognitive._
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
-val df = Seq(
+val df = (Seq(
     ("1972-01-01T00:00:00Z", 826.0),
     ("1972-02-01T00:00:00Z", 799.0),
     ("1972-03-01T00:00:00Z", 890.0),
@@ -198,14 +198,14 @@ val df = Seq(
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
-    .agg(sort_array(collect_list(col("inputs"))).alias("inputs"))
+    .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
 
-val da = new DetectAnomalies()
+val da = (new DetectAnomalies()
             .setSubscriptionKey(anomalyKey)
             .setLocation("westus2")
             .setOutputCol("anomalies")
             .setSeriesCol("inputs")
-            .setGranularity("monthly")
+            .setGranularity("monthly"))
 
 display(da.transform(df))
 ```
@@ -302,16 +302,16 @@ val baseSeq = Seq(
     ("1973-02-01T00:00:00Z", 837.0),
     ("1973-03-01T00:00:00Z", 9000.0)
   )
-val df = baseSeq.map(p => (p._1,p._2,1.0))
+val df = (baseSeq.map(p => (p._1,p._2,1.0))
     .++(baseSeq.map(p => (p._1,p._2,2.0)))
-    .toDF("timestamp","value","group")
+    .toDF("timestamp","value","group"))
 
-val sda = new SimpleDetectAnomalies()
+val sda = (new SimpleDetectAnomalies()
             .setSubscriptionKey(anomalyKey)
             .setLocation("westus2")
             .setOutputCol("anomalies")
             .setGroupbyCol("group")
-            .setGranularity("monthly")
+            .setGranularity("monthly"))
 
 display(sda.transform(df))
 ```

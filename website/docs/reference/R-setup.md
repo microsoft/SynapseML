@@ -15,7 +15,7 @@ To install the current MMLSpark package for R use:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc3.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc4.zip")
 ...
 ```
 
@@ -28,7 +28,7 @@ It will take some time to install all dependencies.  Then, run:
 library(sparklyr)
 library(dplyr)
 config <- spark_config()
-config$sparklyr.defaultPackages <- "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3"
+config$sparklyr.defaultPackages <- "com.microsoft.ml.spark:mmlspark:1.0.0-rc4"
 sc <- spark_connect(master = "local", config = config)
 ...
 ```
@@ -88,7 +88,7 @@ and then use spark_connect with method = "databricks":
 
 ```R
 install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc3.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc4.zip")
 library(sparklyr)
 library(dplyr)
 sc <- spark_connect(method = "databricks")

@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -68,11 +68,11 @@ val df = Seq(
     ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
   ).toDF("id", "text")
 
-val entity = new EntityDetector()
+val entity = (new EntityDetector()
             .setSubscriptionKey(textKey)
             .setLocation("eastus")
             .setLanguage("en")
-            .setOutputCol("replies")
+            .setOutputCol("replies"))
 
 display(entity.transform(df))
 ```
@@ -133,11 +133,11 @@ val df = Seq(
     ("en", null)
   ).toDF("lang", "text")
 
-val keyPhrase = new KeyPhraseExtractor()
+val keyPhrase = (new KeyPhraseExtractor()
                   .setSubscriptionKey(textKey)
                   .setLocation("eastus")
                   .setLanguageCol("lang")
-                  .setOutputCol("replies")
+                  .setOutputCol("replies"))
 
 display(keyPhrase.transform(df))
 ```
@@ -201,10 +201,10 @@ val df = Seq(
     ":) :( :D"
   ).toDF("text")
 
-val language = new LanguageDetector()
+val language = (new LanguageDetector()
       .setSubscriptionKey(textKey)
       .setLocation("eastus")
-      .setOutputCol("replies")
+      .setOutputCol("replies"))
 
 display(language.transform(df))
 ```
@@ -262,11 +262,11 @@ val df = Seq(
     ("2", "en", "I visited Space Needle 2 times.")
   ).toDF("id", "language", "text")
 
-val ner = new NER()
+val ner = (new NER()
             .setSubscriptionKey(textKey)
             .setLocation("eastus")
             .setLanguage("en")
-            .setOutputCol("response")
+            .setOutputCol("response"))
 
 display(ner.transform(df)
 ```
@@ -327,11 +327,11 @@ val df = Seq(
     ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
   ).toDF("id", "language", "text")
 
-val pii = new PII()
+val pii = (new PII()
             .setSubscriptionKey(textKey)
             .setLocation("eastus")
             .setLanguage("en")
-            .setOutputCol("response")
+            .setOutputCol("response"))
 
 display(pii.transform(df))
 ```
@@ -395,13 +395,13 @@ val df = Seq(
     ("en", null)
   ).toDF("lang", "text")
 
-val sentiment = new TextSentiment()
+val sentiment = (new TextSentiment()
             .setSubscriptionKey(textKey)
             .setLocation("eastus")
             .setLanguageCol("lang")
             .setModelVersion("latest")
             .setShowStats(true)
-            .setOutputCol("replies")
+            .setOutputCol("replies"))
 
 display(sentiment.transform(df))
 ```

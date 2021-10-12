@@ -51,3 +51,9 @@ import AzureSearch from './cognitive/_AzureSearch.md';
 
 <AzureSearch/>
 
+# Bing Image Search
+
+import BingImageSearch from './cognitive/_BingImageSearch.md';
+
+<BingImageSearch/>
+

@@ -12,7 +12,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -68,7 +68,7 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
   ).toDF("url")
 
-val face = new DetectFace()
+val face = (new DetectFace()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
@@ -77,7 +77,7 @@ val face = new DetectFace()
     .setReturnFaceLandmarks(true)
     .setReturnFaceAttributes(Seq(
       "age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
-      "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise"))
+      "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise")))
 
 display(face.transform(df))
 ```
@@ -148,26 +148,26 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg",
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   ).toDF("url")
-val detector = new DetectFace()
+val detector = (new DetectFace()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
     .setReturnFaceLandmarks(false)
-    .setReturnFaceAttributes(Seq())
+    .setReturnFaceAttributes(Seq()))
 
-val faceIdDF = detector.transform(df)
+val faceIdDF = (detector.transform(df)
     .select(col("detected_faces").getItem(0).getItem("faceId").alias("id"))
-    .cache()
+    .cache())
 val faceIds = faceIdDF.collect().map(row => row.getAs[String]("id"))
 
-val findSimilar = new FindSimilarFace()
+val findSimilar = (new FindSimilarFace()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("similar")
     .setFaceIdCol("id")
-    .setFaceIds(faceIds)
+    .setFaceIds(faceIds))
 
 display(findSimilar.transform(faceIdDF))
 ```
@@ -237,25 +237,25 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg",
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   ).toDF("url")
-val detector = new DetectFace()
+val detector = (new DetectFace()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
     .setReturnFaceLandmarks(false)
-    .setReturnFaceAttributes(Seq())
+    .setReturnFaceAttributes(Seq()))
 
-val faceIdDF = detector.transform(df)
+val faceIdDF = (detector.transform(df)
     .select(col("detected_faces").getItem(0).getItem("faceId").alias("id"))
-    .cache()
+    .cache())
 val faceIds = faceIdDF.collect().map(row => row.getAs[String]("id"))
 
-val group = new GroupFaces()
+val group = (new GroupFaces()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("grouping")
-    .setFaceIds(faceIds)
+    .setFaceIds(faceIds))
 
 display(group.transform(faceIdDF))
 ```
@@ -305,12 +305,12 @@ import spark.implicits._
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val pgId = "PUT_YOUR_PERSON_GROUP_ID"
 
-val identifyFaces = new IdentifyFaces()
+val identifyFaces = (new IdentifyFaces()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setFaceIdsCol("faces")
     .setPersonGroupId(pgId)
-    .setOutputCol("identified_faces")
+    .setOutputCol("identified_faces"))
 ```
 
 </TabItem>
@@ -380,26 +380,26 @@ val df: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   ).toDF("url")
 
-val detector = new DetectFace()
+val detector = (new DetectFace()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
     .setReturnFaceLandmarks(false)
-    .setReturnFaceAttributes(Seq())
+    .setReturnFaceAttributes(Seq()))
 
-val faceIdDF = detector.transform(df)
+val faceIdDF = (detector.transform(df)
     .select(col("detected_faces").getItem(0).getItem("faceId").alias("faceId1"))
-    .cache()
+    .cache())
 val faceIdDF2 = faceIdDF.withColumn("faceId2", lit(faceIdDF.take(1).head.getString(0)))
 
-val verify = new VerifyFaces()
+val verify = (new VerifyFaces()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("same")
     .setFaceId1Col("faceId1")
-    .setFaceId2Col("faceId2")
+    .setFaceId2Col("faceId2"))
 
 display(verify.transform(faceIdDF2))
 ```

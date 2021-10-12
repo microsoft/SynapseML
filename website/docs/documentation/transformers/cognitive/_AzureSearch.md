@@ -15,7 +15,7 @@ os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
 os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-179-327be83c-SNAPSHOT")
+        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -143,17 +143,17 @@ def createSimpleIndexJson(indexName: String) = {
     """.stripMargin
 }
 
-val df = (0 until 4)
+val df = ((0 until 4)
       .map(i => ("upload", s"$i", s"file$i", s"text$i"))
-      .toDF("searchAction", "id", "fileName", "text")
+      .toDF("searchAction", "id", "fileName", "text"))
 
-val ad = new AddDocuments()
+val ad = (new AddDocuments()
       .setSubscriptionKey(azureSearchKey)
       .setServiceName(testServiceName)
       .setOutputCol("out")
       .setErrorCol("err")
       .setIndexName(indexName)
-      .setActionCol("searchAction")
+      .setActionCol("searchAction"))
 
 display(ad.transform(df))
 
