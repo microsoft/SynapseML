@@ -30,7 +30,7 @@ many other machine learning tasks. LightGBM is part of Microsoft's
 In PySpark, you can run the `LightGBMClassifier` via:
 
 ```python
-from mmlspark.lightgbm import LightGBMClassifier
+from synapse.ml.lightgbm import LightGBMClassifier
 model = LightGBMClassifier(learningRate=0.3,
                            numIterations=100,
                            numLeaves=31).fit(train)
@@ -40,7 +40,7 @@ Similarly, you can run the `LightGBMRegressor` by setting the
 `application` and `alpha` parameters:
 
 ```python
-from mmlspark.lightgbm import LightGBMRegressor
+from synapse.ml.lightgbm import LightGBMRegressor
 model = LightGBMRegressor(application='quantile',
                           alpha=0.3,
                           learningRate=0.3,

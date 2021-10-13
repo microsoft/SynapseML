@@ -106,10 +106,10 @@ config.vm.provision "shell", inline: <<-SHELL
 SHELL
 
 config.vm.provision "shell", privileged: false, inline: <<-SHELL
-  # Install mmlspark
+  # Install synapseml
   cd ${HOME_DIR}
-  git clone https://github.com/Azure/mmlspark.git
-  cd mmlspark
+  git clone https://github.com/Microsoft/SynapseML.git
+  cd synapseml
   sbt setup
 SHELL
 

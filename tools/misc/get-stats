@@ -5,7 +5,7 @@
 . "$(dirname "${BASH_SOURCE[0]}")/../../runme"
 
 DAPI="https://hub.docker.com/v2/repositories/microsoft/mmlspark"
-GAPI="https://api.github.com/repos/Azure/mmlspark"
+GAPI="https://api.github.com/repos/Microsoft/SynapseML"
 
 jget() { local url="$1"; shift; curl -s "$url" | jq -r "$@"; }
 jget_paged() {

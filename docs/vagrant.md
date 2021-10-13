@@ -1,4 +1,4 @@
-# Using the MMLSpark Vagrant Image
+# Using the SynapseML Vagrant Image
 
 ## Install Vagrant and Dependencies
 
@@ -10,7 +10,7 @@ You will need to a few dependencies before we get started. These instructions ar
 
 ## Build the Vagrant Image
 
-Start powershell as Administrator and go to the `mmlspark/tools/vagrant` directory and run
+Start powershell as Administrator and go to the `synapseml/tools/vagrant` directory and run
 
     vagrant up
 
