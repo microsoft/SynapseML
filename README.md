@@ -193,7 +193,7 @@ For the coordinates use: `com.microsoft.ml.spark:mmlspark:1.0.0-rc4`
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
-Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
+Finally, ensure that your Spark cluster has at least Spark 3.12 and Scala 2.12.
 
 You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
@@ -212,7 +212,22 @@ Excluding certain packages from the library may be necessary due to current issu
     "conf": {
         "spark.jars.packages": "com.microsoft.ml.spark:mmlspark:1.0.0-rc4",
         "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.11,org.scalactic:scalactic_2.11,org.scalatest:scalatest_2.11"
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12"
+    }
+}
+```
+
+In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing MMLSpark packages
+
+```
+%%configure -f
+{
+    "name": "mmlspark",
+    "conf": {
+        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark:1.0.0-rc4",
+        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+        "spark.yarn.user.classpath.first": "true"
     }
 }
 ```
