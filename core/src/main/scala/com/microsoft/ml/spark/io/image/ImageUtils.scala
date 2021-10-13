@@ -7,8 +7,8 @@ import java.awt.color.ColorSpace
 import java.awt.image.{BufferedImage, DataBufferByte, Raster}
 import java.awt.{Color, Point}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
-
 import com.microsoft.ml.spark.core.env.StreamUtilities
+
 import javax.imageio.ImageIO
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
@@ -20,6 +20,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.bytedeco.opencv.opencv_core.Mat
 
 import scala.util.Try
 
@@ -59,27 +60,46 @@ object ImageUtils {
     Row(Row(path, height, width, nChannels, mode, decoded))
   }
 
-  def toSparkImageTuple(img: BufferedImage, path: Option[String] = None)
-  : (Option[String], Int, Int, Int, Int, Array[Byte]) = {
+  /**
+    * Extracts the numChannels and mode from a given BufferedImage.
+    * @return (numChannels, mode)
+    */
+  private def extractChannelsMode(img: BufferedImage): (Int, Int) = {
     val isGray = img.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
     val hasAlpha = img.getColorModel.hasAlpha
 
-    val height = img.getHeight
-    val width = img.getWidth
-    val (nChannels, mode) = if (isGray) {
+    if (isGray) {
       (1, ocvTypes("CV_8UC1"))
     } else if (hasAlpha) {
       (4, ocvTypes("CV_8UC4"))
     } else {
       (3, ocvTypes("CV_8UC3"))
     }
+  }
+
+  def toSparkImage(img: Mat, path: Option[String] = None): Row = {
+    val (height, width) = (img.rows, img.cols)
+    val (nChannels, mode) = (img.channels, img.`type`)
+
+    val imageSize = height * width * nChannels
+    assert(imageSize < 1e9, "image is too large")
+    val decoded = Array.ofDim[Byte](imageSize)
+    img.data().get(decoded)
+    Row(Row(path, height, width, nChannels, mode, decoded))
+  }
+
+
+  def toSparkImageTuple(img: BufferedImage, path: Option[String] = None)
+  : (Option[String], Int, Int, Int, Int, Array[Byte]) = {
+    val (height, width) = (img.getHeight, img.getWidth)
+    val (nChannels, mode) = extractChannelsMode(img)
 
     val imageSize = height * width * nChannels
     assert(imageSize < 1e9, "image is too large")
     val decoded = Array.ofDim[Byte](imageSize)
 
     // Grayscale images in Java require special handling to get the correct intensity
-    if (isGray) {
+    if (img.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY) {
       var offset = 0
       val raster = img.getRaster
       for (h <- 0 until height) {
@@ -90,6 +110,7 @@ object ImageUtils {
       }
     } else {
       var offset = 0
+      val hasAlpha = img.getColorModel.hasAlpha
       for (h <- 0 until height) {
         for (w <- 0 until width) {
           val color = new Color(img.getRGB(w, h), hasAlpha)
@@ -105,6 +126,17 @@ object ImageUtils {
     }
 
     (path, height, width, nChannels, mode, decoded)
+  }
+
+  /**
+    * Converts a buffered image to a JavaCV Mat.
+    */
+  def toCVMat(img: BufferedImage): Mat = {
+    val (_, cvType) = extractChannelsMode(img)
+    val mat = new Mat(img.getHeight, img.getWidth, cvType)
+    val bytes = img.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
+    mat.data.put(bytes: _*)
+    mat
   }
 
   def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {

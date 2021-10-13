@@ -131,38 +131,38 @@ class SamplerSuite extends TestBase {
     assert(stddev(statesMatrix(::, 0)) === 5.3043309761267565)
   }
 
-  test("LIMEImageSampler can draw samples") {
-
-    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
-    val imageResource = this.getClass.getResource("/greyhound.jpg")
-    val bi = ImageIO.read(imageResource)
-
-    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
-
-    val imageSampler = new LIMEImageSampler(bi, 0.7, spd)
-
-    val (sample, mask, distance) = imageSampler.sample
-
-    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(sample)
-    assert(width == 209)
-    assert(height == 201)
-    assert(nChannels == 3)
-
-    // 35 superpixel clusters should be active.
-    assert((mask.toBreeze :== 1.0).activeSize == 35)
-
-    // In this test case, 10/45 superpixel clusters are turned off by black background,
-    // so the distance should be sqrt(10/45).
-    assert(distance === math.sqrt(10d / 45d))
-
-    // Uncomment the following lines lines to view the randomly masked image.
-    // Change the RandBasis seed to see a different mask image.
-    // import com.microsoft.ml.spark.io.image.ImageUtils
-    // import com.microsoft.ml.spark.lime.Superpixel
-    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
-    // Superpixel.displayImage(maskedImage)
-    // Thread.sleep(100000)
-  }
+//  test("LIMEImageSampler can draw samples") {
+//
+//    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+//    val imageResource = this.getClass.getResource("/greyhound.jpg")
+//    val bi = ImageIO.read(imageResource)
+//
+//    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
+//
+//    val imageSampler = new LIMEImageSampler(bi, 0.7, spd)
+//
+//    val (sample, mask, distance) = imageSampler.sample
+//
+//    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(sample)
+//    assert(width == 209)
+//    assert(height == 201)
+//    assert(nChannels == 3)
+//
+//    // 35 superpixel clusters should be active.
+//    assert((mask.toBreeze :== 1.0).activeSize == 35)
+//
+//    // In this test case, 10/45 superpixel clusters are turned off by black background,
+//    // so the distance should be sqrt(10/45).
+//    assert(distance === math.sqrt(10d / 45d))
+//
+//    // Uncomment the following lines lines to view the randomly masked image.
+//    // Change the RandBasis seed to see a different mask image.
+//    // import com.microsoft.ml.spark.io.image.ImageUtils
+//    // import com.microsoft.ml.spark.lime.Superpixel
+//    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
+//    // Superpixel.displayImage(maskedImage)
+//    // Thread.sleep(100000)
+//  }
 
   test("LIMETextSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)
@@ -241,48 +241,48 @@ class SamplerSuite extends TestBase {
     }
   }
 
-  test("KernelSHAPImageSampler can draw samples") {
-
-    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
-    val imageResource = this.getClass.getResource("/greyhound.jpg")
-    val bi = ImageIO.read(imageResource)
-
-    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
-
-    val imageSampler = new KernelSHAPImageSampler(bi, spd, 150, 1E8)
-
-    (0 to 1) foreach {
-      _ =>
-        val (_, mask, _) = imageSampler.sample
-        val num1 = (mask.toBreeze :== 1.0).activeSize
-        assert(num1 == 0 || num1 == 45)
-    }
-
-    (2 to 37) foreach {
-      _ =>
-        val (_, mask, _) = imageSampler.sample
-        val num1 = (mask.toBreeze :== 1.0).activeSize
-        assert(num1 == 1 || num1 == 44)
-    }
-
-    (38 to 55) foreach {
-      _ =>
-        val (_, mask, _) = imageSampler.sample
-        val num1 = (mask.toBreeze :== 1.0).activeSize
-        assert(num1 == 2 || num1 == 43)
-    }
-
-    val (next, _, _) = imageSampler.sample
-    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(next)
-
-    // Uncomment the following lines lines to view the randomly masked image.
-    // Change the RandBasis seed to see a different mask image.
-    // import com.microsoft.ml.spark.io.image.ImageUtils
-    // import com.microsoft.ml.spark.lime.Superpixel
-    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
-    // Superpixel.displayImage(maskedImage)
-    // Thread.sleep(100000)
-  }
+//  test("KernelSHAPImageSampler can draw samples") {
+//
+//    implicit val randBasis: RandBasis = RandBasis.withSeed(123)
+//    val imageResource = this.getClass.getResource("/greyhound.jpg")
+//    val bi = ImageIO.read(imageResource)
+//
+//    val spd: SuperpixelData = SuperpixelData.fromSuperpixel(new Superpixel(bi, 30d, 50d))
+//
+//    val imageSampler = new KernelSHAPImageSampler(bi, spd, 150, 1E8)
+//
+//    (0 to 1) foreach {
+//      _ =>
+//        val (_, mask, _) = imageSampler.sample
+//        val num1 = (mask.toBreeze :== 1.0).activeSize
+//        assert(num1 == 0 || num1 == 45)
+//    }
+//
+//    (2 to 37) foreach {
+//      _ =>
+//        val (_, mask, _) = imageSampler.sample
+//        val num1 = (mask.toBreeze :== 1.0).activeSize
+//        assert(num1 == 1 || num1 == 44)
+//    }
+//
+//    (38 to 55) foreach {
+//      _ =>
+//        val (_, mask, _) = imageSampler.sample
+//        val num1 = (mask.toBreeze :== 1.0).activeSize
+//        assert(num1 == 2 || num1 == 43)
+//    }
+//
+//    val (next, _, _) = imageSampler.sample
+//    val (_, height, width, nChannels, _, data) = ImageUtils.toSparkImageTuple(next)
+//
+//    // Uncomment the following lines lines to view the randomly masked image.
+//    // Change the RandBasis seed to see a different mask image.
+//    // import com.microsoft.ml.spark.io.image.ImageUtils
+//    // import com.microsoft.ml.spark.lime.Superpixel
+//    // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
+//    // Superpixel.displayImage(maskedImage)
+//    // Thread.sleep(100000)
+//  }
 
   test("KernelSHAPTextSampler can draw samples") {
     implicit val randBasis: RandBasis = RandBasis.withSeed(123)

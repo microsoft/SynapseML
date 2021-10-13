@@ -295,7 +295,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     val bytes = ImageSchema.getData(row)
 
     val mat = new Mat(height, width, ocvType)
-    mat.data().put(bytes: _*)
+    mat.data.put(bytes: _*)
     (path, mat)
   }
 

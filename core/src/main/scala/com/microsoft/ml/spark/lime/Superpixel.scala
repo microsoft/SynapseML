@@ -3,15 +3,9 @@
 
 package com.microsoft.ml.spark.lime
 
-import java.awt.FlowLayout
-import java.awt.image.BufferedImage
-import java.io.File
-import java.util
-
 import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
+import com.microsoft.ml.spark.core.utils.StopWatch
 import com.microsoft.ml.spark.io.image.ImageUtils
-import javax.imageio.ImageIO
-import javax.swing.{ImageIcon, JFrame, JLabel}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SpLogging}
 import org.apache.spark.ml.image.ImageSchema
@@ -19,9 +13,18 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.{BinaryType, DataType}
+import org.bytedeco.javacpp.indexer.UByteIndexer
+import org.bytedeco.opencv.global.{opencv_core => core, opencv_highgui => highgui, opencv_ximgproc => ximgproc}
+import org.bytedeco.opencv.opencv_core.Mat
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import java.nio.IntBuffer
+import scala.collection.mutable.ArrayBuffer
 
+/**
+  * Seq of clusters
+  *   - Seq of pixels
+  *     - (x, y)
+ */
 case class SuperpixelData(clusters: Seq[Seq[(Int, Int)]])
 
 object SuperpixelData {
@@ -33,39 +36,114 @@ object SuperpixelData {
   }
 
   def fromSuperpixel(sp: Superpixel): SuperpixelData = {
-    SuperpixelData(sp.clusters.map(_.pixels))
+    SuperpixelData(sp.getClusters.map(_.getPixels))
   }
-
 }
 
 /**
-  * Based on "Superpixel algorithm implemented in Java" at
-  *   popscan.blogspot.com/2014/12/superpixel-algorithm-implemented-in-java.html
+  *
+  * @param inputMat The input image to segment.
+  * @param SLICType Type of SLIC optimization:
+  *                 SLIC = 100: baseline;
+  *                 SLICO = 101: Zero parameter SLIC;
+  *                 MSLIC = 102: Manifold SLIC
+  * @param regionSize Chooses an average superpixel size measured in pixels
+  * @param ruler Chooses the enforcement of superpixel smoothness factor of superpixel. Higher value makes
+  *              the cluster boundary smoother.
+  * @param iteration Number of iterations to calculate the superpixel segmentation
+  *                  on a given image with the initialized parameters in the SuperpixelSLIC object.
+  *                  Higher number improves the result.
+  * @param minElementSize When specified, enforce label connectivity. The minimum element size in percents
+  *                       that should be absorbed into a bigger superpixel. Valid value should be in
+  *                       0-100 range, 25 means that less than a quarter sized superpixel should be absorbed.
   */
-object Superpixel {
+class Superpixel(inputMat: Mat,
+                 SLICType: Int,
+                 regionSize: Int,
+                 ruler: Float,
+                 iteration: Int, // = 10,
+                 minElementSize: Option[Int]// = Some(25)
+                )
+  extends SpLogging {
 
-  def getSuperpixelUDF(inputType: DataType, cellSize: Double, modifier: Double): UserDefinedFunction = {
+  private val stopWatch = new StopWatch
+  private val superpixel = stopWatch.measure {
+    val sp = ximgproc.createSuperpixelSLIC(inputMat, SLICType, regionSize, ruler)
+    sp.iterate(iteration)
+    minElementSize.foreach(sp.enforceLabelConnectivity)
+    sp
+  }
+
+  private val nsp = superpixel.getNumberOfSuperpixels
+
+  logInfo(s"Clustered to $nsp superpixels in ${stopWatch.elapsed()} ms.")
+
+  def getClusters: Seq[Cluster] = {
+    val labelsMat = new Mat()
+    superpixel.getLabels(labelsMat)
+
+    val buffer = labelsMat.createBuffer[IntBuffer]
+    val clusters = Seq.fill[Cluster](nsp)(new Cluster())
+
+    for (
+      y <- 0 until inputMat.rows;
+      x <- 0 until inputMat.cols
+    ) {
+      val label = buffer.get(y * inputMat.cols + x)
+      clusters(label).addPixel(x, y)
+    }
+
+    clusters
+  }
+
+    def getLabelContourImage: Mat = {
+      val mask = new Mat()
+      superpixel.getLabelContourMask(mask, true)
+      // invert the mask so that 0 means border and 1 means interior.
+      core.bitwise_not(mask, mask)
+      val contourMat = new Mat()
+      // Copy input image to contour image with mask - only interior will be copied over
+      // and border show up as black line.
+      inputMat.copyTo(contourMat, mask)
+      contourMat
+    }
+}
+
+object Superpixel {
+  def getSuperpixelUDF(inputType: DataType,
+                       SLICType: Int,
+                       regionSize: Int,
+                       ruler: Float,
+                       iteration: Int,
+                       minElementSize: Option[Int]
+                      ): UserDefinedFunction = {
     if (ImageSchemaUtils.isImage(inputType)) {
-      UDFUtils.oldUdf({ row: Row =>
-        SuperpixelData.fromSuperpixel(
-          new Superpixel(ImageUtils.toBufferedImage(row), cellSize, modifier)
-        )
-      }, SuperpixelData.Schema)
+      UDFUtils.oldUdf(
+        {
+          row: Row =>
+            val mat = ImageUtils.toCVMat(ImageUtils.toBufferedImage(row))
+            SuperpixelData.fromSuperpixel(
+              new Superpixel(mat, SLICType, regionSize, ruler, iteration, minElementSize)
+            )
+        }, SuperpixelData.Schema)
     } else if (inputType == BinaryType) {
-      UDFUtils.oldUdf({ bytes: Array[Byte] =>
-        val biOpt = ImageUtils.safeRead(bytes)
-        biOpt.map(bi => SuperpixelData.fromSuperpixel(
-          new Superpixel(bi, cellSize, modifier)
-        ))
-      }, SuperpixelData.Schema)
+      UDFUtils.oldUdf(
+        {
+          bytes: Array[Byte] =>
+            val biOpt = ImageUtils.safeRead(bytes)
+            val matOpt = biOpt.map(ImageUtils.toCVMat)
+            matOpt.map(mat => SuperpixelData.fromSuperpixel(
+              new Superpixel(mat, SLICType, regionSize, ruler, iteration, minElementSize)
+            ))
+        }, SuperpixelData.Schema)
     } else {
       throw new IllegalArgumentException(s"Input type $inputType needs to be image or binary type")
     }
   }
 
   def maskImageHelper(img: Row, sp: Row, states: Seq[Boolean]): Row = {
-    val bi = maskImage(img, SuperpixelData.fromRow(sp), states.toArray)
-    ImageUtils.toSparkImage(bi).getStruct(0)
+    val censoredMat = maskImage(img, SuperpixelData.fromRow(sp), states.toArray)
+    ImageUtils.toSparkImage(censoredMat).getStruct(0)
   }
 
   val MaskImageUDF: UserDefinedFunction = UDFUtils.oldUdf(maskImageHelper _, ImageSchema.columnSchema)
@@ -77,258 +155,59 @@ object Superpixel {
 
   val MaskBinaryUDF: UserDefinedFunction = UDFUtils.oldUdf(maskBinaryHelper _, ImageSchema.columnSchema)
 
-  def displayImage(img: BufferedImage): JFrame = {
-    val frame: JFrame = new JFrame()
-    frame.getContentPane.setLayout(new FlowLayout())
-    frame.getContentPane.add(new JLabel(new ImageIcon(img)))
-    frame.pack()
-    frame.setVisible(true)
-    frame
+  def displayImage(img: Mat, title: String = ""): Unit = {
+    highgui.imshow(title, img)
+    highgui.waitKey(0)
   }
 
-  def saveImage(filename: String, image: BufferedImage): Unit = {
-    ImageIO.write(image, "png", new File(filename))
-    ()
-  }
-
-  def loadImage(filename: String): Option[BufferedImage] = {
-    Some(ImageIO.read(new File(filename)))
-  }
-
-  def copyImage(source: BufferedImage): BufferedImage = {
-    val b = new BufferedImage(source.getWidth, source.getHeight, source.getType)
-    val g = b.getGraphics
-    g.drawImage(source, 0, 0, null)
-    g.dispose()
-    b
-  }
-
-  def maskImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
+  def maskImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
     val img = ImageUtils.toBufferedImage(ImageSchema.getData(imgRow),
       ImageSchema.getWidth(imgRow),
       ImageSchema.getHeight(imgRow),
       ImageSchema.getNChannels(imgRow)
     )
 
-    maskImage(img, superpixels, clusterStates)
+    maskImage(ImageUtils.toCVMat(img), superpixels, clusterStates)
   }
 
-  private val BlackRGB: Int = 0x000000
-
-  def maskImage(img: BufferedImage, superpixels: SuperpixelData, clusterStates: Array[Boolean]): BufferedImage = {
+  def maskImage(srcImage: Mat, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
     assert(superpixels.clusters.size == clusterStates.length)
 
-    val output = copyImage(img)
+    val maskMat = new Mat(srcImage.rows, srcImage.cols, core.CV_8UC1)
+    val indexer = maskMat.createIndexer[UByteIndexer](true)
 
-    (superpixels.clusters zip clusterStates).filterNot(_._2).flatMap(_._1).foreach {
-      case (x, y) => output.setRGB(x, y, BlackRGB)
+    // If cluster state is true, set the mask pixel to 1, otherwise remain zero.
+    (superpixels.clusters zip clusterStates).filter(_._2).flatMap(_._1).foreach {
+      case (x, y) =>
+        indexer.put(x, y, 1)
     }
 
-    output
+    indexer.release()
+    val censoredMat = new Mat()
+    srcImage.copyTo(censoredMat, maskMat)
+    censoredMat
   }
 
   def maskBinary(bytes: Array[Byte],
                  superpixels: SuperpixelData,
-                 clusterStates: Array[Boolean]): Option[BufferedImage] = {
+                 clusterStates: Array[Boolean]): Option[Mat] = {
+
     assert(superpixels.clusters.size == clusterStates.length)
+    val srcImageOpt = ImageUtils.safeRead(bytes)
 
-    val outputOpt = ImageUtils.safeRead(bytes)
-
-    outputOpt.map{output =>
-      (superpixels.clusters zip clusterStates).filterNot(_._2).flatMap(_._1).foreach {
-        case (x, y) => output.setRGB(x, y, BlackRGB)
-      }
-
-      output
+    srcImageOpt.map {
+      srcImage =>
+        maskImage(ImageUtils.toCVMat(srcImage), superpixels, clusterStates)
     }
-  }
-
-}
-
-class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) extends SpLogging {
-  // arrays to store values during process
-  private val width = image.getWidth
-  private val height = image.getHeight
-  private val distances: Array[Double] = new Array[Double](width * height)
-  private val labels: Array[Int] = new Array[Int](width * height)
-  private val reds: Array[Int] = new Array[Int](width * height)
-  private val greens: Array[Int] = new Array[Int](width * height)
-  private val blues: Array[Int] = new Array[Int](width * height)
-
-  private val start: Long = System.currentTimeMillis
-  // get the image pixels
-  private val pixels: Array[Int] = image.getRGB(0, 0, width, height, null, 0, width)
-  // create and fill lookup tables
-  util.Arrays.fill(distances, Integer.MAX_VALUE)
-  util.Arrays.fill(labels, -1)
-  // split rgb-values to own arrays
-  for (y <- 0 until height; x <- 0 until width) {
-    val pos = x + y * width
-    val color = pixels(pos)
-    reds.update(pos, color >> 16 & 0x000000FF)
-    greens.update(pos, color >> 8 & 0x000000FF)
-    blues.update(pos, color >> 0 & 0x000000FF)
-  }
-
-  val clusters: Array[Cluster] = createClusters(image, cellSize, modifier)
-  // in case of unstable clusters, max number of loops
-  val maxClusteringLoops = 50
-
-  // loop until all clusters are stable!
-  var loops = 0
-  var pixelChangedCluster = true
-  while (pixelChangedCluster && loops < maxClusteringLoops) {
-    pixelChangedCluster = false
-    loops += 1
-    // for each cluster center C
-    for (c <- clusters) {
-      // for each pixel i in 2S region around
-      // cluster center
-      val xs = Math.max((c.avgX - cellSize).toInt, 0)
-      val ys = Math.max((c.avgY - cellSize).toInt, 0)
-      val xe = Math.min((c.avgX + cellSize).toInt, width)
-      val ye = Math.min((c.avgY + cellSize).toInt, height)
-      for (y <- ys until ye; x <- xs until xe) {
-        val pos = x + width * y
-        val d = c.distance(x, y,
-          reds(pos), greens(pos), blues(pos),
-          cellSize, modifier, width, height)
-        if ((d < distances(pos)) && (labels(pos) != c.id)) {
-          distances.update(pos, d)
-          labels.update(pos, c.id)
-          pixelChangedCluster = true
-        }
-      }
-    }
-    // reset clusters
-    clusters.foreach(_.reset())
-
-    // add every pixel to cluster based on label
-    for (y <- 0 until height; x <- 0 until width) {
-      val pos = x + y * width
-      clusters(labels(pos)).addPixel(x, y, reds(pos), greens(pos), blues(pos))
-    }
-    // calculate centers
-    clusters.foreach(_.calculateCenter())
-  }
-
-  private val end = System.currentTimeMillis
-
-  logInfo("Clustered to " + clusters.length +
-    " superpixels in " + loops + " loops in " + (end - start) + " ms.")
-
-  def getClusteredImage: BufferedImage = {
-    val result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-    for (y <- 1 until height - 1) {
-      for (x <- 1 until width - 1) {
-        val id1 = labels(x + y * width)
-        val id2 = labels(x + 1 + y * width)
-        val id3 = labels(x + (y + 1) * width)
-        if (id1 != id2 || id1 != id3) {
-          result.setRGB(x, y, 0x000000)
-        }
-        else {
-          result.setRGB(x, y, image.getRGB(x, y))
-        }
-      }
-    }
-    result
-  }
-
-  private def createClusters(image: BufferedImage, cellSize: Double, modifier: Double): Array[Cluster] = {
-    val temp = new ListBuffer[Cluster]
-    val width = image.getWidth
-    val height = image.getHeight
-    var even = false
-    var xstart: Double = 0
-    var id = 0
-    var y = cellSize / 2
-    while (y < height) {
-      // alternate clusters x-position to create nice hexagon grid
-      if (even) {
-        xstart = cellSize / 2.0
-        even = false
-      } else {
-        xstart = cellSize
-        even = true
-      }
-      var x = xstart
-      while (x < width) {
-        val pos = (x + y * width).toInt
-        val c = new Cluster(id, reds(pos), greens(pos), blues(pos), x.toInt, y.toInt, cellSize, modifier)
-        temp.append(c)
-        id += 1
-        x += cellSize
-      }
-      y += cellSize
-    }
-    temp.toArray
   }
 }
 
-class Cluster(var id: Int, val in_red: Int, val in_green: Int, val in_blue: Int,
-              val x: Int, val y: Int, val cellSize: Double, val modifier: Double) {
-  private val inv: Double = 1.0 / ((cellSize / modifier) * (cellSize / modifier)) // inv variable for optimization
-  private var pixelCount = .0 // pixels in this cluster
-  private var avgRed = .0 // average red value
-  private var avgGreen = .0 // average green value
-  private var avgBlue = .0 // average blue value
-  private var sumRed = .0 // sum red values
-  private var sumGreen = .0 // sum green values
-  private var sumBlue = .0 // sum blue values
-  private var sumX = .0 // sum x
-  private var sumY = .0 // sum y
-  var avgX = .0 // average x
-  var avgY = .0 // average y
-  val pixels = new ArrayBuffer[(Int, Int)]
+class Cluster {
+  private val pixels = ArrayBuffer.empty[(Int, Int)]
 
-  addPixel(x, y, in_red, in_green, in_blue)
-  // calculate center with initial one pixel
-  calculateCenter()
-
-  def reset(): Unit = {
-    avgRed = 0
-    avgGreen = 0
-    avgBlue = 0
-    sumRed = 0
-    sumGreen = 0
-    sumBlue = 0
-    pixelCount = 0
-    avgX = 0
-    avgY = 0
-    sumX = 0
-    sumY = 0
-    pixels.clear()
-  }
-
-  def addPixel(x: Int, y: Int, in_red: Int, in_green: Int, in_blue: Int): Unit = {
-    sumX += x
-    sumY += y
-    sumRed += in_red
-    sumGreen += in_green
-    sumBlue += in_blue
-    pixelCount += 1
+  def addPixel(x: Int, y: Int): Unit = {
     pixels.append((x, y))
   }
 
-  def calculateCenter(): Unit = {
-    // Optimization: using "inverse"
-    // to change divide to multiply
-    val inv = 1 / pixelCount
-    avgRed = sumRed * inv
-    avgGreen = sumGreen * inv
-    avgBlue = sumBlue * inv
-    avgX = sumX * inv
-    avgY = sumY * inv
-  }
-
-  def distance(x: Int, y: Int, red: Int, green: Int, blue: Int, S: Double, m: Double, w: Int, h: Int): Double = {
-    // power of color difference between given pixel and cluster center
-    val dxColor = (avgRed - red) * (avgRed - red) +
-      (avgGreen - green) * (avgGreen - green) + (avgBlue - blue) * (avgBlue - blue)
-    // power of spatial difference between
-    val dxSpatial = (avgX - x) * (avgX - x) + (avgY - y) * (avgY - y)
-    // Calculate approximate distance with squares to get more accurate results
-    Math.sqrt(dxColor) + Math.sqrt(dxSpatial * inv)
-  }
+  def getPixels: Seq[(Int, Int)] = pixels
 }
