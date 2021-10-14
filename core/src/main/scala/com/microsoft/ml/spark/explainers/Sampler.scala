@@ -7,12 +7,10 @@ import breeze.linalg.{norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
-import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql.Row
-
-import java.awt.image.BufferedImage
+import org.bytedeco.opencv.opencv_core.Mat
 
 private[explainers] trait Sampler[TObservation, TState] extends Serializable {
   def instance: TObservation
@@ -33,32 +31,29 @@ private[explainers] case class ImageFormat(origin: Option[String],
                                 mode: Int,
                                 data: Array[Byte])
 
-private[explainers] trait ImageSampler extends Sampler[BufferedImage, Vector] {
+private[explainers] trait ImageSampler extends Sampler[Mat, Vector] {
   def spd: SuperpixelData
 
-  override def createNewSample(instance: BufferedImage, state: Vector): BufferedImage = {
+  override def createNewSample(instance: Mat, state: Vector): Mat = {
     val mask = state.toArray.map(_ == 1.0)
-    // TODO: Fix
-    val outputImage = Superpixel.maskImage(ImageUtils.toCVMat(instance), this.spd, mask)
-    outputImage
-    ???
+    Superpixel.maskImage(instance, this.spd, mask)
   }
 }
 
-private[explainers] class LIMEImageSampler(val instance: BufferedImage,
+private[explainers] class LIMEImageSampler(val instance: Mat,
                                            val samplingFraction: Double,
                                            val spd: SuperpixelData)
                                           (implicit val randBasis: RandBasis)
-  extends LIMEOnOffSampler[BufferedImage]
+  extends LIMEOnOffSampler[Mat]
     with ImageSampler {
   override def featureSize: Int = spd.clusters.size
 }
 
-private[explainers] class KernelSHAPImageSampler(val instance: BufferedImage,
+private[explainers] class KernelSHAPImageSampler(val instance: Mat,
                                                  val spd: SuperpixelData,
                                                  val numSamples: Int,
                                                  val infWeight: Double)
-  extends KernelSHAPSampler[BufferedImage]
+  extends KernelSHAPSampler[Mat]
     with KernelSHAPSamplerSupport
     with ImageSampler {
   override protected def featureSize: Int = spd.clusters.size

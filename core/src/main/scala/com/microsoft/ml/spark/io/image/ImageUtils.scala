@@ -3,13 +3,7 @@
 
 package com.microsoft.ml.spark.io.image
 
-import java.awt.color.ColorSpace
-import java.awt.image.{BufferedImage, DataBufferByte, DataBufferInt, Raster}
-import java.awt.{Color, Point}
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import com.microsoft.ml.spark.core.env.StreamUtilities
-
-import javax.imageio.ImageIO
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.Path
@@ -18,11 +12,15 @@ import org.apache.spark.ml.ImageInjections
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.bytedeco.opencv.opencv_core.Mat
+import org.bytedeco.opencv.global.{opencv_imgcodecs => imgcodecs}
 
-import scala.collection.mutable.ArrayBuffer
+import java.awt.color.ColorSpace
+import java.awt.image.{BufferedImage, DataBufferByte, Raster}
+import java.awt.{Color, Point}
+import java.io.ByteArrayInputStream
+import javax.imageio.ImageIO
 import scala.util.Try
 
 object ImageUtils {
@@ -55,7 +53,7 @@ object ImageUtils {
   }
 
   def toSparkImage(img: BufferedImage, path: Option[String] = None): Row = {
-    val (_, height, width, nChannels, mode, decoded) = toSparkImageTuple(img, path)
+    val (height, width, nChannels, mode, decoded) = toSparkImageTuple(img)
 
     // the internal "Row" is needed, because the image is a single DataFrame column
     Row(Row(path, height, width, nChannels, mode, decoded))
@@ -79,19 +77,23 @@ object ImageUtils {
   }
 
   def toSparkImage(img: Mat, path: Option[String]): Row = {
+    val (height, width, nChannels, mode, decoded) = toSparkImageTuple(img)
+    Row(Row(path, height, width, nChannels, mode, decoded))
+  }
+
+  def toSparkImageTuple(img: Mat): (Int, Int, Int, Int, Array[Byte]) = {
     val (height, width) = (img.rows, img.cols)
     val (nChannels, mode) = (img.channels, img.`type`)
 
     val imageSize = height * width * nChannels
     assert(imageSize < 1e9, "image is too large")
     val decoded = Array.ofDim[Byte](imageSize)
-    img.data().get(decoded)
-    Row(Row(path, height, width, nChannels, mode, decoded))
+
+    img.data.get(decoded)
+    (height, width, nChannels, mode, decoded)
   }
 
-
-  def toSparkImageTuple(img: BufferedImage, path: Option[String] = None)
-  : (Option[String], Int, Int, Int, Int, Array[Byte]) = {
+  def toSparkImageTuple(img: BufferedImage): (Int, Int, Int, Int, Array[Byte]) = {
     val (height, width) = (img.getHeight, img.getWidth)
     val (nChannels, mode) = extractChannelsMode(img)
 
@@ -126,17 +128,41 @@ object ImageUtils {
       }
     }
 
-    (path, height, width, nChannels, mode, decoded)
+    (height, width, nChannels, mode, decoded)
+  }
+
+  /**
+    * Converts a Spark image struct to a JavaCV Mat
+    */
+  def toCVMat(row: Row): Mat = {
+    toCVMat(getData(row), getWidth(row), getHeight(row), getMode(row))
+  }
+
+  private def toCVMat(bytes: Array[Byte], w: Int, h: Int, mode: Int): Mat = {
+    val mat = new Mat(h, w, mode)
+    mat.data.put(bytes: _*)
+    mat
   }
 
   /**
     * Converts a buffered image to a JavaCV Mat.
     */
   def toCVMat(img: BufferedImage): Mat = {
-    val (_, height, width, nChannels, mode, decoded) = toSparkImageTuple(img, None)
+    val (height, width, nChannels, mode, decoded) = toSparkImageTuple(img)
     val mat = new Mat(img.getHeight, img.getWidth, mode)
     mat.data.put(decoded: _*)
     mat
+  }
+
+  def safeReadMat(bytes: Array[Byte]): Option[Mat] = {
+    Option(bytes).flatMap{
+      b =>
+        Try {
+          val buf = new Mat(bytes.length.toLong)
+          buf.data.put(bytes: _*)
+          imgcodecs.imdecode(buf, imgcodecs.IMREAD_COLOR)
+        }.toOption
+    }
   }
 
   def safeRead(bytes: Array[Byte]): Option[BufferedImage] = {

@@ -17,8 +17,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
-
-import java.awt.image.BufferedImage
+import org.bytedeco.opencv.opencv_core.Mat
 
 trait ImageLIMEParams
   extends LIMEParams
@@ -44,15 +43,16 @@ class ImageLIME(override val uid: String)
     this(Identifiable.randomUID("ImageLIME"))
   }
 
-  private def sample(numSamples: Int, samplingFraction: Double)(bi: BufferedImage, spd: SuperpixelData)
+  private def sample(numSamples: Int, samplingFraction: Double)(image: Mat, spd: SuperpixelData)
     : Seq[(ImageFormat, Vector, Double)] = {
     implicit val randBasis: RandBasis = RandBasis.mt0
-    val sampler = new LIMEImageSampler(bi, samplingFraction, spd)
+    val sampler = new LIMEImageSampler(image, samplingFraction, spd)
     (1 to numSamples).map {
       _ =>
         val (outputImage, feature, distance) = sampler.sample
-        val (path, height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
-        val imageFormat = ImageFormat(path, height, width, nChannels, mode, decoded)
+        val sparkImage = ImageUtils.toSparkImage(outputImage, None)
+        val (height, width, nChannels, mode, decoded) = ImageUtils.toSparkImageTuple(outputImage)
+        val imageFormat = ImageFormat(None, height, width, nChannels, mode, decoded)
         (imageFormat, feature, distance)
     }
   }
@@ -63,9 +63,9 @@ class ImageLIME(override val uid: String)
     UDFUtils.oldUdf(
       {
         (image: Row, sp: Row) =>
-          val bi = ImageUtils.toBufferedImage(image)
+          val mat = ImageUtils.toCVMat(image)
           val spd = SuperpixelData.fromRow(sp)
-          samplingFunc(bi, spd)
+          samplingFunc(mat, spd)
       },
       getSampleSchema(ImageSchema.columnSchema)
     )
@@ -75,10 +75,11 @@ class ImageLIME(override val uid: String)
     UDFUtils.oldUdf(
       {
         (data: Array[Byte], sp: Row) =>
-          val biOpt = ImageUtils.safeRead(data)
+          val matOpt = ImageUtils.safeReadMat(data)
           val spd = SuperpixelData.fromRow(sp)
-          biOpt.map {
-            bi => samplingFunc(bi, spd)
+          matOpt.map {
+            mat =>
+              samplingFunc(mat, spd)
           }.getOrElse(Seq.empty)
       },
       getSampleSchema(ImageSchema.columnSchema)

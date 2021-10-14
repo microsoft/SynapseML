@@ -120,8 +120,8 @@ object Superpixel {
     if (ImageSchemaUtils.isImage(inputType)) {
       UDFUtils.oldUdf(
         {
-          row: Row =>
-            val mat = ImageUtils.toCVMat(ImageUtils.toBufferedImage(row))
+          image: Row =>
+            val mat = ImageUtils.toCVMat(image)
             SuperpixelData.fromSuperpixel(
               new Superpixel(mat, SLICType, regionSize, ruler, iterations, minElementSize)
             )
@@ -130,8 +130,7 @@ object Superpixel {
       UDFUtils.oldUdf(
         {
           bytes: Array[Byte] =>
-            val biOpt = ImageUtils.safeRead(bytes)
-            val matOpt = biOpt.map(ImageUtils.toCVMat)
+            val matOpt = ImageUtils.safeReadMat(bytes)
             matOpt.map(mat => SuperpixelData.fromSuperpixel(
               new Superpixel(mat, SLICType, regionSize, ruler, iterations, minElementSize)
             ))
@@ -161,14 +160,7 @@ object Superpixel {
   }
 
   def maskImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
-    val img = ImageUtils.toBufferedImage(
-      ImageSchema.getData(imgRow),
-      ImageSchema.getWidth(imgRow),
-      ImageSchema.getHeight(imgRow),
-      ImageSchema.getNChannels(imgRow)
-    )
-
-    maskImage(ImageUtils.toCVMat(img), superpixels, clusterStates)
+    maskImage(ImageUtils.toCVMat(imgRow), superpixels, clusterStates)
   }
 
   def maskImage(srcImage: Mat, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
@@ -195,11 +187,11 @@ object Superpixel {
                  clusterStates: Array[Boolean]): Option[Mat] = {
 
     assert(superpixels.clusters.size == clusterStates.length)
-    val srcImageOpt = ImageUtils.safeRead(bytes)
+    val srcImageOpt = ImageUtils.safeReadMat(bytes)
 
     srcImageOpt.map {
       srcImage =>
-        maskImage(ImageUtils.toCVMat(srcImage), superpixels, clusterStates)
+        maskImage(srcImage, superpixels, clusterStates)
     }
   }
 }
