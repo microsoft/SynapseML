@@ -5,23 +5,24 @@ package com.microsoft.ml.spark.lime
 
 import com.microsoft.ml.spark.image.ImageTestUtils
 import com.microsoft.ml.spark.io.image.ImageUtils
-import org.bytedeco.opencv.global.opencv_core
+import org.bytedeco.javacpp.indexer.UByteRawIndexer
+import org.bytedeco.opencv.global.{
+  opencv_imgcodecs => imgcodecs,
+  opencv_ximgproc => ximgproc,
+  opencv_highgui => highgui
+}
+import org.bytedeco.opencv.opencv_core.Mat
 
+import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 import scala.util.Random
-import org.bytedeco.opencv.global.{
-  opencv_highgui => highgui,
-  opencv_imgcodecs => imgcodecs,
-  opencv_ximgproc => ximgproc
-}
-import org.bytedeco.opencv.opencv_core.Mat
 
 class SuperpixelSuite extends ImageTestUtils {
 
-  lazy val sp1 = new Superpixel(ImageUtils.toCVMat(img), SLICType = 100, regionSize = 16,
-    ruler = 80, iteration = 50, minElementSize = Some(25))
+  lazy val sp1 = new Superpixel(ImageUtils.toCVMat(img), SLICType = 100, regionSize = 20,
+    ruler = 130, iteration = 50, minElementSize = Some(50))
 
   lazy val sp2 = new Superpixel(ImageUtils.toCVMat(img2), SLICType = 100, regionSize = 100,
     ruler = 80, iteration = 50, minElementSize = Some(25))
@@ -57,10 +58,8 @@ class SuperpixelSuite extends ImageTestUtils {
   lazy val superpixels: SuperpixelData = SuperpixelData.fromSuperpixel(sp1)
   lazy val superpixels2: SuperpixelData = SuperpixelData.fromSuperpixel(sp2)
 
-  lazy val censoredImg: BufferedImage = Superpixel.maskImage(
-    ImageUtils.toSparkImage(img).getStruct(0), superpixels, states)
-  lazy val censoredImg2: BufferedImage = Superpixel.maskImage(
-    ImageUtils.toSparkImage(img).getStruct(0), superpixels2, states2)
+  lazy val censoredImg: Mat = Superpixel.maskImage(ImageUtils.toSparkImage(img).getStruct(0), superpixels, states)
+  lazy val censoredImg2: Mat = Superpixel.maskImage(ImageUtils.toSparkImage(img2).getStruct(0), superpixels2, states2)
 
   test("ToList should work on an state sampler") {
     val sampler = LIMEUtils.randomMasks(0.3, 1000)
@@ -68,8 +67,7 @@ class SuperpixelSuite extends ImageTestUtils {
     assert(samples.size === 10)
   }
 
-  // ignore("GetClusteredImage should show the image with its clusters outlined, not censored") {
-  test("getLabelContourImage should show the image with its clusters outlined, not censored") {
+  ignore("getLabelContourImage should show the image with its clusters outlined, not censored") {
     Superpixel.displayImage(sp1.getLabelContourImage)
     Superpixel.displayImage(censoredImg)
     Superpixel.displayImage(sp2.getLabelContourImage)
@@ -83,17 +81,17 @@ class SuperpixelSuite extends ImageTestUtils {
     assert(numClusters === 197)
 
     val contourMat = superpixel.getLabelContourImage
-    highgui.imshow("grocery", contourMat)
-    highgui.waitKey(0)
+//    highgui.imshow("grocery", contourMat)
+//    highgui.waitKey(0)
   }
 
-//  test("Censored clusters' pixels should be black in the censored image") {
-//    for (i <- states.indices if !states(i)) {
-//      allClusters(i).pixels.foreach { case (x: Int, y: Int) =>
-//        val color = new Color(censoredImg.getRGB(x, y))
-//        assert(color.getRed === 0 && color.getGreen === 0 && color.getBlue === 0)
-//      }
-//    }
-//  }
-
+  test("Censored clusters' pixels should be black in the censored image") {
+    val indexer = censoredImg.createIndexer[UByteRawIndexer](true)
+    for (i <- states.indices if !states(i)) {
+      allClusters(i).getPixels.foreach { case (x: Int, y: Int) =>
+        val color = new Color(indexer.get(y.toLong, x.toLong))
+        assert(color.getRed === 0 && color.getGreen === 0 && color.getBlue === 0)
+      }
+    }
+  }
 }

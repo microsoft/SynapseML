@@ -7,6 +7,7 @@ import breeze.linalg.{norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.utils.BreezeUtils._
 import com.microsoft.ml.spark.explainers.RowUtils.RowCanGetAsDouble
+import com.microsoft.ml.spark.io.image.ImageUtils
 import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql.Row
@@ -37,8 +38,10 @@ private[explainers] trait ImageSampler extends Sampler[BufferedImage, Vector] {
 
   override def createNewSample(instance: BufferedImage, state: Vector): BufferedImage = {
     val mask = state.toArray.map(_ == 1.0)
-    val outputImage = Superpixel.maskImage(instance, this.spd, mask)
+    // TODO: Fix
+    val outputImage = Superpixel.maskImage(ImageUtils.toCVMat(instance), this.spd, mask)
     outputImage
+    ???
   }
 }
 

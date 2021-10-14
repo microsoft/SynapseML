@@ -4,7 +4,7 @@
 package com.microsoft.ml.spark.io.image
 
 import java.awt.color.ColorSpace
-import java.awt.image.{BufferedImage, DataBufferByte, Raster}
+import java.awt.image.{BufferedImage, DataBufferByte, DataBufferInt, Raster}
 import java.awt.{Color, Point}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import com.microsoft.ml.spark.core.env.StreamUtilities
@@ -22,6 +22,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.bytedeco.opencv.opencv_core.Mat
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 
 object ImageUtils {
@@ -77,7 +78,7 @@ object ImageUtils {
     }
   }
 
-  def toSparkImage(img: Mat, path: Option[String] = None): Row = {
+  def toSparkImage(img: Mat, path: Option[String]): Row = {
     val (height, width) = (img.rows, img.cols)
     val (nChannels, mode) = (img.channels, img.`type`)
 
@@ -132,10 +133,9 @@ object ImageUtils {
     * Converts a buffered image to a JavaCV Mat.
     */
   def toCVMat(img: BufferedImage): Mat = {
-    val (_, cvType) = extractChannelsMode(img)
-    val mat = new Mat(img.getHeight, img.getWidth, cvType)
-    val bytes = img.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
-    mat.data.put(bytes: _*)
+    val (_, height, width, nChannels, mode, decoded) = toSparkImageTuple(img, None)
+    val mat = new Mat(img.getHeight, img.getWidth, mode)
+    mat.data.put(decoded: _*)
     mat
   }
 

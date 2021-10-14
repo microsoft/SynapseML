@@ -143,14 +143,14 @@ object Superpixel {
 
   def maskImageHelper(img: Row, sp: Row, states: Seq[Boolean]): Row = {
     val censoredMat = maskImage(img, SuperpixelData.fromRow(sp), states.toArray)
-    ImageUtils.toSparkImage(censoredMat).getStruct(0)
+    ImageUtils.toSparkImage(censoredMat, None).getStruct(0)
   }
 
   val MaskImageUDF: UserDefinedFunction = UDFUtils.oldUdf(maskImageHelper _, ImageSchema.columnSchema)
 
   def maskBinaryHelper(img: Array[Byte], sp: Row, states: Seq[Boolean]): Row = {
     val biOpt = maskBinary(img, SuperpixelData.fromRow(sp), states.toArray)
-    biOpt.map(ImageUtils.toSparkImage(_).getStruct(0)).orNull
+    biOpt.map(ImageUtils.toSparkImage(_, None).getStruct(0)).orNull
   }
 
   val MaskBinaryUDF: UserDefinedFunction = UDFUtils.oldUdf(maskBinaryHelper _, ImageSchema.columnSchema)
@@ -161,7 +161,8 @@ object Superpixel {
   }
 
   def maskImage(imgRow: Row, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
-    val img = ImageUtils.toBufferedImage(ImageSchema.getData(imgRow),
+    val img = ImageUtils.toBufferedImage(
+      ImageSchema.getData(imgRow),
       ImageSchema.getWidth(imgRow),
       ImageSchema.getHeight(imgRow),
       ImageSchema.getNChannels(imgRow)
@@ -173,17 +174,18 @@ object Superpixel {
   def maskImage(srcImage: Mat, superpixels: SuperpixelData, clusterStates: Array[Boolean]): Mat = {
     assert(superpixels.clusters.size == clusterStates.length)
 
-    val maskMat = new Mat(srcImage.rows, srcImage.cols, core.CV_8UC1)
+    val maskMat = Mat.zeros(srcImage.rows, srcImage.cols, core.CV_8UC1).asMat
     val indexer = maskMat.createIndexer[UByteIndexer](true)
 
     // If cluster state is true, set the mask pixel to 1, otherwise remain zero.
     (superpixels.clusters zip clusterStates).filter(_._2).flatMap(_._1).foreach {
       case (x, y) =>
-        indexer.put(x, y, 1)
+        indexer.put(y.toLong, x.toLong, 1)
     }
 
     indexer.release()
-    val censoredMat = new Mat()
+
+    val censoredMat = Mat.zeros(srcImage.rows, srcImage.cols, srcImage.`type`).asMat
     srcImage.copyTo(censoredMat, maskMat)
     censoredMat
   }
