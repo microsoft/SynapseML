@@ -3,27 +3,25 @@
 
 package com.microsoft.ml.spark.cognitive
 
-import java.net.URL
 import com.microsoft.ml.spark.core.utils.AsyncUtils
 import com.microsoft.ml.spark.logging.BasicLogging
 import com.microsoft.ml.spark.stages.Lambda
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity
-import org.apache.spark.binary.ConfUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.catalyst.expressions.GenericRow
-import org.apache.spark.sql.functions.{col, explode, udf}
+import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row}
+import spray.json.DefaultJsonProtocol._
 
+import java.net.URL
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import spray.json.DefaultJsonProtocol._
 
 object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Serializable {
 
@@ -68,12 +66,14 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging with HasSetLinkedService {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("BingImageSearch"))
+
+  def urlPath: String = "/v7.0/images/search"
 
   setDefault(url -> "https://api.bing.microsoft.com/v7.0/images/search")
 
