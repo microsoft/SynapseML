@@ -9,6 +9,7 @@ import com.microsoft.ml.spark.explainers.{ImageExplainersSuite, ImageFormat, Ima
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.Row
 
 class ImageSHAPExplainerSuite extends ImageExplainersSuite
   with TransformerFuzzing[ImageSHAP] {
@@ -23,8 +24,9 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
     .setSuperpixelCol("superpixels")
     .setMetricsCol("r2")
     .setInputCol("image")
-    .setCellSize(120.0)
-    .setModifier(20.0)
+    .setRegionSize(120)
+    .setRuler(60f)
+    .setMinElementSize(25)
     .setNumSamples(8)
 
   test("ImageKernelSHAP can explain a model locally") {
@@ -35,17 +37,15 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
       .head
 
     // R2 should be almost 1.
-
+    val imageRow = Row(image.origin, image.height, image.width, image.nChannels, image.mode, image.data)
     val spStates = shapValues.head.toBreeze(1 to -1).map(_ >= 0.05).toArray
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.ml.spark.io.image.ImageUtils
     // import com.microsoft.ml.spark.lime.Superpixel
-    // import java.awt.image.BufferedImage
-    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
+    // val originalImage = ImageUtils.toCVMat(imageRow)
+    // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
     // Superpixel.displayImage(censoredImage)
-    // Thread.sleep(100000)
   }
 
   override def testObjects(): Seq[TestObject[ImageSHAP]] = Seq(new TestObject(shap, imageDf))

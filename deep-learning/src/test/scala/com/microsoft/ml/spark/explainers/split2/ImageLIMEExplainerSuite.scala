@@ -42,12 +42,12 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     val imageRow = Row(image.origin, image.height, image.width, image.nChannels, image.mode, image.data)
     val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
 
-    // Uncomment the following lines lines to view the censoredImage image.
-    // import com.microsoft.ml.spark.io.image.ImageUtils
-    // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-    // val originalImage = ImageUtils.toCVMat(imageRow)
-    // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
-    // Superpixel.displayImage(censoredImage)
+     // Uncomment the following lines lines to view the censoredImage image.
+     // import com.microsoft.ml.spark.io.image.ImageUtils
+     // import com.microsoft.ml.spark.lime.Superpixel
+     // val originalImage = ImageUtils.toCVMat(imageRow)
+     // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
+     // Superpixel.displayImage(censoredImage)
   }
 
   test("ImageLIME can explain a model locally for binary type observation") {
@@ -64,8 +64,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
 
      // Uncomment the following lines lines to view the censoredImage image.
      // import com.microsoft.ml.spark.io.image.ImageUtils
-     // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-     // import java.awt.image.BufferedImage
+     // import com.microsoft.ml.spark.lime.Superpixel
      // val originalImage = ImageUtils.safeReadMat(imageBytes).get
      // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
      // Superpixel.displayImage(censoredImage)
