@@ -22,10 +22,10 @@ import scala.util.Random
 class SuperpixelSuite extends ImageTestUtils {
 
   lazy val sp1 = new Superpixel(ImageUtils.toCVMat(img), SLICType = 100, regionSize = 20,
-    ruler = 130, iteration = 50, minElementSize = Some(50))
+    ruler = 130, iterations = 50, minElementSize = Some(50))
 
   lazy val sp2 = new Superpixel(ImageUtils.toCVMat(img2), SLICType = 100, regionSize = 100,
-    ruler = 80, iteration = 50, minElementSize = Some(25))
+    ruler = 80, iterations = 50, minElementSize = Some(25))
 
   lazy val width = 300
   lazy val height = 300

@@ -12,11 +12,18 @@ class SuperpixelTransformerSuite extends TransformerFuzzing[SuperpixelTransforme
   with ImageTestUtils with FileReaderUtils {
   lazy val spt: SuperpixelTransformer = new SuperpixelTransformer().setInputCol(inputCol)
 
-  test("basic functionality"){
+  test("transform images"){
     val results = spt.transform(images)
     val superpixels = SuperpixelData.fromRow(results.collect()(0).getStruct(1))
-    assert(superpixels.clusters.length === 3)
-    assert(superpixels.clusters.head.length == 310)
+    assert(superpixels.clusters.length === 9)
+    assert(superpixels.clusters.head.length === 44)
+  }
+
+  test("transform binaries"){
+    val results = spt.transform(binaryImages)
+    val superpixels = SuperpixelData.fromRow(results.collect()(0).getStruct(1))
+    assert(superpixels.clusters.length === 9)
+    assert(superpixels.clusters.head.length === 44)
   }
 
   override def testObjects(): Seq[TestObject[SuperpixelTransformer]] =

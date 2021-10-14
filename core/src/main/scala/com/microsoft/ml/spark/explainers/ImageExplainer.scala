@@ -3,7 +3,7 @@
 
 package com.microsoft.ml.spark.explainers
 
-import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelTransformer}
+import com.microsoft.ml.spark.lime.{SuperpixelTransformer, SLICParams}
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.sql.DataFrame
 
@@ -12,17 +12,13 @@ import org.apache.spark.sql.DataFrame
   */
 trait ImageExplainer {
   self: LocalExplainer
-    with HasCellSize
-    with HasModifier
+    with SLICParams
     with HasInputCol
     with HasSuperpixelCol =>
 
   protected override def preprocess(df: DataFrame): DataFrame = {
     // Dataframe with new column containing superpixels (Array[Cluster]) for each row (image to explain)
-    new SuperpixelTransformer()
-      .setCellSize(getCellSize)
-      .setModifier(getModifier)
-      .setInputCol(getInputCol)
+    this.copyValues(new SuperpixelTransformer())
       .setOutputCol(getSuperpixelCol)
       .transform(df)
   }

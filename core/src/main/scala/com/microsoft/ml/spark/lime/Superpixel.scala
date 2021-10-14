@@ -50,7 +50,7 @@ object SuperpixelData {
   * @param regionSize Chooses an average superpixel size measured in pixels
   * @param ruler Chooses the enforcement of superpixel smoothness factor of superpixel. Higher value makes
   *              the cluster boundary smoother.
-  * @param iteration Number of iterations to calculate the superpixel segmentation
+  * @param iterations Number of iterations to calculate the superpixel segmentation
   *                  on a given image with the initialized parameters in the SuperpixelSLIC object.
   *                  Higher number improves the result.
   * @param minElementSize When specified, enforce label connectivity. The minimum element size in percents
@@ -61,15 +61,15 @@ class Superpixel(inputMat: Mat,
                  SLICType: Int,
                  regionSize: Int,
                  ruler: Float,
-                 iteration: Int, // = 10,
-                 minElementSize: Option[Int]// = Some(25)
+                 iterations: Int, // = 10,
+                 minElementSize: Option[Int] // = Some(25)
                 )
   extends SpLogging {
 
   private val stopWatch = new StopWatch
   private val superpixel = stopWatch.measure {
     val sp = ximgproc.createSuperpixelSLIC(inputMat, SLICType, regionSize, ruler)
-    sp.iterate(iteration)
+    sp.iterate(iterations)
     minElementSize.foreach(sp.enforceLabelConnectivity)
     sp
   }
@@ -114,7 +114,7 @@ object Superpixel {
                        SLICType: Int,
                        regionSize: Int,
                        ruler: Float,
-                       iteration: Int,
+                       iterations: Int,
                        minElementSize: Option[Int]
                       ): UserDefinedFunction = {
     if (ImageSchemaUtils.isImage(inputType)) {
@@ -123,7 +123,7 @@ object Superpixel {
           row: Row =>
             val mat = ImageUtils.toCVMat(ImageUtils.toBufferedImage(row))
             SuperpixelData.fromSuperpixel(
-              new Superpixel(mat, SLICType, regionSize, ruler, iteration, minElementSize)
+              new Superpixel(mat, SLICType, regionSize, ruler, iterations, minElementSize)
             )
         }, SuperpixelData.Schema)
     } else if (inputType == BinaryType) {
@@ -133,7 +133,7 @@ object Superpixel {
             val biOpt = ImageUtils.safeRead(bytes)
             val matOpt = biOpt.map(ImageUtils.toCVMat)
             matOpt.map(mat => SuperpixelData.fromSuperpixel(
-              new Superpixel(mat, SLICType, regionSize, ruler, iteration, minElementSize)
+              new Superpixel(mat, SLICType, regionSize, ruler, iterations, minElementSize)
             ))
         }, SuperpixelData.Schema)
     } else {

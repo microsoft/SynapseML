@@ -6,7 +6,7 @@ package com.microsoft.ml.spark.explainers
 import breeze.stats.distributions.RandBasis
 import com.microsoft.ml.spark.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.ml.spark.io.image.ImageUtils
-import com.microsoft.ml.spark.lime.{HasCellSize, HasModifier, SuperpixelData}
+import com.microsoft.ml.spark.lime.{SLICParams, SuperpixelData}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
@@ -23,15 +23,14 @@ import java.awt.image.BufferedImage
 trait ImageLIMEParams
   extends LIMEParams
   with HasSamplingFraction
-  with HasCellSize
-  with HasModifier
+  with SLICParams
   with HasInputCol
   with HasSuperpixelCol {
   self: ImageLIME =>
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
-
-  setDefault(numSamples -> 900, cellSize -> 16, modifier -> 130, regularization -> 0.0, samplingFraction -> 0.7,
+  
+  setDefault(numSamples -> 900, regionSize -> 16, ruler -> 10, regularization -> 0.0, samplingFraction -> 0.7,
     superpixelCol -> "superpixels")
 }
 

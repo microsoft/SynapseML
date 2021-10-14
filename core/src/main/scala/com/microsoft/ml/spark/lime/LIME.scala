@@ -266,7 +266,7 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   */
 @deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-rc3")
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
-  with Wrappable with HasModifier with HasCellSize with BasicLogging {
+  with Wrappable with SLICParams with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ImageLIME"))
@@ -277,49 +277,46 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
 
   def setSuperpixelCol(v: String): this.type = set(superpixelCol, v)
 
-  setDefault(nSamples -> 900, cellSize -> 16, modifier -> 130, regularization -> 0.0,
+  setDefault(nSamples -> 900, regionSize -> 16, ruler -> 10, regularization -> 0.0,
     samplingFraction -> 0.3, superpixelCol -> "superpixels")
 
-  override def transform(dataset: Dataset[_]): DataFrame = {???
-//    logTransform[DataFrame]({
-//      val df = dataset.toDF
-//      val idCol = DatasetExtensions.findUnusedColumnName("id", df)
-//      val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
-//      val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
-//
-//      // Data frame with new column containing superpixels (Array[Cluster]) for each row (image)
-//      val spt = new SuperpixelTransformer()
-//        .setCellSize(getCellSize)
-//        .setModifier(getModifier)
-//        .setInputCol(getInputCol)
-//        .setOutputCol(getSuperpixelCol)
-//
-//      val spDF = spt.transform(df)
-//
-//      // Indices of the columns containing each image and image's superpixels
-//      val inputType = df.schema(getInputCol).dataType
-//      val maskUDF = inputType match {
-//        case BinaryType => Superpixel.MaskBinaryUDF
-//        case t if ImageSchemaUtils.isImage(t) => Superpixel.MaskImageUDF
-//      }
-//
-//      val mapped = spDF.withColumn(idCol, monotonically_increasing_id())
-//        .withColumnRenamed(getInputCol, inputCol2)
-//        .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getSuperpixelCol).getField("clusters")))))
-//        .withColumn(getInputCol, maskUDF(col(inputCol2), col(spt.getOutputCol), col(statesCol)))
-//        .withColumn(statesCol, UDFUtils.oldUdf(
-//          { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
-//          VectorType)(col(statesCol)))
-//        .mlTransform(getModel)
-//        .drop(getInputCol)
-//
-//      LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
-//        .withColumn(statesCol, arrToMatUDF(col(statesCol)))
-//        .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
-//        .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
-//        .drop(statesCol, getPredictionCol)
-//        .withColumnRenamed(inputCol2, getInputCol)
-//    })
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
+      val df = dataset.toDF
+      val idCol = DatasetExtensions.findUnusedColumnName("id", df)
+      val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
+      val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)
+
+      // Data frame with new column containing superpixels (Array[Cluster]) for each row (image)
+      val spt = this.copyValues(new SuperpixelTransformer())
+        .setOutputCol(getSuperpixelCol)
+
+      val spDF = spt.transform(df)
+
+      // Indices of the columns containing each image and image's superpixels
+      val inputType = df.schema(getInputCol).dataType
+      val maskUDF = inputType match {
+        case BinaryType => Superpixel.MaskBinaryUDF
+        case t if ImageSchemaUtils.isImage(t) => Superpixel.MaskImageUDF
+      }
+
+      val mapped = spDF.withColumn(idCol, monotonically_increasing_id())
+        .withColumnRenamed(getInputCol, inputCol2)
+        .withColumn(statesCol, explode_outer(getSampleUDF(size(col(getSuperpixelCol).getField("clusters")))))
+        .withColumn(getInputCol, maskUDF(col(inputCol2), col(spt.getOutputCol), col(statesCol)))
+        .withColumn(statesCol, UDFUtils.oldUdf(
+          { barr: Seq[Boolean] => new DenseVector(barr.map(b => if (b) 1.0 else 0.0).toArray) },
+          VectorType)(col(statesCol)))
+        .mlTransform(getModel)
+        .drop(getInputCol)
+
+      LIMEUtils.localAggregateBy(mapped, idCol, Seq(statesCol, getPredictionCol))
+        .withColumn(statesCol, arrToMatUDF(col(statesCol)))
+        .withColumn(getPredictionCol, arrToVectUDF(col(getPredictionCol)))
+        .withColumn(getOutputCol, fitLassoUDF(col(statesCol), col(getPredictionCol), lit(getRegularization)))
+        .drop(statesCol, getPredictionCol)
+        .withColumnRenamed(inputCol2, getInputCol)
+    })
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -327,7 +324,6 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getSuperpixelCol, SuperpixelData.Schema).add(getOutputCol, VectorType)
   }
-
 }
 
 

@@ -21,15 +21,14 @@ import java.awt.image.BufferedImage
 
 trait ImageSHAPParams
   extends KernelSHAPParams
-    with HasCellSize
-    with HasModifier
+    with SLICParams
     with HasInputCol
     with HasSuperpixelCol {
   self: ImageSHAP =>
 
   def setInputCol(value: String): this.type = this.set(inputCol, value)
 
-  setDefault(cellSize -> 16, modifier -> 130, superpixelCol -> "superpixels")
+  setDefault(regionSize -> 16, ruler -> 10, superpixelCol -> "superpixels")
 }
 
 class ImageSHAP(override val uid: String)
