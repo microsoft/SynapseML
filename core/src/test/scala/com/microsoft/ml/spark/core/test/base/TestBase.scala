@@ -4,9 +4,8 @@
 package com.microsoft.ml.spark.core.test.base
 
 import java.nio.file.Files
-
 import breeze.linalg.norm.Impl
-import breeze.linalg.{norm, DenseVector => BDV}
+import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.math.Field
 import org.apache.commons.io.FileUtils
 import org.apache.spark._
@@ -243,6 +242,20 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
       b match {
         case p: BDV[T @unchecked] =>
           a.length == p.length && norm(a - p) < tol
+        case _ => false
+      }
+    }
+
+  def breezeMatrixEq[T: Field](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDM[T]] =
+    (a: BDM[T], b: Any) => {
+      b match {
+        case p: BDM[T @unchecked] =>
+          a.rows == p.rows && a.cols == p.cols && {
+            ((a(*, ::).iterator) zip (p(*, ::).iterator)).forall {
+              case (v1: BDV[T], v2: BDV[T]) =>
+                breezeVectorEq(tol).areEquivalent(v1, v2)
+            }
+          }
         case _ => false
       }
     }

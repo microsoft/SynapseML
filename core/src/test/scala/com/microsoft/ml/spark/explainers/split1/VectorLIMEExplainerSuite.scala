@@ -21,6 +21,7 @@ class VectorLIMEExplainerSuite extends TestBase with Flaky
   import spark.implicits._
 
   implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-6)
+  implicit val matrixEquality: Equality[BDM[Double]] = breezeMatrixEq(1E-6)
 
   override val sortInDataframeEquality = true
 
