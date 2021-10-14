@@ -155,13 +155,9 @@ object ImageUtils {
   }
 
   def safeReadMat(bytes: Array[Byte]): Option[Mat] = {
-    Option(bytes).flatMap{
+    Option(bytes).flatMap {
       b =>
-        Try {
-          val buf = new Mat(bytes.length.toLong)
-          buf.data.put(bytes: _*)
-          imgcodecs.imdecode(buf, imgcodecs.IMREAD_COLOR)
-        }.toOption
+        Try(imgcodecs.imdecode(new Mat(b: _*), imgcodecs.IMREAD_COLOR)).toOption
     }
   }
 

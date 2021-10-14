@@ -10,6 +10,7 @@ import com.microsoft.ml.spark.io.IOImplicits._
 import com.microsoft.ml.spark.lime.SuperpixelData
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
 
 class ImageLIMEExplainerSuite extends ImageExplainersSuite
@@ -26,8 +27,9 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
     .setSuperpixelCol("superpixels")
     .setMetricsCol("r2")
     .setInputCol("image")
-    .setCellSize(120.0)
-    .setModifier(20.0)
+    .setRegionSize(120)
+    .setRuler(60f)
+    .setMinElementSize(25)
     .setNumSamples(3)
 
   test("ImageLIME can explain a model locally for image type observation") {
@@ -37,38 +39,36 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
       .as[(ImageFormat, SuperpixelData, Seq[Vector], Vector)]
       .head
 
+    val imageRow = Row(image.origin, image.height, image.width, image.nChannels, image.mode, image.data)
     val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.ml.spark.io.image.ImageUtils
     // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-    // import java.awt.image.BufferedImage
-    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
+    // val originalImage = ImageUtils.toCVMat(imageRow)
+    // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
     // Superpixel.displayImage(censoredImage)
-    // Thread.sleep(100000)
   }
 
   test("ImageLIME can explain a model locally for binary type observation") {
     val binaryDf = spark.read.binary.load(greyhoundImageLocation)
       .select(col("value.bytes").alias("image"))
 
-    val (weights, r2) = lime
+    val (weights, r2, imageBytes, superpixels) = lime
       .transform(binaryDf)
-      .select("weights", "r2")
-      .as[(Seq[Vector], Vector)]
+      .select("weights", "r2", "image", "superpixels")
+      .as[(Seq[Vector], Vector, Array[Byte], SuperpixelData)]
       .head
 
     val spStates = weights.head.toBreeze.map(_ >= 0.2).toArray
 
-    // Uncomment the following lines lines to view the censoredImage image.
-    // import com.microsoft.ml.spark.io.image.ImageUtils
-    // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
-    // import java.awt.image.BufferedImage
-    // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
-    // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)
-    // Superpixel.displayImage(censoredImage)
-    // Thread.sleep(100000)
+     // Uncomment the following lines lines to view the censoredImage image.
+     // import com.microsoft.ml.spark.io.image.ImageUtils
+     // import com.microsoft.ml.spark.lime.{Superpixel, SuperpixelData}
+     // import java.awt.image.BufferedImage
+     // val originalImage = ImageUtils.safeReadMat(imageBytes).get
+     // val censoredImage = Superpixel.maskImage(originalImage, superpixels, spStates)
+     // Superpixel.displayImage(censoredImage)
   }
 
   override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, imageDf))

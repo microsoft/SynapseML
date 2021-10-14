@@ -6,7 +6,6 @@ package com.microsoft.ml.spark.lime
 import java.awt.image.BufferedImage
 import java.io.File
 import java.net.URL
-
 import com.microsoft.ml.spark.cntk.{ImageFeaturizer, TrainedCNTKModelUtils}
 import com.microsoft.ml.spark.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.ml.spark.io.IOImplicits._
@@ -21,6 +20,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
+import org.bytedeco.opencv.global.{opencv_core, opencv_ximgproc}
 
 @deprecated("Please use 'com.microsoft.ml.spark.explainers.ImageLIME'.", since="1.0.0-RC3")
 class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
@@ -45,17 +45,18 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   lazy val pipeline: PipelineModel = NamespaceInjections.pipelineModel(
     Array(resNetTransformer, getGreyhoundClass))
 
-  lazy val cellSize = 30.0
-
-  lazy val modifier = 50.0
+  lazy val regionSize = 30
+  lazy val ruler = 50.0f
 
   lazy val lime: ImageLIME = new ImageLIME()
     .setModel(pipeline)
     .setPredictionCol(resNetTransformer.getOutputCol)
     .setOutputCol("weights")
     .setInputCol(inputCol)
-    .setCellSize(cellSize)
-    .setModifier(modifier)
+    .setRegionSize(regionSize)
+    .setRuler(ruler)
+    .setIterations(10)
+    .setMinElementSize(25)
     .setNSamples(3)
 
   lazy val df: DataFrame = spark
@@ -74,7 +75,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
 
   test("LIME on Binary types") {
     val result: DataFrame = lime.setNSamples(20).transform(df)
-    result.show()
+    result.show(1)
   }
 
   test("basic functionality") {
@@ -102,7 +103,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     // Gets first row from the LIME-transformed data frame
     val topRow: Row = result.take(1)(0)
 
-    // Extracts the image, superpixels, and weights of importances from the first row of the data frame
+    // Extracts the image, superpixels, and weights of importance from the first row of the data frame
     val imgRow: Row = topRow.getAs[Row](0)
 
     // Converts the row values to their appropriate types
@@ -110,17 +111,17 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     val states = topRow.getAs[DenseVector]("weights").toArray.map(_ >= 0.008)
 
     val superpixels2 = SuperpixelData.fromSuperpixel(
-      new Superpixel(ImageUtils.toBufferedImage(imgRow), cellSize, modifier))
+      new Superpixel(ImageUtils.toCVMat(imgRow), opencv_ximgproc.SLIC, regionSize, ruler, 10, Some(25))
+    )
 
     //Make sure LIME outputs the correct superpixels
     assert(superpixels1.clusters.map(_.sorted) === superpixels2.clusters.map(_.sorted))
 
     // Creates the censored image, the explanation of the model
-    val censoredImage1: BufferedImage = Superpixel.maskImage(imgRow, superpixels1, states)
+    val censoredImage1 = Superpixel.maskImage(imgRow, superpixels1, states)
 
     // Uncomment these two lines to view the image
-    //Superpixel.displayImage(censoredImage1)
-    //Thread.sleep(100000)
+    // Superpixel.displayImage(censoredImage1)
   }
 
   override def testObjects(): Seq[TestObject[ImageLIME]] = Seq(new TestObject(lime, df))

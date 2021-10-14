@@ -283,6 +283,7 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF
+
       val idCol = DatasetExtensions.findUnusedColumnName("id", df)
       val statesCol = DatasetExtensions.findUnusedColumnName("states", df)
       val inputCol2 = DatasetExtensions.findUnusedColumnName("inputCol2", df)

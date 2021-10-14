@@ -125,5 +125,4 @@ class SuperpixelTransformer(val uid: String) extends Transformer
     assert(ImageSchemaUtils.isImage(inputType) || inputType == BinaryType)
     schema.add(getOutputCol, SuperpixelData.Schema)
   }
-
 }
