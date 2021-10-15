@@ -40,7 +40,10 @@ lazy val opencvLibDep =
   Seq(
     "org.bytedeco" % "javacpp" % "1.5.6",
     "org.bytedeco" % "opencv" % "4.5.3-1.5.6",
-    "org.bytedeco" % "opencv-platform" % "4.5.3-1.5.6"
+    "org.bytedeco" % "opencv" % "4.5.3-1.5.6"
+      classifier("linux-x86_64")
+      classifier("windows-x86_64")
+      classifier("macosx-x86_64")
   )
 
 val dependencies = coreDependencies ++ extraDependencies ++ opencvLibDep
