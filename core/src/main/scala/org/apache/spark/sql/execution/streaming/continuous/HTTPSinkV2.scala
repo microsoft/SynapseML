@@ -3,9 +3,9 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import java.util
+import com.microsoft.azure.synapse.ml.io.http.HTTPResponseData
 
-import com.microsoft.ml.spark.io.http.HTTPResponseData
+import java.util
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._

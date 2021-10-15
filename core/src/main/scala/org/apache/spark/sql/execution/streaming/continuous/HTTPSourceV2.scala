@@ -8,11 +8,12 @@ import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
 import java.util
 import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
 import java.util.{Optional, UUID}
-
 import com.jcraft.jsch.Session
-import com.microsoft.ml.spark.core.env.StreamUtilities
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
+import com.microsoft.azure.synapse.ml.io.http.{
+  HTTPRequestData, HTTPResponseData, HTTPSchema, PortForwarding, StatusLineData}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+
 import javax.annotation.concurrent.GuardedBy
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig

@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.param.{ParamPair, Params}

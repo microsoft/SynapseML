@@ -1,4 +1,4 @@
 library(testthat)
-library(mmlspark)
+library(synapseml)
 
-test_check("mmlspark")
+test_check("synapseml")

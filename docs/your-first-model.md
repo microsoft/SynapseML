@@ -6,7 +6,7 @@ We also learn how to use Jupyter notebooks for developing and running the model.
 
 ### Prerequisites
 
--   You have installed the MMLSpark package, either as a Docker image or on a
+-   You have installed the SynapseML package, either as a Docker image or on a
     Spark cluster,
 -   You have basic knowledge of Python language,
 -   You have basic understanding of machine learning concepts: training, testing,
@@ -14,7 +14,7 @@ We also learn how to use Jupyter notebooks for developing and running the model.
 
 ### Working with Jupyter Notebooks
 
-Once you have the MMLSpark package installed, open Jupyter notebooks folder in
+Once you have the SynapseML package installed, open Jupyter notebooks folder in
 your web browser
 
 -   Local Docker: `http://localhost:8888`
@@ -69,12 +69,12 @@ train, test = data.randomSplit([0.75, 0.25], seed=123)
 
 ### Training a Model
 
-To train the classifier model, we use the `mmlspark.TrainClassifier` class.  It
+To train the classifier model, we use the `synapseml.TrainClassifier` class.  It
 takes in training data and a base SparkML classifier, maps the data into the
 format expected by the base classifier algorithm, and fits a model.
 
 ```python
-from mmlspark.train import TrainClassifier
+from synapse.ml.train import TrainClassifier
 from pyspark.ml.classification import LogisticRegression
 model = TrainClassifier(model=LogisticRegression(), labelCol=" income").fit(train)
 ```
@@ -85,22 +85,22 @@ binarizes the label column.
 ### Scoring and Evaluating the Model
 
 Finally, let's score the model against the test set, and use
-`mmlspark.ComputeModelStatistics` class to compute metrics — accuracy, AUC,
+`synapseml.ComputeModelStatistics` class to compute metrics — accuracy, AUC,
 precision, recall — from the scored data.
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 prediction = model.transform(test)
 metrics = ComputeModelStatistics().transform(prediction)
 metrics.select('accuracy').show()
 ```
 
-And that's it: you've build your first machine learning model using the MMLSpark
-package.  For help on mmlspark classes and methods, you can use Python's help()
+And that's it: you've build your first machine learning model using the SynapseML
+package.  For help on synapsemlclasses and methods, you can use Python's help()
 function, for example
 
 ```python
-help(mmlspark.train.TrainClassifier)
+help(synapse.ml.train.TrainClassifier)
 ```
 
 Next, view our other tutorials to learn how to
