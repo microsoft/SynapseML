@@ -11,7 +11,7 @@ object BlobMavenPlugin extends AutoPlugin {
   override def trigger = allRequirements
 
   object autoImport {
-    val publishBlob = TaskKey[Unit]("publishBlob", "publish the library to mmlspark blob")
+    val publishBlob = TaskKey[Unit]("publishBlob", "publish the library to synapseml blob")
     val blobArtifactInfo = SettingKey[String]("blobArtifactInfo")
   }
 
@@ -34,7 +34,7 @@ object BlobMavenPlugin extends AutoPlugin {
     },
     blobArtifactInfo := {
       s"""
-        |MMLSpark Build and Release Information
+        |SynapseML Build and Release Information
         |---------------
         |
         |### Maven Coordinates

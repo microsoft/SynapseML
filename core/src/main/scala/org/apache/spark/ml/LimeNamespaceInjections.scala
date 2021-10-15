@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml
 
-import com.microsoft.ml.spark.lime.LassoUtils
+import com.microsoft.azure.synapse.ml.lime.LassoUtils
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 
 object LimeNamespaceInjections {

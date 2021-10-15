@@ -18,7 +18,7 @@ object CondaPlugin extends AutoPlugin {
 
   import autoImport._
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
-    condaEnvName := "mmlspark",
+    condaEnvName := "synapseml",
     cleanCondaEnvTask := {
       runCmd(Seq("conda", "env", "remove", "--name", condaEnvName.value, "-y"))
     },
