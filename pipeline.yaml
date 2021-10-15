@@ -357,6 +357,54 @@ jobs:
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
 
+- job: WebsiteSamplesTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    #- template: templates/ivy_cache.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Test Website Samples'
+      timeoutInMinutes: 15
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate synapseml
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (sbt coverage testWebsiteDocs)
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/website-test-result.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token)
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
+
+
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1
