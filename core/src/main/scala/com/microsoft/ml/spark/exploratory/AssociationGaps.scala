@@ -17,8 +17,6 @@ class AssociationGaps(override val uid: String)
     with Wrappable
     with BasicLogging {
 
-  override protected lazy val pyInternalWrapper = true
-
   logClass()
 
   def this() = this(Identifiable.randomUID("AssociationGaps"))
@@ -81,43 +79,43 @@ class AssociationGaps(override val uid: String)
     val Row(numRows: Double, numTrueLabels: Double) =
       df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
 
-    val countSensitivePositiveCol = DatasetExtensions.findUnusedColumnName("countSensitivePositive", df.schema)
-    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", df.schema)
-    val countPositiveCol = DatasetExtensions.findUnusedColumnName("countPositive", df.schema)
-    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", df.schema)
-    val sensitiveValueCol = "SensitiveValue"
+    val positiveFeatureCountCol = DatasetExtensions.findUnusedColumnName("positiveFeatureCount", df.schema)
+    val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
+    val positiveCountCol = DatasetExtensions.findUnusedColumnName("positiveCount", df.schema)
+    val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
+    val featureValueCol = "FeatureValue"
 
-    val counts = getSensitiveCols.map {
+    val featureCounts = getSensitiveCols.map {
       sensitiveCol =>
         df
           .groupBy(sensitiveCol)
           .agg(
-            sum(getLabelCol).cast(DoubleType).alias(countSensitivePositiveCol),
-            count("*").cast(DoubleType).alias(countSensitiveCol)
+            sum(getLabelCol).cast(DoubleType).alias(positiveFeatureCountCol),
+            count("*").cast(DoubleType).alias(featureCountCol)
           )
-          .withColumn(countPositiveCol, lit(numTrueLabels))
-          .withColumn(countAllCol, lit(numRows))
+          .withColumn(positiveCountCol, lit(numTrueLabels))
+          .withColumn(dfCountCol, lit(numRows))
           .withColumn(getFeatureNameCol, lit(sensitiveCol))
-          .withColumn(sensitiveValueCol, col(sensitiveCol))
+          .withColumn(featureValueCol, col(sensitiveCol))
     }.reduce(_ union _)
 
-    val metrics = AssociationMetrics(countSensitivePositiveCol, countSensitiveCol, countPositiveCol, countAllCol).toMap
+    val metrics = AssociationMetrics(positiveFeatureCountCol, featureCountCol, positiveCountCol, dfCountCol).toColumnMap
 
-    val associationMetricsDf = metrics.foldLeft(counts) {
+    val associationMetricsDf = metrics.foldLeft(featureCounts) {
       case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
     }
 
-    calculateAssociationGaps(associationMetricsDf, metrics, sensitiveValueCol)
+    calculateAssociationGaps(associationMetricsDf, metrics, featureValueCol)
   }
 
   private def calculateAssociationGaps(associationMetricsDf: DataFrame,
                                        metrics: Map[String, Column],
-                                       sensitiveValueCol: String): DataFrame = {
+                                       featureValueCol: String): DataFrame = {
     val combinations = associationMetricsDf.alias("A")
       .crossJoin(associationMetricsDf.alias("B"))
       .filter(
         col(s"A.$getFeatureNameCol") === col(s"B.$getFeatureNameCol")
-          && col(s"A.$sensitiveValueCol") > col(s"B.$sensitiveValueCol")
+          && col(s"A.$featureValueCol") > col(s"B.$featureValueCol")
       )
 
     // We handle the case that if A == B, then the gap is 0.0
@@ -134,20 +132,14 @@ class AssociationGaps(override val uid: String)
     combinations.withColumn(getAssociationGapsCol, map(gapTuples ++ measureTuples: _*))
       .select(
         col(s"A.$getFeatureNameCol").alias(getFeatureNameCol),
-        col(s"A.$sensitiveValueCol").alias(getClassACol),
-        col(s"B.$sensitiveValueCol").alias(getClassBCol),
+        col(s"A.$featureValueCol").alias(getClassACol),
+        col(s"B.$featureValueCol").alias(getClassBCol),
         col(getAssociationGapsCol)
       )
   }
 
-  private def validateSchema(schema: StructType): Unit = {
-    getSensitiveCols.foreach {
-      c =>
-        schema(c).dataType match {
-          case ByteType | ShortType | IntegerType | LongType | StringType =>
-          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
-        }
-    }
+  override def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
     schema(getLabelCol).dataType match {
       case ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType =>
       case _ => throw new Exception(s"The label column named $getLabelCol does not contain numeric values.")
@@ -170,17 +162,17 @@ class AssociationGaps(override val uid: String)
   }
 }
 
-case class AssociationMetrics(sensitivePositiveCountCol: String,
-                              sensitiveCountCol: String,
+case class AssociationMetrics(positiveFeatureCountCol: String,
+                              featureCountCol: String,
                               positiveCountCol: String,
                               totalCountCol: String) {
   val pPositive: Column = col(positiveCountCol) / col(totalCountCol)
-  val pSensitive: Column = col(sensitiveCountCol) / col(totalCountCol)
-  val pSensitivePositive: Column = col(sensitivePositiveCountCol) / col(sensitiveCountCol)
-  val pPositiveGivenSensitive: Column = pSensitivePositive / pSensitive
-  val pSensitiveGivenPositive: Column = pSensitivePositive / pPositive
+  val pFeature: Column = col(featureCountCol) / col(totalCountCol)
+  val pPositiveFeature: Column = col(positiveFeatureCountCol) / col(featureCountCol)
+  val pPositiveGivenFeature: Column = pPositiveFeature / pFeature
+  val pFeatureGivenPositive: Column = pPositiveFeature / pPositive
 
-  def toMap: Map[String, Column] = Map(
+  def toColumnMap: Map[String, Column] = Map(
     "dp" -> dp,
     "sdc" -> sdc,
     "ji" -> ji,
@@ -194,16 +186,16 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
   )
 
   // Demographic Parity
-  def dp: Column = pSensitivePositive / pSensitive
+  def dp: Column = pPositiveFeature / pFeature
 
   // Sorensen-Dice Coefficient
-  def sdc: Column = pSensitivePositive / (pSensitive + pPositive)
+  def sdc: Column = pPositiveFeature / (pFeature + pPositive)
 
   // Jaccard Index
-  def ji: Column = pSensitivePositive / (pSensitive + pPositive - pSensitivePositive)
+  def ji: Column = pPositiveFeature / (pFeature + pPositive - pPositiveFeature)
 
   // Log-Likelihood Ratio
-  def llr: Column = log(pSensitivePositive / pPositive)
+  def llr: Column = log(pPositiveFeature / pPositive)
 
   // Pointwise Mutual Information
   // If dp == 0.0, then we don't calculate its log, but rather assume that ln(0.0) = -inf
@@ -214,21 +206,21 @@ case class AssociationMetrics(sensitivePositiveCountCol: String,
   def nPmiY: Column = when(pPositive === lit(0d), lit(0d)).otherwise(pmi / log(pPositive))
 
   // Normalized Pointwise Mutual Information, p(x,y) normalization
-  def nPmiXY: Column = when(pSensitivePositive === lit(0d), lit(0d)).otherwise(pmi / log(pSensitivePositive))
+  def nPmiXY: Column = when(pPositiveFeature === lit(0d), lit(0d)).otherwise(pmi / log(pPositiveFeature))
 
   // Squared Pointwise Mutual Information
-  def sPmi: Column = when(pSensitive * pPositive === lit(0d), lit(0d))
-    .otherwise(log(pow(pSensitivePositive, 2) / (pSensitive * pPositive)))
+  def sPmi: Column = when(pFeature * pPositive === lit(0d), lit(0d))
+    .otherwise(log(pow(pPositiveFeature, 2) / (pFeature * pPositive)))
 
   // Kendall Rank Correlation
   def krc: Column = {
-    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pSensitive - lit(2) * pPositive +
-      lit(2) * pSensitivePositive + lit(2) * pSensitive * pPositive)
-    val b = col(totalCountCol) * (lit(2) * pSensitive + lit(2) * pPositive - lit(4) * pSensitivePositive - lit(1))
-    val c = pow(totalCountCol, 2) * sqrt((pSensitive - pow(pSensitive, 2)) * (pPositive - pow(pPositive, 2)))
+    val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pFeature - lit(2) * pPositive +
+      lit(2) * pPositiveFeature + lit(2) * pFeature * pPositive)
+    val b = col(totalCountCol) * (lit(2) * pFeature + lit(2) * pPositive - lit(4) * pPositiveFeature - lit(1))
+    val c = pow(totalCountCol, 2) * sqrt((pFeature - pow(pFeature, 2)) * (pPositive - pow(pPositive, 2)))
     (a + b) / c
   }
 
   // t-test
-  def tTest: Column = (pSensitivePositive - (pSensitive * pPositive)) / sqrt(pSensitive * pPositive)
+  def tTest: Column = (pPositiveFeature - (pFeature * pPositive)) / sqrt(pFeature * pPositive)
 }

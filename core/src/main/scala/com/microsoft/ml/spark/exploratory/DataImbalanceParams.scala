@@ -1,6 +1,7 @@
 package com.microsoft.ml.spark.exploratory
 
 import org.apache.spark.ml.param.{BooleanParam, Param, Params, StringArrayParam}
+import org.apache.spark.sql.types._
 
 trait DataImbalanceParams extends Params {
   val sensitiveCols = new StringArrayParam(
@@ -36,4 +37,14 @@ trait DataImbalanceParams extends Params {
   setDefault(
     verbose -> false
   )
+
+  def validateSchema(schema: StructType): Unit = {
+    getSensitiveCols.foreach {
+      c =>
+        schema(c).dataType match {
+          case ByteType | ShortType | IntegerType | LongType | StringType =>
+          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
+        }
+    }
+  }
 }

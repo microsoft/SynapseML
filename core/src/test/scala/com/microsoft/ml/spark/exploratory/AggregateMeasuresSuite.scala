@@ -1,7 +1,6 @@
 package com.microsoft.ml.spark.exploratory
 
-import org.apache.spark.sql.functions.{col, count, lit}
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.functions.col
 
 import scala.math.abs
 
@@ -9,12 +8,10 @@ class AggregateMeasuresSuite extends DataImbalanceTestBase {
 
   import spark.implicits._
 
-  private lazy val aggregateMeasures: AggregateMeasures = {
-    spark
+  private lazy val aggregateMeasures: AggregateMeasures =
     new AggregateMeasures()
-      .setSensitiveCols(Array("Gender", "Ethnicity"))
+      .setSensitiveCols(features)
       .setVerbose(true)
-  }
 
   test("AggregateMeasures can calculate Aggregate Measures end-to-end") {
     val aggregateMeasuresDf = aggregateMeasures.transform(sensitiveFeaturesDf)
@@ -22,37 +19,29 @@ class AggregateMeasuresSuite extends DataImbalanceTestBase {
     aggregateMeasuresDf.printSchema()
   }
 
-  private lazy val oneSensitiveFeatureDf = sensitiveFeaturesDf
-    .groupBy("Gender")
-    .agg(count("*").cast(DoubleType).alias("countSensitive"))
-    .withColumn("countAll", lit(sensitiveFeaturesDf.count.toDouble))
-    .withColumn("countSensitiveProb", col("countSensitive") / col("countAll"))
-    .select("countSensitiveProb").as[Double].collect()
-
-  private lazy val expectedOneFeature = AggregateMeasureCalculator(oneSensitiveFeatureDf, 1d, 1e-12)
-
-  private lazy val expectedOneFeatureDiffEpsilon = AggregateMeasureCalculator(oneSensitiveFeatureDf, 0.9, 1e-12)
-
-  private lazy val actualOneFeature: Map[String, Double] = {
-    spark
+  private lazy val actualOneFeature: Map[String, Double] =
     new AggregateMeasures()
-      .setSensitiveCols(Array("Gender"))
+      .setSensitiveCols(Array(feature1))
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .as[Map[String, Double]]
       .collect()(0)
-  }
 
-  private lazy val actualOneFeatureDiffEpsilon: Map[String, Double] = {
-    spark
+  private lazy val actualOneFeatureDiffEpsilon: Map[String, Double] =
     new AggregateMeasures()
-      .setSensitiveCols(Array("Gender"))
+      .setSensitiveCols(Array(feature1))
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .as[Map[String, Double]]
       .collect()(0)
-  }
+
+  private lazy val oneFeatureProbabilities = getProbabilitiesAndCounts(sensitiveFeaturesDf.groupBy(feature1))
+    .select(featureProbCol).as[Double].collect()
+
+  private lazy val expectedOneFeature = AggregateMeasureCalculator(oneFeatureProbabilities, 1d, 1e-12)
+
+  private lazy val expectedOneFeatureDiffEpsilon = AggregateMeasureCalculator(oneFeatureProbabilities, 0.9, 1e-12)
 
   test("AggregateMeasures can calculate Atkinson Index for Default Epsilon (1.0) for 1 sensitive feature") {
     assert(abs(actualOneFeature("atkinson_index") - expectedOneFeature.atkinsonIndex) < errorTolerance)
@@ -71,52 +60,45 @@ class AggregateMeasuresSuite extends DataImbalanceTestBase {
     assert(abs(actualOneFeature("theil_t_index") - expectedOneFeature.theilTIndex) < errorTolerance)
   }
 
-  private lazy val bothSensitiveFeaturesDf = sensitiveFeaturesDf
-    .groupBy("Gender", "Ethnicity")
-    .agg(count("*").cast(DoubleType).alias("countSensitive"))
-    .withColumn("countAll", lit(sensitiveFeaturesDf.count.toDouble))
-    .withColumn("countSensitiveProb", col("countSensitive") / col("countAll"))
-    .select("countSensitiveProb").as[Double].collect()
-
-  private lazy val expectedBothFeatures = AggregateMeasureCalculator(bothSensitiveFeaturesDf, 1d, 1e-12)
-
-  private lazy val expectedBothFeaturesDiffEpsilon = AggregateMeasureCalculator(bothSensitiveFeaturesDf, 0.9, 1e-12)
-
-  private lazy val actualBothFeatures: Map[String, Double] = {
-    spark
+  private lazy val actualTwoFeatures: Map[String, Double] =
     new AggregateMeasures()
-      .setSensitiveCols(Array("Gender", "Ethnicity"))
+      .setSensitiveCols(features)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .as[Map[String, Double]]
       .collect()(0)
-  }
 
-  private lazy val actualBothFeaturesDiffEpsilon: Map[String, Double] = {
-    spark
+  private lazy val actualTwoFeaturesDiffEpsilon: Map[String, Double] =
     new AggregateMeasures()
-      .setSensitiveCols(Array("Gender", "Ethnicity"))
+      .setSensitiveCols(features)
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .as[Map[String, Double]]
       .collect()(0)
-  }
+
+  private lazy val twoFeaturesProbabilities =
+    getProbabilitiesAndCounts(sensitiveFeaturesDf.groupBy(features map col: _*))
+      .select(featureProbCol).as[Double].collect()
+
+  private lazy val expectedBothFeatures = AggregateMeasureCalculator(twoFeaturesProbabilities, 1d, 1e-12)
+
+  private lazy val expectedBothFeaturesDiffEpsilon = AggregateMeasureCalculator(twoFeaturesProbabilities, 0.9, 1e-12)
 
   test("AggregateMeasures can calculate Atkinson Index for Default Epsilon (1.0) for 2 sensitive features") {
-    assert(abs(actualBothFeatures("atkinson_index") - expectedBothFeatures.atkinsonIndex) < errorTolerance)
+    assert(abs(actualTwoFeatures("atkinson_index") - expectedBothFeatures.atkinsonIndex) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Atkinson Index for Nondefault Epsilon (0.9) for 2 sensitive features") {
     assert(abs(
-      actualBothFeaturesDiffEpsilon("atkinson_index") - expectedBothFeaturesDiffEpsilon.atkinsonIndex) < errorTolerance)
+      actualTwoFeaturesDiffEpsilon("atkinson_index") - expectedBothFeaturesDiffEpsilon.atkinsonIndex) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil L Index for 2 sensitive features") {
-    assert(abs(actualBothFeatures("theil_l_index") - expectedBothFeatures.theilLIndex) < errorTolerance)
+    assert(abs(actualTwoFeatures("theil_l_index") - expectedBothFeatures.theilLIndex) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil T Index for 2 sensitive features") {
-    assert(abs(actualBothFeatures("theil_t_index") - expectedBothFeatures.theilTIndex) < errorTolerance)
+    assert(abs(actualTwoFeatures("theil_t_index") - expectedBothFeatures.theilTIndex) < errorTolerance)
   }
 }

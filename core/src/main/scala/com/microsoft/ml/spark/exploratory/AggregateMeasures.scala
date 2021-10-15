@@ -17,8 +17,6 @@ class AggregateMeasures(override val uid: String)
     with Wrappable
     with BasicLogging {
 
-  override protected lazy val pyInternalWrapper = true
-
   logClass()
 
   def this() = this(Identifiable.randomUID("AggregateMeasures"))
@@ -65,33 +63,33 @@ class AggregateMeasures(override val uid: String)
     val df = dataset.cache
     val numRows = df.count.toDouble
 
-    val countSensitiveCol = DatasetExtensions.findUnusedColumnName("countSensitive", df.schema)
-    val countAllCol = DatasetExtensions.findUnusedColumnName("countAll", df.schema)
-    val probSensitiveCol = DatasetExtensions.findUnusedColumnName("probSensitive", df.schema)
+    val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
+    val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
+    val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
-    val benefits = df
+    val featureCountsAndProbabilities = df
       .groupBy(getSensitiveCols map col: _*)
-      .agg(
-        count("*").cast(DoubleType).alias(countSensitiveCol)
-      )
-      .withColumn(countAllCol, lit(numRows))
+      .agg(count("*").cast(DoubleType).alias(featureCountCol))
+      .withColumn(dfCountCol, lit(numRows))
       // P(sensitive)
-      .withColumn(probSensitiveCol, col(countSensitiveCol) / col(countAllCol))
+      .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
 
     if (getVerbose)
-      benefits.cache.show(numRows = 20, truncate = false)
+      featureCountsAndProbabilities.cache.show(numRows = 20, truncate = false)
 
-    calculateAggregateMeasures(benefits, probSensitiveCol)
+    calculateAggregateMeasures(featureCountsAndProbabilities, featureProbCol)
   }
 
-  private def calculateAggregateMeasures(benefitsDf: DataFrame, benefitCol: String): DataFrame = {
-    val Row(numBenefits: Double, meanBenefits: Double) =
-      benefitsDf.agg(count("*").cast(DoubleType), mean(benefitCol).cast(DoubleType)).head
+  private def calculateAggregateMeasures(featureCountsAndProbabilities: DataFrame,
+                                         featureProbCol: String): DataFrame = {
+    val Row(numFeatures: Double, meanFeatures: Double) =
+      featureCountsAndProbabilities.agg(count("*").cast(DoubleType), mean(featureProbCol).cast(DoubleType)).head
 
-    val metricsMap = AggregateMetrics(benefitCol, numBenefits, meanBenefits, getEpsilon, getErrorTolerance).toMap
+    val metricsMap = AggregateMetrics(
+      featureProbCol, numFeatures, meanFeatures, getEpsilon, getErrorTolerance).toColumnMap
     val metricsCols = metricsMap.values.toSeq
 
-    val aggDf = benefitsDf.agg(metricsCols.head, metricsCols.tail: _*)
+    val aggDf = featureCountsAndProbabilities.agg(metricsCols.head, metricsCols.tail: _*)
 
     if (getVerbose)
       aggDf.cache.show(truncate = false)
@@ -115,26 +113,16 @@ class AggregateMeasures(override val uid: String)
         Nil
     )
   }
-
-  private def validateSchema(schema: StructType): Unit = {
-    getSensitiveCols.foreach {
-      c =>
-        schema(c).dataType match {
-          case ByteType | ShortType | IntegerType | LongType | StringType =>
-          case _ => throw new Exception(s"The sensitive column named $c does not contain integral or string values.")
-        }
-    }
-  }
 }
 
-case class AggregateMetrics(benefitCol: String,
-                            numBenefits: Double,
-                            meanBenefits: Double,
+case class AggregateMetrics(featureProbCol: String,
+                            numFeatures: Double,
+                            meanFeatures: Double,
                             epsilon: Double,
                             errorTolerance: Double) {
-  private val normBenefit = col(benefitCol) / meanBenefits
+  private val normFeatureProbCol = col(featureProbCol) / meanFeatures
 
-  def toMap: Map[String, Column] = Map(
+  def toColumnMap: Map[String, Column] = Map(
     "atkinson_index" -> atkinsonIndex.alias("atkinson_index"),
     "theil_l_index" -> theilLIndex.alias("theil_l_index"),
     "theil_t_index" -> theilTIndex.alias("theil_t_index")
@@ -142,23 +130,23 @@ case class AggregateMetrics(benefitCol: String,
 
   def atkinsonIndex: Column = {
     val alpha = 1d - epsilon
-    val productExpression = exp(sum(log(normBenefit)))
-    val powerMeanExpression = sum(pow(normBenefit, alpha)) / numBenefits
+    val productExpression = exp(sum(log(normFeatureProbCol)))
+    val powerMeanExpression = sum(pow(normFeatureProbCol, alpha)) / numFeatures
     when(
       abs(lit(alpha)) < errorTolerance,
-      lit(1d) - pow(productExpression, 1d / numBenefits)
+      lit(1d) - pow(productExpression, 1d / numFeatures)
     ).otherwise(
       lit(1d) - pow(powerMeanExpression, 1d / alpha)
     )
   }
 
   def theilLIndex: Column = {
-    val negativeSumLog = sum(log(normBenefit) * -1d)
-    negativeSumLog / numBenefits
+    val negativeSumLog = sum(log(normFeatureProbCol) * -1d)
+    negativeSumLog / numFeatures
   }
 
   def theilTIndex: Column = {
-    val sumLog = sum(normBenefit * log(normBenefit))
-    sumLog / numBenefits
+    val sumLog = sum(normFeatureProbCol * log(normFeatureProbCol))
+    sumLog / numFeatures
   }
 }
