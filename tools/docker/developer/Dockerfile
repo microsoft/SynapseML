@@ -26,7 +26,7 @@ ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 
 RUN mkdir -p /__w/1
 WORKDIR /__w/1
-RUN git clone https://github.com/Azure/mmlspark.git s \
+RUN git clone https://github.com/Microsoft/SynapseML.git s \
     && cd s \
     && git checkout build-refactor
 WORKDIR /__w/1/s
@@ -38,7 +38,7 @@ ADD . .
 ENV SBT_OPTS="${SBT_OPTS} -Dsbt.io.jdktimestamps=true"
 RUN sbt setup
 RUN conda init bash
-RUN echo "source activate mmlspark" > ~/.bashrc
+RUN echo "source activate synapseml" > ~/.bashrc
 
 # RUN /bin/bash -c "sbt testPython"
 

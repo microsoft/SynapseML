@@ -1,4 +1,4 @@
-# R setup and example for MMLSpark
+# R setup and example for SynapseML
 
 ## Installation
 
@@ -6,11 +6,11 @@
 [devtools](https://github.com/hadley/devtools) installed on your
 machine.
 
-To install the current MMLSpark package for R use:
+To install the current SynapseML package for R use:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc4.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-1.0.0-rc4.zip")
 ...
 ```
 
@@ -23,7 +23,7 @@ It will take some time to install all dependencies.  Then, run:
 library(sparklyr)
 library(dplyr)
 config <- spark_config()
-config$sparklyr.defaultPackages <- "com.microsoft.ml.spark:mmlspark:1.0.0-rc4"
+config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml:1.0.0-rc4"
 sc <- spark_connect(master = "local", config = config)
 ...
 ```
@@ -34,7 +34,7 @@ We will then need to import the R wrappers:
 
 ```R
 ...
-library(mmlspark)
+library(synapseml)
 ...
 ```
 
@@ -83,7 +83,7 @@ and then use spark_connect with method = "databricks":
 
 ```R
 install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/mmlspark-1.0.0-rc4.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-1.0.0-rc4.zip")
 library(sparklyr)
 library(dplyr)
 sc <- spark_connect(method = "databricks")
@@ -96,17 +96,17 @@ ml_train_regressor(faithful_df, labelCol="eruptions", unfit_model)
 
 Our R bindings are built as part of the [normal build
 process](developer-readme.md).  To get a quick build, start at the root
-of the mmlspark directory, and:
+of the synapsemldirectory, and:
 
 ```bash
 ./runme TESTS=NONE
-unzip ./BuildArtifacts/packages/R/mmlspark-0.0.zip
+unzip ./BuildArtifacts/packages/R/synapseml-0.0.zip
 ```
 
 You can then run R in a terminal and install the above files directly:
 
 ```R
 ...
-devtools::install_local("./BuildArtifacts/packages/R/mmlspark")
+devtools::install_local("./BuildArtifacts/packages/R/synapseml")
 ...
 ```
