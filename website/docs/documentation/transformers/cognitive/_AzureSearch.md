@@ -14,7 +14,7 @@ os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
 os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -23,7 +23,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -40,7 +40,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 azureSearchKey = os.environ.get("AZURE_SEARCH_KEY", getSecret("azure-search-key"))
 testServiceName = "mmlspark-azure-search"
@@ -106,7 +106,7 @@ AzureSearchWriter.writeToAzureSearch(df,
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", None)
@@ -171,4 +171,4 @@ AzureSearchWriter.write(df,
 <DocTable className="AzureSearch"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AzureSearch"
 scala="com/microsoft/ml/spark/cognitive/AzureSearch.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/AzureSearch.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AzureSearch.scala" />

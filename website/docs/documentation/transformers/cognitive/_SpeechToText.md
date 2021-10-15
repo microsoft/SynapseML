@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 import requests
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
@@ -61,7 +61,7 @@ display(stt.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.commons.compress.utils.IOUtils
 import java.net.URL
@@ -90,7 +90,7 @@ display(stt.transform(df))
 <DocTable className="SpeechToText"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.SpeechToText"
 scala="com/microsoft/ml/spark/cognitive/SpeechToText.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/SpeechToText.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToText.scala" />
 
 
 ## SpeechToTextSDK
@@ -106,7 +106,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 import requests
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
@@ -128,7 +128,7 @@ display(speech_to_text.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.commons.compress.utils.IOUtils
 import java.net.URL
@@ -155,5 +155,5 @@ display(speech_to_text.transform(df))
 <DocTable className="SpeechToTextSDK"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.SpeechToTextSDK"
 scala="com/microsoft/ml/spark/cognitive/SpeechToTextSDK.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/SpeechToTextSDK.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.scala" />
 

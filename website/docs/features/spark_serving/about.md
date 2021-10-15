@@ -37,7 +37,7 @@ sidebar_label: About
 ### Spark Serving Hello World
 
 ```python
-import mmlspark
+import synapse.ml
 import pyspark
 from pyspark.sql.functions import udf, col, length
 from pyspark.sql.types import *
@@ -62,8 +62,8 @@ server = replies\
 ### Deploying a Deep Network with the CNTKModel
 
 ```python
-import mmlspark
-from mmlspark.cntk import CNTKModel
+import synapse.ml
+from synapse.ml.cntk import CNTKModel
 import pyspark
 from pyspark.sql.functions import udf, col
 

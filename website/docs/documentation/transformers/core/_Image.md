@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.image import *
+from synapse.ml.image import *
 
 # images = (spark.read.format("image")
 #         .option("dropInvalid", True)
@@ -54,7 +54,7 @@ rit = (ResizeImageTransformer()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.image._
+import com.microsoft.azure.synapse.ml.image._
 import spark.implicits._
 
 // val images = (spark.read.format("image")
@@ -75,7 +75,7 @@ val rit = (new ResizeImageTransformer()
 <DocTable className="ResizeImageTransformer"
 py="mmlspark.image.html#module-mmlspark.image.ResizeImageTransformer"
 scala="com/microsoft/ml/spark/image/ResizeImageTransformer.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/image/ResizeImageTransformer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.scala" />
 
 
 ## UnrollImage
@@ -91,7 +91,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.image import *
+from synapse.ml.image import *
 from azure.storage.blob import *
 
 images = (spark.read.format("image")
@@ -116,7 +116,7 @@ display(unroll.transform(preprocessed))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.image._
+import com.microsoft.azure.synapse.ml.image._
 import spark.implicits._
 
 val images = (spark.read.format("image")
@@ -143,7 +143,7 @@ display(unroll.transform(preprocessed))
 <DocTable className="UnrollImage"
 py="mmlspark.image.html#module-mmlspark.image.UnrollImage"
 scala="com/microsoft/ml/spark/image/UnrollImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/image/UnrollImage.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollImage.scala" />
 
 
 ## UnrollBinaryImage
@@ -159,7 +159,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.image import *
+from synapse.ml.image import *
 
 unroll = (UnrollBinaryImage()
       .setInputCol("input_col")
@@ -170,7 +170,7 @@ unroll = (UnrollBinaryImage()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.image._
+import com.microsoft.azure.synapse.ml.image._
 import spark.implicits._
 
 val unroll = (new UnrollBinaryImage()
@@ -185,6 +185,6 @@ val unroll = (new UnrollBinaryImage()
 <DocTable className="UnrollBinaryImage"
 py="mmlspark.image.html#module-mmlspark.image.UnrollBinaryImage"
 scala="com/microsoft/ml/spark/image/UnrollBinaryImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/image/UnrollBinaryImage.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.scala" />
 
 

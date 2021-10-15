@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,8 +36,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -57,8 +57,8 @@ lime = (ImageLIME()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -81,7 +81,7 @@ val lime = (new ImageLIME()
 <DocTable className="ImageLIME"
 py="mmlspark.explainers.html#module-mmlspark.explainers.ImageLIME"
 scala="com/microsoft/ml/spark/explainers/ImageLIME.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/ImageLIME.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageLIME.scala" />
 
 
 ## ImageSHAP
@@ -97,8 +97,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -120,8 +120,8 @@ shap = (
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -145,7 +145,7 @@ val shap = (new ImageSHAP()
 <DocTable className="ImageSHAP"
 py="mmlspark.explainers.html#module-mmlspark.explainers.ImageSHAP"
 scala="com/microsoft/ml/spark/explainers/ImageSHAP.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/ImageSHAP.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageSHAP.scala" />
 
 
 ## TabularLIME
@@ -161,8 +161,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 data = spark.createDataFrame([
@@ -187,8 +187,8 @@ lime = (TabularLIME()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -216,7 +216,7 @@ val lime = (new TabularLIME()
 <DocTable className="TabularLIME"
 py="mmlspark.explainers.html#module-mmlspark.explainers.TabularLIME"
 scala="com/microsoft/ml/spark/explainers/TabularLIME.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/TabularLIME.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularLIME.scala" />
 
 
 ## TabularSHAP
@@ -232,8 +232,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 data = spark.createDataFrame([
@@ -257,8 +257,8 @@ shap = (TabularSHAP()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -285,7 +285,7 @@ val shap = (new TabularSHAP()
 <DocTable className="TabularSHAP"
 py="mmlspark.explainers.html#module-mmlspark.explainers.TabularSHAP"
 scala="com/microsoft/ml/spark/explainers/TabularSHAP.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/TabularSHAP.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularSHAP.scala" />
 
 
 ## TextLIME
@@ -301,8 +301,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -321,8 +321,8 @@ lime = (TextLIME()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -344,7 +344,7 @@ val lime = (new TextLIME()
 <DocTable className="TextLIME"
 py="mmlspark.explainers.html#module-mmlspark.explainers.TextLIME"
 scala="com/microsoft/ml/spark/explainers/TextLIME.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/TextLIME.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextLIME.scala" />
 
 
 ## TextSHAP
@@ -360,8 +360,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -379,8 +379,8 @@ shap = (TextSHAP()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.onnx._
 import spark.implicits._
 
 val model = (new ONNXModel())
@@ -401,7 +401,7 @@ val shap = (new TextSHAP()
 <DocTable className="TextSHAP"
 py="mmlspark.explainers.html#module-mmlspark.explainers.TextSHAP"
 scala="com/microsoft/ml/spark/explainers/TextSHAP.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/TextSHAP.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextSHAP.scala" />
 
 
 ## VectorLIME
@@ -417,8 +417,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -440,7 +440,7 @@ lime = (VectorLIME()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
+import com.microsoft.azure.synapse.ml.explainers._
 import spark.implicits._
 import breeze.linalg.{*, DenseMatrix => BDM}
 import breeze.stats.distributions.Rand
@@ -480,7 +480,7 @@ val lime = (new VectorLIME()
 <DocTable className="VectorLIME"
 py="mmlspark.explainers.html#module-mmlspark.explainers.VectorLIME"
 scala="com/microsoft/ml/spark/explainers/VectorLIME.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/VectorLIME.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorLIME.scala" />
 
 
 ## VectorSHAP
@@ -496,8 +496,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
+from synapse.ml.explainers import *
+from synapse.ml.onnx import ONNXModel
 
 model = ONNXModel()
 
@@ -515,7 +515,7 @@ shap = (VectorSHAP()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.explainers._
+import com.microsoft.azure.synapse.ml.explainers._
 import spark.implicits._
 import breeze.linalg.{*, DenseMatrix => BDM}
 import breeze.stats.distributions.RandBasis
@@ -559,7 +559,7 @@ display(shap.transform(predicted))
 <DocTable className="VectorSHAP"
 py="mmlspark.explainers.html#module-mmlspark.explainers.VectorSHAP"
 scala="com/microsoft/ml/spark/explainers/VectorSHAP.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/explainers/VectorSHAP.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorSHAP.scala" />
 
 
 

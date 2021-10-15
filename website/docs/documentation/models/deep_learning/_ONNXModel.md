@@ -7,7 +7,7 @@ import DocTable from "@theme/DocumentationTable";
 import pyspark
 import os
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 ``` 
@@ -24,8 +24,8 @@ values={[
 <TabItem value="py">
 
 ```py
-import mmlspark
-from mmlspark.onnx import ONNXModel
+import synapse.ml
+from synapse.ml.onnx import ONNXModel
 
 model_path = "PUT_YOUR_MODEL_PATH"
 onnx_ml = (ONNXModel()
@@ -38,7 +38,7 @@ onnx_ml = (ONNXModel()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.onnx._
+import com.microsoft.azure.synapse.ml.onnx._
 
 val model_path = "PUT_YOUR_MODEL_PATH"
 val onnx_ml = new ONNXModel()
@@ -53,5 +53,5 @@ val onnx_ml = new ONNXModel()
 <DocTable className="ONNXModel"
 py="mmlspark.onnx.html#module-mmlspark.onnx.ONNXModel"
 scala="com/microsoft/ml/spark/onnx/ONNXModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/scala/com/microsoft/ml/spark/onnx/ONNXModel.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/com/microsoft/azure/synapse/ml/onnx/ONNXModel.scala" />
 

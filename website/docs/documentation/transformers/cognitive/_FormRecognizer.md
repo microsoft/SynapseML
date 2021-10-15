@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten, regexp_replace, explode, create_map, lit
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -65,7 +65,7 @@ display(analyzeLayout
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -89,7 +89,7 @@ display(analyzeLayout.transform(imageDf)
 <DocTable className="AnalyzeLayout"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeLayout"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeLayout.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## AnalyzeReceipts
@@ -105,7 +105,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -127,7 +127,7 @@ display(analyzeReceipts.transform(imageDf))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -152,7 +152,7 @@ display(analyzeReceipts.transform(imageDf))
 <DocTable className="AnalyzeReceipts"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeReceipts"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeReceipts.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## AnalyzeBusinessCards
@@ -168,7 +168,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -189,7 +189,7 @@ display(analyzeBusinessCards.transform(imageDf)
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -213,7 +213,7 @@ display(analyzeBusinessCards.transform(imageDf)
 <DocTable className="AnalyzeBusinessCards"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeBusinessCards"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeBusinessCards.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## AnalyzeInvoices
@@ -229,7 +229,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -253,7 +253,7 @@ display(analyzeInvoices
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -277,7 +277,7 @@ display(analyzeInvoices.transform(imageD4))
 <DocTable className="AnalyzeInvoices"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeInvoices"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeInvoices.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## AnalyzeIDDocuments
@@ -293,7 +293,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -317,7 +317,7 @@ display(analyzeIDDocuments
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -341,7 +341,7 @@ display(analyzeIDDocuments.transform(imageDf))
 <DocTable className="AnalyzeIDDocuments"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeIDDocuments"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeIDDocuments.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## AnalyzeCustomModel
@@ -357,7 +357,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" # put your own modelId here
@@ -386,7 +386,7 @@ display(analyzeCustomModel
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -412,7 +412,7 @@ display(analyzeCustomModel.transform(imageDf))
 <DocTable className="AnalyzeCustomModel"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeCustomModel"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeCustomModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## GetCustomModel
@@ -428,7 +428,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" # put your own modelId here
@@ -453,7 +453,7 @@ display(getCustomModel
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -477,7 +477,7 @@ display(getCustomModel.transform(emptyDf))
 <DocTable className="GetCustomModel"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GetCustomModel"
 scala="com/microsoft/ml/spark/cognitive/GetCustomModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ## ListCustomModels
@@ -493,7 +493,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 emptyDf = spark.createDataFrame([("",)])
@@ -515,7 +515,7 @@ display(listCustomModels
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -537,6 +537,6 @@ display(listCustomModels.transform(emptyDf))
 <DocTable className="ListCustomModels"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.ListCustomModels"
 scala="com/microsoft/ml/spark/cognitive/ListCustomModels.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 

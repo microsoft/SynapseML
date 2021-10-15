@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -61,7 +61,7 @@ display(face.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -89,7 +89,7 @@ display(face.transform(df))
 <DocTable className="DetectFace"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectFace"
 scala="com/microsoft/ml/spark/cognitive/DetectFace.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/Face.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
 ## FindSimilarFace
@@ -105,7 +105,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -140,7 +140,7 @@ display(findSimilar.transform(faceIdDF))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -179,7 +179,7 @@ display(findSimilar.transform(faceIdDF))
 <DocTable className="FindSimilarFace"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.FindSimilarFace"
 scala="com/microsoft/ml/spark/cognitive/FindSimilarFace.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/Face.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
 ## GroupFaces
@@ -195,7 +195,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -229,7 +229,7 @@ display(group.transform(faceIdDF))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -267,7 +267,7 @@ display(group.transform(faceIdDF))
 <DocTable className="GroupFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GroupFaces"
 scala="com/microsoft/ml/spark/cognitive/GroupFaces.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/Face.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
 ## IdentifyFaces
@@ -283,7 +283,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 pgId = "PUT_YOUR_PERSON_GROUP_ID"
@@ -300,7 +300,7 @@ identifyFaces = (IdentifyFaces()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -320,7 +320,7 @@ val identifyFaces = (new IdentifyFaces()
 <DocTable className="IdentifyFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.IdentifyFaces"
 scala="com/microsoft/ml/spark/cognitive/IdentifyFaces.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/Face.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
 ## VerifyFaces
@@ -336,7 +336,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -371,7 +371,7 @@ display(verify.transform(faceIdDF2))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -411,6 +411,6 @@ display(verify.transform(faceIdDF2))
 <DocTable className="VerifyFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.VerifyFaces"
 scala="com/microsoft/ml/spark/cognitive/VerifyFaces.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/Face.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 

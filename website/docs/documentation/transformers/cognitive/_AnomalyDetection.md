@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -77,7 +77,7 @@ display(dla.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, collect_list, lit, sort_array, struct}
 
@@ -121,7 +121,7 @@ display(dla.transform(df))
 <DocTable className="DetectLastAnomaly"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectLastAnomaly"
 scala="com/microsoft/ml/spark/cognitive/DetectLastAnomaly.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/AnomalyDetection.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
 ## DetectAnomalies
 
@@ -136,7 +136,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -175,7 +175,7 @@ display(da.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
@@ -217,7 +217,7 @@ display(da.transform(df))
 <DocTable className="DetectAnomalies" 
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectAnomalies"
 scala="com/microsoft/ml/spark/cognitive/DetectAnomalies.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/AnomalyDetection.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
 ## SimpleDetectAnomalies
 
@@ -232,7 +232,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -282,7 +282,7 @@ display(sda.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
@@ -323,4 +323,4 @@ display(sda.transform(df))
 <DocTable className="SimpleDetectAnomalies" 
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.SimpleDetectAnomalies"
 scala="com/microsoft/ml/spark/cognitive/SimpleDetectAnomalies.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/AnomalyDetection.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />

@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = spark.createDataFrame([
@@ -63,7 +63,7 @@ display(translate
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -91,7 +91,7 @@ display(translate
 <DocTable className="Translate"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Translate"
 scala="com/microsoft/ml/spark/cognitive/Translate.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## Transliterate
@@ -107,7 +107,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -134,7 +134,7 @@ display(transliterate
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -163,7 +163,7 @@ display(transliterate
 <DocTable className="Transliterate"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Transliterate"
 scala="com/microsoft/ml/spark/cognitive/Transliterate.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## Detect
@@ -179,7 +179,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -202,7 +202,7 @@ display(detect
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -227,7 +227,7 @@ display(detect
 <DocTable className="Detect"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Detect"
 scala="com/microsoft/ml/spark/cognitive/Detect.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## BreakSentence
@@ -243,7 +243,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -266,7 +266,7 @@ display(breakSentence
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -291,7 +291,7 @@ display(breakSentence
 <DocTable className="BreakSentence"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.BreakSentence"
 scala="com/microsoft/ml/spark/cognitive/BreakSentence.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## DictionaryLookup
@@ -307,7 +307,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = spark.createDataFrame([
@@ -333,7 +333,7 @@ display(dictionaryLookup
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -361,7 +361,7 @@ display(dictionaryLookup
 <DocTable className="DictionaryLookup"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryLookup"
 scala="com/microsoft/ml/spark/cognitive/DictionaryLookup.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## DictionaryExamples
@@ -377,7 +377,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = spark.createDataFrame([
@@ -401,7 +401,7 @@ display(dictionaryExamples
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -427,7 +427,7 @@ display(dictionaryExamples
 <DocTable className="DictionaryExamples"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryExamples"
 scala="com/microsoft/ml/spark/cognitive/DictionaryExamples.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
 ## DocumentTranslator
@@ -443,7 +443,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 translatorName = os.environ.get("TRANSLATOR_NAME", "mmlspark-translator")
@@ -460,7 +460,7 @@ documentTranslator = (DocumentTranslator()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
@@ -480,4 +480,4 @@ val documentTranslator = (new DocumentTranslator()
 <DocTable className="DocumentTranslator"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DocumentTranslator"
 scala="com/microsoft/ml/spark/cognitive/DocumentTranslator.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/DocumentTranslator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.scala" />

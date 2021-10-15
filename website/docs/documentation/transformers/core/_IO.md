@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 from pyspark.sql.functions import udf, col
 from requests import Request
 
@@ -58,7 +58,7 @@ display(ht.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 
 val ht = (new HTTPTransformer()
       .setConcurrency(3)
@@ -88,7 +88,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 from pyspark.sql.types import StringType, StructType
 
 sht = (SimpleHTTPTransformer()
@@ -104,7 +104,7 @@ sht = (SimpleHTTPTransformer()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 import org.apache.spark.sql.types.{StringType, StructType}
 
 val sht = (new SimpleHTTPTransformer()
@@ -138,7 +138,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 
 jsonIP = (JSONInputParser()
       .setInputCol("data")
@@ -150,7 +150,7 @@ jsonIP = (JSONInputParser()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 
 val jsonIP = (new JSONInputParser()
       .setInputCol("data")
@@ -180,7 +180,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 from pyspark.sql.types import StringType, StructType
 
 jsonOP = (JSONOutputParser()
@@ -193,7 +193,7 @@ jsonOP = (JSONOutputParser()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 import org.apache.spark.sql.types.{StringType, StructType}
 
 val jsonOP = (new JSONOutputParser()
@@ -224,7 +224,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 
 sop = (StringOutputParser()
       .setInputCol("unparsedOutput")
@@ -235,7 +235,7 @@ sop = (StringOutputParser()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 
 val sop = (new StringOutputParser()
       .setInputCol("unparsedOutput")
@@ -264,7 +264,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 
 cip = (CustomInputParser()
       .setInputCol("data")
@@ -275,7 +275,7 @@ cip = (CustomInputParser()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 
 val cip = (new CustomInputParser()
       .setInputCol("data")
@@ -305,7 +305,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 
 cop = (CustomOutputParser()
       .setInputCol("unparsedOutput")
@@ -316,7 +316,7 @@ cop = (CustomOutputParser()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.io.http._
+import com.microsoft.azure.synapse.ml.io.http._
 
 val cop = (new CustomOutputParser()
       .setInputCol("unparsedOutput")

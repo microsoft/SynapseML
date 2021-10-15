@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 
 df = spark.createDataFrame([
     (True, 1, 2, 3, 4, 5.0, 6.0, "7", "8.0"),
@@ -55,7 +55,7 @@ display(dc.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import spark.implicits._
 
 val df = Seq(
@@ -77,7 +77,7 @@ display(dc.transform(df))
 <DocTable className="DataConversion"
 py="mmlspark.featurize.html#module-mmlspark.featurize.DataConversion"
 scala="com/microsoft/ml/spark/featurize/DataConversion.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/DataConversion.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/DataConversion.scala" />
 
 
 ## IndexToValue
@@ -93,7 +93,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 
 df = spark.createDataFrame([
     (-3, 24, 0.32534, True, "piano"),
@@ -114,7 +114,7 @@ display(itv.transform(df2))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import spark.implicits._
 
 val df = Seq[(Int, Long, Double, Boolean, String)](
@@ -137,7 +137,7 @@ display(itv.transform(df2))
 <DocTable className="IndexToValue"
 py="mmlspark.featurize.html#module-mmlspark.featurize.IndexToValue"
 scala="com/microsoft/ml/spark/featurize/IndexToValue.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/IndexToValue.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/IndexToValue.scala" />
 
 
 # Featurize Text
@@ -155,7 +155,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize.text import *
+from synapse.ml.featurize.text import *
 from pyspark.ml.feature import Tokenizer
 
 dfRaw = spark.createDataFrame([
@@ -183,7 +183,7 @@ display(mng.transform(dfTok))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize.text._
+import com.microsoft.azure.synapse.ml.featurize.text._
 import org.apache.spark.ml.feature.Tokenizer
 import spark.implicits._
 
@@ -214,7 +214,7 @@ display(mng.transform(dfTok))
 <DocTable className="MultiNGram"
 py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.MultiNGram"
 scala="com/microsoft/ml/spark/featurize/text/MultiNGram.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/text/MultiNGram.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.scala" />
 
 
 ## PageSplitter
@@ -230,7 +230,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize.text import *
+from synapse.ml.featurize.text import *
 
 df = spark.createDataFrame([
     ("words words  words     wornssaa ehewjkdiw weijnsikjn xnh", ),
@@ -254,7 +254,7 @@ display(ps.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize.text._
+import com.microsoft.azure.synapse.ml.featurize.text._
 import spark.implicits._
 
 val df = Seq(
@@ -282,6 +282,6 @@ display(ps.transform(df))
 <DocTable className="PageSplitter"
 py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.PageSplitter"
 scala="com/microsoft/ml/spark/featurize/text/PageSplitter.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/text/PageSplitter.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.scala" />
 
 

@@ -15,7 +15,7 @@ const snippets = [
     label: "Text Analytics",
     further:
       "/docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
-    config: `from mmlspark.cognitive import *
+    config: `from synapse.ml.cognitive import *
 from pyspark.sql.functions import col
 import os
 
@@ -45,7 +45,7 @@ display(sentiment.transform(df).select("text", col("sentiment")[0].getItem("sent
     label: "Deep Learning",
     further: "/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
     config: `# Load the ONNX payload into an ONNXModel, and inspect the model inputs and outputs.
-from mmlspark.onnx import ONNXModel
+from synapse.ml.onnx import ONNXModel
 
 onnx_ml = ONNXModel().setModelPayload(model_payload_ml)
 
@@ -81,7 +81,7 @@ display(onnx_ml.transform(testDf))
   {
     label: "Model Interpretability",
     further: "/docs/features/model_interpretability/about",
-    config: `from mmlspark.explainers import *
+    config: `from synapse.ml.explainers import *
 import urllib.request
 
 # We download an image for interpretation.
@@ -132,7 +132,7 @@ display(lime_result.select(col("weights_piano"), col("r2_piano"), col("weights_c
   {
     label: "LightGBM",
     further: "/docs/features/lightgbm/about",
-    config: `from mmlspark.lightgbm import LightGBMRegressor
+    config: `from synapse.ml.lightgbm import LightGBMRegressor
 model = LightGBMRegressor(application='quantile',
                           alpha=0.3,
                           learningRate=0.3,
@@ -308,9 +308,9 @@ function Home() {
                   MMLSpark can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
-pyspark --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4
-spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar`}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.0
+pyspark --packages com.microsoft.azure:synapseml:0.9.0
+spark-submit --packages com.microsoft.azure:synapseml:0.9.0 MyApp.jar`}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -337,7 +337,7 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar`}
                   <p>
                     For the coordinates use:
                     <CodeSnippet
-                      snippet={`com.microsoft.ml.spark:mmlspark:1.0.0-rc4`}
+                      snippet={`com.microsoft.azure:synapseml:0.9.0`}
                       lang="bash"
                     ></CodeSnippet>
                     with the resolver:
@@ -355,7 +355,7 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar`}
                   To get started with our example notebooks import the following
                   databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc4.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv0.9.0.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -393,10 +393,10 @@ spark-submit --packages com.microsoft.ml.spark:mmlspark:1.0.0-rc4 MyApp.jar`}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate()
-import mmlspark`}
+import synapse.ml`}
                     lang="python"
                   ></CodeSnippet>
                 </TabItem>
@@ -404,8 +404,8 @@ import mmlspark`}
                   If you are building a Spark application in Scala, add the
                   following lines to your build.sbt:
                   <CodeSnippet
-                    snippet={`resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc4"`}
+                    snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
+libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.0"`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>

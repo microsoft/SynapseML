@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.opencv import *
+from synapse.ml.opencv import *
 from pyspark.sql.types import FloatType
 
 # images = (spark.read.format("image")
@@ -56,7 +56,7 @@ it = (ImageTransformer(inputCol="image", outputCol="features")
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.opencv._
+import com.microsoft.azure.synapse.ml.opencv._
 
 val images = (spark.read.format("image")
     .option("dropInvalid", true)
@@ -91,7 +91,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.opencv import *
+from synapse.ml.opencv import *
 
 # images = (spark.read.format("image")
 #         .option("dropInvalid", True)
@@ -110,7 +110,7 @@ isa = (ImageSetAugmenter()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.opencv._
+import com.microsoft.azure.synapse.ml.opencv._
 
 val images = (spark.read.format("image")
     .option("dropInvalid", true)

@@ -15,7 +15,7 @@ MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apac
 
 ## Usage
 
-1. Create a `com.microsoft.ml.spark.onnx.ONNXModel` object and use `setModelLocation` or `setModelPayload` to load the ONNX model.
+1. Create a `com.microsoft.azure.synapse.ml.onnx.ONNXModel` object and use `setModelLocation` or `setModelPayload` to load the ONNX model.
 
     For example:
 
@@ -29,7 +29,7 @@ MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apac
 
 3. Set the parameters properly to the `ONNXModel` object.
 
-    The `com.microsoft.ml.spark.onnx.ONNXModel` class provides a set of parameters to control the behavior of the inference.
+    The `com.microsoft.azure.synapse.ml.onnx.ONNXModel` class provides a set of parameters to control the behavior of the inference.
 
     | Parameter         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Default Value                                  |
     |:------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------|

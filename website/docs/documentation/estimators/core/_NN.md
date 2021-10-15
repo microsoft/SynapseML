@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.nn import *
+from synapse.ml.nn import *
 
 cknn = (ConditionalKNN()
       .setOutputCol("matches")
@@ -47,7 +47,7 @@ cknn = (ConditionalKNN()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.nn._
+import com.microsoft.azure.synapse.ml.nn._
 import spark.implicits._
 
 val cknn = (new ConditionalKNN()
@@ -61,7 +61,7 @@ val cknn = (new ConditionalKNN()
 <DocTable className="ConditionalKNN"
 py="mmlspark.nn.html#module-mmlspark.nn.ConditionalKNN"
 scala="com/microsoft/ml/spark/nn/ConditionalKNN.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/nn/ConditionalKNN.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/ConditionalKNN.scala" />
 
 
 ## KNN
@@ -77,7 +77,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.nn import *
+from synapse.ml.nn import *
 
 knn = (KNN()
       .setOutputCol("matches"))
@@ -87,7 +87,7 @@ knn = (KNN()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.nn._
+import com.microsoft.azure.synapse.ml.nn._
 import spark.implicits._
 
 val knn = (new KNN()
@@ -100,7 +100,7 @@ val knn = (new KNN()
 <DocTable className="KNN"
 py="mmlspark.nn.html#module-mmlspark.nn.KNN"
 scala="com/microsoft/ml/spark/nn/KNN.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/nn/KNN.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/KNN.scala" />
 
 
 

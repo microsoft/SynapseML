@@ -48,7 +48,7 @@ Furthermore it includes many advances in the area of reinforcement learning (e.g
 In PySpark, you can run the `VowpalWabbitClassifier` via:
 
 ```python
-from mmlspark.vw import VowpalWabbitClassifier
+from synapse.ml.vw import VowpalWabbitClassifier
 model = (VowpalWabbitClassifier(numPasses=5, args="--holdout_off --loss_function logistic")
             .fit(train))
 ```
@@ -56,7 +56,7 @@ model = (VowpalWabbitClassifier(numPasses=5, args="--holdout_off --loss_function
 Similarly, you can run the `VowpalWabbitRegressor`: 
 
 ```python
-from mmlspark.vw import VowpalWabbitRegressor
+from synapse.ml.vw import VowpalWabbitRegressor
 model = (VowpalWabbitRegressor(args="--holdout_off --loss_function quantile -q :: -l 0.1")
             .fit(train))
 ```
@@ -68,7 +68,7 @@ example](/docs/features/vw/Vowpal%20Wabbit%20-%20Overview).
 
 ### Hyper-parameter tuning
 
-- Common parameters can also be set through methods enabling the use of SparkMLs ParamGridBuilder and CrossValidator ([example](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/ml/spark/vw/VerifyVowpalWabbitClassifier.scala#L29)). Note if
+- Common parameters can also be set through methods enabling the use of SparkMLs ParamGridBuilder and CrossValidator ([example](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/azure/synapse/ml/vw/VerifyVowpalWabbitClassifier.scala#L29)). Note if
     the same parameters are passed through _args_ property (e.g. args="-l 0.2" and setLearningRate(0.5)) the _args_ value will
     take precedence.
  parameter
@@ -93,7 +93,7 @@ To fluently embed VW into the Spark ML eco system the following adaptions were m
     - Pro: best composability with existing Spark ML components.
     - Cons: due to type restrictions (e.g. feature indicies are Java integers) the maximum model size is limited to 30-bits. One could overcome this restriction by adding additional type support to the classifier/regressor to directly operate on input features (e.g. strings, int, double, ...).
 
-- VW hashing is separated out into the [VowpalWabbitFeaturizer](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/ml/spark/vw/VerifyVowpalWabbitFeaturizer.scala#L34) transformer. It supports mapping Spark Dataframe schema into VWs namespaces and sparse 
+- VW hashing is separated out into the [VowpalWabbitFeaturizer](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/azure/synapse/ml/vw/VerifyVowpalWabbitFeaturizer.scala#L34) transformer. It supports mapping Spark Dataframe schema into VWs namespaces and sparse 
 features.
     - Pro: featurization can be scaled to many nodes, scale independent of distributed learning.
     - Pro: hashed features can be cached and efficiently re-used when performing hyper-parameter sweeps.

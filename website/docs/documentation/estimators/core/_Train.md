@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.train import *
+from synapse.ml.train import *
 from pyspark.ml.classification import LogisticRegression
 
 df = spark.createDataFrame([
@@ -66,7 +66,7 @@ display(tc.fit(df).transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.train._
 import org.apache.spark.ml.classification.LogisticRegression
 
 val df = (Seq(
@@ -97,7 +97,7 @@ display(tc.fit(df).transform(df))
 <DocTable className="TrainClassifier"
 py="mmlspark.train.html#module-mmlspark.train.TrainClassifier"
 scala="com/microsoft/ml/spark/train/TrainClassifier.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/train/TrainClassifier.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainClassifier.scala" />
 
 
 ## TrainRegressor
@@ -113,7 +113,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.train import *
+from synapse.ml.train import *
 from pyspark.ml.classification import LogisticRegression
 
 dataset = (spark.createDataFrame([
@@ -145,7 +145,7 @@ display(trainRegressor.fit(dataset).transform(dataset))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.train._
 import org.apache.spark.ml.classification.LogisticRegression
 
 val dataset = spark.createDataFrame(Seq(
@@ -179,7 +179,7 @@ display(trainRegressor.fit(dataset).transform(dataset))
 <DocTable className="TrainRegressor"
 py="mmlspark.train.html#module-mmlspark.train.TrainRegressor"
 scala="com/microsoft/ml/spark/train/TrainRegressor.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/train/TrainRegressor.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainRegressor.scala" />
 
 
 

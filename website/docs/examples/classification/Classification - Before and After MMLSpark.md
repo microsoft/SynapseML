@@ -1,5 +1,5 @@
 ---
-title: Classification - Before and After MMLSpark
+title: Classification - Before and After SynapseML
 hide_title: true
 status: stable
 ---

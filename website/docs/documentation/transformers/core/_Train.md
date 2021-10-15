@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.train import *
+from synapse.ml.train import *
 from numpy import random
 
 df = spark.createDataFrame(
@@ -55,7 +55,7 @@ display(cms.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.train._
 import scala.util.Random
 
 val rand = new Random(1337)
@@ -77,7 +77,7 @@ display(cms.transform(df))
 <DocTable className="ComputeModelStatistics"
 py="mmlspark.train.html#module-mmlspark.train.ComputeModelStatistics"
 scala="com/microsoft/ml/spark/train/ComputeModelStatistics.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/train/ComputeModelStatistics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.scala" />
 
 
 ## ComputePerInstanceStatistics
@@ -93,7 +93,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.train import *
+from synapse.ml.train import *
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import FastVectorAssembler
 
@@ -143,7 +143,7 @@ display(cps.transform(scoredData))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.train._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.FastVectorAssembler
 
@@ -195,7 +195,7 @@ display(cps.transform(scoredData))
 <DocTable className="ComputePerInstanceStatistics"
 py="mmlspark.train.html#module-mmlspark.train.ComputePerInstanceStatistics"
 scala="com/microsoft/ml/spark/train/ComputePerInstanceStatistics.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/train/ComputePerInstanceStatistics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.scala" />
 
 
 

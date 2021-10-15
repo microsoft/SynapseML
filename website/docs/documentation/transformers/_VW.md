@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 df = spark.createDataFrame([
       ("action1_f", "action2_f"),
@@ -66,7 +66,7 @@ display(vectorZipper.transform(seqDF))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 
 val df = (Seq(
       ("action1_f", "action2_f"),
@@ -114,7 +114,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 vw = (VowpalWabbitClassifier()
       .setNumBits(10)
@@ -127,7 +127,7 @@ vw = (VowpalWabbitClassifier()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 
 val vw = (new VowpalWabbitClassifier()
       .setNumBits(10)
@@ -158,7 +158,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 featurizer = (VowpalWabbitFeaturizer()
       .setStringSplitInputCols(["in"])
@@ -172,7 +172,7 @@ featurizer = (VowpalWabbitFeaturizer()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 
 val featurizer = (new VowpalWabbitFeaturizer()
       .setStringSplitInputCols(Array("in"))
@@ -204,7 +204,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 interactions = (VowpalWabbitInteractions()
     .setInputCols(["v1"])
@@ -215,7 +215,7 @@ interactions = (VowpalWabbitInteractions()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 import org.apache.spark.ml.linalg._
 
 case class Data(v1: Vector, v2: Vector, v3: Vector)

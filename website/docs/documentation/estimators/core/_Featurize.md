@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 
 dataset = spark.createDataFrame([
     (0,    2,    0.50, 0.60, 0),
@@ -63,7 +63,7 @@ cmd = (CleanMissingData()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt}
 import spark.implicits._
 
@@ -97,7 +97,7 @@ val cmd = (new CleanMissingData()
 <DocTable className="CleanMissingData"
 py="mmlspark.featurize.html#module-mmlspark.featurize.CleanMissingData"
 scala="com/microsoft/ml/spark/featurize/CleanMissingData.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/CleanMissingData.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CleanMissingData.scala" />
 
 
 ## CountSelector
@@ -113,7 +113,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 from pyspark.ml.linalg import Vectors
 
 df = spark.createDataFrame([
@@ -130,7 +130,7 @@ display(cs.fit(df).transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import org.apache.spark.ml.linalg.Vectors
 import spark.implicits._
 
@@ -152,7 +152,7 @@ display(cs.fit(df).transform(df))
 <DocTable className="CountSelector"
 py="mmlspark.featurize.html#module-mmlspark.featurize.CountSelector"
 scala="com/microsoft/ml/spark/featurize/CountSelector.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/CountSelector.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CountSelector.scala" />
 
 
 ## Featurize
@@ -168,7 +168,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 
 dataset = spark.createDataFrame([
     (0, 2, 0.50, 0.60, "pokemon are everywhere"),
@@ -193,7 +193,7 @@ display(feat.fit(dataset).transform(dataset))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import spark.implicits._
 
 val dataset = Seq(
@@ -220,7 +220,7 @@ display(feat.fit(dataset).transform(dataset))
 <DocTable className="Featurize"
 py="mmlspark.featurize.html#module-mmlspark.featurize.Featurize"
 scala="com/microsoft/ml/spark/featurize/Featurize.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/Featurize.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/Featurize.scala" />
 
 
 ## ValueIndexer
@@ -236,7 +236,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize import *
+from synapse.ml.featurize import *
 
 df = spark.createDataFrame([
     (-3, 24, 0.32534, True, "piano"),
@@ -253,7 +253,7 @@ display(vi.fit(df).transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize._
+import com.microsoft.azure.synapse.ml.featurize._
 import spark.implicits._
 
 val df = Seq[(Int, Long, Double, Boolean, String)](
@@ -272,7 +272,7 @@ display(vi.fit(df).transform(df))
 <DocTable className="ValueIndexer"
 py="mmlspark.featurize.html#module-mmlspark.featurize.ValueIndexer"
 scala="com/microsoft/ml/spark/featurize/ValueIndexer.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/ValueIndexer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/ValueIndexer.scala" />
 
 # Featurize Text
 
@@ -289,7 +289,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.featurize.text import *
+from synapse.ml.featurize.text import *
 
 dfRaw = spark.createDataFrame([
     (0, "Hi I"),
@@ -310,7 +310,7 @@ display(tfRaw.fit(dfRaw).transform(dfRaw))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.featurize.text._
+import com.microsoft.azure.synapse.ml.featurize.text._
 import spark.implicits._
 
 val dfRaw = Seq((0, "Hi I"),
@@ -332,6 +332,6 @@ display(tfRaw.fit(dfRaw).transform(dfRaw))
 <DocTable className="TextFeaturizer"
 py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.TextFeaturizer"
 scala="com/microsoft/ml/spark/featurize/text/TextFeaturizer.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/featurize/text/TextFeaturizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.scala" />
 
 

@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, 1.0, "Hi I"),
@@ -60,7 +60,7 @@ display(cb.fit(df).transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = Seq(
       (0, 1.0, "Hi I"),
@@ -101,7 +101,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 from pyspark.ml.feature import Tokenizer
 
 df = (spark.createDataFrame([
@@ -124,7 +124,7 @@ display(mca.fit(df).transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.spark.ml.feature.Tokenizer
 
 val df = (Seq(
@@ -165,7 +165,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 from pyspark.ml.feature import *
 
 df = (spark.createDataFrame([
@@ -193,7 +193,7 @@ display(timer.fit(df3).transform(df3))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.spark.ml.feature._
 
 val df = (Seq(

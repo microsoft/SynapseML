@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -36,8 +36,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.automl import *
-from mmlspark.train import *
+from synapse.ml.automl import *
+from synapse.ml.train import *
 from pyspark.ml.classification import RandomForestClassifier
 
 df = (spark.createDataFrame([
@@ -80,8 +80,8 @@ display(bestModel.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.automl._
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.automl._
+import com.microsoft.azure.synapse.ml.train._
 import spark.implicits._
 import org.apache.spark.ml.Transformer
 
@@ -128,7 +128,7 @@ display(bestModel.transform(df))
 <DocTable className="FindBestModel"
 py="mmlspark.automl.html#module-mmlspark.automl.FindBestModel"
 scala="com/microsoft/ml/spark/automl/FindBestModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/automl/FindBestModel.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/FindBestModel.scala" />
 
 
 ## TuneHyperparameters
@@ -144,8 +144,8 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.automl import *
-from mmlspark.train import *
+from synapse.ml.automl import *
+from synapse.ml.train import *
 from pyspark.ml.classification import LogisticRegression, RandomForestClassifier, GBTClassifier
 
 
@@ -185,8 +185,8 @@ bestModel = TuneHyperparameters(
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.automl._
-import com.microsoft.ml.spark.train._
+import com.microsoft.azure.synapse.ml.automl._
+import com.microsoft.azure.synapse.ml.train._
 import spark.implicits._
 
 val logReg = new LogisticRegression()
@@ -226,5 +226,5 @@ display(tuneHyperparameters.fit(dataset))
 <DocTable className="TuneHyperparameters"
 py="mmlspark.automl.html#module-mmlspark.automl.TuneHyperparameters"
 scala="com/microsoft/ml/spark/automl/TuneHyperparameters.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/automl/TuneHyperparameters.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.scala" />
 

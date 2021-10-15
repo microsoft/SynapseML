@@ -7,11 +7,10 @@ import DocTable from "@theme/DocumentationTable";
 import pyspark
 import os
 import json
-import mmlspark
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 
@@ -59,7 +58,7 @@ display(ocr.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -84,7 +83,7 @@ display(ocr.transform(df))
 <DocTable className="OCR"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.OCR"
 scala="com/microsoft/ml/spark/cognitive/OCR.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## AnalyzeImage
@@ -100,7 +99,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -126,7 +125,7 @@ display(ai.transform(df).select("url", "features.description.tags"))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -154,7 +153,7 @@ display(ai.transform(df).select("url", "features"))
 <DocTable className="AnalyzeImage"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeImage"
 scala="com/microsoft/ml/spark/cognitive/AnalyzeImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## RecognizeText
@@ -170,7 +169,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -194,7 +193,7 @@ display(rt.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -221,7 +220,7 @@ display(rt.transform(df))
 <DocTable className="RecognizeText"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.RecognizeText"
 scala="com/microsoft/ml/spark/cognitive/RecognizeText.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## ReadImage
@@ -237,7 +236,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -260,7 +259,7 @@ display(ri.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -286,7 +285,7 @@ display(ri.transform(df))
 <DocTable className="ReadImage"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.ReadImage"
 scala="com/microsoft/ml/spark/cognitive/ReadImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## RecognizeDomainSpecificContent
@@ -302,7 +301,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -323,7 +322,7 @@ display(celeb.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -347,7 +346,7 @@ display(celeb.transform(df))
 <DocTable className="RecognizeDomainSpecificContent"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.RecognizeDomainSpecificContent"
 scala="com/microsoft/ml/spark/cognitive/RecognizeDomainSpecificContent.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## GenerateThumbnails
@@ -363,7 +362,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -386,7 +385,7 @@ display(gt.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -412,7 +411,7 @@ display(gt.transform(df))
 <DocTable className="GenerateThumbnails"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GenerateThumbnails"
 scala="com/microsoft/ml/spark/cognitive/GenerateThumbnails.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## TagImage
@@ -428,7 +427,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -448,7 +447,7 @@ display(ti.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -471,7 +470,7 @@ display(ti.transform(df))
 <DocTable className="TagImage"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.TagImage"
 scala="com/microsoft/ml/spark/cognitive/TagImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 ## DescribeImage
@@ -487,7 +486,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -508,7 +507,7 @@ display(di.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -532,7 +531,7 @@ display(di.transform(df))
 <DocTable className="DescribeImage"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DescribeImage"
 scala="com/microsoft/ml/spark/cognitive/DescribeImage.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/ComputerVision.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
 

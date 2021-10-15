@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.recommendation import *
+from synapse.ml.recommendation import *
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import *
 
@@ -125,7 +125,7 @@ display(tvRecommendationSplit.fit(transformedDf).transform(transformedDf))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.recommendation._
+import com.microsoft.azure.synapse.ml.recommendation._
 import org.apache.spark.ml.recommendation.ALS
 import org.apache.spark.ml.tuning._
 import spark.implicits._
@@ -217,19 +217,19 @@ display(tvRecommendationSplit.fit(transformedDf).transform(transformedDf))
 <DocTable className="RecommendationIndexer"
 py="mmlspark.recommendation.html#module-mmlspark.recommendation.RecommendationIndexer"
 scala="com/microsoft/ml/spark/recommendation/RecommendationIndexer.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/recommendation/RecommendationIndexer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RecommendationIndexer.scala" />
 <DocTable className="RankingEvaluator"
 py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingEvaluator"
 scala="com/microsoft/ml/spark/recommendation/RankingEvaluator.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/recommendation/RankingEvaluator.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingEvaluator.scala" />
 <DocTable className="RankingAdapter"
 py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingAdapter"
 scala="com/microsoft/ml/spark/recommendation/RankingAdapter.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/recommendation/RankingAdapter.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingAdapter.scala" />
 <DocTable className="RankingTrainValidationSplit"
 py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingTrainValidationSplit"
 scala="com/microsoft/ml/spark/recommendation/RankingTrainValidationSplit.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/recommendation/RankingTrainValidationSplit.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingTrainValidationSplit.scala" />
 
 
 ## SAR
@@ -245,7 +245,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.recommendation import *
+from synapse.ml.recommendation import *
 
 ratings = (spark.createDataFrame([
       ("11", "Movie 01", 2),
@@ -313,7 +313,7 @@ display(adapter.fit(res1).transform(res1))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.recommendation._
+import com.microsoft.azure.synapse.ml.recommendation._
 import spark.implicits._
 
 val ratings = (Seq(
@@ -384,5 +384,5 @@ display(adapter.fit(res1).transform(res1))
 <DocTable className="SAR"
 py="mmlspark.recommendation.html#module-mmlspark.recommendation.SAR"
 scala="com/microsoft/ml/spark/recommendation/SAR.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/recommendation/SAR.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/SAR.scala" />
 

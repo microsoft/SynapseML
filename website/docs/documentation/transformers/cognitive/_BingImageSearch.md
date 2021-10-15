@@ -14,7 +14,7 @@ os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
 os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -23,7 +23,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -40,7 +40,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 bingSearchKey = os.environ.get("BING_SEARCH_KEY", getSecret("bing-search-key"))
 
@@ -77,7 +77,7 @@ display(pipeline.transform(bingParameters))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val bingSearchKey = sys.env.getOrElse("BING_SEARCH_KEY", None)
@@ -113,4 +113,4 @@ display(getUrls.transform(bingSearch.transform(bingParameters)))
 <DocTable className="BingImageSearch"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.BingImageSearch"
 scala="com/microsoft/ml/spark/cognitive/BingImageSearch.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/BingImageSearch.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.scala" />

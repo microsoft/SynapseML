@@ -30,8 +30,8 @@ sidebar_label: About
 ### Send a JSON POST request
 
 ```python
-import mmlspark
-from mmlspark.io.http import SimpleHTTPTransformer, JSONOutputParser
+import synapse.ml
+from synapse.ml.io.http import SimpleHTTPTransformer, JSONOutputParser
 from pyspark.sql.types import StructType, StringType
 
 df = sc.parallelize([(x, ) for x in range(100)]).toDF("data")
@@ -84,7 +84,7 @@ SimpleHTTPTransformer() \
 
 HTTP on Spark encapsulates the entire HTTP protocol within Spark's
 datatypes.  Uses can create flexible web clients that communicate with a
-wide variety of endpoints.  MMLSpark provides methods to convert between
+wide variety of endpoints.  SynapseML provides methods to convert between
 Scala case classes, Spark types, and Apache HTTP Core types.  A common
 representation makes it easy to work with HTTP on spark from Scala,
 Python, or any other spark compatible language.  This common
@@ -101,7 +101,7 @@ requests.  A schematic representation can be seen below:
 ## Schema
 
 This library adds Spark types that faithfully represent the HTTP
-protocol for requests and responses.  MMLSpark provides several ways to
+protocol for requests and responses.  SynapseML provides several ways to
 create these objects from the apache HTTP core library, and from a set
 of case classes.
 

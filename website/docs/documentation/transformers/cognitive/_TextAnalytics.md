@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -20,7 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ``` 
 -->
 
@@ -37,7 +37,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -59,7 +59,7 @@ display(entity.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -84,7 +84,7 @@ display(entity.transform(df))
 <DocTable className="EntityDetector"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.EntityDetector"
 scala="com/microsoft/ml/spark/cognitive/EntityDetector.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
 ## KeyPhraseExtractor
@@ -100,7 +100,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -123,7 +123,7 @@ display(keyPhrase.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -149,7 +149,7 @@ display(keyPhrase.transform(df))
 <DocTable className="KeyPhraseExtractor"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.KeyPhraseExtractor"
 scala="com/microsoft/ml/spark/cognitive/KeyPhraseExtractor.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
 ## LanguageDetector
@@ -165,7 +165,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -191,7 +191,7 @@ display(language.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -216,7 +216,7 @@ display(language.transform(df))
 <DocTable className="LanguageDetector"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.LanguageDetector"
 scala="com/microsoft/ml/spark/cognitive/LanguageDetector.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
 ## NER
@@ -232,7 +232,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -254,7 +254,7 @@ display(ner.transform(df)
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -278,7 +278,7 @@ display(ner.transform(df)
 <DocTable className="NER"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.NER"
 scala="com/microsoft/ml/spark/cognitive/NER.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
 ## PII
@@ -294,7 +294,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -317,7 +317,7 @@ display(pii.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -343,7 +343,7 @@ display(pii.transform(df))
 <DocTable className="PII"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.TextSentiment"
 scala="com/microsoft/ml/spark/cognitive/TextSentiment.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
 ## TextSentiment
@@ -359,7 +359,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -383,7 +383,7 @@ display(sentiment.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive._
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -413,6 +413,6 @@ display(sentiment.transform(df))
 <DocTable className="TextSentiment"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.TextSentiment"
 scala="com/microsoft/ml/spark/cognitive/TextSentiment.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/ml/spark/cognitive/TextAnalytics.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 

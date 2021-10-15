@@ -12,13 +12,11 @@ description: Build machine learning applications using Microsoft Machine Learnin
 
 ## Get started
 
-To get started, import mmlspark and configurate service keys.
+To get started, import synapse.ml and configurate service keys.
 
 ```python
-import mmlspark
-mmlspark.__spark_package_version__
-
-from mmlspark.cognitive import *
+import synapse.ml
+from synapse.ml.cognitive import *
 from notebookutils import mssparkutils
 
 # A general Cognitive Services key for Text Analytics and Computer Vision (or use separate keys that belong to each service)

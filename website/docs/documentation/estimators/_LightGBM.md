@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.lightgbm import *
+from synapse.ml.lightgbm import *
 
 lgbmClassifier = (LightGBMClassifier()
       .setFeaturesCol("features")
@@ -54,7 +54,7 @@ lgbmClassifier = (LightGBMClassifier()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm._
 
 val lgbmClassifier = (new LightGBMClassifier()
       .setFeaturesCol("features")
@@ -90,7 +90,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.lightgbm import *
+from synapse.ml.lightgbm import *
 
 lgbmRanker = (LightGBMRanker()
       .setLabelCol("labels")
@@ -106,7 +106,7 @@ lgbmRanker = (LightGBMRanker()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm._
 
 val lgbmRanker = (new LightGBMRanker()
       .setLabelCol("labels")
@@ -140,7 +140,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.lightgbm import *
+from synapse.ml.lightgbm import *
 
 lgbmRegressor = (LightGBMRegressor()
       .setLabelCol("labels")
@@ -154,7 +154,7 @@ lgbmRegressor = (LightGBMRegressor()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm._
 
 val lgbmRegressor = (new LightGBMRegressor()
       .setLabelCol("labels")

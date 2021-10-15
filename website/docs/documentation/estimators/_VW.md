@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 vw = (VowpalWabbitRegressor()
       .setLabelCol("Y1")
@@ -52,7 +52,7 @@ vwRegressor = (VowpalWabbitRegressor()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 
 val vw = (new VowpalWabbitRegressor()
       .setLabelCol("Y1")
@@ -87,7 +87,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.vw import *
+from synapse.ml.vw import *
 
 cb = (VowpalWabbitContextualBandit()
       .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
@@ -103,7 +103,7 @@ cb = (VowpalWabbitContextualBandit()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.vw._
+import com.microsoft.azure.synapse.ml.vw._
 
 val cb = (new VowpalWabbitContextualBandit()
       .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")

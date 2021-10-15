@@ -6,7 +6,7 @@ keywords: [
 ]
 ---
 
-Microsoft Machine Learning for Apache Spark (SynapseML) expands the distributed computing framework [Apache Spark](https://github.com/apache/spark) in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including [LightGBM](../docs/notebooks/LightGBM/about), [Vowpal Wabbit](../docs/notebooks/Vowpal%20Wabbit/about), [OpenCV](https://opencv.org/), [Isolation Forest](https://github.com/linkedin/isolation-forest), and the [Microsoft Cognitive Toolkit (CNTK)](https://www.microsoft.com/en-us/research/product/cognitive-toolkit/) . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.
+Synapse Machine Learning expands the distributed computing framework [Apache Spark](https://github.com/apache/spark) in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including [LightGBM](../docs/notebooks/features/lightgbm/about), [Vowpal Wabbit](../docs/notebooks/features/vw/about), [OpenCV](https://opencv.org/), [Isolation Forest](https://github.com/linkedin/isolation-forest), and the [Microsoft Cognitive Toolkit (CNTK)](https://www.microsoft.com/en-us/research/product/cognitive-toolkit/) . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.
 
 <!--truncate-->
 

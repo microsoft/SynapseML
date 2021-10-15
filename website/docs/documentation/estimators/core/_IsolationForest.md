@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.isolationforest import *
+from synapse.ml.isolationforest import *
 
 isolationForest = (IsolationForest()
       .setNumEstimators(100)
@@ -55,7 +55,7 @@ isolationForest = (IsolationForest()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.isolationforest._
+import com.microsoft.azure.synapse.ml.isolationforest._
 import spark.implicits._
 
 val isolationForest = (new IsolationForest()
@@ -77,7 +77,7 @@ val isolationForest = (new IsolationForest()
 <DocTable className="CleanMissingData"
 py="mmlspark.isolationforest.html#module-mmlspark.isolationforest.IsolationForest"
 scala="com/microsoft/ml/spark/isolationforest/IsolationForest.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/ml/spark/isolationforest/IsolationForest.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />
 
 
 

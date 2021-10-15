@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark:1.0.0-rc4")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -19,7 +19,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
-import mmlspark
+import synapse.ml
 ```
 -->
 
@@ -36,7 +36,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, "guitars", "drums"),
@@ -62,7 +62,7 @@ display(cacher.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = Seq(
       (0, "guitars", "drums"),
@@ -106,7 +106,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -123,7 +123,7 @@ display(dc.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -158,7 +158,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 scoreDF = (spark.createDataFrame([
       (0, "foo", 1.0, .1),
@@ -178,7 +178,7 @@ display(ebk.transform(scoreDF2))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.spark.ml.feature.VectorAssembler
 
 val scoreDF = (Seq(
@@ -217,7 +217,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, ["guitars", "drums"]),
@@ -234,7 +234,7 @@ display(explode.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
     (0, Seq("guitars", "drums")),
@@ -269,7 +269,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 from pyspark.sql.types import StringType, StructType
 
 df = (spark.createDataFrame([
@@ -289,7 +289,7 @@ display(l.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.spark.sql.types.{StringType, StructType}
 
 val df = (Seq(
@@ -327,7 +327,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 from pyspark.sql.types import StringType, StructType
 
 df = (spark.createDataFrame([(_, "foo") for _ in range(1, 11)], ["in1", "in2"]))
@@ -341,7 +341,7 @@ display(dmbt.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (1 until 11).map(x => (x, "foo")).toDF("in1", "in2")
 
@@ -372,7 +372,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 fmbt = (FixedMiniBatchTransformer()
       .setBuffered(true)
@@ -383,7 +383,7 @@ fmbt = (FixedMiniBatchTransformer()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val fmbt = (new FixedMiniBatchTransformer()
       .setBuffered(true)
@@ -412,7 +412,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([(_, "foo") for _ in range(1, 11)], ["in1", "in2"]))
 
@@ -427,7 +427,7 @@ display(timbt.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (1 until 11).map(x => (x, "foo")).toDF("in1", "in2")
 
@@ -460,7 +460,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([(_, "foo") for _ in range(1, 11)], ["in1", "in2"]))
 
@@ -475,7 +475,7 @@ display(fb.transform(transDF))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (1 until 11).map(x => (x, "foo")).toDF("in1", "in2")
 
@@ -508,7 +508,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -525,7 +525,7 @@ display(rc.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -560,7 +560,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, "guitars", "drums"),
@@ -586,7 +586,7 @@ display(repartition.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
     (0, "guitars", "drums"),
@@ -630,7 +630,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, 0.0, "guitars", "drums", 1, True),
@@ -647,7 +647,7 @@ display(sc.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -682,7 +682,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, "Blue", 2),
@@ -708,7 +708,7 @@ display(sr.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
     (0, "Blue", 2),
@@ -752,7 +752,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       (0, 0.0, "guitars", "drums", 1, True),
@@ -769,7 +769,7 @@ display(summary.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
       (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
@@ -804,7 +804,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       ("The happy sad boy drank sap", ),
@@ -829,7 +829,7 @@ display(textPreprocessor.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
     ("The happy sad boy drank sap", ),
@@ -876,7 +876,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 from pyspark.sql.functions import udf
 
 df = (spark.createDataFrame([
@@ -899,7 +899,7 @@ display(udfTransformer.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.spark.sql.functions.udf
 
 val df = (Seq(
@@ -940,7 +940,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from mmlspark.stages import *
+from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
       ("Schön", 1),
@@ -960,7 +960,7 @@ display(unicodeNormalize.transform(df))
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.ml.spark.stages._
+import com.microsoft.azure.synapse.ml.stages._
 
 val df = (Seq(
     ("Schön", 1),
