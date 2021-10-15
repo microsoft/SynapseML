@@ -12,7 +12,7 @@ First we import the packages and define some UDFs we will need later.
 
 ```python
 import pyspark
-from mmlspark.explainers import *
+from synapse.ml.explainers import *
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler

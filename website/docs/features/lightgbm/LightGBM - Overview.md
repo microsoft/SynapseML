@@ -100,7 +100,8 @@ display(train_data.groupBy("Bankrupt?").count())
 
 
 ```python
-from mmlspark.lightgbm import LightGBMClassifier
+from synapse.ml.lightgbm import LightGBMClassifier
+
 model = LightGBMClassifier(objective="binary", featuresCol="features", labelCol="Bankrupt?", isUnbalance=True)
 ```
 
@@ -113,14 +114,22 @@ By calling "saveNativeModel", it allows you to extract the underlying lightGBM m
 
 
 ```python
-from mmlspark.lightgbm import LightGBMClassificationModel
+from synapse.ml.lightgbm import LightGBMClassificationModel
+
+
 
 if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+
     model.saveNativeModel("/models/lgbmclassifier.model")
+
     model = LightGBMClassificationModel.loadNativeModelFromFile("/models/lgbmclassifier.model")
+
 else:
+
     model.saveNativeModel("/lgbmclassifier.model")
+
     model = LightGBMClassificationModel.loadNativeModelFromFile("/lgbmclassifier.model")
+
 
 ```
 
@@ -161,7 +170,7 @@ predictions.limit(10).toPandas()
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric="classification", labelCol='Bankrupt?', scoredLabelsCol='prediction').transform(predictions)
 display(metrics)
 ```
@@ -200,7 +209,7 @@ train, test = triazines.randomSplit([0.85, 0.15], seed=1)
 
 
 ```python
-from mmlspark.lightgbm import LightGBMRegressor
+from synapse.ml.lightgbm import LightGBMRegressor
 model = LightGBMRegressor(objective='quantile',
                           alpha=0.2,
                           learningRate=0.3,
@@ -222,7 +231,7 @@ display(scoredData)
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric='regression',
                                  labelCol='label',
                                  scoresCol='prediction') \
@@ -248,7 +257,7 @@ display(df.limit(10))
 
 
 ```python
-from mmlspark.lightgbm import LightGBMRanker
+from synapse.ml.lightgbm import LightGBMRanker
 
 features_col = 'features'
 query_col = 'query'

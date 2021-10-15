@@ -3,10 +3,10 @@ title: Classification - Adult Census with Vowpal Wabbit
 hide_title: true
 status: stable
 ---
-# Classification - Adult Census using Vowpal Wabbit in MMLSpark
+# Classification - Adult Census using Vowpal Wabbit in SynapseML
 
-In this example, we predict incomes from the *Adult Census* dataset using Vowpal Wabbit (VW) classifier in MMLSpark.
-First, we read the data and split it into train and test sets as in this [example](https://github.com/Azure/mmlspark/blob/master/notebooks/Classification%20-%20Adult%20Census.ipynb
+In this example, we predict incomes from the *Adult Census* dataset using Vowpal Wabbit (VW) classifier in SynapseML.
+First, we read the data and split it into train and test sets as in this [example](https://github.com/Microsoft/SynapseML/blob/master/notebooks/Classification%20-%20Adult%20Census.ipynb
 ).
 
 
@@ -32,7 +32,7 @@ Note that VW expects classification labels being -1 or 1. Thus, the income categ
 ```python
 from pyspark.sql.functions import when, col
 from pyspark.ml import Pipeline
-from mmlspark.vw import VowpalWabbitFeaturizer, VowpalWabbitClassifier
+from synapse.ml.vw import VowpalWabbitFeaturizer, VowpalWabbitClassifier
 
 # Define classification label
 train = train.withColumn("label", when(col("income").contains("<"), 0.0).otherwise(1.0)).repartition(1).cache()
@@ -75,7 +75,7 @@ Finally, we evaluate the model performance using `ComputeModelStatistics` functi
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric="classification", 
                                  labelCol="label", 
                                  scoredLabelsCol="prediction").transform(prediction)

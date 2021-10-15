@@ -3,7 +3,7 @@ title: Classification - Before and After MMLSpark
 hide_title: true
 status: stable
 ---
-## Classification - Before and After MMLSpark
+## Classification - Before and After SynapseML
 
 ### 1. Introduction
 
@@ -11,7 +11,7 @@ status: stable
 
 In this tutorial, we perform the same classification task in two
 different ways: once using plain **`pyspark`** and once using the
-**`mmlspark`** library.  The two methods yield the same performance,
+**`synapseml`** library.  The two methods yield the same performance,
 but one of the two libraries is drastically simpler to use and iterate
 on (can you guess which one?).
 
@@ -62,7 +62,7 @@ wordCountUDF = udf(wordCount, IntegerType())
 
 
 ```python
-from mmlspark.stages import UDFTransformer
+from synapse.ml.stages import UDFTransformer
 wordLength = "wordLength"
 wordCount = "wordCount"
 wordLengthTransformer = UDFTransformer(inputCol="text", outputCol=wordLength, udf=wordLengthUDF)
@@ -162,9 +162,9 @@ scoredVal = bestModel.transform(validation)
 print(evaluator.evaluate(scoredVal))
 ```
 
-### 4b. Classify using mmlspark
+### 4b. Classify using synapseml
 
-Life is a lot simpler when using `mmlspark`!
+Life is a lot simpler when using `synapseml`!
 
 1. The **`TrainClassifier`** Estimator featurizes the data internally,
    as long as the columns selected in the `train`, `test`, `validation`
@@ -180,8 +180,8 @@ Life is a lot simpler when using `mmlspark`!
 
 
 ```python
-from mmlspark.train import TrainClassifier, ComputeModelStatistics
-from mmlspark.automl import FindBestModel
+from synapse.ml.train import TrainClassifier, ComputeModelStatistics
+from synapse.ml.automl import FindBestModel
 
 # Prepare data for learning
 train, test, validation = data.randomSplit([0.60, 0.20, 0.20], seed=123)

@@ -3,9 +3,9 @@ title: Classification - Twitter Sentiment with Vowpal Wabbit
 hide_title: true
 status: stable
 ---
-# Twitter Sentiment Classification using Vowpal Wabbit in MMLSpark
+# Twitter Sentiment Classification using Vowpal Wabbit in SynapseML
 
-In this example, we show how to build a sentiment classification model using Vowpal Wabbit (VW) in MMLSpark. The data set we use to train and evaluate the model is [Sentiment140](http://help.sentiment140.com/for-students/?source=post_page---------------------------) twitter data. First, we import a few packages that we need.
+In this example, we show how to build a sentiment classification model using Vowpal Wabbit (VW) in SynapseML. The data set we use to train and evaluate the model is [Sentiment140](http://help.sentiment140.com/for-students/?source=post_page---------------------------) twitter data. First, we import a few packages that we need.
 
 
 ```python
@@ -20,8 +20,8 @@ from pyspark.sql.functions import udf, rand, when, col
 from pyspark.sql.types import StructType, StructField, DoubleType, StringType
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import CountVectorizer, RegexTokenizer
-from mmlspark.vw import VowpalWabbitClassifier
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.vw import VowpalWabbitClassifier
+from synapse.ml.train import ComputeModelStatistics
 from pyspark.mllib.evaluation import BinaryClassificationMetrics
 import matplotlib.pyplot as plt
 ```
@@ -107,7 +107,7 @@ df_train = df_train.orderBy(rand()) \
                    .select(["label", "text"])
 ```
 
-## VW MMLSpark Training
+## VW SynapseML Training
 
 Now we are ready to define a pipeline which consists of feture engineering steps and the VW model.
 

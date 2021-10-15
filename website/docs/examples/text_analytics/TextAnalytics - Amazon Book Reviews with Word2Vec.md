@@ -73,26 +73,48 @@ Generate several models with different parameters from the training data.
 
 ```python
 from pyspark.ml.classification import LogisticRegression, RandomForestClassifier, GBTClassifier
-from mmlspark.train import TrainClassifier
+
+from synapse.ml.train import TrainClassifier
+
 import itertools
 
+
+
 lrHyperParams       = [0.05, 0.2]
+
 logisticRegressions = [LogisticRegression(regParam = hyperParam)
+
                        for hyperParam in lrHyperParams]
+
 lrmodels            = [TrainClassifier(model=lrm, labelCol="label").fit(ptrain)
+
                        for lrm in logisticRegressions]
 
+
+
 rfHyperParams       = itertools.product([5, 10], [2, 3])
+
 randomForests       = [RandomForestClassifier(numTrees=hyperParam[0], maxDepth=hyperParam[1])
+
                        for hyperParam in rfHyperParams]
+
 rfmodels            = [TrainClassifier(model=rfm, labelCol="label").fit(ptrain)
+
                        for rfm in randomForests]
 
+
+
 gbtHyperParams      = itertools.product([8, 16], [2, 3])
+
 gbtclassifiers      = [GBTClassifier(maxBins=hyperParam[0], maxDepth=hyperParam[1])
+
                        for hyperParam in gbtHyperParams]
+
 gbtmodels           = [TrainClassifier(model=gbt, labelCol="label").fit(ptrain)
+
                        for gbt in gbtclassifiers]
+
+
 
 trainedModels       = lrmodels + rfmodels + gbtmodels
 ```
@@ -101,10 +123,14 @@ Find the best model for the given test dataset.
 
 
 ```python
-from mmlspark.automl import FindBestModel
+from synapse.ml.automl import FindBestModel
+
 bestModel = FindBestModel(evaluationMetric="AUC", models=trainedModels).fit(ptest)
+
 bestModel.getRocCurve().show()
+
 bestModel.getBestModelMetrics().show()
+
 bestModel.getAllModelMetrics().show()
 ```
 
@@ -112,11 +138,17 @@ Get the accuracy from the validation dataset.
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
+
 predictions = bestModel.transform(pvalidation)
+
 metrics = ComputeModelStatistics().transform(predictions)
+
 print("Best model's accuracy on validation set = "
+
       + "{0:.2f}%".format(metrics.first()["accuracy"] * 100))
+
 print("Best model's AUC on validation set = "
+
       + "{0:.2f}%".format(metrics.first()["AUC"] * 100))
 ```

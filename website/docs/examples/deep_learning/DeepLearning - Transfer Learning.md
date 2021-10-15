@@ -12,8 +12,8 @@ Load DNN Model and pick one of the inner layers as feature output
 
 
 ```python
-from mmlspark.cntk import CNTKModel
-from mmlspark.downloader import ModelDownloader
+from synapse.ml.cntk import CNTKModel
+from synapse.ml.downloader import ModelDownloader
 import numpy as np, os, urllib, tarfile, pickle, array
 from os.path import abspath
 from pyspark.sql.functions import col, udf
@@ -53,7 +53,7 @@ Use featurized images to train a classifier
 
 
 ```python
-from mmlspark.train import TrainClassifier
+from synapse.ml.train import TrainClassifier
 from pyspark.ml.classification import RandomForestClassifier
 
 train,test = featurizedImages.randomSplit([0.75,0.25])
@@ -65,7 +65,7 @@ Evaluate the accuracy of the model
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 predictions = model.transform(test)
 metrics = ComputeModelStatistics(evaluationMetric="accuracy").transform(predictions)
 metrics.show()

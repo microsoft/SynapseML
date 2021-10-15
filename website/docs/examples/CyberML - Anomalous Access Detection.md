@@ -28,7 +28,7 @@ Note: the data does NOT contain information about departments, this information 
 # Create an Azure Databricks cluster and install the following libs
 
 1. In Cluster Libraries install from library source Maven:
-Coordinates: com.microsoft.ml.spark:mmlspark:1.0.0-rc4
+Coordinates: com.microsoft.azure:synapseml:0.9.0
 Repository: https://mmlspark.azureedge.net/maven
 
 2. In Cluster Libraries install from PyPI the library called plotly
@@ -38,10 +38,10 @@ Repository: https://mmlspark.azureedge.net/maven
 
 ```
 # this is used to produce the synthetic dataset for this test
-from mmlspark.cyber.dataset import DataFactory
+from synapse.ml.cyber.dataset import DataFactory
 
 # the access anomalies model generator
-from mmlspark.cyber.anomaly.collaborative_filtering import AccessAnomaly
+from synapse.ml.cyber.anomaly.collaborative_filtering import AccessAnomaly
 
 from pyspark.sql import functions as f, types as t
 ```

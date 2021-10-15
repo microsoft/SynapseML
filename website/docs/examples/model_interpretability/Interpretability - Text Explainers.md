@@ -16,8 +16,8 @@ from pyspark.sql.types import *
 from pyspark.ml.feature import StopWordsRemover, HashingTF, IDF, Tokenizer
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
-from mmlspark.explainers import *
-from mmlspark.featurize.text import TextFeaturizer
+from synapse.ml.explainers import *
+from synapse.ml.featurize.text import TextFeaturizer
 
 vec2array = udf(lambda vec: vec.toArray().tolist(), ArrayType(FloatType()))
 vec_access = udf(lambda v, i: float(v[i]), FloatType())
@@ -66,7 +66,7 @@ explain_instances = prediction.orderBy(rand()).limit(10)
 
 ```
 def plotConfusionMatrix(df, label, prediction, classLabels):
-    from mmlspark.plot import confusionMatrix
+    from synapse.ml.plot import confusionMatrix
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(4.5, 4.5))

@@ -9,7 +9,7 @@ status: stable
 ```python
 from pyspark.ml import Transformer, Estimator, Pipeline
 from pyspark.ml.classification import LogisticRegression
-from mmlspark.downloader import ModelDownloader
+from synapse.ml.downloader import ModelDownloader
 import os, sys, time
 ```
 
@@ -32,10 +32,10 @@ imagesWithLabels.printSchema()
 
 
 ```python
-from mmlspark.opencv import ImageTransformer
-from mmlspark.image import UnrollImage
-from mmlspark.cntk import ImageFeaturizer
-from mmlspark.stages import *
+from synapse.ml.opencv import ImageTransformer
+from synapse.ml.image import UnrollImage
+from synapse.ml.cntk import ImageFeaturizer
+from synapse.ml.stages import *
 
 # Make some featurizers
 it = ImageTransformer()\

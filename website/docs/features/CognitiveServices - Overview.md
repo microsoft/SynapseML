@@ -13,65 +13,65 @@ status: stable
 
 ### Vision
 [**Computer Vision**](https://azure.microsoft.com/en-us/services/cognitive-services/computer-vision/)
-- Describe: provides description of an image in human readable language ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DescribeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DescribeImage))
-- Analyze (color, image type, face, adult/racy content): analyzes visual features of an image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeImage))
-- OCR: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/OCR.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.OCR))
-- Recognize Text: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/RecognizeText.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.RecognizeText))
-- Thumbnail: generates a thumbnail of user-specified size from the image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/GenerateThumbnails.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.GenerateThumbnails))
-- Recognize domain-specific content: recognizes domain-specific content (celebrity, landmark) ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/RecognizeDomainSpecificContent.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.RecognizeDomainSpecificContent))
-- Tag: identifies list of words that are relevant to the in0put image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/TagImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.TagImage))
+- Describe: provides description of an image in human readable language ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DescribeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DescribeImage))
+- Analyze (color, image type, face, adult/racy content): analyzes visual features of an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeImage))
+- OCR: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/OCR.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.OCR))
+- Recognize Text: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/RecognizeText.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeText))
+- Thumbnail: generates a thumbnail of user-specified size from the image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/GenerateThumbnails.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.GenerateThumbnails))
+- Recognize domain-specific content: recognizes domain-specific content (celebrity, landmark) ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/RecognizeDomainSpecificContent.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeDomainSpecificContent))
+- Tag: identifies list of words that are relevant to the in0put image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/TagImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.TagImage))
 
 [**Face**](https://azure.microsoft.com/en-us/services/cognitive-services/face/)
-- Detect: detects human faces in an image ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DetectFace.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DetectFace))
-- Verify: verifies whether two faces belong to a same person, or a face belongs to a person ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/VerifyFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.VerifyFaces))
-- Identify: finds the closest matches of the specific query person face from a person group ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/IdentifyFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.IdentifyFaces))
-- Find similar: finds similar faces to the query face in a face list ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/FindSimilarFace.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.FindSimilarFace))
-- Group: divides a group of faces into disjoint groups based on similarity ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/GroupFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.GroupFaces))
+- Detect: detects human faces in an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DetectFace.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectFace))
+- Verify: verifies whether two faces belong to a same person, or a face belongs to a person ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/VerifyFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.VerifyFaces))
+- Identify: finds the closest matches of the specific query person face from a person group ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/IdentifyFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.IdentifyFaces))
+- Find similar: finds similar faces to the query face in a face list ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/FindSimilarFace.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.FindSimilarFace))
+- Group: divides a group of faces into disjoint groups based on similarity ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/GroupFaces.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.GroupFaces))
 
 ### Speech
 [**Speech Services**](https://azure.microsoft.com/en-us/services/cognitive-services/speech-services/)
-- Speech-to-text: transcribes audio streams ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/SpeechToText.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.SpeechToText))
+- Speech-to-text: transcribes audio streams ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/SpeechToText.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToText))
 
 ### Language
 [**Text Analytics**](https://azure.microsoft.com/en-us/services/cognitive-services/text-analytics/)
-- Language detection: detects language of the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/LanguageDetector.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.LanguageDetector))
-- Key phrase extraction: identifies the key talking points in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/KeyPhraseExtractor.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.KeyPhraseExtractor))
-- Named entity recognition: identifies known entities and general named entities in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/NER.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.NER))
-- Sentiment analysis: returns a score betwee 0 and 1 indicating the sentiment in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/TextSentiment.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.TextSentiment))
+- Language detection: detects language of the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/LanguageDetector.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.LanguageDetector))
+- Key phrase extraction: identifies the key talking points in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/KeyPhraseExtractor.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.KeyPhraseExtractor))
+- Named entity recognition: identifies known entities and general named entities in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/NER.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.NER))
+- Sentiment analysis: returns a score betwee 0 and 1 indicating the sentiment in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/TextSentiment.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.TextSentiment))
 
 [**Translator**](https://azure.microsoft.com/en-us/services/cognitive-services/translator/)
-- Translate: Translates text. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/Translate.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.Translate))
-- Transliterate: Converts text in one language from one script to another script. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/Transliterate.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.Transliterate))
-- Detect: Identifies the language of a piece of text. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/Detect.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.Detect))
-- BreakSentence: Identifies the positioning of sentence boundaries in a piece of text. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/BreakSentence.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.BreakSentence))
-- Dictionary Lookup: Provides alternative translations for a word and a small number of idiomatic phrases. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DictionaryLookup.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryLookup))
-- Dictionary Examples: Provides examples that show how terms in the dictionary are used in context. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DictionaryExamples.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryExamples))
-- Document Translation: Translates documents across all supported languages and dialects while preserving document structure and data format. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DocumentTranslator.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DocumentTranslator))
+- Translate: Translates text. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/Translate.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.Translate))
+- Transliterate: Converts text in one language from one script to another script. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/Transliterate.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.Transliterate))
+- Detect: Identifies the language of a piece of text. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/Detect.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.Detect))
+- BreakSentence: Identifies the positioning of sentence boundaries in a piece of text. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/BreakSentence.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.BreakSentence))
+- Dictionary Lookup: Provides alternative translations for a word and a small number of idiomatic phrases. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DictionaryLookup.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryLookup))
+- Dictionary Examples: Provides examples that show how terms in the dictionary are used in context. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DictionaryExamples.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryExamples))
+- Document Translation: Translates documents across all supported languages and dialects while preserving document structure and data format. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DocumentTranslator.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DocumentTranslator))
 
 ### Azure Form Recognizer
 [**Form Recognizer**](https://azure.microsoft.com/en-us/services/form-recognizer/)
-- Analyze Layout: Extract text and layout information from a given document. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeLayout.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeLayout))
-- Analyze Receipts: Detects and extracts data from receipts using optical character recognition (OCR) and our receipt model, enabling you to easily extract structured data from receipts such as merchant name, merchant phone number, transaction date, transaction total, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeReceipts.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeReceipts))
-- Analyze Business Cards: Detects and extracts data from business cards using optical character recognition (OCR) and our business card model, enabling you to easily extract structured data from business cards such as contact names, company names, phone numbers, emails, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeBusinessCards.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeBusinessCards))
-- Analyze Invoices: Detects and extracts data from invoices using optical character recognition (OCR) and our invoice understanding deep learning models, enabling you to easily extract structured data from invoices such as customer, vendor, invoice ID, invoice due date, total, invoice amount due, tax amount, ship to, bill to, line items and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeInvoices.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeInvoices))
-- Analyze ID Documents: Detects and extracts data from identification documents using optical character recognition (OCR) and our ID document model, enabling you to easily extract structured data from ID documents such as first name, last name, date of birth, document number, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeIDDocuments.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeIDDocuments))
-- Analyze Custom Form: Extracts information from forms (PDFs and images) into structured data based on a model created from a set of representative training forms. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/AnalyzeCustomModel.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeCustomModel))
-- Get Custom Model: Get detailed information about a custom model. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/GetCustomModel.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/ListCustomModels.html))
-- List Custom Models: Get information about all custom models. ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/ListCustomModels.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.ListCustomModels))
+- Analyze Layout: Extract text and layout information from a given document. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeLayout.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeLayout))
+- Analyze Receipts: Detects and extracts data from receipts using optical character recognition (OCR) and our receipt model, enabling you to easily extract structured data from receipts such as merchant name, merchant phone number, transaction date, transaction total, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeReceipts.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeReceipts))
+- Analyze Business Cards: Detects and extracts data from business cards using optical character recognition (OCR) and our business card model, enabling you to easily extract structured data from business cards such as contact names, company names, phone numbers, emails, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeBusinessCards.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeBusinessCards))
+- Analyze Invoices: Detects and extracts data from invoices using optical character recognition (OCR) and our invoice understanding deep learning models, enabling you to easily extract structured data from invoices such as customer, vendor, invoice ID, invoice due date, total, invoice amount due, tax amount, ship to, bill to, line items and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeInvoices.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeInvoices))
+- Analyze ID Documents: Detects and extracts data from identification documents using optical character recognition (OCR) and our ID document model, enabling you to easily extract structured data from ID documents such as first name, last name, date of birth, document number, and more. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeIDDocuments.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeIDDocuments))
+- Analyze Custom Form: Extracts information from forms (PDFs and images) into structured data based on a model created from a set of representative training forms. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeCustomModel.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeCustomModel))
+- Get Custom Model: Get detailed information about a custom model. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/GetCustomModel.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/ListCustomModels.html))
+- List Custom Models: Get information about all custom models. ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/ListCustomModels.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.ListCustomModels))
 
 ### Decision
 [**Anomaly Detector**](https://azure.microsoft.com/en-us/services/cognitive-services/anomaly-detector/)
-- Anomaly status of latest point: generates a model using preceding points and determines whether the latest point is anomalous ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DetectLastAnomaly.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DetectLastAnomaly))
-- Find anomalies: generates a model using an entire series and finds anomalies in the series ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/DetectAnomalies.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.DetectAnomalies))
+- Anomaly status of latest point: generates a model using preceding points and determines whether the latest point is anomalous ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DetectLastAnomaly.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectLastAnomaly))
+- Find anomalies: generates a model using an entire series and finds anomalies in the series ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DetectAnomalies.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectAnomalies))
 
 ### Search
-- [Bing Image search](https://azure.microsoft.com/en-us/services/cognitive-services/bing-image-search-api/) ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/com/microsoft/ml/spark/cognitive/BingImageSearch.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.cognitive.html#module-mmlspark.cognitive.BingImageSearch))
-- [Azure Cognitive search](https://docs.microsoft.com/en-us/azure/search/search-what-is-azure-search) ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/index.html#com.microsoft.ml.spark.cognitive.AzureSearchWriter$), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/scala/index.html#com.microsoft.ml.spark.cognitive.AzureSearchWriter$))
+- [Bing Image search](https://azure.microsoft.com/en-us/services/cognitive-services/bing-image-search-api/) ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/BingImageSearch.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.BingImageSearch))
+- [Azure Cognitive search](https://docs.microsoft.com/en-us/azure/search/search-what-is-azure-search) ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/index.html#com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter$), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/index.html#com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter$))
 
 
 ## Prerequisites
 
-1. Follow the steps in [Getting started](https://docs.microsoft.com/en-us/azure/cognitive-services/big-data/getting-started) to set up your Azure Databricks and Cognitive Services environment. This tutorial shows you how to install MMLSpark and how to create your Spark cluster in Databricks.
+1. Follow the steps in [Getting started](https://docs.microsoft.com/en-us/azure/cognitive-services/big-data/getting-started) to set up your Azure Databricks and Cognitive Services environment. This tutorial shows you how to install SynapseML and how to create your Spark cluster in Databricks.
 1. After you create a new notebook in Azure Databricks, copy the **Shared code** below and paste into a new cell in your notebook.
 1. Choose a service sample, below, and copy paste it into a second new cell in your notebook.
 1. Replace any of the service subscription key placeholders with your own key.
@@ -85,12 +85,19 @@ To get started, we'll need to add this code to the project:
 
 ```python
 from pyspark.sql.functions import udf, col
-from mmlspark.io.http import HTTPTransformer, http_udf
+
+from synapse.ml.io.http import HTTPTransformer, http_udf
+
 from requests import Request
+
 from pyspark.sql.functions import lit
+
 from pyspark.ml import PipelineModel
+
 from pyspark.sql.functions import col
+
 import os
+
 
 ```
 
@@ -113,15 +120,24 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
+
+
 
 # A general Cognitive Services key for Text Analytics, Computer Vision and Form Recognizer (or use separate keys that belong to each service)
+
 service_key = os.environ["COGNITIVE_SERVICE_KEY"]
+
 # A Bing Search v7 subscription key
+
 bing_search_key = os.environ["BING_IMAGE_SEARCH_KEY"]
+
 # An Anomaly Dectector subscription key
+
 anomaly_key = os.environ["ANOMALY_API_KEY"]
+
 # A Translator subscription key
+
 translator_key = os.environ["TRANSLATOR_KEY"]
 ```
 
@@ -370,7 +386,7 @@ display(client.transform(df)
 
 ## Azure Cognitive search sample
 
-In this example, we show how you can enrich data using Cognitive Skills and write to an Azure Search Index using MMLSpark.
+In this example, we show how you can enrich data using Cognitive Skills and write to an Azure Search Index using SynapseML.
 
 
 ```python

@@ -12,7 +12,7 @@ for AzureML Studio.  This experiment demonstrates how to build a regression
 model to predict the automobile's price.  The process includes training, testing,
 and evaluating the model on the Automobile Imports data set.
 
-This sample demonstrates the use of several members of the mmlspark library:
+This sample demonstrates the use of several members of the synapseml library:
 - [`TrainRegressor`
   ](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc4/pyspark/mmlspark.train.html?#module-mmlspark.train.TrainRegressor)
 - [`SummarizeData`
@@ -75,7 +75,7 @@ useful during the initial phases of data discovery and characterization.
 
 
 ```python
-from mmlspark.stages import SummarizeData
+from synapse.ml.stages import SummarizeData
 summary = SummarizeData().transform(data)
 summary.toPandas()
 ```
@@ -102,7 +102,7 @@ regression models and make our predictions in the following steps.
 
 
 ```python
-from mmlspark.featurize import CleanMissingData
+from synapse.ml.featurize import CleanMissingData
 cols = ["normalized-losses", "stroke", "bore", "horsepower",
         "peak-rpm", "price"]
 cleanModel = CleanMissingData().setCleaningMode("Median") \
@@ -146,7 +146,7 @@ creates the predictions.
 # train Poisson Regression Model
 from pyspark.ml.regression import GeneralizedLinearRegression
 from pyspark.ml import Pipeline
-from mmlspark.train import TrainRegressor
+from synapse.ml.train import TrainRegressor
 
 glr = GeneralizedLinearRegression(family="poisson", link="log")
 poissonModel = TrainRegressor().setModel(glr).setLabelCol("price").setNumFeatures(256)
@@ -181,7 +181,7 @@ the Poisson and the Random Forest models.
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 poissonMetrics = ComputeModelStatistics().transform(poissonPrediction)
 print("Poisson Metrics")
 poissonMetrics.toPandas()
@@ -198,7 +198,7 @@ We can also compute per instance statistics for `poissonPrediction`:
 
 
 ```python
-from mmlspark.train import ComputePerInstanceStatistics
+from synapse.ml.train import ComputePerInstanceStatistics
 def demonstrateEvalPerInstance(pred):
     return ComputePerInstanceStatistics().transform(pred) \
                .select("price", "Scores", "L1_loss", "L2_loss") \

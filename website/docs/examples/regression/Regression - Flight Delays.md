@@ -23,7 +23,7 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 ```python
 import numpy as np
 import pandas as pd
-import mmlspark
+import synapse.ml
 ```
 
 Next, import the CSV dataset.
@@ -49,7 +49,7 @@ Train a regressor on dataset with `l-bfgs`.
 
 
 ```python
-from mmlspark.train import TrainRegressor, TrainedRegressorModel
+from synapse.ml.train import TrainRegressor, TrainedRegressorModel
 from pyspark.ml.regression import LinearRegression
 from pyspark.ml.feature import StringIndexer
 # Convert columns to categorical
@@ -84,7 +84,7 @@ Compute model metrics against the entire scored dataset
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics().transform(scoredData)
 metrics.toPandas()
 ```
@@ -94,7 +94,7 @@ of `ComputePerInstanceStatistics`.
 
 
 ```python
-from mmlspark.train import ComputePerInstanceStatistics
+from synapse.ml.train import ComputePerInstanceStatistics
 evalPerInstance = ComputePerInstanceStatistics().transform(scoredData)
 evalPerInstance.select("ArrDelay", "Scores", "L1_loss", "L2_loss").limit(10).toPandas()
 ```

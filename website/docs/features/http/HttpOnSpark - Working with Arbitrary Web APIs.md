@@ -29,7 +29,7 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 
 from pyspark.sql.functions import struct
 from pyspark.sql.types import *
-from mmlspark.io.http import *
+from synapse.ml.io.http import *
 
 df = spark.createDataFrame([("foo",) for x in range(20)], ["data"]) \
       .withColumn("inputs", struct("data"))

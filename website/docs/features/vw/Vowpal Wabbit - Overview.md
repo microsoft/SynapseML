@@ -90,7 +90,7 @@ train, test = df.randomSplit([0.85, 0.15], seed=1)
 
 
 ```python
-from mmlspark.vw import VowpalWabbitFeaturizer
+from synapse.ml.vw import VowpalWabbitFeaturizer
 featurizer = VowpalWabbitFeaturizer(inputCols=df.columns[:-1], outputCol="features")
 train_data = featurizer.transform(train)["target", "features"]
 test_data = featurizer.transform(test)["target", "features"]
@@ -105,7 +105,7 @@ display(train_data.groupBy("target").count())
 
 
 ```python
-from mmlspark.vw import VowpalWabbitClassifier
+from synapse.ml.vw import VowpalWabbitClassifier
 model = VowpalWabbitClassifier(numPasses=20, labelCol="target", featuresCol="features").fit(train_data)
 ```
 
@@ -119,14 +119,14 @@ display(predictions)
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric='classification', labelCol='target', scoredLabelsCol='prediction').transform(predictions)
 display(metrics)
 ```
 
 ## Adult Census with VowpalWabbitClassifier
 
-In this example, we predict incomes from the Adult Census dataset using Vowpal Wabbit (VW) Classifier in MMLSpark.
+In this example, we predict incomes from the Adult Census dataset using Vowpal Wabbit (VW) Classifier in SynapseML.
 
 #### Read dataset and split them into train & test
 
@@ -148,7 +148,7 @@ Note: VW supports distributed learning, and it's controlled by number of partiti
 ```python
 from pyspark.sql.functions import when, col
 from pyspark.ml import Pipeline
-from mmlspark.vw import VowpalWabbitFeaturizer, VowpalWabbitClassifier
+from synapse.ml.vw import VowpalWabbitFeaturizer, VowpalWabbitClassifier
 
 # Define classification label
 train = train.withColumn("label", when(col("income").contains("<"), 0.0).otherwise(1.0)).repartition(1)
@@ -195,7 +195,7 @@ Finally, we evaluate the model performance using ComputeModelStatistics function
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric="classification", 
                                  labelCol="label", 
                                  scoredLabelsCol="prediction").transform(prediction)
@@ -219,8 +219,8 @@ import math
 from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
-from mmlspark.train import ComputeModelStatistics
-from mmlspark.vw import VowpalWabbitRegressor, VowpalWabbitFeaturizer
+from synapse.ml.train import ComputeModelStatistics
+from synapse.ml.vw import VowpalWabbitRegressor, VowpalWabbitFeaturizer
 import numpy as np
 import pandas as pd
 from sklearn.datasets import load_boston
@@ -385,7 +385,7 @@ train, test = triazines.randomSplit([0.85, 0.15], seed=1)
 
 
 ```python
-from mmlspark.vw import VowpalWabbitRegressor
+from synapse.ml.vw import VowpalWabbitRegressor
 model = (VowpalWabbitRegressor(numPasses=20, args="--holdout_off --loss_function quantile -q :: -l 0.1")
             .fit(train))
 ```
@@ -400,7 +400,7 @@ display(scoredData.limit(10))
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics(evaluationMetric='regression',
                                  labelCol='label',
                                  scoresCol='prediction') \
@@ -445,7 +445,7 @@ Add pipeline to add featurizer, convert all feature columns into vector.
 
 
 ```python
-from mmlspark.vw import VowpalWabbitFeaturizer, VowpalWabbitContextualBandit, VectorZipper
+from synapse.ml.vw import VowpalWabbitFeaturizer, VowpalWabbitContextualBandit, VectorZipper
 from pyspark.ml import Pipeline
 pipeline = Pipeline(stages=[
   VowpalWabbitFeaturizer(inputCols=['GUser_id'], outputCol='GUser_id_feature'),

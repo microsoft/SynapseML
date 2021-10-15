@@ -5,7 +5,7 @@ status: stable
 ---
 ## DeepLearning - BiLSTM Medical Entity Extraction
 
-In this tutorial we use a Bidirectional LSTM entity extractor from the MMLSPark
+In this tutorial we use a Bidirectional LSTM entity extractor from the synapseml
 model downloader to extract entities from PubMed medical abstracts
 
 Our goal is to identify useful entities in a block of free-form text.  This is a
@@ -23,8 +23,8 @@ annotated sequence is given below, "O" represents no tag:
 
 
 ```python
-from mmlspark.cntk import CNTKModel
-from mmlspark.downloader import ModelDownloader
+from synapse.ml.cntk import CNTKModel
+from synapse.ml.downloader import ModelDownloader
 from pyspark.sql.functions import udf, col
 from pyspark.sql.types import IntegerType, ArrayType, FloatType, StringType
 from pyspark.sql import Row

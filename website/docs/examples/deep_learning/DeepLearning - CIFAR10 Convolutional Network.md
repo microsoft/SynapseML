@@ -7,8 +7,8 @@ status: stable
 
 
 ```python
-from mmlspark.cntk import CNTKModel
-from mmlspark.downloader import ModelDownloader
+from synapse.ml.cntk import CNTKModel
+from synapse.ml.downloader import ModelDownloader
 from pyspark.sql.functions import udf
 from pyspark.sql.types import IntegerType
 from os.path import abspath

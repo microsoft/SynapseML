@@ -58,8 +58,8 @@ The goal is to find instances where the signals from the IoT devices were output
 
 ```
 from pyspark.sql.functions import col, struct
-from mmlspark.cognitive import SimpleDetectAnomalies
-from mmlspark.core.spark import FluentAPI
+from synapse.ml.cognitive import SimpleDetectAnomalies
+from synapse.ml.core.spark import FluentAPI
 
 detector = (SimpleDetectAnomalies()
     .setSubscriptionKey(service_key)

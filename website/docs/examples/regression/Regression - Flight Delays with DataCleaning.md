@@ -76,7 +76,7 @@ instead of long.
 
 
 ```python
-from mmlspark.featurize import DataConversion
+from synapse.ml.featurize import DataConversion
 flightDelay = DataConversion(cols=["Quarter","Month","DayofMonth","DayOfWeek",
                                    "OriginAirportID","DestAirportID",
                                    "CRSDepTime","CRSArrTime"],
@@ -110,7 +110,7 @@ Train the model with the `TrainRegressor` API fit on the training dataset.
 
 
 ```python
-from mmlspark.train import TrainRegressor, TrainedRegressorModel
+from synapse.ml.train import TrainRegressor, TrainedRegressorModel
 from pyspark.ml.regression import LinearRegression
 
 trainCat = DataConversion(cols=["Carrier","DepTimeBlk","ArrTimeBlk"],
@@ -136,7 +136,7 @@ Compute model metrics against the entire scored dataset
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 metrics = ComputeModelStatistics().transform(scoredData)
 metrics.toPandas()
 ```
@@ -146,7 +146,7 @@ dataset, demonstrating the usage of `ComputePerInstanceStatistics`
 
 
 ```python
-from mmlspark.train import ComputePerInstanceStatistics
+from synapse.ml.train import ComputePerInstanceStatistics
 evalPerInstance = ComputePerInstanceStatistics().transform(scoredData)
 evalPerInstance.select("ArrDelay", "Scores", "L1_loss", "L2_loss") \
                .limit(10).toPandas()

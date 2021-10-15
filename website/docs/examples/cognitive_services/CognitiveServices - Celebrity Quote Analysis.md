@@ -9,7 +9,7 @@ status: stable
 
 
 ```python
-from mmlspark.cognitive import *
+from synapse.ml.cognitive import *
 from pyspark.ml import PipelineModel
 from pyspark.sql.functions import col, udf
 from pyspark.ml.feature import SQLTransformer
@@ -77,7 +77,7 @@ This stage performs OCR on the images to recognize the quotes.
 
 
 ```python
-from mmlspark.stages import UDFTransformer 
+from synapse.ml.stages import UDFTransformer 
 
 recognizeText = RecognizeText()\
   .setSubscriptionKey(VISION_API_KEY)\
@@ -120,7 +120,7 @@ Now that we have built the stages of our pipeline its time to chain them togethe
 
 
 ```python
-from mmlspark.stages import SelectColumns
+from synapse.ml.stages import SelectColumns
 # Select the final coulmns
 cleanupColumns = SelectColumns().setCols(["url", "firstCeleb", "text", "sentimentLabel"])
 

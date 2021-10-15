@@ -7,7 +7,7 @@ status: stable
 
 In this example, we try to predict incomes from the *Adult Census* dataset.
 
-First, we import the packages (use `help(mmlspark)` to view contents),
+First, we import the packages (use `help(synapse)` to view contents),
 
 
 ```python
@@ -34,7 +34,7 @@ train.limit(10).toPandas()
 ```
 
 `TrainClassifier` can be used to initialize and fit a model, it wraps SparkML classifiers.
-You can use `help(mmlspark.train.TrainClassifier)` to view the different parameters.
+You can use `help(synapse.ml.train.TrainClassifier)` to view the different parameters.
 
 Note that it implicitly converts the data into the format expected by the algorithm: tokenize
 and hash strings, one-hot encodes categorical variables, assembles the features into a vector
@@ -42,8 +42,10 @@ and so on.  The parameter `numFeatures` controls the number of hashed features.
 
 
 ```python
-from mmlspark.train import TrainClassifier
+from synapse.ml.train import TrainClassifier
+
 from pyspark.ml.classification import LogisticRegression
+
 model = TrainClassifier(model=LogisticRegression(), labelCol="income", numFeatures=256).fit(train)
 ```
 

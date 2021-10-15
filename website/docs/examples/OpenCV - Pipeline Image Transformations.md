@@ -20,10 +20,10 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
     from pyspark.sql import SparkSession
     spark = SparkSession.builder.getOrCreate()
 
-import mmlspark
+import synapse.ml
 import numpy as np
-from mmlspark.opencv import toNDArray
-from mmlspark.io import *
+from synapse.ml.opencv import toNDArray
+from synapse.ml.io import *
 
 imageDir = "wasbs://publicwasb@mmlspark.blob.core.windows.net/sampleImages"
 images = spark.read.image().load(imageDir).cache()
@@ -91,7 +91,7 @@ Internally, operations are pipelined and backed by OpenCV implementation.
 
 
 ```python
-from mmlspark.opencv import ImageTransformer
+from synapse.ml.opencv import ImageTransformer
 
 tr = (ImageTransformer()                  # images are resized and then cropped
       .setOutputCol("transformed")
@@ -105,13 +105,13 @@ Image.fromarray(toNDArray(im), "RGB")   # display the image inside notebook
 ```
 
 For the advanced image manipulations, use Spark UDFs.
-The MMLSpark package provides conversion function between *Spark Row* and
+The SynapseML package provides conversion function between *Spark Row* and
 *ndarray* image representations.
 
 
 ```python
 from pyspark.sql.functions import udf
-from mmlspark.opencv import ImageSchema, toNDArray, toImage
+from synapse.ml.opencv import ImageSchema, toNDArray, toImage
 
 def u(row):
     array = toNDArray(row)    # convert Image to numpy ndarray[height, width, 3]
@@ -130,7 +130,7 @@ Images could be unrolled into the dense 1D vectors suitable for CNTK evaluation.
 
 
 ```python
-from mmlspark.image import UnrollImage
+from synapse.ml.image import UnrollImage
 
 unroller = UnrollImage().setInputCol("noblue").setOutputCol("unrolled")
 

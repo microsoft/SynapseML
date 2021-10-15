@@ -11,47 +11,88 @@ First we import the packages and define some UDFs and a plotting function we wil
 
 
 ```python
-from mmlspark.explainers import *
-from mmlspark.onnx import ONNXModel
-from mmlspark.opencv import ImageTransformer
-from mmlspark.io import *
+from synapse.ml.explainers import *
+
+from synapse.ml.onnx import ONNXModel
+
+from synapse.ml.opencv import ImageTransformer
+
+from synapse.ml.io import *
+
 from pyspark.ml import Pipeline
+
 from pyspark.ml.classification import LogisticRegression
+
 from pyspark.ml.feature import StringIndexer
+
 from pyspark.sql.functions import *
+
 from pyspark.sql.types import *
+
 import numpy as np
+
 import pyspark
+
 import urllib.request
+
 import matplotlib.pyplot as plt
+
 import PIL, io
+
 from PIL import Image
 
+
+
 vec_slice = udf(lambda vec, indices: (vec.toArray())[indices].tolist(), ArrayType(FloatType()))
+
 arg_top_k = udf(lambda vec, k: (-vec.toArray()).argsort()[:k].tolist(), ArrayType(IntegerType()))
 
+
+
 def downloadBytes(url: str):
+
   with urllib.request.urlopen(url) as url:
+
     barr = url.read()
+
     return barr
 
+
+
 def rotate_color_channel(bgr_image_array, height, width, nChannels):
+
   B, G, R, *_ = np.asarray(bgr_image_array).reshape(height, width, nChannels).T
+
   rgb_image_array = np.array((R, G, B)).T
+
   return rgb_image_array
+
     
+
 def plot_superpixels(image_rgb_array, sp_clusters, weights, green_threshold=99):
+
     superpixels = sp_clusters
+
     green_value = np.percentile(weights, green_threshold)
+
     img = Image.fromarray(image_rgb_array, mode='RGB').convert("RGBA")
+
     image_array = np.asarray(img).copy()
+
     for (sp, v) in zip(superpixels, weights):
+
         if v > green_value:
+
             for (x, y) in sp:
+
                 image_array[y, x, 1] = 255
+
                 image_array[y, x, 3] = 200
+
     plt.clf()
+
     plt.imshow(image_array)
+
     display()
 ```
 
@@ -61,35 +102,65 @@ The result shows 39.6% probability of "violin" (889), and 38.4% probability of "
 
 
 ```python
-from mmlspark.io import *
+from synapse.ml.io import *
+
+
 
 image_df = spark.read.image().load("wasbs://publicwasb@mmlspark.blob.core.windows.net/explainers/images/david-lusvardi-dWcUncxocQY-unsplash.jpg")
+
 display(image_df)
 
+
+
 # Rotate the image array from BGR into RGB channels for visualization later.
+
 row = image_df.select("image.height", "image.width", "image.nChannels", "image.data").head()
+
 locals().update(row.asDict())
+
 rgb_image_array = rotate_color_channel(data, height, width, nChannels)
 
+
+
 # Download the ONNX model
+
 modelPayload = downloadBytes("https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/resnet50-v2-7.onnx")
 
+
+
 featurizer = (
+
   ImageTransformer(inputCol="image", outputCol="features")
+
       .resize(224, True)
+
       .centerCrop(224, 224)
+
       .normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], color_scale_factor = 1/255)
+
       .setTensorElementType(FloatType())
+
 )
 
+
+
 onnx = (
+
   ONNXModel()
+
       .setModelPayload(modelPayload)
+
       .setFeedDict({"data": "features"})
+
       .setFetchDict({"rawPrediction": "resnetv24_dense0_fwd"})
+
       .setSoftMaxDict({"rawPrediction": "probability"})
+
       .setMiniBatchSize(1)
+
 )
+
+
 
 model = Pipeline(stages=[featurizer, onnx]).fit(image_df)
 ```

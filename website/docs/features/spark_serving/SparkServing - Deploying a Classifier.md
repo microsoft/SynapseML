@@ -42,7 +42,7 @@ etc.  The parameter `numFeatures` controls the number of hashed features.
 
 
 ```python
-from mmlspark.train import TrainClassifier
+from synapse.ml.train import TrainClassifier
 from pyspark.ml.classification import LogisticRegression
 model = TrainClassifier(model=LogisticRegression(), labelCol="income", numFeatures=256).fit(train)
 ```
@@ -51,7 +51,7 @@ After the model is trained, we score it against the test dataset and view metric
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics, TrainedClassifierModel
+from synapse.ml.train import ComputeModelStatistics, TrainedClassifierModel
 prediction = model.transform(test)
 prediction.printSchema()
 ```
@@ -63,12 +63,12 @@ metrics.limit(10).toPandas()
 ```
 
 First, we will define the webservice input/output.
-For more information, you can visit the [documentation for Spark Serving](https://github.com/Azure/mmlspark/blob/master/docs/mmlspark-serving.md)
+For more information, you can visit the [documentation for Spark Serving](https://github.com/Microsoft/SynapseML/blob/master/docs/mmlspark-serving.md)
 
 
 ```python
 from pyspark.sql.types import *
-from mmlspark.io import *
+from synapse.ml.io import *
 import uuid
 
 serving_inputs = spark.readStream.server() \

@@ -5,7 +5,7 @@ status: stable
 ---
 ## HyperParameterTuning - Fighting Breast Cancer
 
-We can do distributed randomized grid search hyperparameter tuning with MMLSpark.
+We can do distributed randomized grid search hyperparameter tuning with SynapseML.
 
 First, we import the packages
 
@@ -28,8 +28,8 @@ Next, define the models that wil be tuned:
 
 
 ```python
-from mmlspark.automl import TuneHyperparameters
-from mmlspark.train import TrainClassifier
+from synapse.ml.automl import TuneHyperparameters
+from synapse.ml.train import TrainClassifier
 from pyspark.ml.classification import LogisticRegression, RandomForestClassifier, GBTClassifier
 logReg = LogisticRegression()
 randForest = RandomForestClassifier()
@@ -44,7 +44,7 @@ TuneHyperparameters will randomly choose values from a uniform distribution.
 
 
 ```python
-from mmlspark.automl import *
+from synapse.ml.automl import *
 
 paramBuilder = \
   HyperparamBuilder() \
@@ -81,7 +81,7 @@ We can score against the test set and view metrics.
 
 
 ```python
-from mmlspark.train import ComputeModelStatistics
+from synapse.ml.train import ComputeModelStatistics
 prediction = bestModel.transform(test)
 metrics = ComputeModelStatistics().transform(prediction)
 metrics.limit(10).toPandas()

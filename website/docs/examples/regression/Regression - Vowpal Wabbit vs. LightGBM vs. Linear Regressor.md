@@ -7,7 +7,7 @@ status: stable
 
 This notebook shows how to build simple regression models by using 
 [Vowpal Wabbit (VW)](https://github.com/VowpalWabbit/vowpal_wabbit) and 
-[LightGBM](https://github.com/microsoft/LightGBM) with MMLSpark.
+[LightGBM](https://github.com/microsoft/LightGBM) with SynapseML.
  We also compare the results with 
  [Spark MLlib Linear Regression](https://spark.apache.org/docs/latest/ml-classification-regression.html#linear-regression).
 
@@ -22,9 +22,9 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 
 ```python
 import math
-from mmlspark.train import ComputeModelStatistics
-from mmlspark.vw import VowpalWabbitRegressor, VowpalWabbitFeaturizer
-from mmlspark.lightgbm import LightGBMRegressor
+from synapse.ml.train import ComputeModelStatistics
+from synapse.ml.vw import VowpalWabbitRegressor, VowpalWabbitFeaturizer
+from synapse.ml.lightgbm import LightGBMRegressor
 import numpy as np
 import pandas as pd
 from pyspark.ml.feature import VectorAssembler

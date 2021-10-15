@@ -21,7 +21,7 @@ from pyspark.sql.types import BooleanType
 from pyspark.sql.types import *
 from pyspark.ml.feature import Normalizer
 from pyspark.sql.functions import lit, array, array_contains, udf, col, struct
-from mmlspark.nn import ConditionalKNN, ConditionalKNNModel
+from synapse.ml.nn import ConditionalKNN, ConditionalKNNModel
 from PIL import Image
 from io import BytesIO
 

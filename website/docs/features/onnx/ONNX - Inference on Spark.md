@@ -30,33 +30,62 @@ Use LightGBM to train a model
 
 ```python
 from pyspark.ml.feature import VectorAssembler
-from mmlspark.lightgbm import LightGBMClassifier
+
+from synapse.ml.lightgbm import LightGBMClassifier
+
+
 
 feature_cols = df.columns[1:]
+
 featurizer = VectorAssembler(
+
     inputCols=feature_cols,
+
     outputCol='features'
+
 )
+
+
 
 train_data = featurizer.transform(df)['Bankrupt?', 'features']
 
+
+
 model = (
+
   LightGBMClassifier(featuresCol="features", labelCol="Bankrupt?")
+
   .setEarlyStoppingRound(300)
+
   .setLambdaL1(0.5)
+
   .setNumIterations(1000)
+
   .setNumThreads(-1)
+
   .setMaxDeltaStep(0.5)
+
   .setNumLeaves(31)
+
   .setMaxDepth(-1)
+
   .setBaggingFraction(0.7)
+
   .setFeatureFraction(0.7)
+
   .setBaggingFreq(2)
+
   .setObjective("binary")
+
   .setIsUnbalance(True)
+
   .setMinSumHessianInLeaf(20)
+
   .setMinGainToSplit(0.01)
+
 )
+
+
 
 model = model.fit(train_data)
 ```
@@ -84,11 +113,16 @@ Load the ONNX payload into an `ONNXModel`, and inspect the model inputs and outp
 
 
 ```python
-from mmlspark.onnx import ONNXModel
+from synapse.ml.onnx import ONNXModel
+
+
 
 onnx_ml = ONNXModel().setModelPayload(model_payload_ml)
 
+
+
 print("Model inputs:" + str(onnx_ml.getModelInputs()))
+
 print("Model outputs:" + str(onnx_ml.getModelOutputs()))
 ```
 
