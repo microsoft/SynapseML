@@ -180,7 +180,7 @@ const features = [
   },
   {
     title: "Open",
-    imageUrl: "img/opensource-blue.jpg",
+    imageUrl: "img/open_source.svg",
     description: (
       <>
         <p>

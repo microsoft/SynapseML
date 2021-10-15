@@ -20,6 +20,7 @@ def getSecret(secretName):
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
 
+import mmlspark
 ``` 
 -->
 

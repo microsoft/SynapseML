@@ -114,6 +114,17 @@ module.exports = {
       items: [
         'documentation/transformers/transformers_cognitive',
         'documentation/transformers/transformers_core',
+        'documentation/transformers/transformers_opencv',
+        'documentation/transformers/transformers_vw',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Estimators',
+      items: [
+        'documentation/estimators/estimators_core',
+        'documentation/estimators/estimators_lightgbm',
+        'documentation/estimators/estimators_vw',
       ],
     },
     {

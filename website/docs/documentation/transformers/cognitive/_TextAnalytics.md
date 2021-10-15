@@ -7,7 +7,6 @@ import DocTable from "@theme/DocumentationTable";
 import pyspark
 import os
 import json
-import mmlspark
 from IPython.display import display
 from pyspark.sql.functions import col
 
@@ -20,6 +19,8 @@ def getSecret(secretName):
         get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
         value = json.loads(os.popen(get_secret_cmd).read())["value"]
         return value
+
+import mmlspark
 ``` 
 -->
 

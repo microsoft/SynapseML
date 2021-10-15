@@ -21,3 +21,4 @@ dependencies:
     - nbconvert
     - ipython
     - pytest-codeblocks
+    - azure-storage-blob
