@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.explainers.split1
 
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
-import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.LIME
@@ -16,12 +16,13 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.scalactic.Equality
 
-class VectorLIMEExplainerSuite extends TestBase with Flaky
+class VectorLIMEExplainerSuite extends TestBase
   with TransformerFuzzing[VectorLIME] {
 
   import spark.implicits._
 
   implicit val vectorEquality: Equality[BDV[Double]] = breezeVectorEq(1E-6)
+  implicit val matrixEquality: Equality[BDM[Double]] = breezeMatrixEq(1E-6)
 
   override val sortInDataframeEquality = true
 
