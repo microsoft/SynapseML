@@ -281,7 +281,7 @@ val convertNotebooks = TaskKey[Unit]("convertNotebooks",
   "convert notebooks to markdown for website display")
 convertNotebooks := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value.getParent, "mmlspark/website/notebookconvert.py")}")
+    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
   )
 }
 
@@ -289,7 +289,7 @@ val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
   "test code blocks inside markdowns under folder website/docs/documentation")
 testWebsiteDocs := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value.getParent, "mmlspark/website/doctest.py")}")
+    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}")
   )
 }
 
