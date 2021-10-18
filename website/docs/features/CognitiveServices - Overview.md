@@ -13,7 +13,7 @@ status: stable
 
 ### Vision
 [**Computer Vision**](https://azure.microsoft.com/en-us/services/cognitive-services/computer-vision/)
-- Describe: provides description of an image in human readable language ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/DescribeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DescribeImage))
+- Describe: provides description of an image in human readable language ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.1/scala/com/microsoft/ml/spark/cognitive/DescribeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.DescribeImage))
 - Analyze (color, image type, face, adult/racy content): analyzes visual features of an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/AnalyzeImage.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeImage))
 - OCR: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/OCR.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.OCR))
 - Recognize Text: reads text from an image ([Scala](https://mmlspark.blob.core.windows.net/docs/0.9.0/scala/com/microsoft/ml/spark/cognitive/RecognizeText.html), [Python](https://mmlspark.blob.core.windows.net/docs/0.9.0/pyspark/synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeText))

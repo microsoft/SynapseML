@@ -16,128 +16,56 @@ const snippets = [
     further:
       "/docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
     config: `from synapse.ml.cognitive import *
-from pyspark.sql.functions import col
-import os
 
-# A general Cognitive Services key for Text Analytics and Computer Vision (or use separate keys that belong to each service)
-service_key = os.environ["TEXT_API_KEY"]
-
-# Create a dataframe that's tied to it's column names
-df = spark.createDataFrame([
-  ("I am so happy today, its sunny!", "en-US"),
-  ("I am frustrated by this rush hour traffic", "en-US"),
-  ("The cognitive services on spark aint bad", "en-US"),
-], ["text", "language"])
-
-# Run the Text Analytics service with options
-sentiment = (TextSentiment()
+sentiment_df = (TextSentiment()
     .setTextCol("text")
     .setLocation("eastus")
-    .setSubscriptionKey(service_key)
+    .setSubscriptionKey(key)
     .setOutputCol("sentiment")
     .setErrorCol("error")
-    .setLanguageCol("language"))
-
-# Show the results of your text query in a table format
-display(sentiment.transform(df).select("text", col("sentiment")[0].getItem("sentiment").alias("sentiment")))`,
+    .setLanguageCol("language")
+    .transform(input_df))`,
   },
   {
     label: "Deep Learning",
     further: "/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
-    config: `# Load the ONNX payload into an ONNXModel, and inspect the model inputs and outputs.
-from synapse.ml.onnx import ONNXModel
+    config: `from synapse.ml.onnx import *
 
-onnx_ml = ONNXModel().setModelPayload(model_payload_ml)
-
-print("Model inputs:" + str(onnx_ml.getModelInputs()))
-print("Model outputs:" + str(onnx_ml.getModelOutputs()))
-
-# Map the model input to the input dataframe's column name (FeedDict), and map the output dataframe's column names to the model outputs (FetchDict).
-onnx_ml = (
-  onnx_ml
+model_prediction_df = (ONNXModel()
+    .setModelPayload(model_payload_ml)
     .setDeviceType("CPU")
     .setFeedDict({"input": "features"})
     .setFetchDict({"probability": "probabilities", "prediction": "label"})
-    .setMiniBatchSize(5000)
-)
-
-# Create some testing data and transform the data through the ONNX model.
-from pyspark.ml.feature import VectorAssembler
-import pandas as pd
-import numpy as np
-
-n = 1000 * 1000
-m = 95
-test = np.random.rand(n, m)
-testPdf = pd.DataFrame(test)
-cols = list(map(str, testPdf.columns))
-testDf = spark.createDataFrame(testPdf)
-testDf = testDf.union(testDf).repartition(200)
-testDf = VectorAssembler().setInputCols(cols).setOutputCol("features").transform(testDf).drop(*cols).cache()
-
-display(onnx_ml.transform(testDf))
-    `,
+    .setMiniBatchSize(64)
+    .transform(input_df))`,
   },
   {
     label: "Model Interpretability",
     further: "/docs/features/model_interpretability/about",
     config: `from synapse.ml.explainers import *
-import urllib.request
-
-# We download an image for interpretation.
-test_image_url = (
-  "https://mmlspark.blob.core.windows.net/publicwasb/explainers/images/david-lusvardi-dWcUncxocQY-unsplash.jpg"
-)
-with urllib.request.urlopen(test_image_url) as url:
-  barr = url.read()
-
-# Create a dataframe from the downloaded image, and use ResNet50 model to infer the image.
-image_df = spark.createDataFrame([(bytearray(barr),)], ["image"])
-network = ModelDownloader(spark, "dbfs:/Models/").downloadByName("ResNet50")
-model = ImageFeaturizer(inputCol="image", outputCol="probability", cutOutputLayers=0).setModel(network)
-
-predicted = (
-  model.transform(image_df)
-  .withColumn("top2pred", arg_top(col("probability"), lit(2)))
-  .withColumn("top2prob", vec_slice(col("probability"), col("top2pred")))
-)
-
-# Use the LIME image explainer to explain the model's top 2 classes' probabilities.
-lime = (
-  ImageLIME()
-  .setModel(model)
-  .setOutputCol("weights")
-  .setInputCol("image")
-  .setCellSize(50.0)
-  .setModifier(20.0)
-  .setNumSamples(500)
-  .setMetricsCol("r2")
-  .setTargetCol("probability")
-  .setTargetClassesCol("top2pred")
-  .setSamplingFraction(0.7)
-)
-
-lime_result = (
-  lime.transform(predicted)
-  .withColumn("weights_piano", col("weights").getItem(0))
-  .withColumn("weights_cello", col("weights").getItem(1))
-  .withColumn("r2_piano", vec_access("r2", lit(0)))
-  .withColumn("r2_cello", vec_access("r2", lit(1)))
-  .cache()
-)
-
-display(lime_result.select(col("weights_piano"), col("r2_piano"), col("weights_cello"), col("r2_cello")))
-    `,
+    
+interpretation_df = (TabularSHAP()
+    .setInputCols(features)
+    .setOutputCol("shapValues")
+    .setTargetCol("probability")
+    .setTargetClasses([1])
+    .setNumSamples(5000)
+    .setModel(model)
+    .transform(input_df))`,
   },
   {
     label: "LightGBM",
     further: "/docs/features/lightgbm/about",
-    config: `from synapse.ml.lightgbm import LightGBMRegressor
-model = LightGBMRegressor(application='quantile',
-                          alpha=0.3,
-                          learningRate=0.3,
-                          numIterations=100,
-                          numLeaves=31).fit(train)`,
+    config: `from synapse.ml.lightgbm import *
+    
+quantile_df = (LightGBMRegressor()
+  .setApplication('quantile')
+  .setAlpha(0.3)
+  .setLearningRate(0.3)
+  .setNumIterations(100)
+  .setNumLeaves(31)
+  .fit(train_df)
+  .transform(test_df))`,
   },
 ];
 
@@ -156,7 +84,7 @@ const features = [
   },
   {
     title: "Scalable",
-    imageUrl: "img/scalable3.svg",
+    imageUrl: "img/scalable.svg",
     description: (
       <>
         <p>
@@ -308,9 +236,9 @@ function Home() {
                   MMLSpark can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.0
-pyspark --packages com.microsoft.azure:synapseml:0.9.0
-spark-submit --packages com.microsoft.azure:synapseml:0.9.0 MyApp.jar`}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.1
+pyspark --packages com.microsoft.azure:synapseml:0.9.1
+spark-submit --packages com.microsoft.azure:synapseml:0.9.1 MyApp.jar`}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -333,11 +261,12 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.0 MyApp.jar`}
                       library from Maven coordinates
                     </a>{" "}
                     in your workspace.
+                    in your workspace.
                   </p>
                   <p>
                     For the coordinates use:
                     <CodeSnippet
-                      snippet={`com.microsoft.azure:synapseml:0.9.0`}
+                      snippet={`com.microsoft.azure:synapseml:0.9.1`}
                       lang="bash"
                     ></CodeSnippet>
                     with the resolver:
@@ -355,7 +284,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.0 MyApp.jar`}
                   To get started with our example notebooks import the following
                   databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv0.9.0.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv0.9.1.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -393,7 +322,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.0 MyApp.jar`}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate()
 import synapse.ml`}
@@ -405,7 +334,7 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.0"`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.1"`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>

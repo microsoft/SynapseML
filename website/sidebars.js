@@ -14,6 +14,7 @@ let examples_mi_docs = listExamplePaths("examples", "model_interpretability");
 let examples_rg_docs = listExamplePaths("examples", "regression");
 let examples_ta_docs = listExamplePaths("examples", "text_analytics");
 
+
 module.exports = {
   docs: [
     {
@@ -116,6 +117,7 @@ module.exports = {
         'documentation/transformers/transformers_core',
         'documentation/transformers/transformers_opencv',
         'documentation/transformers/transformers_vw',
+        'documentation/transformers/transformers_deep_learning',
       ],
     },
     {
@@ -125,13 +127,6 @@ module.exports = {
         'documentation/estimators/estimators_core',
         'documentation/estimators/estimators_lightgbm',
         'documentation/estimators/estimators_vw',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Models',
-      items: [
-        'documentation/models/models_deep_learning',
       ],
     },
     {

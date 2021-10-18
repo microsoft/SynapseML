@@ -3,7 +3,7 @@ title: Estimators - Core
 hide_title: true
 ---
 
-# AUTOML
+# AutoML
 
 import AutoML from './core/_AutoML.md';
 

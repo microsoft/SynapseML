@@ -105,7 +105,7 @@ function SampleSnippet(props) {
                 )}
                 to={further}
               >
-                Read about
+                Read more
               </Link>
             )}
           </div>

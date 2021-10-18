@@ -1,5 +1,5 @@
 ---
-title: Models - Deep Learning
+title: Deep Learning
 ---
 
 import ONNXModel from './deep_learning/_ONNXModel.md';
