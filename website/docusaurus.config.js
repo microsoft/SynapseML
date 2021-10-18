@@ -5,11 +5,11 @@ let version = "0.9.1";
 module.exports = {
   title: 'Synapse ML',
   tagline: 'Simple and Distributed Machine Learning',
-  url: 'https://www.synapseml.dev',
+  url: 'https://www.synapseml.github.io',
   baseUrl: '/',
   favicon: 'img/favicon.ico',
-  organizationName: 'Microsoft',
-  projectName: 'synapseml',
+  organizationName: 'microsoft',
+  projectName: 'SynapseML',
   customFields: {
     examples: all_examples(),
     version: "0.9.1",

@@ -54,15 +54,14 @@ this process:
 #### Implement tests
 
 -   Set up build environment.  Use a Linux machine or VM (we use Ubuntu, but other
-    distros should work too), and install environment using the [`runme`
-    script](runme).
+    distros should work too).
 -   Test your code locally.
 -   Add tests using ScalaTests — unit tests are required.
 -   A sample notebook is required as an end-to-end test.
 
 #### Implement documentation
 
--   Add a [sample Jupyter notebook](notebooks/) that shows the intended use
+-   Add a [sample Jupyter notebook](https://github.com/microsoft/SynapseML/tree/master/notebooks) that shows the intended use
     case of your algorithm, with instructions in step-by-step manner.  (The same
     notebook could be used for testing the code.)
 -   Add in-line ScalaDoc comments to your source code, to generate the [API

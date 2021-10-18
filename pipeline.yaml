@@ -370,7 +370,7 @@ jobs:
       displayName: Create Anaconda environment
     - task: AzureCLI@1
       displayName: 'Test Website Samples'
-      timeoutInMinutes: 15
+      timeoutInMinutes: 30
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
