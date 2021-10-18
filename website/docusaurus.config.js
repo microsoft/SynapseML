@@ -6,7 +6,7 @@ module.exports = {
   title: 'Synapse ML',
   tagline: 'Simple and Distributed Machine Learning',
   url: 'https://synapseml.github.io',
-  baseUrl: '/SynapseML/',
+  baseUrl: '/',
   favicon: 'img/favicon.ico',
   organizationName: 'microsoft',
   projectName: 'SynapseML',
