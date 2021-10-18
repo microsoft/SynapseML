@@ -1,5 +1,6 @@
 ---
 title: Transformers - Core
+sidebar_label: Core
 hide_title: true
 ---
 

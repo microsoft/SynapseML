@@ -1,5 +1,6 @@
 ---
 title: Transformers - Vowpal Wabbit
+sidebar_label: Vowpal Wabbit
 hide_title: true
 ---
 

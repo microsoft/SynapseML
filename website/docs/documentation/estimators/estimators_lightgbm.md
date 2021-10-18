@@ -1,5 +1,6 @@
 ---
 title: Estimators - LightGBM
+sidebar_label: LightGBM
 hide_title: true
 ---
 

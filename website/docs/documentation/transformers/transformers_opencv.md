@@ -1,5 +1,6 @@
 ---
 title: Transformers - OpenCV
+sidebar_label: OpenCV
 hide_title: true
 ---
 

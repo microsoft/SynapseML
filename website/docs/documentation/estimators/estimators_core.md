@@ -1,5 +1,6 @@
 ---
 title: Estimators - Core
+sidebar_label: Core
 hide_title: true
 ---
 

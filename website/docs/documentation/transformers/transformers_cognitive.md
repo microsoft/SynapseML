@@ -1,5 +1,6 @@
 ---
 title: Transformers - Cognitive
+sidebar_label: Cognitive
 hide_title: true
 ---
 
