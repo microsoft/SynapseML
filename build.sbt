@@ -278,6 +278,22 @@ setupTask := {
   getDatasetsTask.value
 }
 
+val convertNotebooks = TaskKey[Unit]("convertNotebooks",
+  "convert notebooks to markdown for website display")
+convertNotebooks := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
+  )
+}
+
+val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
+  "test code blocks inside markdowns under folder website/docs/documentation")
+testWebsiteDocs := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}")
+  )
+}
+
 sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
 homepage := Some(url("https://github.com/Microsoft/SynapseML"))
