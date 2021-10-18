@@ -56,7 +56,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
-        source activate synapse
+        source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
         sbt genBuildInfo
