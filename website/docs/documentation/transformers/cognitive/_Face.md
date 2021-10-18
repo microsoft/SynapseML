@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## DetectFace
+## Face
+
+### DetectFace
 
 <Tabs
 defaultValue="py"
@@ -92,7 +94,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/DetectFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
-## FindSimilarFace
+### FindSimilarFace
 
 <Tabs
 defaultValue="py"
@@ -182,7 +184,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/FindSimilarFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
-## GroupFaces
+### GroupFaces
 
 <Tabs
 defaultValue="py"
@@ -270,7 +272,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/GroupFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
-## IdentifyFaces
+### IdentifyFaces
 
 <Tabs
 defaultValue="py"
@@ -323,7 +325,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/IdentifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
-## VerifyFaces
+### VerifyFaces
 
 <Tabs
 defaultValue="py"

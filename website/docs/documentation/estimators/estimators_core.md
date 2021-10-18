@@ -4,38 +4,39 @@ sidebar_label: Core
 hide_title: true
 ---
 
-# AutoML
 
-import AutoML from './core/_AutoML.md';
+import AutoML, {toc as AutoMLTOC} from './core/_AutoML.md';
 
 <AutoML/>
 
-# Featurize
 
-import Featurize from './core/_Featurize.md';
+import Featurize, {toc as FeaturizeTOC} from './core/_Featurize.md';
 
 <Featurize/>
 
-# Isolation Forest
 
-import IsolationForest from './core/_IsolationForest.md';
+import IsolationForest, {toc as IsolationForestTOC} from './core/_IsolationForest.md';
 
 <IsolationForest/>
 
-# NN
 
-import NN from './core/_NN.md';
+import NN, {toc as NNTOC} from './core/_NN.md';
 
 <NN/>
 
-# Recommendation
 
-import Recommendation from './core/_Recommendation.md';
+import Recommendation, {toc as RecommendationTOC} from './core/_Recommendation.md';
 
 <Recommendation/>
 
-# Stages
 
-import Stages from './core/_Stages.md';
+import Stages, {toc as StagesTOC} from './core/_Stages.md';
 
 <Stages/>
+
+import Train, {toc as TrainTOC} from './core/_Train.md';
+
+<Train/>
+
+export const toc = [...AutoMLTOC, ...FeaturizeTOC, ...IsolationForestTOC,
+...NNTOC, ...RecommendationTOC, ...StagesTOC, ...TrainTOC]

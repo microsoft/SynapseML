@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## ComputeModelStatistics
+## Train
+
+### ComputeModelStatistics
 
 <Tabs
 defaultValue="py"
@@ -80,7 +82,7 @@ scala="com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.scala" />
 
 
-## ComputePerInstanceStatistics
+### ComputePerInstanceStatistics
 
 <Tabs
 defaultValue="py"

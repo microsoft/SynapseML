@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## DataConversion
+## Featurize
+
+### DataConversion
 
 <Tabs
 defaultValue="py"
@@ -80,7 +82,7 @@ scala="com/microsoft/azure/synapse/ml/featurize/DataConversion.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/DataConversion.scala" />
 
 
-## IndexToValue
+### IndexToValue
 
 <Tabs
 defaultValue="py"
@@ -140,9 +142,9 @@ scala="com/microsoft/azure/synapse/ml/featurize/IndexToValue.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/IndexToValue.scala" />
 
 
-# Featurize Text
+## Featurize Text
 
-## MultiNGram
+### MultiNGram
 
 <Tabs
 defaultValue="py"
@@ -217,7 +219,7 @@ scala="com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.scala" />
 
 
-## PageSplitter
+### PageSplitter
 
 <Tabs
 defaultValue="py"

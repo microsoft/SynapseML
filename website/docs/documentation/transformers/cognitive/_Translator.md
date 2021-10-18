@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## Translate
+## Translator
+
+### Translate
 
 <Tabs
 defaultValue="py"
@@ -94,7 +96,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/Translate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## Transliterate
+### Transliterate
 
 <Tabs
 defaultValue="py"
@@ -166,7 +168,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/Transliterate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## Detect
+### Detect
 
 <Tabs
 defaultValue="py"
@@ -230,7 +232,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/Detect.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## BreakSentence
+### BreakSentence
 
 <Tabs
 defaultValue="py"
@@ -294,7 +296,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/BreakSentence.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## DictionaryLookup
+### DictionaryLookup
 
 <Tabs
 defaultValue="py"
@@ -364,7 +366,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryLookup.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## DictionaryExamples
+### DictionaryExamples
 
 <Tabs
 defaultValue="py"
@@ -430,7 +432,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryExamples.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
-## DocumentTranslator
+### DocumentTranslator
 
 <Tabs
 defaultValue="py"

@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## Cacher
+## Stages
+
+### Cacher
 
 <Tabs
 defaultValue="py"
@@ -93,7 +95,7 @@ scala="com/microsoft/azure/synapse/ml/stages/Cacher.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Cacher.scala" />
 
 
-## DropColumns
+### DropColumns
 
 <Tabs
 defaultValue="py"
@@ -145,7 +147,7 @@ scala="com/microsoft/azure/synapse/ml/stages/DropColumns.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/DropColumns.scala" />
 
 
-## EnsembleByKey
+### EnsembleByKey
 
 <Tabs
 defaultValue="py"
@@ -204,7 +206,7 @@ scala="com/microsoft/azure/synapse/ml/stages/EnsembleByKey.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/EnsembleByKey.scala" />
 
 
-## Explode
+### Explode
 
 <Tabs
 defaultValue="py"
@@ -256,7 +258,7 @@ scala="com/microsoft/azure/synapse/ml/stages/Explode.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Explode.scala" />
 
 
-## Lambda
+### Lambda
 
 <Tabs
 defaultValue="py"
@@ -314,7 +316,7 @@ scala="com/microsoft/azure/synapse/ml/stages/Lambda.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Lambda.scala" />
 
 
-## DynamicMiniBatchTransformer
+### DynamicMiniBatchTransformer
 
 <Tabs
 defaultValue="py"
@@ -359,7 +361,7 @@ scala="com/microsoft/azure/synapse/ml/stages/DynamicMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
-## FixedMiniBatchTransformer
+### FixedMiniBatchTransformer
 
 <Tabs
 defaultValue="py"
@@ -399,7 +401,7 @@ scala="com/microsoft/azure/synapse/ml/stages/FixedMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
-## TimeIntervalMiniBatchTransformer
+### TimeIntervalMiniBatchTransformer
 
 <Tabs
 defaultValue="py"
@@ -447,7 +449,7 @@ scala="com/microsoft/azure/synapse/ml/stages/TimeIntervalMiniBatchTransformer.ht
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
-## FlattenBatch
+### FlattenBatch
 
 <Tabs
 defaultValue="py"
@@ -495,7 +497,7 @@ scala="com/microsoft/azure/synapse/ml/stages/FlattenBatch.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
-## RenameColumn
+### RenameColumn
 
 <Tabs
 defaultValue="py"
@@ -547,7 +549,7 @@ scala="com/microsoft/azure/synapse/ml/stages/RenameColumn.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/RenameColumn.scala" />
 
 
-## Repartition
+### Repartition
 
 <Tabs
 defaultValue="py"
@@ -617,7 +619,7 @@ scala="com/microsoft/azure/synapse/ml/stages/Repartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Repartition.scala" />
 
 
-## SelectColumns
+### SelectColumns
 
 <Tabs
 defaultValue="py"
@@ -669,7 +671,7 @@ scala="com/microsoft/azure/synapse/ml/stages/SelectColumns.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SelectColumns.scala" />
 
 
-## StratifiedRepartition
+### StratifiedRepartition
 
 <Tabs
 defaultValue="py"
@@ -739,7 +741,7 @@ scala="com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.scala" />
 
 
-## SummarizeData
+### SummarizeData
 
 <Tabs
 defaultValue="py"
@@ -791,7 +793,7 @@ scala="com/microsoft/azure/synapse/ml/stages/SummarizeData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SummarizeData.scala" />
 
 
-## TextPreprocessor
+### TextPreprocessor
 
 <Tabs
 defaultValue="py"
@@ -863,7 +865,7 @@ scala="com/microsoft/azure/synapse/ml/stages/TextPreprocessor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/TextPreprocessor.scala" />
 
 
-## UDFTransformer
+### UDFTransformer
 
 <Tabs
 defaultValue="py"
@@ -927,7 +929,7 @@ scala="com/microsoft/azure/synapse/ml/stages/UDFTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UDFTransformer.scala" />
 
 
-## UnicodeNormalize
+### UnicodeNormalize
 
 <Tabs
 defaultValue="py"

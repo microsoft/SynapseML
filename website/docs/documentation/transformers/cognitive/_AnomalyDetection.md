@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## DetectLastAnomaly
+## Anomaly Detection
+
+### DetectLastAnomaly
 
 <Tabs
 defaultValue="py"
@@ -123,7 +125,7 @@ py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectLastAnomaly"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectLastAnomaly.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
-## DetectAnomalies
+### DetectAnomalies
 
 <Tabs
 defaultValue="py"
@@ -219,7 +221,7 @@ py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
-## SimpleDetectAnomalies
+### SimpleDetectAnomalies
 
 <Tabs
 defaultValue="py"

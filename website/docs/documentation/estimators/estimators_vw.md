@@ -6,6 +6,8 @@ hide_title: true
 
 # Vowpal Wabbit
 
-import VW from './_VW.md';
+import VW, {toc as VWTOC} from './_VW.md';
 
 <VW/>
+
+export const toc = [...VWTOC]

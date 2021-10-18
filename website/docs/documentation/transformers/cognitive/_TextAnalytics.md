@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## EntityDetector
+## Text Analytics
+
+### EntityDetector
 
 <Tabs
 defaultValue="py"
@@ -87,7 +89,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/EntityDetector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
-## KeyPhraseExtractor
+### KeyPhraseExtractor
 
 <Tabs
 defaultValue="py"
@@ -152,7 +154,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/KeyPhraseExtractor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
-## LanguageDetector
+### LanguageDetector
 
 <Tabs
 defaultValue="py"
@@ -219,7 +221,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/LanguageDetector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
-## NER
+### NER
 
 <Tabs
 defaultValue="py"
@@ -281,7 +283,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/NER.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
-## PII
+### PII
 
 <Tabs
 defaultValue="py"
@@ -346,7 +348,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/TextSentiment.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
-## TextSentiment
+### TextSentiment
 
 <Tabs
 defaultValue="py"

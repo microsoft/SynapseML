@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## RecommendationIndexer, RankingEvaluator, RankingAdapter and RankingTrainValidationSplit
+## Recommendation
+
+### RecommendationIndexer, RankingEvaluator, RankingAdapter and RankingTrainValidationSplit
 
 <Tabs
 defaultValue="py"
@@ -232,7 +234,7 @@ scala="com/microsoft/azure/synapse/ml/recommendation/RankingTrainValidationSplit
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingTrainValidationSplit.scala" />
 
 
-## SAR
+### SAR
 
 <Tabs
 defaultValue="py"

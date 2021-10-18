@@ -135,6 +135,8 @@ module.exports = {
       items: [
         'reference/developer-readme',
         'reference/contributing_guide',
+        'reference/docker',
+        'reference/R-setup',
       ],
     },
   ],

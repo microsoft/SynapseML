@@ -4,57 +4,52 @@ sidebar_label: Cognitive
 hide_title: true
 ---
 
-# Text Analytics
 
-import TextAnalytics from './cognitive/_TextAnalytics.md';
+import TextAnalytics, {toc as TextAnalyticsTOC} from './cognitive/_TextAnalytics.md';
 
 <TextAnalytics/>
 
-# Translator
 
-import Translator from './cognitive/_Translator.md';
+import Translator, {toc as TranslatorTOC} from './cognitive/_Translator.md';
 
 <Translator/>
 
-# Computer Vision
 
-import ComputerVision from './cognitive/_ComputerVision.md';
+import ComputerVision, {toc as ComputerVisionTOC} from './cognitive/_ComputerVision.md';
 
 <ComputerVision/>
 
-# Form Recognizer
 
-import FormRecognizer from './cognitive/_FormRecognizer.md';
+import FormRecognizer, {toc as FormRecognizerTOC} from './cognitive/_FormRecognizer.md';
 
 <FormRecognizer/>
 
-# Anomaly Detection
 
-import AnomalyDetection from './cognitive/_AnomalyDetection.md';
+import AnomalyDetection, {toc as AnomalyDetectionTOC} from './cognitive/_AnomalyDetection.md';
 
 <AnomalyDetection/>
 
-# Face
 
-import Face from './cognitive/_Face.md';
+import Face, {toc as FaceTOC} from './cognitive/_Face.md';
 
 <Face/>
 
-# Speech To Text
 
-import SpeechToText from './cognitive/_SpeechToText.md';
+import SpeechToText, {toc as SpeechToTextTOC} from './cognitive/_SpeechToText.md';
 
 <SpeechToText/>
 
-# Azure Search
 
-import AzureSearch from './cognitive/_AzureSearch.md';
+import AzureSearch, {toc as AzureSearchTOC} from './cognitive/_AzureSearch.md';
 
 <AzureSearch/>
 
-# Bing Image Search
 
-import BingImageSearch from './cognitive/_BingImageSearch.md';
+import BingImageSearch, {toc as BingImageSearchTOC} from './cognitive/_BingImageSearch.md';
 
 <BingImageSearch/>
 
+
+export const toc = [...TextAnalyticsTOC, ...TranslatorTOC, ...ComputerVisionTOC,
+...FormRecognizerTOC, ...AnomalyDetectionTOC, ...FaceTOC, ...SpeechToTextTOC,
+...AzureSearchTOC, ...BingImageSearchTOC]

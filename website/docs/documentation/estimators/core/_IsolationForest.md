@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## IsolationForest
+## Isolation Forest
+
+### IsolationForest
 
 <Tabs
 defaultValue="py"

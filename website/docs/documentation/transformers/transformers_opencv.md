@@ -6,8 +6,8 @@ hide_title: true
 
 # OpenCV
 
-import OpenCV from './_OpenCV.md';
+import OpenCV, {toc as OpenCVTOC} from './_OpenCV.md';
 
 <OpenCV/>
 
-
+export const toc = [...OpenCVTOC]

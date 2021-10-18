@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## ConditionalKNN
+## NN
+
+### ConditionalKNN
 
 <Tabs
 defaultValue="py"
@@ -64,7 +66,7 @@ scala="com/microsoft/azure/synapse/ml/nn/ConditionalKNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/ConditionalKNN.scala" />
 
 
-## KNN
+### KNN
 
 <Tabs
 defaultValue="py"

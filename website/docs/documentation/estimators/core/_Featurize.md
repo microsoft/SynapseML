@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## CleanMissingData
+## Featurize
+
+### CleanMissingData
 
 <Tabs
 defaultValue="py"
@@ -100,7 +102,7 @@ scala="com/microsoft/azure/synapse/ml/featurize/CleanMissingData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CleanMissingData.scala" />
 
 
-## CountSelector
+### CountSelector
 
 <Tabs
 defaultValue="py"
@@ -155,7 +157,7 @@ scala="com/microsoft/azure/synapse/ml/featurize/CountSelector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CountSelector.scala" />
 
 
-## Featurize
+### Featurize
 
 <Tabs
 defaultValue="py"
@@ -223,7 +225,7 @@ scala="com/microsoft/azure/synapse/ml/featurize/Featurize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/Featurize.scala" />
 
 
-## ValueIndexer
+### ValueIndexer
 
 <Tabs
 defaultValue="py"
@@ -274,9 +276,9 @@ py="synapse.ml.featurize.html#module-synapse.ml.featurize.ValueIndexer"
 scala="com/microsoft/azure/synapse/ml/featurize/ValueIndexer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/ValueIndexer.scala" />
 
-# Featurize Text
+## Featurize Text
 
-## TextFeaturizer
+### TextFeaturizer
 
 <Tabs
 defaultValue="py"

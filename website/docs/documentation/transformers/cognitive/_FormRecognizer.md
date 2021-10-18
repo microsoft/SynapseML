@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## AnalyzeLayout
+## Form Recognizer
+
+### AnalyzeLayout
 
 <Tabs
 defaultValue="py"
@@ -92,7 +94,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeLayout.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## AnalyzeReceipts
+### AnalyzeReceipts
 
 <Tabs
 defaultValue="py"
@@ -155,7 +157,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeReceipts.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## AnalyzeBusinessCards
+### AnalyzeBusinessCards
 
 <Tabs
 defaultValue="py"
@@ -216,7 +218,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeBusinessCards.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## AnalyzeInvoices
+### AnalyzeInvoices
 
 <Tabs
 defaultValue="py"
@@ -280,7 +282,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeInvoices.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## AnalyzeIDDocuments
+### AnalyzeIDDocuments
 
 <Tabs
 defaultValue="py"
@@ -344,7 +346,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeIDDocuments.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## AnalyzeCustomModel
+### AnalyzeCustomModel
 
 <Tabs
 defaultValue="py"
@@ -415,7 +417,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeCustomModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## GetCustomModel
+### GetCustomModel
 
 <Tabs
 defaultValue="py"
@@ -480,7 +482,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/GetCustomModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
-## ListCustomModels
+### ListCustomModels
 
 <Tabs
 defaultValue="py"

@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## ImageLIME
+## Explainers
+
+### ImageLIME
 
 <Tabs
 defaultValue="py"
@@ -84,7 +86,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/ImageLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageLIME.scala" />
 
 
-## ImageSHAP
+### ImageSHAP
 
 <Tabs
 defaultValue="py"
@@ -148,7 +150,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/ImageSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageSHAP.scala" />
 
 
-## TabularLIME
+### TabularLIME
 
 <Tabs
 defaultValue="py"
@@ -219,7 +221,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/TabularLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularLIME.scala" />
 
 
-## TabularSHAP
+### TabularSHAP
 
 <Tabs
 defaultValue="py"
@@ -288,7 +290,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/TabularSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularSHAP.scala" />
 
 
-## TextLIME
+### TextLIME
 
 <Tabs
 defaultValue="py"
@@ -347,7 +349,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/TextLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextLIME.scala" />
 
 
-## TextSHAP
+### TextSHAP
 
 <Tabs
 defaultValue="py"
@@ -404,7 +406,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/TextSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextSHAP.scala" />
 
 
-## VectorLIME
+### VectorLIME
 
 <Tabs
 defaultValue="py"
@@ -483,7 +485,7 @@ scala="com/microsoft/azure/synapse/ml/explainers/VectorLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorLIME.scala" />
 
 
-## VectorSHAP
+### VectorSHAP
 
 <Tabs
 defaultValue="py"

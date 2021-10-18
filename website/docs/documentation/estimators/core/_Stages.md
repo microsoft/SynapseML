@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## ClassBalancer
+## Stages
+
+### ClassBalancer
 
 <Tabs
 defaultValue="py"
@@ -88,7 +90,7 @@ scala="com/microsoft/azure/synapse/ml/stages/ClassBalancer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/ClassBalancer.scala" />
 
 
-## MultiColumnAdapter
+### MultiColumnAdapter
 
 <Tabs
 defaultValue="py"
@@ -152,7 +154,7 @@ scala="com/microsoft/azure/synapse/ml/stages/MultiColumnAdapter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MultiColumnAdapter.scala" />
 
 
-## Timer
+### Timer
 
 <Tabs
 defaultValue="py"

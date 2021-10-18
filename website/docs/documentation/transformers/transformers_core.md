@@ -4,45 +4,40 @@ sidebar_label: Core
 hide_title: true
 ---
 
-# Explainers
 
-import Explainers from './core/_Explainers.md';
+import Explainers, {toc as ExplainersTOC} from './core/_Explainers.md';
 
 <Explainers/>
 
-# Featurize
 
-import Featurize from './core/_Featurize.md';
+import Featurize, {toc as FeaturizeTOC} from './core/_Featurize.md';
 
 <Featurize/>
 
-# Image
 
-import Image from './core/_Image.md';
+import Image, {toc as ImageTOC} from './core/_Image.md';
 
 <Image/>
 
-# IO
 
-import IO from './core/_IO.md';
+import IO, {toc as IOTOC} from './core/_IO.md';
 
 <IO/>
 
-# LIME
 
-import SuperpixelTransformer from './core/_SuperpixelTransformer.md';
+import SuperpixelTransformer, {toc as LIMETOC} from './core/_SuperpixelTransformer.md';
 
 <SuperpixelTransformer/>
 
-# Stages
 
-import Stages from './core/_Stages.md';
+import Stages, {toc as StagesTOC} from './core/_Stages.md';
 
 <Stages/>
 
-# Train
 
-import Train from './core/_Train.md';
+import Train, {toc as TrainTOC} from './core/_Train.md';
 
 <Train/>
 
+export const toc = [...ExplainersTOC, ...FeaturizeTOC, ...ImageTOC,
+...IOTOC, ...LIMETOC, ...StagesTOC, ...TrainTOC]

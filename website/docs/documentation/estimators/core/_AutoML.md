@@ -23,7 +23,9 @@ import synapse.ml
 ``` 
 -->
 
-## FindBestModel
+## AutoML
+
+### FindBestModel
 
 <Tabs
 defaultValue="py"
@@ -131,7 +133,7 @@ scala="com/microsoft/azure/synapse/ml/automl/FindBestModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/FindBestModel.scala" />
 
 
-## TuneHyperparameters
+### TuneHyperparameters
 
 <Tabs
 defaultValue="py"

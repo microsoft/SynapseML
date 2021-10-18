@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## TrainClassifier
+## Train
+
+### TrainClassifier
 
 <Tabs
 defaultValue="py"
@@ -100,7 +102,7 @@ scala="com/microsoft/azure/synapse/ml/train/TrainClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainClassifier.scala" />
 
 
-## TrainRegressor
+### TrainRegressor
 
 <Tabs
 defaultValue="py"

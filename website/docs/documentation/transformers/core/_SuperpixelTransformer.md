@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## SuperpixelTransformer
+## LIME
+
+### SuperpixelTransformer
 
 <Tabs
 defaultValue="py"

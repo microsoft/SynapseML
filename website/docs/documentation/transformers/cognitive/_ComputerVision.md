@@ -23,7 +23,9 @@ import synapse.ml
 ``` 
 -->
 
-## OCR
+## Computer Vision
+
+### OCR
 
 <Tabs
 defaultValue="py"
@@ -86,7 +88,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/OCR.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## AnalyzeImage
+### AnalyzeImage
 
 <Tabs
 defaultValue="py"
@@ -156,7 +158,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## RecognizeText
+### RecognizeText
 
 <Tabs
 defaultValue="py"
@@ -223,7 +225,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeText.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## ReadImage
+### ReadImage
 
 <Tabs
 defaultValue="py"
@@ -288,7 +290,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/ReadImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## RecognizeDomainSpecificContent
+### RecognizeDomainSpecificContent
 
 <Tabs
 defaultValue="py"
@@ -349,7 +351,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeDomainSpecificContent.h
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## GenerateThumbnails
+### GenerateThumbnails
 
 <Tabs
 defaultValue="py"
@@ -414,7 +416,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/GenerateThumbnails.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## TagImage
+### TagImage
 
 <Tabs
 defaultValue="py"
@@ -473,7 +475,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/TagImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-## DescribeImage
+### DescribeImage
 
 <Tabs
 defaultValue="py"

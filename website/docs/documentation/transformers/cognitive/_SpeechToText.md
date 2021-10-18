@@ -24,7 +24,9 @@ import synapse.ml
 ``` 
 -->
 
-## SpeechToText
+## Speech To Text
+
+### SpeechToText
 
 <Tabs
 defaultValue="py"
@@ -93,7 +95,7 @@ scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToText.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToText.scala" />
 
 
-## SpeechToTextSDK
+### SpeechToTextSDK
 
 <Tabs
 defaultValue="py"

@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## HTTPTransformer
+## IO
+
+### HTTPTransformer
 
 <Tabs
 defaultValue="py"
@@ -75,7 +77,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.scala" />
 
 
-## SimpleHTTPTransformer
+### SimpleHTTPTransformer
 
 <Tabs
 defaultValue="py"
@@ -125,7 +127,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.scala" />
 
 
-## JSONInputParser
+### JSONInputParser
 
 <Tabs
 defaultValue="py"
@@ -167,7 +169,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/JSONInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONInputParser.scala" />
 
 
-## JSONOutputParser
+### JSONOutputParser
 
 <Tabs
 defaultValue="py"
@@ -211,7 +213,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.scala" />
 
 
-## StringOutputParser
+### StringOutputParser
 
 <Tabs
 defaultValue="py"
@@ -251,7 +253,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/StringOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/StringOutputParser.scala" />
 
 
-## CustomInputParser
+### CustomInputParser
 
 <Tabs
 defaultValue="py"
@@ -292,7 +294,7 @@ scala="com/microsoft/azure/synapse/ml/io/http/CustomInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomInputParser.scala" />
 
 
-## CustomOutputParser
+### CustomOutputParser
 
 <Tabs
 defaultValue="py"

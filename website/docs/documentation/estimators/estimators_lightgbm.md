@@ -6,6 +6,8 @@ hide_title: true
 
 # LightGBM
 
-import LightGBM from './_LightGBM.md';
+import LightGBM, {toc as LightGBMTOC} from './_LightGBM.md';
 
 <LightGBM/>
+
+export const toc = [...LightGBMTOC]

@@ -23,7 +23,9 @@ import synapse.ml
 ```
 -->
 
-## ResizeImageTransformer
+## Image
+
+### ResizeImageTransformer
 
 <Tabs
 defaultValue="py"
@@ -78,7 +80,7 @@ scala="com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.scala" />
 
 
-## UnrollImage
+### UnrollImage
 
 <Tabs
 defaultValue="py"
@@ -146,7 +148,7 @@ scala="com/microsoft/azure/synapse/ml/image/UnrollImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollImage.scala" />
 
 
-## UnrollBinaryImage
+### UnrollBinaryImage
 
 <Tabs
 defaultValue="py"

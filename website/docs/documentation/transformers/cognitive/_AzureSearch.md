@@ -27,7 +27,9 @@ import synapse.ml
 ```
 -->
 
-## AzureSearch
+## Azure Search
+
+### AzureSearch
 
 <Tabs
 defaultValue="py"

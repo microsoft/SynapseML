@@ -27,7 +27,9 @@ import synapse.ml
 ```
 -->
 
-## BingImageSearch
+## Bing Image Search
+
+### BingImageSearch
 
 <Tabs
 defaultValue="py"
