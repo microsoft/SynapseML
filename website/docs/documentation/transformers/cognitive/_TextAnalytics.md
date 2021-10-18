@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -83,7 +83,7 @@ display(entity.transform(df))
 
 <DocTable className="EntityDetector"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.EntityDetector"
-scala="com/microsoft/ml/spark/cognitive/EntityDetector.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/EntityDetector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
@@ -148,7 +148,7 @@ display(keyPhrase.transform(df))
 
 <DocTable className="KeyPhraseExtractor"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.KeyPhraseExtractor"
-scala="com/microsoft/ml/spark/cognitive/KeyPhraseExtractor.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/KeyPhraseExtractor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
@@ -215,7 +215,7 @@ display(language.transform(df))
 
 <DocTable className="LanguageDetector"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.LanguageDetector"
-scala="com/microsoft/ml/spark/cognitive/LanguageDetector.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/LanguageDetector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
@@ -277,7 +277,7 @@ display(ner.transform(df)
 
 <DocTable className="NER"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.NER"
-scala="com/microsoft/ml/spark/cognitive/NER.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/NER.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
@@ -342,7 +342,7 @@ display(pii.transform(df))
 
 <DocTable className="PII"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.TextSentiment"
-scala="com/microsoft/ml/spark/cognitive/TextSentiment.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/TextSentiment.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 
@@ -412,7 +412,7 @@ display(sentiment.transform(df))
 
 <DocTable className="TextSentiment"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.TextSentiment"
-scala="com/microsoft/ml/spark/cognitive/TextSentiment.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/TextSentiment.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
 
 

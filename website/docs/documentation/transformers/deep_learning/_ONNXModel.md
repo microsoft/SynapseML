@@ -52,6 +52,6 @@ val onnx_ml = new ONNXModel()
 
 <DocTable className="ONNXModel"
 py="mmlspark.onnx.html#module-mmlspark.onnx.ONNXModel"
-scala="com/microsoft/ml/spark/onnx/ONNXModel.html"
+scala="com/microsoft/azure/synapse/ml/onnx/ONNXModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/com/microsoft/azure/synapse/ml/onnx/ONNXModel.scala" />
 

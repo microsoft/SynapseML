@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -90,7 +90,7 @@ display(translate
 
 <DocTable className="Translate"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Translate"
-scala="com/microsoft/ml/spark/cognitive/Translate.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/Translate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -162,7 +162,7 @@ display(transliterate
 
 <DocTable className="Transliterate"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Transliterate"
-scala="com/microsoft/ml/spark/cognitive/Transliterate.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/Transliterate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -226,7 +226,7 @@ display(detect
 
 <DocTable className="Detect"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.Detect"
-scala="com/microsoft/ml/spark/cognitive/Detect.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/Detect.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -290,7 +290,7 @@ display(breakSentence
 
 <DocTable className="BreakSentence"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.BreakSentence"
-scala="com/microsoft/ml/spark/cognitive/BreakSentence.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/BreakSentence.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -360,7 +360,7 @@ display(dictionaryLookup
 
 <DocTable className="DictionaryLookup"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryLookup"
-scala="com/microsoft/ml/spark/cognitive/DictionaryLookup.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryLookup.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -426,7 +426,7 @@ display(dictionaryExamples
 
 <DocTable className="DictionaryExamples"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryExamples"
-scala="com/microsoft/ml/spark/cognitive/DictionaryExamples.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryExamples.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
 
@@ -479,5 +479,5 @@ val documentTranslator = (new DocumentTranslator()
 
 <DocTable className="DocumentTranslator"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DocumentTranslator"
-scala="com/microsoft/ml/spark/cognitive/DocumentTranslator.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.scala" />

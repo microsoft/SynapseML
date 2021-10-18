@@ -126,8 +126,8 @@ display(bestModel.transform(df))
 </Tabs>
 
 <DocTable className="FindBestModel"
-py="mmlspark.automl.html#module-mmlspark.automl.FindBestModel"
-scala="com/microsoft/ml/spark/automl/FindBestModel.html"
+py="synapse.ml.automl.html#module-synapse.ml.automl.FindBestModel"
+scala="com/microsoft/azure/synapse/ml/automl/FindBestModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/FindBestModel.scala" />
 
 
@@ -224,7 +224,7 @@ display(tuneHyperparameters.fit(dataset))
 </Tabs>
 
 <DocTable className="TuneHyperparameters"
-py="mmlspark.automl.html#module-mmlspark.automl.TuneHyperparameters"
-scala="com/microsoft/ml/spark/automl/TuneHyperparameters.html"
+py="synapse.ml.automl.html#module-synapse.ml.automl.TuneHyperparameters"
+scala="com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.scala" />
 

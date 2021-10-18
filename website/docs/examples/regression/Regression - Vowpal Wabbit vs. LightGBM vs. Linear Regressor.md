@@ -94,7 +94,7 @@ lr_predictions = lr_model.transform(lr_test_data)
 display(lr_predictions.limit(10).toPandas())
 ```
 
-We evaluate the prediction result by using `mmlspark.train.ComputeModelStatistics` which returns four metrics:
+We evaluate the prediction result by using `synpase.ml.train.ComputeModelStatistics` which returns four metrics:
 * [MSE (Mean Squared Error)](https://en.wikipedia.org/wiki/Mean_squared_error)
 * [RMSE (Root Mean Squared Error)](https://en.wikipedia.org/wiki/Root-mean-square_deviation) = sqrt(MSE)
 * [R quared](https://en.wikipedia.org/wiki/Coefficient_of_determination)

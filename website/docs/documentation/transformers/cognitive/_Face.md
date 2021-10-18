@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -88,7 +88,7 @@ display(face.transform(df))
 
 <DocTable className="DetectFace"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectFace"
-scala="com/microsoft/ml/spark/cognitive/DetectFace.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/DetectFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -178,7 +178,7 @@ display(findSimilar.transform(faceIdDF))
 
 <DocTable className="FindSimilarFace"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.FindSimilarFace"
-scala="com/microsoft/ml/spark/cognitive/FindSimilarFace.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/FindSimilarFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -266,7 +266,7 @@ display(group.transform(faceIdDF))
 
 <DocTable className="GroupFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GroupFaces"
-scala="com/microsoft/ml/spark/cognitive/GroupFaces.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/GroupFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -319,7 +319,7 @@ val identifyFaces = (new IdentifyFaces()
 
 <DocTable className="IdentifyFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.IdentifyFaces"
-scala="com/microsoft/ml/spark/cognitive/IdentifyFaces.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/IdentifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -410,7 +410,7 @@ display(verify.transform(faceIdDF2))
 
 <DocTable className="VerifyFaces"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.VerifyFaces"
-scala="com/microsoft/ml/spark/cognitive/VerifyFaces.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/VerifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 

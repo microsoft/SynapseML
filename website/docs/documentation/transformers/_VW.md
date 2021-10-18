@@ -96,8 +96,8 @@ display(vectorZipper.transform(seqDF))
 </Tabs>
 
 <DocTable className="VectorZipper"
-py="mmlspark.vw.html#module-mmlspark.vw.VectorZipper"
-scala="com/microsoft/ml/spark/vw/VectorZipper.html"
+py="synapse.ml.vw.html#module-synapse.ml.vw.VectorZipper"
+scala="com/microsoft/azure/synapse/ml/vw/VectorZipper.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VectorZipper.scala" />
 
 
@@ -140,8 +140,8 @@ val vw = (new VowpalWabbitClassifier()
 </Tabs>
 
 <DocTable className="VowpalWabbitClassifier"
-py="mmlspark.vw.html#module-mmlspark.vw.VowpalWabbitClassifier"
-scala="com/microsoft/ml/spark/vw/VowpalWabbitClassifier.html"
+py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitClassifier"
+scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitClassifier.scala" />
 
 
@@ -186,8 +186,8 @@ val featurizer = (new VowpalWabbitFeaturizer()
 </Tabs>
 
 <DocTable className="VowpalWabbitFeaturizer"
-py="mmlspark.vw.html#module-mmlspark.vw.VowpalWabbitFeaturizer"
-scala="com/microsoft/ml/spark/vw/VowpalWabbitFeaturizer.html"
+py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitFeaturizer"
+scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitFeaturizer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitFeaturizer.scala" />
 
 
@@ -238,7 +238,7 @@ display(interactions.transform(df))
 
 <DocTable className="VowpalWabbitInteractions"
 py="mmlspark.vw.html#module-mmlspark.vw.VowpalWabbitInteractions"
-scala="com/microsoft/ml/spark/vw/VowpalWabbitInteractions.html"
+scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.scala" />
 
 

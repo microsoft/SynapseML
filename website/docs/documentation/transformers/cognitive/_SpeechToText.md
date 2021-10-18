@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -88,8 +88,8 @@ display(stt.transform(df))
 </Tabs>
 
 <DocTable className="SpeechToText"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.SpeechToText"
-scala="com/microsoft/ml/spark/cognitive/SpeechToText.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToText"
+scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToText.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToText.scala" />
 
 
@@ -153,7 +153,7 @@ display(speech_to_text.transform(df))
 </Tabs>
 
 <DocTable className="SpeechToTextSDK"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.SpeechToTextSDK"
-scala="com/microsoft/ml/spark/cognitive/SpeechToTextSDK.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToTextSDK"
+scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.scala" />
 

@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, flatten, regexp_replace, explode, create_map, lit
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.0")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -87,8 +87,8 @@ display(analyzeLayout.transform(imageDf)
 </Tabs>
 
 <DocTable className="AnalyzeLayout"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeLayout"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeLayout.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeLayout"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeLayout.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -150,8 +150,8 @@ display(analyzeReceipts.transform(imageDf))
 </Tabs>
 
 <DocTable className="AnalyzeReceipts"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeReceipts"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeReceipts.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeReceipts"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeReceipts.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -211,8 +211,8 @@ display(analyzeBusinessCards.transform(imageDf)
 </Tabs>
 
 <DocTable className="AnalyzeBusinessCards"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeBusinessCards"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeBusinessCards.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeBusinessCards"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeBusinessCards.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -275,8 +275,8 @@ display(analyzeInvoices.transform(imageD4))
 </Tabs>
 
 <DocTable className="AnalyzeInvoices"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeInvoices"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeInvoices.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeInvoices"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeInvoices.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -339,8 +339,8 @@ display(analyzeIDDocuments.transform(imageDf))
 </Tabs>
 
 <DocTable className="AnalyzeIDDocuments"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeIDDocuments"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeIDDocuments.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeIDDocuments"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeIDDocuments.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -410,8 +410,8 @@ display(analyzeCustomModel.transform(imageDf))
 </Tabs>
 
 <DocTable className="AnalyzeCustomModel"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.AnalyzeCustomModel"
-scala="com/microsoft/ml/spark/cognitive/AnalyzeCustomModel.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeCustomModel"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeCustomModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -476,7 +476,7 @@ display(getCustomModel.transform(emptyDf))
 
 <DocTable className="GetCustomModel"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GetCustomModel"
-scala="com/microsoft/ml/spark/cognitive/GetCustomModel.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/GetCustomModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
@@ -536,7 +536,7 @@ display(listCustomModels.transform(emptyDf))
 
 <DocTable className="ListCustomModels"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.ListCustomModels"
-scala="com/microsoft/ml/spark/cognitive/ListCustomModels.html"
+scala="com/microsoft/azure/synapse/ml/cognitive/ListCustomModels.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 

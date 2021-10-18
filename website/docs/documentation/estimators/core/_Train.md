@@ -96,7 +96,7 @@ display(tc.fit(df).transform(df))
 
 <DocTable className="TrainClassifier"
 py="mmlspark.train.html#module-mmlspark.train.TrainClassifier"
-scala="com/microsoft/ml/spark/train/TrainClassifier.html"
+scala="com/microsoft/azure/synapse/ml/train/TrainClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainClassifier.scala" />
 
 
@@ -178,7 +178,7 @@ display(trainRegressor.fit(dataset).transform(dataset))
 
 <DocTable className="TrainRegressor"
 py="mmlspark.train.html#module-mmlspark.train.TrainRegressor"
-scala="com/microsoft/ml/spark/train/TrainRegressor.html"
+scala="com/microsoft/azure/synapse/ml/train/TrainRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainRegressor.scala" />
 
 

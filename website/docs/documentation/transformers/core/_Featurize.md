@@ -75,8 +75,8 @@ display(dc.transform(df))
 </Tabs>
 
 <DocTable className="DataConversion"
-py="mmlspark.featurize.html#module-mmlspark.featurize.DataConversion"
-scala="com/microsoft/ml/spark/featurize/DataConversion.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.DataConversion"
+scala="com/microsoft/azure/synapse/ml/featurize/DataConversion.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/DataConversion.scala" />
 
 
@@ -135,8 +135,8 @@ display(itv.transform(df2))
 </Tabs>
 
 <DocTable className="IndexToValue"
-py="mmlspark.featurize.html#module-mmlspark.featurize.IndexToValue"
-scala="com/microsoft/ml/spark/featurize/IndexToValue.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.IndexToValue"
+scala="com/microsoft/azure/synapse/ml/featurize/IndexToValue.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/IndexToValue.scala" />
 
 
@@ -212,8 +212,8 @@ display(mng.transform(dfTok))
 </Tabs>
 
 <DocTable className="MultiNGram"
-py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.MultiNGram"
-scala="com/microsoft/ml/spark/featurize/text/MultiNGram.html"
+py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.MultiNGram"
+scala="com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.scala" />
 
 
@@ -280,8 +280,8 @@ display(ps.transform(df))
 </Tabs>
 
 <DocTable className="PageSplitter"
-py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.PageSplitter"
-scala="com/microsoft/ml/spark/featurize/text/PageSplitter.html"
+py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.PageSplitter"
+scala="com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.scala" />
 
 

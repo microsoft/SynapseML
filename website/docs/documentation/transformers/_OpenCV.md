@@ -74,7 +74,7 @@ display(it.transform(images))
 
 <DocTable className="ImageTransformer"
 py="mmlspark.opencv.html#module-mmlspark.opencv.ImageTransformer"
-scala="com/microsoft/ml/spark/opencv/ImageTransformer.html"
+scala="com/microsoft/azure/synapse/ml/opencv/ImageTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/opencv/src/main/scala/com/microsoft/azure/synapse/ml/opencv/ImageTransformer.scala" />
 
 
@@ -130,7 +130,7 @@ display(isa.transform(images))
 
 <DocTable className="ImageSetAugmenter"
 py="mmlspark.opencv.html#module-mmlspark.opencv.ImageSetAugmenter"
-scala="com/microsoft/ml/spark/opencv/ImageSetAugmenter.html"
+scala="com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/opencv/src/main/scala/com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.scala" />
 
 

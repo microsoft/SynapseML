@@ -95,8 +95,8 @@ val cmd = (new CleanMissingData()
 </Tabs>
 
 <DocTable className="CleanMissingData"
-py="mmlspark.featurize.html#module-mmlspark.featurize.CleanMissingData"
-scala="com/microsoft/ml/spark/featurize/CleanMissingData.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.CleanMissingData"
+scala="com/microsoft/azure/synapse/ml/featurize/CleanMissingData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CleanMissingData.scala" />
 
 
@@ -150,8 +150,8 @@ display(cs.fit(df).transform(df))
 </Tabs>
 
 <DocTable className="CountSelector"
-py="mmlspark.featurize.html#module-mmlspark.featurize.CountSelector"
-scala="com/microsoft/ml/spark/featurize/CountSelector.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.CountSelector"
+scala="com/microsoft/azure/synapse/ml/featurize/CountSelector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CountSelector.scala" />
 
 
@@ -218,8 +218,8 @@ display(feat.fit(dataset).transform(dataset))
 </Tabs>
 
 <DocTable className="Featurize"
-py="mmlspark.featurize.html#module-mmlspark.featurize.Featurize"
-scala="com/microsoft/ml/spark/featurize/Featurize.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.Featurize"
+scala="com/microsoft/azure/synapse/ml/featurize/Featurize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/Featurize.scala" />
 
 
@@ -270,8 +270,8 @@ display(vi.fit(df).transform(df))
 </Tabs>
 
 <DocTable className="ValueIndexer"
-py="mmlspark.featurize.html#module-mmlspark.featurize.ValueIndexer"
-scala="com/microsoft/ml/spark/featurize/ValueIndexer.html"
+py="synapse.ml.featurize.html#module-synapse.ml.featurize.ValueIndexer"
+scala="com/microsoft/azure/synapse/ml/featurize/ValueIndexer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/ValueIndexer.scala" />
 
 # Featurize Text
@@ -330,8 +330,8 @@ display(tfRaw.fit(dfRaw).transform(dfRaw))
 </Tabs>
 
 <DocTable className="TextFeaturizer"
-py="mmlspark.featurize.text.html#module-mmlspark.featurize.text.TextFeaturizer"
-scala="com/microsoft/ml/spark/featurize/text/TextFeaturizer.html"
+py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.TextFeaturizer"
+scala="com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.scala" />
 
 

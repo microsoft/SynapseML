@@ -111,6 +111,6 @@ display(getUrls.transform(bingSearch.transform(bingParameters)))
 </Tabs>
 
 <DocTable className="BingImageSearch"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.BingImageSearch"
-scala="com/microsoft/ml/spark/cognitive/BingImageSearch.html"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.BingImageSearch"
+scala="com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.scala" />

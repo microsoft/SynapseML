@@ -34,7 +34,7 @@ train.limit(10).toPandas()
 ```
 
 `TrainClassifier` can be used to initialize and fit a model, it wraps SparkML classifiers.
-You can use `help(mmlspark.TrainClassifier)` to view the different parameters.
+You can use `help(synapse.ml.TrainClassifier)` to view the different parameters.
 
 Note that it implicitly converts the data into the format expected by the algorithm. More specifically it:
  tokenizes, hashes strings, one-hot encodes categorical variables, assembles the features into a vector

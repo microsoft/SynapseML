@@ -76,7 +76,7 @@ val isolationForest = (new IsolationForest()
 
 <DocTable className="CleanMissingData"
 py="mmlspark.isolationforest.html#module-mmlspark.isolationforest.IsolationForest"
-scala="com/microsoft/ml/spark/isolationforest/IsolationForest.html"
+scala="com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />
 
 

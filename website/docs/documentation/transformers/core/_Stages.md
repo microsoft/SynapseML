@@ -88,8 +88,8 @@ display(cacher.transform(df))
 </Tabs>
 
 <DocTable className="HTTPTransformer"
-py="mmlspark.stages.html#module-mmlspark.stages.Cacher"
-scala="com/microsoft/ml/spark/stages/Cacher.html"
+py="synapse.ml.stages.html#module-synapse.ml.stages.Cacher"
+scala="com/microsoft/azure/synapse/ml/stages/Cacher.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Cacher.scala" />
 
 
@@ -140,8 +140,8 @@ display(dc.transform(df))
 </Tabs>
 
 <DocTable className="DropColumns"
-py="mmlspark.stages.html#module-mmlspark.stages.DropColumns"
-scala="com/microsoft/ml/spark/stages/DropColumns.html"
+py="synapse.ml.stages.html#module-synapse.ml.stages.DropColumns"
+scala="com/microsoft/azure/synapse/ml/stages/DropColumns.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/DropColumns.scala" />
 
 
@@ -199,8 +199,8 @@ display(ebk.transform(scoreDF2))
 </Tabs>
 
 <DocTable className="EnsembleByKey"
-py="mmlspark.stages.html#module-mmlspark.stages.EnsembleByKey"
-scala="com/microsoft/ml/spark/stages/EnsembleByKey.html"
+py="synapse.ml.stages.html#module-synapse.ml.stages.EnsembleByKey"
+scala="com/microsoft/azure/synapse/ml/stages/EnsembleByKey.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/EnsembleByKey.scala" />
 
 
@@ -251,8 +251,8 @@ display(explode.transform(df))
 </Tabs>
 
 <DocTable className="Explode"
-py="mmlspark.stages.html#module-mmlspark.stages.Explode"
-scala="com/microsoft/ml/spark/stages/Explode.html"
+py="synapse.ml.stages.html#module-synapse.ml.stages.Explode"
+scala="com/microsoft/azure/synapse/ml/stages/Explode.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Explode.scala" />
 
 
@@ -309,8 +309,8 @@ display(lambda.transform(df))
 </Tabs>
 
 <DocTable className="Lambda"
-py="mmlspark.stages.html#module-mmlspark.stages.Lambda"
-scala="com/microsoft/ml/spark/stages/Lambda.html"
+py="synapse.ml.stages.html#module-mmlspark.stages.Lambda"
+scala="com/microsoft/azure/synapse/ml/stages/Lambda.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Lambda.scala" />
 
 
@@ -355,7 +355,7 @@ display(dmbt.transform(df))
 
 <DocTable className="DynamicMiniBatchTransformer"
 py="mmlspark.stages.html#module-mmlspark.stages.DynamicMiniBatchTransformer"
-scala="com/microsoft/ml/spark/stages/DynamicMiniBatchTransformer.html"
+scala="com/microsoft/azure/synapse/ml/stages/DynamicMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
@@ -395,7 +395,7 @@ val fmbt = (new FixedMiniBatchTransformer()
 
 <DocTable className="FixedMiniBatchTransformer"
 py="mmlspark.stages.html#module-mmlspark.stages.FixedMiniBatchTransformer"
-scala="com/microsoft/ml/spark/stages/FixedMiniBatchTransformer.html"
+scala="com/microsoft/azure/synapse/ml/stages/FixedMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
@@ -443,7 +443,7 @@ display(timbt.transform(df))
 
 <DocTable className="TimeIntervalMiniBatchTransformer"
 py="mmlspark.stages.html#module-mmlspark.stages.TimeIntervalMiniBatchTransformer"
-scala="com/microsoft/ml/spark/stages/TimeIntervalMiniBatchTransformer.html"
+scala="com/microsoft/azure/synapse/ml/stages/TimeIntervalMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
@@ -491,7 +491,7 @@ display(fb.transform(transDF))
 
 <DocTable className="FlattenBatch"
 py="mmlspark.stages.html#module-mmlspark.stages.FlattenBatch"
-scala="com/microsoft/ml/spark/stages/FlattenBatch.html"
+scala="com/microsoft/azure/synapse/ml/stages/FlattenBatch.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
 
@@ -543,7 +543,7 @@ display(rc.transform(df))
 
 <DocTable className="RenameColumn"
 py="mmlspark.stages.html#module-mmlspark.stages.RenameColumn"
-scala="com/microsoft/ml/spark/stages/RenameColumn.html"
+scala="com/microsoft/azure/synapse/ml/stages/RenameColumn.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/RenameColumn.scala" />
 
 
@@ -613,7 +613,7 @@ display(repartition.transform(df))
 
 <DocTable className="Repartition"
 py="mmlspark.stages.html#module-mmlspark.stages.Repartition"
-scala="com/microsoft/ml/spark/stages/Repartition.html"
+scala="com/microsoft/azure/synapse/ml/stages/Repartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Repartition.scala" />
 
 
@@ -665,7 +665,7 @@ display(sc.transform(df))
 
 <DocTable className="SelectColumns"
 py="mmlspark.stages.html#module-mmlspark.stages.SelectColumns"
-scala="com/microsoft/ml/spark/stages/SelectColumns.html"
+scala="com/microsoft/azure/synapse/ml/stages/SelectColumns.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SelectColumns.scala" />
 
 
@@ -735,7 +735,7 @@ display(sr.transform(df))
 
 <DocTable className="StratifiedRepartition"
 py="mmlspark.stages.html#module-mmlspark.stages.StratifiedRepartition"
-scala="com/microsoft/ml/spark/stages/StratifiedRepartition.html"
+scala="com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.scala" />
 
 
@@ -787,7 +787,7 @@ display(summary.transform(df))
 
 <DocTable className="SummarizeData"
 py="mmlspark.stages.html#module-mmlspark.stages.SummarizeData"
-scala="com/microsoft/ml/spark/stages/SummarizeData.html"
+scala="com/microsoft/azure/synapse/ml/stages/SummarizeData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SummarizeData.scala" />
 
 
@@ -859,7 +859,7 @@ display(textPreprocessor.transform(df))
 
 <DocTable className="TextPreprocessor"
 py="mmlspark.stages.html#module-mmlspark.stages.TextPreprocessor"
-scala="com/microsoft/ml/spark/stages/TextPreprocessor.html"
+scala="com/microsoft/azure/synapse/ml/stages/TextPreprocessor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/TextPreprocessor.scala" />
 
 
@@ -923,7 +923,7 @@ display(udfTransformer.transform(df))
 
 <DocTable className="UDFTransformer"
 py="mmlspark.stages.html#module-mmlspark.stages.UDFTransformer"
-scala="com/microsoft/ml/spark/stages/UDFTransformer.html"
+scala="com/microsoft/azure/synapse/ml/stages/UDFTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UDFTransformer.scala" />
 
 
@@ -981,7 +981,7 @@ display(unicodeNormalize.transform(df))
 
 <DocTable className="UnicodeNormalize"
 py="mmlspark.stages.html#module-mmlspark.stages.UnicodeNormalize"
-scala="com/microsoft/ml/spark/stages/UnicodeNormalize.html"
+scala="com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.scala" />
 
 
