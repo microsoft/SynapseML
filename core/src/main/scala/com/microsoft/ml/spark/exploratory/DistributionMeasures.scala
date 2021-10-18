@@ -44,20 +44,17 @@ class DistributionMeasures(override val uid: String)
 
   def setDistributionMeasuresCol(value: String): this.type = set(distributionMeasuresCol, value)
 
-  val referenceDistribution = new DataFrameParam(
-    this,
-    "referenceDistribution",
-    "The reference distribution to use. If not set, the uniform distribution is used."
-  )
-
-  def getReferenceDistribution: DataFrame = $(referenceDistribution)
-
-  def setReferenceDistribution(value: DataFrame): this.type = set(referenceDistribution, value)
-
   setDefault(
     featureNameCol -> "FeatureName",
     distributionMeasuresCol -> "DistributionMeasures"
   )
+
+  val uniformDistribution: Int => String => Double = {
+    n: Int => {
+      value: String =>
+        1d / n
+    }
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     validateSchema(dataset.schema)
@@ -69,7 +66,7 @@ class DistributionMeasures(override val uid: String)
     val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
     val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
-    val featureCountsAndProbabilities = df
+    val featureStats = df
       .groupBy(getSensitiveCols map col: _*)
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
       .withColumn(dfCountCol, lit(numRows))
@@ -77,35 +74,46 @@ class DistributionMeasures(override val uid: String)
       .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
 
     if (getVerbose)
-      featureCountsAndProbabilities.cache.show(numRows = 20, truncate = false)
+      featureStats.cache.show(numRows = 20, truncate = false)
 
-    calculateDistributionMeasures(featureCountsAndProbabilities, featureProbCol, featureCountCol, numRows)
+    // TODO: Introduce a referenceDistribution function param for user to override the uniform distribution
+    val referenceDistribution = uniformDistribution
+
+    calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows, referenceDistribution)
   }
 
-  private def calculateDistributionMeasures(featureCountsAndProbabilities: DataFrame,
+  private def calculateDistributionMeasures(featureStats: DataFrame,
                                             obsFeatureProbCol: String,
                                             obsFeatureCountCol: String,
-                                            numRows: Double): DataFrame = {
+                                            numRows: Double,
+                                            referenceDistribution: Int => String => Double): DataFrame = {
     val distributionMeasures = getSensitiveCols.map {
       sensitiveCol =>
-        val observations = featureCountsAndProbabilities
+        val observed = featureStats
           .groupBy(sensitiveCol)
           .agg(sum(obsFeatureProbCol).alias(obsFeatureProbCol), sum(obsFeatureCountCol).alias(obsFeatureCountCol))
+
+        val numFeatures = observed.count.toInt
+        val refDistFunc = udf(referenceDistribution(numFeatures))
+        val refFeatureProbCol = DatasetExtensions.findUnusedColumnName("refFeatureProb", featureStats.schema)
+        val refFeatureCountCol = DatasetExtensions.findUnusedColumnName("refFeatureCount", featureStats.schema)
+
+        val observedWithRef = observed
+          .withColumn(refFeatureProbCol, refDistFunc(col(sensitiveCol)))
+          .withColumn(refFeatureCountCol, refDistFunc(col(sensitiveCol)) * lit(numRows))
           .cache
 
-        // For calculating p-value
-        val numFeatures = observations.count.toDouble
-        val obsFeatureCounts = observations.select(obsFeatureCountCol).collect().map(_.getDouble(0))
+        val metrics = DistributionMetrics(obsFeatureProbCol, obsFeatureCountCol, refFeatureProbCol, refFeatureCountCol)
+        val metricsCols = metrics.toColumnMap.values.toSeq
 
-        // Only use uniform distribution if user didn't setReferenceDistribution
-        val (refFeatureProb, refFeatureCount) = (1d / numFeatures, numRows / numFeatures)
+        // Special case: chi-squared p-value is calculated using breeze.stats.distributions.ChiSquared
+        val (obsFeatureCounts, refFeatureCounts) = observedWithRef.select(obsFeatureCountCol, refFeatureCountCol).collect
+          .map(r => (r.getDouble(0), r.getDouble(1))).unzip
 
-        val metricsMap = DistributionMetrics(
-          obsFeatureProbCol, obsFeatureCountCol, refFeatureProb, refFeatureCount, numFeatures, obsFeatureCounts
-        ).toColumnMap
-        val metricsCols = metricsMap.values.toSeq
-
-        observations.agg(metricsCols.head, metricsCols.tail: _*).withColumn(getFeatureNameCol, lit(sensitiveCol))
+        observedWithRef
+          .agg(metricsCols.head, metricsCols.tail: _*)
+          .withColumn(metrics.chiSqPValueCol, metrics.chiSqPValue(numFeatures, obsFeatureCounts, refFeatureCounts))
+          .withColumn(getFeatureNameCol, lit(sensitiveCol))
     }.reduce(_ union _)
 
     if (getVerbose)
@@ -137,11 +145,9 @@ class DistributionMeasures(override val uid: String)
 
 case class DistributionMetrics(obsFeatureProbCol: String,
                                obsFeatureCountCol: String,
-                               refFeatureProb: Double,
-                               refFeatureCount: Double,
-                               numFeatures: Double,
-                               obsFeatureCounts: Array[Double]) {
-  val absDiffObsRef: Column = abs(col(obsFeatureProbCol) - lit(refFeatureProb))
+                               refFeatureProbCol: String,
+                               refFeatureCountCol: String) {
+  val absDiffObsRef: Column = abs(col(obsFeatureProbCol) - col(refFeatureProbCol))
 
   def toColumnMap: Map[String, Column] = Map(
     "kl_divergence" -> klDivergence.alias("kl_divergence"),
@@ -149,16 +155,15 @@ case class DistributionMetrics(obsFeatureProbCol: String,
     "inf_norm_dist" -> infNormDistance.alias("inf_norm_dist"),
     "total_variation_dist" -> totalVariationDistance.alias("total_variation_dist"),
     "wasserstein_dist" -> wassersteinDistance.alias("wasserstein_dist"),
-    "chi_sq_stat" -> chiSqTestStatistic.alias("chi_sq_stat"),
-    "chi_sq_p_value" -> chiSqPValue.alias("chi_sq_p_value")
+    "chi_sq_stat" -> chiSqTestStatistic.alias("chi_sq_stat")
   )
 
-  def klDivergence: Column = entropy(col(obsFeatureProbCol), Some(lit(refFeatureProb)))
+  def klDivergence: Column = entropy(col(obsFeatureProbCol), Some(col(refFeatureProbCol)))
 
   def jsDistance: Column = {
-    val averageObsRef = (col(obsFeatureProbCol) + lit(refFeatureProb)) / 2d
+    val averageObsRef = (col(obsFeatureProbCol) + col(refFeatureProbCol)) / 2d
     val entropyObsAvg = entropy(col(obsFeatureProbCol), Some(averageObsRef))
-    val entropyRefAvg = entropy(lit(refFeatureProb), Some(averageObsRef))
+    val entropyRefAvg = entropy(col(refFeatureProbCol), Some(averageObsRef))
     sqrt((entropyRefAvg + entropyObsAvg) / 2d)
   }
 
@@ -170,17 +175,19 @@ case class DistributionMetrics(obsFeatureProbCol: String,
   def wassersteinDistance: Column = {
     // Typically, we sort the two distributions before finding their difference
     // Because we know the reference distribution consists of the same value, we can skip this step
-    mean(abs(col(obsFeatureProbCol) - lit(refFeatureProb)))
+    mean(abs(col(obsFeatureProbCol) - col(refFeatureProbCol)))
   }
 
   // Calculates Pearson's chi-squared statistic
   def chiSqTestStatistic: Column =
-    sum(pow(col(obsFeatureCountCol) - lit(refFeatureCount), 2) / refFeatureCount)
+    sum(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol))
+
+  val chiSqPValueCol = "chi_sq_p_value"
 
   // Calculates left-tailed p-value from degrees of freedom and chi-squared test statistic
-  def chiSqPValue: Column = {
+  def chiSqPValue(numFeatures: Int, obsFeatureCounts: Array[Double], refFeatureCounts: Array[Double]): Column = {
     val degOfFreedom = numFeatures - 1
-    val score = obsFeatureCounts.map(o => scala.math.pow(o - refFeatureCount, 2) / refFeatureCount).sum
+    val score = (obsFeatureCounts, refFeatureCounts).zipped.map((a, b) => scala.math.pow(a - b, 2) / b).sum
     lit(1 - ChiSquared(degOfFreedom).cdf(score))
   }
 

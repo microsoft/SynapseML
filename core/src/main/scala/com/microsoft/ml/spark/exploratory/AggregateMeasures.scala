@@ -67,7 +67,7 @@ class AggregateMeasures(override val uid: String)
     val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
     val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
-    val featureCountsAndProbabilities = df
+    val featureStats = df
       .groupBy(getSensitiveCols map col: _*)
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
       .withColumn(dfCountCol, lit(numRows))
@@ -75,21 +75,20 @@ class AggregateMeasures(override val uid: String)
       .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
 
     if (getVerbose)
-      featureCountsAndProbabilities.cache.show(numRows = 20, truncate = false)
+      featureStats.cache.show(numRows = 20, truncate = false)
 
-    calculateAggregateMeasures(featureCountsAndProbabilities, featureProbCol)
+    calculateAggregateMeasures(featureStats, featureProbCol)
   }
 
-  private def calculateAggregateMeasures(featureCountsAndProbabilities: DataFrame,
-                                         featureProbCol: String): DataFrame = {
+  private def calculateAggregateMeasures(featureStats: DataFrame, featureProbCol: String): DataFrame = {
     val Row(numFeatures: Double, meanFeatures: Double) =
-      featureCountsAndProbabilities.agg(count("*").cast(DoubleType), mean(featureProbCol).cast(DoubleType)).head
+      featureStats.agg(count("*").cast(DoubleType), mean(featureProbCol).cast(DoubleType)).head
 
     val metricsMap = AggregateMetrics(
       featureProbCol, numFeatures, meanFeatures, getEpsilon, getErrorTolerance).toColumnMap
     val metricsCols = metricsMap.values.toSeq
 
-    val aggDf = featureCountsAndProbabilities.agg(metricsCols.head, metricsCols.tail: _*)
+    val aggDf = featureStats.agg(metricsCols.head, metricsCols.tail: _*)
 
     if (getVerbose)
       aggDf.cache.show(truncate = false)
