@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Synapse ML Blog</title>
+        <link>https://synapseml.github.io/blog</link>
+        <description>Synapse ML Blog</description>
+        <lastBuildDate>Mon, 18 Oct 2021 10:03:18 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[Overview]]></title>
+            <link>https://synapseml.github.io/blog/overview</link>
+            <guid>Overview</guid>
+            <pubDate>Mon, 18 Oct 2021 10:03:18 GMT</pubDate>
+            <description><![CDATA[SynapseML Overview]]></description>
+        </item>
+        <item>
+            <title><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
+            <link>https://synapseml.github.io/blog/2020-12-Large-Scale Intelligent Microservices</link>
+            <guid>Publication - Large-Scale Intelligent Microservices</guid>
+            <pubDate>Mon, 18 Oct 2021 09:47:06 GMT</pubDate>
+            <description><![CDATA[Large-Scale Intelligent Microservices]]></description>
+        </item>
+        <item>
+            <title><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></title>
+            <link>https://synapseml.github.io/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton</link>
+            <guid>MMLSpark: empowering AI for Good with Mark Hamilton</guid>
+            <pubDate>Wed, 02 Oct 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></description>
+        </item>
+        <item>
+            <title><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></title>
+            <link>https://synapseml.github.io/blog/2019/08/24/Welcome to Azure Cognitive Services</link>
+            <guid>Dear Spark developers: Welcome to Azure Cognitive Services</guid>
+            <pubDate>Sat, 24 Aug 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></description>
+        </item>
+        <item>
+            <title><![CDATA[Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></title>
+            <link>https://synapseml.github.io/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales</link>
+            <guid>Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales</guid>
+            <pubDate>Sat, 01 Jun 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></description>
+        </item>
+        <item>
+            <title><![CDATA[Publication - Flexible and Scalable Deep Learning with MMLSpark]]></title>
+            <link>https://synapseml.github.io/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark</link>
+            <guid>Publication - Flexible and Scalable Deep Learning with MMLSpark</guid>
+            <pubDate>Sun, 01 Apr 2018 00:00:00 GMT</pubDate>
+            <description><![CDATA[Flexible and Scalable Deep Learning with MMLSpark]]></description>
+        </item>
+    </channel>
+</rss>
