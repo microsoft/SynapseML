@@ -115,4 +115,4 @@ display(getUrls.transform(bingSearch.transform(bingParameters)))
 <DocTable className="BingImageSearch"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.BingImageSearch"
 scala="com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/BingImageSearch.scala" />

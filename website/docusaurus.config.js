@@ -22,8 +22,6 @@ module.exports = {
     colorMode: {
       defaultMode: 'dark',
     },
-    image: 'img/og_img.png',
-    metadatas: [{name: 'twitter:card', content: 'summary'}],
     navbar: {
       title: 'SynapseML',
       logo: {

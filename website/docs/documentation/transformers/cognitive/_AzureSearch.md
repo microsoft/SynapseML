@@ -173,4 +173,4 @@ AzureSearchWriter.write(df,
 <DocTable className="AzureSearch"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AzureSearch"
 scala="com/microsoft/azure/synapse/ml/cognitive/AzureSearch.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/AzureSearch.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AzureSearch.scala" />

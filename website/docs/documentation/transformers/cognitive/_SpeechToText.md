@@ -92,7 +92,7 @@ display(stt.transform(df))
 <DocTable className="SpeechToText"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToText"
 scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToText.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToText.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/SpeechToText.scala" />
 
 
 ### SpeechToTextSDK
@@ -157,5 +157,5 @@ display(speech_to_text.transform(df))
 <DocTable className="SpeechToTextSDK"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToTextSDK"
 scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.scala" />
 

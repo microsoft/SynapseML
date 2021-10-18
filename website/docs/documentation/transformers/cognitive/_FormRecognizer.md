@@ -91,7 +91,7 @@ display(analyzeLayout.transform(imageDf)
 <DocTable className="AnalyzeLayout"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeLayout"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeLayout.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### AnalyzeReceipts
@@ -154,7 +154,7 @@ display(analyzeReceipts.transform(imageDf))
 <DocTable className="AnalyzeReceipts"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeReceipts"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeReceipts.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### AnalyzeBusinessCards
@@ -215,7 +215,7 @@ display(analyzeBusinessCards.transform(imageDf)
 <DocTable className="AnalyzeBusinessCards"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeBusinessCards"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeBusinessCards.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### AnalyzeInvoices
@@ -279,7 +279,7 @@ display(analyzeInvoices.transform(imageD4))
 <DocTable className="AnalyzeInvoices"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeInvoices"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeInvoices.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### AnalyzeIDDocuments
@@ -343,7 +343,7 @@ display(analyzeIDDocuments.transform(imageDf))
 <DocTable className="AnalyzeIDDocuments"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeIDDocuments"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeIDDocuments.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### AnalyzeCustomModel
@@ -414,7 +414,7 @@ display(analyzeCustomModel.transform(imageDf))
 <DocTable className="AnalyzeCustomModel"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeCustomModel"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeCustomModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### GetCustomModel
@@ -479,7 +479,7 @@ display(getCustomModel.transform(emptyDf))
 <DocTable className="GetCustomModel"
 py="mmlspark.cognitive.html#module-mmlspark.cognitive.GetCustomModel"
 scala="com/microsoft/azure/synapse/ml/cognitive/GetCustomModel.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
 ### ListCustomModels
