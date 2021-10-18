@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 
 /** Param for Array of ParamMaps.  Needed as spark has explicit params for many different
   * types but not Array of ParamMaps.
