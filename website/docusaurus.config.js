@@ -110,11 +110,7 @@ module.exports = {
         },
       ],
       copyright: `Copyright © ${new Date().getFullYear()} Microsoft.`,
-    },
-    algolia: {
-      apiKey: '358e5d3135579871ceecd50c6cb7ce9e',
-      indexName: 'benthos',
-    },
+    }
   },
   presets: [
     [
