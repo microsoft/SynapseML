@@ -1,0 +1,346 @@
+{
+  "version-0.9.1/docs": [
+    {
+      "type": "doc",
+      "id": "version-0.9.1/about"
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Getting Started",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/getting_started/installation"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/getting_started/first_example"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/getting_started/first_model"
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Features",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/features/CognitiveServices - Overview"
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "HTTP on Spark",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/http/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/http/HttpOnSpark - Working with Arbitrary Web APIs"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "LightGBM",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/lightgbm/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/lightgbm/LightGBM - Overview"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Model Interpretability",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/model_interpretability/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/model_interpretability/ModelInterpretability - Snow Leopard Detection"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "ONNX",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/onnx/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/onnx/ONNX - Inference on Spark"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Spark Serving",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/spark_serving/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/spark_serving/SparkServing - Deploying a Classifier"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Vowpal Wabbit",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/vw/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/vw/Vowpal Wabbit - Overview"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Examples",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/about"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/AzureSearchIndex - Met Artworks"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/ConditionalKNN - Exploring Art Across Cultures"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/CyberML - Anomalous Access Detection"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/HyperParameterTuning - Fighting Breast Cancer"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/examples/OpenCV - Pipeline Image Transformations"
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Classification",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/classification/Classification - Adult Census with Vowpal Wabbit"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/classification/Classification - Adult Census"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/classification/Classification - Before and After SynapseML"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Cognitive Services",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/cognitive_services/CognitiveServices - Predictive Maintenance"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Deep Learning",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/deep_learning/DeepLearning - BiLSTM Medical Entity Extraction"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/deep_learning/DeepLearning - CIFAR10 Convolutional Network"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/deep_learning/DeepLearning - Flower Image Classification"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/deep_learning/DeepLearning - Transfer Learning"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Model Interpretability",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Image Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Tabular SHAP explainer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Text Explainers"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Regression",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/regression/Regression - Auto Imports"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/regression/Regression - Flight Delays with DataCleaning"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/regression/Regression - Flight Delays"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
+            }
+          ]
+        },
+        {
+          "collapsed": true,
+          "type": "category",
+          "label": "Text Analytics",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/text_analytics/TextAnalytics - Amazon Book Reviews with Word2Vec"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/text_analytics/TextAnalytics - Amazon Book Reviews"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Transformers",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/transformers/transformers_cognitive"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/transformers/transformers_core"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/transformers/transformers_opencv"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/transformers/transformers_vw"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/transformers/transformers_deep_learning"
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Estimators",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/estimators/estimators_core"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/estimators/estimators_lightgbm"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/documentation/estimators/estimators_vw"
+        }
+      ]
+    },
+    {
+      "collapsed": true,
+      "type": "category",
+      "label": "Reference",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/developer-readme"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/contributing_guide"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/docker"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/R-setup"
+        }
+      ]
+    }
+  ]
+}
