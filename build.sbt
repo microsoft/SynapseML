@@ -118,8 +118,9 @@ generatePythonDoc := {
   ).value
   val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
   val codegenDir = join(targetDir, "generated")
-  val dir = join(codegenDir, "src", "python", "synapse","ml")
+  val dir = join(codegenDir, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
+  join(dir,"ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
