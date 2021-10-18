@@ -14,9 +14,9 @@ class DistributionMeasuresSuite extends DataImbalanceTestBase {
 
 
   test("DistributionMeasures can calculate Distribution Measures end-to-end") {
-    val distributionMeasuresDf = distributionMeasures.transform(sensitiveFeaturesDf)
-    distributionMeasuresDf.show(truncate = false)
-    distributionMeasuresDf.printSchema()
+    val df = distributionMeasures.transform(sensitiveFeaturesDf)
+    df.show(truncate = false)
+    df.printSchema()
   }
 
   private lazy val actual: DataFrame =

@@ -4,20 +4,20 @@ import org.apache.spark.sql.functions._
 
 import scala.math.abs
 
-class AssociationGapsSuite extends DataImbalanceTestBase {
+class ParityMeasuresSuite extends DataImbalanceTestBase {
 
   import spark.implicits._
 
-  private lazy val associationGaps: AssociationGaps =
-    new AssociationGaps()
+  private lazy val parityMeasures: ParityMeasures =
+    new ParityMeasures()
       .setSensitiveCols(features)
       .setLabelCol(label)
       .setVerbose(true)
 
-  test("AssociationGaps can calculate Association Gaps end-to-end") {
-    val associationGapsDf = associationGaps.transform(sensitiveFeaturesDf)
-    associationGapsDf.show(truncate = false)
-    associationGapsDf.printSchema()
+  test("ParityMeasures can calculate Parity Measures end-to-end") {
+    val df = parityMeasures.transform(sensitiveFeaturesDf)
+    df.show(truncate = false)
+    df.printSchema()
   }
 
   private lazy val expectedGenderMaleFemale: GapCalculator =
@@ -28,7 +28,7 @@ class AssociationGapsSuite extends DataImbalanceTestBase {
   private lazy val val2: String = "Female"
 
   private lazy val actual: Map[String, Double] =
-    new AssociationGaps()
+    new ParityMeasures()
       .setSensitiveCols(features)
       .setLabelCol(label)
       .setVerbose(true)
@@ -40,43 +40,43 @@ class AssociationGapsSuite extends DataImbalanceTestBase {
       .as[(String, String, String, Map[String, Double])]
       .collect()(0)._4
 
-  test(s"AssociationGaps can calculate Demographic Parity for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Demographic Parity for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("dp")) == abs(expectedGenderMaleFemale.dpGap))
   }
 
-  test(s"AssociationGaps can calculate Sorensen-Dice Coefficient for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Sorensen-Dice Coefficient for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("sdc")) == abs(expectedGenderMaleFemale.sdcGap))
   }
 
-  test(s"AssociationGaps can calculate Jaccard Index for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Jaccard Index for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("ji")) == abs(expectedGenderMaleFemale.jiGap))
   }
 
-  test(s"AssociationGaps can calculate Log-Likelihood Ratio for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Log-Likelihood Ratio for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("llr")) == abs(expectedGenderMaleFemale.llrGap))
   }
 
-  test(s"AssociationGaps can calculate PMI (Pointwise Mutual Information) for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate PMI (Pointwise Mutual Information) for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("pmi")) == abs(expectedGenderMaleFemale.pmiGap))
   }
 
-  test(s"AssociationGaps can calculate Normalized PMI, p(y) normalization for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Normalized PMI, p(y) normalization for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("n_pmi_y")) == abs(expectedGenderMaleFemale.nPmiYGap))
   }
 
-  test(s"AssociationGaps can calculate Normalized PMI, p(x,y) normalization for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Normalized PMI, p(x,y) normalization for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("n_pmi_xy")) == abs(expectedGenderMaleFemale.nPmiXYGap))
   }
 
-  test(s"AssociationGaps can calculate Squared PMI for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Squared PMI for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("s_pmi")) == abs(expectedGenderMaleFemale.sPmiGap))
   }
 
-  test(s"AssociationGaps can calculate Kendall Rank Correlation for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate Kendall Rank Correlation for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("krc")) == abs(expectedGenderMaleFemale.krcGap))
   }
 
-  test(s"AssociationGaps can calculate t-test for $feature=$val1 vs. $feature=$val2") {
+  test(s"ParityMeasures can calculate t-test for $feature=$val1 vs. $feature=$val2") {
     assert(abs(actual("t_test")) == abs(expectedGenderMaleFemale.tTestGap))
   }
 }

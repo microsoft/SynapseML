@@ -14,9 +14,9 @@ class AggregateMeasuresSuite extends DataImbalanceTestBase {
       .setVerbose(true)
 
   test("AggregateMeasures can calculate Aggregate Measures end-to-end") {
-    val aggregateMeasuresDf = aggregateMeasures.transform(sensitiveFeaturesDf)
-    aggregateMeasuresDf.show(truncate = false)
-    aggregateMeasuresDf.printSchema()
+    val df = aggregateMeasures.transform(sensitiveFeaturesDf)
+    df.show(truncate = false)
+    df.printSchema()
   }
 
   private lazy val actualOneFeature: Map[String, Double] =

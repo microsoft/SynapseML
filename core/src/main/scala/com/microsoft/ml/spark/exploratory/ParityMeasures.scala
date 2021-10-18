@@ -10,7 +10,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
-class AssociationGaps(override val uid: String)
+class ParityMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
     with DataImbalanceParams
@@ -19,7 +19,7 @@ class AssociationGaps(override val uid: String)
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("AssociationGaps"))
+  def this() = this(Identifiable.randomUID("ParityMeasures"))
 
   val featureNameCol = new Param[String](
     this,
@@ -51,21 +51,21 @@ class AssociationGaps(override val uid: String)
 
   def setClassBCol(value: String): this.type = set(classBCol, value)
 
-  val associationGapsCol = new Param[String](
+  val parityMeasuresCol = new Param[String](
     this,
-    "associationGapsCol",
-    "Output column name for association gaps."
+    "parityMeasuresCol",
+    "Output column name for parity measures."
   )
 
-  def getAssociationGapsCol: String = $(associationGapsCol)
+  def getParityMeasuresCol: String = $(parityMeasuresCol)
 
-  def setAssociationGapsCol(value: String): this.type = set(associationGapsCol, value)
+  def setParityMeasuresCol(value: String): this.type = set(parityMeasuresCol, value)
 
   setDefault(
     featureNameCol -> "FeatureName",
     classACol -> "ClassA",
     classBCol -> "ClassB",
-    associationGapsCol -> "AssociationGaps"
+    parityMeasuresCol -> "ParityMeasures"
   )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -105,10 +105,10 @@ class AssociationGaps(override val uid: String)
       case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
     }
 
-    calculateAssociationGaps(associationMetricsDf, metrics, featureValueCol)
+    calculateParityMeasures(associationMetricsDf, metrics, featureValueCol)
   }
 
-  private def calculateAssociationGaps(associationMetricsDf: DataFrame,
+  private def calculateParityMeasures(associationMetricsDf: DataFrame,
                                        metrics: Map[String, Column],
                                        featureValueCol: String): DataFrame = {
     val combinations = associationMetricsDf.alias("A")
@@ -129,12 +129,12 @@ class AssociationGaps(override val uid: String)
 
     val measureTuples = if (getVerbose) Seq(lit("prA"), col("A.dp"), lit("prB"), col("B.dp")) else Seq.empty
 
-    combinations.withColumn(getAssociationGapsCol, map(gapTuples ++ measureTuples: _*))
+    combinations.withColumn(getParityMeasuresCol, map(gapTuples ++ measureTuples: _*))
       .select(
         col(s"A.$getFeatureNameCol").alias(getFeatureNameCol),
         col(s"A.$featureValueCol").alias(getClassACol),
         col(s"B.$featureValueCol").alias(getClassBCol),
-        col(getAssociationGapsCol)
+        col(getParityMeasuresCol)
       )
   }
 
@@ -156,7 +156,7 @@ class AssociationGaps(override val uid: String)
         StructField(getClassACol, StringType, nullable = true) ::
         StructField(getClassBCol, StringType, nullable = true) ::
         StructField(
-          getAssociationGapsCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
+          getParityMeasuresCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
         Nil
     )
   }
