@@ -10,7 +10,6 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'microsoft',
   projectName: 'SynapseML',
-  trailingSlash: false,
   customFields: {
     examples: all_examples(),
     version: "0.9.1",
