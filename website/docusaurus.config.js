@@ -5,8 +5,8 @@ let version = "0.9.1";
 module.exports = {
   title: 'Synapse ML',
   tagline: 'Simple and Distributed Machine Learning',
-  url: 'https://synapseml.github.io',
-  baseUrl: '/',
+  url: 'https://microsoft.github.io',
+  baseUrl: '/SynapseML/',
   favicon: 'img/favicon.ico',
   organizationName: 'microsoft',
   projectName: 'SynapseML',

@@ -168,7 +168,7 @@ function Home() {
               </div>
             </div>
             <div className={classnames("col col--5")}>
-              <img className={styles.heroImg} src="img/logo.svg" />
+              <img className={styles.heroImg} src={useBaseUrl("img/logo.svg")} />
             </div>
           </div>
         </div>
