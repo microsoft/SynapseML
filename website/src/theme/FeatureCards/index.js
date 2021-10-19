@@ -1,7 +1,7 @@
 import React from "react";
 
-import Link from "@docusaurus/Link";
 import styles from "./styles.module.css";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 const features = [
   {
@@ -67,7 +67,6 @@ const features = [
 ];
 
 function FeatureCards() {
-  features.forEach;
 
   return (
     features &&
@@ -82,12 +81,13 @@ function FeatureCards() {
 }
 
 function FeatureCard({ src, title, body, footer, burl }) {
+  const srcUrl = useBaseUrl(src)
   return (
     <div class={styles.feature_card}>
       <div class={styles.card}>
         <div class={styles.card__image}>
           <img
-            src={src}
+            src={srcUrl}
             alt="Image alt text"
             title="Logo Title Text 1"
             height="200"
