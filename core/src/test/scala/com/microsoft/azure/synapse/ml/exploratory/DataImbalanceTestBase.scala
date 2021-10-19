@@ -18,7 +18,7 @@ trait DataImbalanceTestBase extends TestBase {
   lazy val positiveFeatureCountCol = "positiveFeatureCount"
   lazy val featureCountCol = "featureCount"
   lazy val positiveCountCol = "positiveCount"
-  lazy val dfCountCol = "dfCount"
+  lazy val rowCountCol = "rowCount"
 
   lazy val label: String = "Label"
   lazy val features: Array[String] = Array("Gender", "Ethnicity")
@@ -40,8 +40,8 @@ trait DataImbalanceTestBase extends TestBase {
   def getProbabilitiesAndCounts(df: RelationalGroupedDataset): DataFrame =
     df
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
-      .withColumn(dfCountCol, lit(sensitiveFeaturesDf.count.toDouble))
-      .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
+      .withColumn(rowCountCol, lit(sensitiveFeaturesDf.count.toDouble))
+      .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 }
 
 case class GapCalculator(numRows: Double, pY: Double, pX1: Double, pX1andY: Double, pX2: Double, pX2andY: Double) {

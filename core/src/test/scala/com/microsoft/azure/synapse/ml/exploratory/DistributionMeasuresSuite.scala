@@ -1,9 +1,17 @@
 package com.microsoft.azure.synapse.ml.exploratory
 
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 
-class DistributionMeasuresSuite extends DataImbalanceTestBase {
+class DistributionMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[DistributionMeasures] {
+
+  override def testObjects(): Seq[TestObject[DistributionMeasures]] = Seq(
+    new TestObject(distributionMeasures, sensitiveFeaturesDf)
+  )
+
+  override def reader: MLReadable[_] = DistributionMeasures
 
   import spark.implicits._
 
@@ -37,31 +45,13 @@ class DistributionMeasuresSuite extends DataImbalanceTestBase {
     DistributionMeasureCalculator(values.map(_._1), values.map(_._2), sensitiveFeaturesDf.count)
   }
 
-  test(s"DistributionMeasures can calculate Kullback–Leibler divergence for $feature1") {
+  test(s"DistributionMeasures can calculate Distribution Measures for $feature1") {
     assert(actualFeature1("kl_divergence") == expectedFeature1.klDivergence)
-  }
-
-  test(s"DistributionMeasures can calculate Jensen-Shannon distance for $feature1") {
     assert(actualFeature1("js_dist") == expectedFeature1.jsDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Infinity norm distance for $feature1") {
     assert(actualFeature1("inf_norm_dist") == expectedFeature1.infNormDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Total variation distance for $feature1") {
     assert(actualFeature1("total_variation_dist") == expectedFeature1.totalVariationDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Wasserstein distance for $feature1") {
     assert(actualFeature1("wasserstein_dist") == expectedFeature1.wassersteinDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Chi-square test statistic for $feature1") {
     assert(actualFeature1("chi_sq_stat") == expectedFeature1.chiSqTestStatistic)
-  }
-
-  test(s"DistributionMeasures can calculate Chi-square p value for $feature1") {
     assert(actualFeature1("chi_sq_p_value") == expectedFeature1.chiSqPValue)
   }
 
@@ -77,31 +67,13 @@ class DistributionMeasuresSuite extends DataImbalanceTestBase {
     DistributionMeasureCalculator(values.map(_._1), values.map(_._2), sensitiveFeaturesDf.count)
   }
 
-  test(s"DistributionMeasures can calculate Kullback–Leibler divergence for $feature2") {
+  test(s"DistributionMeasures can calculate Distribution Measures for $feature2") {
     assert(actualFeature2("kl_divergence") == expectedFeature2.klDivergence)
-  }
-
-  test(s"DistributionMeasures can calculate Jensen-Shannon distance for $feature2") {
     assert(actualFeature2("js_dist") == expectedFeature2.jsDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Infinity norm distance for $feature2") {
     assert(actualFeature2("inf_norm_dist") == expectedFeature2.infNormDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Total variation distance for $feature2") {
     assert(actualFeature2("total_variation_dist") == expectedFeature2.totalVariationDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Wasserstein distance for $feature2") {
     assert(actualFeature2("wasserstein_dist") == expectedFeature2.wassersteinDistance)
-  }
-
-  test(s"DistributionMeasures can calculate Chi-square test statistic for $feature2") {
     assert(actualFeature2("chi_sq_stat") == expectedFeature2.chiSqTestStatistic)
-  }
-
-  test(s"DistributionMeasures can calculate Chi-square p value for $feature2") {
     assert(actualFeature2("chi_sq_p_value") == expectedFeature2.chiSqPValue)
   }
 }

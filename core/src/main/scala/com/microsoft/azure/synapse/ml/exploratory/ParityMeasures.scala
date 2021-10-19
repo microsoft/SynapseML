@@ -5,11 +5,12 @@ import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
+// This feature is experimental. It is subject to change or removal in future releases.
 class ParityMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -82,7 +83,7 @@ class ParityMeasures(override val uid: String)
     val positiveFeatureCountCol = DatasetExtensions.findUnusedColumnName("positiveFeatureCount", df.schema)
     val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
     val positiveCountCol = DatasetExtensions.findUnusedColumnName("positiveCount", df.schema)
-    val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
+    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
     val featureValueCol = "FeatureValue"
 
     val featureCounts = getSensitiveCols.map {
@@ -94,12 +95,13 @@ class ParityMeasures(override val uid: String)
             count("*").cast(DoubleType).alias(featureCountCol)
           )
           .withColumn(positiveCountCol, lit(numTrueLabels))
-          .withColumn(dfCountCol, lit(numRows))
+          .withColumn(rowCountCol, lit(numRows))
           .withColumn(getFeatureNameCol, lit(sensitiveCol))
           .withColumn(featureValueCol, col(sensitiveCol))
     }.reduce(_ union _)
 
-    val metrics = AssociationMetrics(positiveFeatureCountCol, featureCountCol, positiveCountCol, dfCountCol).toColumnMap
+    val metrics =
+      AssociationMetrics(positiveFeatureCountCol, featureCountCol, positiveCountCol, rowCountCol).toColumnMap
 
     val associationMetricsDf = metrics.foldLeft(featureCounts) {
       case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
@@ -162,10 +164,12 @@ class ParityMeasures(override val uid: String)
   }
 }
 
-case class AssociationMetrics(positiveFeatureCountCol: String,
-                              featureCountCol: String,
-                              positiveCountCol: String,
-                              totalCountCol: String) {
+object ParityMeasures extends ComplexParamsReadable[ParityMeasures]
+
+private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: String,
+                                                   featureCountCol: String,
+                                                   positiveCountCol: String,
+                                                   totalCountCol: String) {
   val pPositive: Column = col(positiveCountCol) / col(totalCountCol)
   val pFeature: Column = col(featureCountCol) / col(totalCountCol)
   val pPositiveFeature: Column = col(positiveFeatureCountCol) / col(featureCountCol)

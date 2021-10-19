@@ -1,10 +1,18 @@
 package com.microsoft.azure.synapse.ml.exploratory
 
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 
 import scala.math.abs
 
-class ParityMeasuresSuite extends DataImbalanceTestBase {
+class ParityMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[ParityMeasures] {
+
+  override def testObjects(): Seq[TestObject[ParityMeasures]] = Seq(
+    new TestObject(parityMeasures, sensitiveFeaturesDf)
+  )
+
+  override def reader: MLReadable[_] = ParityMeasures
 
   import spark.implicits._
 

@@ -1,10 +1,18 @@
 package com.microsoft.azure.synapse.ml.exploratory
 
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
 
 import scala.math.abs
 
-class AggregateMeasuresSuite extends DataImbalanceTestBase {
+class AggregateMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[AggregateMeasures] {
+
+  override def testObjects(): Seq[TestObject[AggregateMeasures]] = Seq(
+    new TestObject(aggregateMeasures, sensitiveFeaturesDf)
+  )
+
+  override def reader: MLReadable[_] = AggregateMeasures
 
   import spark.implicits._
 

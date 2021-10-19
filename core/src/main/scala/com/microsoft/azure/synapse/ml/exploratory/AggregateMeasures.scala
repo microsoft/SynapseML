@@ -5,11 +5,12 @@ import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
+// This feature is experimental. It is subject to change or removal in future releases.
 class AggregateMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -64,15 +65,15 @@ class AggregateMeasures(override val uid: String)
     val numRows = df.count.toDouble
 
     val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-    val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
+    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
     val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
     val featureStats = df
       .groupBy(getSensitiveCols map col: _*)
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
-      .withColumn(dfCountCol, lit(numRows))
+      .withColumn(rowCountCol, lit(numRows))
       // P(sensitive)
-      .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
+      .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 
     if (getVerbose)
       featureStats.cache.show(numRows = 20, truncate = false)
@@ -113,6 +114,8 @@ class AggregateMeasures(override val uid: String)
     )
   }
 }
+
+object AggregateMeasures extends ComplexParamsReadable[AggregateMeasures]
 
 case class AggregateMetrics(featureProbCol: String,
                             numFeatures: Double,

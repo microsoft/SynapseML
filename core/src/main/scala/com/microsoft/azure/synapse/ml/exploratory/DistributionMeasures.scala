@@ -6,13 +6,14 @@ import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 import scala.language.postfixOps
 
+// This feature is experimental. It is subject to change or removal in future releases.
 class DistributionMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -49,7 +50,7 @@ class DistributionMeasures(override val uid: String)
     distributionMeasuresCol -> "DistributionMeasures"
   )
 
-  val uniformDistribution: Int => String => Double = {
+  private val uniformDistribution: Int => String => Double = {
     n: Int => {
       value: String =>
         1d / n
@@ -63,15 +64,15 @@ class DistributionMeasures(override val uid: String)
     val numRows = df.count.toDouble
 
     val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-    val dfCountCol = DatasetExtensions.findUnusedColumnName("dfCount", df.schema)
+    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
     val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
     val featureStats = df
       .groupBy(getSensitiveCols map col: _*)
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
-      .withColumn(dfCountCol, lit(numRows))
+      .withColumn(rowCountCol, lit(numRows))
       // P(sensitive)
-      .withColumn(featureProbCol, col(featureCountCol) / col(dfCountCol))
+      .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 
     if (getVerbose)
       featureStats.cache.show(numRows = 20, truncate = false)
@@ -103,23 +104,17 @@ class DistributionMeasures(override val uid: String)
           .withColumn(refFeatureCountCol, refDistFunc(col(sensitiveCol)) * lit(numRows))
           .cache
 
-        val metrics = DistributionMetrics(obsFeatureProbCol, obsFeatureCountCol, refFeatureProbCol, refFeatureCountCol)
+        val metrics =
+          DistributionMetrics(numFeatures, obsFeatureProbCol, obsFeatureCountCol, refFeatureProbCol, refFeatureCountCol)
         val metricsCols = metrics.toColumnMap.values.toSeq
 
-        // Special case: chi-squared p-value is calculated using breeze.stats.distributions.ChiSquared
-        val (obsFeatureCounts, refFeatureCounts) = observedWithRef.select(obsFeatureCountCol, refFeatureCountCol).collect
-          .map(r => (r.getDouble(0), r.getDouble(1))).unzip
-
-        observedWithRef
-          .agg(metricsCols.head, metricsCols.tail: _*)
-          .withColumn(metrics.chiSqPValueCol, metrics.chiSqPValue(numFeatures, obsFeatureCounts, refFeatureCounts))
-          .withColumn(getFeatureNameCol, lit(sensitiveCol))
+        observedWithRef.agg(metricsCols.head, metricsCols.tail: _*).withColumn(getFeatureNameCol, lit(sensitiveCol))
     }.reduce(_ union _)
 
     if (getVerbose)
       distributionMeasures.cache.show(truncate = false)
 
-    val measureTuples = distributionMeasures.schema.fieldNames.filterNot(_ == getFeatureNameCol).flatMap {
+    val measureTuples = DistributionMetrics.METRICS.flatMap {
       metricName =>
         lit(metricName) :: col(metricName) :: Nil
     }.toSeq
@@ -143,19 +138,39 @@ class DistributionMeasures(override val uid: String)
   }
 }
 
-case class DistributionMetrics(obsFeatureProbCol: String,
+object DistributionMeasures extends ComplexParamsReadable[DistributionMeasures]
+
+object DistributionMetrics {
+  val KLDIVERGENCE = "kl_divergence"
+  val JSDISTANCE = "js_dist"
+  val INFNORMDISTANCE = "inf_norm_dist"
+  val TOTALVARIATIONDISTANCE = "total_variation_dist"
+  val WASSERSTEINDISTANCE = "wasserstein_dist"
+  val CHISQUAREDTESTSTATISTIC = "chi_sq_stat"
+  val CHISQUAREDPVALUE = "chi_sq_p_value"
+
+  val METRICS: Array[String] = Array(KLDIVERGENCE, JSDISTANCE, INFNORMDISTANCE, TOTALVARIATIONDISTANCE,
+    WASSERSTEINDISTANCE, CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
+}
+
+case class DistributionMetrics(numFeatures: Int,
+                               obsFeatureProbCol: String,
                                obsFeatureCountCol: String,
                                refFeatureProbCol: String,
                                refFeatureCountCol: String) {
+
+  import DistributionMetrics._
+
   val absDiffObsRef: Column = abs(col(obsFeatureProbCol) - col(refFeatureProbCol))
 
   def toColumnMap: Map[String, Column] = Map(
-    "kl_divergence" -> klDivergence.alias("kl_divergence"),
-    "js_dist" -> jsDistance.alias("js_dist"),
-    "inf_norm_dist" -> infNormDistance.alias("inf_norm_dist"),
-    "total_variation_dist" -> totalVariationDistance.alias("total_variation_dist"),
-    "wasserstein_dist" -> wassersteinDistance.alias("wasserstein_dist"),
-    "chi_sq_stat" -> chiSqTestStatistic.alias("chi_sq_stat")
+    KLDIVERGENCE -> klDivergence.alias(KLDIVERGENCE),
+    JSDISTANCE -> jsDistance.alias(JSDISTANCE),
+    INFNORMDISTANCE -> infNormDistance.alias(INFNORMDISTANCE),
+    TOTALVARIATIONDISTANCE -> totalVariationDistance.alias(TOTALVARIATIONDISTANCE),
+    WASSERSTEINDISTANCE -> wassersteinDistance.alias(WASSERSTEINDISTANCE),
+    CHISQUAREDTESTSTATISTIC -> chiSquaredTestStatistic.alias(CHISQUAREDTESTSTATISTIC),
+    CHISQUAREDPVALUE -> chiSquaredPValue.alias(CHISQUAREDPVALUE)
   )
 
   def klDivergence: Column = entropy(col(obsFeatureProbCol), Some(col(refFeatureProbCol)))
@@ -179,16 +194,18 @@ case class DistributionMetrics(obsFeatureProbCol: String,
   }
 
   // Calculates Pearson's chi-squared statistic
-  def chiSqTestStatistic: Column =
+  def chiSquaredTestStatistic: Column =
     sum(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol))
 
-  val chiSqPValueCol = "chi_sq_p_value"
-
   // Calculates left-tailed p-value from degrees of freedom and chi-squared test statistic
-  def chiSqPValue(numFeatures: Int, obsFeatureCounts: Array[Double], refFeatureCounts: Array[Double]): Column = {
+  def chiSquaredPValue: Column = {
     val degOfFreedom = numFeatures - 1
-    val score = (obsFeatureCounts, refFeatureCounts).zipped.map((a, b) => scala.math.pow(a - b, 2) / b).sum
-    lit(1 - ChiSquared(degOfFreedom).cdf(score))
+    val scoreCol = chiSquaredTestStatistic
+    val chiSqPValueUdf = udf({
+      score: Double =>
+        1d - ChiSquared(degOfFreedom).cdf(score)
+    })
+    chiSqPValueUdf(scoreCol)
   }
 
   private def entropy(distA: Column, distB: Option[Column] = None): Column = {
