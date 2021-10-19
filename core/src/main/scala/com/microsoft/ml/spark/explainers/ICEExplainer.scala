@@ -53,6 +53,9 @@ object ContinuousFeature {
         case JsString(value) => value
         case _ => throw new Exception("The name field must be a JsString.")
       }
+
+      // I don't know how to pass default value. If I make Option, I need to specify it anyway.
+
       val numSplits = fields.get("numSplits").map {
         case JsNumber(value) => value.toInt
         case _ => 10
@@ -116,21 +119,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
-//  def setDiscreteFeature(feature: String, topN: Int): this.type = {
-//    this.setFeature(feature).setFeatureType("discrete").setTopNValues(topN)
-//  }
-//
-//  def setContinuousFeature(feature: String, nSplits: Int,
-//                           rangeMin: Option[Double] = None,
-//                           rangeMax: Option[Double] = None): this.type = {
-//    rangeMin.foreach(this.setRangeMin)
-//    rangeMax.foreach(this.setRangeMax)
-//    this.setFeature(feature).setFeatureType("continuous").setNSplits(nSplits)
-//  }
-
   setDefault(numSamples -> 1000, kind -> "individual")
-
-  //setDefault(numSamples -> 1000, featureType -> "discrete", topNValues -> 100, kind -> "individual")
 
 }
 
@@ -160,23 +149,21 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val featImpName = feature.name + "__imp"
 
-    result.show()
 
     getKind.toLowerCase match {
       case "average" =>
         result
           .groupBy(feature.name)
           .agg(Summarizer.mean(col(targetCol)).alias("__feature__importance__"))
-          //.withColumnRenamed(feature.name, "__feature__value__")
-          .withColumn(featImpName, lit(feature.name))
-          .select(featImpName, "__feature__importance__")
+          .agg(collect_list(feature.name).alias("feature_value_list"),
+            collect_list("__feature__importance__").alias("feature_imp_list"))
+          .withColumn(featImpName, map_from_arrays(col("feature_value_list"), col("feature_imp_list")))
+          .select(featImpName)
       case "individual" =>
-        // storing as a map feature -> target value
         val iceFeatures = result.groupBy("idCol")
           .agg(collect_list(feature.name).alias("feature_list"), collect_list(targetCol).alias("target_list"))
           .withColumn(featImpName, map_from_arrays(col("feature_list"), col("target_list")))
           .select(idCol, featImpName)
-        //sampled.join(iceFeatures, idCol)
       iceFeatures.select(idCol, featImpName)
     }
   }
@@ -193,8 +180,9 @@ class ICETransformer(override val uid: String) extends Transformer
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
     transformSchema(df.schema)
 
-    // collect feature values for all features from original fataset - dfWithId
+    // collect feature values for all features from original dataset - dfWithId
     val discreteFeatures = this.getDiscreteFeatures
+    //val continuousFeature = this.getContinuousFeatures
 
     val collectedFeatureValues: Map[DiscreteFeature, Array[_]] = discreteFeatures.map{
       feature => (feature, collectDiscreteValues(dfWithId, feature))
@@ -206,12 +194,23 @@ class ICETransformer(override val uid: String) extends Transformer
       f: DiscreteFeature =>
         processDiscreteFeature(sampled, idCol, targetClasses, f, collectedFeatureValues(f))
     }
-        val stage1 = discreteFeatures map (processFunc)
 
+    val stage1 = discreteFeatures map (processFunc)
+
+    // I don't know how it's better to handle this 2 cases. For pdp we don't have idCol
+    // and also don't merge it with input data
+
+    getKind.toLowerCase match {
+      case "individual" =>
         val stage2: DataFrame =
           stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.join(currDF, Seq(idCol), "inner"))
 
         sampled.join(stage2, idCol).drop(idCol)
+
+      case "average" =>
+        val stage2: DataFrame = stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.crossJoin(currDF))
+        stage2
+    }
 
   }
 
