@@ -7,8 +7,8 @@ from setuptools import setup, find_packages
 setup(
     name="synapsemltest",
     version=0.1,
-    description="Microsoft ML for Spark Tests",
-    long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
+    description="Synapse Machine Learning Tests",
+    long_description="SynapseML contains Microsoft's open source " +
                      "contributions to the Apache Spark ecosystem",
     license="MIT",
     packages=find_packages(),
