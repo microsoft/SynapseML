@@ -125,6 +125,17 @@ trait HasServiceParams extends Params {
   }
 }
 
+trait HasAADToken extends HasServiceParams {
+  val aadToken = new ServiceParam[String](
+    this, "aadToken", "AAD Token"
+  )
+
+  def getAadToken: String = getScalarParam(aadToken)
+
+  def setAadToken(v: String): this.type = setScalarParam(aadToken, v)
+
+}
+
 trait HasSubscriptionKey extends HasServiceParams {
   val subscriptionKey = new ServiceParam[String](
     this, "subscriptionKey", "the API key to use")
