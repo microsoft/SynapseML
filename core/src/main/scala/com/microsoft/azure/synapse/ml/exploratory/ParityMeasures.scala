@@ -14,7 +14,7 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 class ParityMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
-    with DataImbalanceParams
+    with DataBalanceParams
     with Wrappable
     with BasicLogging {
 

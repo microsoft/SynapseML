@@ -17,7 +17,7 @@ import scala.language.postfixOps
 class DistributionMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
-    with DataImbalanceParams
+    with DataBalanceParams
     with Wrappable
     with BasicLogging {
 

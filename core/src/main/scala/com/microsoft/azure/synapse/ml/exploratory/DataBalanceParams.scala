@@ -3,7 +3,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 import org.apache.spark.ml.param.{BooleanParam, Param, Params, StringArrayParam}
 import org.apache.spark.sql.types._
 
-trait DataImbalanceParams extends Params {
+trait DataBalanceParams extends Params {
   val sensitiveCols = new StringArrayParam(
     this,
     "sensitiveCols",

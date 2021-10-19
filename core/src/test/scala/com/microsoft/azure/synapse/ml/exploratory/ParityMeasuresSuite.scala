@@ -6,7 +6,7 @@ import org.apache.spark.sql.functions._
 
 import scala.math.abs
 
-class ParityMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[ParityMeasures] {
+class ParityMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[ParityMeasures] {
 
   override def testObjects(): Seq[TestObject[ParityMeasures]] = Seq(
     new TestObject(parityMeasures, sensitiveFeaturesDf)

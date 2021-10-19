@@ -5,7 +5,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 
-class DistributionMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[DistributionMeasures] {
+class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionMeasures] {
 
   override def testObjects(): Seq[TestObject[DistributionMeasures]] = Seq(
     new TestObject(distributionMeasures, sensitiveFeaturesDf)

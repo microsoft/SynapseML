@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, RelationalGroupedDataset}
 
 import scala.math.{abs, log, pow, sqrt}
 
-trait DataImbalanceTestBase extends TestBase {
+trait DataBalanceTestBase extends TestBase {
 
   import spark.implicits._
 

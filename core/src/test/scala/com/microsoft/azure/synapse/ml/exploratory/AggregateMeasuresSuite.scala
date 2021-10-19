@@ -6,7 +6,7 @@ import org.apache.spark.sql.functions.col
 
 import scala.math.abs
 
-class AggregateMeasuresSuite extends DataImbalanceTestBase with TransformerFuzzing[AggregateMeasures] {
+class AggregateMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[AggregateMeasures] {
 
   override def testObjects(): Seq[TestObject[AggregateMeasures]] = Seq(
     new TestObject(aggregateMeasures, sensitiveFeaturesDf)
