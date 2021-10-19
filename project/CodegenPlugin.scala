@@ -98,7 +98,6 @@ object CodegenPlugin extends AutoPlugin {
     }
   } tag(TestGenTag)
 
-
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
     codegenArgs := {
