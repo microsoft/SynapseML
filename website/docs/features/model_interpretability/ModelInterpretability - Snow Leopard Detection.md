@@ -3,7 +3,7 @@ title: ModelInterpretability - Snow Leopard Detection
 hide_title: true
 status: stable
 ---
-## Automated Snow Leopard Detection with Microsoft ML for Apache Spark
+## Automated Snow Leopard Detection with Synapse Machine Learning
 
 <img src="https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/SLTrust.PNG" width="900" />
 
