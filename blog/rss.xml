@@ -1,25 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
     <channel>
         <title>Synapse ML Blog</title>
-        <link>https://microsoft.github.io/blog</link>
+        <link>https://microsoft.github.io/SynapseML/blog</link>
         <description>Synapse ML Blog</description>
         <lastBuildDate>Tue, 19 Oct 2021 03:16:50 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
-        <item>
-            <title><![CDATA[Overview]]></title>
-            <link>https://microsoft.github.io/SynapseML/blog/overview</link>
-            <guid>Overview</guid>
-            <pubDate>Tue, 19 Oct 2021 03:16:50 GMT</pubDate>
-            <description><![CDATA[SynapseML Overview]]></description>
-        </item>
         <item>
             <title><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
             <link>https://microsoft.github.io/SynapseML/blog/2020-12-Large-Scale Intelligent Microservices</link>
             <guid>Publication - Large-Scale Intelligent Microservices</guid>
             <pubDate>Tue, 19 Oct 2021 03:16:50 GMT</pubDate>
             <description><![CDATA[Large-Scale Intelligent Microservices]]></description>
+            <content:encoded><![CDATA[<p>Deploying Machine Learning (ML) algorithms within databases is a challenge due to the varied computational footprints of modern ML algorithms and the myriad of database technologies each with their own restrictive syntax. We introduce an Apache Spark-based micro-service orchestration <!-- --> framework that extends database operations to include web service primitives. Our system can orchestrate web services across hundreds of machines and takes full advantage of cluster, thread, and asynchronous parallelism. Using this framework, we provide large scale clients for intelligent services such as speech, vision, search, anomaly detection, and text analysis. This allows users to integrate ready-to-use intelligence into any datastore with an Apache Spark connector. To eliminate the majority of overhead from network communication, we also introduce a low-latency containerized version of our architecture. Finally, we demonstrate that the services we investigate are competitive on a variety of benchmarks, and present two applications of this framework to create intelligent search engines, and real time auto race analytics systems.</p><p><a href="https://www.microsoft.com/en-us/research/publication/large-scale-services/">Read More</a></p>]]></content:encoded>
+        </item>
+        <item>
+            <title><![CDATA[Overview]]></title>
+            <link>https://microsoft.github.io/SynapseML/blog/overview</link>
+            <guid>Overview</guid>
+            <pubDate>Tue, 19 Oct 2021 03:16:50 GMT</pubDate>
+            <description><![CDATA[SynapseML Overview]]></description>
+            <content:encoded><![CDATA[<p>Synapse Machine Learning expands the distributed computing framework <a href="https://github.com/apache/spark">Apache Spark</a> in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including <a href="/docs/features/lightgbm/about">LightGBM</a>, <a href="/docs/features/vw/about">Vowpal Wabbit</a>, <a href="https://opencv.org/">OpenCV</a>, <a href="https://github.com/linkedin/isolation-forest">Isolation Forest</a>, and the <a href="https://www.microsoft.com/en-us/research/product/cognitive-toolkit/">Microsoft Cognitive Toolkit (CNTK)</a> . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.</p><p>SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Microsoft Cognitive Services. Finally, the Spark Serving project enables high throughput, sub-millisecond latency web services, backed by your Spark cluster.</p><p>Visit the SynapseML Github repository to learn more.</p>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></title>
@@ -27,6 +29,7 @@
             <guid>MMLSpark: empowering AI for Good with Mark Hamilton</guid>
             <pubDate>Wed, 02 Oct 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></description>
+            <content:encoded><![CDATA[<img src="https://www.microsoft.com/en-us/research/uploads/prod/2019/09/Mark-Hamilton_Podcast_Site_09_2019_1400x788.png"/><h4>Episode 92, October 2, 2019</h4><p>If someone asked you what snow leopards and Vincent Van Gogh have in common, you might think it was the beginning of a joke. <!-- --> It’s not, but if it were, Mark Hamilton, a software engineer in Microsoft’s Cognitive Services group, budding PhD student and frequent Microsoft Research collaborator, would tell you the punchline is machine learning. More specifically, Microsoft Machine Learning for Apache Spark (MMLSpark for short), a powerful yet elastic open source machine learning library that’s finding its way beyond business and into “AI for Good” applications such as the environment and the arts.</p><p>Today, Mark talks about his love of mathematics and his desire to solve big, crazy, core knowledge sized problems; tells us all about MMLSpark and how it’s being used by organizations like the Snow Leopard Trust and the Metropolitan Museum of Art; and reveals how the persuasive advice of a really smart big sister helped launch an exciting career in AI research and development.</p><p><a href="https://www.microsoft.com/en-us/research/podcast/mmlspark-empowering-ai-for-good-with-mark-hamilton/">Read More</a></p>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></title>
@@ -34,6 +37,8 @@
             <guid>Dear Spark developers: Welcome to Azure Cognitive Services</guid>
             <pubDate>Sat, 24 Aug 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></description>
+            <content:encoded><![CDATA[<p>Integrating the power of Azure Cognitive Services into your big data workflows on Apache Spark™
+Today at Spark + AI Summit 2019, we&#x27;re excited to introduce a new set of models in the SparkML ecosystem that make it easy to leverage the Azure Cognitive Services at terabyte scales. <!-- --> With only a few lines of code, developers can embed cognitive services within your existing distributed machine learning pipelines in Spark ML. Additionally, these contributions allow Spark users to chain or Pipeline services together with deep networks, gradient boosted trees, and any SparkML model and apply these hybrid models in elastic and serverless distributed systems.</p><p>From image recognition to object detection using speech recognition, translation, and text-to-speech, Azure Cognitive Services makes it easy for developers to add intelligent capabilities to their applications in any scenario. To this date, more than a million developers have already discovered and tried Cognitive Services to accelerate breakthrough experiences in their application.</p><p><a href="https://azure.microsoft.com/en-us/blog/dear-spark-developers-welcome-to-azure-cognitive-services/">Read More</a></p>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></title>
@@ -41,6 +46,7 @@
             <guid>Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales</guid>
             <pubDate>Sat, 01 Jun 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></description>
+            <content:encoded><![CDATA[<p>We introduce Microsoft Machine Learning for Apache Spark (MMLSpark), an ecosystem of enhancements that expand the Apache Spark distributed computing library to tackle problems in Deep Learning, Micro-Service Orchestration, Gradient Boosting, Model Interpretability, and other areas of modern computation. <!-- --> Furthermore, we present a novel system called Spark Serving that allows users to run any Apache Spark program as a distributed, sub-millisecond latency web service backed by their existing Spark Cluster. All MMLSpark contributions have the same API to enable simple composition across frameworks and usage across batch, streaming, and RESTful web serving scenarios on static, elastic, or serverless clusters. We showcase MMLSpark by creating a method for deep object detection capable of learning without human labeled data and demonstrate its effectiveness for Snow Leopard conservation.</p><p><a href="https://www.microsoft.com/en-us/research/publication/mmlspark-unifying-machine-learning-ecosystems-at-massive-scales/">Read More</a></p>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Publication - Flexible and Scalable Deep Learning with MMLSpark]]></title>
@@ -48,6 +54,7 @@
             <guid>Publication - Flexible and Scalable Deep Learning with MMLSpark</guid>
             <pubDate>Sun, 01 Apr 2018 00:00:00 GMT</pubDate>
             <description><![CDATA[Flexible and Scalable Deep Learning with MMLSpark]]></description>
+            <content:encoded><![CDATA[<p>In this work we detail a novel open source library, called MMLSpark, that combines the flexible deep learning library Cognitive Toolkit, with the distributed computing framework Apache Spark. To achieve this, we have contributed Java Language bindings to the Cognitive Toolkit <!-- --> , and added several new components to the Spark ecosystem. In addition, we also integrate the popular image processing library OpenCV with Spark, and present a tool for the automated generation of PySpark wrappers from any SparkML estimator and use this tool to expose all work to the PySpark ecosystem. Finally, we provide a large library of tools for working and developing within the Spark ecosystem. We apply this work to the automated classification of Snow Leopards from camera trap images, and provide an end to end solution for the non-profit conservation organization, the Snow Leopard Trust.</p><p><a href="https://www.microsoft.com/en-us/research/publication/flexible-and-scalable-deep-learning-with-mmlspark/">Read More</a></p>]]></content:encoded>
         </item>
     </channel>
 </rss>
