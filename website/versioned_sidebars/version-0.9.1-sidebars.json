@@ -5,7 +5,6 @@
       "id": "version-0.9.1/about"
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Getting Started",
       "items": [
@@ -21,10 +20,11 @@
           "type": "doc",
           "id": "version-0.9.1/getting_started/first_model"
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Features",
       "items": [
@@ -33,7 +33,6 @@
           "id": "version-0.9.1/features/CognitiveServices - Overview"
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "HTTP on Spark",
           "items": [
@@ -45,10 +44,11 @@
               "type": "doc",
               "id": "version-0.9.1/features/http/HttpOnSpark - Working with Arbitrary Web APIs"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "LightGBM",
           "items": [
@@ -60,10 +60,11 @@
               "type": "doc",
               "id": "version-0.9.1/features/lightgbm/LightGBM - Overview"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Model Interpretability",
           "items": [
@@ -75,10 +76,11 @@
               "type": "doc",
               "id": "version-0.9.1/features/model_interpretability/ModelInterpretability - Snow Leopard Detection"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "ONNX",
           "items": [
@@ -90,10 +92,11 @@
               "type": "doc",
               "id": "version-0.9.1/features/onnx/ONNX - Inference on Spark"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Spark Serving",
           "items": [
@@ -105,10 +108,11 @@
               "type": "doc",
               "id": "version-0.9.1/features/spark_serving/SparkServing - Deploying a Classifier"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Vowpal Wabbit",
           "items": [
@@ -120,12 +124,15 @@
               "type": "doc",
               "id": "version-0.9.1/features/vw/Vowpal Wabbit - Overview"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Examples",
       "items": [
@@ -154,7 +161,6 @@
           "id": "version-0.9.1/examples/OpenCV - Pipeline Image Transformations"
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Classification",
           "items": [
@@ -174,10 +180,11 @@
               "type": "doc",
               "id": "version-0.9.1/examples/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Cognitive Services",
           "items": [
@@ -189,10 +196,11 @@
               "type": "doc",
               "id": "version-0.9.1/examples/cognitive_services/CognitiveServices - Predictive Maintenance"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Deep Learning",
           "items": [
@@ -212,10 +220,11 @@
               "type": "doc",
               "id": "version-0.9.1/examples/deep_learning/DeepLearning - Transfer Learning"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Model Interpretability",
           "items": [
@@ -231,10 +240,11 @@
               "type": "doc",
               "id": "version-0.9.1/examples/model_interpretability/Interpretability - Text Explainers"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Regression",
           "items": [
@@ -254,10 +264,11 @@
               "type": "doc",
               "id": "version-0.9.1/examples/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "collapsed": true,
           "type": "category",
           "label": "Text Analytics",
           "items": [
@@ -269,12 +280,15 @@
               "type": "doc",
               "id": "version-0.9.1/examples/text_analytics/TextAnalytics - Amazon Book Reviews"
             }
-          ]
+          ],
+          "collapsible": true,
+          "collapsed": true
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Transformers",
       "items": [
@@ -298,10 +312,11 @@
           "type": "doc",
           "id": "version-0.9.1/documentation/transformers/transformers_deep_learning"
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Estimators",
       "items": [
@@ -317,10 +332,11 @@
           "type": "doc",
           "id": "version-0.9.1/documentation/estimators/estimators_vw"
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     },
     {
-      "collapsed": true,
       "type": "category",
       "label": "Reference",
       "items": [
@@ -340,7 +356,9 @@
           "type": "doc",
           "id": "version-0.9.1/reference/R-setup"
         }
-      ]
+      ],
+      "collapsible": true,
+      "collapsed": true
     }
   ]
 }
