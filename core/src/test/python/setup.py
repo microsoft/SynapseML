@@ -5,7 +5,7 @@ import os
 from setuptools import setup, find_packages
 
 setup(
-    name="mmlsparktest",
+    name="synapsemltest",
     version=0.1,
     description="Microsoft ML for Spark Tests",
     long_description="Microsoft ML for Apache Spark contains Microsoft's open source " +
@@ -14,7 +14,7 @@ setup(
     packages=find_packages(),
 
     # Project's main homepage.
-    url="https://github.com/Azure/mmlspark",
+    url="https://github.com/Microsoft/SynapseML",
     # Author details
     author="Microsoft",
     author_email="mmlspark-support@microsoft.com",
@@ -31,5 +31,5 @@ setup(
 
     zip_safe=True,
 
-    package_data={"mmlspark": ["../LICENSE.txt", "../README.txt"]}
+    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]}
 )

@@ -1,9 +1,9 @@
-# Using the MMLSpark Docker Image
+# Using the SynapseML Docker Image
 
 ## Quickstart: install and run the Docker image
 
 Begin by installing [Docker for your OS][docker-products].  Then, to get the
-MMLSpark image and run it, open a terminal (powershell/cmd on Windows) and run
+SynapseML image and run it, open a terminal (powershell/cmd on Windows) and run
 
 ```bash
 docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release
@@ -19,7 +19,7 @@ docker run -it -p 8888:8888 -e ACCEPT_EULA=y mcr.microsoft.com/mmlspark/release
 
 You can now select one of the sample notebooks and run it, or create your own.
 
-> Note: The EULA is needed only for running the MMLSpark Docker image; the
+> Note: The EULA is needed only for running the SynapseML Docker image; the
 > source code is released under the MIT license (see the [LICENSE](../LICENSE)
 > file).
 
@@ -28,11 +28,11 @@ You can now select one of the sample notebooks and run it, or create your own.
 In the above, `mcr.microsoft.com/mmlspark/release` specifies the project and image name that you
 want to run.  There is another component implicit here which is the _tag_ (=
 version) that you want to use — specifying it explicitly looks like
-`mcr.microsoft.com/mmlspark/release:1.0.0-rc4` for the `1.0.0-rc4` tag.
+`mcr.microsoft.com/mmlspark/release:0.9.1` for the `0.9.1` tag.
 
 Leaving `mcr.microsoft.com/mmlspark/release` by itself has an implicit `latest` tag, so it is
 equivalent to `mcr.microsoft.com/mmlspark/release:latest`.  The `latest` tag is identical to the
-most recent stable MMLSpark version.  You can see the current [mmlspark tags] on
+most recent stable SynapseML version.  You can see the current [synapsemltags] on
 our [Docker Hub repository][mmlspark-dockerhub].
 
 ## A more practical example
@@ -44,7 +44,7 @@ that you will probably want to use can look as follows:
 docker run -it --rm \
            -p 127.0.0.1:80:8888 \
            -v ~/myfiles:/notebooks/myfiles \
-           mcr.microsoft.com/mmlspark/release:1.0.0-rc4
+           mcr.microsoft.com/mmlspark/release:0.9.1
 ```
 
 In this example, backslashes are used to break things up for readability; you
@@ -54,7 +54,7 @@ path and line breaks looks a little different:
     docker run -it --rm `
                -p 127.0.0.1:80:8888 `
                -v C:\myfiles:/notebooks/myfiles `
-               mcr.microsoft.com/mmlspark/release:1.0.0-rc4
+               mcr.microsoft.com/mmlspark/release:0.9.1
 
 Let's break this command and go over the meaning of each part:
 
@@ -91,7 +91,7 @@ Let's break this command and go over the meaning of each part:
 
 -   **`-p 127.0.0.1:80:8888`**
 
-    The Jupyter server in the MMLSpark image listens to port 8888 — but that is
+    The Jupyter server in the SynapseML image listens to port 8888 — but that is
     normally isolated from the actual network.  Previously, we have used `-p
     8888:8888` to say that we want to map port 8888 (LHS) on our actual machine to
     port 8888 (RHS) in the container.  One problem with this is that `8888` might
@@ -120,7 +120,7 @@ Let's break this command and go over the meaning of each part:
     the drive you want to use in the [Docker settings].
 
     The path on the right side is used inside the container and it is therefore a
-    Linux path.  The MMLSpark image runs Jupyter in the `/notebooks` directory, so
+    Linux path.  The SynapseML image runs Jupyter in the `/notebooks` directory, so
     it is a good place for making your files available conveniently.
 
     This flag can be used more than once, to make several directories available in
@@ -137,7 +137,7 @@ Let's break this command and go over the meaning of each part:
     model.write().overwrite().save('myfiles/myTrainedModel.mml')
     ```
 
--   **`mcr.microsoft.com/mmlspark/release:1.0.0-rc4`**
+-   **`mcr.microsoft.com/mmlspark/release:0.9.1`**
 
     Finally, this specifies an explicit version tag for the image that we want to
     run.
@@ -150,16 +150,16 @@ additional flag that is useful for this is `--name` that gives a convenient
 label to the running image:
 
 ```bash
-docker run -d --name my-mmlspark ...flags... mcr.microsoft.com/mmlspark/release
+docker run -d --name my-synapseml ...flags... mcr.microsoft.com/mmlspark/release
 ```
 
 When running in this mode, you can use
 
--   `docker stop my-mmlspark`:  to stop the image
+-   `docker stop my-synapseml`:  to stop the image
 
--   `docker start my-mmlspark`: to start it again
+-   `docker start my-synapseml`: to start it again
 
--   `docker logs my-mmlspark`:  to see the log output it produced
+-   `docker logs my-synapseml`:  to see the log output it produced
 
 ## Running other commands in an active container
 
@@ -169,7 +169,7 @@ and the command to run.  For example, with a detached container started as
 above, you can use
 
 ```bash
-docker exec -it my-mmlspark bash
+docker exec -it my-synapseml bash
 ```
 
 to start a shell in the context of the server, roughly equivalent to starting a
@@ -178,8 +178,8 @@ terminal in the Jupyter interface.
 Other common Linux executables can be used, e.g.,
 
 ```bash
-docker exec -it my-mmlspark top
-docker exec my-mmlspark ps auxw
+docker exec -it my-synapseml top
+docker exec my-synapseml ps auxw
 ```
 
 (Note that `ps` does not need `-it` since it's not an interactive command.)
@@ -192,7 +192,7 @@ also get the container IDs and use those instead of names.
 Remember that the command given to `docker exec` is running in the context of
 the running container: you can only run executables that exist in the container,
 and the run is subject to the same resource restrictions (FS/network access,
-etc) as the container.  The MMLSpark image is based on a rather basic Ubuntu
+etc) as the container.  The SynapseML image is based on a rather basic Ubuntu
 installation (the `ubuntu` image from Docker Hub).
 
 ## Running other Spark executables
@@ -208,7 +208,7 @@ docker run -it ...flags... mcr.microsoft.com/mmlspark/release bash
 
 This starts the container with bash instead of Jupyter.  This environment has
 all of the Spark executables available in its `$PATH`.  You still need to
-specify the command-line flags that load the MMLSpark package, but there are
+specify the command-line flags that load the SynapseML package, but there are
 convenient environment variables that hold the required package and repositories
 to use:
 
@@ -219,9 +219,9 @@ pyspark --repositories "$MML_M2REPOS" --packages "$MML_PACKAGE" --master "local[
 Many of the above listed flags are useful in this case too, such as mapping work
 directories with `-v`.
 
-## Updating the MMLSpark image
+## Updating the SynapseML image
 
-New releases of MMLSpark are published from time to time, and they include a new
+New releases of SynapseML are published from time to time, and they include a new
 Docker image.  As an image consumer, you will normlly not notice such new
 versions: `docker run` will download an image if a copy of it does not exist
 locally, but if it does, then `docker run` will blindly run it, _without_
@@ -265,7 +265,7 @@ their tags, and `docker rmi <name>:<tag>` to remove the unwanted ones.
 ## A note about security
 
 Executing code in a Docker container can be unsafe if the running user is
-`root`.  For this reason, the MMLSpark image uses a proper username instead.  If
+`root`.  For this reason, the SynapseML image uses a proper username instead.  If
 you still want to run as root (e.g., if you want to `apt install` an additional
 ubuntu package), then you should use `--user root`.  This can be useful when
 combined with `docker exec` too do such administrative work while the image
@@ -274,7 +274,7 @@ continues to run as usual.
 ## Further reading
 
 This text covers very briefly some of the useful things that you can do with the
-MMLSpark Docker image (and other images in general).  You can find much more
+SynapseML Docker image (and other images in general).  You can find much more
 documentation [online](https://docs.docker.com/).
 
 [docker-products]: http://www.docker.com/products/overview/

@@ -4,9 +4,8 @@
 package org.apache.spark.ml.source.image
 
 import com.google.common.io.{ByteStreams, Closeables}
-import com.microsoft.ml.spark.core.schema.ImageSchemaUtils
-import com.microsoft.ml.spark.io.image.ImageUtils
-import javax.imageio.ImageIO
+import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
+import com.microsoft.azure.synapse.ml.io.image.ImageUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce._
@@ -20,6 +19,8 @@ import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.SerializableConfiguration
+
+import javax.imageio.ImageIO
 
 class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logging {
 
