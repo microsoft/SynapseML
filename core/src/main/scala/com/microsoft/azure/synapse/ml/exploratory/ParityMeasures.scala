@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -10,7 +13,16 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
-// This feature is experimental. It is subject to change or removal in future releases.
+/**
+  * This transformer computes a set of parity measures from the given dataframe and sensitive features.
+  * The output is a dataframe that contains four columns:
+  *   1. The sensitive feature name.
+  *   2. A feature value within the sensitive feature.
+  *   3. Another feature value within the sensitive feature.
+  *   4. A map containing measure names and their values showing parities between the two feature values.
+  * The output dataframe contains a row per combination of feature values for each sensitive feature.
+  * This feature is experimental. It is subject to change or removal in future releases.
+  */
 class ParityMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -70,44 +82,46 @@ class ParityMeasures(override val uid: String)
   )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    validateSchema(dataset.schema)
+    logTransform[DataFrame]({
+      validateSchema(dataset.schema)
 
-    val df = dataset
-      // Convert label into binary
-      .withColumn(getLabelCol, when(col(getLabelCol).cast(LongType) > lit(0L), lit(1L)).otherwise(lit(0L)))
-      .cache
+      val df = dataset
+        // Convert label into binary
+        .withColumn(getLabelCol, when(col(getLabelCol).cast(LongType) > lit(0L), lit(1L)).otherwise(lit(0L)))
+        .cache
 
-    val Row(numRows: Double, numTrueLabels: Double) =
-      df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
+      val Row(numRows: Double, numTrueLabels: Double) =
+        df.agg(count("*").cast(DoubleType), sum(getLabelCol).cast(DoubleType)).head
 
-    val positiveFeatureCountCol = DatasetExtensions.findUnusedColumnName("positiveFeatureCount", df.schema)
-    val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-    val positiveCountCol = DatasetExtensions.findUnusedColumnName("positiveCount", df.schema)
-    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
-    val featureValueCol = "FeatureValue"
+      val positiveFeatureCountCol = DatasetExtensions.findUnusedColumnName("positiveFeatureCount", df.schema)
+      val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
+      val positiveCountCol = DatasetExtensions.findUnusedColumnName("positiveCount", df.schema)
+      val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
+      val featureValueCol = "FeatureValue"
 
-    val featureCounts = getSensitiveCols.map {
-      sensitiveCol =>
-        df
-          .groupBy(sensitiveCol)
-          .agg(
-            sum(getLabelCol).cast(DoubleType).alias(positiveFeatureCountCol),
-            count("*").cast(DoubleType).alias(featureCountCol)
-          )
-          .withColumn(positiveCountCol, lit(numTrueLabels))
-          .withColumn(rowCountCol, lit(numRows))
-          .withColumn(getFeatureNameCol, lit(sensitiveCol))
-          .withColumn(featureValueCol, col(sensitiveCol))
-    }.reduce(_ union _)
+      val featureCounts = getSensitiveCols.map {
+        sensitiveCol =>
+          df
+            .groupBy(sensitiveCol)
+            .agg(
+              sum(getLabelCol).cast(DoubleType).alias(positiveFeatureCountCol),
+              count("*").cast(DoubleType).alias(featureCountCol)
+            )
+            .withColumn(positiveCountCol, lit(numTrueLabels))
+            .withColumn(rowCountCol, lit(numRows))
+            .withColumn(getFeatureNameCol, lit(sensitiveCol))
+            .withColumn(featureValueCol, col(sensitiveCol))
+      }.reduce(_ union _)
 
-    val metrics =
-      AssociationMetrics(positiveFeatureCountCol, featureCountCol, positiveCountCol, rowCountCol).toColumnMap
+      val metrics =
+        AssociationMetrics(positiveFeatureCountCol, featureCountCol, positiveCountCol, rowCountCol).toColumnMap
 
-    val associationMetricsDf = metrics.foldLeft(featureCounts) {
-      case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
-    }
+      val associationMetricsDf = metrics.foldLeft(featureCounts) {
+        case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
+      }
 
-    calculateParityMeasures(associationMetricsDf, metrics, featureValueCol)
+      calculateParityMeasures(associationMetricsDf, metrics, featureValueCol)
+    })
   }
 
   private def calculateParityMeasures(associationMetricsDf: DataFrame,

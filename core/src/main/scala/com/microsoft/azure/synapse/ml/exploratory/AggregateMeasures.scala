@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -10,7 +13,14 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-// This feature is experimental. It is subject to change or removal in future releases.
+/**
+  * This transformer computes a set of aggregated measures that represents how balanced or imbalanced
+  * the given dataframe is along the given sensitive features.
+  * The output is a dataframe that contains one column:
+  *   1. A map containing measure names and their values showing higher notions of inequality.
+  * The output dataframe contains one row.
+  * This feature is experimental. It is subject to change or removal in future releases.
+  */
 class AggregateMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -59,26 +69,28 @@ class AggregateMeasures(override val uid: String)
   )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    validateSchema(dataset.schema)
+    logTransform[DataFrame]({
+      validateSchema(dataset.schema)
 
-    val df = dataset.cache
-    val numRows = df.count.toDouble
+      val df = dataset.cache
+      val numRows = df.count.toDouble
 
-    val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
-    val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
+      val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
+      val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
+      val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
-    val featureStats = df
-      .groupBy(getSensitiveCols map col: _*)
-      .agg(count("*").cast(DoubleType).alias(featureCountCol))
-      .withColumn(rowCountCol, lit(numRows))
-      // P(sensitive)
-      .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
+      val featureStats = df
+        .groupBy(getSensitiveCols map col: _*)
+        .agg(count("*").cast(DoubleType).alias(featureCountCol))
+        .withColumn(rowCountCol, lit(numRows))
+        // P(sensitive)
+        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 
-    if (getVerbose)
-      featureStats.cache.show(numRows = 20, truncate = false)
+      if (getVerbose)
+        featureStats.cache.show(numRows = 20, truncate = false)
 
-    calculateAggregateMeasures(featureStats, featureProbCol)
+      calculateAggregateMeasures(featureStats, featureProbCol)
+    })
   }
 
   private def calculateAggregateMeasures(featureStats: DataFrame, featureProbCol: String): DataFrame = {

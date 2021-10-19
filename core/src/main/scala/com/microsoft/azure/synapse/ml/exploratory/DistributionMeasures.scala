@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.exploratory
 
 import breeze.stats.distributions.ChiSquared
@@ -13,7 +16,14 @@ import org.apache.spark.sql.types._
 
 import scala.language.postfixOps
 
-// This feature is experimental. It is subject to change or removal in future releases.
+/**
+  * This transformer computes data imbalance measures based on a reference distribution.
+  * The output is a dataframe that contains two columns:
+  *   1. The sensitive feature name.
+  *   2. A map containing measure names and their values showing difference between observed and reference distribution.
+  * The output dataframe contains a row per sensitive feature.
+  * This feature is experimental. It is subject to change or removal in future releases.
+  */
 class DistributionMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
@@ -58,29 +68,31 @@ class DistributionMeasures(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    validateSchema(dataset.schema)
+    logTransform[DataFrame]({
+      validateSchema(dataset.schema)
 
-    val df = dataset.cache
-    val numRows = df.count.toDouble
+      val df = dataset.cache
+      val numRows = df.count.toDouble
 
-    val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-    val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
-    val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
+      val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
+      val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
+      val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
 
-    val featureStats = df
-      .groupBy(getSensitiveCols map col: _*)
-      .agg(count("*").cast(DoubleType).alias(featureCountCol))
-      .withColumn(rowCountCol, lit(numRows))
-      // P(sensitive)
-      .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
+      val featureStats = df
+        .groupBy(getSensitiveCols map col: _*)
+        .agg(count("*").cast(DoubleType).alias(featureCountCol))
+        .withColumn(rowCountCol, lit(numRows))
+        // P(sensitive)
+        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 
-    if (getVerbose)
-      featureStats.cache.show(numRows = 20, truncate = false)
+      if (getVerbose)
+        featureStats.cache.show(numRows = 20, truncate = false)
 
-    // TODO: Introduce a referenceDistribution function param for user to override the uniform distribution
-    val referenceDistribution = uniformDistribution
+      // TODO: Introduce a referenceDistribution function param for user to override the uniform distribution
+      val referenceDistribution = uniformDistribution
 
-    calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows, referenceDistribution)
+      calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows, referenceDistribution)
+    })
   }
 
   private def calculateDistributionMeasures(featureStats: DataFrame,
