@@ -147,8 +147,8 @@ object CodeGen {
          |setup(
          |    name="${conf.name}",
          |    version="${conf.pythonizedVersion}",
-         |    description="Microsoft ML for Spark",
-         |    long_description="Microsoft ML for Apache Spark contains Microsoft's open source "
+         |    description="Synpase Machine Learning",
+         |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
          |    packages=find_namespace_packages(include=['synapse.ml.*']),
