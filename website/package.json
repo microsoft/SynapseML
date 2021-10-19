@@ -11,18 +11,32 @@
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
-    "serve": "docusaurus serve"
+    "serve": "docusaurus serve",
+    "audit:fix": "npx yarn-audit-fix"
   },
   "dependencies": {
-    "@docusaurus/core": "^2.0.0-alpha.48",
-    "@docusaurus/preset-classic": "^2.0.0-alpha.48",
+    "@docusaurus/core": "^2.0.0-beta.ff31de0ff",
+    "@docusaurus/preset-classic": "^2.0.0-beta.ff31de0ff",
     "@docusaurus/theme-classic": "^2.0.0-beta.6",
-    "@docusaurus/theme-search-algolia": "^2.0.0-beta.7",
+    "@docusaurus/theme-search-algolia": "^2.0.0-beta.ff31de0ff",
     "classnames": "^2.2.6",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
     "react-player": "^2.7.2",
-    "reading-time": "^1.2.0"
+    "reading-time": "^1.2.0",
+    "yarn-audit-fix": "^7.1.2",
+    "ansi-html-community": "^0.0.8"
+  },
+  "resolutions": {
+    "@docusaurus/core/**/set-value": "^4.0.1",
+    "@docusaurus/**/trim": "^0.0.3",
+    "@docusaurus/**/glob-parent": "^5.1.2",
+    "@docusaurus/**/ansi-html-community": "^0.0.8",
+    "@docusaurus/**/immer": "^9.0.6",
+    "@docusaurus/**/browserslist": "^4.16.5",
+    "@docusaurus/**/nth-check": "^2.0.1",
+    "yarn-audit-fix/**/ansi-regex": "^5.0.1",
+    "@docusaurus/**/ansi-regex": "^5.0.1"
   },
   "browserslist": {
     "production": [
