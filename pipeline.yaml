@@ -414,7 +414,7 @@ jobs:
       persistCredentials: true
     - task: NodeTool@0
       inputs:
-        versionSpec: '10.x'
+        versionSpec: '12.13.0'
       displayName: 'Install Node.js'
     - task: AzureKeyVault@1
       inputs:
