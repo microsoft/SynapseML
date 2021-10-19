@@ -3,24 +3,21 @@
 
 package org.apache.spark.sql.execution.streaming
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.UUID
-import java.util.concurrent.Executors
-
-import com.microsoft.ml.spark.core.env.StreamUtilities.usingMany
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData, SharedSingleton}
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, SharedSingleton}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-import javax.annotation.concurrent.GuardedBy
-import org.apache.commons.io.IOUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 
+import java.net.{InetAddress, InetSocketAddress}
+import java.util.UUID
+import java.util.concurrent.Executors
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
 
