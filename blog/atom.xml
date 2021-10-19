@@ -1,51 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <id>https://synapseml.github.io/blog</id>
+    <id>https://microsoft.github.io/SynapseML/blog</id>
     <title>Synapse ML Blog</title>
-    <updated>2021-10-18T10:03:18.665Z</updated>
+    <updated>2021-10-19T03:16:50.672Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
-    <link rel="alternate" href="https://synapseml.github.io/blog"/>
+    <link rel="alternate" href="https://microsoft.github.io/SynapseML/blog"/>
     <subtitle>Synapse ML Blog</subtitle>
-    <icon>https://synapseml.github.io/img/favicon.ico</icon>
+    <icon>https://microsoft.github.io/SynapseML/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[Overview]]></title>
         <id>Overview</id>
-        <link href="https://synapseml.github.io/blog/overview"/>
-        <updated>2021-10-18T10:03:18.665Z</updated>
+        <link href="https://microsoft.github.io/SynapseML/blog/overview"/>
+        <updated>2021-10-19T03:16:50.672Z</updated>
         <summary type="html"><![CDATA[SynapseML Overview]]></summary>
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
         <id>Publication - Large-Scale Intelligent Microservices</id>
-        <link href="https://synapseml.github.io/blog/2020-12-Large-Scale Intelligent Microservices"/>
-        <updated>2021-10-18T09:47:06.621Z</updated>
+        <link href="https://microsoft.github.io/SynapseML/blog/2020-12-Large-Scale Intelligent Microservices"/>
+        <updated>2021-10-19T03:16:50.672Z</updated>
         <summary type="html"><![CDATA[Large-Scale Intelligent Microservices]]></summary>
     </entry>
     <entry>
         <title type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></title>
         <id>MMLSpark: empowering AI for Good with Mark Hamilton</id>
-        <link href="https://synapseml.github.io/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton"/>
+        <link href="https://microsoft.github.io/SynapseML/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton"/>
         <updated>2019-10-02T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></summary>
     </entry>
     <entry>
         <title type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></title>
         <id>Dear Spark developers: Welcome to Azure Cognitive Services</id>
-        <link href="https://synapseml.github.io/blog/2019/08/24/Welcome to Azure Cognitive Services"/>
+        <link href="https://microsoft.github.io/SynapseML/blog/2019/08/24/Welcome to Azure Cognitive Services"/>
         <updated>2019-08-24T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></summary>
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></title>
         <id>Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales</id>
-        <link href="https://synapseml.github.io/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales"/>
+        <link href="https://microsoft.github.io/SynapseML/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales"/>
         <updated>2019-06-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></summary>
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Flexible and Scalable Deep Learning with MMLSpark]]></title>
         <id>Publication - Flexible and Scalable Deep Learning with MMLSpark</id>
-        <link href="https://synapseml.github.io/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark"/>
+        <link href="https://microsoft.github.io/SynapseML/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark"/>
         <updated>2018-04-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Flexible and Scalable Deep Learning with MMLSpark]]></summary>
     </entry>
