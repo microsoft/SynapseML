@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory
+package com.microsoft.azure.synapse.ml.exploratory.imbalance
 
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -16,13 +16,17 @@ import org.apache.spark.sql.types._
 
 import scala.language.postfixOps
 
-/**
-  * This transformer computes data imbalance measures based on a reference distribution.
+/** This transformer computes data imbalance measures based on a reference distribution.
+  *
   * The output is a dataframe that contains two columns:
-  *   1. The sensitive feature name.
-  *   2. A map containing measure names and their values showing difference between observed and reference distribution.
+  *   - The sensitive feature name.
+  *   - A map containing measure names and their values showing difference between observed and reference distribution.
+  *
   * The output dataframe contains a row per sensitive feature.
+  *
   * This feature is experimental. It is subject to change or removal in future releases.
+  *
+  * @param uid The unique ID.
   */
 class DistributionMeasures(override val uid: String)
   extends Transformer
@@ -91,6 +95,7 @@ class DistributionMeasures(override val uid: String)
       // TODO: Introduce a referenceDistribution function param for user to override the uniform distribution
       val referenceDistribution = uniformDistribution
 
+      df.unpersist
       calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows, referenceDistribution)
     })
   }

@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory
+package com.microsoft.azure.synapse.ml.exploratory.imbalance
 
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -28,7 +28,7 @@ trait DataBalanceTestBase extends TestBase {
   lazy val feature1: String = features(0)
   lazy val feature2: String = features(1)
 
-  lazy val sensitiveFeaturesDf: DataFrame = Seq(
+  def sensitiveFeaturesDf: DataFrame = Seq(
     (0, "Male", "Asian"),
     (0, "Male", "White"),
     (1, "Male", "Other"),
@@ -40,7 +40,7 @@ trait DataBalanceTestBase extends TestBase {
     (0, "Other", "White")
   ).toDF("Label", "Gender", "Ethnicity").cache
 
-  def getProbabilitiesAndCounts(df: RelationalGroupedDataset): DataFrame =
+  def getFeatureStats(df: RelationalGroupedDataset): DataFrame =
     df
       .agg(count("*").cast(DoubleType).alias(featureCountCol))
       .withColumn(rowCountCol, lit(sensitiveFeaturesDf.count.toDouble))
@@ -121,11 +121,11 @@ case class DistributionMeasureCalculator(obsFeatureProbabilities: Array[Double],
   val infNormDistance: Double = absDiffObsRef.max
   val totalVariationDistance: Double = 0.5d * absDiffObsRef.sum
   val wassersteinDistance: Double = absDiffObsRef.sum / absDiffObsRef.length
-  val chiSqTestStatistic: Double = {
+  val chiSquaredTestStatistic: Double = {
     val refFeatureCount = numRows / numFeatures
     obsFeatureCounts.map(o => pow(o - refFeatureCount, 2) / refFeatureCount).sum
   }
-  val chiSqPValue: Double = 1 - ChiSquared(numFeatures - 1).cdf(chiSqTestStatistic)
+  val chiSquaredPValue: Double = 1 - ChiSquared(numFeatures - 1).cdf(chiSquaredTestStatistic)
 
   def entropy(distA: Array[Double], distB: Option[Array[Double]] = None): Double = {
     if (distB.isDefined) {

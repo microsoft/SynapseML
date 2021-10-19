@@ -1,0 +1,101 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
+package com.microsoft.azure.synapse.ml.exploratory.imbalance
+
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
+
+class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionMeasures] {
+
+  override def testObjects(): Seq[TestObject[DistributionMeasures]] = Seq(
+    new TestObject(distributionMeasures, sensitiveFeaturesDf)
+  )
+
+  override def reader: MLReadable[_] = DistributionMeasures
+
+  import spark.implicits._
+
+  private def distributionMeasures: DistributionMeasures =
+    new DistributionMeasures()
+      .setSensitiveCols(features)
+      .setVerbose(true)
+
+  test("DistributionMeasures can calculate Distribution Measures end-to-end") {
+    val df = distributionMeasures.transform(sensitiveFeaturesDf)
+    df.show(truncate = false)
+    df.printSchema()
+  }
+
+  private def actual: DataFrame =
+    new DistributionMeasures()
+      .setSensitiveCols(features)
+      .setVerbose(true)
+      .transform(sensitiveFeaturesDf)
+
+  private def actualFeature1: Map[String, Double] =
+    actual.filter(col("FeatureName") === feature1)
+      .as[(String, Map[String, Double])]
+      .collect()(0)._2
+
+  private def expectedFeature1 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature1))
+    .select(featureProbCol, featureCountCol)
+    .as[(Double, Double)].collect()
+
+  private object ExpectedFeature1 {
+    // Values were computed using:
+    // val CALCULATOR =
+    //  DistributionMeasureCalculator(expectedFeature1.map(_._1), expectedFeature1.map(_._2), sensitiveFeaturesDf.count)
+    val KLDIVERGENCE = 0.03775534151008829
+    val JSDISTANCE = 0.09785224086736323
+    val INFNORMDISTANCE = 0.1111111111111111
+    val TOTALVARIATIONDISTANCE = 0.1111111111111111
+    val WASSERSTEINDISTANCE = 0.07407407407407407
+    val CHISQUAREDTESTSTATISTIC = 0.6666666666666666
+    val CHISQUAREDPVALUE = 0.7165313105737893
+  }
+
+  test(s"DistributionMeasures can calculate Distribution Measures for $feature1") {
+    assert(actualFeature1("kl_divergence") == ExpectedFeature1.KLDIVERGENCE)
+    assert(actualFeature1("js_dist") == ExpectedFeature1.JSDISTANCE)
+    assert(actualFeature1("inf_norm_dist") == ExpectedFeature1.INFNORMDISTANCE)
+    assert(actualFeature1("total_variation_dist") == ExpectedFeature1.TOTALVARIATIONDISTANCE)
+    assert(actualFeature1("wasserstein_dist") == ExpectedFeature1.WASSERSTEINDISTANCE)
+    assert(actualFeature1("chi_sq_stat") == ExpectedFeature1.CHISQUAREDTESTSTATISTIC)
+    assert(actualFeature1("chi_sq_p_value") == ExpectedFeature1.CHISQUAREDPVALUE)
+  }
+
+  private def actualFeature2: Map[String, Double] =
+    actual.filter(col("FeatureName") === feature2)
+      .as[(String, Map[String, Double])]
+      .collect()(0)._2
+
+  private def expectedFeature2 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature2))
+    .select(featureProbCol, featureCountCol)
+    .as[(Double, Double)].collect()
+
+  private object ExpectedFeature2 {
+    // Values were computed using:
+    // val CALCULATOR =
+    //  DistributionMeasureCalculator(expectedFeature2.map(_._1), expectedFeature2.map(_._2), sensitiveFeaturesDf.count)
+    val KLDIVERGENCE = 0.07551068302017659
+    val JSDISTANCE = 0.14172745151398888
+    val INFNORMDISTANCE = 0.1388888888888889
+    val TOTALVARIATIONDISTANCE = 0.16666666666666666
+    val WASSERSTEINDISTANCE = 0.08333333333333333
+    val CHISQUAREDTESTSTATISTIC = 1.222222222222222
+    val CHISQUAREDPVALUE = 0.7476795872877147
+  }
+
+  test(s"DistributionMeasures can calculate Distribution Measures for $feature2") {
+    assert(actualFeature2("kl_divergence") == ExpectedFeature2.KLDIVERGENCE)
+    assert(actualFeature2("js_dist") == ExpectedFeature2.JSDISTANCE)
+    assert(actualFeature2("inf_norm_dist") == ExpectedFeature2.INFNORMDISTANCE)
+    assert(actualFeature2("total_variation_dist") == ExpectedFeature2.TOTALVARIATIONDISTANCE)
+    assert(actualFeature2("wasserstein_dist") == ExpectedFeature2.WASSERSTEINDISTANCE)
+    assert(actualFeature2("chi_sq_stat") == ExpectedFeature2.CHISQUAREDTESTSTATISTIC)
+    assert(actualFeature2("chi_sq_p_value") == ExpectedFeature2.CHISQUAREDPVALUE)
+  }
+}

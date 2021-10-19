@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory
+package com.microsoft.azure.synapse.ml.exploratory.imbalance
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
@@ -13,13 +13,17 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-/**
-  * This transformer computes a set of aggregated measures that represents how balanced or imbalanced
+/** This transformer computes a set of aggregated measures that represents how balanced or imbalanced
   * the given dataframe is along the given sensitive features.
+  *
   * The output is a dataframe that contains one column:
-  *   1. A map containing measure names and their values showing higher notions of inequality.
+  *   - A map containing measure names and their values showing higher notions of inequality.
+  *
   * The output dataframe contains one row.
+  *
   * This feature is experimental. It is subject to change or removal in future releases.
+  *
+  * @param uid The unique ID.
   */
 class AggregateMeasures(override val uid: String)
   extends Transformer
@@ -89,6 +93,7 @@ class AggregateMeasures(override val uid: String)
       if (getVerbose)
         featureStats.cache.show(numRows = 20, truncate = false)
 
+      df.unpersist
       calculateAggregateMeasures(featureStats, featureProbCol)
     })
   }

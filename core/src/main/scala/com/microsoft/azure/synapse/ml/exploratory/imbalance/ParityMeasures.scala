@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory
+package com.microsoft.azure.synapse.ml.exploratory.imbalance
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
@@ -13,15 +13,19 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
-/**
-  * This transformer computes a set of parity measures from the given dataframe and sensitive features.
+/** This transformer computes a set of parity measures from the given dataframe and sensitive features.
+  *
   * The output is a dataframe that contains four columns:
-  *   1. The sensitive feature name.
-  *   2. A feature value within the sensitive feature.
-  *   3. Another feature value within the sensitive feature.
-  *   4. A map containing measure names and their values showing parities between the two feature values.
+  *   - The sensitive feature name.
+  *   - A feature value within the sensitive feature.
+  *   - Another feature value within the sensitive feature.
+  *   - A map containing measure names and their values showing parities between the two feature values.
+  *
   * The output dataframe contains a row per combination of feature values for each sensitive feature.
+  *
   * This feature is experimental. It is subject to change or removal in future releases.
+  *
+  * @param uid The unique ID.
   */
 class ParityMeasures(override val uid: String)
   extends Transformer
@@ -120,6 +124,7 @@ class ParityMeasures(override val uid: String)
         case (dfAcc, (metricName, metricFunc)) => dfAcc.withColumn(metricName, metricFunc)
       }
 
+      df.unpersist
       calculateParityMeasures(associationMetricsDf, metrics, featureValueCol)
     })
   }
