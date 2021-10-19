@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunksynapseml=self.webpackChunksynapseml||[]).push([[3796],{6800:function(e){e.exports=JSON.parse('{"permalink":"/SynapseML/blog","page":1,"postsPerPage":10,"totalPages":1,"totalCount":6,"previousPage":null,"nextPage":null,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

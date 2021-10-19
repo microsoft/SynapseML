@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <id>https://microsoft.github.io/SynapseML/blog</id>
+    <id>https://microsoft.github.io/blog</id>
     <title>Synapse ML Blog</title>
     <updated>2021-10-19T03:16:50.672Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
-    <link rel="alternate" href="https://microsoft.github.io/SynapseML/blog"/>
+    <link rel="alternate" href="https://microsoft.github.io/blog"/>
     <subtitle>Synapse ML Blog</subtitle>
-    <icon>https://microsoft.github.io/SynapseML/img/favicon.ico</icon>
+    <icon>https://microsoft.github.io/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[Overview]]></title>
         <id>Overview</id>
