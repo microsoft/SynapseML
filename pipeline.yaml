@@ -414,13 +414,14 @@ jobs:
       persistCredentials: true
     - task: NodeTool@0
       inputs:
-        versionSpec: '12.13.0'
+        versionSpec: '16.x
       displayName: 'Install Node.js'
     - task: AzureKeyVault@1
       inputs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        yarn install
         git config --global user.name "${GH_NAME}"
         git config --global user.email "${GH_EMAIL}"
         git checkout -b main
