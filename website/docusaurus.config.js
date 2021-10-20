@@ -23,6 +23,7 @@ module.exports = {
     colorMode: {
       defaultMode: 'dark',
     },
+    image: 'img/synapseml_og.jpg',
     navbar: {
       title: 'SynapseML',
       logo: {
