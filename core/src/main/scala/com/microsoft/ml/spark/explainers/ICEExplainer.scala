@@ -9,126 +9,42 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
-import spray.json.{JsValue, JsonFormat, JsNumber, JsString, JsObject}
-
-case class CategoricalFeature(name: String, numTopValues: Option[Int] = None) {
-  def validate: Boolean = {
-    numTopValues.forall(_ > 0)
-  }
-
-  private val defaultNumTopValue = 100
-  def getNumTopValue: Int = {
-    this.numTopValues.getOrElse(defaultNumTopValue)
-  }
-}
-
-object CategoricalFeature {
-  implicit val JsonFormat: JsonFormat[CategoricalFeature] = new JsonFormat[CategoricalFeature] {
-    override def read(json: JsValue): CategoricalFeature = {
-      val fields = json.asJsObject.fields
-      val name = fields("name") match {
-        case JsString(value) => value
-        case _ => throw new Exception("The name field must be a JsString.")
-      }
-      val numTopValues = fields.get("numTopValues") match {
-        case Some(JsNumber(value)) => Some(value.toInt)
-        case _ => None
-      }
-
-      CategoricalFeature(name, numTopValues)
-
-    }
-    override def write(obj: CategoricalFeature): JsValue = {
-      val map = Map("name" -> JsString(obj.name))++
-        obj.numTopValues.map("numTopValues" -> JsNumber(_))
-      JsObject(map)
-    }
-  }
-}
-
-case class NumericFeature(name: String, numSplits: Option[Int] = None,
-                          rangeMin: Option[Double] = None, rangeMax: Option[Double] = None) {
-  def validate: Boolean = {
-    numSplits.forall(_ > 0) && (rangeMax.isEmpty || rangeMin.isEmpty || rangeMin.get <= rangeMax.get)
-  }
-
-  private val defaultNumSplits = 10
-  def getNumSplits: Int = {
-    this.numSplits.getOrElse(defaultNumSplits)
-  }
-}
-
-object NumericFeature {
-  implicit val JsonFormat: JsonFormat[NumericFeature] = new JsonFormat[NumericFeature] {
-    override def read(json: JsValue): NumericFeature = {
-      val fields = json.asJsObject.fields
-      val name = fields("name") match {
-        case JsString(value) => value
-        case _ => throw new Exception("The name field must be a JsString.")
-      }
-
-      val numSplits = fields.get("numSplits") match {
-        case Some(JsNumber(value)) => Some(value.toInt)
-        case _ => None
-      }
-
-      val rangeMin = fields.get("rangeMin").map {
-        case JsNumber(value) => value.toDouble
-      }
-
-      val rangeMax = fields.get("rangeMax").map {
-        case JsNumber(value) => value.toDouble
-      }
-
-      NumericFeature(name, numSplits, rangeMin, rangeMax)
-
-    }
-
-    override def write(obj: NumericFeature): JsValue = {
-      val map = Map("name" -> JsString(obj.name))++
-        obj.numSplits.map("numSplits" -> JsNumber(_))++
-        obj.rangeMin.map("rangeMin" -> JsNumber(_))++
-        obj.rangeMax.map("rangeMax" -> JsNumber(_))
-      JsObject(map)
-    }
-  }
-}
-
 
 trait ICEFeatureParams extends Params with HasNumSamples {
-
-  val categoricalFeatures = new TypedArrayParam[CategoricalFeature] (
+  val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
     this,
     "categoricalFeatures",
     "The list of categorical features to explain.",
     {_.forall(_.validate)}
   )
 
-  def setCategoricalFeatures(values: Seq[CategoricalFeature]): this.type = this.set(categoricalFeatures, values)
-  def getCategoricalFeatures: Seq[CategoricalFeature] = $(categoricalFeatures)
+  def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
+  def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
-  val numericFeatures = new TypedArrayParam[NumericFeature] (
+  val numericFeatures = new TypedArrayParam[ICENumericFeature] (
     this,
     "numericFeatures",
     "The list of numeric features to explain.",
     {_.forall(_.validate)}
   )
 
-  def setNumericFeatures(values: Seq[NumericFeature]): this.type = this.set(numericFeatures, values)
-  def getNumericFeatures: Seq[NumericFeature] = $(numericFeatures)
+  def setNumericFeatures(values: Seq[ICENumericFeature]): this.type = this.set(numericFeatures, values)
+  def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
 
   val kind = new Param[String] (
     this,
     "kind",
-    "Whether to return the partial dependence averaged across all the samples in the " +
-      "dataset or individual feature importance per sample.",
+    "Whether to return the partial dependence plot (PDP) averaged across all the samples in the " +
+      "dataset or individual feature importance (ICE) per sample. " +
+      "Allowed values are \"average\" for PDP and \"individual\" for ICE.",
     ParamValidators.inArray(Array("average", "individual"))
   )
+
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
-  setDefault(kind -> "individual", numericFeatures -> Seq.empty[NumericFeature],
-    categoricalFeatures -> Seq.empty[CategoricalFeature])
+  setDefault(kind -> "individual", numericFeatures -> Seq.empty[ICENumericFeature],
+    categoricalFeatures -> Seq.empty[ICECategoricalFeature])
 }
 
 class ICETransformer(override val uid: String) extends Transformer
@@ -141,13 +57,13 @@ class ICETransformer(override val uid: String) extends Transformer
     this(Identifiable.randomUID("ICETransformer"))
   }
 
-  def processFeature(sampled: DataFrame, idCol: String, targetClassesColumn: String,
-                                feature: String, values: Array[_]): DataFrame = {
+  private def processFeature(df: DataFrame, idCol: String, targetClassesColumn: String,
+                             feature: String, values: Array[_]): DataFrame = {
 
-    val dataType = sampled.schema(feature).dataType
+    val dataType = df.schema(feature).dataType
     val explodeFunc = explode(array(values.map(v => lit(v)): _*).cast(ArrayType(dataType)))
 
-    val predicted = getModel.transform(sampled.withColumn(feature, explodeFunc))
+    val predicted = getModel.transform(df.withColumn(feature, explodeFunc))
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
 
     val explainTarget = extractTarget(predicted.schema, targetClassesColumn)
@@ -155,23 +71,31 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val featImpName = feature + "__imp"
 
-    // output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
     getKind.toLowerCase match {
       case "average" =>
+        // PDP output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
+
+        // TODO: define the temp string column names from DatasetExtensions.findUnusedColumnName
         result
           .groupBy(feature)
-          .agg(Summarizer.mean(col(targetCol)).alias("__feature__importance__"))
-          .agg(collect_list(feature).alias("feature_value_list"),
-            collect_list("__feature__importance__").alias("feature_imp_list"))
-          .withColumn(featImpName, map_from_arrays(col("feature_value_list"), col("feature_imp_list")))
-          .select(featImpName)
-      // output schema: rows * (cols + 1) (ice for the given feature: array(feature_value -> explanations))
+          .agg(Summarizer.mean(col(targetCol)).alias("__feature__dependence__"))
+          .agg(
+            map_from_arrays(
+              collect_list(feature),
+              collect_list("__feature__dependence__")
+            ).alias(feature)
+          )
+
       case "individual" =>
-        val iceFeatures = result.groupBy(idCol)
-          .agg(collect_list(feature).alias("feature_list"), collect_list(targetCol).alias("target_list"))
-          .withColumn(featImpName, map_from_arrays(col("feature_list"), col("target_list")))
-          .select(idCol, featImpName)
-      iceFeatures.select(idCol, featImpName)
+        // ICE output schema: n rows * 2 cols (idCol + ice for the given feature: map(feature_value -> explanations))
+        result
+          .groupBy(idCol)
+          .agg(
+            map_from_arrays(
+              collect_list(feature),
+              collect_list(targetCol)
+            ).alias(featImpName)
+          )
     }
   }
 
@@ -201,24 +125,28 @@ class ICETransformer(override val uid: String) extends Transformer
       s => dfWithId.orderBy(rand()).limit(s)
     }.getOrElse(dfWithId).cache()
 
-    val processCategoricalFunc: CategoricalFeature => DataFrame = {
-      f: CategoricalFeature =>
+    val processCategoricalFunc: ICECategoricalFeature => DataFrame = {
+      f: ICECategoricalFeature =>
         processFeature(sampled, idCol, targetClasses, f.name, collectedCatFeatureValues(f.name))
     }
 
-    val processNumericFunc: NumericFeature => DataFrame = {
-      f: NumericFeature =>
+    val processNumericFunc: ICENumericFeature => DataFrame = {
+      f: ICENumericFeature =>
         processFeature(sampled, idCol, targetClasses, f.name, collectedNumFeatureValues(f.name))
     }
 
-    val stage1 = (categoricalFeatures map processCategoricalFunc) union (numericFeatures map processNumericFunc)
+    val stage1 = (categoricalFeatures map processCategoricalFunc) ++ (numericFeatures map processNumericFunc)
 
     getKind.toLowerCase match {
       case "individual" =>
         val stage2: DataFrame =
           stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.join(currDF, Seq(idCol), "inner"))
 
-        sampled.join(stage2, idCol).drop(idCol)
+        val stage3 = (categoricalFeatures ++ numericFeatures).foldLeft(stage2){
+          case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dep")
+        }
+
+        sampled.join(stage3, idCol).drop(idCol)
 
       case "average" =>
         val stage2: DataFrame = stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.crossJoin(currDF))
@@ -226,7 +154,7 @@ class ICETransformer(override val uid: String) extends Transformer
     }
   }
 
-  private def collectCategoricalValues[_](df: DataFrame, feature: CategoricalFeature): Array[_] = {
+  private def collectCategoricalValues[_](df: DataFrame, feature: ICECategoricalFeature): Array[_] = {
     val values = df
       .groupBy(col(feature.name))
       .agg(count("*").as("__feature__count__"))
@@ -242,7 +170,7 @@ class ICETransformer(override val uid: String) extends Transformer
     }
   }
 
-  private def collectSplits(df: DataFrame, numericFeature: NumericFeature): Array[Double] = {
+  private def collectSplits(df: DataFrame, numericFeature: ICENumericFeature): Array[Double] = {
     val (feature, nSplits, rangeMin, rangeMax) = (numericFeature.name, numericFeature.getNumSplits,
       numericFeature.rangeMin, numericFeature.rangeMax)
     val featureCol = df.schema(feature)
