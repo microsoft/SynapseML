@@ -6,7 +6,7 @@ import com.microsoft.ml.spark.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import com.microsoft.ml.spark.explainers.{DiscreteFeature, ICETransformer}
+import com.microsoft.ml.spark.explainers.{CategoricalFeature, ICETransformer, NumericFeature}
 
 
 class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransformer] {
@@ -35,7 +35,7 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
   ice.setModel(model)
     .setOutputCol("iceValues")
     .setTargetCol("probability")
-    .setDiscreteFeatures(Array(DiscreteFeature("col1", 100), DiscreteFeature("col4", 4)))
+    .setCategoricalFeatures(Array(CategoricalFeature("col1", Some(100)), CategoricalFeature("col4", Some(4))))
     .setTargetClasses(Array(1))
   val output: DataFrame = ice.transform(data)
   output.show(false)
@@ -44,10 +44,13 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
   iceAvg.setModel(model)
     .setOutputCol("iceValues")
     .setTargetCol("probability")
-    .setDiscreteFeatures(Array(DiscreteFeature("col1", 100), DiscreteFeature("col4", 4)))
+    .setCategoricalFeatures(Array(CategoricalFeature("col1", Some(100)), CategoricalFeature("col2")))
+    .setNumericFeatures(Array(NumericFeature("col4"), NumericFeature("col4", Some(3), Some(0.0), Some(100.0))))
     .setTargetClasses(Array(1))
     .setKind("average")
   val outputAvg: DataFrame = iceAvg.transform(data)
   outputAvg.show(false)
+
+
 
 }
