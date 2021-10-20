@@ -19,7 +19,7 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
   *   - The sensitive feature name.
   *   - A feature value within the sensitive feature.
   *   - Another feature value within the sensitive feature.
-  *   - A map containing measure names and their values showing parities between the two feature values.
+  *   - A struct containing measure names and their values showing parities between the two feature values.
   *
   * The output dataframe contains a row per combination of feature values for each sensitive feature.
   *

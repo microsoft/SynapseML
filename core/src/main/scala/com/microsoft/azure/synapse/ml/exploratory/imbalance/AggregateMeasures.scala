@@ -17,7 +17,7 @@ import org.apache.spark.sql.types._
   * the given dataframe is along the given sensitive features.
   *
   * The output is a dataframe that contains one column:
-  *   - A map containing measure names and their values showing higher notions of inequality.
+  *   - A struct containing measure names and their values showing higher notions of inequality.
   *
   * The output dataframe contains one row.
   *

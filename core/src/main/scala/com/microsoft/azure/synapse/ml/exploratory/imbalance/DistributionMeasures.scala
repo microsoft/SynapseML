@@ -20,7 +20,8 @@ import scala.language.postfixOps
   *
   * The output is a dataframe that contains two columns:
   *   - The sensitive feature name.
-  *   - A map containing measure names and their values showing difference between observed and reference distribution.
+  *   - A struct containing measure names and their values showing differences between
+  *   the observed and reference distributions.
   *
   * The output dataframe contains a row per sensitive feature.
   *
