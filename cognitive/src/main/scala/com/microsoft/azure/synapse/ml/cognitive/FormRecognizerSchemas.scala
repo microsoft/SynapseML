@@ -4,7 +4,10 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import org.apache.spark.sql.Row
+import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat}
+import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, StringType, StructField, StructType}
+import spray.json._
 
 object AnalyzeResponse extends SparkBindings[AnalyzeResponse]
 
@@ -52,11 +55,79 @@ case class FieldResult(`type`: String,
                        boundingBox: Option[Seq[Double]],
                        text: Option[String],
                        valueString: Option[String],
+                       valuePhoneNumber: Option[String],
                        valueNumber: Option[Double],
                        valueDate: Option[String],
                        valueTime: Option[String],
                        valueObject: Option[String],
-                       valueArray: Option[Seq[String]])
+                       valueArray: Option[Seq[String]]) {
+
+  def toFieldResultRecursive: FieldResultRecursive = {
+    import FormsJsonProtocol._
+
+    FieldResultRecursive(
+      `type`,
+      page,
+      confidence,
+      boundingBox,
+      text,
+      valueString,
+      valuePhoneNumber,
+      valueNumber,
+      valueDate,
+      valueTime,
+      valueObject.map(_.parseJson.convertTo[Map[String, FieldResultRecursive]]),
+      valueArray.map(seq => seq.map(str => str.parseJson.convertTo[FieldResultRecursive]))
+    )
+  }
+
+}
+
+case class FieldResultRecursive(`type`: String,
+                                page: Option[Int],
+                                confidence: Option[Double],
+                                boundingBox: Option[Seq[Double]],
+                                text: Option[String],
+                                valueString: Option[String],
+                                valuePhoneNumber: Option[String],
+                                valueNumber: Option[Double],
+                                valueDate: Option[String],
+                                valueTime: Option[String],
+                                valueObject: Option[Map[String, FieldResultRecursive]],
+                                valueArray: Option[Seq[FieldResultRecursive]]) {
+
+  private[ml] def toSimplifiedDataType: DataType = {
+    `type`.toLowerCase match {
+      case "string" => StringType
+      case "number" => DoubleType
+      case "date" => StringType
+      case "time" => StringType
+      case "array" =>
+        ArrayType(valueArray.get.map(_.toSimplifiedDataType).reduce(FormOntologyLearner.combineDataTypes))
+      case "object" =>
+        new StructType(valueObject.get.mapValues(_.toSimplifiedDataType)
+          .map({ case (fn, dt) => StructField(fn, dt) }).toArray)
+      case "phonenumber" => StringType
+    }
+  }
+
+  private[ml] def viewAsDataType(dt: DataType): Any = {
+    (`type`.toLowerCase, dt) match {
+      case ("string", StringType) => valueString.get
+      case ("date", StringType) => valueDate.orElse(text).get
+      case ("time", StringType) => valueTime.orElse(text).get
+      case ("phonenumber", StringType) => valuePhoneNumber.orElse(text).get
+      case ("number", StringType) => text.get
+      case ("number", DoubleType) => valueNumber.get
+      case ("array", ArrayType(et, _)) => valueArray.get.map(_.viewAsDataType(et))
+      case ("object", StructType(fields)) =>
+        val obj = valueObject.get
+        Row.fromSeq(fields.map(sf => obj.get(sf.name).map(_.viewAsDataType(sf.dataType))))
+      case _ =>
+        throw new NotImplementedError()
+    }
+  }
+}
 
 case class ModelInfo(modelId: String,
                      status: String,
@@ -96,7 +167,14 @@ case class Field(fieldName: String, accuracy: Double)
 
 object FormsJsonProtocol extends DefaultJsonProtocol {
 
-  implicit val FieldFormat: RootJsonFormat[FieldResult] = jsonFormat11(FieldResult.apply)
+  implicit val FieldFormat: RootJsonFormat[FieldResult] = jsonFormat12(FieldResult.apply)
+
+  implicit val FieldResultRecursiveFormat: JsonFormat[FieldResultRecursive] = lazyFormat(jsonFormat(
+    FieldResultRecursive,
+    "type", "page",
+    "confidence", "boundingBox", "text", "valueString",
+    "valuePhoneNumber", "valueNumber", "valueDate", "valueTime",
+    "valueObject", "valueArray"))
 
   implicit val DRFormat: RootJsonFormat[DocumentResult] = jsonFormat3(DocumentResult.apply)
 
