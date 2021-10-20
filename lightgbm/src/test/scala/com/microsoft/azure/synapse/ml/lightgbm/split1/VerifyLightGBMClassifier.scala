@@ -329,11 +329,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       }
     }
     val scoredDF1 = baseModel
+      .setUseSingleDatasetMode(false)
       .fit(pimaDF)
       .transform(pimaDF)
+
     // Note: run for more iterations than non-custom objective to prevent flakiness
     // Note we intentionally overfit here on the training data and don't do a split
     val scoredDF2 = baseModel
+      .setUseSingleDatasetMode(false)
       .setFObj(new LogLikelihood())
       .setNumIterations(300)
       .fit(pimaDF)
