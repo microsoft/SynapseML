@@ -17,6 +17,7 @@ class ParityMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[Pa
 
   override def reader: MLReadable[_] = ParityMeasures
 
+  import AssociationMetrics._
   import spark.implicits._
 
   private def parityMeasures: ParityMeasures =
@@ -35,15 +36,16 @@ class ParityMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[Pa
   private lazy val val1: String = "Male"
   private lazy val val2: String = "Female"
 
-  private def actual: Map[String, Double] =
-    new ParityMeasures()
+  private def actualGenderMaleFemale: Map[String, Double] =
+    METRICS zip new ParityMeasures()
       .setSensitiveCols(features)
       .setLabelCol(label)
-      .setVerbose(true)
+      .setVerbose(false) // Verbose adds additional cols to parity measures struct, so disable it for unit test
       .transform(sensitiveFeaturesDf)
       .filter((col("ClassA") === val1 && col("ClassB") === val2) || (col("ClassB") === val2 && col("ClassB") === val1))
-      .as[(String, String, String, Map[String, Double])]
-      .collect()(0)._4
+      .select(array(col("ParityMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
 
   private object ExpectedGenderMaleFemale {
     // Values were computed using:
@@ -61,15 +63,17 @@ class ParityMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[Pa
   }
 
   test(s"ParityMeasures can calculate Parity Measures for $feature=$val1 vs. $feature=$val2") {
-    assert(abs(actual("dp")) == abs(ExpectedGenderMaleFemale.DPGAP))
-    assert(abs(actual("sdc")) == abs(ExpectedGenderMaleFemale.SDCGAP))
-    assert(abs(actual("ji")) == abs(ExpectedGenderMaleFemale.JIGAP))
-    assert(abs(actual("llr")) == abs(ExpectedGenderMaleFemale.LLRGAP))
-    assert(abs(actual("pmi")) == abs(ExpectedGenderMaleFemale.PMIGAP))
-    assert(abs(actual("n_pmi_y")) == abs(ExpectedGenderMaleFemale.NPMIYGAP))
-    assert(abs(actual("n_pmi_xy")) == abs(ExpectedGenderMaleFemale.NPMIXYGAP))
-    assert(abs(actual("s_pmi")) == abs(ExpectedGenderMaleFemale.SPMIGAP))
-    assert(abs(actual("krc")) == abs(ExpectedGenderMaleFemale.KRCGAP))
-    assert(abs(actual("t_test")) == abs(ExpectedGenderMaleFemale.TTESTGAP))
+    val actual = actualGenderMaleFemale
+    val expected = ExpectedGenderMaleFemale
+    assert(abs(actual(DP)) == abs(expected.DPGAP))
+    assert(abs(actual(SDC)) == abs(expected.SDCGAP))
+    assert(abs(actual(JI)) == abs(expected.JIGAP))
+    assert(abs(actual(LLR)) == abs(expected.LLRGAP))
+    assert(abs(actual(PMI)) == abs(expected.PMIGAP))
+    assert(abs(actual(NPMIY)) == abs(expected.NPMIYGAP))
+    assert(abs(actual(NPMIXY)) == abs(expected.NPMIXYGAP))
+    assert(abs(actual(SPMI)) == abs(expected.SPMIGAP))
+    assert(abs(actual(KRC)) == abs(expected.KRCGAP))
+    assert(abs(actual(TTEST)) == abs(expected.TTESTGAP))
   }
 }

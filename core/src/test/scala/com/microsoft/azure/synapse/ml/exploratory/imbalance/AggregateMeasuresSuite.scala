@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.exploratory.imbalance
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{array, col}
 
 import scala.math.abs
 
@@ -17,6 +17,7 @@ class AggregateMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing
 
   override def reader: MLReadable[_] = AggregateMeasures
 
+  import AggregateMetrics._
   import spark.implicits._
 
   private def aggregateMeasures: AggregateMeasures =
@@ -31,21 +32,23 @@ class AggregateMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing
   }
 
   private def actualOneFeature: Map[String, Double] =
-    new AggregateMeasures()
+    METRICS zip new AggregateMeasures()
       .setSensitiveCols(Array(feature1))
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
-      .as[Map[String, Double]]
-      .collect()(0)
+      .select(array(col("AggregateMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
 
   private def actualOneFeatureDiffEpsilon: Map[String, Double] =
-    new AggregateMeasures()
+    METRICS zip new AggregateMeasures()
       .setSensitiveCols(Array(feature1))
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
-      .as[Map[String, Double]]
-      .collect()(0)
+      .select(array(col("AggregateMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
 
   private def oneFeatureProbabilities =
     getFeatureStats(sensitiveFeaturesDf.groupBy(feature1)).select(featureProbCol).as[Double].collect()
@@ -65,38 +68,42 @@ class AggregateMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing
   }
 
   test("AggregateMeasures can calculate Atkinson Index for Default Epsilon (1.0) for 1 sensitive feature") {
-    assert(abs(actualOneFeature("atkinson_index") - ExpectedOneFeature.ATKINSONINDEX) < errorTolerance)
+    assert(abs(actualOneFeature(ATKINSONINDEX) - ExpectedOneFeature.ATKINSONINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Atkinson Index for Nondefault Epsilon (0.9) for 1 sensitive feature") {
     assert(abs(
-      actualOneFeatureDiffEpsilon("atkinson_index") - ExpectedOneFeatureDiffEpsilon.ATKINSONINDEX) < errorTolerance)
+      actualOneFeatureDiffEpsilon(ATKINSONINDEX) - ExpectedOneFeatureDiffEpsilon.ATKINSONINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil L Index for 1 sensitive feature") {
-    assert(abs(actualOneFeature("theil_l_index") - ExpectedOneFeature.THEILLINDEX) < errorTolerance)
+    assert(abs(actualOneFeature(THEILLINDEX) - ExpectedOneFeature.THEILLINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil T Index for 1 sensitive feature") {
-    assert(abs(actualOneFeature("theil_t_index") - ExpectedOneFeature.THEILTINDEX) < errorTolerance)
+    assert(abs(actualOneFeature(THEILTINDEX) - ExpectedOneFeature.THEILTINDEX) < errorTolerance)
   }
 
   private def actualTwoFeatures: Map[String, Double] =
-    new AggregateMeasures()
+    METRICS zip new AggregateMeasures()
       .setSensitiveCols(features)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
-      .as[Map[String, Double]]
-      .collect()(0)
+      .select(array(col("AggregateMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
+
 
   private def actualTwoFeaturesDiffEpsilon: Map[String, Double] =
-    new AggregateMeasures()
+    METRICS zip new AggregateMeasures()
       .setSensitiveCols(features)
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
-      .as[Map[String, Double]]
-      .collect()(0)
+      .select(array(col("AggregateMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
+
 
   private def twoFeaturesProbabilities =
     getFeatureStats(sensitiveFeaturesDf.groupBy(features map col: _*)).select(featureProbCol).as[Double].collect()
@@ -116,19 +123,19 @@ class AggregateMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing
   }
 
   test("AggregateMeasures can calculate Atkinson Index for Default Epsilon (1.0) for 2 sensitive features") {
-    assert(abs(actualTwoFeatures("atkinson_index") - ExpectedBothFeatures.ATKINSONINDEX) < errorTolerance)
+    assert(abs(actualTwoFeatures(ATKINSONINDEX) - ExpectedBothFeatures.ATKINSONINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Atkinson Index for Nondefault Epsilon (0.9) for 2 sensitive features") {
     assert(abs(
-      actualTwoFeaturesDiffEpsilon("atkinson_index") - ExpectedBothFeaturesDiffEpsilon.ATKINSONINDEX) < errorTolerance)
+      actualTwoFeaturesDiffEpsilon(ATKINSONINDEX) - ExpectedBothFeaturesDiffEpsilon.ATKINSONINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil L Index for 2 sensitive features") {
-    assert(abs(actualTwoFeatures("theil_l_index") - ExpectedBothFeatures.THEILLINDEX) < errorTolerance)
+    assert(abs(actualTwoFeatures(THEILLINDEX) - ExpectedBothFeatures.THEILLINDEX) < errorTolerance)
   }
 
   test("AggregateMeasures can calculate Theil T Index for 2 sensitive features") {
-    assert(abs(actualTwoFeatures("theil_t_index") - ExpectedBothFeatures.THEILTINDEX) < errorTolerance)
+    assert(abs(actualTwoFeatures(THEILTINDEX) - ExpectedBothFeatures.THEILTINDEX) < errorTolerance)
   }
 }

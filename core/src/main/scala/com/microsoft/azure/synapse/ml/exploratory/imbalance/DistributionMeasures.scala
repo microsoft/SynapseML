@@ -131,13 +131,9 @@ class DistributionMeasures(override val uid: String)
     if (getVerbose)
       distributionMeasures.cache.show(truncate = false)
 
-    val measureTuples = DistributionMetrics.METRICS.flatMap {
-      metricName =>
-        lit(metricName) :: col(metricName) :: Nil
-    }.toSeq
-
+    val measureTuples = DistributionMetrics.METRICS.map(col)
     distributionMeasures
-      .withColumn(getDistributionMeasuresCol, map(measureTuples: _*))
+      .withColumn(getDistributionMeasuresCol, struct(measureTuples: _*))
       .select(col(getFeatureNameCol), col(getDistributionMeasuresCol))
   }
 
@@ -148,8 +144,8 @@ class DistributionMeasures(override val uid: String)
 
     StructType(
       StructField(getFeatureNameCol, StringType, nullable = false) ::
-        StructField(
-          getDistributionMeasuresCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
+        StructField(getDistributionMeasuresCol,
+          StructType(DistributionMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
   }
@@ -166,8 +162,8 @@ object DistributionMetrics {
   val CHISQUAREDTESTSTATISTIC = "chi_sq_stat"
   val CHISQUAREDPVALUE = "chi_sq_p_value"
 
-  val METRICS: Array[String] = Array(KLDIVERGENCE, JSDISTANCE, INFNORMDISTANCE, TOTALVARIATIONDISTANCE,
-    WASSERSTEINDISTANCE, CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
+  val METRICS = Seq(KLDIVERGENCE, JSDISTANCE, INFNORMDISTANCE, TOTALVARIATIONDISTANCE, WASSERSTEINDISTANCE,
+    CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
 }
 
 case class DistributionMetrics(numFeatures: Int,

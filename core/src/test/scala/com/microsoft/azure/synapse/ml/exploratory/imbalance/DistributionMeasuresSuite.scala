@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.exploratory.imbalance
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{array, col}
 
 class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionMeasures] {
 
@@ -16,6 +16,7 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
 
   override def reader: MLReadable[_] = DistributionMeasures
 
+  import DistributionMetrics._
   import spark.implicits._
 
   private def distributionMeasures: DistributionMeasures =
@@ -36,9 +37,10 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
       .transform(sensitiveFeaturesDf)
 
   private def actualFeature1: Map[String, Double] =
-    actual.filter(col("FeatureName") === feature1)
-      .as[(String, Map[String, Double])]
-      .collect()(0)._2
+    METRICS zip actual.filter(col("FeatureName") === feature1)
+      .select(array(col("DistributionMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
 
   private def expectedFeature1 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature1))
     .select(featureProbCol, featureCountCol)
@@ -58,19 +60,22 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
   }
 
   test(s"DistributionMeasures can calculate Distribution Measures for $feature1") {
-    assert(actualFeature1("kl_divergence") == ExpectedFeature1.KLDIVERGENCE)
-    assert(actualFeature1("js_dist") == ExpectedFeature1.JSDISTANCE)
-    assert(actualFeature1("inf_norm_dist") == ExpectedFeature1.INFNORMDISTANCE)
-    assert(actualFeature1("total_variation_dist") == ExpectedFeature1.TOTALVARIATIONDISTANCE)
-    assert(actualFeature1("wasserstein_dist") == ExpectedFeature1.WASSERSTEINDISTANCE)
-    assert(actualFeature1("chi_sq_stat") == ExpectedFeature1.CHISQUAREDTESTSTATISTIC)
-    assert(actualFeature1("chi_sq_p_value") == ExpectedFeature1.CHISQUAREDPVALUE)
+    val actual = actualFeature1
+    val expected = ExpectedFeature1
+    assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)
+    assert(actual(JSDISTANCE) == expected.JSDISTANCE)
+    assert(actual(INFNORMDISTANCE) == expected.INFNORMDISTANCE)
+    assert(actual(TOTALVARIATIONDISTANCE) == expected.TOTALVARIATIONDISTANCE)
+    assert(actual(WASSERSTEINDISTANCE) == expected.WASSERSTEINDISTANCE)
+    assert(actual(CHISQUAREDTESTSTATISTIC) == expected.CHISQUAREDTESTSTATISTIC)
+    assert(actual(CHISQUAREDPVALUE) == expected.CHISQUAREDPVALUE)
   }
 
   private def actualFeature2: Map[String, Double] =
-    actual.filter(col("FeatureName") === feature2)
-      .as[(String, Map[String, Double])]
-      .collect()(0)._2
+    METRICS zip actual.filter(col("FeatureName") === feature2)
+      .select(array(col("DistributionMeasures.*")))
+      .as[Array[Double]]
+      .head toMap
 
   private def expectedFeature2 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature2))
     .select(featureProbCol, featureCountCol)
@@ -90,12 +95,14 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
   }
 
   test(s"DistributionMeasures can calculate Distribution Measures for $feature2") {
-    assert(actualFeature2("kl_divergence") == ExpectedFeature2.KLDIVERGENCE)
-    assert(actualFeature2("js_dist") == ExpectedFeature2.JSDISTANCE)
-    assert(actualFeature2("inf_norm_dist") == ExpectedFeature2.INFNORMDISTANCE)
-    assert(actualFeature2("total_variation_dist") == ExpectedFeature2.TOTALVARIATIONDISTANCE)
-    assert(actualFeature2("wasserstein_dist") == ExpectedFeature2.WASSERSTEINDISTANCE)
-    assert(actualFeature2("chi_sq_stat") == ExpectedFeature2.CHISQUAREDTESTSTATISTIC)
-    assert(actualFeature2("chi_sq_p_value") == ExpectedFeature2.CHISQUAREDPVALUE)
+    val actual = actualFeature2
+    val expected = ExpectedFeature2
+    assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)
+    assert(actual(JSDISTANCE) == expected.JSDISTANCE)
+    assert(actual(INFNORMDISTANCE) == expected.INFNORMDISTANCE)
+    assert(actual(TOTALVARIATIONDISTANCE) == expected.TOTALVARIATIONDISTANCE)
+    assert(actual(WASSERSTEINDISTANCE) == expected.WASSERSTEINDISTANCE)
+    assert(actual(CHISQUAREDTESTSTATISTIC) == expected.CHISQUAREDTESTSTATISTIC)
+    assert(actual(CHISQUAREDPVALUE) == expected.CHISQUAREDPVALUE)
   }
 }

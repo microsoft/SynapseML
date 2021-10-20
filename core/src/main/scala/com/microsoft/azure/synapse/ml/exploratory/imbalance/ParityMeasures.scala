@@ -143,14 +143,12 @@ class ParityMeasures(override val uid: String)
     // If not handled, A == B == 0.0 for some measures equals Double.NegativeInfinity - Double.NegativeInfinity = NaN
     val gapFunc = (colA: Column, colB: Column) => when(colA === colB, lit(0d)).otherwise(colA - colB)
 
-    val gapTuples = metrics.flatMap {
-      case (metricName, _) =>
-        lit(metricName) :: gapFunc(col(s"A.$metricName"), col(s"B.$metricName")) :: Nil
-    }.toSeq
-
-    val measureTuples = if (getVerbose) Seq(lit("prA"), col("A.dp"), lit("prB"), col("B.dp")) else Seq.empty
-
-    combinations.withColumn(getParityMeasuresCol, map(gapTuples ++ measureTuples: _*))
+    val gapTuples = AssociationMetrics.METRICS.map(m => gapFunc(col(s"A.$m"), col(s"B.$m")).alias(m))
+    val measureTuples = if (getVerbose) Seq(
+      col(s"A.${AssociationMetrics.DP}").alias("prA"),
+      col(s"B.${AssociationMetrics.DP}").alias("prB")
+    ) else Seq.empty
+    combinations.withColumn(getParityMeasuresCol, struct(gapTuples ++ measureTuples: _*))
       .select(
         col(s"A.$getFeatureNameCol").alias(getFeatureNameCol),
         col(s"A.$featureValueCol").alias(getClassACol),
@@ -176,8 +174,8 @@ class ParityMeasures(override val uid: String)
       StructField(getFeatureNameCol, StringType, nullable = false) ::
         StructField(getClassACol, StringType, nullable = true) ::
         StructField(getClassBCol, StringType, nullable = true) ::
-        StructField(
-          getParityMeasuresCol, MapType(StringType, DoubleType, valueContainsNull = true), nullable = false) ::
+        StructField(getParityMeasuresCol,
+          StructType(AssociationMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
   }
@@ -185,10 +183,28 @@ class ParityMeasures(override val uid: String)
 
 object ParityMeasures extends ComplexParamsReadable[ParityMeasures]
 
+object AssociationMetrics {
+  val DP = "dp"
+  val SDC = "sdc"
+  val JI = "ji"
+  val LLR = "llr"
+  val PMI = "pmi"
+  val NPMIY = "n_pmi_y"
+  val NPMIXY = "n_pmi_xy"
+  val SPMI = "s_pmi"
+  val KRC = "krc"
+  val TTEST = "t_test"
+
+  val METRICS = Seq(DP, SDC, JI, LLR, PMI, NPMIY, NPMIXY, SPMI, KRC, TTEST)
+}
+
 private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: String,
                                                    featureCountCol: String,
                                                    positiveCountCol: String,
                                                    totalCountCol: String) {
+
+  import AssociationMetrics._
+
   val pPositive: Column = col(positiveCountCol) / col(totalCountCol)
   val pFeature: Column = col(featureCountCol) / col(totalCountCol)
   val pPositiveFeature: Column = col(positiveFeatureCountCol) / col(featureCountCol)
@@ -196,16 +212,16 @@ private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: Stri
   val pFeatureGivenPositive: Column = pPositiveFeature / pPositive
 
   def toColumnMap: Map[String, Column] = Map(
-    "dp" -> dp,
-    "sdc" -> sdc,
-    "ji" -> ji,
-    "llr" -> llr,
-    "pmi" -> pmi,
-    "n_pmi_y" -> nPmiY,
-    "n_pmi_xy" -> nPmiXY,
-    "s_pmi" -> sPmi,
-    "krc" -> krc,
-    "t_test" -> tTest
+    DP -> dp,
+    SDC -> sdc,
+    JI -> ji,
+    LLR -> llr,
+    PMI -> pmi,
+    NPMIY -> nPmiY,
+    NPMIXY -> nPmiXY,
+    SPMI -> sPmi,
+    KRC -> krc,
+    TTEST -> tTest
   )
 
   // Demographic Parity
