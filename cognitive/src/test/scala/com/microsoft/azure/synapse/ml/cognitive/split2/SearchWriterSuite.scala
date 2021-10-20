@@ -12,6 +12,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{lit, monotonically_increasing_id}
 
 import java.util.UUID
 import scala.collection.mutable
