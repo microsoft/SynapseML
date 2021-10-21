@@ -29,6 +29,7 @@ import scala.language.postfixOps
   *
   * @param uid The unique ID.
   */
+@org.apache.spark.annotation.Experimental
 class DistributionMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable

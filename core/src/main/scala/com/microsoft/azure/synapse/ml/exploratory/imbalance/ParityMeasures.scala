@@ -27,6 +27,7 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
   *
   * @param uid The unique ID.
   */
+@org.apache.spark.annotation.Experimental
 class ParityMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable

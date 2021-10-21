@@ -25,6 +25,7 @@ import org.apache.spark.sql.types._
   *
   * @param uid The unique ID.
   */
+@org.apache.spark.annotation.Experimental
 class AggregateMeasures(override val uid: String)
   extends Transformer
     with ComplexParamsWritable
