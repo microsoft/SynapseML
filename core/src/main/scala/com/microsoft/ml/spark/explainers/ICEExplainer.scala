@@ -11,6 +11,10 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 
 trait ICEFeatureParams extends Params with HasNumSamples {
+
+  val averageKind = "average"
+  val individualKind = "individual"
+
   val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
     this,
     "categoricalFeatures",
@@ -37,7 +41,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     "Whether to return the partial dependence plot (PDP) averaged across all the samples in the " +
       "dataset or individual feature importance (ICE) per sample. " +
       "Allowed values are \"average\" for PDP and \"individual\" for ICE.",
-    ParamValidators.inArray(Array("average", "individual"))
+    ParamValidators.inArray(Array(averageKind, individualKind))
   )
 
   def getKind: String = $(kind)
@@ -57,7 +61,7 @@ class ICETransformer(override val uid: String) extends Transformer
     this(Identifiable.randomUID("ICETransformer"))
   }
 
-  private def processFeature(df: DataFrame, idCol: String, targetClassesColumn: String,
+  private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
                              feature: String, values: Array[_]): DataFrame = {
 
     val dataType = df.schema(feature).dataType
@@ -69,10 +73,8 @@ class ICETransformer(override val uid: String) extends Transformer
     val explainTarget = extractTarget(predicted.schema, targetClassesColumn)
     val result = predicted.withColumn(targetCol, explainTarget)
 
-    val featImpName = feature + "__imp"
-
     getKind.toLowerCase match {
-      case "average" =>
+      case super.averageKind =>
         // PDP output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
 
         // TODO: define the temp string column names from DatasetExtensions.findUnusedColumnName
@@ -86,7 +88,7 @@ class ICETransformer(override val uid: String) extends Transformer
             ).alias(feature)
           )
 
-      case "individual" =>
+      case super.individualKind =>
         // ICE output schema: n rows * 2 cols (idCol + ice for the given feature: map(feature_value -> explanations))
         result
           .groupBy(idCol)
@@ -94,24 +96,34 @@ class ICETransformer(override val uid: String) extends Transformer
             map_from_arrays(
               collect_list(feature),
               collect_list(targetCol)
-            ).alias(featImpName)
+            ).alias(feature)
           )
     }
   }
 
-
   def transform(ds: Dataset[_]): DataFrame = {
+    transformSchema(ds.schema)
+
     val df = ds.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
       .withColumn(idCol, monotonically_increasing_id())
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
-    transformSchema(df.schema)
+
 
     // collect feature values for all features from original dataset - dfWithId
     val categoricalFeatures = this.getCategoricalFeatures
     val numericFeatures = this.getNumericFeatures
+
+    // TODO: Move the check into transformSchema
+    // Check for duplicate feature specification
+    val featureNames = categoricalFeatures.map(_.name) ++ numericFeatures.map(_.name)
+
+    val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 0).keys.toArray
+    if (duplicateFeatureNames.nonEmpty) {
+      throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
+    }
 
     val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
       feature => (feature.name, collectCategoricalValues(dfWithId, feature))
@@ -125,32 +137,37 @@ class ICETransformer(override val uid: String) extends Transformer
       s => dfWithId.orderBy(rand()).limit(s)
     }.getOrElse(dfWithId).cache()
 
-    val processCategoricalFunc: ICECategoricalFeature => DataFrame = {
+    val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
-        processFeature(sampled, idCol, targetClasses, f.name, collectedCatFeatureValues(f.name))
+        calcDependence(sampled, idCol, targetClasses, f.name, collectedCatFeatureValues(f.name))
     }
 
-    val processNumericFunc: ICENumericFeature => DataFrame = {
+    val calcNumericFunc: ICENumericFeature => DataFrame = {
       f: ICENumericFeature =>
-        processFeature(sampled, idCol, targetClasses, f.name, collectedNumFeatureValues(f.name))
+        calcDependence(sampled, idCol, targetClasses, f.name, collectedNumFeatureValues(f.name))
     }
 
-    val stage1 = (categoricalFeatures map processCategoricalFunc) ++ (numericFeatures map processNumericFunc)
+    val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
     getKind.toLowerCase match {
-      case "individual" =>
-        val stage2: DataFrame =
-          stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.join(currDF, Seq(idCol), "inner"))
+      case super.individualKind =>
+        dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
+          .map {
+            df =>
+              (categoricalFeatures ++ numericFeatures).foldLeft(df) {
+                case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
+              }
+          }
+          .map(sampled.join(_, idCol)).getOrElse(
+          throw new Exception("No categorical features or numeric features are set to the explainer. " +
+            "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
+        )
 
-        val stage3 = (categoricalFeatures ++ numericFeatures).foldLeft(stage2){
-          case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dep")
-        }
-
-        sampled.join(stage3, idCol).drop(idCol)
-
-      case "average" =>
-        val stage2: DataFrame = stage1.tail.foldLeft(stage1.head)((accDF, currDF) => accDF.crossJoin(currDF))
-        stage2
+      case super.averageKind =>
+        dependenceDfs.reduceOption(_ crossJoin _).getOrElse(
+          throw new Exception("No categorical features or numeric features are set to the explainer. " +
+            "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
+        )
     }
   }
 
