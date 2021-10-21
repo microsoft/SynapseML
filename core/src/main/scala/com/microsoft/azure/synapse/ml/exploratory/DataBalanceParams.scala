@@ -1,12 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
-import org.apache.spark.ml.param.{BooleanParam, Param, Params, StringArrayParam}
+import org.apache.spark.ml.param.shared.HasOutputCol
+import org.apache.spark.ml.param.{BooleanParam, Params, StringArrayParam}
 import org.apache.spark.sql.types._
 
-trait DataBalanceParams extends Params {
+trait DataBalanceParams extends Params with HasOutputCol {
   val sensitiveCols = new StringArrayParam(
     this,
     "sensitiveCols",
@@ -17,16 +18,6 @@ trait DataBalanceParams extends Params {
 
   def setSensitiveCols(values: Array[String]): this.type = set(sensitiveCols, values)
 
-  val labelCol = new Param[String](
-    this,
-    "labelCol",
-    "Label column to use."
-  )
-
-  def getLabelCol: String = $(labelCol)
-
-  def setLabelCol(value: String): this.type = set(labelCol, value)
-
   val verbose = new BooleanParam(
     this,
     "verbose",
@@ -36,6 +27,8 @@ trait DataBalanceParams extends Params {
   def getVerbose: Boolean = $(verbose)
 
   def setVerbose(value: Boolean): this.type = set(verbose, value)
+
+  def setOutputCol(value: String): this.type = set(outputCol, value)
 
   setDefault(
     verbose -> false

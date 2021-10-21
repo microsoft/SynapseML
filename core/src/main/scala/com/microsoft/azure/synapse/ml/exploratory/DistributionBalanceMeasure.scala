@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -16,30 +16,35 @@ import org.apache.spark.sql.types._
 
 import scala.language.postfixOps
 
-/** This transformer computes data imbalance measures based on a reference distribution.
+/** This transformer computes data balance measures based on a reference distribution.
+  * For now, we only support a uniform reference distribution.
   *
   * The output is a dataframe that contains two columns:
   *   - The sensitive feature name.
   *   - A struct containing measure names and their values showing differences between
-  *   the observed and reference distributions.
+  *     the observed and reference distributions. The following measures are computed:
+  *     - Kullback-Leibler Divergence - https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+  *     - Jensen-Shannon Distance - https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence
+  *     - Wasserstein Distance - https://en.wikipedia.org/wiki/Wasserstein_metric
+  *     - Infinity Norm Distance - https://en.wikipedia.org/wiki/Chebyshev_distance
+  *     - Total Variation Distance - https://en.wikipedia.org/wiki/Total_variation_distance_of_probability_measures
+  *     - Chi-Squared Test - https://en.wikipedia.org/wiki/Chi-squared_test
   *
   * The output dataframe contains a row per sensitive feature.
-  *
-  * This feature is experimental. It is subject to change or removal in future releases.
   *
   * @param uid The unique ID.
   */
 @org.apache.spark.annotation.Experimental
-class DistributionMeasures(override val uid: String)
+class DistributionBalanceMeasure(override val uid: String)
   extends Transformer
-    with ComplexParamsWritable
     with DataBalanceParams
+    with ComplexParamsWritable
     with Wrappable
     with BasicLogging {
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("DistributionMeasures"))
+  def this() = this(Identifiable.randomUID("DistributionBalanceMeasure"))
 
   val featureNameCol = new Param[String](
     this,
@@ -51,19 +56,9 @@ class DistributionMeasures(override val uid: String)
 
   def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
 
-  val distributionMeasuresCol = new Param[String](
-    this,
-    "distributionMeasuresCol",
-    "Output column name for distribution measures."
-  )
-
-  def getDistributionMeasuresCol: String = $(distributionMeasuresCol)
-
-  def setDistributionMeasuresCol(value: String): this.type = set(distributionMeasuresCol, value)
-
   setDefault(
     featureNameCol -> "FeatureName",
-    distributionMeasuresCol -> "DistributionMeasures"
+    outputCol -> "DistributionBalanceMeasure"
   )
 
   private val uniformDistribution: Int => String => Double = {
@@ -135,8 +130,8 @@ class DistributionMeasures(override val uid: String)
 
     val measureTuples = DistributionMetrics.METRICS.map(col)
     distributionMeasures
-      .withColumn(getDistributionMeasuresCol, struct(measureTuples: _*))
-      .select(col(getFeatureNameCol), col(getDistributionMeasuresCol))
+      .withColumn(getOutputCol, struct(measureTuples: _*))
+      .select(col(getFeatureNameCol), col(getOutputCol))
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -146,17 +141,17 @@ class DistributionMeasures(override val uid: String)
 
     StructType(
       StructField(getFeatureNameCol, StringType, nullable = false) ::
-        StructField(getDistributionMeasuresCol,
+        StructField(getOutputCol,
           StructType(DistributionMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
   }
 }
 
-object DistributionMeasures extends ComplexParamsReadable[DistributionMeasures]
+object DistributionBalanceMeasure extends ComplexParamsReadable[DistributionBalanceMeasure]
 
 //noinspection SpellCheckingInspection
-private[imbalance] object DistributionMetrics {
+private[exploratory] object DistributionMetrics {
   val KLDIVERGENCE = "kl_divergence"
   val JSDISTANCE = "js_dist"
   val INFNORMDISTANCE = "inf_norm_dist"
@@ -170,11 +165,11 @@ private[imbalance] object DistributionMetrics {
 }
 
 //noinspection SpellCheckingInspection
-private[imbalance] case class DistributionMetrics(numFeatures: Int,
-                               obsFeatureProbCol: String,
-                               obsFeatureCountCol: String,
-                               refFeatureProbCol: String,
-                               refFeatureCountCol: String) {
+private[exploratory] case class DistributionMetrics(numFeatures: Int,
+                                                    obsFeatureProbCol: String,
+                                                    obsFeatureCountCol: String,
+                                                    refFeatureProbCol: String,
+                                                    refFeatureCountCol: String) {
 
   import DistributionMetrics._
 

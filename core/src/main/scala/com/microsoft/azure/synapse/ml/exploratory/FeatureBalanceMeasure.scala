@@ -1,43 +1,51 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.shared.HasLabelCol
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
-/** This transformer computes a set of parity measures from the given dataframe and sensitive features.
+/** This transformer computes a set of balance measures from the given dataframe and sensitive features.
   *
   * The output is a dataframe that contains four columns:
   *   - The sensitive feature name.
   *   - A feature value within the sensitive feature.
   *   - Another feature value within the sensitive feature.
   *   - A struct containing measure names and their values showing parities between the two feature values.
+  *     The following measures are computed:
+  *     - Demographic Parity - https://en.wikipedia.org/wiki/Fairness_(machine_learning)
+  *     - Pointwise Mutual Information - https://en.wikipedia.org/wiki/Pointwise_mutual_information
+  *     - Sorensen-Dice Coefficient - https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
+  *     - Jaccard Index - https://en.wikipedia.org/wiki/Jaccard_index
+  *     - Kendall Rank Correlation - https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient
+  *     - Log-Likelihood Ratio - https://en.wikipedia.org/wiki/Likelihood_function#Likelihood_ratio
+  *     - t-test - https://en.wikipedia.org/wiki/Student's_t-test
   *
   * The output dataframe contains a row per combination of feature values for each sensitive feature.
-  *
-  * This feature is experimental. It is subject to change or removal in future releases.
   *
   * @param uid The unique ID.
   */
 @org.apache.spark.annotation.Experimental
-class ParityMeasures(override val uid: String)
+class FeatureBalanceMeasure(override val uid: String)
   extends Transformer
-    with ComplexParamsWritable
     with DataBalanceParams
+    with HasLabelCol
+    with ComplexParamsWritable
     with Wrappable
     with BasicLogging {
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("ParityMeasures"))
+  def this() = this(Identifiable.randomUID("FeatureBalanceMeasure"))
 
   val featureNameCol = new Param[String](
     this,
@@ -69,21 +77,13 @@ class ParityMeasures(override val uid: String)
 
   def setClassBCol(value: String): this.type = set(classBCol, value)
 
-  val parityMeasuresCol = new Param[String](
-    this,
-    "parityMeasuresCol",
-    "Output column name for parity measures."
-  )
-
-  def getParityMeasuresCol: String = $(parityMeasuresCol)
-
-  def setParityMeasuresCol(value: String): this.type = set(parityMeasuresCol, value)
+  def setLabelCol(value: String): this.type = set(labelCol, value)
 
   setDefault(
     featureNameCol -> "FeatureName",
     classACol -> "ClassA",
     classBCol -> "ClassB",
-    parityMeasuresCol -> "ParityMeasures"
+    outputCol -> "FeatureBalanceMeasure"
   )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -148,12 +148,12 @@ class ParityMeasures(override val uid: String)
       col(s"A.${AssociationMetrics.DP}").alias("prA"),
       col(s"B.${AssociationMetrics.DP}").alias("prB")
     ) else Seq.empty
-    combinations.withColumn(getParityMeasuresCol, struct(gapTuples ++ measureTuples: _*))
+    combinations.withColumn(getOutputCol, struct(gapTuples ++ measureTuples: _*))
       .select(
         col(s"A.$getFeatureNameCol").alias(getFeatureNameCol),
         col(s"A.$featureValueCol").alias(getClassACol),
         col(s"B.$featureValueCol").alias(getClassBCol),
-        col(getParityMeasuresCol)
+        col(getOutputCol)
       )
   }
 
@@ -174,17 +174,17 @@ class ParityMeasures(override val uid: String)
       StructField(getFeatureNameCol, StringType, nullable = false) ::
         StructField(getClassACol, StringType, nullable = true) ::
         StructField(getClassBCol, StringType, nullable = true) ::
-        StructField(getParityMeasuresCol,
+        StructField(getOutputCol,
           StructType(AssociationMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
   }
 }
 
-object ParityMeasures extends ComplexParamsReadable[ParityMeasures]
+object FeatureBalanceMeasure extends ComplexParamsReadable[FeatureBalanceMeasure]
 
 //noinspection SpellCheckingInspection
-private[imbalance] object AssociationMetrics {
+private[exploratory] object AssociationMetrics {
   val DP = "dp"
   val SDC = "sdc"
   val JI = "ji"
@@ -200,7 +200,7 @@ private[imbalance] object AssociationMetrics {
 }
 
 //noinspection SpellCheckingInspection
-private[imbalance] case class AssociationMetrics(positiveFeatureCountCol: String,
+private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: String,
                                                    featureCountCol: String,
                                                    positiveCountCol: String,
                                                    totalCountCol: String) {

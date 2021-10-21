@@ -1,44 +1,44 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{array, col}
 
-class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionMeasures] {
+class DistributionBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionBalanceMeasure] {
 
-  override def testObjects(): Seq[TestObject[DistributionMeasures]] = Seq(
-    new TestObject(distributionMeasures, sensitiveFeaturesDf)
+  override def testObjects(): Seq[TestObject[DistributionBalanceMeasure]] = Seq(
+    new TestObject(distributionBalanceMeasure, sensitiveFeaturesDf)
   )
 
-  override def reader: MLReadable[_] = DistributionMeasures
+  override def reader: MLReadable[_] = DistributionBalanceMeasure
 
   import DistributionMetrics._
   import spark.implicits._
 
-  private def distributionMeasures: DistributionMeasures =
-    new DistributionMeasures()
+  private def distributionBalanceMeasure: DistributionBalanceMeasure =
+    new DistributionBalanceMeasure()
       .setSensitiveCols(features)
       .setVerbose(true)
 
-  test("DistributionMeasures can calculate Distribution Measures end-to-end") {
-    val df = distributionMeasures.transform(sensitiveFeaturesDf)
+  test("DistributionBalanceMeasure can calculate Distribution Balance Measures end-to-end") {
+    val df = distributionBalanceMeasure.transform(sensitiveFeaturesDf)
     df.show(truncate = false)
     df.printSchema()
   }
 
   private def actual: DataFrame =
-    new DistributionMeasures()
+    new DistributionBalanceMeasure()
       .setSensitiveCols(features)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
 
   private def actualFeature1: Map[String, Double] =
     METRICS zip actual.filter(col("FeatureName") === feature1)
-      .select(array(col("DistributionMeasures.*")))
+      .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
       .head toMap
 
@@ -48,8 +48,8 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
 
   private object ExpectedFeature1 {
     // Values were computed using:
-    // val CALCULATOR =
-    //  DistributionMeasureCalculator(expectedFeature1.map(_._1), expectedFeature1.map(_._2), sensitiveFeaturesDf.count)
+    // val CALC =
+    //  DistributionMetricsCalculator(expectedFeature1.map(_._1), expectedFeature1.map(_._2), sensitiveFeaturesDf.count)
     val KLDIVERGENCE = 0.03775534151008829
     val JSDISTANCE = 0.09785224086736323
     val INFNORMDISTANCE = 0.1111111111111111
@@ -59,7 +59,7 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
     val CHISQUAREDPVALUE = 0.7165313105737893
   }
 
-  test(s"DistributionMeasures can calculate Distribution Measures for $feature1") {
+  test(s"DistributionBalanceMeasure can calculate Distribution Balance Measures for $feature1") {
     val actual = actualFeature1
     val expected = ExpectedFeature1
     assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)
@@ -73,7 +73,7 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
 
   private def actualFeature2: Map[String, Double] =
     METRICS zip actual.filter(col("FeatureName") === feature2)
-      .select(array(col("DistributionMeasures.*")))
+      .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
       .head toMap
 
@@ -83,8 +83,8 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
 
   private object ExpectedFeature2 {
     // Values were computed using:
-    // val CALCULATOR =
-    //  DistributionMeasureCalculator(expectedFeature2.map(_._1), expectedFeature2.map(_._2), sensitiveFeaturesDf.count)
+    // val CALC =
+    //  DistributionMetricsCalculator(expectedFeature2.map(_._1), expectedFeature2.map(_._2), sensitiveFeaturesDf.count)
     val KLDIVERGENCE = 0.07551068302017659
     val JSDISTANCE = 0.14172745151398888
     val INFNORMDISTANCE = 0.1388888888888889
@@ -94,7 +94,7 @@ class DistributionMeasuresSuite extends DataBalanceTestBase with TransformerFuzz
     val CHISQUAREDPVALUE = 0.7476795872877147
   }
 
-  test(s"DistributionMeasures can calculate Distribution Measures for $feature2") {
+  test(s"DistributionBalanceMeasure can calculate Distribution Balance Measures for $feature2") {
     val actual = actualFeature2
     val expected = ExpectedFeature2
     assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)

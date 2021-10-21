@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
@@ -13,39 +13,30 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-/** This transformer computes a set of aggregated measures that represents how balanced or imbalanced
+/** This transformer computes a set of aggregated balance measures that represents how balanced
   * the given dataframe is along the given sensitive features.
   *
   * The output is a dataframe that contains one column:
   *   - A struct containing measure names and their values showing higher notions of inequality.
+  *     The following measures are computed:
+  *     - Atkinson Index - https://en.wikipedia.org/wiki/Atkinson_index
+  *     - Theil Index (L and T) - https://en.wikipedia.org/wiki/Theil_index
   *
   * The output dataframe contains one row.
-  *
-  * This feature is experimental. It is subject to change or removal in future releases.
   *
   * @param uid The unique ID.
   */
 @org.apache.spark.annotation.Experimental
-class AggregateMeasures(override val uid: String)
+class AggregateBalanceMeasure(override val uid: String)
   extends Transformer
-    with ComplexParamsWritable
     with DataBalanceParams
+    with ComplexParamsWritable
     with Wrappable
     with BasicLogging {
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("AggregateMeasures"))
-
-  val aggregateMeasuresCol = new Param[String](
-    this,
-    "aggregateMeasuresCol",
-    "Output column name for aggregate measures."
-  )
-
-  def getAggregateMeasuresCol: String = $(aggregateMeasuresCol)
-
-  def setAggregateMeasuresCol(value: String): this.type = set(aggregateMeasuresCol, value)
+  def this() = this(Identifiable.randomUID("AggregateBalanceMeasure"))
 
   val epsilon = new DoubleParam(
     this,
@@ -68,7 +59,7 @@ class AggregateMeasures(override val uid: String)
   def setErrorTolerance(value: Double): this.type = set(errorTolerance, value)
 
   setDefault(
-    aggregateMeasuresCol -> "AggregateMeasures",
+    outputCol -> "AggregateBalanceMeasure",
     epsilon -> 1d,
     errorTolerance -> 1e-12
   )
@@ -111,7 +102,7 @@ class AggregateMeasures(override val uid: String)
       aggDf.cache.show(truncate = false)
 
     val measureTuples = AggregateMetrics.METRICS.map(col)
-    aggDf.withColumn(getAggregateMeasuresCol, struct(measureTuples: _*)).select(getAggregateMeasuresCol)
+    aggDf.withColumn(getOutputCol, struct(measureTuples: _*)).select(getOutputCol)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -120,17 +111,17 @@ class AggregateMeasures(override val uid: String)
     validateSchema(schema)
 
     StructType(
-      StructField(getAggregateMeasuresCol,
+      StructField(getOutputCol,
         StructType(AggregateMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
   }
 }
 
-object AggregateMeasures extends ComplexParamsReadable[AggregateMeasures]
+object AggregateBalanceMeasure extends ComplexParamsReadable[AggregateBalanceMeasure]
 
 //noinspection SpellCheckingInspection
-private[imbalance] object AggregateMetrics {
+private[exploratory] object AggregateMetrics {
   val ATKINSONINDEX = "atkinson_index"
   val THEILLINDEX = "theil_l_index"
   val THEILTINDEX = "theil_t_index"
@@ -139,11 +130,11 @@ private[imbalance] object AggregateMetrics {
 }
 
 //noinspection SpellCheckingInspection
-private[imbalance] case class AggregateMetrics(featureProbCol: String,
-                            numFeatures: Double,
-                            meanFeatures: Double,
-                            epsilon: Double,
-                            errorTolerance: Double) {
+private[exploratory] case class AggregateMetrics(featureProbCol: String,
+                                                 numFeatures: Double,
+                                                 meanFeatures: Double,
+                                                 epsilon: Double,
+                                                 errorTolerance: Double) {
 
   import AggregateMetrics._
 

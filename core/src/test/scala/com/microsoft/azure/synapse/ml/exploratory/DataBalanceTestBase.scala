@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.exploratory.imbalance
+package com.microsoft.azure.synapse.ml.exploratory
 
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -47,7 +47,12 @@ trait DataBalanceTestBase extends TestBase {
       .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
 }
 
-case class GapCalculator(numRows: Double, pY: Double, pX1: Double, pX1andY: Double, pX2: Double, pX2andY: Double) {
+case class AssociationMetricsCalculator(numRows: Double,
+                                        pY: Double,
+                                        pX1: Double,
+                                        pX1andY: Double,
+                                        pX2: Double,
+                                        pX2andY: Double) {
   val pYgivenX1: Double = pX1andY / pX1
   val pX1givenY: Double = pX1andY / pY
   val pYgivenX2: Double = pX2andY / pX2
@@ -75,7 +80,7 @@ case class GapCalculator(numRows: Double, pY: Double, pX1: Double, pX1andY: Doub
   val tTestGap: Double = (pX1andY - pX1 * pY) / sqrt(pX1 * pY) - (pX2andY - pX2 * pY) / sqrt(pX2 * pY)
 }
 
-case class AggregateMeasureCalculator(featureProbabilities: Array[Double], epsilon: Double, errorTolerance: Double) {
+case class AggregateMetricsCalculator(featureProbabilities: Array[Double], epsilon: Double, errorTolerance: Double) {
   val numFeatures: Double = featureProbabilities.length
   val meanFeatures: Double = featureProbabilities.sum / numFeatures
   val normFeatureProbabilities: Array[Double] = featureProbabilities.map(_ / meanFeatures)
@@ -103,7 +108,7 @@ case class AggregateMeasureCalculator(featureProbabilities: Array[Double], epsil
   }
 }
 
-case class DistributionMeasureCalculator(obsFeatureProbabilities: Array[Double],
+case class DistributionMetricsCalculator(obsFeatureProbabilities: Array[Double],
                                          obsFeatureCounts: Array[Double],
                                          numRows: Double) {
   val numFeatures: Double = obsFeatureProbabilities.length
