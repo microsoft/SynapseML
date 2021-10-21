@@ -1,31 +1,31 @@
-![MMLSpark](https://mmlspark.azureedge.net/icons/mmlspark.svg)
+![SynapseML](https://mmlspark.azureedge.net/icons/mmlspark.svg)
 
-# Microsoft Machine Learning for Apache Spark
+# Synapse Machine Learning
 
-[![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/Azure.mmlspark?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=15131&branchName=master) [![codecov](https://codecov.io/gh/Azure/mmlspark/branch/master/graph/badge.svg)](https://codecov.io/gh/Azure/mmlspark) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+[![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Azure/mmlspark/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.9.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
 
-[![Version](https://img.shields.io/badge/version-1.0.0--rc2-blue)](https://github.com/Azure/mmlspark/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+[![Version](https://img.shields.io/badge/version-0.9.1-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
-MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework
+SynapseML is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions. 
-MMLSpark adds many deep learning and data science tools to the Spark ecosystem,
+SynapseML adds many deep learning and data science tools to the Spark ecosystem,
 including seamless integration of Spark Machine Learning pipelines with [Microsoft Cognitive Toolkit
 (CNTK)](https://github.com/Microsoft/CNTK), [LightGBM](https://github.com/Microsoft/LightGBM) and
 [OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
 for a variety of datasources.
 
-MMLSpark also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users 
-can embed **any** web service into their SparkML models. In this vein, MMLSpark provides easy to use 
+SynapseML also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users 
+can embed **any** web service into their SparkML models. In this vein, SynapseML provides easy to use 
 SparkML transformers for a wide variety of [Microsoft Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/). For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
-MMLSpark requires Scala 2.11, Spark 2.4+, and Python 3.5+.
+SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
 See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.html).
+Scala](https://mmlspark.blob.core.windows.net/docs/0.9.1/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/index.html).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -60,7 +60,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> |<img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
 |:--:|:--:|:--:|
-|  **Isolation Forest on Spark**  | [**CyberML**](https://github.com/Azure/mmlspark/blob/master/notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | **Conditional KNN**  |
+|  **Isolation Forest on Spark**  | [**CyberML**](https://github.com/Microsoft/SynapseML/blob/master/notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | **Conditional KNN**  |
 |  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries | 
 
 
@@ -71,7 +71,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/1.0.0-rc3/pyspark/index.htm
 -   Fit a LightGBM classification or regression model on a biochemical dataset
     ([example 3]), to learn more check out the [LightGBM documentation
     page](docs/lightgbm.md).
--   Deploy a deep network as a distributed web service with [MMLSpark
+-   Deploy a deep network as a distributed web service with [SynapseML
     Serving](docs/mmlspark-serving.md)
 -   Use web services in Spark with [HTTP on Apache Spark](docs/http.md)
 -   Use Bi-directional LSTMs from Keras for medical entity extraction
@@ -93,11 +93,11 @@ See our [notebooks](notebooks/) for all examples.
 
 [example 2]: notebooks/Regression%20-%20Flight%20Delays.ipynb "Regression Example with Flight Delay Dataset"
 
-[example 3]: notebooks/LightGBM%20-%20Quantile%20Regression%20for%20Drug%20Discovery.ipynb "Quantile Regression with LightGBM"
+[example 3]: notebooks/LightGBM%20-%20Overview.ipynb "Quantile Regression with LightGBM"
 
 [example 4]: notebooks/TextAnalytics%20-%20Amazon%20Book%20Reviews.ipynb "Amazon Book Reviews - TextFeaturizer"
 
-[example 5]: notebooks/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb "Hyperparameter Tuning with MMLSpark"
+[example 5]: notebooks/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer.ipynb "Hyperparameter Tuning with SynapseML"
 
 [example 6]: notebooks/DeepLearning%20-%20CIFAR10%20Convolutional%20Network.ipynb "CIFAR10 CNTK CNN Evaluation"
 
@@ -124,9 +124,9 @@ classify images in the CIFAR-10 dataset.  View the whole source code in notebook
 
 ```python
 ...
-import mmlspark
+import synapse.ml
 # Initialize CNTKModel and define input and output columns
-cntkModel = mmlspark.cntk.CNTKModel() \
+cntkModel = synapse.ml.cntk.CNTKModel() \
   .setInputCol("images").setOutputCol("output") \
   .setModelLocation(modelFile)
 # Train on dataset with internal spark pipeline
@@ -134,7 +134,7 @@ scoredImages = cntkModel.transform(imagesWithLabels)
 ...
 ```
 
-See [other sample notebooks](notebooks/) as well as the MMLSpark
+See [other sample notebooks](notebooks/) as well as the SynapseML
 documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 [PySpark](http://mmlspark.azureedge.net/docs/pyspark/).
 
@@ -142,17 +142,17 @@ documentation for [Scala](http://mmlspark.azureedge.net/docs/scala/) and
 
 ### Python
 
-To try out MMLSpark on a Python (or Conda) installation you can get Spark
+To try out SynapseML on a Python (or Conda) installation you can get Spark
 installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
 the above example, or from python:
 
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
-import mmlspark
+import synapse.ml
 ```
 
 ### SBT
@@ -161,65 +161,80 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-resolvers += "MMLSpark" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.ml.spark" %% "mmlspark" % "1.0.0-rc3"
+resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
+libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.1"
 
 ```
 
 ### Spark package
 
-MMLSpark can be conveniently installed on existing Spark clusters via the
+SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-pyspark --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3
-spark-submit --packages com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3 MyApp.jar
+spark-shell --packages com.microsoft.azure:synapseml:0.9.1
+pyspark --packages com.microsoft.azure:synapseml:0.9.1
+spark-submit --packages com.microsoft.azure:synapseml:0.9.1 MyApp.jar
 ```
 
-This can be used in other Spark contexts too. For example, you can use MMLSpark
+This can be used in other Spark contexts too. For example, you can use SynapseML
 in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
 `.aztk/spark-defaults.conf`
 file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
 
 ### Databricks
 
-To install MMLSpark on the [Databricks
+To install SynapseML on the [Databricks
 cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3` 
+For the coordinates use: `com.microsoft.azure:synapseml:0.9.1` 
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
-Finally, ensure that your Spark cluster has at least Spark 2.4 and Scala 2.11.
+Finally, ensure that your Spark cluster has at least Spark 3.12 and Scala 2.12.
 
-You can use MMLSpark in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
+You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv1.0.0-rc3.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.1.dbc`
 
 ### Apache Livy and HDInsight
 
-To install MMLSpark from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
+To install SynapseML from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
 
 Excluding certain packages from the library may be necessary due to current issues with Livy 0.5
 
 ```
 %%configure -f
 {
-    "name": "mmlspark",
+    "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.ml.spark:mmlspark_2.11:1.0.0-rc3",
+        "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.1",
         "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.11,org.scalactic:scalactic_2.11,org.scalatest:scalatest_2.11"
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12"
+    }
+}
+```
+
+In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing SynapseML packages
+
+```
+%%configure -f
+{
+    "name": "synapseml",
+    "conf": {
+        "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.1",
+        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+        "spark.yarn.user.classpath.first": "true"
     }
 }
 ```
 
 ### Docker
 
-The easiest way to evaluate MMLSpark is via our pre-built Docker container.  To
+The easiest way to evaluate SynapseML is via our pre-built Docker container.  To
 do so, run the following command:
 
 ```bash
@@ -234,7 +249,7 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
 ### GPU VM Setup
 
-MMLSpark can be used to train deep learning models on GPU nodes from a Spark
+SynapseML can be used to train deep learning models on GPU nodes from a Spark
 application.  See the instructions for [setting up an Azure GPU
 VM](docs/gpu-setup.md).
 
@@ -242,17 +257,17 @@ VM](docs/gpu-setup.md).
 
 ### Building from source
 
-MMLSpark has recently transitioned to a new build infrastructure. 
+SynapseML has recently transitioned to a new build infrastructure. 
 For detailed developer docs please see the [Developer Readme](docs/developer-readme.md)
 
-If you are an existing mmlspark developer, you will need to reconfigure your 
+If you are an existing synapsemldeveloper, you will need to reconfigure your 
 development setup. We now support platform independent development and 
 better integrate with intellij and SBT.
  If you encounter issues please reach out to our support email!
 
 ### R (Beta)
 
-To try out MMLSpark using the R autogenerated wrappers [see our
+To try out SynapseML using the R autogenerated wrappers [see our
 instructions](docs/R-setup.md).  Note: This feature is still under development
 and some necessary custom wrappers may be missing.
 
@@ -262,9 +277,9 @@ and some necessary custom wrappers may be missing.
 
 - [Conditional Image Retrieval](https://arxiv.org/abs/2007.07177)
 
-- [MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales](https://arxiv.org/abs/1810.08744)
+- [SynapseML: Unifying Machine Learning Ecosystems at Massive Scales](https://arxiv.org/abs/1810.08744)
 
-- [Flexible and Scalable Deep Learning with MMLSpark](https://arxiv.org/abs/1804.04031)
+- [Flexible and Scalable Deep Learning with SynapseML](https://arxiv.org/abs/1804.04031)
 
 ## Learn More
 
@@ -272,7 +287,7 @@ and some necessary custom wrappers may be missing.
 
 -   Watch our keynote demos at [the Spark+AI Summit 2019], [the Spark+AI European Summit 2018], and [the Spark+AI Summit 2018].
 
--   See how MMLSpark is used to [help endangered species].
+-   See how SynapseML is used to [help endangered species].
 
 -   Explore generative adversarial artwork in [our collaboration with The MET and MIT].
 
@@ -286,7 +301,7 @@ and some necessary custom wrappers may be missing.
 
 [the Spark+AI European Summit 2018]: https://youtu.be/N3ozCZXeOeU?t=472
 
-[our paper]: https://arxiv.org/abs/1804.04031 "Flexible and Scalable Deep Learning with MMLSpark"
+[our paper]: https://arxiv.org/abs/1804.04031 "Flexible and Scalable Deep Learning with SynapseML"
 
 [help endangered species]: https://www.microsoft.com/en-us/ai/ai-lab-stories?activetab=pivot1:primaryr3 "Identifying snow leopards with AI"
 
@@ -294,9 +309,9 @@ and some necessary custom wrappers may be missing.
 
 [our collaboration with Apache Spark]: https://blogs.technet.microsoft.com/machinelearning/2018/03/05/image-data-support-in-apache-spark/ "Image Data Support in Apache Spark"
 
-[MMLSpark in Azure Machine Learning]: https://docs.microsoft.com/en-us/azure/machine-learning/preview/how-to-use-mmlspark "How to Use Microsoft Machine Learning Library for Apache Spark"
+[SynapseML in Azure Machine Learning]: https://docs.microsoft.com/en-us/azure/machine-learning/preview/how-to-use-mmlspark "How to Use Microsoft Machine Learning Library for Apache Spark"
 
-[MMLSpark at the Spark Summit]: https://databricks.com/session/mmlspark-lessons-from-building-a-sparkml-compatible-machine-learning-library-for-apache-spark "MMLSpark: Lessons from Building a SparkML-Compatible Machine Learning Library for Apache Spark"
+[SynapseML at the Spark Summit]: https://databricks.com/session/mmlspark-lessons-from-building-a-sparkml-compatible-machine-learning-library-for-apache-spark "MMLSpark: Lessons from Building a SparkML-Compatible Machine Learning Library for Apache Spark"
 
 ## Contributing & feedback
 
@@ -323,7 +338,7 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 -   [Recommenders](https://github.com/Microsoft/Recommenders)
 
--   [JPMML-SparkML plugin for converting MMLSpark LightGBM models to
+-   [JPMML-SparkML plugin for converting SynapseML LightGBM models to
     PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
 
 -   [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)

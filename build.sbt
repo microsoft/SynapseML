@@ -8,10 +8,10 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import BuildUtils._
 import xerial.sbt.Sonatype._
 
-val condaEnvName = "mmlspark"
+val condaEnvName = "synapseml"
 val sparkVersion = "3.1.2"
-name := "mmlspark"
-ThisBuild / organization := "com.microsoft.ml.spark"
+name := "synapseml"
+ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.10"
 
 val scalaMajorVersion = 2.12
@@ -45,6 +45,8 @@ val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajo
 def pomPostFunc(node: XmlNode): scala.xml.Node = {
   new RuleTransformer(new RewriteRule {
     override def transform(node: XmlNode): XmlNodeSeq = node match {
+      case e: Elem if e.label == "extraDependencyAttributes" =>
+        Comment("Removed Dependency Attributes")
       case e: Elem if e.label == "dependency"
         && e.child.exists(child => child.label == "scope") =>
         Comment(
@@ -116,8 +118,9 @@ generatePythonDoc := {
   ).value
   val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
   val codegenDir = join(targetDir, "generated")
-  val dir = join(codegenDir, "src", "python", "mmlspark")
+  val dir = join(codegenDir, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
+  join(dir,"ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
@@ -143,7 +146,7 @@ publishDocs := {
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
-val release = TaskKey[Unit]("release", "publish the library to mmlspark blob")
+val release = TaskKey[Unit]("release", "publish the library to synapseml blob")
 release := Def.taskDyn {
   val v = isSnapshot.value
   if (!v) {
@@ -157,7 +160,7 @@ release := Def.taskDyn {
   }
 }
 
-val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to mmlspark blob")
+val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to synapseml blob")
 publishBadges := {
   def enc(s: String): String = {
     s.replaceAllLiterally("_", "__").replaceAllLiterally(" ", "_").replaceAllLiterally("-", "--")
@@ -203,8 +206,8 @@ lazy val core = (project in file("core"))
       sbtVersion,
       baseDirectory
     ),
-    name := "mmlspark-core",
-    buildInfoPackage := "com.microsoft.ml.spark.build",
+    name := "synapseml-core",
+    buildInfoPackage := "com.microsoft.azure.synapse.ml.build",
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
@@ -215,7 +218,7 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
-    name := "mmlspark-deep-learning",
+    name := "synapseml-deep-learning",
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
@@ -223,7 +226,7 @@ lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110"),
-    name := "mmlspark-lightgbm"
+    name := "synapseml-lightgbm"
   ): _*)
 
 lazy val vw = (project in file("vw"))
@@ -231,7 +234,7 @@ lazy val vw = (project in file("vw"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
-    name := "mmlspark-vw"
+    name := "synapseml-vw"
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
@@ -240,7 +243,7 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
     resolvers += speechResolver,
-    name := "mmlspark-cognitive"
+    name := "synapseml-cognitive"
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
@@ -248,7 +251,7 @@ lazy val opencv = (project in file("opencv"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
-    name := "mmlspark-opencv"
+    name := "synapseml-opencv"
   ): _*)
 
 lazy val root = (project in file("."))
@@ -263,7 +266,7 @@ lazy val root = (project in file("."))
   .enablePlugins(ScalaUnidocPlugin && SbtPlugin)
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
-    name := "mmlspark",
+    name := "synapseml",
   ))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
@@ -275,9 +278,25 @@ setupTask := {
   getDatasetsTask.value
 }
 
+val convertNotebooks = TaskKey[Unit]("convertNotebooks",
+  "convert notebooks to markdown for website display")
+convertNotebooks := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
+  )
+}
+
+val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
+  "test code blocks inside markdowns under folder website/docs/documentation")
+testWebsiteDocs := {
+  runCmd(
+    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}")
+  )
+}
+
 sonatypeProjectHosting := Some(
-  GitHubHosting("Azure", "MMLSpark", "mmlspark-support@microsot.com"))
-homepage := Some(url("https://github.com/Azure/mmlspark"))
+  GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
+homepage := Some(url("https://github.com/Microsoft/SynapseML"))
 developers := List(
   Developer("mhamilton723", "Mark Hamilton",
     "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
@@ -287,7 +306,7 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
-licenses += ("MIT", url("https://github.com/Azure/mmlspark/blob/master/LICENSE"))
+licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
 
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",

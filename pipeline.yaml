@@ -56,7 +56,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
-        source activate mmlspark
+        source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
         sbt genBuildInfo
@@ -81,7 +81,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
 
-- job: E2E
+- job: DatabricksE2E
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: ubuntu-18.04
@@ -97,7 +97,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
-        source activate mmlspark
+        source activate synapseml
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
@@ -113,7 +113,49 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.ml.spark.nbtest.**"'
+        inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: SynapseE2E
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    # - template: templates/ivy_cache.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate synapseml
+        jupyter nbconvert --to script ./notebooks/*.ipynb*
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - task: AzureCLI@1
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -236,7 +278,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
-          source activate mmlspark
+          source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testPython) || (sbt coverage testPython) || (sbt coverage testPython)
     - task: PublishTestResults@2
@@ -286,7 +328,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
-          source activate mmlspark
+          source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt coverage testR
     - task: PublishTestResults@2
@@ -314,6 +356,83 @@ jobs:
         ./.codecov -t $(codecov-token)
       displayName: Upload Coverage Report To Codecov.io
       condition: succeededOrFailed()
+
+- job: WebsiteSamplesTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    #- template: templates/ivy_cache.yml
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Test Website Samples'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate synapseml
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (sbt coverage testWebsiteDocs)
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/website-test-result.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@1
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+      condition: succeededOrFailed()
+    - bash: |
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t $(codecov-token)
+      displayName: Upload Coverage Report To Codecov.io
+      condition: succeededOrFailed()
+
+
+- job: WebsiteAutoDeployment
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - checkout: self
+      persistCredentials: true
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+      displayName: 'Install Node.js'
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        yarn install
+        git config --global user.name "${GH_NAME}"
+        git config --global user.email "${GH_EMAIL}"
+        git checkout -b main
+        echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+        cd website
+        yarn && GIT_USER="${GH_NAME}" yarn deploy
+      env:
+        GH_NAME: $(gh-name)
+        GH_EMAIL: $(gh-email)
+        GH_TOKEN: $(gh-token)
+      displayName: 'yarn install and build'
 
 
 - job: UnitTests
@@ -405,9 +524,9 @@ jobs:
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
-          (timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.ml.spark.$(PACKAGE).**")
+          (timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'

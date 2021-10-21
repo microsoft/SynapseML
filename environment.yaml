@@ -1,4 +1,4 @@
-name: mmlspark
+name: synapseml
 channels:
   - conda-forge
   - default
@@ -18,3 +18,7 @@ dependencies:
     - coverage
     - pytest
     - pytest-cov
+    - nbconvert
+    - ipython
+    - pytest-codeblocks
+    - azure-storage-blob

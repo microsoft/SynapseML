@@ -22,7 +22,7 @@ This dataset can be used to predict sentiment of book reviews.  The dataset is a
 tab-separated file with 2 columns (`rating`, `text`) and 10000 rows.  The
 `rating` column has integer values of 1, 2, 4 or 5, and the `text` column
 contains free-form text strings in English language.  You can use
-`mmlspark.TextFeaturizer` to convert the text into feature vectors for machine
+`synapse.ml.TextFeaturizer` to convert the text into feature vectors for machine
 learning models ([see
 example](../notebooks/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb)).
 
