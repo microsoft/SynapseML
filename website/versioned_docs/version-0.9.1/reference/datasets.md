@@ -53,9 +53,7 @@ The example dataset is available
 [here](https://mmlspark.azureedge.net/datasets/CIFAR10/cifar-10-python.tar.gz);
 the original dataset is available [Krizhevsky's
 page](https://www.cs.toronto.edu/~kriz/cifar.html).  The dataset has been
-packaged into a gzipped tar archive.  See notebook [301 - CIFAR10 CNTK CNN
-Evaluation](../notebooks/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb)
-for an example how to extract the image data.
+packaged into a gzipped tar archive.
 
 Reference: [_Learning Multiple Layers of Features from Tiny
 Images_](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf), \\
