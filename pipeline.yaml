@@ -405,6 +405,35 @@ jobs:
       condition: succeededOrFailed()
 
 
+- job: WebsiteAutoDeployment
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - checkout: self
+      persistCredentials: true
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+      displayName: 'Install Node.js'
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        yarn install
+        git config --global user.name "${GH_NAME}"
+        git config --global user.email "${GH_EMAIL}"
+        git checkout -b main
+        echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+        cd website
+        yarn && GIT_USER="${GH_NAME}" yarn deploy
+      env:
+        GH_NAME: $(gh-name)
+        GH_EMAIL: $(gh-email)
+        GH_TOKEN: $(gh-token)
+      displayName: 'yarn install and build'
+
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1

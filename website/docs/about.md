@@ -4,7 +4,9 @@ sidebar_label: Introduction
 hide_title: true
 ---
 
-<div style={{textAlign: 'left'}}><img src="/img/logo.svg" /></div>
+import useBaseUrl from "@docusaurus/useBaseUrl";
+
+<div style={{textAlign: 'left'}}><img src={useBaseUrl("/img/logo.svg")} /></div>
 
 # SynapseML
 
