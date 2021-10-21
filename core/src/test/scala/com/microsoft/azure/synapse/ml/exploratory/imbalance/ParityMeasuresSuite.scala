@@ -49,17 +49,17 @@ class ParityMeasuresSuite extends DataBalanceTestBase with TransformerFuzzing[Pa
 
   private object ExpectedGenderMaleFemale {
     // Values were computed using:
-    // val CALCULATOR = GapCalculator(sensitiveFeaturesDf.count, 3d / 9d, 4d / 9d, 2d / 4d, 3d / 9d, 1d / 3d)
-    val DPGAP = 0.125
-    val SDCGAP = 0.1428571428571429
-    val JIGAP = 0.8000000000000007
-    val LLRGAP = 0.4054651081081644
-    val PMIGAP = 0.11778303565638346
-    val NPMIYGAP = -0.10721073928562769
-    val NPMIXYGAP = -0.16992500144231237
-    val SPMIGAP = 0.5232481437645479
-    val KRCGAP = 0.4771175004652308
-    val TTESTGAP = 0.24747125955024085
+    // val CALCULATOR = GapCalculator(sensitiveFeaturesDf.count, 3d / 9d, 4d / 9d, 2d / 9d, 3d / 9d, 1d / 9d)
+    val DPGAP = 0.16666666666666669
+    val SDCGAP = 0.1190476190476191
+    val JIGAP = 0.20000000000000004
+    val LLRGAP = 0.6931471805599454
+    val PMIGAP = 0.4054651081081645
+    val NPMIYGAP = -0.3690702464285426
+    val NPMIXYGAP = -0.03915457938162986
+    val SPMIGAP = 1.0986122886681098
+    val KRCGAP = 0.18801108758923135
+    val TTESTGAP = 0.19245008972987523
   }
 
   test(s"ParityMeasures can calculate Parity Measures for $feature=$val1 vs. $feature=$val2") {
