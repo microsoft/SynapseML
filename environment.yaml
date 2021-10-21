@@ -22,3 +22,4 @@ dependencies:
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
+    - twine

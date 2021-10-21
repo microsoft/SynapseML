@@ -259,6 +259,27 @@ jobs:
         tagSource: 'auto'
         releaseNotesFile: 'CHANGELOG.md'
         isDraft: true
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      condition: startsWith(variables['tag'], 'v')
+      displayName: Add conda to PATH
+    - bash: conda info
+      condition: startsWith(variables['tag'], 'v')
+    - bash: conda env create -f environment.yaml
+      condition: startsWith(variables['tag'], 'v')
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate synapseml
+        sbt packagePython
+        sbt publishPypi
+      condition: startsWith(variables['tag'], 'v')
+      env:
+        PYPI-API-TOKEN: $(pypi-api-token)
+      displayName: 'publish python package to pypi'
 
 - job: PythonTests
   cancelTimeoutInMinutes: 0

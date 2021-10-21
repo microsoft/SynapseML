@@ -158,8 +158,8 @@ object CodeGen {
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
-         |        "Intended Audience :: Data Scientists",
-         |        "Topic :: Software Development :: Datascience Tools",
+         |        "Intended Audience :: Science/Research",
+         |        "Topic :: Software Development :: Libraries",
          |        "License :: OSI Approved :: MIT License",
          |        "Programming Language :: Python :: 2",
          |        "Programming Language :: Python :: 3",
