@@ -112,6 +112,12 @@ module.exports = {
         },
       ],
       copyright: `Copyright © ${new Date().getFullYear()} Microsoft.`,
+    },
+    algolia: {
+      appId: 'BH4D9OD16A',
+      apiKey: 'edc58a221b8a7df52bf7058219bbf9c9',
+      indexName: 'synapseML',
+      contextualSearch: true,
     }
   },
   presets: [
