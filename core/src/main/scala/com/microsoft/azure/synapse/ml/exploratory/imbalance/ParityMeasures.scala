@@ -91,6 +91,7 @@ class ParityMeasures(override val uid: String)
 
       val df = dataset
         // Convert label into binary
+        // TODO (for v2): support regression scenarios
         .withColumn(getLabelCol, when(col(getLabelCol).cast(LongType) > lit(0L), lit(1L)).otherwise(lit(0L)))
         .cache
 
@@ -181,7 +182,8 @@ class ParityMeasures(override val uid: String)
 
 object ParityMeasures extends ComplexParamsReadable[ParityMeasures]
 
-object AssociationMetrics {
+//noinspection SpellCheckingInspection
+private[imbalance] object AssociationMetrics {
   val DP = "dp"
   val SDC = "sdc"
   val JI = "ji"
@@ -196,7 +198,8 @@ object AssociationMetrics {
   val METRICS = Seq(DP, SDC, JI, LLR, PMI, NPMIY, NPMIXY, SPMI, KRC, TTEST)
 }
 
-private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: String,
+//noinspection SpellCheckingInspection
+private[imbalance] case class AssociationMetrics(positiveFeatureCountCol: String,
                                                    featureCountCol: String,
                                                    positiveCountCol: String,
                                                    totalCountCol: String) {
@@ -251,6 +254,7 @@ private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: Stri
   def krc: Column = {
     val a = pow(totalCountCol, 2) * (lit(1) - lit(2) * pFeature - lit(2) * pPositive +
       lit(2) * pPositiveFeature + lit(2) * pFeature * pPositive)
+    //noinspection ScalaStyle
     val b = col(totalCountCol) * (lit(2) * pFeature + lit(2) * pPositive - lit(4) * pPositiveFeature - lit(1))
     val c = pow(totalCountCol, 2) * sqrt((pFeature - pow(pFeature, 2)) * (pPositive - pow(pPositive, 2)))
     (a + b) / c

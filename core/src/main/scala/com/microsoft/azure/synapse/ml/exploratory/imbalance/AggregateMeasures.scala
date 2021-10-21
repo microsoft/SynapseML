@@ -87,9 +87,9 @@ class AggregateMeasures(override val uid: String)
         .groupBy(getSensitiveCols map col: _*)
         .agg(count("*").cast(DoubleType).alias(featureCountCol))
         .withColumn(rowCountCol, lit(numRows))
-        // P(sensitive)
-        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
+        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol)) // P(sensitive)
 
+      //noinspection ScalaStyle
       if (getVerbose)
         featureStats.cache.show(numRows = 20, truncate = false)
 
@@ -128,7 +128,8 @@ class AggregateMeasures(override val uid: String)
 
 object AggregateMeasures extends ComplexParamsReadable[AggregateMeasures]
 
-object AggregateMetrics {
+//noinspection SpellCheckingInspection
+private[imbalance] object AggregateMetrics {
   val ATKINSONINDEX = "atkinson_index"
   val THEILLINDEX = "theil_l_index"
   val THEILTINDEX = "theil_t_index"
@@ -136,7 +137,8 @@ object AggregateMetrics {
   val METRICS = Seq(ATKINSONINDEX, THEILLINDEX, THEILTINDEX)
 }
 
-case class AggregateMetrics(featureProbCol: String,
+//noinspection SpellCheckingInspection
+private[imbalance] case class AggregateMetrics(featureProbCol: String,
                             numFeatures: Double,
                             meanFeatures: Double,
                             epsilon: Double,

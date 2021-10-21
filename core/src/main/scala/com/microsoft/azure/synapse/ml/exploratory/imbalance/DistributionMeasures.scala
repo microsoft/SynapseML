@@ -67,7 +67,7 @@ class DistributionMeasures(override val uid: String)
 
   private val uniformDistribution: Int => String => Double = {
     n: Int => {
-      value: String =>
+      _: String =>
         1d / n
     }
   }
@@ -87,13 +87,13 @@ class DistributionMeasures(override val uid: String)
         .groupBy(getSensitiveCols map col: _*)
         .agg(count("*").cast(DoubleType).alias(featureCountCol))
         .withColumn(rowCountCol, lit(numRows))
-        // P(sensitive)
-        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol))
+        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol)) // P(sensitive)
 
+      //noinspection ScalaStyle
       if (getVerbose)
         featureStats.cache.show(numRows = 20, truncate = false)
 
-      // TODO: Introduce a referenceDistribution function param for user to override the uniform distribution
+      // TODO (for v2): Introduce a referenceDistribution function param for user to override the uniform distribution
       val referenceDistribution = uniformDistribution
 
       df.unpersist
@@ -154,7 +154,8 @@ class DistributionMeasures(override val uid: String)
 
 object DistributionMeasures extends ComplexParamsReadable[DistributionMeasures]
 
-object DistributionMetrics {
+//noinspection SpellCheckingInspection
+private[imbalance] object DistributionMetrics {
   val KLDIVERGENCE = "kl_divergence"
   val JSDISTANCE = "js_dist"
   val INFNORMDISTANCE = "inf_norm_dist"
@@ -167,7 +168,8 @@ object DistributionMetrics {
     CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
 }
 
-case class DistributionMetrics(numFeatures: Int,
+//noinspection SpellCheckingInspection
+private[imbalance] case class DistributionMetrics(numFeatures: Int,
                                obsFeatureProbCol: String,
                                obsFeatureCountCol: String,
                                refFeatureProbCol: String,
