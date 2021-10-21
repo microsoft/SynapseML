@@ -125,13 +125,11 @@ class ParityMeasures(override val uid: String)
       }
 
       df.unpersist
-      calculateParityMeasures(associationMetricsDf, metrics, featureValueCol)
+      calculateParity(associationMetricsDf, featureValueCol)
     })
   }
 
-  private def calculateParityMeasures(associationMetricsDf: DataFrame,
-                                      metrics: Map[String, Column],
-                                      featureValueCol: String): DataFrame = {
+  private def calculateParity(associationMetricsDf: DataFrame, featureValueCol: String): DataFrame = {
     val combinations = associationMetricsDf.alias("A")
       .crossJoin(associationMetricsDf.alias("B"))
       .filter(
@@ -207,9 +205,7 @@ private[exploratory] case class AssociationMetrics(positiveFeatureCountCol: Stri
 
   val pPositive: Column = col(positiveCountCol) / col(totalCountCol)
   val pFeature: Column = col(featureCountCol) / col(totalCountCol)
-  val pPositiveFeature: Column = col(positiveFeatureCountCol) / col(featureCountCol)
-  val pPositiveGivenFeature: Column = pPositiveFeature / pFeature
-  val pFeatureGivenPositive: Column = pPositiveFeature / pPositive
+  val pPositiveFeature: Column = col(positiveFeatureCountCol) / col(totalCountCol)
 
   def toColumnMap: Map[String, Column] = Map(
     DP -> dp,
