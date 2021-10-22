@@ -510,6 +510,8 @@ jobs:
         PACKAGE: "explainers.split2"
       explainers3:
         PACKAGE: "explainers.split3"
+      exploratory:
+        PACKAGE: "exploratory"
       featurize:
         PACKAGE: "featurize"
       image:
