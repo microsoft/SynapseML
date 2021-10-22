@@ -281,6 +281,27 @@ jobs:
         PYPI-API-TOKEN: $(pypi-api-token)
       displayName: 'publish python package to pypi'
 
+- job: TestUploadPYPI
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda info
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        source activate synapseml
+        sbt publishPypi
+      env:
+        PYPI-API-TOKEN-TEST: $(pypi-api-token-test)
+      displayName: 'publish python package to testpypi'
+
 - job: PythonTests
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')

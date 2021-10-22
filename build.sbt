@@ -120,9 +120,93 @@ generatePythonDoc := {
   val codegenDir = join(targetDir, "generated")
   val dir = join(codegenDir, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
-  join(dir,"ml", "__init__.py").createNewFile()
+  join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
+packageSynapseML := {
+  def writeSetupFileToTarget(dir: File): Unit = {
+    if (!dir.exists()) {
+      dir.mkdir()
+    }
+    val pyVersion = version.value match {
+      case s if s.contains("-") => s.split("-".head).head + ".dev1"
+      case s => s
+    }
+    val content =
+      s"""
+         |# Copyright (C) Microsoft Corporation. All rights reserved.
+         |# Licensed under the MIT License. See LICENSE in project root for information.
+         |
+         |import os
+         |from setuptools import setup, find_namespace_packages
+         |import codecs
+         |import os.path
+         |
+         |setup(
+         |    name="synapseml",
+         |    version="$pyVersion",
+         |    description="Synpase Machine Learning",
+         |    long_description="SynapseML contains Microsoft's open source "
+         |                     + "contributions to the Apache Spark ecosystem",
+         |    license="MIT",
+         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    url="https://github.com/Microsoft/SynapseML",
+         |    author="Microsoft",
+         |    author_email="mmlspark-support@microsoft.com",
+         |    classifiers=[
+         |        "Development Status :: 4 - Beta",
+         |        "Intended Audience :: Developers",
+         |        "Intended Audience :: Science/Research",
+         |        "Topic :: Software Development :: Libraries",
+         |        "License :: OSI Approved :: MIT License",
+         |        "Programming Language :: Python :: 2",
+         |        "Programming Language :: Python :: 3",
+         |    ],
+         |    zip_safe=True,
+         |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |)
+         |
+         |""".stripMargin
+    IO.write(join(dir, "setup.py"), content)
+  }
+
+  packagePython.all(ScopeFilter(
+    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
+    inConfigurations(Compile)
+  )).value
+  mergePyCode.all(ScopeFilter(
+    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
+    inConfigurations(Compile)
+  )).value
+  val targetDir = rootGenDir.value
+  val dir = join(targetDir, "src", "python")
+  val packageDir = join(targetDir, "package", "python").absolutePath
+  writeSetupFileToTarget(dir)
+  runCmd(
+    activateCondaEnv.value ++
+      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
+    dir)
+}
+
+val publishPypi = TaskKey[Unit]("publishPypi", "publish synapseml python wheel to pypi")
+publishPypi := {
+  packageSynapseML.value
+  val pyVersion = version.value match {
+    case s if s.contains("-") => s.split("-".head).head + ".dev1"
+    case s => s
+  }
+  val fn = s"${name.value}-${pyVersion}-py2.py3-none-any.whl"
+  print(join(rootGenDir.value, "package", "python", fn).toString)
+  runCmd(
+    activateCondaEnv.value ++
+      Seq("twine", "upload", "--skip-existing",
+        join(rootGenDir.value, "package", "python", fn).toString,
+        "--username", "__token__", "--password", "${PYPI-API-TOKEN-TEST}",
+        "--repository", "testpypi")
+  )
 }
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")

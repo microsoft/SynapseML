@@ -62,7 +62,6 @@ object CodegenPlugin extends AutoPlugin {
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
-    val publishPypi = TaskKey[Unit]("publishPypi", "publish python wheel to pypi")
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
@@ -209,17 +208,6 @@ object CodegenPlugin extends AutoPlugin {
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
         version.value + "/" + fn, "pip")
-    },
-    publishPypi := {
-      packagePython.value
-      publishLocal.value
-      val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion.value}-py2.py3-none-any.whl"
-      runCmd(
-        activateCondaEnv.value ++
-          Seq("twine", "upload", "--skip-existing",
-            join(codegenDir.value, "package", "python", fn).toString,
-            "--username", "__token__", "--password", "${PYPI-API-TOKEN}")
-      )
     },
     mergePyCode := {
       val srcDir = join(codegenDir.value, "src", "python", genPyPackageNamespace.value)
