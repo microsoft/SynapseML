@@ -70,26 +70,25 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val predicted = getModel.transform(df.withColumn(feature, explodeFunc))
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
+    val dependenceCol = DatasetExtensions.findUnusedColumnName("feature__dependence", predicted)
 
     val explainTarget = extractTarget(predicted.schema, targetClassesColumn)
     val result = predicted.withColumn(targetCol, explainTarget)
 
     getKind.toLowerCase match {
-      case super.averageKind =>
+      case this.averageKind =>
         // PDP output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
-
-        // TODO: define the temp string column names from DatasetExtensions.findUnusedColumnName
         result
           .groupBy(feature)
-          .agg(Summarizer.mean(col(targetCol)).alias("__feature__dependence__"))
+          .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
           .agg(
             map_from_arrays(
               collect_list(feature),
-              collect_list("__feature__dependence__")
+              collect_list(dependenceCol)
             ).alias(feature)
           )
 
-      case super.individualKind =>
+      case this.individualKind =>
         // ICE output schema: n rows * 2 cols (idCol + ice for the given feature: map(feature_value -> explanations))
         result
           .groupBy(idCol)
@@ -117,15 +116,6 @@ class ICETransformer(override val uid: String) extends Transformer
     val categoricalFeatures = this.getCategoricalFeatures
     val numericFeatures = this.getNumericFeatures
 
-    // TODO: Move the check into transformSchema
-    // Check for duplicate feature specification
-    val featureNames = categoricalFeatures.map(_.name) ++ numericFeatures.map(_.name)
-
-    val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 0).keys.toArray
-    if (duplicateFeatureNames.nonEmpty) {
-      throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
-    }
-
     val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
       feature => (feature.name, collectCategoricalValues(dfWithId, feature))
     }.toMap
@@ -151,7 +141,7 @@ class ICETransformer(override val uid: String) extends Transformer
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
     getKind.toLowerCase match {
-      case super.individualKind =>
+      case this.individualKind =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
           .map {
             df =>
@@ -164,7 +154,7 @@ class ICETransformer(override val uid: String) extends Transformer
             "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
         )
 
-      case super.averageKind =>
+      case this.averageKind =>
         dependenceDfs.reduceOption(_ crossJoin _).getOrElse(
           throw new Exception("No categorical features or numeric features are set to the explainer. " +
             "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
@@ -242,6 +232,13 @@ class ICETransformer(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
+    // Check for duplicate feature specification
+    val featureNames = getCategoricalFeatures.map(_.name) ++ getNumericFeatures.map(_.name)
+    val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 0).keys.toArray
+    if (duplicateFeatureNames.nonEmpty) {
+      throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
+    }
+
     this.validateSchema(schema)
     schema.add(getOutputCol, ArrayType(VectorType))
   }

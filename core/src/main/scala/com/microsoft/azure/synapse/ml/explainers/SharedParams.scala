@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.ml.spark.core.utils.SlicerFunctions
+import com.microsoft.azure.synapse.ml.core.utils.SlicerFunctions
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType

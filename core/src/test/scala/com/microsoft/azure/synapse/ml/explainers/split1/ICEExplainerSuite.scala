@@ -1,12 +1,12 @@
-package com.microsoft.ml.spark.explainers.split1
+package com.microsoft.azure.synapse.ml.explainers.split1
 
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
-import com.microsoft.ml.spark.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import com.microsoft.ml.spark.explainers.{ICECategoricalFeature, ICETransformer, ICENumericFeature}
+import com.microsoft.azure.synapse.ml.explainers.{ICETransformer, ICECategoricalFeature, ICENumericFeature}
 
 
 class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransformer] {
