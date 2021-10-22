@@ -15,6 +15,10 @@ In summary, Data Balance Analysis, used as a step for building ML models has the
 * <b>Reduces risks for unbalanced models (facilitate service fairness) and reduces costs of ML building</b> by identifying early on data representation gaps that prompt data scientists to seek mitigation steps (collect more data, follow a specific sampling mechanism, create synthetic data, etc.) before proceeding to train their models.
 * <b>Enables easy e2e debugging of ML systems </b> in combination with [Fairlearn](https://fairlearn.org/) by providing a clear view if for an unbalanced model the issue is tied to the data or the model.
 
+## Examples
+
+* [Data Balance Analysis - Adult Census Income](../notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
+
 ## Usage
 
 Data Balance Analysis currently supports three transformers in the `com.microsoft.azure.synapse.ml.exploratory` namespace:
@@ -74,10 +78,6 @@ Data Balance Analysis currently supports three transformers in the `com.microsof
     ```
 
 Note: If you are running this notebook in a Spark environment such as Azure Synapse or Databricks, then you can easily visualize the imbalance measures using the built-in plotting features of `display()`.
-
-## Examples
-
-* [Data Balance Analysis - Adult Census Income](../notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
 
 ## Measure Explanations
 
