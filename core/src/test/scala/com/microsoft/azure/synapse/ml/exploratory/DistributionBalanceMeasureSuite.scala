@@ -62,13 +62,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
   test(s"DistributionBalanceMeasure can calculate Distribution Balance Measures for $feature1") {
     val actual = actualFeature1
     val expected = ExpectedFeature1
-    assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) == expected.JSDISTANCE)
-    assert(actual(INFNORMDISTANCE) == expected.INFNORMDISTANCE)
-    assert(actual(TOTALVARIATIONDISTANCE) == expected.TOTALVARIATIONDISTANCE)
-    assert(actual(WASSERSTEINDISTANCE) == expected.WASSERSTEINDISTANCE)
-    assert(actual(CHISQUAREDTESTSTATISTIC) == expected.CHISQUAREDTESTSTATISTIC)
-    assert(actual(CHISQUAREDPVALUE) == expected.CHISQUAREDPVALUE)
+    assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
+    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
+    assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
+    assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
+    assert(actual(CHISQUAREDTESTSTATISTIC) === expected.CHISQUAREDTESTSTATISTIC)
+    assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 
   private def actualFeature2: Map[String, Double] =
@@ -97,12 +97,12 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
   test(s"DistributionBalanceMeasure can calculate Distribution Balance Measures for $feature2") {
     val actual = actualFeature2
     val expected = ExpectedFeature2
-    assert(actual(KLDIVERGENCE) == expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) == expected.JSDISTANCE)
-    assert(actual(INFNORMDISTANCE) == expected.INFNORMDISTANCE)
-    assert(actual(TOTALVARIATIONDISTANCE) == expected.TOTALVARIATIONDISTANCE)
-    assert(actual(WASSERSTEINDISTANCE) == expected.WASSERSTEINDISTANCE)
-    assert(actual(CHISQUAREDTESTSTATISTIC) == expected.CHISQUAREDTESTSTATISTIC)
-    assert(actual(CHISQUAREDPVALUE) == expected.CHISQUAREDPVALUE)
+    assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
+    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
+    assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
+    assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
+    assert(actual(CHISQUAREDTESTSTATISTIC) === expected.CHISQUAREDTESTSTATISTIC)
+    assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 }

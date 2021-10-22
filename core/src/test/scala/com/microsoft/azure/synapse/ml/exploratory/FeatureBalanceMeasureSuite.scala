@@ -65,15 +65,15 @@ class FeatureBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuz
   test(s"FeatureBalanceMeasure can calculate Feature Balance Measures for $feature=$val1 vs. $feature=$val2") {
     val actual = actualGenderMaleFemale
     val expected = ExpectedGenderMaleFemale
-    assert(abs(actual(DP)) == abs(expected.DPGAP))
-    assert(abs(actual(SDC)) == abs(expected.SDCGAP))
-    assert(abs(actual(JI)) == abs(expected.JIGAP))
-    assert(abs(actual(LLR)) == abs(expected.LLRGAP))
-    assert(abs(actual(PMI)) == abs(expected.PMIGAP))
-    assert(abs(actual(NPMIY)) == abs(expected.NPMIYGAP))
-    assert(abs(actual(NPMIXY)) == abs(expected.NPMIXYGAP))
-    assert(abs(actual(SPMI)) == abs(expected.SPMIGAP))
-    assert(abs(actual(KRC)) == abs(expected.KRCGAP))
-    assert(abs(actual(TTEST)) == abs(expected.TTESTGAP))
+    assert(abs(actual(DP)) === abs(expected.DPGAP))
+    assert(abs(actual(SDC)) === abs(expected.SDCGAP))
+    assert(abs(actual(JI)) === abs(expected.JIGAP))
+    assert(abs(actual(LLR)) === abs(expected.LLRGAP))
+    assert(abs(actual(PMI)) === abs(expected.PMIGAP))
+    assert(abs(actual(NPMIY)) === abs(expected.NPMIYGAP))
+    assert(abs(actual(NPMIXY)) === abs(expected.NPMIXYGAP))
+    assert(abs(actual(SPMI)) === abs(expected.SPMIGAP))
+    assert(abs(actual(KRC)) === abs(expected.KRCGAP))
+    assert(abs(actual(TTEST)) === abs(expected.TTESTGAP))
   }
 }

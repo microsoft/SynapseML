@@ -7,8 +7,6 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{array, col}
 
-import scala.math.abs
-
 class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuzzing[AggregateBalanceMeasure] {
 
   override def testObjects(): Seq[TestObject[AggregateBalanceMeasure]] = Seq(
@@ -68,20 +66,19 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
   }
 
   test("AggregateBalanceMeasure can calculate Atkinson Index for Default Epsilon (1.0) for 1 sensitive feature") {
-    assert(abs(actualOneFeature(ATKINSONINDEX) - ExpectedOneFeature.ATKINSONINDEX) < errorTolerance)
+    assert(actualOneFeature(ATKINSONINDEX) === ExpectedOneFeature.ATKINSONINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Atkinson Index for Nondefault Epsilon (0.9) for 1 sensitive feature") {
-    assert(abs(
-      actualOneFeatureDiffEpsilon(ATKINSONINDEX) - ExpectedOneFeatureDiffEpsilon.ATKINSONINDEX) < errorTolerance)
+    assert(actualOneFeatureDiffEpsilon(ATKINSONINDEX) === ExpectedOneFeatureDiffEpsilon.ATKINSONINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Theil L Index for 1 sensitive feature") {
-    assert(abs(actualOneFeature(THEILLINDEX) - ExpectedOneFeature.THEILLINDEX) < errorTolerance)
+    assert(actualOneFeature(THEILLINDEX) === ExpectedOneFeature.THEILLINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Theil T Index for 1 sensitive feature") {
-    assert(abs(actualOneFeature(THEILTINDEX) - ExpectedOneFeature.THEILTINDEX) < errorTolerance)
+    assert(actualOneFeature(THEILTINDEX) === ExpectedOneFeature.THEILTINDEX)
   }
 
   private def actualTwoFeatures: Map[String, Double] =
@@ -123,19 +120,18 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
   }
 
   test("AggregateBalanceMeasure can calculate Atkinson Index for Default Epsilon (1.0) for 2 sensitive features") {
-    assert(abs(actualTwoFeatures(ATKINSONINDEX) - ExpectedBothFeatures.ATKINSONINDEX) < errorTolerance)
+    assert(actualTwoFeatures(ATKINSONINDEX) === ExpectedBothFeatures.ATKINSONINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Atkinson Index for Nondefault Epsilon (0.9) for 2 sensitive features") {
-    assert(abs(
-      actualTwoFeaturesDiffEpsilon(ATKINSONINDEX) - ExpectedBothFeaturesDiffEpsilon.ATKINSONINDEX) < errorTolerance)
+    assert(actualTwoFeaturesDiffEpsilon(ATKINSONINDEX) === ExpectedBothFeaturesDiffEpsilon.ATKINSONINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Theil L Index for 2 sensitive features") {
-    assert(abs(actualTwoFeatures(THEILLINDEX) - ExpectedBothFeatures.THEILLINDEX) < errorTolerance)
+    assert(actualTwoFeatures(THEILLINDEX) === ExpectedBothFeatures.THEILLINDEX)
   }
 
   test("AggregateBalanceMeasure can calculate Theil T Index for 2 sensitive features") {
-    assert(abs(actualTwoFeatures(THEILTINDEX) - ExpectedBothFeatures.THEILTINDEX) < errorTolerance)
+    assert(actualTwoFeatures(THEILTINDEX) === ExpectedBothFeatures.THEILTINDEX)
   }
 }
