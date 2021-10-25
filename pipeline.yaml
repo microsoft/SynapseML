@@ -296,6 +296,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        echo "$PYPI-API-TOKEN-TEST"
         source activate synapseml
         sbt publishPypi
       env:
