@@ -173,14 +173,16 @@ packageSynapseML := {
     IO.write(join(dir, "setup.py"), content)
   }
 
-  packagePython.all(ScopeFilter(
-    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-    inConfigurations(Compile)
-  )).value
-  mergePyCode.all(ScopeFilter(
-    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-    inConfigurations(Compile)
-  )).value
+  Def.sequential(
+    packagePython.all(ScopeFilter(
+      inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
+      inConfigurations(Compile)
+    )),
+    mergePyCode.all(ScopeFilter(
+      inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
+      inConfigurations(Compile)
+    ))
+  ).value
   val targetDir = rootGenDir.value
   val dir = join(targetDir, "src", "python")
   val packageDir = join(targetDir, "package", "python").absolutePath
@@ -199,7 +201,6 @@ publishPypi := {
     case s => s
   }
   val fn = s"${name.value}-${pyVersion}-py2.py3-none-any.whl"
-  print(join(rootGenDir.value, "package", "python", fn).toString)
   runCmd(
     activateCondaEnv.value ++
       Seq("twine", "upload", "--skip-existing",

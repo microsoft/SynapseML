@@ -299,6 +299,12 @@ jobs:
         source activate synapseml
         sbt publishPypi
       env:
+        STORAGE_KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN-TEST: $(pypi-api-token-test)
       displayName: 'publish python package to testpypi'
 
