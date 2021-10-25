@@ -4,14 +4,14 @@
         <title>Synapse ML Blog</title>
         <link>https://microsoft.github.io/SynapseML/blog</link>
         <description>Synapse ML Blog</description>
-        <lastBuildDate>Mon, 25 Oct 2021 06:18:35 GMT</lastBuildDate>
+        <lastBuildDate>Mon, 25 Oct 2021 06:40:39 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <item>
             <title><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
             <link>https://microsoft.github.io/SynapseML/blog/2020-12-Large-Scale Intelligent Microservices</link>
             <guid>Publication - Large-Scale Intelligent Microservices</guid>
-            <pubDate>Mon, 25 Oct 2021 06:18:35 GMT</pubDate>
+            <pubDate>Mon, 25 Oct 2021 06:40:39 GMT</pubDate>
             <description><![CDATA[Large-Scale Intelligent Microservices]]></description>
             <content:encoded><![CDATA[<p>Deploying Machine Learning (ML) algorithms within databases is a challenge due to the varied computational footprints of modern ML algorithms and the myriad of database technologies each with their own restrictive syntax. We introduce an Apache Spark-based micro-service orchestration <!-- --> framework that extends database operations to include web service primitives. Our system can orchestrate web services across hundreds of machines and takes full advantage of cluster, thread, and asynchronous parallelism. Using this framework, we provide large scale clients for intelligent services such as speech, vision, search, anomaly detection, and text analysis. This allows users to integrate ready-to-use intelligence into any datastore with an Apache Spark connector. To eliminate the majority of overhead from network communication, we also introduce a low-latency containerized version of our architecture. Finally, we demonstrate that the services we investigate are competitive on a variety of benchmarks, and present two applications of this framework to create intelligent search engines, and real time auto race analytics systems.</p><p><a href="https://www.microsoft.com/en-us/research/publication/large-scale-services/">Read More</a></p>]]></content:encoded>
         </item>
@@ -19,7 +19,7 @@
             <title><![CDATA[Overview]]></title>
             <link>https://microsoft.github.io/SynapseML/blog/overview</link>
             <guid>Overview</guid>
-            <pubDate>Mon, 25 Oct 2021 06:18:35 GMT</pubDate>
+            <pubDate>Mon, 25 Oct 2021 06:40:39 GMT</pubDate>
             <description><![CDATA[SynapseML Overview]]></description>
             <content:encoded><![CDATA[<p>Synapse Machine Learning expands the distributed computing framework <a href="https://github.com/apache/spark">Apache Spark</a> in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including <a href="/docs/features/lightgbm/about">LightGBM</a>, <a href="/docs/features/vw/about">Vowpal Wabbit</a>, <a href="https://opencv.org/">OpenCV</a>, <a href="https://github.com/linkedin/isolation-forest">Isolation Forest</a>, and the <a href="https://www.microsoft.com/en-us/research/product/cognitive-toolkit/">Microsoft Cognitive Toolkit (CNTK)</a> . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.</p><p>SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Microsoft Cognitive Services. Finally, the Spark Serving project enables high throughput, sub-millisecond latency web services, backed by your Spark cluster.</p><p>Visit the SynapseML Github repository to learn more.</p>]]></content:encoded>
         </item>
