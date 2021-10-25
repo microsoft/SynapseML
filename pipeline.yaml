@@ -295,10 +295,6 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
-    - task: TwineAuthenticate@1
-      displayName: Twine Authenticate
-      inputs:
-        pythonUploadServiceConnection: testpypi
     - bash: |
         source activate synapseml
         sbt publishPypi

@@ -206,7 +206,7 @@ publishPypi := {
       Seq("twine", "upload", "--skip-existing",
         join(rootGenDir.value, "package", "python", fn).toString,
         "--username", "__token__", "--password", "$PYPI_API_TOKEN_TEST",
-        "--repository", "testpypi")
+        "--repository", "testpypi", "--verbose")
   )
 }
 
