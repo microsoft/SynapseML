@@ -274,30 +274,8 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         source activate synapseml
-        sbt packagePython
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
-      env:
-        PYPI-API-TOKEN: $(pypi-api-token)
-      displayName: 'publish python package to pypi'
-
-- job: TestUploadPYPI
-  cancelTimeoutInMinutes: 0
-  pool:
-    vmImage: ubuntu-18.04
-  steps:
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda info
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-    - bash: |
-        source activate synapseml
-        sbt publishPypi
       env:
         STORAGE_KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
@@ -305,8 +283,8 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        PYPI_API_TOKEN_TEST: $(pypi-api-token-test)
-      displayName: 'publish python package to testpypi'
+        PYPI-API-TOKEN: $(pypi-api-token)
+      displayName: 'publish python package to pypi'
 
 - job: PythonTests
   cancelTimeoutInMinutes: 0

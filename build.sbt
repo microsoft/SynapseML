@@ -205,8 +205,7 @@ publishPypi := {
     activateCondaEnv.value ++
       Seq("twine", "upload", "--skip-existing",
         join(rootGenDir.value, "package", "python", fn).toString,
-        "--username", "__token__", "--password", Secrets.pypiApiTokenTest,
-        "--repository", "testpypi", "--verbose")
+        "--username", "__token__", "--password", Secrets.pypiApiToken, "--verbose")
   )
 }
 
