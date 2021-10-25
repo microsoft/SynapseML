@@ -305,7 +305,6 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        PYPI_API_TOKEN_TEST: $(pypi-api-token-test)
       displayName: 'publish python package to testpypi'
 
 - job: PythonTests

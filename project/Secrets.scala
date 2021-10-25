@@ -59,5 +59,6 @@ object Secrets {
     sys.env.getOrElse("PGP-PRIVATE", getSecret("pgp-private")).getBytes("UTF-8")))
   lazy val pgpPassword: String = sys.env.getOrElse("PGP-PW", getSecret("pgp-pw"))
   lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", getSecret("storage-key"))
+  lazy val pypiApiTokenTest: String = sys.env.getOrElse("PYPI_API_TOKEN_TEST", getSecret("pypi-api-token-test"))
 
 }
