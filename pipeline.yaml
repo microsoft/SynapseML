@@ -295,8 +295,11 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
+    - task: TwineAuthenticate@1
+      displayName: Twine Authenticate
+      inputs:
+        artifactFeed: synapseml
     - bash: |
-        echo "$PYPI_API_TOKEN_TEST"
         source activate synapseml
         sbt publishPypi
       env:
