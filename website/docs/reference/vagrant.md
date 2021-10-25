@@ -1,3 +1,10 @@
+---
+title: Vagrant
+hide_title: true
+sidebar_label: Vagrant
+---
+
+
 # Using the SynapseML Vagrant Image
 
 ## Install Vagrant and Dependencies
