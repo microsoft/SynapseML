@@ -297,8 +297,6 @@ jobs:
         keyVaultName: mmlspark-keys
     - task: TwineAuthenticate@1
       displayName: Twine Authenticate
-      inputs:
-        artifactFeed: synapseml
     - bash: |
         source activate synapseml
         sbt publishPypi
