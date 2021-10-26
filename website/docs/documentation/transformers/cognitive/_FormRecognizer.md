@@ -477,7 +477,7 @@ display(getCustomModel.transform(emptyDf))
 </Tabs>
 
 <DocTable className="GetCustomModel"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.GetCustomModel"
+py="synapse.ml.cognitive.html#module-mmlspark.cognitive.GetCustomModel"
 scala="com/microsoft/azure/synapse/ml/cognitive/GetCustomModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
@@ -537,7 +537,7 @@ display(listCustomModels.transform(emptyDf))
 </Tabs>
 
 <DocTable className="ListCustomModels"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.ListCustomModels"
+py="synapse.ml.cognitive.html#module-mmlspark.cognitive.ListCustomModels"
 scala="com/microsoft/azure/synapse/ml/cognitive/ListCustomModels.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 

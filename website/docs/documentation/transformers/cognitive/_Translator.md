@@ -91,7 +91,7 @@ display(translate
 </Tabs>
 
 <DocTable className="Translate"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Translate"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Translate"
 scala="com/microsoft/azure/synapse/ml/cognitive/Translate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -163,7 +163,7 @@ display(transliterate
 </Tabs>
 
 <DocTable className="Transliterate"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Transliterate"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Transliterate"
 scala="com/microsoft/azure/synapse/ml/cognitive/Transliterate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -227,7 +227,7 @@ display(detect
 </Tabs>
 
 <DocTable className="Detect"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Detect"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Detect"
 scala="com/microsoft/azure/synapse/ml/cognitive/Detect.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -291,7 +291,7 @@ display(breakSentence
 </Tabs>
 
 <DocTable className="BreakSentence"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.BreakSentence"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.BreakSentence"
 scala="com/microsoft/azure/synapse/ml/cognitive/BreakSentence.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -361,7 +361,7 @@ display(dictionaryLookup
 </Tabs>
 
 <DocTable className="DictionaryLookup"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryLookup"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryLookup"
 scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryLookup.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -427,7 +427,7 @@ display(dictionaryExamples
 </Tabs>
 
 <DocTable className="DictionaryExamples"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryExamples"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryExamples"
 scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryExamples.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -480,6 +480,6 @@ val documentTranslator = (new DocumentTranslator()
 </Tabs>
 
 <DocTable className="DocumentTranslator"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DocumentTranslator"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DocumentTranslator"
 scala="com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.scala" />
