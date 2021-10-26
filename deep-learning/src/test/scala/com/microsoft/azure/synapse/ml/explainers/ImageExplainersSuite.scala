@@ -28,8 +28,8 @@ abstract class ImageExplainersSuite extends TestBase with TrainedCNTKModelUtils 
   val resNetTransformer: ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
-    .setModel(resNet)
-    .setCutOutputLayers(0)
+    .setModel("resnet18")
+    .setHeadless(false)
     .setInputCol("image")
     .setMiniBatchSize(1)
 }

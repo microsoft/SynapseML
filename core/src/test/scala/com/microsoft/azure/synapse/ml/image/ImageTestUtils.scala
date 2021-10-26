@@ -20,7 +20,7 @@ trait ImageTestUtils extends TestBase {
   val filesRoot = BuildInfo.datasetDir.toString
   val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
   val modelPath = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
-  val inputCol = "cntk_images"
+  val inputCol = "cntk"
   val outputCol = "out"
   val labelCol = "labels"
 

@@ -451,7 +451,8 @@ class ONNXModel(override val uid: String)
     using(OrtEnvironment.getEnvironment) {
       env =>
         using(initializeOrt(getModelPayload, env)) {
-          session => session.getOutputInfo.asScala.toMap
+          session =>
+            session.getOutputInfo.asScala.toMap
         }
     }.flatten.get
   }
