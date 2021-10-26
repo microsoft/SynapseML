@@ -125,14 +125,6 @@ generatePythonDoc := {
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
 
-val pyVersion = settingKey[String]("Pythonized version")
-ThisBuild / pyVersion := {
-  version.value match {
-    case s if s.contains("-") => s.split("-".head).head + ".dev1"
-    case s => s
-  }
-}
-
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
 packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
@@ -151,7 +143,7 @@ packageSynapseML := {
          |
          |setup(
          |    name="synapseml",
-         |    version="${pyVersion.value}",
+         |    version="${pythonizedVersion(version.value)}",
          |    description="Synpase Machine Learning",
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
@@ -185,16 +177,13 @@ packageSynapseML := {
   val dir = join(targetDir, "src", "python")
   val packageDir = join(targetDir, "package", "python").absolutePath
   writeSetupFileToTarget(dir)
-  runCmd(
-    activateCondaEnv.value ++
-      Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
-    dir)
+  packagePythonWheelCmd(packageDir, dir)
 }
 
 val publishPypi = TaskKey[Unit]("publishPypi", "publish synapseml python wheel to pypi")
 publishPypi := {
   packageSynapseML.value
-  val fn = s"${name.value}-${pyVersion.value}-py2.py3-none-any.whl"
+  val fn = s"${name.value}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
   runCmd(
     activateCondaEnv.value ++
       Seq("twine", "upload", "--skip-existing",

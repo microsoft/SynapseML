@@ -5,6 +5,7 @@ import org.apache.commons.io.FileUtils
 import sbt.Keys._
 import sbt.{Def, Global, Tags, _}
 import spray.json._
+import BuildUtils._
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
   implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
@@ -35,7 +36,6 @@ object CodegenPlugin extends AutoPlugin {
   val TestGenTag = Tags.Tag("testGen")
 
   object autoImport {
-    val pythonizedVersion = settingKey[String]("Pythonized version")
     val rVersion = settingKey[String]("R version")
     val genPyPackageNamespace = settingKey[String]("genPyPackageNamespace")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
@@ -107,7 +107,7 @@ object CodegenPlugin extends AutoPlugin {
         baseDirectory.value.getAbsolutePath,
         targetDir.value.getAbsolutePath,
         version.value,
-        pythonizedVersion.value,
+        pythonizedVersion(version.value),
         rVersion.value,
         genPyPackageNamespace.value
       ).toJson.compactPrint
@@ -119,7 +119,7 @@ object CodegenPlugin extends AutoPlugin {
         baseDirectory.value.getAbsolutePath,
         targetDir.value.getAbsolutePath,
         version.value,
-        pythonizedVersion.value,
+        pythonizedVersion(version.value),
         rVersion.value,
         genPyPackageNamespace.value
       ).toJson.compactPrint
@@ -147,13 +147,6 @@ object CodegenPlugin extends AutoPlugin {
       }
     }.value),
     testgen := testGenImpl.value,
-    pythonizedVersion := {
-      if (version.value.contains("-")) {
-        version.value.split("-".head).head + ".dev1"
-      } else {
-        version.value
-      }
-    },
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
@@ -188,23 +181,20 @@ object CodegenPlugin extends AutoPlugin {
       if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
       val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPyPackageNamespace.value)
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
-      runCmd(
-        activateCondaEnv.value ++
-          Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
-        pythonSrcDir)
+      packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
     installPipPackage := {
       packagePython.value
       publishLocal.value
       runCmd(
         activateCondaEnv.value ++ Seq("pip", "install", "-I",
-          s"${name.value.replace("-", "_")}-${pythonizedVersion.value}-py2.py3-none-any.whl"),
+          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
     publishPython := {
       publishLocal.value
       packagePython.value
-      val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion.value}-py2.py3-none-any.whl"
+      val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
         version.value + "/" + fn, "pip")
