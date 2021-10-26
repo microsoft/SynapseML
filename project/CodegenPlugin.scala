@@ -1,6 +1,6 @@
 import java.io.File
 import BuildUtils.{join, runCmd, singleUploadToBlob, zipFolder}
-import CondaPlugin.autoImport.{activateCondaEnv, condaEnvLocation, createCondaEnvTask}
+import CondaPlugin.autoImport.{condaEnvLocation, createCondaEnvTask}
 import org.apache.commons.io.FileUtils
 import sbt.Keys._
 import sbt.{Def, Global, Tags, _}
@@ -79,12 +79,12 @@ object CodegenPlugin extends AutoPlugin {
     publishLocal.value
     val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
-    rCmd(activateCondaEnv.value,
+    rCmd(activateCondaEnv,
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
     if (join(rSrcDir,"tests").exists()){
-      rCmd(activateCondaEnv.value,
+      rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
   } tag(RInstallTag)
@@ -160,7 +160,7 @@ object CodegenPlugin extends AutoPlugin {
       val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
       val rPackageDir = join(codegenDir.value, "package", "R")
       val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
-      rCmd(activateCondaEnv.value, Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
+      rCmd(activateCondaEnv, Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
       rPackageDir.mkdirs()
       zipFolder(rSrcDir, new File(rPackageDir, s"${name.value}-${version.value}.zip"))
     },
@@ -187,7 +187,7 @@ object CodegenPlugin extends AutoPlugin {
       packagePython.value
       publishLocal.value
       runCmd(
-        activateCondaEnv.value ++ Seq("pip", "install", "-I",
+        activateCondaEnv ++ Seq("pip", "install", "-I",
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
@@ -209,7 +209,7 @@ object CodegenPlugin extends AutoPlugin {
       testgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       runCmd(
-        activateCondaEnv.value ++ Seq("python",
+        activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
           s"--cov=${genPyPackageNamespace.value}",

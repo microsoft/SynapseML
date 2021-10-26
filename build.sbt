@@ -121,8 +121,8 @@ generatePythonDoc := {
   val dir = join(rootGenDir.value, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
   join(dir, "ml", "__init__.py").createNewFile()
-  runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
-  runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+  runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
+  runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -185,7 +185,7 @@ publishPypi := {
   packageSynapseML.value
   val fn = s"${name.value}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
   runCmd(
-    activateCondaEnv.value ++
+    activateCondaEnv ++
       Seq("twine", "upload", "--skip-existing",
         join(rootGenDir.value, "package", "python", fn).toString,
         "--username", "__token__", "--password", Secrets.pypiApiToken, "--verbose")

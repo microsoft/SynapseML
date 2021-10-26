@@ -1,4 +1,3 @@
-import CondaPlugin.autoImport.activateCondaEnv
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
@@ -44,10 +43,22 @@ object BuildUtils {
     assert(pb.start().waitFor() == 0)
   }
 
+  def condaEnvName: String = "synapseml"
+
+  def activateCondaEnv: Seq[String] = {
+    if (sys.props("os.name").toLowerCase.contains("windows")) {
+      osPrefix ++ Seq("activate", condaEnvName, "&&")
+    } else {
+      Seq()
+      //TODO figure out why this doesent work
+      //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
+    }
+  }
+
   def packagePythonWheelCmd(packageDir: String,
                             workDir: File = new File(".")): Unit = {
     runCmd(
-      activateCondaEnv.value ++
+      activateCondaEnv ++
         Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
       workDir)
   }
