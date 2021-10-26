@@ -107,22 +107,30 @@ rootGenDir := {
   join(targetDir, "generated")
 }
 
-val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
-generatePythonDoc := {
-  installPipPackage.all(ScopeFilter(
-    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-    inConfigurations(Compile))).value
-  mergePyCode.all(ScopeFilter(
+def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
+  task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
     inConfigurations(Compile))
-  ).value
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
-  val codegenDir = join(targetDir, "generated")
-  val dir = join(codegenDir, "src", "python", "synapse")
+  )
+}
+
+val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
+generatePythonDoc := {
+  runTaskForAllInCompile(installPipPackage).value
+  runTaskForAllInCompile(mergePyCode).value
+  val dir = join(rootGenDir.value, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
   join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val pyVersion = settingKey[String]("Pythonized version")
+ThisBuild / pyVersion := {
+  version.value match {
+    case s if s.contains("-") => s.split("-".head).head + ".dev1"
+    case s => s
+  }
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -130,10 +138,6 @@ packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
     if (!dir.exists()) {
       dir.mkdir()
-    }
-    val pyVersion = version.value match {
-      case s if s.contains("-") => s.split("-".head).head + ".dev1"
-      case s => s
     }
     val content =
       s"""
@@ -147,7 +151,7 @@ packageSynapseML := {
          |
          |setup(
          |    name="synapseml",
-         |    version="$pyVersion",
+         |    version="${pyVersion.value}",
          |    description="Synpase Machine Learning",
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
@@ -174,14 +178,8 @@ packageSynapseML := {
   }
 
   Def.sequential(
-    packagePython.all(ScopeFilter(
-      inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-      inConfigurations(Compile)
-    )),
-    mergePyCode.all(ScopeFilter(
-      inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-      inConfigurations(Compile)
-    ))
+    runTaskForAllInCompile(packagePython),
+    runTaskForAllInCompile(mergePyCode)
   ).value
   val targetDir = rootGenDir.value
   val dir = join(targetDir, "src", "python")
@@ -196,11 +194,7 @@ packageSynapseML := {
 val publishPypi = TaskKey[Unit]("publishPypi", "publish synapseml python wheel to pypi")
 publishPypi := {
   packageSynapseML.value
-  val pyVersion = version.value match {
-    case s if s.contains("-") => s.split("-".head).head + ".dev1"
-    case s => s
-  }
-  val fn = s"${name.value}-${pyVersion}-py2.py3-none-any.whl"
+  val fn = s"${name.value}-${pyVersion.value}-py2.py3-none-any.whl"
   runCmd(
     activateCondaEnv.value ++
       Seq("twine", "upload", "--skip-existing",
