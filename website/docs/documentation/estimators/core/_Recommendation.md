@@ -217,19 +217,19 @@ display(tvRecommendationSplit.fit(transformedDf).transform(transformedDf))
 </Tabs>
 
 <DocTable className="RecommendationIndexer"
-py="mmlspark.recommendation.html#module-mmlspark.recommendation.RecommendationIndexer"
+py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.RecommendationIndexer"
 scala="com/microsoft/azure/synapse/ml/recommendation/RecommendationIndexer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RecommendationIndexer.scala" />
 <DocTable className="RankingEvaluator"
-py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingEvaluator"
+py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.RankingEvaluator"
 scala="com/microsoft/azure/synapse/ml/recommendation/RankingEvaluator.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingEvaluator.scala" />
 <DocTable className="RankingAdapter"
-py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingAdapter"
+py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.RankingAdapter"
 scala="com/microsoft/azure/synapse/ml/recommendation/RankingAdapter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingAdapter.scala" />
 <DocTable className="RankingTrainValidationSplit"
-py="mmlspark.recommendation.html#module-mmlspark.recommendation.RankingTrainValidationSplit"
+py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.RankingTrainValidationSplit"
 scala="com/microsoft/azure/synapse/ml/recommendation/RankingTrainValidationSplit.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/RankingTrainValidationSplit.scala" />
 
@@ -384,7 +384,7 @@ display(adapter.fit(res1).transform(res1))
 </Tabs>
 
 <DocTable className="SAR"
-py="mmlspark.recommendation.html#module-mmlspark.recommendation.SAR"
+py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.SAR"
 scala="com/microsoft/azure/synapse/ml/recommendation/SAR.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/SAR.scala" />
 

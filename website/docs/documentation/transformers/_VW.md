@@ -237,7 +237,7 @@ display(interactions.transform(df))
 </Tabs>
 
 <DocTable className="VowpalWabbitInteractions"
-py="mmlspark.vw.html#module-mmlspark.vw.VowpalWabbitInteractions"
+py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitInteractions"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.scala" />
 

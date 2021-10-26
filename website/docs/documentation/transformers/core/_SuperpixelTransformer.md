@@ -58,7 +58,7 @@ val spt = (new SuperpixelTransformer()
 </Tabs>
 
 <DocTable className="SuperpixelTransformer"
-py="mmlspark.lime.html#module-mmlspark.lime.SuperpixelTransformer"
+py="synapse.ml.lime.html#module-synapse.ml.lime.SuperpixelTransformer"
 scala="com/microsoft/azure/synapse/ml/lime/SuperpixelTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/lime/SuperpixelTransformer.scala" />
 
