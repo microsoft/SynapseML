@@ -61,7 +61,7 @@ val cknn = (new ConditionalKNN()
 </Tabs>
 
 <DocTable className="ConditionalKNN"
-py="mmlspark.nn.html#module-mmlspark.nn.ConditionalKNN"
+py="synapse.ml.nn.html#module-synapse.ml.nn.ConditionalKNN"
 scala="com/microsoft/azure/synapse/ml/nn/ConditionalKNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/ConditionalKNN.scala" />
 
@@ -100,7 +100,7 @@ val knn = (new KNN()
 </Tabs>
 
 <DocTable className="KNN"
-py="mmlspark.nn.html#module-mmlspark.nn.KNN"
+py="synapse.ml.nn.html#module-synapse.ml.nn.KNN"
 scala="com/microsoft/azure/synapse/ml/nn/KNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/KNN.scala" />
 

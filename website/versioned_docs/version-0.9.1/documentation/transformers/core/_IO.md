@@ -72,7 +72,7 @@ val ht = (new HTTPTransformer()
 </Tabs>
 
 <DocTable className="HTTPTransformer"
-py="mmlspark.io.http.html#module-mmlspark.io.http.HTTPTransformer"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.HTTPTransformer"
 scala="com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.scala" />
 
@@ -122,7 +122,7 @@ val sht = (new SimpleHTTPTransformer()
 </Tabs>
 
 <DocTable className="SimpleHTTPTransformer"
-py="mmlspark.io.http.html#module-mmlspark.io.http.SimpleHTTPTransformer"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.SimpleHTTPTransformer"
 scala="com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.scala" />
 
@@ -164,7 +164,7 @@ val jsonIP = (new JSONInputParser()
 </Tabs>
 
 <DocTable className="JSONInputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.JSONInputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.JSONInputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/JSONInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONInputParser.scala" />
 
@@ -208,7 +208,7 @@ val jsonOP = (new JSONOutputParser()
 </Tabs>
 
 <DocTable className="JSONOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.JSONOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.JSONOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.scala" />
 
@@ -248,7 +248,7 @@ val sop = (new StringOutputParser()
 </Tabs>
 
 <DocTable className="StringOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.StringOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.StringOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/StringOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/StringOutputParser.scala" />
 
@@ -289,7 +289,7 @@ val cip = (new CustomInputParser()
 </Tabs>
 
 <DocTable className="CustomInputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.CustomInputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.CustomInputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/CustomInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomInputParser.scala" />
 
@@ -329,7 +329,7 @@ val cop = (new CustomOutputParser()
 </Tabs>
 
 <DocTable className="CustomOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.CustomOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.CustomOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.scala" />
 
