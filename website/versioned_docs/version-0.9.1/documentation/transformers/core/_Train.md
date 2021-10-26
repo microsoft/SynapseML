@@ -77,7 +77,7 @@ display(cms.transform(df))
 </Tabs>
 
 <DocTable className="ComputeModelStatistics"
-py="mmlspark.train.html#module-mmlspark.train.ComputeModelStatistics"
+py="synapse.ml.train.html#module-synapse.ml.train.ComputeModelStatistics"
 scala="com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.scala" />
 
@@ -195,7 +195,7 @@ display(cps.transform(scoredData))
 </Tabs>
 
 <DocTable className="ComputePerInstanceStatistics"
-py="mmlspark.train.html#module-mmlspark.train.ComputePerInstanceStatistics"
+py="synapse.ml.train.html#module-synapse.ml.train.ComputePerInstanceStatistics"
 scala="com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.scala" />
 
