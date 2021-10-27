@@ -75,7 +75,7 @@ val rit = (new ResizeImageTransformer()
 </Tabs>
 
 <DocTable className="ResizeImageTransformer"
-py="mmlspark.image.html#module-mmlspark.image.ResizeImageTransformer"
+py="synapse.ml.image.html#module-synapse.ml.image.ResizeImageTransformer"
 scala="com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.scala" />
 
@@ -143,7 +143,7 @@ display(unroll.transform(preprocessed))
 </Tabs>
 
 <DocTable className="UnrollImage"
-py="mmlspark.image.html#module-mmlspark.image.UnrollImage"
+py="synapse.ml.image.html#module-synapse.ml.image.UnrollImage"
 scala="com/microsoft/azure/synapse/ml/image/UnrollImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollImage.scala" />
 
@@ -185,7 +185,7 @@ val unroll = (new UnrollBinaryImage()
 </Tabs>
 
 <DocTable className="UnrollBinaryImage"
-py="mmlspark.image.html#module-mmlspark.image.UnrollBinaryImage"
+py="synapse.ml.image.html#module-synapse.ml.image.UnrollBinaryImage"
 scala="com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.scala" />
 

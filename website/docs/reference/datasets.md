@@ -1,3 +1,9 @@
+---
+title: Datasets
+hide_title: true
+sidebar_label: Datasets
+---
+
 # Datasets Used in Sample Jupyter Notebooks
 
 ## Adult Census Income
@@ -24,7 +30,7 @@ tab-separated file with 2 columns (`rating`, `text`) and 10000 rows.  The
 contains free-form text strings in English language.  You can use
 `synapse.ml.TextFeaturizer` to convert the text into feature vectors for machine
 learning models ([see
-example](../notebooks/201%20-%20Amazon%20Book%20Reviews%20-%20TextFeaturizer.ipynb)).
+example](../../examples/text_analytics/TextAnalytics%20-%20Amazon%20Book%20Reviews/)).
 
 The example dataset is available
 [here](https://mmlspark.azureedge.net/datasets/BookReviewsFromAmazon10K.tsv);
@@ -47,9 +53,7 @@ The example dataset is available
 [here](https://mmlspark.azureedge.net/datasets/CIFAR10/cifar-10-python.tar.gz);
 the original dataset is available [Krizhevsky's
 page](https://www.cs.toronto.edu/~kriz/cifar.html).  The dataset has been
-packaged into a gzipped tar archive.  See notebook [301 - CIFAR10 CNTK CNN
-Evaluation](../notebooks/301%20-%20CIFAR10%20CNTK%20CNN%20Evaluation.ipynb)
-for an example how to extract the image data.
+packaged into a gzipped tar archive.
 
 Reference: [_Learning Multiple Layers of Features from Tiny
 Images_](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf), \\
