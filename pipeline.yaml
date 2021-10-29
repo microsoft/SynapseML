@@ -59,6 +59,7 @@ jobs:
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
+        sbt publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
         sbt release
