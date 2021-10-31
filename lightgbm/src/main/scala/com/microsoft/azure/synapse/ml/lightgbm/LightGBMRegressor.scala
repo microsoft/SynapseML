@@ -61,12 +61,15 @@ class LightGBMRegressor(override val uid: String)
   def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
     val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RegressorTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves,
-      getAlpha, getTweedieVariancePower, getMaxBin, getBinSampleCount, getBaggingFraction, getPosBaggingFraction,
-      getNegBaggingFraction, getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr, getVerbosity, categoricalIndexes,
-      getBoostFromAverage, getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric, getMetric,
-      getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames, getDelegate,
+    RegressorTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
+      get(numLeaves), getAlpha, getTweedieVariancePower,
+      get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
+      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
+      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf),
+      numTasks, modelStr, getVerbosity, categoricalIndexes,
+      getBoostFromAverage, getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
+      get(metric), get(minGainToSplit), get(maxDeltaStep),
+      getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate,
       getDartParams, getExecutionParams, getObjectiveParams)
   }
 

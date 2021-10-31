@@ -162,7 +162,7 @@ your `build.sbt`:
 
 ```scala
 resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.1"
+libraryDependencies += "com.microsoft.azure" % "synapseml" % "0.9.1"
 
 ```
 
