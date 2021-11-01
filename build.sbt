@@ -274,8 +274,7 @@ lazy val core = (project in file("core"))
       baseDirectory
     ),
     name := "synapseml-core",
-    buildInfoPackage := "com.microsoft.azure.synapse.ml.build",
-    publish / skip := true
+    buildInfoPackage := "com.microsoft.azure.synapse.ml.build"
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
@@ -286,8 +285,7 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
-    name := "synapseml-deep-learning",
-    publish / skip := true
+    name := "synapseml-deep-learning"
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
@@ -295,8 +293,7 @@ lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110"),
-    name := "synapseml-lightgbm",
-    publish / skip := true
+    name := "synapseml-lightgbm"
   ): _*)
 
 lazy val vw = (project in file("vw"))
@@ -304,8 +301,7 @@ lazy val vw = (project in file("vw"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
-    name := "synapseml-vw",
-    publish / skip := true
+    name := "synapseml-vw"
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
@@ -314,8 +310,7 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
     resolvers += speechResolver,
-    name := "synapseml-cognitive",
-    publish / skip := true
+    name := "synapseml-cognitive"
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
@@ -323,8 +318,7 @@ lazy val opencv = (project in file("opencv"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
-    name := "synapseml-opencv",
-    publish / skip := true
+    name := "synapseml-opencv"
   ): _*)
 
 lazy val root = (project in file("."))
@@ -403,7 +397,7 @@ pgpPublicRing := {
   }
   temp
 }
-publishTo := sonatypePublishToBundle.value
+ThisBuild / publishTo := sonatypePublishToBundle.value
 
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
