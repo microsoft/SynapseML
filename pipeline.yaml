@@ -454,6 +454,7 @@ jobs:
         echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
         cd website
         yarn && GIT_USER="${GH_NAME}" yarn deploy
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       env:
         GH_NAME: $(gh-name)
         GH_EMAIL: $(gh-email)
