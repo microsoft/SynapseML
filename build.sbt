@@ -274,7 +274,7 @@ lazy val core = (project in file("core"))
       baseDirectory
     ),
     name := "synapseml-core",
-    buildInfoPackage := "com.microsoft.azure.synapse.ml.build",
+    buildInfoPackage := "com.microsoft.azure.synapse.ml.build"
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
@@ -285,7 +285,7 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
-    name := "synapseml-deep-learning",
+    name := "synapseml-deep-learning"
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
@@ -397,7 +397,7 @@ pgpPublicRing := {
   }
   temp
 }
-publishTo := sonatypePublishToBundle.value
+ThisBuild / publishTo := sonatypePublishToBundle.value
 
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
