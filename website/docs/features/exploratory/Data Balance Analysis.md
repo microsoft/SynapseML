@@ -159,3 +159,36 @@ Measure | Description | Interpretation | Reference
 Atkinson Index | It presents the percentage of total income that a given society would have to forego in order to have more equal shares of income between its citizens. This measure depends on the degree of society aversion to inequality (a theoretical parameter decided by the researcher), where a higher value entails greater social utility or willingness by individuals to accept smaller incomes in exchange for a more equal distribution. An important feature of the Atkinson index is that it can be decomposed into within-group and between-group inequality. | Range [0, 1]. 0 if perfect equality. 1 means maximum inequality. In our case, it is the proportion of records for a sensitive columns’ combination. | [Link](https://en.wikipedia.org/wiki/Atkinson_index)
 Theil T Index | GE(1) = Theil's T and is more sensitive to differences at the top of the distribution. The Theil index is a statistic used to measure economic inequality. The Theil index measures an entropic "distance" the population is away from the "ideal" egalitarian state of everyone having the same income. | If everyone has the same income, then T_T equals 0. If one person has all the income, then T_T gives the result (ln N). 0 means equal income and larger values mean higher level of disproportion. | [Link](https://en.wikipedia.org/wiki/Theil_index)
 Theil L Index | GE(0) = Theil's L and is more sensitive to differences at the lower end of the distribution. Logarithm of (mean income)/(income i), over all the incomes included in the summation. It is also referred to as the mean log deviation measure. Because a transfer from a larger income to a smaller one will change the smaller income's ratio more than it changes the larger income's ratio, the transfer-principle is satisfied by this index. | Same interpretation as Theil T Index. | [Link](https://en.wikipedia.org/wiki/Theil_index)
+
+## Mitigation
+
+It will not be a stretch to say that every real-world dataset has caveats, biases, and imbalances. Data collection is costly. Data Imbalance mitigation or de-biasing data is an area of research. There are many techniques available at various stages of ML lifecycle i.e., during pre-processing, in-processing, and post processing. Here we outline a couple of pre-processing techniques -  
+
+### Resampling
+
+This involves under-sampling from majority class and over-sampling from minority class. Most naïve way to over-sample would be duplicate records and under-sample would be to remove records at random.  
+
+* Caveats:  
+
+  1. Under-sampling may remove valuable information.  
+  2. Over-sampling may cause overfitting and poor generalization on test set.
+
+![Bar chart undersampling and oversampling](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_SamplingBar.png)
+
+There are smarter techniques to under-sample and over-sample in literature and implemented in Python’s [imbalanced-learn](https://imbalanced-learn.org/stable/) package.  
+
+For example, we can cluster the records of the majority class, and do the under-sampling by removing records from each cluster, thus seeking to preserve information.  
+
+One technique of under-sampling is use of Tomek Links. Tomek links are pairs of very close instances but of opposite classes. Removing the instances of the majority class of each pair increases the space between the two classes, facilitating the classification process. A similar way to under-sample majority class is using Near-Miss. It first calculates the distance between all the points in the larger class with the points in the smaller class. When two points belonging to different classes are very close to each other in the distribution, this algorithm eliminates the datapoint of the larger class thereby trying to balance the distribution.
+
+![Tomek Links](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_TomekLinks.png)
+
+In over-sampling, instead of creating exact copies of the minority class records, we can introduce small variations into those copies, creating more diverse synthetic samples. This technique is called SMOTE (Synthetic Minority Oversampling Technique). It randomly picks a point from the minority class and computes the k-nearest neighbors for this point. The synthetic points are added between the chosen point and its neighbors.
+
+![Synthetic Samples](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_SyntheticSamples.png)
+
+### Reweighting
+
+There is an expected and observed value in each table cell. The weight is essentially expected / observed value. This is easy to extend to multiple features with more than 2 groups. The weights are then incorporated in loss function of model training.  
+
+![Reweighting](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_Reweight.png)
