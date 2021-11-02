@@ -90,28 +90,49 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.image import *
 from azure.storage.blob import *
 
-images = (spark.read.format("image")
-        .option("dropInvalid", True)
-        .load("wasbs://datasets@mmlspark.blob.core.windows.net/LIME/greyscale.jpg"))
+# images = (spark.read.format("image")
+#         .option("dropInvalid", True)
+#         .load("wasbs://datasets@mmlspark.blob.core.windows.net/LIME/greyscale.jpg"))
 
-rit = (ResizeImageTransformer()
-        .setOutputCol("out")
-        .setHeight(15)
-        .setWidth(10))
+# rit = (ResizeImageTransformer()
+#         .setOutputCol("out")
+#         .setHeight(15)
+#         .setWidth(10))
 
-preprocessed = rit.transform(images)
+# preprocessed = rit.transform(images)
 
 unroll = (UnrollImage()
-      .setInputCol(rit.getOutputCol)
+      .setInputCol("out")
       .setOutputCol("final"))
 
-display(unroll.transform(preprocessed))
+# display(unroll.transform(preprocessed))
 ```
 
 </TabItem>
@@ -157,6 +178,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
