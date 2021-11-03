@@ -267,6 +267,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   def getDatasetParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
     val datasetParams = s"max_bin=$getMaxBin is_pre_partition=True " +
       s"bin_construct_sample_cnt=$getBinSampleCount " +
+      s"min_data_in_leaf=$getMinDataInLeaf " +
       s"num_threads=$numThreads " +
       (if (categoricalIndexes.isEmpty) ""
       else s"categorical_feature=${categoricalIndexes.mkString(",")}")
