@@ -14,15 +14,15 @@ and evaluating the model on the Automobile Imports data set.
 
 This sample demonstrates the use of several members of the synapseml library:
 - [`TrainRegressor`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.train.html?#module-synapse.ml.train.TrainRegressor)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/synapse.ml.train.html?#module-synapse.ml.train.TrainRegressor)
 - [`SummarizeData`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.stages.html?#module-synapse.ml.stages.SummarizeData)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/synapse.ml.stages.html?#module-synapse.ml.stages.SummarizeData)
 - [`CleanMissingData`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.featurize.html?#module-synapse.ml.featurize.CleanMissingData)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/synapse.ml.featurize.html?#module-synapse.ml.featurize.CleanMissingData)
 - [`ComputeModelStatistics`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.train.html?#module-synapse.ml.train.ComputeModelStatistics)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/synapse.ml.train.html?#module-synapse.ml.train.ComputeModelStatistics)
 - [`FindBestModel`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.automl.html?#module-synapse.ml.automl.FindBestModel)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/synapse.ml.automl.html?#module-synapse.ml.automl.FindBestModel)
 
 First, import the pandas package so that we can read and parse the datafile
 using `pandas.read_csv()`
