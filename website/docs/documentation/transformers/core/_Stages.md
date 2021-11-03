@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -113,7 +113,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -186,7 +186,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -267,7 +267,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -340,7 +340,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -424,7 +424,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -490,7 +490,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -551,7 +551,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -620,7 +620,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -689,7 +689,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -762,7 +762,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -853,7 +853,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -926,7 +926,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -1015,7 +1015,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -1088,7 +1088,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -1181,7 +1181,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -1266,7 +1266,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
