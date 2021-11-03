@@ -17,7 +17,7 @@ In summary, Data Balance Analysis, used as a step for building ML models has the
 
 ## Examples
 
-* [Data Balance Analysis - Adult Census Income](../notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
+* [Data Balance Analysis - Adult Census Income](https://github.com/microsoft/SynapseML/blob/master/notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
 
 ## Usage
 
