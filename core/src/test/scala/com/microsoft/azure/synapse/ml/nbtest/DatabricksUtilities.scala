@@ -40,10 +40,10 @@ object DatabricksUtilities extends HasHttpClient {
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
-  val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
+  val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
   // SynapseML info
-  val Version = s"com.microsoft.azure:synapseml_$scalaVersion:${BuildInfo.version}"
+  val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
 
   val Libraries: String = List(
