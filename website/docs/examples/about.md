@@ -47,9 +47,9 @@ sidebar_label: About
 
 [CyberML - Anomalous Access Detection]: ../CyberML%20-%20Anomalous%20Access%20Detection "CyberML - Anomalous Access Detection"
 
-[Interpretability - Tabular SHAP Explainer]: ../model_interpretability/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
+[Interpretability - Tabular SHAP Explainer]: ../responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
 
-[Interpretability - Image Explainers]: ../model_interpretability/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
+[Interpretability - Image Explainers]: ../responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
 
-[Interpretability - Text Explainers]: ../model_interpretability/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
+[Interpretability - Text Explainers]: ../responsible_ai/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
 

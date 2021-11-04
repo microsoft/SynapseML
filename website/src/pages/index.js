@@ -41,7 +41,7 @@ model_prediction_df = (ONNXModel()
   },
   {
     label: "Model Interpretability",
-    further: "/docs/features/model_interpretability/about",
+    further: "/docs/features/responsible_ai/about",
     config: `from synapse.ml.explainers import *
     
 interpretation_df = (TabularSHAP()

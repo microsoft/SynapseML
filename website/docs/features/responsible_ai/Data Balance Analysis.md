@@ -1,5 +1,7 @@
 ---
 title: Data Balance Analysis on Spark
+hide_title: true
+sidebar_label: Data Balance Analysis
 description: Learn how to do Data Balance Analysis on Spark to determine how well features and feature values are represented in your dataset.
 ---
 
@@ -17,7 +19,7 @@ In summary, Data Balance Analysis, used as a step for building ML models has the
 
 ## Examples
 
-* [Data Balance Analysis - Adult Census Income](https://github.com/microsoft/SynapseML/blob/master/notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
+* [Data Balance Analysis - Adult Census Income](/docs/examples/responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income)
 
 ## Usage
 

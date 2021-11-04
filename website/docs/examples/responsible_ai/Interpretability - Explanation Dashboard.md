@@ -1,11 +1,11 @@
 ---
-title: Interpretability - Tabular SHAP explainer
+title: Interpretability - Explanation Dashboard
 hide_title: true
 status: stable
 ---
-## Interpretability - Tabular SHAP explainer
+## Interpretability - Explanation Dashboard
 
-In this example, we use Kernel SHAP to explain a tabular classification model built from the Adults Census dataset.
+In this example, similar to the "Interpretability - Tabular SHAP explainer" notebook, we use Kernel SHAP to explain a tabular classification model built from the Adults Census dataset and then visualize the explanation in the ExplanationDashboard from https://github.com/microsoft/responsible-ai-widgets.
 
 First we import the packages and define some UDFs we will need later.
 
@@ -76,7 +76,7 @@ shap = TabularSHAP(
     model=model,
     targetCol="probability",
     targetClasses=[1],
-    backgroundData=training.orderBy(rand()).limit(100).cache(),
+    backgroundData=broadcast(training.orderBy(rand()).limit(100).cache()),
 )
 
 shap_df = shap.transform(explain_instances)
@@ -100,43 +100,92 @@ pd.set_option("display.max_colwidth", None)
 shaps_local
 ```
 
-We use plotly subplot to visualize the SHAP values.
+We can visualize the explanation in the [interpret-community format](https://github.com/interpretml/interpret-community) in the ExplanationDashboard from https://github.com/microsoft/responsible-ai-widgets/
 
 
 ```python
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 
 features = categorical_features + numeric_features
 features_with_base = ["Base"] + features
 
 rows = shaps_local.shape[0]
 
-fig = make_subplots(
-    rows=rows,
-    cols=1,
-    subplot_titles="Probability: " + shaps_local["probability"].apply("{:.2%}".format) + "; Label: " + shaps_local["label"].astype(str),
-)
+local_importance_values = shaps_local[['shapValues']]
+eval_data = shaps_local[features]
+true_y = np.array(shaps_local[['label']])
+```
 
-for index, row in shaps_local.iterrows():
-    feature_values = [0] + [row[feature] for feature in features]
-    shap_values = row["shapValues"]
-    list_of_tuples = list(zip(features_with_base, feature_values, shap_values))
-    shap_pdf = pd.DataFrame(list_of_tuples, columns=["name", "value", "shap"])
-    fig.add_trace(
-        go.Bar(x=shap_pdf["name"], y=shap_pdf["shap"], hovertext="value: " + shap_pdf["value"].astype(str)),
-        row=index + 1,
-        col=1,
-    )
 
-fig.update_yaxes(range=[-1, 1], fixedrange=True, zerolinecolor="black")
-fig.update_xaxes(type="category", tickangle=45, fixedrange=True)
-fig.update_layout(height=400 * rows, title_text="SHAP explanations")
-fig.show()
+```python
+list_local_importance_values = local_importance_values.values.tolist()
+converted_importance_values = []
+bias = []
+for classarray in list_local_importance_values:
+    for rowarray in classarray:
+        converted_list = rowarray.tolist()
+        bias.append(converted_list[0])
+        # remove the bias from local importance values
+        del converted_list[0]
+        converted_importance_values.append(converted_list)
+```
 
+When running Synapse Analytics, please follow instructions here [Package management - Azure Synapse Analytics | Microsoft Docs](https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-azure-portal-add-libraries) to install ["raiwidgets"](https://pypi.org/project/raiwidgets/) and ["interpret-community"](https://pypi.org/project/interpret-community/) packages.
+
+
+```python
+!pip install --upgrade raiwidgets
+```
+
+
+```python
+!pip install --upgrade interpret-community
+```
+
+
+```python
+from interpret_community.adapter import ExplanationAdapter
+adapter = ExplanationAdapter(features, classification=True)
+global_explanation = adapter.create_global(converted_importance_values, eval_data, expected_values=bias)
+```
+
+
+```python
+# view the global importance values
+global_explanation.global_importance_values
+```
+
+
+```python
+# view the local importance values
+global_explanation.local_importance_values
+```
+
+
+```python
+class wrapper(object):
+  def __init__(self, model):
+    self.model = model
+  
+  def predict(self, data):
+    sparkdata = spark.createDataFrame(data)
+    return model.transform(sparkdata).select('prediction').toPandas().values.flatten().tolist()
+  
+  def predict_proba(self, data):
+    sparkdata = spark.createDataFrame(data)
+    prediction = model.transform(sparkdata).select('probability').toPandas().values.flatten().tolist()
+    proba_list = [vector.values.tolist() for vector in prediction]
+    return proba_list
+```
+
+
+```python
+# view the explanation in the ExplanationDashboard
+from raiwidgets import ExplanationDashboard
+ExplanationDashboard(global_explanation, wrapper(model), dataset=eval_data, true_y=true_y)
 ```
 
 Your results will look like:
 
-<img src="https://mmlspark.blob.core.windows.net/graphics/explainers/tabular-shap.png" />
+<img src="https://mmlspark.blob.core.windows.net/graphics/rai-dashboard.png" />
