@@ -1,10 +1,8 @@
-import java.io.File
-
-import BlobMavenPlugin.autoImport.publishBlob
 import BuildUtils.{join, uploadToBlob}
+import sbt.Keys._
 import sbt._
-import Keys._
-import org.apache.ivy.core.IvyPatternHelper
+
+import java.io.File
 
 //noinspection ScalaStyle
 object BlobMavenPlugin extends AutoPlugin {
@@ -22,27 +20,25 @@ object BlobMavenPlugin extends AutoPlugin {
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishBlob := {
       publishM2.value
-      //TODO make this more general - 1.0 is a hack and not sure of a way to get this with sbt keys
-      val sourceArtifactName = s"${moduleName.value}_${scalaBinaryVersion.value}_1.0"
-      val destArtifactName = s"${moduleName.value}"
+      val artifactName = s"${moduleName.value}_${scalaBinaryVersion.value}"
       val repositoryDir = new File(new URI(Resolver.mavenLocal.root))
       val orgDirs = organization.value.split(".".toCharArray.head)
-      val localPackageFolder = join(repositoryDir, orgDirs ++ Seq(sourceArtifactName, version.value):_*).toString
-      val blobMavenFolder = (orgDirs ++ Seq(destArtifactName, version.value)).mkString("/")
+      val localPackageFolder = join(repositoryDir, orgDirs ++ Seq(artifactName, version.value): _*).toString
+      val blobMavenFolder = (orgDirs ++ Seq(artifactName, version.value)).mkString("/")
       uploadToBlob(localPackageFolder, blobMavenFolder, "maven")
       println(blobArtifactInfo.value)
     },
     blobArtifactInfo := {
       s"""
-        |SynapseML Build and Release Information
-        |---------------
-        |
-        |### Maven Coordinates
-        | `${organization.value}:${moduleName.value}:${version.value}`
-        |
-        |### Maven Resolver
-        | `https://mmlspark.azureedge.net/maven`
-        |""".stripMargin
+         |SynapseML Build and Release Information
+         |---------------
+         |
+         |### Maven Coordinates
+         | `${organization.value}:${moduleName.value}_${scalaBinaryVersion.value}:${version.value}`
+         |
+         |### Maven Resolver
+         | `https://mmlspark.azureedge.net/maven`
+         |""".stripMargin
     }
   )
 }

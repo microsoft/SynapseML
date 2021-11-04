@@ -65,7 +65,7 @@ jobs:
         sbt release
       displayName: Publish Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -75,7 +75,7 @@ jobs:
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -103,7 +103,7 @@ jobs:
         sbt publishBlob
       displayName: Publish Blob Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -145,7 +145,7 @@ jobs:
         sbt publishBlob
       displayName: Publish Blob Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -278,7 +278,7 @@ jobs:
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)

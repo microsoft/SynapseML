@@ -31,9 +31,9 @@ function all_examples() {
     `examples/ConditionalKNN - Exploring Art Across Cultures.md`,
     `examples/CyberML - Anomalous Access Detection.md`,
     `examples/responsible_ai/DataBalanceAnalysis - Adult Census Income.md`,
+    `examples/responsible_ai/ModelInterpretability - Snow Leopard Detection.md`,
     `features/onnx/ONNX - Inference on Spark.md`,
     `features/lightgbm/LightGBM - Overview.md`,
-    `features/responsible_ai/ModelInterpretability - Snow Leopard Detection.md`,
     `features/vw/Vowpal Wabbit - Overview.md`,
   ];
   let examples = [];

@@ -25,6 +25,7 @@ sidebar_label: About
 -   Train and evaluate a flight delay prediction system ([Regression - Flight Delays])
 -   Finding anomalous data access patterns using the Access Anomalies package of CyberML ([CyberML - Anomalous Access Detection])
 -   Model interpretation ([Interpretability - Tabular SHAP Explainer], [Interpretability - Image Explainers], [Interpretability - Text Explainers])
+-   Do Data Balance Analysis to determine how well features and feature values are represented in your dataset ([DataBalanceAnalysis - Adult Census Income])
 
 
 [Classification - Adult Census]: ../classification/Classification%20-%20Adult%20Census "Classification - Adult Census"
@@ -53,3 +54,4 @@ sidebar_label: About
 
 [Interpretability - Text Explainers]: ../responsible_ai/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
 
+[DataBalanceAnalysis - Adult Census Income]: ../responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income "DataBalanceAnalysis - Adult Census Income"

@@ -259,6 +259,7 @@ val settings = Seq(
   assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
+  sbtPlugin := false
 )
 ThisBuild / publishMavenStyle := true
 
@@ -361,10 +362,16 @@ testWebsiteDocs := {
   )
 }
 
-sonatypeProjectHosting := Some(
+ThisBuild / sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-developers := List(
+ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/Azure/SynapseML"),
+    "scm:git@github.com:Azure/SynapseML.git"
+  )
+)
+ThisBuild / developers := List(
   Developer("mhamilton723", "Mark Hamilton",
     "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
   Developer("imatiach-msft", "Ilya Matiach",
@@ -373,9 +380,9 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
-licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
+ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
 
-credentials += Credentials("Sonatype Nexus Repository Manager",
+ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
   Secrets.nexusUsername,
   Secrets.nexusPassword)
