@@ -23,6 +23,7 @@
 # Generic editors
 .vscode
 .idea
+.metals
 
 # Vagrant configuration
 /tools/vagrant/.vagrant

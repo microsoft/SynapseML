@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.spark.sql.types.DataType
 
 /** Param for DataType */

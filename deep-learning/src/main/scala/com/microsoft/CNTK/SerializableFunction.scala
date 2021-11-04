@@ -7,7 +7,7 @@ import java.io._
 import java.util.UUID.randomUUID
 
 import com.microsoft.CNTK.CNTKUtils._
-import com.microsoft.ml.spark.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import org.apache.commons.io.FileUtils.{forceDelete, getTempDirectoryPath, writeByteArrayToFile}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, StructField, DataType => SDataType}

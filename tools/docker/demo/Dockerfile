@@ -9,7 +9,7 @@ RUN apt-get -qq update \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda update conda \
-    && apt-get install default-jre -y \
+    && apt-get install openjdk-8-jre -y \
 	&& conda install -c conda-forge pyspark=${SPARK_VERSION} \
     && apt-get -qq -y remove curl bzip2 \
     && apt-get -qq -y autoremove \

@@ -1,4 +1,4 @@
-## Interested in contributing to MMLSpark?  We're excited to work with you.
+## Interested in contributing to SynapseML?  We're excited to work with you.
 
 ### You can contribute in many ways:
 
@@ -32,7 +32,7 @@ this process:
 
 #### Implement your contribution
 
--   Fork the MMLSpark repository.
+-   Fork the SynapseML repository.
 -   Implement your algorithm in Scala, using our wrapper generation mechanism to
     produce PySpark bindings.
 -   Use SparkML `PipelineStage`s so your algorithm can be used as a part of
@@ -41,7 +41,7 @@ this process:
 -   Implement model saving and loading by extending SparkML `MLReadable`.
 -   Use good Scala style.
 -   Binary dependencies should be on Maven Central.
--   See this [pull request](https://github.com/Azure/mmlspark/pull/22) for an
+-   See this [pull request](https://github.com/Microsoft/SynapseML/pull/22) for an
     example contribution.
 
 #### Implement tests
@@ -65,7 +65,7 @@ this process:
 
 -   In most cases, you should squash your commits into one.
 -   Open a pull request, and link it to the discussion issue you created earlier.
--   An MMLSpark core team member will trigger a build to test your changes.
+-   An SynapseML core team member will trigger a build to test your changes.
 -   Fix any build failures.  (The pull request will have comments from the build
     with useful links.)
 -   Wait for code reviews from core team members and others.

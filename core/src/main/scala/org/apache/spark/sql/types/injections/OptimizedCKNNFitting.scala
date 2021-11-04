@@ -4,8 +4,8 @@
 package org.apache.spark.sql.types.injections
 
 import breeze.linalg.{DenseVector => BDV}
-import com.microsoft.ml.spark.logging.BasicLogging
-import com.microsoft.ml.spark.nn._
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.nn._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._

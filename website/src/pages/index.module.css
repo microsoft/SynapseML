@@ -1,0 +1,100 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.356)), url('../../static/img/background.jpg');
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: auto, fixed;
+  background-size: auto, cover;
+  --ifm-heading-color: #ffffff;
+  --ifm-hero-text-color: #ffffff;
+  --ifm-button-background-color:  #ffffff;
+}
+
+
+.getStarted {
+  --ifm-button-background-color:  #ffffff;
+}
+
+@media screen and (max-width: 966px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+}
+
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureImage {
+  height: 150px;
+  width: auto;
+}
+
+.heroImg {
+  height: 200px;
+  margin: 10px 0;
+}
+
+.configSnippet {
+  font-size: 10pt !important;
+}
+
+.configSnippets {
+  margin: 10px 0;
+}
+
+.pitch {
+  margin: 40px 0;
+}
+
+.loveSection {
+  padding: 40px 0;
+  background-color: #602541;
+
+  --ifm-heading-color: #ffffff;
+}
+
+.loveSectionPlea {
+  text-align: center;
+}
+
+.loveImg {
+  height: 200px;
+}
+
+.sponsorLink {
+  display: inline-block;
+  margin: 10px;
+}
+
+.microsoftImg {
+  max-height: 80px;
+  padding: 10px;
+}
+
+.theMetImg {
+  max-height: 80px;
+  padding: 10px;
+}
+
+.mitImg {
+  max-height: 60px;
+  padding: 10px;
+}

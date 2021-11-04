@@ -3,10 +3,11 @@
 
 package org.apache.spark.sql.execution.streaming
 
-import java.net.{InetAddress, InetSocketAddress}
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData}
 
-import com.microsoft.ml.spark.io.http.{HTTPRequestData, HTTPResponseData}
+import java.net.{InetAddress, InetSocketAddress}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+
 import javax.annotation.concurrent.GuardedBy
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._

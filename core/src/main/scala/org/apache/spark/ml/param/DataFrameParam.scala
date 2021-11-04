@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.core.utils.ParamEquality
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -111,7 +111,7 @@ trait DataFrameEquality extends Serializable {
 }
 
 
-/** Param for DataFrame.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
+/** Param for DataFrame.  Needed as spark has explicit params for many different
   * types but not DataFrame.
   */
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)
