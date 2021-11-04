@@ -136,6 +136,7 @@ object CodeGen {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
     }
+    val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     writeFile(join(conf.pySrcDir, "setup.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -153,7 +154,7 @@ object CodeGen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="mmlspark-support@microsoft.com",
