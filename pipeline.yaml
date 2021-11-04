@@ -284,7 +284,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        PYPI-API-TOKEN: $(pypi-api-token)
+        PYPI_API_TOKEN: $(pypi-api-token)
       displayName: 'publish python package to pypi'
 
 - job: PythonTests
