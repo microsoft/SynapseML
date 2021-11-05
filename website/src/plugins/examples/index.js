@@ -30,7 +30,7 @@ function all_examples() {
     `examples/CyberML - Anomalous Access Detection.md`,
     `features/onnx/ONNX - Inference on Spark.md`,
     `features/lightgbm/LightGBM - Overview.md`,
-    `features/model_interpretability/ModelInterpretability - Snow Leopard Detection.md`,
+    `features/responsible_ai/ModelInterpretability - Snow Leopard Detection.md`,
     `features/vw/Vowpal Wabbit - Overview.md`,
   ];
   let examples = [];

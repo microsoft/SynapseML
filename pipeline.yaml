@@ -448,6 +448,9 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        sbt convertNotebooks
+      displayName: 'convert notebooks to markdowns'
+    - bash: |
         yarn install
         git config --global user.name "${GH_NAME}"
         git config --global user.email "${GH_EMAIL}"
