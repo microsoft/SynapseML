@@ -22,7 +22,7 @@ const features = [
   {
     src: "/img/notebooks/decision_tree_recolor.png",
     title: "Lightning Fast Gradient Boosting",
-    body: "MMLSpark adds GPU enabled gradient boosted machines from the popular framework LightGBM. \
+    body: "SynapseML adds GPU enabled gradient boosted machines from the popular framework LightGBM. \
     Users can mix and match frameworks in a single distributed environment and API.",
     footer: "Try an Example",
     burl: "notebooks/LightGBM/LightGBM%20-%20Overview",
@@ -37,7 +37,7 @@ const features = [
   {
     src: "/img/notebooks/microservice_recolor.png",
     title: "Distributed Microservices",
-    body: "MMLSpark provides powerful and idiomatic tools to communicate with any HTTP endpoint service using Spark. \
+    body: "SynapseML provides powerful and idiomatic tools to communicate with any HTTP endpoint service using Spark. \
     Users can now use Spark as a elastic micro-service orchestrator.",
     footer: "Learn More",
     burl: "notebooks/HTTP/about",
@@ -52,7 +52,7 @@ const features = [
   {
     src: "/img/notebooks/cntk-1.svg",
     title: "Scalable Deep Learning",
-    body: "MMLSpark integrates the distributed computing framework Apache Spark with the flexible deep learning framework CNTK. \
+    body: "SynapseML integrates the distributed computing framework Apache Spark with the flexible deep learning framework CNTK. \
     Enabling deep learning at unprecedented scales.",
     footer: "Read the Paper",
     burl: "https://arxiv.org/abs/1804.04031",
@@ -60,7 +60,7 @@ const features = [
   {
     src: "/img/multilingual.svg",
     title: "Broad Language Support",
-    body: "MMLSpark's API spans Scala, Python, Java, R, .NET and C# so you can integrate with any ecosystem.",
+    body: "SynapseML's API spans Scala, Python, Java, R, .NET and C# so you can integrate with any ecosystem.",
     footer: "Try our PySpark Examples",
     burl: "notebooks/about",
   },

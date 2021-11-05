@@ -10,7 +10,7 @@ sidebar_label: About
 -   Fit a LightGBM classification or regression model on a biochemical dataset
     ([LightGBM Overview]), to learn more check out the [LightGBM documentation
     page](../../features/lightgbm/about).
--   Deploy a deep network as a distributed web service with [MMLSpark
+-   Deploy a deep network as a distributed web service with [SynapseML
     Serving](../../features/spark_serving/about)
 -   Use web services in Spark with [HTTP on Apache Spark](../../features/http/about)
 -   Use Bi-directional LSTMs from Keras for medical entity extraction

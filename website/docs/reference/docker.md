@@ -1,7 +1,7 @@
 ---
-title: Using the MMLSpark Docker Image
+title: Using the SynapseML Docker Image
 sidebar_label: Docker Image
-description: Using the MMLSpark Docker Image
+description: Using the SynapseML Docker Image
 ---
 
 ## Quickstart: install and run the Docker image

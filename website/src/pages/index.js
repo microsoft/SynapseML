@@ -172,6 +172,21 @@ function Home() {
             </div>
           </div>
         </div>
+        <div className={clsx(styles.announcement, styles.announcementDark)}>
+          <div className={styles.announcementInner}>
+            <Translate
+              values={{
+                mmlsparkWebLink: (
+                  <Link to="https://mmlspark.blob.core.windows.net/website/index.html">
+                    <Translate>MMLSpark</Translate>
+                  </Link>
+                )
+              }}>
+              {`Coming from {mmlsparkWebLink}? We have been renamed to SynapseML!`}
+            </Translate>
+            .
+          </div>
+        </div>
       </header>
       <main>
         <div className="container">
@@ -220,11 +235,12 @@ function Home() {
                 and cloud native.
               </p>
               <p>
-                Note: SynpaseML is built-in for <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">Azure Synapse.</a>
+                Note: SynpaseML will be built-in for <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">Azure Synapse soon.</a>
               </p>
               <Tabs
                 defaultValue="Spark Packages"
                 values={[
+                  { label: "Synapse", value: "Synapse"},
                   { label: "Spark Packages", value: "Spark Packages" },
                   { label: "Databricks", value: "Databricks" },
                   { label: "Docker", value: "Docker" },
@@ -232,8 +248,26 @@ function Home() {
                   { label: "SBT", value: "SBT" },
                 ]}
               >
+                <TabItem value="Synapse">
+                  SynapseML can be conveniently installed on Synapse:
+                  <CodeSnippet
+                    snippet={`%%configure -f
+{
+  "name": "mmlspark",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.2",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+      "spark.yarn.user.classpath.first": "true"
+  }
+}`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  Please also include `synapseml==0.9.2` in your requirements.txt file for usage of PySpark.
+                  <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">Install Python libraries in Synapse</a>
+                </TabItem>
                 <TabItem value="Spark Packages">
-                  MMLSpark can be conveniently installed on existing Spark
+                  SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
                     snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.2
@@ -242,7 +276,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
-                  can use MMLSpark in{" "}
+                  can use SynapseML in{" "}
                   <a href="https://github.com/Azure/aztk/">AZTK</a> by adding it
                   to the{" "}
                   <a href="https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark">
@@ -252,7 +286,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                 </TabItem>
                 <TabItem value="Databricks">
                   <p>
-                    To install MMLSpark on the{" "}
+                    To install SynapseML on the{" "}
                     <a href="http://community.cloud.databricks.com">
                       Databricks cloud
                     </a>
@@ -280,16 +314,16 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                     Finally, ensure that your Spark cluster has at least Spark
                     2.4 and Scala 2.11.
                   </p>
-                  You can use MMLSpark in both your Scala and PySpark notebooks.
+                  You can use SynapseML in both your Scala and PySpark notebooks.
                   To get started with our example notebooks import the following
                   databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/MMLSparkExamplesv0.9.2.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.2.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="Docker">
-                  The easiest way to evaluate MMLSpark is via our pre-built
+                  The easiest way to evaluate SynapseML is via our pre-built
                   Docker container. To do so, run the following command:
                   <CodeSnippet
                     snippet={`docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release`}
@@ -311,7 +345,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="Python">
-                  To try out MMLSpark on a Python (or Conda) installation you
+                  To try out SynapseML on a Python (or Conda) installation you
                   can get Spark installed via pip with
                   <CodeSnippet
                     snippet={`pip install pyspark`}
