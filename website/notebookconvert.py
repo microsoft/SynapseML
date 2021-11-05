@@ -14,23 +14,10 @@ def add_header_to_markdown(folder, md):
         f.close()
 
 
-def convert_notebook_to_markdown(folder, nb, outputdir):
-    file_path = os.path.join(folder, nb)
+def convert_notebook_to_markdown(file_path, outputdir):
     print(f"Converting {file_path} into markdown")
-
-    # If the notebook contains cell outputs such as figures, a folder containing cell output images is generated alongside the markdown file
-    # By default, both the folder and files contain the notebook name. But spaces in the notebook name create linking errors in the generated markdown
-    # Therefore, we first generate the markdown file, output folder, and output files with no spaces
-    nb_no_spaces = nb.replace(" ", "").replace(".ipynb", "")
-
-    convert_cmd = f'jupyter nbconvert --output-dir="{outputdir}" --NbConvertApp.output_base="{nb_no_spaces}" --to markdown "{file_path}"'
+    convert_cmd = f'jupyter nbconvert --output-dir="{outputdir}" --to markdown "{file_path}"'
     os.system(convert_cmd)
-
-    # Afterwards, we rename the generated markdown file to ensure that the markdown file has the same name as notebook
-    md_no_spaces = os.path.join(outputdir, f"{nb_no_spaces}.md")
-    md_final = os.path.join(outputdir, nb.replace(".ipynb", ".md"))
-    print(f"Renaming {md_no_spaces} to {md_final}")
-    os.rename(md_no_spaces, md_final)
     print()
 
 
@@ -42,7 +29,10 @@ def convert_allnotebooks_in_folder(folder, outputdir):
         "CognitiveServices": os.path.join(outputdir, "examples", "cognitive_services"),
         "DataBalanceAnalysis": os.path.join(outputdir, "examples", "responsible_ai"),
         "DeepLearning": os.path.join(outputdir, "examples", "deep_learning"),
-        "Interpretability": os.path.join(outputdir, "examples", "responsible_ai"),
+        "Interpretability - Image Explainers": os.path.join(outputdir, "features", "responsible_ai"),
+        "Interpretability - Explanation Dashboard": os.path.join(outputdir, "examples", "responsible_ai"),
+        "Interpretability - Tabular SHAP explainer": os.path.join(outputdir, "examples", "responsible_ai"),
+        "Interpretability - Text Explainers": os.path.join(outputdir, "examples", "responsible_ai"),
         "ModelInterpretability": os.path.join(outputdir, "examples", "responsible_ai"),
         "Regression": os.path.join(outputdir, "examples", "regression"),
         "TextAnalytics": os.path.join(outputdir, "examples", "text_analytics"),
@@ -70,7 +60,7 @@ def convert_allnotebooks_in_folder(folder, outputdir):
             if os.path.exists(os.path.join(finaldir, md)):
                 os.remove(os.path.join(finaldir, md))
 
-            convert_notebook_to_markdown(folder, nb, finaldir)
+            convert_notebook_to_markdown(os.path.join(folder, nb), finaldir)
             add_header_to_markdown(finaldir, md)
 
 

@@ -158,9 +158,7 @@ fig.tight_layout()
 plt.show()
 ```
 
-
-![png](DataBalanceAnalysis-AdultCensusIncome_files/DataBalanceAnalysis-AdultCensusIncome_13_0.png)
-
+![Demographic Parity of Races in Adult Dataset](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_AdultCensusIncome_RacesDP.png)
 
 #### Interpret Feature Balance Measures
 
@@ -273,9 +271,7 @@ fig.tight_layout()
 plt.show()
 ```
 
-
-![png](DataBalanceAnalysis-AdultCensusIncome_files/DataBalanceAnalysis-AdultCensusIncome_18_0.png)
-
+![Distribution Balance Measures of Sex and Race in Adult Dataset](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_AdultCensusIncome_DistributionMeasures.png)
 
 #### Interpret Distribution Balance Measures
 
