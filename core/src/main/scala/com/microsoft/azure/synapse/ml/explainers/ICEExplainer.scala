@@ -103,14 +103,12 @@ class ICETransformer(override val uid: String) extends Transformer
 
   def transform(ds: Dataset[_]): DataFrame = {
     transformSchema(ds.schema)
-
     val df = ds.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
       .withColumn(idCol, monotonically_increasing_id())
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
-
 
     // collect feature values for all features from original dataset - dfWithId
     val categoricalFeatures = this.getCategoricalFeatures
@@ -119,7 +117,6 @@ class ICETransformer(override val uid: String) extends Transformer
     val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
       feature => (feature.name, collectCategoricalValues(dfWithId, feature))
     }.toMap
-    
     val collectedNumFeatureValues: Map[String, Array[_]] = numericFeatures.map {
       feature => (feature.name, collectSplits(dfWithId, feature))
     }.toMap
@@ -132,7 +129,6 @@ class ICETransformer(override val uid: String) extends Transformer
       f: ICECategoricalFeature =>
         calcDependence(sampled, idCol, targetClasses, f.name, collectedCatFeatureValues(f.name))
     }
-
     val calcNumericFunc: ICENumericFeature => DataFrame = {
       f: ICENumericFeature =>
         calcDependence(sampled, idCol, targetClasses, f.name, collectedNumFeatureValues(f.name))
@@ -144,16 +140,14 @@ class ICETransformer(override val uid: String) extends Transformer
       case this.individualKind =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
           .map {
-            df =>
-              (categoricalFeatures ++ numericFeatures).foldLeft(df) {
-                case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
-              }
+            df => (categoricalFeatures ++ numericFeatures).foldLeft(df) {
+              case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
+            }
           }
           .map(sampled.join(_, idCol)).getOrElse(
           throw new Exception("No categorical features or numeric features are set to the explainer. " +
             "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
         )
-
       case this.averageKind =>
         dependenceDfs.reduceOption(_ crossJoin _).getOrElse(
           throw new Exception("No categorical features or numeric features are set to the explainer. " +
@@ -234,7 +228,7 @@ class ICETransformer(override val uid: String) extends Transformer
   override def transformSchema(schema: StructType): StructType = {
     // Check for duplicate feature specification
     val featureNames = getCategoricalFeatures.map(_.name) ++ getNumericFeatures.map(_.name)
-    val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 0).keys.toArray
+    val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 1).keys.toArray
     if (duplicateFeatureNames.nonEmpty) {
       throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
     }
