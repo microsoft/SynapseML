@@ -45,5 +45,5 @@ MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apac
 
 ## Example
 
-- [Interpretability - Image Explainers](/docs/examples/model_interpretability/Interpretability%20-%20Image%20Explainers)
+- [Interpretability - Image Explainers](/docs/examples/responsible_ai/Interpretability%20-%20Image%20Explainers)
 - [ONNX - Inference on Spark](/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark)

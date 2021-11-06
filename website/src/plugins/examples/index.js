@@ -12,11 +12,13 @@ function all_examples_for_type(folder, type) {
   let examples = [];
   let dir = path.join(__dirname, `../../../docs/${folder}/${type}`);
   fs.readdirSync(dir).forEach(function (file) {
-    let name = file.split(".").slice(0, -1).join(".");
-    let data = fs.readFileSync(path.join(dir, file));
-    const { frontMatter } = parseMarkdownString(data);
-    frontMatter["name"] = name;
-    examples.push(frontMatter);
+    if (file.endsWith(".md")) {
+      let name = file.split(".").slice(0, -1).join(".");
+      let data = fs.readFileSync(path.join(dir, file));
+      const { frontMatter } = parseMarkdownString(data);
+      frontMatter["name"] = name;
+      examples.push(frontMatter);
+    }
   });
   return examples;
 }
@@ -28,9 +30,10 @@ function all_examples() {
     `features/CognitiveServices - Overview.md`,
     `examples/ConditionalKNN - Exploring Art Across Cultures.md`,
     `examples/CyberML - Anomalous Access Detection.md`,
+    `examples/responsible_ai/DataBalanceAnalysis - Adult Census Income.md`,
+    `features/responsible_ai/Interpretability - Image Explainers.md`,
     `features/onnx/ONNX - Inference on Spark.md`,
     `features/lightgbm/LightGBM - Overview.md`,
-    `features/model_interpretability/ModelInterpretability - Snow Leopard Detection.md`,
     `features/vw/Vowpal Wabbit - Overview.md`,
   ];
   let examples = [];
