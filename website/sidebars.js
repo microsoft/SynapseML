@@ -10,8 +10,8 @@ let features_vw_docs = listExamplePaths("features", "vw");
 let examples_cl_docs = listExamplePaths("examples", "classification");
 let examples_cs_docs = listExamplePaths("examples", "cognitive_services");
 let examples_dl_docs = listExamplePaths("examples", "deep_learning");
-let examples_rg_docs = listExamplePaths("examples", "regression");
 let examples_rai_docs = listExamplePaths("examples", "responsible_ai");
+let examples_rg_docs = listExamplePaths("examples", "regression");
 let examples_ta_docs = listExamplePaths("examples", "text_analytics");
 
 

@@ -17,7 +17,7 @@ const features = [
     body: "Spark is well known for it's ability to switch between batch and streaming workloads by modifying a single line. \
       We push this concept even further and enable distributed web services with the same API as batch and streaming workloads.",
     footer: "Learn More",
-    burl: "notebooks/Spark%20Serving/about",
+    burl: "../features/spark_serving/about",
   },
   {
     src: "/img/notebooks/decision_tree_recolor.png",
@@ -25,14 +25,14 @@ const features = [
     body: "SynapseML adds GPU enabled gradient boosted machines from the popular framework LightGBM. \
     Users can mix and match frameworks in a single distributed environment and API.",
     footer: "Try an Example",
-    burl: "notebooks/LightGBM/LightGBM%20-%20Overview",
+    burl: "../features/lightgbm/LightGBM%20-%20Overview",
   },
   {
     src: "/img/notebooks/vw-blue-dark-orange.svg",
     title: "Fast and Sparse Text Analytics",
     body: "Vowpal Wabbit on Spark enables new classes of workloads in scalable and performant text analytics",
     footer: "Try an Example",
-    burl: "notebooks/Vowpal%20Wabbit/Vowpal%20Wabbit%20-%20Overview",
+    burl: "../features/vw/Vowpal%20Wabbit%20-%20Overview",
   },
   {
     src: "/img/notebooks/microservice_recolor.png",
@@ -40,14 +40,14 @@ const features = [
     body: "SynapseML provides powerful and idiomatic tools to communicate with any HTTP endpoint service using Spark. \
     Users can now use Spark as a elastic micro-service orchestrator.",
     footer: "Learn More",
-    burl: "notebooks/HTTP/about",
+    burl: "../features/http/about",
   },
   {
     src: "/img/notebooks/LIME-1.svg",
     title: "Large Scale Model Interpretability",
     body: "Understand any image classifier with a distributed implementation of Local Interpretable Model Agnostic Explanations (LIME).",
     footer: "Try an Example",
-    burl: "notebooks/Model%20Interpretation/ModelInterpretation%20-%20Snow%20Leopard%20Detection",
+    burl: "../features/responsible_ai/Interpretability%20-%20Image%20Explainers/",
   },
   {
     src: "/img/notebooks/cntk-1.svg",
@@ -62,7 +62,7 @@ const features = [
     title: "Broad Language Support",
     body: "SynapseML's API spans Scala, Python, Java, R, .NET and C# so you can integrate with any ecosystem.",
     footer: "Try our PySpark Examples",
-    burl: "notebooks/about",
+    burl: "../features/CognitiveServices%20-%20Overview",
   },
 ];
 

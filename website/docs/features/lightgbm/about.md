@@ -55,7 +55,7 @@ model = LightGBMRegressor(application='quantile',
 ```
 
 For an end to end application, check out the LightGBM [notebook
-example](/docs/features/lightgbm/LightGBM%20-%20Overview).
+example](../LightGBM%20-%20Overview).
 
 ### Architecture
 

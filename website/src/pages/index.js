@@ -9,12 +9,13 @@ import CodeSnippet from "@site/src/theme/CodeSnippet";
 import SampleSnippet from "@site/src/theme/SampleSnippet";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import clsx from "clsx";
 
 const snippets = [
   {
     label: "Text Analytics",
     further:
-      "/docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
+      "docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
     config: `from synapse.ml.cognitive import *
 
 sentiment_df = (TextSentiment()
@@ -28,7 +29,7 @@ sentiment_df = (TextSentiment()
   },
   {
     label: "Deep Learning",
-    further: "/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
+    further: "docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
     config: `from synapse.ml.onnx import *
 
 model_prediction_df = (ONNXModel()
@@ -40,8 +41,9 @@ model_prediction_df = (ONNXModel()
     .transform(input_df))`,
   },
   {
-    label: "Model Interpretability",
-    further: "/docs/next/features/responsible_ai/Model%20Interpretation%20on%20Spark",
+    label: "Responsible AI",
+    further:
+      "docs/features/responsible_ai/Model%20Interpretation%20on%20Spark",
     config: `from synapse.ml.explainers import *
     
 interpretation_df = (TabularSHAP()
@@ -55,7 +57,7 @@ interpretation_df = (TabularSHAP()
   },
   {
     label: "LightGBM",
-    further: "/docs/features/lightgbm/about",
+    further: "docs/features/lightgbm/about",
     config: `from synapse.ml.lightgbm import *
     
 quantile_df = (LightGBMRegressor()
@@ -168,23 +170,22 @@ function Home() {
               </div>
             </div>
             <div className={classnames("col col--5")}>
-              <img className={styles.heroImg} src={useBaseUrl("img/logo.svg")} />
+              <img
+                className={styles.heroImg}
+                src={useBaseUrl("img/logo.svg")}
+              />
             </div>
           </div>
-        </div>
-        <div className={clsx(styles.announcement, styles.announcementDark)}>
-          <div className={styles.announcementInner}>
-            <Translate
-              values={{
-                mmlsparkWebLink: (
-                  <Link to="https://mmlspark.blob.core.windows.net/website/index.html">
-                    <Translate>MMLSpark</Translate>
-                  </Link>
-                )
-              }}>
-              {`Coming from {mmlsparkWebLink}? We have been renamed to SynapseML!`}
-            </Translate>
-            .
+          <div className="container">
+            <div className={clsx(styles.announcement, styles.announcementDark)}>
+              <div className={styles.announcementInner}>
+                "Coming from "
+                <a href="https://mmlspark.blob.core.windows.net/website/index.html">
+                  MMLSpark
+                </a>
+                "? We have been renamed to SynapseML!"
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -235,12 +236,15 @@ function Home() {
                 and cloud native.
               </p>
               <p>
-                Note: SynpaseML will be built-in for <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">Azure Synapse soon.</a>
+                Note: SynpaseML will be built-in for{" "}
+                <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">
+                  Azure Synapse soon.
+                </a>
               </p>
               <Tabs
-                defaultValue="Spark Packages"
+                defaultValue="Synapse"
                 values={[
-                  { label: "Synapse", value: "Synapse"},
+                  { label: "Synapse", value: "Synapse" },
                   { label: "Spark Packages", value: "Spark Packages" },
                   { label: "Databricks", value: "Databricks" },
                   { label: "Docker", value: "Docker" },
@@ -253,7 +257,7 @@ function Home() {
                   <CodeSnippet
                     snippet={`%%configure -f
 {
-  "name": "mmlspark",
+  "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.2",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
@@ -263,8 +267,12 @@ function Home() {
 }`}
                     lang="bash"
                   ></CodeSnippet>
-                  Please also include `synapseml==0.9.2` in your requirements.txt file for usage of PySpark.
-                  <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">Install Python libraries in Synapse</a>
+                  Please also include `synapseml==0.9.2` in your
+                  requirements.txt file for usage of PySpark. [
+                  <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">
+                    Install Python libraries in Synapse
+                  </a>
+                  ]
                 </TabItem>
                 <TabItem value="Spark Packages">
                   SynapseML can be conveniently installed on existing Spark
@@ -294,8 +302,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                     <a href="https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages">
                       library from Maven coordinates
                     </a>{" "}
-                    in your workspace.
-                    in your workspace.
+                    in your workspace. in your workspace.
                   </p>
                   <p>
                     For the coordinates use:
@@ -314,9 +321,9 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                     Finally, ensure that your Spark cluster has at least Spark
                     2.4 and Scala 2.11.
                   </p>
-                  You can use SynapseML in both your Scala and PySpark notebooks.
-                  To get started with our example notebooks import the following
-                  databricks archive:
+                  You can use SynapseML in both your Scala and PySpark
+                  notebooks. To get started with our example notebooks import
+                  the following databricks archive:
                   <CodeSnippet
                     snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.2.dbc`}
                     lang="bash"

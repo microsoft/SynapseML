@@ -50,7 +50,7 @@ sidebar_label: About
 
 [Interpretability - Tabular SHAP Explainer]: ../responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
 
-[Interpretability - Image Explainers]: ../responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
+[Interpretability - Image Explainers]: ../../features/responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
 
 [Interpretability - Text Explainers]: ../responsible_ai/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
 

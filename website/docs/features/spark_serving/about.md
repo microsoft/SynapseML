@@ -4,7 +4,9 @@ hide_title: true
 sidebar_label: About
 ---
 
-# <img src="/img/notebooks/SparkServing3.svg" width="90" align="left" /> Spark Serving
+<img src="https://mmlspark.blob.core.windows.net/graphics/SparkServing3.svg" width="90" align="left" />
+
+# Spark Serving
 
 ### An Engine for Deploying Spark Jobs as Distributed Web Services
 
@@ -31,7 +33,7 @@ sidebar_label: About
 
 ### Jupyter Notebook Examples
 
--   [Deploy a classifier trained on the Adult Census Dataset](/docs/features/spark_serving/SparkServing%20-%20Deploying%20a%20Classifier)
+-   [Deploy a classifier trained on the Adult Census Dataset](../SparkServing%20-%20Deploying%20a%20Classifier)
 -   More coming soon!
 
 ### Spark Serving Hello World
@@ -115,7 +117,7 @@ as it doesn't require any additional load balancing or network
 switches.A diagram of this configuration can be seen below:
 
 <p align="center">
-  <img src="/img/notebooks/HeadNodeDistributed2.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/HeadNodeDistributed2.png" width="600" />
 </p>
 
 ### Fully Distributed (Custom Load Balancer)
@@ -136,7 +138,7 @@ targeted for the next release of SynapseML.  A diagram of this
 configuration can be seen below:
 
 <p align="center">
-  <img src="/img/notebooks/FullyDistributed2.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/FullyDistributed2.png" width="600" />
 </p>
 
 Queries that involve data movement across workers, such as a nontrivial
@@ -148,7 +150,7 @@ routing will be automatically handled by the sink.
 ### Sub-Millisecond Latency with Continuous Processing
 
 <p align="center">
-  <img src="/img/notebooks/latency_comparison.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/latency_comparison.png" width="600" />
 </p>
 
 Continuous processing can be enabled by hooking into the `HTTPSourceV2` class using:

@@ -66,15 +66,19 @@
         },
         {
           "type": "category",
-          "label": "Model Interpretability",
+          "label": "Responsible AI",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/model_interpretability/about"
+              "id": "version-0.9.1/features/responsible_ai/Data Balance Analysis"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/model_interpretability/ModelInterpretability - Snow Leopard Detection"
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Image Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Model Interpretation on Spark"
             }
           ],
           "collapsible": true,
@@ -226,19 +230,27 @@
         },
         {
           "type": "category",
-          "label": "Model Interpretability",
+          "label": "Responsible AI",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Image Explainers"
+              "id": "version-0.9.1/examples/responsible_ai/DataBalanceAnalysis - Adult Census Income"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Tabular SHAP explainer"
+              "id": "version-0.9.1/examples/responsible_ai/Interpretability - Explanation Dashboard"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Text Explainers"
+              "id": "version-0.9.1/examples/responsible_ai/Interpretability - Tabular SHAP explainer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/responsible_ai/Interpretability - Text Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/examples/responsible_ai/ModelInterpretability - Snow Leopard Detection"
             }
           ],
           "collapsible": true,
