@@ -15,8 +15,8 @@ def add_header_to_markdown(folder, md):
 
 
 def convert_notebook_to_markdown(file_path, outputdir):
-    print(f"Converting {file_path} into markdown")
-    convert_cmd = f'jupyter nbconvert --output-dir="{outputdir}" --to markdown "{file_path}"'
+    print("Converting {} into markdown".format(file_path))
+    convert_cmd = 'jupyter nbconvert --output-dir="{}" --to markdown "{}"'.format(outputdir, file_path)
     os.system(convert_cmd)
     print()
 
