@@ -415,6 +415,15 @@ class PIISuiteV3 extends TransformerFuzzing[PII] with TextKey {
 
   test("Basic Usage") {
     val results = n.transform(df)
+
+    val redactedTexts = results.withColumn("redactedText",
+      col("response")
+        .getItem(0)
+        .getItem("redactedText"))
+      .select("redactedText")
+    val redactedText = redactedTexts.collect().head(0).toString()
+    assert(redactedText === "My SSN is ***********")
+
     val matches = results.withColumn("match",
       col("response")
         .getItem(0)
