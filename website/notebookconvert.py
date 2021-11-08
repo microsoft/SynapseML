@@ -20,7 +20,6 @@ def convert_notebook_to_markdown(file_path, outputdir):
     os.system(convert_cmd)
     print()
 
-
 def convert_allnotebooks_in_folder(folder, outputdir):
     
     cur_folders = [folder]
