@@ -1,5 +1,7 @@
 ---
 title: Data Balance Analysis on Spark
+hide_title: true
+sidebar_label: Data Balance Analysis
 description: Learn how to do Data Balance Analysis on Spark to determine how well features and feature values are represented in your dataset.
 ---
 
@@ -17,7 +19,7 @@ In summary, Data Balance Analysis, used as a step for building ML models has the
 
 ## Examples
 
-* [Data Balance Analysis - Adult Census Income](https://github.com/microsoft/SynapseML/blob/master/notebooks/Data%20Balance%20Analysis%20-%20Adult%20Census%20Income.ipynb)
+* [Data Balance Analysis - Adult Census Income](../../../examples/responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income)
 
 ## Usage
 
@@ -173,7 +175,7 @@ This involves under-sampling from majority class and over-sampling from minority
   1. Under-sampling may remove valuable information.  
   2. Over-sampling may cause overfitting and poor generalization on test set.
 
-![Bar chart undersampling and oversampling](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_SamplingBar.png)
+![Bar chart undersampling and oversampling](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_SamplingBar.png)
 
 There are smarter techniques to under-sample and over-sample in literature and implemented in Python’s [imbalanced-learn](https://imbalanced-learn.org/stable/) package.  
 
@@ -181,14 +183,14 @@ For example, we can cluster the records of the majority class, and do the under-
 
 One technique of under-sampling is use of Tomek Links. Tomek links are pairs of very close instances but of opposite classes. Removing the instances of the majority class of each pair increases the space between the two classes, facilitating the classification process. A similar way to under-sample majority class is using Near-Miss. It first calculates the distance between all the points in the larger class with the points in the smaller class. When two points belonging to different classes are very close to each other in the distribution, this algorithm eliminates the datapoint of the larger class thereby trying to balance the distribution.
 
-![Tomek Links](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_TomekLinks.png)
+![Tomek Links](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_TomekLinks.png)
 
 In over-sampling, instead of creating exact copies of the minority class records, we can introduce small variations into those copies, creating more diverse synthetic samples. This technique is called SMOTE (Synthetic Minority Oversampling Technique). It randomly picks a point from the minority class and computes the k-nearest neighbors for this point. The synthetic points are added between the chosen point and its neighbors.
 
-![Synthetic Samples](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_SyntheticSamples.png)
+![Synthetic Samples](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_SyntheticSamples.png)
 
 ### Reweighting
 
 There is an expected and observed value in each table cell. The weight is essentially expected / observed value. This is easy to extend to multiple features with more than 2 groups. The weights are then incorporated in loss function of model training.  
 
-![Reweighting](https://mmlspark.blob.core.windows.net/graphics/exploratory/DataBalanceAnalysis_Reweight.png)
+![Reweighting](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_Reweight.png)

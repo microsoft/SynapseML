@@ -1,21 +1,25 @@
 import os
 import re
 
+
 def add_header_to_markdown(folder, md):
     name = md[:-3]
-    with open(os.path.join(folder, md), 'r+', encoding='utf-8') as f:
+    with open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
         f.truncate(0)
-        content = re.sub(r'style=\"[\S ]*?\"', '', content)
-        content = re.sub(r'<style[\S \n.]*?</style>', '', content)
+        content = re.sub(r"style=\"[\S ]*?\"", "", content)
+        content = re.sub(r"<style[\S \n.]*?</style>", "", content)
         f.seek(0, 0)
         f.write("---\ntitle: {}\nhide_title: true\nstatus: stable\n---\n".format(name) + content)
         f.close()
 
+
 def convert_notebook_to_markdown(file_path, outputdir):
-    print("Converting {} into markdown \n".format(file_path))
-    convert_cmd = 'jupyter nbconvert --output-dir=\"{}\" --to markdown \"{}\"'.format(outputdir, file_path)
+    print(f"Converting {file_path} into markdown")
+    convert_cmd = f'jupyter nbconvert --output-dir="{outputdir}" --to markdown "{file_path}"'
     os.system(convert_cmd)
+    print()
+
 
 def convert_allnotebooks_in_folder(folder, outputdir):
     
@@ -45,5 +49,6 @@ def main():
     outputdir = os.path.join(cur_path, "website", "docs")
     convert_allnotebooks_in_folder(folder, outputdir)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
