@@ -457,6 +457,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          source activate synapseml
           sbt convertNotebooks
     - bash: |
         yarn install
