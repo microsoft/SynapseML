@@ -179,11 +179,11 @@ function Home() {
           <div className="container">
             <div className={clsx(styles.announcement, styles.announcementDark)}>
               <div className={styles.announcementInner}>
-                "Coming from "
+                Coming from 
                 <a href="https://mmlspark.blob.core.windows.net/website/index.html">
                   MMLSpark
                 </a>
-                "? We have been renamed to SynapseML!"
+                ? We have been renamed to SynapseML!
               </div>
             </div>
           </div>
