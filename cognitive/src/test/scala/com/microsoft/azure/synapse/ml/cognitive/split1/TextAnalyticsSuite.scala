@@ -13,11 +13,12 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
-trait TextKey {
+trait TextEndpoint {
   lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
+  lazy val textApiLocation = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
 }
 
-class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextKey {
+class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextEndpoint {
 
   import spark.implicits._
 
@@ -30,7 +31,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with 
 
   lazy val detector: LanguageDetectorV2 = new LanguageDetectorV2()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/languages")
     .setTextCol("text2")
     .setOutputCol("replies")
 
@@ -70,7 +71,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with 
   override def reader: MLReadable[_] = LanguageDetectorV2
 }
 
-class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with TextKey {
+class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with TextEndpoint {
 
   import spark.implicits._
 
@@ -83,7 +84,7 @@ class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with 
 
   lazy val detector: LanguageDetector = new LanguageDetector()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v3.0/languages")
     .setOutputCol("replies")
 
   test("Basic Usage") {
@@ -102,7 +103,7 @@ class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with 
   override def reader: MLReadable[_] = LanguageDetector
 }
 
-class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with TextKey {
+class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with TextEndpoint {
 
   import spark.implicits._
 
@@ -113,7 +114,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with Text
 
   lazy val detector: EntityDetectorV2 = new EntityDetectorV2()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/entities")
     .setLanguage("en")
     .setOutputCol("replies")
 
@@ -132,7 +133,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with Text
   override def reader: MLReadable[_] = EntityDetectorV2
 }
 
-class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with TextKey {
+class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with TextEndpoint {
 
   import spark.implicits._
 
@@ -163,7 +164,7 @@ class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with Text
   override def reader: MLReadable[_] = EntityDetector
 }
 
-trait TextSentimentBaseSuite extends TestBase with TextKey {
+trait TextSentimentBaseSuite extends TestBase with TextEndpoint {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -219,7 +220,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
 
   lazy val t: TextSentimentV2 = new TextSentimentV2()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -251,7 +252,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
   override def reader: MLReadable[_] = TextSentimentV2
 }
 
-class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] with TextKey {
+class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] with TextEndpoint {
 
   import spark.implicits._
 
@@ -264,7 +265,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] w
 
   lazy val t: KeyPhraseExtractorV2 = new KeyPhraseExtractorV2()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -285,7 +286,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] w
   override def reader: MLReadable[_] = KeyPhraseExtractorV2
 }
 
-class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] with TextKey {
+class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] with TextEndpoint {
 
   import spark.implicits._
 
@@ -298,7 +299,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 
   lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
     .setSubscriptionKey(textKey)
-    .setUrl("https://eastus.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -319,7 +320,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
   override def reader: MLReadable[_] = KeyPhraseExtractor
 }
 
-class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
+class NERSuite extends TransformerFuzzing[NERV2] with TextEndpoint {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -329,7 +330,7 @@ class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
 
   lazy val n: NERV2 = new NERV2()
     .setSubscriptionKey(textKey)
-    .setLocation("eastus")
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("response")
 
@@ -358,7 +359,7 @@ class NERSuite extends TransformerFuzzing[NERV2] with TextKey {
   override def reader: MLReadable[_] = NERV2
 }
 
-class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
+class NERSuiteV3 extends TransformerFuzzing[NER] with TextEndpoint {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -368,7 +369,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
 
   lazy val n: NER = new NER()
     .setSubscriptionKey(textKey)
-    .setLocation("eastus")
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("response")
 
@@ -397,7 +398,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextKey {
   override def reader: MLReadable[_] = NER
 }
 
-class PIISuiteV3 extends TransformerFuzzing[PII] with TextKey {
+class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -409,12 +410,21 @@ class PIISuiteV3 extends TransformerFuzzing[PII] with TextKey {
 
   lazy val n: PII = new PII()
     .setSubscriptionKey(textKey)
-    .setLocation("eastus")
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("response")
 
   test("Basic Usage") {
     val results = n.transform(df)
+
+    val redactedTexts = results.withColumn("redactedText",
+      col("response")
+        .getItem(0)
+        .getItem("redactedText"))
+      .select("redactedText")
+    val redactedText = redactedTexts.collect().head(0).toString()
+    assert(redactedText === "My SSN is ***********")
+
     val matches = results.withColumn("match",
       col("response")
         .getItem(0)
