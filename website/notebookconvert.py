@@ -1,10 +1,11 @@
+import io
 import os
 import re
 
 
 def add_header_to_markdown(folder, md):
     name = md[:-3]
-    with open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
+    with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
         f.truncate(0)
         content = re.sub(r"style=\"[\S ]*?\"", "", content)
