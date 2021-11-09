@@ -134,58 +134,33 @@ train, test = images.randomSplit([.7,.3], seed=1)
 
 ```python
 from pyspark.ml import Pipeline
-
 from pyspark.ml.feature import StringIndexer
-
 from pyspark.ml.classification import LogisticRegression
-
 from pyspark.sql.functions import udf
-
 from synapse.ml.downloader import ModelDownloader
-
 from synapse.ml.cntk import ImageFeaturizer
-
 from synapse.ml.stages import UDFTransformer
-
 from pyspark.sql.types import *
 
 
-
 def getIndex(row):
-
   return float(row[1])
 
 
-
 if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
-
   network = ModelDownloader(spark, "abfss://synapse@mmlsparkeuap.dfs.core.windows.net/models/").downloadByName("ResNet50")
-
 else:
-
   network = ModelDownloader(spark, "dbfs:/Models/").downloadByName("ResNet50")
 
-
-
 model = Pipeline(stages=[
-
   StringIndexer(inputCol = "labels", outputCol="index"),
-
   ImageFeaturizer(inputCol="image", outputCol="features", cutOutputLayers=1).setModel(network),
-
   LogisticRegression(maxIter=5, labelCol="index", regParam=10.0),
-
   UDFTransformer()\
-
       .setUDF(udf(getIndex, DoubleType()))\
-
       .setInputCol("probability")\
-
       .setOutputCol("leopard_prob")
-
 ])
-
-
 
 fitModel = model.fit(train)
 ```
@@ -195,59 +170,34 @@ fitModel = model.fit(train)
 
 ```python
 def plotConfusionMatrix(df, label, prediction, classLabels):
-
   from synapse.ml.plot import confusionMatrix
-
   import matplotlib.pyplot as plt
-
   fig = plt.figure(figsize=(4.5, 4.5))
-
   confusionMatrix(df, label, prediction, classLabels)
-
   display(fig)
 
-
-
 if os.environ.get("AZURE_SERVICE", None) != "Microsoft.ProjectArcadia":
-
   plotConfusionMatrix(fitModel.transform(test), "index", "prediction", fitModel.stages[0].labels)
 ```
 
 
 ```python
 import urllib.request
-
 from synapse.ml.lime import ImageLIME
 
-
-
 test_image_url = "https://mmlspark.blob.core.windows.net/graphics/SnowLeopardAD/snow_leopard1.jpg"
-
 with urllib.request.urlopen(test_image_url) as url:
-
     barr = url.read()
-
 test_subsample = spark.createDataFrame([(bytearray(barr),)], ["image"])
 
-
-
 lime = ImageLIME()\
-
   .setModel(fitModel)\
-
   .setPredictionCol("leopard_prob")\
-
   .setOutputCol("weights")\
-
   .setInputCol("image")\
-
   .setCellSize(100.0)\
-
   .setModifier(50.0)\
-
   .setNSamples(300)
-
-
 
 result = lime.transform(test_subsample)
 ```
