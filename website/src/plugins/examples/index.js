@@ -56,6 +56,7 @@ function listExamplePaths(folder, type) {
 
   examples
     .filter((c) => c.status != "deprecated")
+    .sort()
     .forEach(function (info) {
       paths.push(`${folder}/${type}/${info.name}`);
     });
