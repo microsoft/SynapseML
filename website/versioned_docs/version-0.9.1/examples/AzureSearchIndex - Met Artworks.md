@@ -50,20 +50,33 @@ data = spark.read\
 
 ```python
 from synapse.ml.cognitive import AnalyzeImage
+
 from synapse.ml.stages import SelectColumns
 
 
+
 #define pipeline
+
 describeImage = (AnalyzeImage()
+
   .setSubscriptionKey(VISION_API_KEY)
+
   .setLocation("eastus")
+
   .setImageUrlCol("PrimaryImageUrl")
+
   .setOutputCol("RawImageDescription")
+
   .setErrorCol("Errors")
+
   .setVisualFeatures(["Categories", "Description", "Faces", "ImageType", "Color", "Adult"])
+
   .setConcurrency(5))
 
+
+
 df2 = describeImage.transform(data)\
+
   .select("*", "RawImageDescription.*").drop("Errors", "RawImageDescription")
 ```
 
@@ -76,10 +89,15 @@ Before writing the results to a Search Index, you must define a schema which mus
 from synapse.ml.cognitive import *
 
 df2.writeToAzureSearch(
+
   subscriptionKey=AZURE_SEARCH_KEY,
+
   actionCol="searchAction",
+
   serviceName=search_service,
+
   indexName=search_index,
+
   keyCol="ObjectID")
 ```
 

@@ -25,12 +25,12 @@ function all_examples_for_type(folder, type) {
 
 function all_examples() {
   let ex_links = [
-    `examples/AzureSearchIndex - Met Artworks.md`,
-    `examples/classification/Classification - Adult Census.md`,
-    `features/CognitiveServices - Overview.md`,
-    `examples/ConditionalKNN - Exploring Art Across Cultures.md`,
-    `examples/CyberML - Anomalous Access Detection.md`,
-    `examples/responsible_ai/DataBalanceAnalysis - Adult Census Income.md`,
+    `features/other/AzureSearchIndex - Met Artworks.md`,
+    `features/classification/Classification - Adult Census.md`,
+    `features/cognitive_services/CognitiveServices - Overview.md`,
+    `features/other/ConditionalKNN - Exploring Art Across Cultures.md`,
+    `features/other/CyberML - Anomalous Access Detection.md`,
+    `features/responsible_ai/DataBalanceAnalysis - Adult Census Income.md`,
     `features/responsible_ai/Interpretability - Image Explainers.md`,
     `features/onnx/ONNX - Inference on Spark.md`,
     `features/lightgbm/LightGBM - Overview.md`,
