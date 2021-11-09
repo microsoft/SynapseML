@@ -116,20 +116,12 @@ By calling "saveNativeModel", it allows you to extract the underlying lightGBM m
 ```python
 from synapse.ml.lightgbm import LightGBMClassificationModel
 
-
-
 if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
-
     model.saveNativeModel("/models/lgbmclassifier.model")
-
     model = LightGBMClassificationModel.loadNativeModelFromFile("/models/lgbmclassifier.model")
-
 else:
-
     model.saveNativeModel("/lgbmclassifier.model")
-
     model = LightGBMClassificationModel.loadNativeModelFromFile("/lgbmclassifier.model")
-
 
 ```
 
