@@ -8,6 +8,12 @@
 .docusaurus
 .cache-loader
 
+# Converted markdowns
+/docs/examples/*
+!/docs/examples/about.md
+/docs/features/**/*
+!/docs/features/**/about.md
+
 # Misc
 .DS_Store
 .env.local
