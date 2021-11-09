@@ -85,12 +85,20 @@ To get started, we'll need to add this code to the project:
 
 ```python
 from pyspark.sql.functions import udf, col
+
 from synapse.ml.io.http import HTTPTransformer, http_udf
+
 from requests import Request
+
 from pyspark.sql.functions import lit
+
 from pyspark.ml import PipelineModel
+
 from pyspark.sql.functions import col
+
 import os
+
+
 ```
 
 
@@ -114,13 +122,22 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 ```python
 from synapse.ml.cognitive import *
 
+
+
 # A general Cognitive Services key for Text Analytics, Computer Vision and Form Recognizer (or use separate keys that belong to each service)
+
 service_key = os.environ["COGNITIVE_SERVICE_KEY"]
+
 # A Bing Search v7 subscription key
+
 bing_search_key = os.environ["BING_IMAGE_SEARCH_KEY"]
+
 # An Anomaly Dectector subscription key
+
 anomaly_key = os.environ["ANOMALY_API_KEY"]
+
 # A Translator subscription key
+
 translator_key = os.environ["TRANSLATOR_KEY"]
 ```
 

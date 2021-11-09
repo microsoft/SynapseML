@@ -13,7 +13,7 @@ import clsx from "clsx";
 
 const snippets = [
   {
-    label: "Text Analytics",
+    label: "Cognitive Services",
     further:
       "docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
     config: `from synapse.ml.cognitive import *
