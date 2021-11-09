@@ -95,7 +95,7 @@ In HTTP on Spark, each partition manages a running web client that sends
 requests.  A schematic representation can be seen below:
 
 <p align="center">
-  <img src="/img/notebooks/HTTPOnSparkArchitecture.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/HTTPOnSparkArchitecture.png" width="600" />
 </p>
 
 ## Schema

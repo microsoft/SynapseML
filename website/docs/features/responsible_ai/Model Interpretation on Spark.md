@@ -27,7 +27,7 @@ Both explainers extends from `org.apache.spark.ml.Transformer`. After setting up
 To see examples of model interpretability on Spark in action, take a look at these sample notebooks:
 
 - [Tabular SHAP explainer](../../../examples/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer)
-- [Image explainers](../../../examples/responsible_ai/Interpretability%20-%20Image%20Explainers)
+- [Image explainers](../../../features/responsible_ai/Interpretability%20-%20Image%20Explainers)
 - [Text explainers](../../../examples/responsible_ai/Interpretability%20-%20Text%20Explainers)
 
 |                        | Tabular models              | Vector models             | Image models            | Text models           |

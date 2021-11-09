@@ -10,7 +10,7 @@ sidebar_label: About
 -   Fit a LightGBM classification or regression model on a biochemical dataset
     ([LightGBM Overview]), to learn more check out the [LightGBM documentation
     page](../../features/lightgbm/about).
--   Deploy a deep network as a distributed web service with [MMLSpark
+-   Deploy a deep network as a distributed web service with [SynapseML
     Serving](../../features/spark_serving/about)
 -   Use web services in Spark with [HTTP on Apache Spark](../../features/http/about)
 -   Use Bi-directional LSTMs from Keras for medical entity extraction
@@ -25,6 +25,7 @@ sidebar_label: About
 -   Train and evaluate a flight delay prediction system ([Regression - Flight Delays])
 -   Finding anomalous data access patterns using the Access Anomalies package of CyberML ([CyberML - Anomalous Access Detection])
 -   Model interpretation ([Interpretability - Tabular SHAP Explainer], [Interpretability - Image Explainers], [Interpretability - Text Explainers])
+-   Do Data Balance Analysis to determine how well features and feature values are represented in your dataset ([DataBalanceAnalysis - Adult Census Income])
 
 
 [Classification - Adult Census]: ../classification/Classification%20-%20Adult%20Census "Classification - Adult Census"
@@ -47,9 +48,10 @@ sidebar_label: About
 
 [CyberML - Anomalous Access Detection]: ../CyberML%20-%20Anomalous%20Access%20Detection "CyberML - Anomalous Access Detection"
 
-[Interpretability - Tabular SHAP Explainer]: ../model_interpretability/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
+[Interpretability - Tabular SHAP Explainer]: ../responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
 
-[Interpretability - Image Explainers]: ../model_interpretability/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
+[Interpretability - Image Explainers]: ../../features/responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
 
-[Interpretability - Text Explainers]: ../model_interpretability/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
+[Interpretability - Text Explainers]: ../responsible_ai/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
 
+[DataBalanceAnalysis - Adult Census Income]: ../responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income "DataBalanceAnalysis - Adult Census Income"

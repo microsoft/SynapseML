@@ -4,7 +4,7 @@ hide_title: true
 sidebar_label: About
 ---
 
-<img width="200" src="/img/notebooks/vw-blue-dark-orange.svg" />
+<img width="200" src="https://mmlspark.blob.core.windows.net/graphics/vw-blue-dark-orange.svg" />
 
 # VowpalWabbit on Apache Spark
 
@@ -64,7 +64,7 @@ model = (VowpalWabbitRegressor(args="--holdout_off --loss_function quantile -q :
 Through the args parameter you can pass command line parameters to VW as documented in the [VW Wiki](https://github.com/vowpalWabbit/vowpal_wabbit/wiki/Command-Line-Arguments).
 
 For an end to end application, check out the VowpalWabbit [notebook
-example](/docs/features/vw/Vowpal%20Wabbit%20-%20Overview).
+example](../Vowpal%20Wabbit%20-%20Overview).
 
 ### Hyper-parameter tuning
 

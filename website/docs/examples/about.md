@@ -10,7 +10,7 @@ sidebar_label: About
 -   Fit a LightGBM classification or regression model on a biochemical dataset
     ([LightGBM Overview]), to learn more check out the [LightGBM documentation
     page](../../features/lightgbm/about).
--   Deploy a deep network as a distributed web service with [MMLSpark
+-   Deploy a deep network as a distributed web service with [SynapseML
     Serving](../../features/spark_serving/about)
 -   Use web services in Spark with [HTTP on Apache Spark](../../features/http/about)
 -   Use Bi-directional LSTMs from Keras for medical entity extraction
@@ -50,7 +50,7 @@ sidebar_label: About
 
 [Interpretability - Tabular SHAP Explainer]: ../responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer "Interpretability - Tabular SHAP Explainer"
 
-[Interpretability - Image Explainers]: ../responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
+[Interpretability - Image Explainers]: ../../features/responsible_ai/Interpretability%20-%20Image%20Explainers "Interpretability - Image Explainers"
 
 [Interpretability - Text Explainers]: ../responsible_ai/Interpretability%20-%20Text%20Explainers "Interpretability - Text Explainers"
 
