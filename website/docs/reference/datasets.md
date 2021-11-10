@@ -30,7 +30,7 @@ tab-separated file with 2 columns (`rating`, `text`) and 10000 rows.  The
 contains free-form text strings in English language.  You can use
 `synapse.ml.TextFeaturizer` to convert the text into feature vectors for machine
 learning models ([see
-example](../../examples/text_analytics/TextAnalytics%20-%20Amazon%20Book%20Reviews/)).
+example](../../features/other/TextAnalytics%20-%20Amazon%20Book%20Reviews/)).
 
 The example dataset is available
 [here](https://mmlspark.azureedge.net/datasets/BookReviewsFromAmazon10K.tsv);

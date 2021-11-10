@@ -12,33 +12,19 @@ First we import the packages and define some UDFs and a plotting function we wil
 
 ```python
 from synapse.ml.explainers import *
-
 from synapse.ml.onnx import ONNXModel
-
 from synapse.ml.opencv import ImageTransformer
-
 from synapse.ml.io import *
-
 from pyspark.ml import Pipeline
-
 from pyspark.ml.classification import LogisticRegression
-
 from pyspark.ml.feature import StringIndexer
-
 from pyspark.sql.functions import *
-
 from pyspark.sql.types import *
-
 import numpy as np
-
 import pyspark
-
 import urllib.request
-
 import matplotlib.pyplot as plt
-
 import PIL, io
-
 from PIL import Image
 
 

@@ -43,9 +43,7 @@ and so on.  The parameter `numFeatures` controls the number of hashed features.
 
 ```python
 from synapse.ml.train import TrainClassifier
-
 from pyspark.ml.classification import LogisticRegression
-
 model = TrainClassifier(model=LogisticRegression(), labelCol="income", numFeatures=256).fit(train)
 ```
 
