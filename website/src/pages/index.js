@@ -15,7 +15,7 @@ const snippets = [
   {
     label: "Cognitive Services",
     further:
-      "docs/features/CognitiveServices%20-%20Overview#text-analytics-sample",
+      "docs/features/cognitive_services/CognitiveServices%20-%20Overview#text-analytics-sample",
     config: `from synapse.ml.cognitive import *
 
 sentiment_df = (TextSentiment()
