@@ -2,16 +2,6 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import DocTable from "@theme/DocumentationTable";
 
-<!-- 
-```python
-import pyspark
-import os
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
-``` 
--->
 
 ## ONNXModel
 
@@ -24,7 +14,6 @@ values={[
 <TabItem value="py">
 
 ```py
-import synapse.ml
 from synapse.ml.onnx import ONNXModel
 
 model_path = "PUT_YOUR_MODEL_PATH"
