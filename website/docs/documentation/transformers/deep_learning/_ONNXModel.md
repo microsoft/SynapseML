@@ -20,7 +20,7 @@ model_path = "PUT_YOUR_MODEL_PATH"
 onnx_ml = (ONNXModel()
             .setModelLocation(model_path)
             .setFeedDict({"float_input": "features"})
-            .setFetchDict({"prediction": "output_label", "rawProbability": "output_probability"})
+            .setFetchDict({"prediction": "output_label", "rawProbability": "output_probability"}))
 ```
 
 </TabItem>
@@ -30,10 +30,10 @@ onnx_ml = (ONNXModel()
 import com.microsoft.azure.synapse.ml.onnx._
 
 val model_path = "PUT_YOUR_MODEL_PATH"
-val onnx_ml = new ONNXModel()
+val onnx_ml = (new ONNXModel()
                   .setModelLocation(model_path)
                   .setFeedDict(Map("float_input" -> "features"))
-                  .setFetchDict(Map("prediction" -> "output_label", "rawProbability" -> "output_probability"))
+                  .setFetchDict(Map("prediction" -> "output_label", "rawProbability" -> "output_probability")))
 ```
 
 </TabItem>

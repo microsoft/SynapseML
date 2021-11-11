@@ -5,33 +5,32 @@ import re
 
 def add_python_helper_to_markdown(folder, md):
     replacement = """<!-- 
-    ```python
-    import pyspark
-    import os
-    import json
-    from IPython.display import display
-    from pyspark.sql.functions import *
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
 
-    os.environ["PYSPARK_PYTHON"] = "python"
-    os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
-    os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
+os.environ["PYSPARK_PYTHON"] = "python"
+os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
+os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
-    spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-            .getOrCreate())
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
 
-    def getSecret(secretName):
-            get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-            value = json.loads(os.popen(get_secret_cmd).read())["value"]
-            return value
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
 
-    import synapse.ml
-    ```
-    -->
+import synapse.ml
+```
+-->
 
-    <!--pytest-codeblocks:cont-->
-    """
+<!--pytest-codeblocks:cont-->"""
     with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
         f.truncate(0)
