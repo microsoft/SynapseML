@@ -56,6 +56,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
@@ -71,7 +72,9 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-    - bash: sbt publishBadges
+    - bash: |
+        set -e
+        sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
@@ -98,6 +101,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt packagePython
         sbt publishBlob
@@ -139,8 +143,9 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
-        jupyter nbconvert --to script ./notebooks/*.ipynb*
+        jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
@@ -246,6 +251,7 @@ jobs:
         echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Git Tag'
     - bash: |
+        set -e
         wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
@@ -274,6 +280,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
@@ -327,6 +334,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -377,6 +385,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -424,6 +433,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -460,12 +470,14 @@ jobs:
           source activate synapseml
           sbt convertNotebooks
     - bash: |
+        set -e
         yarn install
         cd website
         yarn
         yarn build
       displayName: 'yarn install and build'
     - bash: |
+        set -e
         git config --global user.name "${GH_NAME}"
         git config --global user.email "${GH_EMAIL}"
         git checkout -b main
@@ -594,6 +606,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
