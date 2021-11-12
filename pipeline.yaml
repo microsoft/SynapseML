@@ -56,9 +56,9 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - task: UsePythonVersion@0
-      displayName: Use Python 3.8.5
+      displayName: Use Python 3.8.12
       inputs:
-        versionSpec: 3.8.5
+        versionSpec: 3.8.12
     - bash: |
         set -e
         source activate synapseml
