@@ -224,7 +224,7 @@ object CodegenPlugin extends AutoPlugin {
       artifactPath.in(packageBin).in(Compile).value.getParentFile
     },
     mergePyCodeDir := {
-      join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
+      join(baseDirectory.value.getParent, "target", "scala-2.12", "sbt-1.0", "generated")
     },
     codegenDir := {
       join(targetDir.value, "generated")
