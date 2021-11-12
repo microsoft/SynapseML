@@ -72,7 +72,9 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-    - bash: sbt publishBadges
+    - bash: |
+        set -e
+        sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
@@ -99,6 +101,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt packagePython
         sbt publishBlob
@@ -140,6 +143,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         jupyter nbconvert --to script ./notebooks/*.ipynb*
         sbt packagePython
@@ -177,6 +181,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
           echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
@@ -247,6 +252,7 @@ jobs:
         echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Git Tag'
     - bash: |
+        set -e
         wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
@@ -275,6 +281,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
@@ -306,6 +313,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testPython) || (sbt coverage testPython) || (sbt coverage testPython)
@@ -328,6 +336,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -356,6 +365,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt coverage testR
@@ -378,6 +388,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -403,6 +414,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testWebsiteDocs)
@@ -425,6 +437,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -458,15 +471,18 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           source activate synapseml
           sbt convertNotebooks
     - bash: |
+        set -e
         yarn install
         cd website
         yarn
         yarn build
       displayName: 'yarn install and build'
     - bash: |
+        set -e
         git config --global user.name "${GH_NAME}"
         git config --global user.email "${GH_EMAIL}"
         git checkout -b main
@@ -559,6 +575,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@1
@@ -568,6 +585,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
@@ -595,6 +613,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
