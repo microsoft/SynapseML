@@ -145,7 +145,7 @@ jobs:
     - bash: |
         set -e
         source activate synapseml
-        jupyter nbconvert --to script ./notebooks/*.ipynb*
+        jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
