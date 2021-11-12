@@ -3,7 +3,7 @@ const {all_examples} = require('./src/plugins/examples');
 let version = "0.9.1";
 
 module.exports = {
-  title: 'Synapse ML',
+  title: 'SynapseML',
   tagline: 'Simple and Distributed Machine Learning',
   url: 'https://microsoft.github.io',
   baseUrl: '/SynapseML/',

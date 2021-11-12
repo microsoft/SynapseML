@@ -28,9 +28,8 @@ def blob_to_url(blob):
 
 
 df2 = (spark.read.format("binaryFile")
-       .load("wasbs://ignite2021@mmlsparkdemo.blob.core.windows.net/forms/*")
+       .load("wasbs://ignite2021@mmlsparkdemo.blob.core.windows.net/form_subset/*")
        .select("path")
-       .coalesce(24)
        .limit(10)
        .select(udf(blob_to_url, StringType())("path").alias("url"))
        .cache()
@@ -78,7 +77,7 @@ from synapse.ml.cognitive import FormOntologyLearner
 organized_df = (FormOntologyLearner()
   .setInputCol("invoices")
   .setOutputCol("extracted")
-  .fit(analyzed_df.limit(10))
+  .fit(analyzed_df)
   .transform(analyzed_df)
   .select("url", "extracted.*")
   .cache())
@@ -107,7 +106,7 @@ display(itemized_df)
 
 
 ```python
-display(itemized_df.where(col("ProductCode") == 6))
+display(itemized_df.where(col("ProductCode") == 48))
 ```
 
 
