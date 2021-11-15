@@ -2,7 +2,7 @@
 title: "MMLSpark: empowering AI for Good with Mark Hamilton"
 description: "MMLSpark: empowering AI for Good with Mark Hamilton"
 keywords: [
-	"Mark Hamilton",
+	"AI for good", "Microsoft Research", "Podcast",
 ]
 ---
 

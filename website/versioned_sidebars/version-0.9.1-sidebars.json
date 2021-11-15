@@ -29,20 +29,24 @@
       "label": "Features",
       "items": [
         {
-          "type": "doc",
-          "id": "version-0.9.1/features/CognitiveServices - Overview"
-        },
-        {
           "type": "category",
-          "label": "HTTP on Spark",
+          "label": "Cognitive Services",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/http/about"
+              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/http/HttpOnSpark - Working with Arbitrary Web APIs"
+              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Overview"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Predictive Maintenance"
             }
           ],
           "collapsible": true,
@@ -50,31 +54,39 @@
         },
         {
           "type": "category",
-          "label": "LightGBM",
+          "label": "Responsible AI",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/lightgbm/about"
+              "id": "version-0.9.1/features/responsible_ai/Data Balance Analysis"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/lightgbm/LightGBM - Overview"
-            }
-          ],
-          "collapsible": true,
-          "collapsed": true
-        },
-        {
-          "type": "category",
-          "label": "Model Interpretability",
-          "items": [
-            {
-              "type": "doc",
-              "id": "version-0.9.1/features/model_interpretability/about"
+              "id": "version-0.9.1/features/responsible_ai/DataBalanceAnalysis - Adult Census Income"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/model_interpretability/ModelInterpretability - Snow Leopard Detection"
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Explanation Dashboard"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Image Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Snow Leopard Detection"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Tabular SHAP explainer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Interpretability - Text Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/responsible_ai/Model Interpretation on Spark"
             }
           ],
           "collapsible": true,
@@ -98,15 +110,15 @@
         },
         {
           "type": "category",
-          "label": "Spark Serving",
+          "label": "LightGBM",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/spark_serving/about"
+              "id": "version-0.9.1/features/lightgbm/about"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/spark_serving/SparkServing - Deploying a Classifier"
+              "id": "version-0.9.1/features/lightgbm/LightGBM - Overview"
             }
           ],
           "collapsible": true,
@@ -127,38 +139,34 @@
           ],
           "collapsible": true,
           "collapsed": true
-        }
-      ],
-      "collapsible": true,
-      "collapsed": true
-    },
-    {
-      "type": "category",
-      "label": "Examples",
-      "items": [
-        {
-          "type": "doc",
-          "id": "version-0.9.1/examples/about"
         },
         {
-          "type": "doc",
-          "id": "version-0.9.1/examples/AzureSearchIndex - Met Artworks"
+          "type": "category",
+          "label": "Spark Serving",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/spark_serving/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/spark_serving/SparkServing - Deploying a Classifier"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
-          "type": "doc",
-          "id": "version-0.9.1/examples/ConditionalKNN - Exploring Art Across Cultures"
-        },
-        {
-          "type": "doc",
-          "id": "version-0.9.1/examples/CyberML - Anomalous Access Detection"
-        },
-        {
-          "type": "doc",
-          "id": "version-0.9.1/examples/HyperParameterTuning - Fighting Breast Cancer"
-        },
-        {
-          "type": "doc",
-          "id": "version-0.9.1/examples/OpenCV - Pipeline Image Transformations"
+          "type": "category",
+          "label": "OpenCV",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/opencv/OpenCV - Pipeline Image Transformations"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
         },
         {
           "type": "category",
@@ -166,79 +174,19 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/classification/Classification - Adult Census with Vowpal Wabbit"
+              "id": "version-0.9.1/features/classification/Classification - Adult Census with Vowpal Wabbit"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/classification/Classification - Adult Census"
+              "id": "version-0.9.1/features/classification/Classification - Adult Census"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/classification/Classification - Before and After SynapseML"
+              "id": "version-0.9.1/features/classification/Classification - Before and After SynapseML"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
-            }
-          ],
-          "collapsible": true,
-          "collapsed": true
-        },
-        {
-          "type": "category",
-          "label": "Cognitive Services",
-          "items": [
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/cognitive_services/CognitiveServices - Predictive Maintenance"
-            }
-          ],
-          "collapsible": true,
-          "collapsed": true
-        },
-        {
-          "type": "category",
-          "label": "Deep Learning",
-          "items": [
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/deep_learning/DeepLearning - BiLSTM Medical Entity Extraction"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/deep_learning/DeepLearning - CIFAR10 Convolutional Network"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/deep_learning/DeepLearning - Flower Image Classification"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/deep_learning/DeepLearning - Transfer Learning"
-            }
-          ],
-          "collapsible": true,
-          "collapsed": true
-        },
-        {
-          "type": "category",
-          "label": "Model Interpretability",
-          "items": [
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Image Explainers"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Tabular SHAP explainer"
-            },
-            {
-              "type": "doc",
-              "id": "version-0.9.1/examples/model_interpretability/Interpretability - Text Explainers"
+              "id": "version-0.9.1/features/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
             }
           ],
           "collapsible": true,
@@ -250,19 +198,19 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/regression/Regression - Auto Imports"
+              "id": "version-0.9.1/features/regression/Regression - Auto Imports"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/regression/Regression - Flight Delays with DataCleaning"
+              "id": "version-0.9.1/features/regression/Regression - Flight Delays with DataCleaning"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/regression/Regression - Flight Delays"
+              "id": "version-0.9.1/features/regression/Regression - Flight Delays"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
+              "id": "version-0.9.1/features/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
             }
           ],
           "collapsible": true,
@@ -270,15 +218,47 @@
         },
         {
           "type": "category",
-          "label": "Text Analytics",
+          "label": "Other",
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/text_analytics/TextAnalytics - Amazon Book Reviews with Word2Vec"
+              "id": "version-0.9.1/features/other/AzureSearchIndex - Met Artworks"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/examples/text_analytics/TextAnalytics - Amazon Book Reviews"
+              "id": "version-0.9.1/features/other/ConditionalKNN - Exploring Art Across Cultures"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/CyberML - Anomalous Access Detection"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/DeepLearning - BiLSTM Medical Entity Extraction"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/DeepLearning - CIFAR10 Convolutional Network"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/DeepLearning - Flower Image Classification"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/DeepLearning - Transfer Learning"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/HyperParameterTuning - Fighting Breast Cancer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/TextAnalytics - Amazon Book Reviews with Word2Vec"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.1/features/other/TextAnalytics - Amazon Book Reviews"
             }
           ],
           "collapsible": true,

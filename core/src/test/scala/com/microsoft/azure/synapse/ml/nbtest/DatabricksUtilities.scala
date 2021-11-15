@@ -59,9 +59,13 @@ object DatabricksUtilities extends HasHttpClient {
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
-  val NotebookFiles: Array[File] = Option(
-    FileUtilities.join(BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile.listFiles()
-  ).get
+  def recursiveListFiles(f: File): Array[File] = {
+    val files = f.listFiles()
+    files.filter(_.isFile) ++ files.filter(_.isDirectory).flatMap(recursiveListFiles)
+  }
+
+  val NotebookFiles: Array[File] = recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
+      "notebooks").getCanonicalFile)
 
   val ParallizableNotebooks: Seq[File] = NotebookFiles
 
@@ -95,7 +99,7 @@ object DatabricksUtilities extends HasHttpClient {
   }
 
   //TODO convert all this to typed code
-  def databricksPost(path: String, body: String, retries:List[Int]=List(100, 500, 1000)): JsValue = {
+  def databricksPost(path: String, body: String, retries: List[Int] = List(100, 500, 1000)): JsValue = {
     retry(retries, { () =>
       val request = new HttpPost(BaseURL + path)
       request.addHeader("Authorization", AuthValue)

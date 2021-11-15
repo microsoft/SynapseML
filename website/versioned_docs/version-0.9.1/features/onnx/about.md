@@ -11,7 +11,7 @@ description: Learn how to use the ONNX model transformer to run inference for an
 
 [ONNX](https://onnx.ai/) is an open format to represent both deep learning and traditional machine learning models. With ONNX, AI developers can more easily move models between state-of-the-art tools and choose the combination that is best for them.
 
-MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
+SynapseML now includes a Spark transformer to bring an trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
 
 ## Usage
 
@@ -45,5 +45,5 @@ MMLSpark now includes a Spark transformer to bring an trained ONNX model to Apac
 
 ## Example
 
-- [Interpretability - Image Explainers](/docs/examples/model_interpretability/Interpretability%20-%20Image%20Explainers)
-- [ONNX - Inference on Spark](/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark)
+- [Interpretability - Image Explainers](../../responsible_ai/Interpretability%20-%20Image%20Explainers)
+- [ONNX - Inference on Spark](../ONNX%20-%20Inference%20on%20Spark)

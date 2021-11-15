@@ -2,27 +2,6 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import DocTable from "@theme/DocumentationTable";
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, flatten, regexp_replace, explode, create_map, lit
-
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
-
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-``` 
--->
 
 ## Form Recognizer
 
@@ -104,27 +83,8 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
 
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -189,27 +149,8 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
 
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -272,27 +213,6 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct, explode
-
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
-
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -358,27 +278,6 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct, explode
-
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
-
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -444,27 +343,8 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import *
 
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
 
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -537,27 +417,8 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
 
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 
@@ -624,27 +485,8 @@ values={[
 ]}>
 <TabItem value="py">
 
-<!-- 
-```python
-import pyspark
-import os
-import json
-from IPython.display import display
-from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
 
-def getSecret(secretName):
-        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
-        value = json.loads(os.popen(get_secret_cmd).read())["value"]
-        return value
-
-import synapse.ml
-```
--->
 
 <!--pytest-codeblocks:cont-->
 

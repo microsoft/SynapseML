@@ -2,7 +2,7 @@
 title: Build System Commands
 hide_title: true
 sidebar_label: Build System Commands
-description: MMLSpark Development Setup
+description: SynapseML Development Setup
 ---
 
 # SynapseML Development Setup

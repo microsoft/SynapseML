@@ -2,16 +2,6 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import DocTable from "@theme/DocumentationTable";
 
-<!-- 
-```python
-import pyspark
-import os
-spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate())
-``` 
--->
 
 ## ONNXModel
 
@@ -24,14 +14,13 @@ values={[
 <TabItem value="py">
 
 ```py
-import synapse.ml
 from synapse.ml.onnx import ONNXModel
 
 model_path = "PUT_YOUR_MODEL_PATH"
 onnx_ml = (ONNXModel()
             .setModelLocation(model_path)
             .setFeedDict({"float_input": "features"})
-            .setFetchDict({"prediction": "output_label", "rawProbability": "output_probability"})
+            .setFetchDict({"prediction": "output_label", "rawProbability": "output_probability"}))
 ```
 
 </TabItem>
@@ -41,10 +30,10 @@ onnx_ml = (ONNXModel()
 import com.microsoft.azure.synapse.ml.onnx._
 
 val model_path = "PUT_YOUR_MODEL_PATH"
-val onnx_ml = new ONNXModel()
+val onnx_ml = (new ONNXModel()
                   .setModelLocation(model_path)
                   .setFeedDict(Map("float_input" -> "features"))
-                  .setFetchDict(Map("prediction" -> "output_label", "rawProbability" -> "output_probability"))
+                  .setFetchDict(Map("prediction" -> "output_label", "rawProbability" -> "output_probability")))
 ```
 
 </TabItem>

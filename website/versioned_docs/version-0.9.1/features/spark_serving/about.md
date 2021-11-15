@@ -4,7 +4,9 @@ hide_title: true
 sidebar_label: About
 ---
 
-# <img src="/img/notebooks/SparkServing3.svg" width="90" align="left" /> Spark Serving
+<img src="https://mmlspark.blob.core.windows.net/graphics/SparkServing3.svg" width="90" align="left" />
+
+# Spark Serving
 
 ### An Engine for Deploying Spark Jobs as Distributed Web Services
 
@@ -31,7 +33,7 @@ sidebar_label: About
 
 ### Jupyter Notebook Examples
 
--   [Deploy a classifier trained on the Adult Census Dataset](/docs/features/spark_serving/SparkServing%20-%20Deploying%20a%20Classifier)
+-   [Deploy a classifier trained on the Adult Census Dataset](../SparkServing%20-%20Deploying%20a%20Classifier)
 -   More coming soon!
 
 ### Spark Serving Hello World
@@ -108,14 +110,14 @@ You can deploy head node load balancing with the `HTTPSource` and
 distributes work across partitions, then collects response data back to
 the head node.  All HTTP requests are kept and replied to on the head
 node. In both python and Scala these classes can be access by using 
-`spark.readStream.server()` after importing MMLSpark.
+`spark.readStream.server()` after importing SynapseML.
 This mode allows for more complex windowing, repartitioning, and
 SQL operations.  This option is also idea for rapid setup and testing,
 as it doesn't require any additional load balancing or network
 switches.A diagram of this configuration can be seen below:
 
 <p align="center">
-  <img src="/img/notebooks/HeadNodeDistributed2.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/HeadNodeDistributed2.png" width="600" />
 </p>
 
 ### Fully Distributed (Custom Load Balancer)
@@ -124,7 +126,7 @@ You can configure Spark Serving for a custom load balancer using the
 `DistributedHTTPSource` and `DistributedHTTPSink` classes.  This mode
 spins up servers on each executor JVM.  
 In both python and Scala these classes can be access by using 
-`spark.readStream.distributedServer()` after importing MMLSpark.
+`spark.readStream.distributedServer()` after importing SynapseML.
 Each server will feed its
 executor's partitions in parallel.  This mode is key for high throughput
 and low latency as data does not need to be transferred to and from the
@@ -132,11 +134,11 @@ head node.  This deployment results in several web services that all
 route into the same spark computation.  You can deploy an external load
 balancer to unify the executor's services under a single IP address.
 Support for automatic load balancer management and deployment is
-targeted for the next release of MMLSpark.  A diagram of this
+targeted for the next release of SynapseML.  A diagram of this
 configuration can be seen below:
 
 <p align="center">
-  <img src="/img/notebooks/FullyDistributed2.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/FullyDistributed2.png" width="600" />
 </p>
 
 Queries that involve data movement across workers, such as a nontrivial
@@ -148,7 +150,7 @@ routing will be automatically handled by the sink.
 ### Sub-Millisecond Latency with Continuous Processing
 
 <p align="center">
-  <img src="/img/notebooks/latency_comparison.png" width="600" />
+  <img src="https://mmlspark.blob.core.windows.net/graphics/latency_comparison.png" width="600" />
 </p>
 
 Continuous processing can be enabled by hooking into the `HTTPSourceV2` class using:

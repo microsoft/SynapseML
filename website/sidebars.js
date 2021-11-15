@@ -1,19 +1,15 @@
-const {listExamplePaths} = require('./src/plugins/examples');
+const { listExamplePaths } = require('./src/plugins/examples');
 
-let features_http_docs = listExamplePaths("features", "http");
-let features_lightgbm_docs = listExamplePaths("features", "lightgbm");
-let features_mi_docs = listExamplePaths("features", "model_interpretability");
-let features_onnx_docs = listExamplePaths("features", "onnx");
-let features_ss_docs = listExamplePaths("features", "spark_serving");
-let features_vw_docs = listExamplePaths("features", "vw");
-
-let examples_cl_docs = listExamplePaths("examples", "classification");
-let examples_cs_docs = listExamplePaths("examples", "cognitive_services");
-let examples_dl_docs = listExamplePaths("examples", "deep_learning");
-let examples_mi_docs = listExamplePaths("examples", "model_interpretability");
-let examples_rg_docs = listExamplePaths("examples", "regression");
-let examples_ta_docs = listExamplePaths("examples", "text_analytics");
-
+let cs_pages = listExamplePaths("features", "cognitive_services");
+let rai_pages = listExamplePaths("features", "responsible_ai");
+let onnx_pages = listExamplePaths("features", "onnx");
+let lgbm_pages = listExamplePaths("features", "lightgbm");
+let vw_pages = listExamplePaths("features", "vw");
+let ss_pages = listExamplePaths("features", "spark_serving");
+let ocv_pages = listExamplePaths("features", "opencv");
+let cls_pages = listExamplePaths("features", "classification");
+let reg_pages = listExamplePaths("features", "regression");
+let other_pages = listExamplePaths("features", "other");
 
 module.exports = {
   docs: [
@@ -34,79 +30,57 @@ module.exports = {
       type: 'category',
       label: 'Features',
       items: [
-        'features/CognitiveServices - Overview',        
         {
           type: 'category',
-          label: 'HTTP on Spark',
-          items: features_http_docs,
+          label: 'Cognitive Services',
+          items: cs_pages,
         },
         {
           type: 'category',
-          label: 'LightGBM',
-          items: features_lightgbm_docs,
-        },
-        {
-          type: 'category',
-          label: 'Model Interpretability',
-          items: features_mi_docs,
+          label: 'Responsible AI',
+          items: rai_pages,
         },
         {
           type: 'category',
           label: 'ONNX',
-          items: features_onnx_docs,
+          items: onnx_pages,
         },
         {
           type: 'category',
-          label: 'Spark Serving',
-          items: features_ss_docs,
+          label: 'LightGBM',
+          items: lgbm_pages,
         },
         {
           type: 'category',
           label: 'Vowpal Wabbit',
-          items: features_vw_docs,
+          items: vw_pages,
         },
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Examples',
-      items: [
-        'examples/about',
-        'examples/AzureSearchIndex - Met Artworks',
-        'examples/ConditionalKNN - Exploring Art Across Cultures',
-        'examples/CyberML - Anomalous Access Detection',
-        'examples/HyperParameterTuning - Fighting Breast Cancer',
-        'examples/OpenCV - Pipeline Image Transformations',
+        {
+          type: 'category',
+          label: 'Spark Serving',
+          items: ss_pages,
+        },
+        {
+          type: 'category',
+          label: 'OpenCV',
+          items: ocv_pages,
+        },
         {
           type: 'category',
           label: 'Classification',
-          items: examples_cl_docs,
-        },
-        {
-          type: 'category',
-          label: 'Cognitive Services',
-          items: examples_cs_docs,
-        },
-        {
-          type: 'category',
-          label: 'Deep Learning',
-          items: examples_dl_docs,
-        },
-        {
-          type: 'category',
-          label: 'Model Interpretability',
-          items: examples_mi_docs,
+          items: cls_pages,
         },
         {
           type: 'category',
           label: 'Regression',
-          items: examples_rg_docs,
+          items: reg_pages,
         },
         {
           type: 'category',
-          label: 'Text Analytics',
-          items: examples_ta_docs,
+          label: 'Other',
+          items: other_pages,
         },
+
       ],
     },
     {

@@ -2,7 +2,7 @@
 title: "Dear Spark developers: Welcome to Azure Cognitive Services"
 description: "Dear Spark developers: Welcome to Azure Cognitive Services"
 keywords: [
-	"Cognitive Services",
+	"Cognitive Services", "blog post",
 ]
 ---
 

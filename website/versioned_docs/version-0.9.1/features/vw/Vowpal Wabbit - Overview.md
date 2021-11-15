@@ -353,8 +353,6 @@ axe.set_title("Vowpal Wabbit")
 
 ## Quantile Regression for Drug Discovery with VowpalWabbitRegressor
 
-
-
 <img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/drug.png" width="800" />
 
 #### Read dataset
