@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -77,7 +77,7 @@ val isolationForest = (new IsolationForest()
 </Tabs>
 
 <DocTable className="CleanMissingData"
-py="mmlspark.isolationforest.html#module-mmlspark.isolationforest.IsolationForest"
+py="synapse.ml.isolationforest.html#module-synapse.ml.isolationforest.IsolationForest"
 scala="com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />
 

@@ -19,13 +19,13 @@
     "@docusaurus/preset-classic": "^2.0.0-beta.7",
     "@docusaurus/theme-classic": "^2.0.0-beta.6",
     "@docusaurus/theme-search-algolia": "^2.0.0-beta.7",
+    "ansi-html-community": "^0.0.8",
     "classnames": "^2.2.6",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
     "react-player": "^2.7.2",
     "reading-time": "^1.2.0",
-    "yarn-audit-fix": "^7.1.2",
-    "ansi-html-community": "^0.0.8"
+    "yarn-audit-fix": "^7.1.2"
   },
   "resolutions": {
     "@docusaurus/core/**/set-value": "^4.0.1",

@@ -47,13 +47,13 @@ class LightGBMClassifier(override val uid: String)
     val actualNumClasses = getNumClasses(dataset)
     val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
     val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    ClassifierTrainParams(getParallelism, getTopK, getNumIterations, getLearningRate, getNumLeaves, getMaxBin,
-      getBinSampleCount, getBaggingFraction, getPosBaggingFraction, getNegBaggingFraction,
-      getBaggingFreq, getBaggingSeed, getEarlyStoppingRound, getImprovementTolerance,
-      getFeatureFraction, getMaxDepth, getMinSumHessianInLeaf, numTasks, modelStr,
+    ClassifierTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
+      get(numLeaves), get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
+      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
+      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf), numTasks, modelStr,
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
-      getBoostingType, getLambdaL1, getLambdaL2, getIsProvideTrainingMetric,
-      getMetric, getMinGainToSplit, getMaxDeltaStep, getMaxBinByFeature, getMinDataInLeaf, getSlotNames,
+      getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
+      get(metric), get(minGainToSplit), get(maxDeltaStep), getMaxBinByFeature, get(minDataInLeaf), getSlotNames,
       getDelegate, getDartParams, getExecutionParams, getObjectiveParams)
   }
 

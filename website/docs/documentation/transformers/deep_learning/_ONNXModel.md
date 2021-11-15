@@ -7,7 +7,7 @@ import DocTable from "@theme/DocumentationTable";
 import pyspark
 import os
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 ``` 
@@ -51,7 +51,7 @@ val onnx_ml = new ONNXModel()
 </Tabs>
 
 <DocTable className="ONNXModel"
-py="mmlspark.onnx.html#module-mmlspark.onnx.ONNXModel"
+py="synapse.ml.onnx.html#module-synapse.ml.onnx.ONNXModel"
 scala="com/microsoft/azure/synapse/ml/onnx/ONNXModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/scala/com/microsoft/azure/synapse/ml/onnx/ONNXModel.scala" />
 

@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -58,7 +58,7 @@ val spt = (new SuperpixelTransformer()
 </Tabs>
 
 <DocTable className="SuperpixelTransformer"
-py="mmlspark.lime.html#module-mmlspark.lime.SuperpixelTransformer"
+py="synapse.ml.lime.html#module-synapse.ml.lime.SuperpixelTransformer"
 scala="com/microsoft/azure/synapse/ml/lime/SuperpixelTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/lime/SuperpixelTransformer.scala" />
 

@@ -11,7 +11,7 @@ from IPython.display import display
 from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -89,7 +89,7 @@ display(face.transform(df))
 </Tabs>
 
 <DocTable className="DetectFace"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectFace"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectFace"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
@@ -103,6 +103,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -179,7 +201,7 @@ display(findSimilar.transform(faceIdDF))
 </Tabs>
 
 <DocTable className="FindSimilarFace"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.FindSimilarFace"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.FindSimilarFace"
 scala="com/microsoft/azure/synapse/ml/cognitive/FindSimilarFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
@@ -193,6 +215,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -267,7 +311,7 @@ display(group.transform(faceIdDF))
 </Tabs>
 
 <DocTable className="GroupFaces"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.GroupFaces"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.GroupFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/GroupFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
@@ -281,6 +325,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -320,7 +386,7 @@ val identifyFaces = (new IdentifyFaces()
 </Tabs>
 
 <DocTable className="IdentifyFaces"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.IdentifyFaces"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.IdentifyFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/IdentifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
@@ -334,6 +400,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -411,7 +499,7 @@ display(verify.transform(faceIdDF2))
 </Tabs>
 
 <DocTable className="VerifyFaces"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.VerifyFaces"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.VerifyFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/VerifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 

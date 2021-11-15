@@ -40,6 +40,7 @@ values={[
 
 ```python
 from synapse.ml.cognitive import *
+from pyspark.sql.functions import lit
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -135,6 +136,28 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -217,7 +240,7 @@ display(da.transform(df))
 </Tabs>
 
 <DocTable className="DetectAnomalies" 
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DetectAnomalies"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
@@ -230,6 +253,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -268,14 +313,14 @@ df = (spark.createDataFrame([
     ("1973-01-01T00:00:00Z", 881.0, 2.0),
     ("1973-02-01T00:00:00Z", 837.0, 2.0),
     ("1973-03-01T00:00:00Z", 90000.0, 2.0)
-], ["timestamp", "value", "group"])
+], ["timestamp", "value", "group"]))
 
 sda = (SimpleDetectAnomalies()
-      .setSubscriptionKey(anomalyKey)
-      .setLocation("westus2")
-      .setOutputCol("anomalies")
-      .setSeriesCol("inputs")
-      .setGranularity("monthly"))
+        .setSubscriptionKey(anomalyKey)
+        .setLocation("westus2")
+        .setOutputCol("anomalies")
+        .setGroupbyCol("group")
+        .setGranularity("monthly"))
 
 display(sda.transform(df))
 ```
@@ -323,6 +368,6 @@ display(sda.transform(df))
 </Tabs>
 
 <DocTable className="SimpleDetectAnomalies" 
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.SimpleDetectAnomalies"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SimpleDetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/SimpleDetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />

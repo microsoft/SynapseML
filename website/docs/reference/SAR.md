@@ -1,3 +1,10 @@
+---
+title: Smart Adaptive Recommendations (SAR) Algorithm
+hide_title: true
+sidebar_label: SAR Algorithm
+---
+
+
 # Smart Adaptive Recommendations (SAR) Algorithm
 
 The following document is a subset of the implemented logic, the orginal can be found [here](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md)

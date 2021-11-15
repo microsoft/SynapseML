@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -111,6 +111,28 @@ values={[
 ]}>
 <TabItem value="py">
 
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -154,6 +176,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -201,6 +245,28 @@ values={[
 ]}>
 <TabItem value="py">
 
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -237,7 +303,7 @@ display(interactions.transform(df))
 </Tabs>
 
 <DocTable className="VowpalWabbitInteractions"
-py="mmlspark.vw.html#module-mmlspark.vw.VowpalWabbitInteractions"
+py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitInteractions"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.scala" />
 

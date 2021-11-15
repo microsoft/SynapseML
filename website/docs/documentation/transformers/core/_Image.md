@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -75,7 +75,7 @@ val rit = (new ResizeImageTransformer()
 </Tabs>
 
 <DocTable className="ResizeImageTransformer"
-py="mmlspark.image.html#module-mmlspark.image.ResizeImageTransformer"
+py="synapse.ml.image.html#module-synapse.ml.image.ResizeImageTransformer"
 scala="com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/ResizeImageTransformer.scala" />
 
@@ -90,28 +90,49 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.image import *
 from azure.storage.blob import *
 
-images = (spark.read.format("image")
-        .option("dropInvalid", True)
-        .load("wasbs://datasets@mmlspark.blob.core.windows.net/LIME/greyscale.jpg"))
+# images = (spark.read.format("image")
+#         .option("dropInvalid", True)
+#         .load("wasbs://datasets@mmlspark.blob.core.windows.net/LIME/greyscale.jpg"))
 
-rit = (ResizeImageTransformer()
-        .setOutputCol("out")
-        .setHeight(15)
-        .setWidth(10))
+# rit = (ResizeImageTransformer()
+#         .setOutputCol("out")
+#         .setHeight(15)
+#         .setWidth(10))
 
-preprocessed = rit.transform(images)
+# preprocessed = rit.transform(images)
 
 unroll = (UnrollImage()
-      .setInputCol(rit.getOutputCol)
+      .setInputCol("out")
       .setOutputCol("final"))
 
-display(unroll.transform(preprocessed))
+# display(unroll.transform(preprocessed))
 ```
 
 </TabItem>
@@ -143,7 +164,7 @@ display(unroll.transform(preprocessed))
 </Tabs>
 
 <DocTable className="UnrollImage"
-py="mmlspark.image.html#module-mmlspark.image.UnrollImage"
+py="synapse.ml.image.html#module-synapse.ml.image.UnrollImage"
 scala="com/microsoft/azure/synapse/ml/image/UnrollImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollImage.scala" />
 
@@ -157,6 +178,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -185,7 +227,7 @@ val unroll = (new UnrollBinaryImage()
 </Tabs>
 
 <DocTable className="UnrollBinaryImage"
-py="mmlspark.image.html#module-mmlspark.image.UnrollBinaryImage"
+py="synapse.ml.image.html#module-synapse.ml.image.UnrollBinaryImage"
 scala="com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.scala" />
 

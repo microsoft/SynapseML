@@ -72,7 +72,7 @@ val ht = (new HTTPTransformer()
 </Tabs>
 
 <DocTable className="HTTPTransformer"
-py="mmlspark.io.http.html#module-mmlspark.io.http.HTTPTransformer"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.HTTPTransformer"
 scala="com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/HTTPTransformer.scala" />
 
@@ -87,6 +87,27 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -96,7 +117,7 @@ from pyspark.sql.types import StringType, StructType
 sht = (SimpleHTTPTransformer()
         .setInputCol("data")
         .setOutputParser(JSONOutputParser()
-            .setDataType(StructType().add("blah", StringType)))
+            .setDataType(StructType().add("blah", StringType())))
         .setUrl("PUT_YOUR_URL")
         .setOutputCol("results")
         .setConcurrency(3))
@@ -122,7 +143,7 @@ val sht = (new SimpleHTTPTransformer()
 </Tabs>
 
 <DocTable className="SimpleHTTPTransformer"
-py="mmlspark.io.http.html#module-mmlspark.io.http.SimpleHTTPTransformer"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.SimpleHTTPTransformer"
 scala="com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/SimpleHTTPTransformer.scala" />
 
@@ -136,6 +157,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -164,7 +206,7 @@ val jsonIP = (new JSONInputParser()
 </Tabs>
 
 <DocTable className="JSONInputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.JSONInputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.JSONInputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/JSONInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONInputParser.scala" />
 
@@ -179,6 +221,27 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -186,7 +249,7 @@ from synapse.ml.io.http import *
 from pyspark.sql.types import StringType, StructType
 
 jsonOP = (JSONOutputParser()
-      .setDataType(StructType().add("foo", StringType))
+      .setDataType(StructType().add("foo", StringType()))
       .setInputCol("unparsedOutput")
       .setOutputCol("parsedOutput"))
 ```
@@ -208,7 +271,7 @@ val jsonOP = (new JSONOutputParser()
 </Tabs>
 
 <DocTable className="JSONOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.JSONOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.JSONOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/JSONOutputParser.scala" />
 
@@ -222,6 +285,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -248,7 +332,7 @@ val sop = (new StringOutputParser()
 </Tabs>
 
 <DocTable className="StringOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.StringOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.StringOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/StringOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/StringOutputParser.scala" />
 
@@ -262,6 +346,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -289,7 +394,7 @@ val cip = (new CustomInputParser()
 </Tabs>
 
 <DocTable className="CustomInputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.CustomInputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.CustomInputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/CustomInputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomInputParser.scala" />
 
@@ -303,6 +408,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -329,7 +455,7 @@ val cop = (new CustomOutputParser()
 </Tabs>
 
 <DocTable className="CustomOutputParser"
-py="mmlspark.io.http.html#module-mmlspark.io.http.CustomOutputParser"
+py="synapse.ml.io.http.html#module-synapse.ml.io.http.CustomOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.scala" />
 

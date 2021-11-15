@@ -91,7 +91,7 @@ display(translate
 </Tabs>
 
 <DocTable className="Translate"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Translate"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Translate"
 scala="com/microsoft/azure/synapse/ml/cognitive/Translate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -105,6 +105,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -163,7 +185,7 @@ display(transliterate
 </Tabs>
 
 <DocTable className="Transliterate"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Transliterate"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Transliterate"
 scala="com/microsoft/azure/synapse/ml/cognitive/Transliterate.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -177,6 +199,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -227,7 +271,7 @@ display(detect
 </Tabs>
 
 <DocTable className="Detect"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.Detect"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.Detect"
 scala="com/microsoft/azure/synapse/ml/cognitive/Detect.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -241,6 +285,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -291,7 +357,7 @@ display(breakSentence
 </Tabs>
 
 <DocTable className="BreakSentence"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.BreakSentence"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.BreakSentence"
 scala="com/microsoft/azure/synapse/ml/cognitive/BreakSentence.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -305,6 +371,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -361,7 +449,7 @@ display(dictionaryLookup
 </Tabs>
 
 <DocTable className="DictionaryLookup"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryLookup"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryLookup"
 scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryLookup.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -375,6 +463,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -427,7 +537,7 @@ display(dictionaryExamples
 </Tabs>
 
 <DocTable className="DictionaryExamples"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DictionaryExamples"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DictionaryExamples"
 scala="com/microsoft/azure/synapse/ml/cognitive/DictionaryExamples.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextTranslator.scala" />
 
@@ -441,6 +551,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import col, collect_list, lit, sort_array, struct
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -480,6 +612,6 @@ val documentTranslator = (new DocumentTranslator()
 </Tabs>
 
 <DocTable className="DocumentTranslator"
-py="mmlspark.cognitive.html#module-mmlspark.cognitive.DocumentTranslator"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DocumentTranslator"
 scala="com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/DocumentTranslator.scala" />

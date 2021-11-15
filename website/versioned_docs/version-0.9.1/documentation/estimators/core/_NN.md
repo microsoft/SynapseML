@@ -61,7 +61,7 @@ val cknn = (new ConditionalKNN()
 </Tabs>
 
 <DocTable className="ConditionalKNN"
-py="mmlspark.nn.html#module-mmlspark.nn.ConditionalKNN"
+py="synapse.ml.nn.html#module-synapse.ml.nn.ConditionalKNN"
 scala="com/microsoft/azure/synapse/ml/nn/ConditionalKNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/ConditionalKNN.scala" />
 
@@ -75,6 +75,28 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -100,7 +122,7 @@ val knn = (new KNN()
 </Tabs>
 
 <DocTable className="KNN"
-py="mmlspark.nn.html#module-mmlspark.nn.KNN"
+py="synapse.ml.nn.html#module-synapse.ml.nn.KNN"
 scala="com/microsoft/azure/synapse/ml/nn/KNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/KNN.scala" />
 

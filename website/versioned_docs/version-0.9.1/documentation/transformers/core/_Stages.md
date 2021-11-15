@@ -105,15 +105,36 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
-      (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
-      (1, 1.toDouble, "piano", "trumpet", 2.toLong, false),
-      (2, 2.toDouble, "bass", "cymbals", 3.toLong, true)
+      (0, 0, "guitars", "drums", 1, True),
+      (1, 1, "piano", "trumpet", 2, False),
+      (2, 2, "bass", "cymbals", 3, True)
       ], ["numbers", "doubles", "words", "more", "longs", "booleans"]))
 
 dc = DropColumns().setCols([])
@@ -157,10 +178,32 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.stages import *
+from pyspark.ml.feature import VectorAssembler
 
 scoreDF = (spark.createDataFrame([
       (0, "foo", 1.0, .1),
@@ -171,7 +214,7 @@ scoreDF = (spark.createDataFrame([
 va = VectorAssembler().setInputCols(["score1", "score2"]).setOutputCol("v1")
 scoreDF2 = va.transform(scoreDF)
 
-ebk = EnsembleByKey().setKey("label1").setCol("score1")
+ebk = EnsembleByKey().setKeys(["label1"]).setCols(["score1"])
 
 display(ebk.transform(scoreDF2))
 ```
@@ -215,6 +258,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -268,6 +332,27 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
@@ -280,11 +365,16 @@ df = (spark.createDataFrame([
       (2, 2.0, "bass", "cymbals", 3, True)
       ], ["numbers", "doubles", "words", "more", "longs", "booleans"]))
 
-l = (Lambda()
-      .setTransform(lambda df : df.select("numbers"))
-      .setTransformSchema(lambda schema : StructType([schema("numbers")])))
+def transformFunc(df):
+      return df.select("numbers")
 
-display(l.transform(df))
+def transformSchemaFunc(schema):
+      return StructType([schema("numbers")])
+
+l = (Lambda()
+      .setTransformFunc(transformFunc)
+      .setTransformSchemaFunc(transformSchemaFunc))
+
 ```
 
 </TabItem>
@@ -311,7 +401,7 @@ display(lambda.transform(df))
 </Tabs>
 
 <DocTable className="Lambda"
-py="synapse.ml.stages.html#module-mmlspark.stages.Lambda"
+py="synapse.ml.stages.html#module-synapse.ml.stages.Lambda"
 scala="com/microsoft/azure/synapse/ml/stages/Lambda.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Lambda.scala" />
 
@@ -325,6 +415,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -356,7 +467,7 @@ display(dmbt.transform(df))
 </Tabs>
 
 <DocTable className="DynamicMiniBatchTransformer"
-py="mmlspark.stages.html#module-mmlspark.stages.DynamicMiniBatchTransformer"
+py="synapse.ml.stages.html#module-synapse.ml.stages.DynamicMiniBatchTransformer"
 scala="com/microsoft/azure/synapse/ml/stages/DynamicMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
@@ -371,13 +482,34 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.stages import *
 
 fmbt = (FixedMiniBatchTransformer()
-      .setBuffered(true)
+      .setBuffered(True)
       .setBatchSize(3))
 ```
 
@@ -396,7 +528,7 @@ val fmbt = (new FixedMiniBatchTransformer()
 </Tabs>
 
 <DocTable className="FixedMiniBatchTransformer"
-py="mmlspark.stages.html#module-mmlspark.stages.FixedMiniBatchTransformer"
+py="synapse.ml.stages.html#module-synapse.ml.stages.FixedMiniBatchTransformer"
 scala="com/microsoft/azure/synapse/ml/stages/FixedMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
@@ -410,6 +542,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -444,7 +597,7 @@ display(timbt.transform(df))
 </Tabs>
 
 <DocTable className="TimeIntervalMiniBatchTransformer"
-py="mmlspark.stages.html#module-mmlspark.stages.TimeIntervalMiniBatchTransformer"
+py="synapse.ml.stages.html#module-synapse.ml.stages.TimeIntervalMiniBatchTransformer"
 scala="com/microsoft/azure/synapse/ml/stages/TimeIntervalMiniBatchTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
@@ -458,6 +611,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -492,7 +666,7 @@ display(fb.transform(transDF))
 </Tabs>
 
 <DocTable className="FlattenBatch"
-py="mmlspark.stages.html#module-mmlspark.stages.FlattenBatch"
+py="synapse.ml.stages.html#module-synapse.ml.stages.FlattenBatch"
 scala="com/microsoft/azure/synapse/ml/stages/FlattenBatch.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MiniBatchTransformer.scala" />
 
@@ -507,15 +681,36 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.stages import *
 
 df = (spark.createDataFrame([
-      (0, 0.toDouble, "guitars", "drums", 1.toLong, true),
-      (1, 1.toDouble, "piano", "trumpet", 2.toLong, false),
-      (2, 2.toDouble, "bass", "cymbals", 3.toLong, true)
+      (0, 0, "guitars", "drums", 1, True),
+      (1, 1, "piano", "trumpet", 2, False),
+      (2, 2, "bass", "cymbals", 3, True)
 ], ["numbers", "doubles", "words", "more", "longs", "booleans"]))
 
 rc = RenameColumn().setInputCol("words").setOutputCol("numbers")
@@ -544,7 +739,7 @@ display(rc.transform(df))
 </Tabs>
 
 <DocTable className="RenameColumn"
-py="mmlspark.stages.html#module-mmlspark.stages.RenameColumn"
+py="synapse.ml.stages.html#module-synapse.ml.stages.RenameColumn"
 scala="com/microsoft/azure/synapse/ml/stages/RenameColumn.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/RenameColumn.scala" />
 
@@ -558,6 +753,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -614,7 +830,7 @@ display(repartition.transform(df))
 </Tabs>
 
 <DocTable className="Repartition"
-py="mmlspark.stages.html#module-mmlspark.stages.Repartition"
+py="synapse.ml.stages.html#module-synapse.ml.stages.Repartition"
 scala="com/microsoft/azure/synapse/ml/stages/Repartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Repartition.scala" />
 
@@ -628,6 +844,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -666,7 +903,7 @@ display(sc.transform(df))
 </Tabs>
 
 <DocTable className="SelectColumns"
-py="mmlspark.stages.html#module-mmlspark.stages.SelectColumns"
+py="synapse.ml.stages.html#module-synapse.ml.stages.SelectColumns"
 scala="com/microsoft/azure/synapse/ml/stages/SelectColumns.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SelectColumns.scala" />
 
@@ -680,6 +917,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -702,8 +960,6 @@ df = (spark.createDataFrame([
 ], ["values", "colors", "const"]))
 
 sr = StratifiedRepartition().setLabelCol("values").setMode("equal")
-
-display(sr.transform(df))
 ```
 
 </TabItem>
@@ -736,7 +992,7 @@ display(sr.transform(df))
 </Tabs>
 
 <DocTable className="StratifiedRepartition"
-py="mmlspark.stages.html#module-mmlspark.stages.StratifiedRepartition"
+py="synapse.ml.stages.html#module-synapse.ml.stages.StratifiedRepartition"
 scala="com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/StratifiedRepartition.scala" />
 
@@ -750,6 +1006,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -788,7 +1065,7 @@ display(summary.transform(df))
 </Tabs>
 
 <DocTable className="SummarizeData"
-py="mmlspark.stages.html#module-mmlspark.stages.SummarizeData"
+py="synapse.ml.stages.html#module-synapse.ml.stages.SummarizeData"
 scala="com/microsoft/azure/synapse/ml/stages/SummarizeData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/SummarizeData.scala" />
 
@@ -802,6 +1079,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -860,7 +1158,7 @@ display(textPreprocessor.transform(df))
 </Tabs>
 
 <DocTable className="TextPreprocessor"
-py="mmlspark.stages.html#module-mmlspark.stages.TextPreprocessor"
+py="synapse.ml.stages.html#module-synapse.ml.stages.TextPreprocessor"
 scala="com/microsoft/azure/synapse/ml/stages/TextPreprocessor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/TextPreprocessor.scala" />
 
@@ -874,6 +1172,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -924,7 +1243,7 @@ display(udfTransformer.transform(df))
 </Tabs>
 
 <DocTable className="UDFTransformer"
-py="mmlspark.stages.html#module-mmlspark.stages.UDFTransformer"
+py="synapse.ml.stages.html#module-synapse.ml.stages.UDFTransformer"
 scala="com/microsoft/azure/synapse/ml/stages/UDFTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UDFTransformer.scala" />
 
@@ -938,6 +1257,27 @@ values={[
 {label: `Scala`, value: `scala`},
 ]}>
 <TabItem value="py">
+
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
 
 <!--pytest-codeblocks:cont-->
 
@@ -982,7 +1322,7 @@ display(unicodeNormalize.transform(df))
 </Tabs>
 
 <DocTable className="UnicodeNormalize"
-py="mmlspark.stages.html#module-mmlspark.stages.UnicodeNormalize"
+py="synapse.ml.stages.html#module-synapse.ml.stages.UnicodeNormalize"
 scala="com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.scala" />
 

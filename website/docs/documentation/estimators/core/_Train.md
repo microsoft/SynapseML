@@ -10,7 +10,7 @@ import json
 from IPython.display import display
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.1")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 
@@ -97,7 +97,7 @@ display(tc.fit(df).transform(df))
 </Tabs>
 
 <DocTable className="TrainClassifier"
-py="mmlspark.train.html#module-mmlspark.train.TrainClassifier"
+py="synapse.ml.train.html#module-synapse.ml.train.TrainClassifier"
 scala="com/microsoft/azure/synapse/ml/train/TrainClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainClassifier.scala" />
 
@@ -112,11 +112,33 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!-- 
+```python
+import pyspark
+import os
+import json
+from IPython.display import display
+from pyspark.sql.functions import *
+
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .getOrCreate())
+
+def getSecret(secretName):
+        get_secret_cmd = 'az keyvault secret show --vault-name mmlspark-build-keys --name {}'.format(secretName)
+        value = json.loads(os.popen(get_secret_cmd).read())["value"]
+        return value
+
+import synapse.ml
+```
+-->
+
 <!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.train import *
-from pyspark.ml.classification import LogisticRegression
+from pyspark.ml.regression import LinearRegression
 
 dataset = (spark.createDataFrame([
     (0.0, 2, 0.50, 0.60, 0.0),
@@ -131,14 +153,14 @@ dataset = (spark.createDataFrame([
     (1.0, 2, 0.40, 0.50, 1.0),
     (2.0, 3, 0.78, 0.99, 2.0),
     (3.0, 4, 0.12, 0.34, 3.0)],
-    ["label", "col1", "col2", "col3", "prediction"]))
+    ["label", "col1", "col2", "col3", "col4"]))
 
 linearRegressor = (LinearRegression()
       .setRegParam(0.3)
       .setElasticNetParam(0.8))
 trainRegressor = (TrainRegressor()
       .setModel(linearRegressor)
-      .setLabelCol("Label"))
+      .setLabelCol("label"))
 
 display(trainRegressor.fit(dataset).transform(dataset))
 ```
@@ -148,9 +170,9 @@ display(trainRegressor.fit(dataset).transform(dataset))
 
 ```scala
 import com.microsoft.azure.synapse.ml.train._
-import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.regression.LinearRegression
 
-val dataset = spark.createDataFrame(Seq(
+val dataset = (spark.createDataFrame(Seq(
     (0.0, 2, 0.50, 0.60, 0.0),
     (1.0, 3, 0.40, 0.50, 1.0),
     (2.0, 4, 0.78, 0.99, 2.0),
@@ -163,14 +185,14 @@ val dataset = spark.createDataFrame(Seq(
     (1.0, 2, 0.40, 0.50, 1.0),
     (2.0, 3, 0.78, 0.99, 2.0),
     (3.0, 4, 0.12, 0.34, 3.0)))
-    .toDF("label", "col1", "col2", "col3", "prediction")
+    .toDF("label", "col1", "col2", "col3", "col4"))
 
 val linearRegressor = (new LinearRegression()
       .setRegParam(0.3)
       .setElasticNetParam(0.8))
 val trainRegressor = (new TrainRegressor()
       .setModel(linearRegressor)
-      .setLabelCol("Label"))
+      .setLabelCol("label"))
 
 display(trainRegressor.fit(dataset).transform(dataset))
 ```
@@ -179,7 +201,7 @@ display(trainRegressor.fit(dataset).transform(dataset))
 </Tabs>
 
 <DocTable className="TrainRegressor"
-py="mmlspark.train.html#module-mmlspark.train.TrainRegressor"
+py="synapse.ml.train.html#module-synapse.ml.train.TrainRegressor"
 scala="com/microsoft/azure/synapse/ml/train/TrainRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainRegressor.scala" />
 

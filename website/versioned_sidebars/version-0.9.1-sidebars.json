@@ -355,6 +355,22 @@
         {
           "type": "doc",
           "id": "version-0.9.1/reference/R-setup"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/SAR"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/cyber"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/datasets"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.1/reference/vagrant"
         }
       ],
       "collapsible": true,
