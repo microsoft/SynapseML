@@ -61,13 +61,26 @@ interpretation_df = (TabularSHAP()
     config: `from synapse.ml.lightgbm import *
     
 quantile_df = (LightGBMRegressor()
-  .setApplication('quantile')
-  .setAlpha(0.3)
-  .setLearningRate(0.3)
-  .setNumIterations(100)
-  .setNumLeaves(31)
-  .fit(train_df)
-  .transform(test_df))`,
+    .setApplication('quantile')
+    .setAlpha(0.3)
+    .setLearningRate(0.3)
+    .setNumIterations(100)
+    .setNumLeaves(31)
+    .fit(train_df)
+    .transform(test_df))`,
+  },
+  {
+    label: "OpenCV",
+    further: "docs/features/opencv/OpenCV%20-%20Pipeline%20Image%20Transformations",
+    config: `from synapse.ml.opencv import *
+
+image_df = (ImageTransformer()
+    .setInputCol("images")
+    .setOutputCol("transformed_images")
+    .resize(224, True)
+    .centerCrop(224, 224)
+    .normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], color_scale_factor = 1/255)
+    .transform(input_df))`,
   },
 ];
 
