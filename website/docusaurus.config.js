@@ -119,7 +119,7 @@ module.exports = {
       indexName: 'synapseML',
       contextualSearch: true,
     },
-    googleAnalytics: {
+    gtag: {
       trackingID: 'G-RWPE0183E8',
       anonymizeIP: true,
     },
