@@ -12,7 +12,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.4") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.4") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
 import synapse.ml
@@ -35,9 +35,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml:0.9.4
-pyspark --packages com.microsoft.azure:synapseml:0.9.4
-spark-submit --packages com.microsoft.azure:synapseml:0.9.4 MyApp.jar
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.4
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.4
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.4 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use SynapseML
@@ -52,7 +52,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml:0.9.4` 
+For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.4` 
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
@@ -73,7 +73,7 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.4",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
         "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12"
     }
@@ -87,7 +87,7 @@ In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to o
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.4",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
         "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
         "spark.yarn.user.classpath.first": "true"
