@@ -25,8 +25,8 @@ sub-millisecond latency web services, backed by your Spark cluster.
 
 SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
 See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/0.9.2/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.2/pyspark/index.html).
+Scala](https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html).
 
 import Link from '@docusaurus/Link';
 

@@ -1,8 +1,8 @@
 {
-  "version-0.9.1/docs": [
+  "version-0.9.4/docs": [
     {
       "type": "doc",
-      "id": "version-0.9.1/about"
+      "id": "version-0.9.4/about"
     },
     {
       "type": "category",
@@ -10,15 +10,15 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.9.1/getting_started/installation"
+          "id": "version-0.9.4/getting_started/installation"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/getting_started/first_example"
+          "id": "version-0.9.4/getting_started/first_example"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/getting_started/first_model"
+          "id": "version-0.9.4/getting_started/first_model"
         }
       ],
       "collapsible": true,
@@ -34,19 +34,19 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms"
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Overview"
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Overview"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/cognitive_services/CognitiveServices - Predictive Maintenance"
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Predictive Maintenance"
             }
           ],
           "collapsible": true,
@@ -58,35 +58,35 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Data Balance Analysis"
+              "id": "version-0.9.4/features/responsible_ai/Data Balance Analysis"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/DataBalanceAnalysis - Adult Census Income"
+              "id": "version-0.9.4/features/responsible_ai/DataBalanceAnalysis - Adult Census Income"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Interpretability - Explanation Dashboard"
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Explanation Dashboard"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Interpretability - Image Explainers"
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Image Explainers"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Interpretability - Snow Leopard Detection"
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Snow Leopard Detection"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Interpretability - Tabular SHAP explainer"
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Tabular SHAP explainer"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Interpretability - Text Explainers"
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Text Explainers"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/responsible_ai/Model Interpretation on Spark"
+              "id": "version-0.9.4/features/responsible_ai/Model Interpretation on Spark"
             }
           ],
           "collapsible": true,
@@ -98,11 +98,11 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/onnx/about"
+              "id": "version-0.9.4/features/onnx/about"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/onnx/ONNX - Inference on Spark"
+              "id": "version-0.9.4/features/onnx/ONNX - Inference on Spark"
             }
           ],
           "collapsible": true,
@@ -114,11 +114,11 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/lightgbm/about"
+              "id": "version-0.9.4/features/lightgbm/about"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/lightgbm/LightGBM - Overview"
+              "id": "version-0.9.4/features/lightgbm/LightGBM - Overview"
             }
           ],
           "collapsible": true,
@@ -130,11 +130,11 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/vw/about"
+              "id": "version-0.9.4/features/vw/about"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/vw/Vowpal Wabbit - Overview"
+              "id": "version-0.9.4/features/vw/Vowpal Wabbit - Overview"
             }
           ],
           "collapsible": true,
@@ -146,11 +146,11 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/spark_serving/about"
+              "id": "version-0.9.4/features/spark_serving/about"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/spark_serving/SparkServing - Deploying a Classifier"
+              "id": "version-0.9.4/features/spark_serving/SparkServing - Deploying a Classifier"
             }
           ],
           "collapsible": true,
@@ -162,7 +162,7 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/opencv/OpenCV - Pipeline Image Transformations"
+              "id": "version-0.9.4/features/opencv/OpenCV - Pipeline Image Transformations"
             }
           ],
           "collapsible": true,
@@ -174,19 +174,19 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/classification/Classification - Adult Census with Vowpal Wabbit"
+              "id": "version-0.9.4/features/classification/Classification - Adult Census with Vowpal Wabbit"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/classification/Classification - Adult Census"
+              "id": "version-0.9.4/features/classification/Classification - Adult Census"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/classification/Classification - Before and After SynapseML"
+              "id": "version-0.9.4/features/classification/Classification - Before and After SynapseML"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
+              "id": "version-0.9.4/features/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
             }
           ],
           "collapsible": true,
@@ -198,19 +198,19 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/regression/Regression - Auto Imports"
+              "id": "version-0.9.4/features/regression/Regression - Auto Imports"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/regression/Regression - Flight Delays with DataCleaning"
+              "id": "version-0.9.4/features/regression/Regression - Flight Delays with DataCleaning"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/regression/Regression - Flight Delays"
+              "id": "version-0.9.4/features/regression/Regression - Flight Delays"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
+              "id": "version-0.9.4/features/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
             }
           ],
           "collapsible": true,
@@ -222,43 +222,43 @@
           "items": [
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/AzureSearchIndex - Met Artworks"
+              "id": "version-0.9.4/features/other/AzureSearchIndex - Met Artworks"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/ConditionalKNN - Exploring Art Across Cultures"
+              "id": "version-0.9.4/features/other/ConditionalKNN - Exploring Art Across Cultures"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/CyberML - Anomalous Access Detection"
+              "id": "version-0.9.4/features/other/CyberML - Anomalous Access Detection"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/DeepLearning - BiLSTM Medical Entity Extraction"
+              "id": "version-0.9.4/features/other/DeepLearning - BiLSTM Medical Entity Extraction"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/DeepLearning - CIFAR10 Convolutional Network"
+              "id": "version-0.9.4/features/other/DeepLearning - CIFAR10 Convolutional Network"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/DeepLearning - Flower Image Classification"
+              "id": "version-0.9.4/features/other/DeepLearning - Flower Image Classification"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/DeepLearning - Transfer Learning"
+              "id": "version-0.9.4/features/other/DeepLearning - Transfer Learning"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/HyperParameterTuning - Fighting Breast Cancer"
+              "id": "version-0.9.4/features/other/HyperParameterTuning - Fighting Breast Cancer"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/TextAnalytics - Amazon Book Reviews with Word2Vec"
+              "id": "version-0.9.4/features/other/TextAnalytics - Amazon Book Reviews with Word2Vec"
             },
             {
               "type": "doc",
-              "id": "version-0.9.1/features/other/TextAnalytics - Amazon Book Reviews"
+              "id": "version-0.9.4/features/other/TextAnalytics - Amazon Book Reviews"
             }
           ],
           "collapsible": true,
@@ -274,23 +274,23 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/transformers/transformers_cognitive"
+          "id": "version-0.9.4/documentation/transformers/transformers_cognitive"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/transformers/transformers_core"
+          "id": "version-0.9.4/documentation/transformers/transformers_core"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/transformers/transformers_opencv"
+          "id": "version-0.9.4/documentation/transformers/transformers_opencv"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/transformers/transformers_vw"
+          "id": "version-0.9.4/documentation/transformers/transformers_vw"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/transformers/transformers_deep_learning"
+          "id": "version-0.9.4/documentation/transformers/transformers_deep_learning"
         }
       ],
       "collapsible": true,
@@ -302,15 +302,15 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/estimators/estimators_core"
+          "id": "version-0.9.4/documentation/estimators/estimators_core"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/estimators/estimators_lightgbm"
+          "id": "version-0.9.4/documentation/estimators/estimators_lightgbm"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/documentation/estimators/estimators_vw"
+          "id": "version-0.9.4/documentation/estimators/estimators_vw"
         }
       ],
       "collapsible": true,
@@ -322,35 +322,35 @@
       "items": [
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/developer-readme"
+          "id": "version-0.9.4/reference/developer-readme"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/contributing_guide"
+          "id": "version-0.9.4/reference/contributing_guide"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/docker"
+          "id": "version-0.9.4/reference/docker"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/R-setup"
+          "id": "version-0.9.4/reference/R-setup"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/SAR"
+          "id": "version-0.9.4/reference/SAR"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/cyber"
+          "id": "version-0.9.4/reference/cyber"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/datasets"
+          "id": "version-0.9.4/reference/datasets"
         },
         {
           "type": "doc",
-          "id": "version-0.9.1/reference/vagrant"
+          "id": "version-0.9.4/reference/vagrant"
         }
       ],
       "collapsible": true,

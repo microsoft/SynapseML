@@ -15,11 +15,11 @@ instead of iterating over the columns and applying the `StringIndexer`.
 
 This sample demonstrates how to use the following APIs:
 - [`TrainRegressor`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.train.html?#module-synapse.ml.train.TrainRegressor)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/synapse.ml.train.html?#module-synapse.ml.train.TrainRegressor)
 - [`ComputePerInstanceStatistics`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.train.html?#module-synapse.ml.train.ComputePerInstanceStatistics)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/synapse.ml.train.html?#module-synapse.ml.train.ComputePerInstanceStatistics)
 - [`DataConversion`
-  ](https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/synapse.ml.featurize.html?#module-synapse.ml.featurize.DataConversion)
+  ](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/synapse.ml.featurize.html?#module-synapse.ml.featurize.DataConversion)
 
 First, import the pandas package
 
