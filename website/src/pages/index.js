@@ -269,7 +269,7 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.2",
+      "spark.jars.packages": "com.microsoft.azure:synapseml:0.9.4",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
       "spark.yarn.user.classpath.first": "true"
@@ -277,7 +277,7 @@ function Home() {
 }`}
                     lang="bash"
                   ></CodeSnippet>
-                  Please also include `synapseml==0.9.2` in your
+                  Please also include `synapseml==0.9.4` in your
                   requirements.txt file for usage of PySpark. [
                   <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">
                     Install Python libraries in Synapse
@@ -288,9 +288,9 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.2
-pyspark --packages com.microsoft.azure:synapseml:0.9.2
-spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml:0.9.4
+pyspark --packages com.microsoft.azure:synapseml:0.9.4
+spark-submit --packages com.microsoft.azure:synapseml:0.9.4 MyApp.jar`}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -317,7 +317,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                   <p>
                     For the coordinates use:
                     <CodeSnippet
-                      snippet={`com.microsoft.azure:synapseml:0.9.2`}
+                      snippet={`com.microsoft.azure:synapseml:0.9.4`}
                       lang="bash"
                     ></CodeSnippet>
                     with the resolver:
@@ -335,7 +335,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                   notebooks. To get started with our example notebooks import
                   the following databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.2.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.4.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -373,7 +373,7 @@ spark-submit --packages com.microsoft.azure:synapseml:0.9.2 MyApp.jar`}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.2")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml:0.9.4")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate()
 import synapse.ml`}
@@ -385,7 +385,7 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.2"`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.4"`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
