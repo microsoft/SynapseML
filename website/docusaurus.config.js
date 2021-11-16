@@ -1,6 +1,6 @@
 const path = require('path');
 const {all_examples} = require('./src/plugins/examples');
-let version = "0.9.1";
+let version = "0.9.4";
 
 module.exports = {
   title: 'SynapseML',
@@ -13,7 +13,7 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.9.1",
+    version: "0.9.4",
   },
   themeConfig: {
     prism: {
@@ -80,11 +80,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.1/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.1/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html',
             },
           ],
         },
@@ -118,7 +118,11 @@ module.exports = {
       apiKey: 'edc58a221b8a7df52bf7058219bbf9c9',
       indexName: 'synapseML',
       contextualSearch: true,
-    }
+    },
+    googleAnalytics: {
+      trackingID: 'G-RWPE0183E8',
+      anonymizeIP: true,
+    },
   },
   presets: [
     [
