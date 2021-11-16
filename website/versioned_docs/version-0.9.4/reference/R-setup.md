@@ -31,7 +31,7 @@ It will take some time to install all dependencies.  Then, run:
 library(sparklyr)
 library(dplyr)
 config <- spark_config()
-config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml:0.9.4"
+config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:0.9.4"
 sc <- spark_connect(master = "local", config = config)
 ...
 ```
