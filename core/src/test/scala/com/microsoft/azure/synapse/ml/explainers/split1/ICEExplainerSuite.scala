@@ -3,11 +3,13 @@ package com.microsoft.azure.synapse.ml.explainers.split1
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENumericFeature, ICETransformer}
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.util.MLReadable
 
 
 
@@ -22,6 +24,8 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
   )).toDF("col1", "col2", "col3", "label")
 
   val data: DataFrame = dataDF.withColumn("col4", rand()*100)
+
+  data.show()
 
   val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),
@@ -39,6 +43,8 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
     .setCategoricalFeatures(Array(ICECategoricalFeature("col2", Some(2)), ICECategoricalFeature("col4", Some(4))))
     .setTargetClasses(Array(1))
   val output: DataFrame = ice.transform(data)
+
+  output.show()
 
   val iceAvg = new ICETransformer()
   iceAvg.setModel(model)
@@ -85,4 +91,8 @@ class ICEExplainerSuite extends TestBase {// with TransformerFuzzing[ICETransfor
     assert(outputCol.size === ice.getCategoricalFeatures.last.getNumTopValue)
 
   }
+
+  //override def testObjects(): Seq[TestObject[ICETransformer]] = Seq(new TestObject(ice, data))
+
+  //override def reader: MLReadable[_] = ICETransformer
 }

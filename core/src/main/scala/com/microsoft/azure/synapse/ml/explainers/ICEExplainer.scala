@@ -2,7 +2,7 @@ package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
@@ -10,6 +10,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
+
 
 trait ICEFeatureParams extends Params with HasNumSamples {
 
@@ -56,7 +58,11 @@ class ICETransformer(override val uid: String) extends Transformer
   with HasExplainTarget
   with HasModel
   with ICEFeatureParams
-  with HasOutputCol {
+  with HasOutputCol
+  with Wrappable
+  with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = {
     this(Identifiable.randomUID("ICETransformer"))

@@ -240,7 +240,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.explainers.TextLIME",
       "com.microsoft.azure.synapse.ml.explainers.TextSHAP",
       "com.microsoft.azure.synapse.ml.explainers.VectorLIME",
-      "com.microsoft.azure.synapse.ml.explainers.VectorSHAP"
+      "com.microsoft.azure.synapse.ml.explainers.VectorSHAP",
+      "com.microsoft.azure.synapse.ml.explainers.ICETransformer"
     )
 
     pipelineStages.foreach { stage =>
