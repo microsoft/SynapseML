@@ -2,7 +2,7 @@ package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
@@ -55,7 +55,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 }
 
 /**
-  * Transformer which displays the model dependence on specified features with the given dataframe
+  * ICETransformer displays the model dependence on specified features with the given dataframe
   * as background dataset. It supports 2 types of plots: individual - dependence per instance and
   * average - across all the samples in the dataset.
   * Note: This transformer only supports one-way dependence plot.
@@ -124,15 +124,8 @@ class ICETransformer(override val uid: String) extends Transformer
 
     // collect feature values for all features from original dataset - dfWithId
     val (categoricalFeatures, numericFeatures) = (this.getCategoricalFeatures, this.getNumericFeatures)
-
-    val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
-      feature => (feature.name, collectCategoricalValues(dfWithId, feature))
-    }.toMap
-    val collectedNumFeatureValues: Map[String, Array[_]] = numericFeatures.map {
-      feature => (feature.name, collectSplits(dfWithId, feature))
-    }.toMap
-
-    val sampled = this.get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
+    
+    val sampled: Dataset[Row] = this.get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
@@ -147,32 +140,27 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
-    val errorMessage = "No categorical features or numeric features are set to the explainer. " +
-      "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained."
-
     getKind.toLowerCase match {
       case this.individualKind =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
           .map {
-            df => (categoricalFeatures ++ numericFeatures).foldLeft(df) {
-              case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
-            }
+            df =>
+              (categoricalFeatures ++ numericFeatures).foldLeft(df) {
+                case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
+              }
           }
-          .map(sampled.join(_, idCol)).getOrElse(
-          throw new Exception(errorMessage)
-        )
+          .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
       case this.averageKind =>
-        dependenceDfs.reduceOption(_ crossJoin _).getOrElse(
-          throw new Exception(errorMessage)
-        )
+        dependenceDfs.reduceOption(_ crossJoin _).get
     }
   }
 
   private def collectCategoricalValues[_](df: DataFrame, feature: ICECategoricalFeature): Array[_] = {
+    val featureCountCol = DatasetExtensions.findUnusedColumnName("__feature__count__", df)
     val values = df
       .groupBy(col(feature.name))
-      .agg(count("*").as("__feature__count__"))
-      .orderBy(col("__feature__count__").desc)
+      .agg(count("*").as(featureCountCol))
+      .orderBy(col(featureCountCol).desc)
       .head(feature.getNumTopValue)
       .map(row => row.get(0))
     values
@@ -238,14 +226,20 @@ class ICETransformer(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    // Check for duplicate feature specification
+    // Check if features are specified
     val featureNames = getCategoricalFeatures.map(_.name) ++ getNumericFeatures.map(_.name)
+    if (featureNames.isEmpty) {
+      throw new Exception("No categorical features or numeric features are set to the explainer. " +
+        "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
+    }
+    // Check for duplicate feature specification
     val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 1).keys.toArray
     if (duplicateFeatureNames.nonEmpty) {
       throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
     }
-
     this.validateSchema(schema)
     schema.add(getOutputCol, ArrayType(VectorType))
   }
 }
+
+object ICETransformer extends ComplexParamsReadable[ICETransformer]
