@@ -126,9 +126,7 @@ class ICETransformer(override val uid: String) extends Transformer
       feature => (feature.name, collectSplits(dfWithId, feature))
     }.toMap
 
-    val sampled = this.get(numSamples).map {
-      s => dfWithId.orderBy(rand()).limit(s)
-    }.getOrElse(dfWithId).cache()
+    val sampled = this.get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
