@@ -136,11 +136,13 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
-        calcDependence(sampled, idCol, targetClasses, f.name, collectedCatFeatureValues(f.name))
+        val values = collectCategoricalValues(dfWithId, f)
+        calcDependence(sampled, idCol, targetClasses, f.name, values)
     }
     val calcNumericFunc: ICENumericFeature => DataFrame = {
       f: ICENumericFeature =>
-        calcDependence(sampled, idCol, targetClasses, f.name, collectedNumFeatureValues(f.name))
+        val values = collectSplits(dfWithId, f)
+        calcDependence(sampled, idCol, targetClasses, f.name, values)
     }
 
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
