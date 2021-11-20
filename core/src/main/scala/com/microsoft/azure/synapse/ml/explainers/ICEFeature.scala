@@ -25,7 +25,7 @@ case class ICECategoricalFeature(override val name: String, numTopValues: Option
 }
 
 /**
-  * Companion object to provide JSON serializer and deserializer for ICECategoricalFeature .
+  * Companion object to provide JSON serializer and deserializer for ICECategoricalFeature.
   */
 object ICECategoricalFeature {
   implicit val JsonFormat: JsonFormat[ICECategoricalFeature] = new JsonFormat[ICECategoricalFeature] {

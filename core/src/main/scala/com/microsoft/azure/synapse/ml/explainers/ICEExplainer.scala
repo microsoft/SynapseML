@@ -54,6 +54,12 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     categoricalFeatures -> Seq.empty[ICECategoricalFeature])
 }
 
+/**
+  * Transformer which displays the model dependence on specified features with the given dataframe
+  * as background dataset. It supports 2 types of plots: individual - dependence per instance and
+  * average - across all the samples in the dataset.
+  * Note: This transformer only supports one-way dependence plot.
+  */
 class ICETransformer(override val uid: String) extends Transformer
   with HasExplainTarget
   with HasModel
@@ -139,6 +145,9 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
+    val errorMessage = "No categorical features or numeric features are set to the explainer. " +
+      "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained."
+
     getKind.toLowerCase match {
       case this.individualKind =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
@@ -148,13 +157,11 @@ class ICETransformer(override val uid: String) extends Transformer
             }
           }
           .map(sampled.join(_, idCol)).getOrElse(
-          throw new Exception("No categorical features or numeric features are set to the explainer. " +
-            "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
+          throw new Exception(errorMessage)
         )
       case this.averageKind =>
         dependenceDfs.reduceOption(_ crossJoin _).getOrElse(
-          throw new Exception("No categorical features or numeric features are set to the explainer. " +
-            "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
+          throw new Exception(errorMessage)
         )
     }
   }
