@@ -22,7 +22,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this,
     "categoricalFeatures",
     "The list of categorical features to explain.",
-    {_.forall(_.validate)}
+    _.forall(_.validate)
   )
 
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
@@ -32,7 +32,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this,
     "numericFeatures",
     "The list of numeric features to explain.",
-    {_.forall(_.validate)}
+    _.forall(_.validate)
   )
 
   def setNumericFeatures(values: Seq[ICENumericFeature]): this.type = this.set(numericFeatures, values)
@@ -117,8 +117,7 @@ class ICETransformer(override val uid: String) extends Transformer
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
     // collect feature values for all features from original dataset - dfWithId
-    val categoricalFeatures = this.getCategoricalFeatures
-    val numericFeatures = this.getNumericFeatures
+    val (categoricalFeatures, numericFeatures) = (this.getCategoricalFeatures, this.getNumericFeatures)
 
     val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
       feature => (feature.name, collectCategoricalValues(dfWithId, feature))
