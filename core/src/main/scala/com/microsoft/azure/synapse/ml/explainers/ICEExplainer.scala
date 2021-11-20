@@ -117,8 +117,7 @@ class ICETransformer(override val uid: String) extends Transformer
       .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
     // collect feature values for all features from original dataset - dfWithId
-    val categoricalFeatures = this.getCategoricalFeatures
-    val numericFeatures = this.getNumericFeatures
+    val (categoricalFeatures, numericFeatures) = (this.getCategoricalFeatures, this.getNumericFeatures)
 
     val collectedCatFeatureValues: Map[String, Array[_]] = categoricalFeatures.map {
       feature => (feature.name, collectCategoricalValues(dfWithId, feature))
