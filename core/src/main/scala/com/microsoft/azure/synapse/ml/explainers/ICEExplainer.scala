@@ -22,7 +22,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this,
     "categoricalFeatures",
     "The list of categorical features to explain.",
-    {_.forall(_.validate)}
+    _.forall(_.validate)
   )
 
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
