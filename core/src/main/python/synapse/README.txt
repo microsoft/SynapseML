@@ -1,4 +1,4 @@
-Microsoft ML for Apache Spark
+Synapse Machine Learning
 =============================
 
 This package contains the PySpark library for SynapseML.
