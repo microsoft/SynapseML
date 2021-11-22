@@ -10,18 +10,21 @@ import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransforme
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.ServiceParam
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import scala.collection.mutable.WrappedArray
+import scala.collection.JavaConverters._
 
 import java.net.URI
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import java.util.HashMap
+
 
 abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
@@ -370,12 +373,40 @@ class EntityDetector(override val uid: String)
 } 
 
 
+class TextAnalyzeTaskParam(parent: Params,
+                              name: String,
+                              doc: String,
+                              isValid: Seq[TAAnalyzeTask] => Boolean =  (_: Seq[TAAnalyzeTask]) => true)
+                              (@transient implicit val dataFormat: JsonFormat[TAAnalyzeTask])
+  extends JsonEncodableParam[Seq[TAAnalyzeTask]](parent, name, doc, isValid) {
+  type ValueType = TAAnalyzeTask
+
+  override def w(value: Seq[TAAnalyzeTask]): ParamPair[Seq[TAAnalyzeTask]] = super.w(value)
+  def w(value: java.util.ArrayList[HashMap[String,Any]]): ParamPair[Seq[TAAnalyzeTask]] = 
+    super.w(value.asScala.toArray.map(hashMapToTAAnalyzeTask))
+
+  
+  def hashMapToTAAnalyzeTask(value: HashMap[String, Any]) : TAAnalyzeTask = {
+    if (!value.containsKey("parameters")) {
+      throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
+    }
+    if (value.size() > 1){
+      throw new IllegalArgumentException("Task options should only include 'parameters' value")
+    }
+    val valParameters = value.get("parameters").asInstanceOf[HashMap[String, Any]]
+    val parameters = valParameters.asScala.toMap.map{x=>(x._1, x._2.toString())}
+    TAAnalyzeTask(parameters)
+  }
+}
+
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
 class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
   with HasSetLinkedService with BasicAsyncReply {
 
-val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
+  import TAJSONFormat._
+
+  val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
 
   def this() = this(Identifiable.randomUID("TextAnalyze"))
 
@@ -398,14 +429,55 @@ val text = new ServiceParam[Seq[String]](this, "text", "the text in the request 
 
   setDefault(language -> Left(Seq("en")))
 
-  override protected def responseDataType: StructType = TAAnalyzeResponse.schema // TODO - this has to match the HTTP response or the data isn't set in the UDF step
-  // override protected def responseDataType: StructType = TAAnalyzeResult.schema
+  val entityRecognitionTasks = new TextAnalyzeTaskParam(
+    this,
+    "entityRecognitionTasks",
+    "the entity recognition tasks to perform on submitted documents"
+  )
+  def getEntityRecognitionTasks: Seq[TAAnalyzeTask] = $(entityRecognitionTasks)
+  def setEntityRecognitionTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
+  setDefault(entityRecognitionTasks -> Seq[TAAnalyzeTask]())
 
+  val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
+    this,
+    "entityRecognitionPiiTasks",
+    "the entity recognition pii tasks to perform on submitted documents"
+  )
+  def getEntityRecognitionPiiTasks: Seq[TAAnalyzeTask] = $(entityRecognitionPiiTasks)
+  def setEntityRecognitionPiiTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
+  setDefault(entityRecognitionPiiTasks -> Seq[TAAnalyzeTask]())
+
+  val entityLinkingTasks = new TextAnalyzeTaskParam(
+    this,
+    "entityLinkingTasks",
+    "the entity linking tasks to perform on submitted documents"
+  )
+  def getEntityLinkingTasks: Seq[TAAnalyzeTask] = $(entityLinkingTasks)
+  def setEntityLinkingTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityLinkingTasks, v)
+  setDefault(entityLinkingTasks -> Seq[TAAnalyzeTask]())
+
+  val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
+    this,
+    "keyPhraseExtractionTasks",
+    "the key phrase extraction tasks to perform on submitted documents"
+  )
+  def getKeyPhraseExtractionTasks: Seq[TAAnalyzeTask] = $(keyPhraseExtractionTasks)
+  def setKeyPhraseExtractionTasks(v: Seq[TAAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
+  setDefault(keyPhraseExtractionTasks -> Seq[TAAnalyzeTask]())
+
+  val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
+    this,
+    "sentimentAnalysisTasks",
+    "the sentiment analysis tasks to perform on submitted documents"
+  )
+  def getSentimentAnalysisTasks: Seq[TAAnalyzeTask] = $(sentimentAnalysisTasks)
+  def setSentimentAnalysisTasks(v: Seq[TAAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
+  setDefault(sentimentAnalysisTasks -> Seq[TAAnalyzeTask]())
+
+  override protected def responseDataType: StructType = TAAnalyzeResponse.schema
   def urlPath: String = "/text/analytics/v3.1/analyze"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
-
-  // TODO - getInternalTransformer
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
@@ -428,15 +500,15 @@ val text = new ServiceParam[Seq[String]](this, "text", "the text in the request 
         val documents = texts.zipWithIndex.map { case (t, i) =>
           TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
         }
-        val displayName = "TODO-displayname" // TODO - add setDisplayName or setOptions
+        val displayName = "SynapseML"
         val analysisInput = TAAnalyzeAnalysisInput(documents)
         val tasks = TAAnalyzeTasks(
-            entityRecognitionTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
-            entityLinkingTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
-            entityRecognitionPiiTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
-            keyPhraseExtractionTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
-            sentimentAnalysisTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest")))
-          ) // TODO - get tasks from options etc
+            entityRecognitionTasks=getEntityRecognitionTasks,
+            entityLinkingTasks=getEntityLinkingTasks,
+            entityRecognitionPiiTasks=getEntityRecognitionPiiTasks,
+            keyPhraseExtractionTasks=getKeyPhraseExtractionTasks,
+            sentimentAnalysisTasks=getSentimentAnalysisTasks
+          )
         val json = TAAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
@@ -533,7 +605,7 @@ val text = new ServiceParam[Seq[String]](this, "text", "the text in the request 
           val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
           val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
 
-          val taaResult = Seq(entityRecognitionRows, entityLinkingRows, entityRecognitionPiiRows, keyPhraseRows, sentimentAnalysisRows) // TAAnalyzeResult struct
+          val taaResult = Seq(entityRecognitionRows, entityLinkingRows, entityRecognitionPiiRows, keyPhraseRows, sentimentAnalysisRows) 
           val resultRow = Row.fromSeq(taaResult)
           resultRow
         })
