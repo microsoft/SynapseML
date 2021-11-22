@@ -134,6 +134,10 @@ trait HasAADToken extends HasServiceParams {
 
   def setAadToken(v: String): this.type = setScalarParam(aadToken, v)
 
+  def getAadTokenCol: String = getVectorParam(aadToken)
+
+  def setAadTokenCol(v: String): this.type = setVectorParam(aadToken, v)
+
 }
 
 trait HasSubscriptionKey extends HasServiceParams {
