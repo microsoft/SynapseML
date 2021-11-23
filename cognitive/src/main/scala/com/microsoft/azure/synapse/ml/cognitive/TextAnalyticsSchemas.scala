@@ -36,7 +36,11 @@ object TAJSONFormat {
 
   implicit val DocumentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
   implicit val RequestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
-
+  implicit val AnalysisInputsFormat: RootJsonFormat[TAAnalyzeAnalysisInput] = jsonFormat1(TAAnalyzeAnalysisInput.apply)
+  implicit val AnalysisTaskFormat: RootJsonFormat[TAAnalyzeTask] = jsonFormat1(TAAnalyzeTask.apply)
+  implicit val AnalysisTasksFormat: RootJsonFormat[TAAnalyzeTasks] = jsonFormat5(TAAnalyzeTasks.apply)
+  implicit val AnalyzeRequestFormat: RootJsonFormat[TAAnalyzeRequest] = jsonFormat3(TAAnalyzeRequest.apply)
+  // implicit val AnalyzeResponseFormat: RootJsonFormat[TAAnalyzeResponse] = jsonFormat4(TAAnalyzeResponse.apply)
 }
 
 // SentimentV3 Schemas
@@ -137,3 +141,83 @@ case class TAWarning(// Error code.
                     message: String,
                     // A JSON pointer reference indicating the target object.
                     targetRef: Option[String] = None)
+
+
+// Text Analytics /analyze endpoint schemas
+
+case class TAAnalyzeAnalysisInput(documents : Seq[TADocument])
+
+object TAAnalyzeAnalysisInput extends SparkBindings[TAAnalyzeAnalysisInput]
+
+case class TAAnalyzeTask(parameters: Map[String, String])
+
+object TAAnalyzeTask extends SparkBindings[TAAnalyzeTask]
+
+case class TAAnalyzeTasks(entityRecognitionTasks: Seq[TAAnalyzeTask],
+                          entityLinkingTasks: Seq[TAAnalyzeTask],
+                          entityRecognitionPiiTasks: Seq[TAAnalyzeTask],
+                          keyPhraseExtractionTasks: Seq[TAAnalyzeTask],
+                          sentimentAnalysisTasks: Seq[TAAnalyzeTask])
+
+object TAAnalyzeTasks extends SparkBindings[TAAnalyzeTasks]
+
+case class TAAnalyzeRequest(displayName: String,
+                            analysisInput: TAAnalyzeAnalysisInput,
+                            tasks: TAAnalyzeTasks
+                           )
+
+object TAAnalyzeRequest extends SparkBindings[TAAnalyzeRequest]
+
+
+case class TAAnalyzeResponseTaskResults[T](documents: Seq[T],
+                                        errors: Seq[TAError],
+                                        modelVersion: String)
+case class TAAnalyzeResponseTask[T](state: String,
+                                 results: TAAnalyzeResponseTaskResults[T])
+
+case class TAAnalyzeResponseTasks(completed: Int,
+                                  failed: Int,
+                                  inProgress: Int,
+                                  total: Int,
+                                  entityRecognitionTasks: Option[Seq[TAAnalyzeResponseTask[NERDocV3]]],
+                                  entityLinkingTasks: Option[Seq[TAAnalyzeResponseTask[DetectEntitiesScoreV3]]],
+                                  entityRecognitionPiiTasks: Option[Seq[TAAnalyzeResponseTask[PIIDocV3]]],
+                                  keyPhraseExtractionTasks:  Option[Seq[TAAnalyzeResponseTask[KeyPhraseScoreV3]]],
+                                  sentimentAnalysisTasks:  Option[Seq[TAAnalyzeResponseTask[SentimentScoredDocumentV3]]]
+                                  // TODO - add other task types
+                                 )
+
+// API call response
+case class TAAnalyzeResponse(status: String,
+                             errors: Option[Seq[TAError]],
+                             displayName: String,
+                             tasks: TAAnalyzeResponseTasks)
+
+object TAAnalyzeResponse extends SparkBindings[TAAnalyzeResponse]
+
+
+// TODO - error col for errors property
+//      - drop completed, failed, inProgress, total fields
+//      - setOutputCol -> setOutputColPrefix, then have <prefix>_keyPhraseExtraction etc (as, e.g. array of TAAnalyzeResponseTaskResults[KeyPhraseScoreV3] )
+
+// TODO - check that we're handling language/languageCol!
+
+// Transformer output schema per input row
+// TODO - add other task types
+// TODO - extend to handle multiple instances of each task type
+
+case class TAAnalyzeResultTaskResults[T](result: Option[T], // TODO - apply reshaping in the UDF? Similar to stripping id from results in TextAnalyticsBase.getInternalTransformer implementation
+                                           error: Option[TAError])
+
+case class TAAnalyzeResult(entityRecognition: Option[Seq[TAAnalyzeResultTaskResults[NERDocV3]]],
+                           entityLinking: Option[Seq[TAAnalyzeResultTaskResults[DetectEntitiesScoreV3]]],
+                           entityRecognitionPii: Option[Seq[TAAnalyzeResultTaskResults[PIIDocV3]]],
+                           keyPhraseExtraction: Option[Seq[TAAnalyzeResultTaskResults[KeyPhraseScoreV3]]],
+                           sentimentAnalysis: Option[Seq[TAAnalyzeResultTaskResults[SentimentScoredDocumentV3]]])
+
+object TAAnalyzeResults extends SparkBindings[TAAnalyzeResult]
+
+
+
+
+

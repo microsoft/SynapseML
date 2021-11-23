@@ -18,8 +18,10 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+import scala.collection.mutable.WrappedArray
 
 import java.net.URI
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
@@ -365,4 +367,196 @@ class EntityDetector(override val uid: String)
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
 
   def urlPath: String = "/text/analytics/v3.1/entities/linking"
+} 
+
+
+object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
+class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
+  with HasSetLinkedService with BasicAsyncReply {
+
+val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
+
+  def this() = this(Identifiable.randomUID("TextAnalyze"))
+
+  def setTextCol(v: String): this.type = setVectorParam(text, v)
+
+  def setText(v: Seq[String]): this.type = setScalarParam(text, v)
+
+  def setText(v: String): this.type = setScalarParam(text, Seq(v))
+
+  setDefault(text -> Right("text"))
+
+  val language = new ServiceParam[Seq[String]](this, "language",
+    "the language code of the text (optional for some services)")
+
+  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
+
+  def setLanguage(v: Seq[String]): this.type = setScalarParam(language, v)
+
+  def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
+
+  setDefault(language -> Left(Seq("en")))
+
+  override protected def responseDataType: StructType = TAAnalyzeResponse.schema // TODO - this has to match the HTTP response or the data isn't set in the UDF step
+  // override protected def responseDataType: StructType = TAAnalyzeResult.schema
+
+  def urlPath: String = "/text/analytics/v3.1/analyze"
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+
+  // TODO - getInternalTransformer
+
+  override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
+    { row: Row =>
+      if (shouldSkip(row)) {
+        None
+      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
+        None
+      } else {
+        import TAJSONFormat._
+        val post = new HttpPost(getUrl)
+        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        post.setHeader("Content-Type", "application/json")
+        val texts = getValue(row, text)
+
+        val languages: Option[Seq[String]] = (getValueOpt(row, language) match {
+          case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
+          case s => s
+        })
+
+        val documents = texts.zipWithIndex.map { case (t, i) =>
+          TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
+        }
+        val displayName = "TODO-displayname" // TODO - add setDisplayName or setOptions
+        val analysisInput = TAAnalyzeAnalysisInput(documents)
+        val tasks = TAAnalyzeTasks(
+            entityRecognitionTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
+            entityLinkingTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
+            entityRecognitionPiiTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
+            keyPhraseExtractionTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest"))),
+            sentimentAnalysisTasks=Seq(TAAnalyzeTask(Map("model-version" -> "latest")))
+          ) // TODO - get tasks from options etc
+        val json = TAAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
+        post.setEntity(new StringEntity(json, "UTF-8"))
+        Some(post)
+      }
+    }
+  }
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamicInput", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+    s"Could not find dynamic input columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+    
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+    // TODO refactor to remove duplicate from TextAnalyticsBase
+    def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
+      val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
+      getVectorParamMap.get(parameterName).flatMap {
+        case c if schema(c).dataType == StringType =>
+          Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
+            getVectorParam(parameterName),
+            reshapedColName))
+        case _ => None
+      }
+    }
+
+    val reshapeCols = Seq(reshapeToArray("text"), reshapeToArray("language")).flatten
+
+    val newColumnMapping = reshapeCols.map {
+      case (_, oldCol, newCol) => (oldCol, newCol)
+    }.toMap
+
+    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
+      val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
+      col(newCol).alias(oldCol)
+    }.toSeq
+
+    val innerResponseDataType = TAAnalyzeResults.schema
+    
+    def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int) : Option[Seq[Row]] ={
+      val namedTaskRow = tasksRow
+                            .getAs[WrappedArray[GenericRowWithSchema]](taskName)
+      if (namedTaskRow == null){
+        None
+      } else {
+        val taskResults = namedTaskRow
+                            .map(x=>x.getAs[GenericRowWithSchema]("results"))
+        val rows = taskResults.map(result => {
+          val documents = result.getAs[WrappedArray[GenericRowWithSchema]]("documents")
+          val errors = result.getAs[WrappedArray[GenericRowWithSchema]]("errors")
+          val doc = documents.find{d=> d.getAs[String]("id").toInt == documentIndex}
+          var error = errors.find{e => e.getAs[String]("id").toInt == documentIndex}
+          val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
+          resultRow
+        })
+        Some(rows)
+      }
+    }
+
+    val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
+      Option(rowOpt).map { row =>
+        val tasks = row.getAs[GenericRowWithSchema]("tasks")
+        
+        // Determine the total number of documents (successful docs + errors)
+        // TODO - we need to handle the fact that entityRecognition might not have been specified
+        val entityRecognitionTaskResults = tasks
+                                            .getAs[WrappedArray[GenericRowWithSchema]]("entityRecognitionTasks")
+                                            .map(x=>x.getAs[GenericRowWithSchema]("results"))
+        val docCount = entityRecognitionTaskResults(0).getAs[WrappedArray[GenericRowWithSchema]]("documents").size
+        val errorCount = entityRecognitionTaskResults(0).getAs[WrappedArray[GenericRowWithSchema]]("errors").size
+
+        val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i =>{
+          val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
+          val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
+          val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
+          val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
+          val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
+
+          val taaResult = Seq(entityRecognitionRows, entityLinkingRows, entityRecognitionPiiRows, keyPhraseRows, sentimentAnalysisRows) // TAAnalyzeResult struct
+          val resultRow = Row.fromSeq(taaResult)
+          resultRow
+        })
+        rows
+      }
+    }, ArrayType(innerResponseDataType)
+    )
+
+
+    val stages = reshapeCols.map(_._1).toArray ++ Array(
+      Lambda(_.withColumn(
+        dynamicParamColName,
+        struct(columnsToGroup: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(handlingFunc)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new UDFTransformer()
+        .setInputCol(getOutputCol)
+        .setOutputCol(getOutputCol)
+        .setUDF(unpackBatchUDF),
+      new DropColumns().setCols(Array(
+        dynamicParamColName) ++ newColumnMapping.values.toArray.asInstanceOf[Array[String]])
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+
+  }
 }

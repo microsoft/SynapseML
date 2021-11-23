@@ -12,6 +12,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
+import scala.collection.mutable.WrappedArray
+import org.apache.spark.sql.Dataset
 
 trait TextEndpoint {
   lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
@@ -446,4 +448,209 @@ class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
     Seq(new TestObject[PII](n, df))
 
   override def reader: MLReadable[_] = PII
+}
+
+
+class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint {
+
+  import spark.implicits._
+
+  lazy val df_basic: DataFrame = Seq(
+    ("1", "en", "I had a wonderful trip to Seattle last week and visited Microsoft."),
+    ("2", "invalid", "This is irrelevant as the language is invalid")
+  ).toDF("id", "language", "text")
+
+  lazy val df_batched: DataFrame = Seq(
+    (Seq("1", "2"), Seq("en", "invalid"), Seq("I had a wonderful trip to Seattle last week and visited Microsoft.", "This is irrelevant as the language is invalid")),
+  ).toDF("id", "language", "text")
+
+
+  lazy val n: TextAnalyze = new TextAnalyze()
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
+    .setLanguageCol("language")
+    .setOutputCol("response")
+    .setErrorCol("error")
+
+  def getEntityRecognitionResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("entityRecognition",
+                        col("response")
+                          .getItem(resultIndex)
+                          .getItem("entityRecognition")
+                          .getItem(0)
+                          .getItem("result")
+                          .getItem("entities")
+                          .getItem(0)
+                        ).select("entityRecognition")
+                        .collect()
+  }
+  def getEntityRecognitionErrors(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("error",
+                        col("response")
+                          .getItem(resultIndex)
+                          .getItem("entityRecognition")
+                          .getItem(0)
+                          .getItem("error")
+                          .getItem("error")
+                        ).select("error")
+                        .collect()
+  }
+  def getEntityRecognitionPiiResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("entityRecognitionPii",
+                        col("response")
+                          .getItem(resultIndex)
+                          .getItem("entityRecognitionPii")
+                          .getItem(0)
+                          .getItem("result")
+                          .getItem("entities")
+                          .getItem(0)
+                        ).select("entityRecognitionPii")
+                        .collect()
+  }
+  def getKeyPhraseResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("keyPhrase",
+                        col("response")
+                          .getItem(0)
+                          .getItem("keyPhraseExtraction")
+                          .getItem(0)
+                          .getItem("result")
+                          .getItem("keyPhrases")
+                          .getItem(0)
+                        ).select("keyPhrase")
+                        .collect()
+  }
+  def getSentimentAnalysisResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("sentimentAnalysis",
+                        col("response")
+                          .getItem(0)
+                          .getItem("sentimentAnalysis")
+                          .getItem(0)
+                          .getItem("result")
+                          .getItem("sentiment")
+                        ).select("sentimentAnalysis")
+                        .collect()
+  }
+  def getEntityLinkingResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+    results.withColumn("entityLinking",
+                        col("response")
+                          .getItem(0)
+                          .getItem("entityLinking")
+                          .getItem(0)
+                          .getItem("result")
+                          .getItem("entities")
+                          .getItem(0)
+                        ).select("entityLinking")
+                        .collect()
+  }
+
+  test("Basic Usage") {
+    val results = n.transform(df_basic).cache()
+
+    //
+    // Validate first row (successful execution)
+    //
+
+    // entity recognition
+    val entityRows = getEntityRecognitionResults(results, resultIndex = 0)
+    var entityRow = entityRows(0)
+    var entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
+
+    assert(entityResult.getAs[String]("text") === "trip")
+    assert(entityResult.getAs[Int]("offset") === 18)
+    assert(entityResult.getAs[Int]("length") === 4)
+    assert(entityResult.getAs[Double]("confidenceScore") > 0.66)
+    assert(entityResult.getAs[String]("category") === "Event")
+
+    // entity recognition pii
+    val entityPiiRows = getEntityRecognitionPiiResults(results, resultIndex = 0)
+    var entityPiiRow = entityPiiRows(0)
+    var entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
+    assert(entityPiiResult.getAs[String]("text") === "last week")
+    assert(entityPiiResult.getAs[Int]("offset") === 34)
+    assert(entityPiiResult.getAs[Int]("length") === 9)
+    assert(entityPiiResult.getAs[Double]("confidenceScore") > 0.79)
+    assert(entityPiiResult.getAs[String]("category") === "DateTime")
+
+    // key phrases
+    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)    
+    var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
+    assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
+
+    // text sentiment
+    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)    
+    var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
+    assert(sentimentAnalysisRow.getAs[String](0) === "positive")
+
+
+    // entity linking
+    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)    
+    var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
+    var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
+    assert(entityLinkingResult.getAs[String]("name") === "Seattle")
+
+    //
+    // Validate second row has error
+    //
+    val entityRows2 = getEntityRecognitionErrors(results, resultIndex = 0)
+    var entityRow2 = entityRows2(1).asInstanceOf[GenericRowWithSchema]
+    assert(entityRow2.getAs[String]("error").contains("\"code\":\"UnsupportedLanguageCode\""))
+  }
+
+  test("Batched Usage") {
+    val results = n.transform(df_batched).cache()
+    
+    //
+    // First batch entry
+    //
+
+    // entity recognition
+    val entityRows = getEntityRecognitionResults(results, resultIndex = 0)
+    var entityRow = entityRows(0)
+    var entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
+
+    assert(entityResult.getAs[String]("text") === "trip")
+    assert(entityResult.getAs[Int]("offset") === 18)
+    assert(entityResult.getAs[Int]("length") === 4)
+    assert(entityResult.getAs[Double]("confidenceScore") > 0.66)
+    assert(entityResult.getAs[String]("category") === "Event")
+
+    // entity recognition pii
+    val entityPiiRows = getEntityRecognitionPiiResults(results, resultIndex = 0)
+    var entityPiiRow = entityPiiRows(0)
+    var entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
+    assert(entityPiiResult.getAs[String]("text") === "last week")
+    assert(entityPiiResult.getAs[Int]("offset") === 34)
+    assert(entityPiiResult.getAs[Int]("length") === 9)
+    assert(entityPiiResult.getAs[Double]("confidenceScore") > 0.79)
+    assert(entityPiiResult.getAs[String]("category") === "DateTime")
+
+    // key phrases
+    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)    
+    var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
+    assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
+
+    // text sentiment
+    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)    
+    var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
+    assert(sentimentAnalysisRow.getAs[String](0) === "positive")
+
+
+    // entity linking
+    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)    
+    var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
+    var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
+    assert(entityLinkingResult.getAs[String]("name") === "Seattle")
+
+    //
+    // Second batch entry
+    //
+    val entityRows2 = getEntityRecognitionErrors(results, resultIndex = 1)
+    var entityRow2 = entityRows2(0).asInstanceOf[GenericRowWithSchema]
+    assert(entityRow2.getAs[String]("error").contains("\"code\":\"UnsupportedLanguageCode\""))
+  }
+
+  override def testObjects(): Seq[TestObject[TextAnalyze]] =
+    Seq(new TestObject[TextAnalyze](n, df_basic, df_batched))
+
+  override def reader: MLReadable[_] = TextAnalyze
 }
