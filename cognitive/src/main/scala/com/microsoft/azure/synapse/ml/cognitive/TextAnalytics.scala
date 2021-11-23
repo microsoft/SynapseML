@@ -505,18 +505,26 @@ val text = new ServiceParam[Seq[String]](this, "text", "the text in the request 
         Some(rows)
       }
     }
+    def getFirstNonNullTask(tasks: GenericRowWithSchema, taskNames: Seq[String]) = {
+      taskNames
+          .map(name => tasks.getAs[WrappedArray[GenericRowWithSchema]](name))
+          .filter(r=> r != null)
+          .head
+    }
 
     val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val tasks = row.getAs[GenericRowWithSchema]("tasks")
         
         // Determine the total number of documents (successful docs + errors)
-        // TODO - we need to handle the fact that entityRecognition might not have been specified
-        val entityRecognitionTaskResults = tasks
-                                            .getAs[WrappedArray[GenericRowWithSchema]]("entityRecognitionTasks")
-                                            .map(x=>x.getAs[GenericRowWithSchema]("results"))
-        val docCount = entityRecognitionTaskResults(0).getAs[WrappedArray[GenericRowWithSchema]]("documents").size
-        val errorCount = entityRecognitionTaskResults(0).getAs[WrappedArray[GenericRowWithSchema]]("errors").size
+        // We need to handle the fact that entityRecognition might not have been specified - i.e. find the first task with results
+        val taskNames = Seq("entityRecognitionTasks", "entityLinkingTasks", "entityRecognitionPiiTasks", "keyPhraseExtractionTasks", "sentimentAnalysisTasks")
+        val taskSet = taskNames.map(name => tasks.getAs[WrappedArray[GenericRowWithSchema]](name))
+                            .filter(r=> r != null)
+                            .head
+        val results = taskSet.map(x=>x.getAs[GenericRowWithSchema]("results"))
+        val docCount = results(0).getAs[WrappedArray[GenericRowWithSchema]]("documents").size
+        val errorCount = results(0).getAs[WrappedArray[GenericRowWithSchema]]("errors").size
 
         val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i =>{
           val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
