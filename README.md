@@ -105,9 +105,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.4
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.4
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.4 MyApp.jar
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.4 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.4 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.4 MyApp.jar --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
 ```
 
 This can be used in other Spark contexts too. For example, you can use SynapseML
