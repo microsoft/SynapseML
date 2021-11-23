@@ -90,7 +90,7 @@ abstract class KernelSHAPBase(override val uid: String)
         (id, coefficientsMatrix, metrics.toSpark)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
-    preprocessed.hint("broadcast").join(fitted, Seq(idCol), "inner").drop(idCol)
+    preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
