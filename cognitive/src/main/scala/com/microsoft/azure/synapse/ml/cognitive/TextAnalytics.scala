@@ -370,7 +370,7 @@ class EntityDetector(override val uid: String)
   override def responseDataType: StructType = DetectEntitiesResponseV3.schema
 
   def urlPath: String = "/text/analytics/v3.1/entities/linking"
-} 
+}
 
 
 class TextAnalyzeTaskParam(parent: Params,
@@ -382,11 +382,10 @@ class TextAnalyzeTaskParam(parent: Params,
   type ValueType = TAAnalyzeTask
 
   override def w(value: Seq[TAAnalyzeTask]): ParamPair[Seq[TAAnalyzeTask]] = super.w(value)
-  def w(value: java.util.ArrayList[HashMap[String,Any]]): ParamPair[Seq[TAAnalyzeTask]] = 
+  def w(value: java.util.ArrayList[HashMap[String,Any]]): ParamPair[Seq[TAAnalyzeTask]] =
     super.w(value.asScala.toArray.map(hashMapToTAAnalyzeTask))
 
-  
-  def hashMapToTAAnalyzeTask(value: HashMap[String, Any]) : TAAnalyzeTask = {
+  def hashMapToTAAnalyzeTask(value: HashMap[String, Any]): TAAnalyzeTask = {
     if (!value.containsKey("parameters")) {
       throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
     }
@@ -520,7 +519,6 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
     assert(badColumns.isEmpty,
     s"Could not find dynamic input columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-    
 
     val missingRequiredParams = this.getRequiredParams.filter {
       p => this.get(p).isEmpty && this.getDefault(p).isEmpty
@@ -557,8 +555,8 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     }.toSeq
 
     val innerResponseDataType = TAAnalyzeResults.schema
-    
-    def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int) : Option[Seq[Row]] ={
+
+    def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int): Option[Seq[Row]] ={
       val namedTaskRow = tasksRow
                             .getAs[WrappedArray[GenericRowWithSchema]](taskName)
       if (namedTaskRow == null){
@@ -587,10 +585,16 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val tasks = row.getAs[GenericRowWithSchema]("tasks")
-        
+
         // Determine the total number of documents (successful docs + errors)
-        // We need to handle the fact that entityRecognition might not have been specified - i.e. find the first task with results
-        val taskNames = Seq("entityRecognitionTasks", "entityLinkingTasks", "entityRecognitionPiiTasks", "keyPhraseExtractionTasks", "sentimentAnalysisTasks")
+        // We need to handle the fact that entityRecognition might not have been specified
+        // - i.e. find the first task with results
+        val taskNames = Seq(
+                          "entityRecognitionTasks",
+                          "entityLinkingTasks",
+                          "entityRecognitionPiiTasks",
+                          "keyPhraseExtractionTasks",
+                          "sentimentAnalysisTasks")
         val taskSet = taskNames.map(name => tasks.getAs[WrappedArray[GenericRowWithSchema]](name))
                             .filter(r=> r != null)
                             .head
@@ -605,7 +609,12 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
           val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
           val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
 
-          val taaResult = Seq(entityRecognitionRows, entityLinkingRows, entityRecognitionPiiRows, keyPhraseRows, sentimentAnalysisRows) 
+          val taaResult = Seq(
+                            entityRecognitionRows,
+                            entityLinkingRows,
+                            entityRecognitionPiiRows,
+                            keyPhraseRows,
+                            sentimentAnalysisRows)
           val resultRow = Row.fromSeq(taaResult)
           resultRow
         })

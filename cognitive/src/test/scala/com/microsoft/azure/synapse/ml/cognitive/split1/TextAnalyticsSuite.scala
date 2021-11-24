@@ -455,13 +455,18 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
   import spark.implicits._
 
-  lazy val df_basic: DataFrame = Seq(
+  lazy val dfBasic: DataFrame = Seq(
     ("1", "en", "I had a wonderful trip to Seattle last week and visited Microsoft."),
     ("2", "invalid", "This is irrelevant as the language is invalid")
   ).toDF("id", "language", "text")
 
-  lazy val df_batched: DataFrame = Seq(
-    (Seq("1", "2"), Seq("en", "invalid"), Seq("I had a wonderful trip to Seattle last week and visited Microsoft.", "This is irrelevant as the language is invalid")),
+  lazy val dfBatched: DataFrame = Seq(
+    (
+      Seq("1", "2"),
+      Seq("en", "invalid"),
+      Seq("I had a wonderful trip to Seattle last week and visited Microsoft.",
+          "This is irrelevant as the language is invalid")
+    )
   ).toDF("id", "language", "text")
 
 
@@ -477,7 +482,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     .setKeyPhraseExtractionTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
     .setSentimentAnalysisTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
 
-  def getEntityRecognitionResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getEntityRecognitionResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityRecognition",
                         col("response")
                           .getItem(resultIndex)
@@ -489,7 +494,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
                         ).select("entityRecognition")
                         .collect()
   }
-  def getEntityRecognitionErrors(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getEntityRecognitionErrors(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("error",
                         col("response")
                           .getItem(resultIndex)
@@ -500,7 +505,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
                         ).select("error")
                         .collect()
   }
-  def getEntityRecognitionPiiResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getEntityRecognitionPiiResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityRecognitionPii",
                         col("response")
                           .getItem(resultIndex)
@@ -512,7 +517,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
                         ).select("entityRecognitionPii")
                         .collect()
   }
-  def getKeyPhraseResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getKeyPhraseResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("keyPhrase",
                         col("response")
                           .getItem(0)
@@ -524,7 +529,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
                         ).select("keyPhrase")
                         .collect()
   }
-  def getSentimentAnalysisResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getSentimentAnalysisResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("sentimentAnalysis",
                         col("response")
                           .getItem(0)
@@ -535,7 +540,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
                         ).select("sentimentAnalysis")
                         .collect()
   }
-  def getEntityLinkingResults(results: Dataset[Row], resultIndex: Int) : Array[Row] = {
+  def getEntityLinkingResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityLinking",
                         col("response")
                           .getItem(0)
@@ -549,7 +554,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   }
 
   test("Basic Usage") {
-    val results = n.transform(df_basic).cache()
+    val results = n.transform(dfBasic).cache()
 
     //
     // Validate first row (successful execution)
@@ -577,18 +582,18 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     assert(entityPiiResult.getAs[String]("category") === "DateTime")
 
     // key phrases
-    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)    
+    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)
     var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
     assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
 
     // text sentiment
-    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)    
+    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)
     var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
     assert(sentimentAnalysisRow.getAs[String](0) === "positive")
 
 
     // entity linking
-    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)    
+    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)
     var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
     var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityLinkingResult.getAs[String]("name") === "Seattle")
@@ -602,8 +607,8 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   }
 
   test("Batched Usage") {
-    val results = n.transform(df_batched).cache()
-    
+    val results = n.transform(dfBatched).cache()
+
     //
     // First batch entry
     //
@@ -630,18 +635,18 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     assert(entityPiiResult.getAs[String]("category") === "DateTime")
 
     // key phrases
-    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)    
+    val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)
     var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
     assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
 
     // text sentiment
-    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)    
+    val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)
     var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
     assert(sentimentAnalysisRow.getAs[String](0) === "positive")
 
 
     // entity linking
-    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)    
+    val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)
     var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
     var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityLinkingResult.getAs[String]("name") === "Seattle")
@@ -655,7 +660,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   }
 
   override def testObjects(): Seq[TestObject[TextAnalyze]] =
-    Seq(new TestObject[TextAnalyze](n, df_basic, df_batched))
+    Seq(new TestObject[TextAnalyze](n, dfBasic, dfBatched))
 
   override def reader: MLReadable[_] = TextAnalyze
 }
