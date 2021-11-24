@@ -24,8 +24,7 @@
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
     "react-player": "^2.7.2",
-    "reading-time": "^1.2.0",
-    "yarn-audit-fix": "^7.1.2"
+    "reading-time": "^1.2.0"
   },
   "resolutions": {
     "@docusaurus/core/**/set-value": "^4.0.1",
