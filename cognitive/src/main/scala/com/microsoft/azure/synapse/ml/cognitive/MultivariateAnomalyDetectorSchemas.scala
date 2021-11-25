@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.cognitiveservices.speech.Diagnostics
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 object DMARequest extends SparkBindings[DMARequest]
@@ -83,6 +82,10 @@ case class ModelState(epochIds: Option[Seq[Int]],
 
 object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat3(DMARequest.apply)
-  implicit val MAMReqEnc: RootJsonFormat[MAMRequest] = jsonFormat6(MAMRequest.apply)
+  implicit val EEnc: RootJsonFormat[DMAError] = jsonFormat2(DMAError.apply)
+  implicit val VSEnc: RootJsonFormat[DMAVariableState] = jsonFormat6(DMAVariableState.apply)
+  implicit val MSEnc: RootJsonFormat[ModelState] = jsonFormat4(ModelState.apply)
+  implicit val DIEnc: RootJsonFormat[DiagnosticsInfo] = jsonFormat2(DiagnosticsInfo.apply)
   implicit val APEnc: RootJsonFormat[AlignPolicy] = jsonFormat3(AlignPolicy.apply)
+  implicit val MAMReqEnc: RootJsonFormat[MAMRequest] = jsonFormat6(MAMRequest.apply)
 }

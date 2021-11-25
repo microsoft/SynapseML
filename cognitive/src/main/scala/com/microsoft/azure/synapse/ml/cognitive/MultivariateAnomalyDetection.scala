@@ -6,17 +6,23 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
+import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HandlingUtils, HeaderValues}
+import com.microsoft.azure.synapse.ml.io.http._
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.ServiceParam
+import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import java.net.URI
@@ -70,7 +76,14 @@ trait HasMADEndTime extends HasServiceParams {
   def getEndTimeCol: String = getVectorParam(endTime)
 }
 
-trait MADAsyncReply extends HasAsyncReply {
+trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with HasMADEndTime
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with Wrappable
+  with HTTPParams with HasOutputCol with HasURL with ComplexParamsWritable
+  with HasSubscriptionKey with HasErrorCol with BasicLogging {
+
+  setDefault(
+    outputCol -> (this.uid + "_output"),
+    errorCol -> (this.uid + "_error"))
 
   protected def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
@@ -81,11 +94,18 @@ trait MADAsyncReply extends HasAsyncReply {
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
-    val status = IOUtils.toString(resp.entity.get.content, "UTF-8").parseJson.asJsObject.fields("modelInfo")
-      .asInstanceOf[JsObject].fields.get("status").map(_.convertTo[String])
-    status.map(_.toLowerCase()).flatMap {
-      case "ready" | "failed" | "created" => Some(resp)
-      case "running" => None
+    val fields = IOUtils.toString(resp.entity.get.content, "UTF-8").parseJson.asJsObject.fields
+    var status = "none"
+    if (fields.keySet.contains("modelInfo")) {
+      status = fields("modelInfo").asInstanceOf[JsObject].fields
+        .get("status").map(_.convertTo[String]).get.toLowerCase()
+    } else if (fields.keySet.contains("summary")) {
+      status = fields("summary").asInstanceOf[JsObject]
+        .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
+    }
+    status match {
+      case "ready" | "failed" => Some(resp)
+      case "created" | "running" => None
       case s => throw new RuntimeException(s"Received unknown status code: $s")
     }
   }
@@ -119,9 +139,8 @@ trait MADAsyncReply extends HasAsyncReply {
 
 object MultivariateAnomalyModel extends ComplexParamsReadable[MultivariateAnomalyModel] with Serializable
 
-class MultivariateAnomalyModel(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with MADAsyncReply with HasMADSource with HasMADStartTime with HasMADEndTime with Wrappable
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation  {
+class MultivariateAnomalyModel(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+  with MADBase {
   logClass()
 
   def this() = this(Identifiable.randomUID("MultivariateAnomalyModel"))
@@ -158,8 +177,8 @@ class MultivariateAnomalyModel(override val uid: String) extends CognitiveServic
 
   val fillNAMethod = new ServiceParam[String](this, "fillNAMethod", "An optional field, indicates how missed " +
     "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
-    " Linear, Zero, Pad, NotFill}", {
-    case Left(s) => Set("Previous", "Subsequent", "Linear", "Zero", "Pad", "NotFill")(s)
+    " Linear, Zero, Fixed}", {
+    case Left(s) => Set("Previous", "Subsequent", "Linear", "Zero", "Fixed")(s)
     case Right(_) => true
   })
 
@@ -193,6 +212,13 @@ class MultivariateAnomalyModel(override val uid: String) extends CognitiveServic
 
   def getDisplayNameCol: String = getVectorParam(displayName)
 
+  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+    "diagnosticsInfo for training a multivariate anomaly detection model")
+
+  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
+
+  def getDiagnosticsInfo: DiagnosticsInfo = getOrDefault(diagnosticsInfo)
+
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       Some(new StringEntity(Map("source" -> getValue(r, source).toJson,
@@ -207,13 +233,76 @@ class MultivariateAnomalyModel(override val uid: String) extends CognitiveServic
   }
 
   override def responseDataType: DataType = MAMResponse.schema
+
+  protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+    val stages = Array(
+      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(handlingFunc)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCol(dynamicParamColName)
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+  }
+
+  override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
+    logFit({
+      import MADJsonProtocol._
+
+      val df = getInternalTransformer(dataset.schema)
+        .transform(dataset)
+        .withColumn("diagnosticsInfo", col(getOutputCol)
+          .getField("modelInfo").getField("diagnosticsInfo"))
+        .withColumn("modelId", col(getOutputCol).getField("modelId"))
+        .select(getOutputCol, "modelId", "diagnosticsInfo")
+        .collect()
+      this.setDiagnosticsInfo(df.head.get(2).asInstanceOf[GenericRowWithSchema]
+        .json.parseJson.convertTo[DiagnosticsInfo])
+      val modelId = df.head.getString(1)
+      new DetectMultivariateAnomaly()
+        .setSubscriptionKey(getSubscriptionKey)
+        .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
+        .setModelId(modelId)
+        .setSourceCol(getSourceCol)
+        .setStartTime(getStartTime)
+        .setEndTime(getEndTime)
+    })
+  }
+
+  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
+
+  override def transformSchema(schema: StructType): StructType = {
+    getInternalTransformer(schema).transformSchema(schema)
+  }
 }
 
 object DetectMultivariateAnomaly extends ComplexParamsReadable[DetectMultivariateAnomaly] with Serializable
 
-class DetectMultivariateAnomaly(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with HasMADSource with HasMADStartTime with HasMADEndTime with HasCognitiveServiceInput with Wrappable
-  with HasInternalJsonOutputParser with HasSetLocation with BasicAsyncReply {
+class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMultivariateAnomaly]
+  with MADBase {
   logClass()
 
   def this() = this(Identifiable.randomUID("DetectMultivariateAnomaly"))
@@ -257,5 +346,51 @@ class DetectMultivariateAnomaly(override val uid: String) extends CognitiveServi
   }
 
   override def responseDataType: DataType = DMAResponse.schema
+
+  protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+    val stages = Array(
+      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(handlingFunc)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCol(dynamicParamColName)
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame](
+      getInternalTransformer(dataset.schema).transform(dataset)
+    )
+  }
+
+  override def copy(extra: ParamMap): DetectMultivariateAnomaly = defaultCopy(extra)
+
+  override def transformSchema(schema: StructType): StructType = {
+    getInternalTransformer(schema).transformSchema(schema)
+  }
 
 }
