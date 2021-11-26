@@ -176,6 +176,6 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
 
   override def reader: MLReadable[_] = MultivariateAnomalyModel
 
-  override def modelReader: MLReadable[_] = MultivariateAnomalyModel
+  override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
 }
 
