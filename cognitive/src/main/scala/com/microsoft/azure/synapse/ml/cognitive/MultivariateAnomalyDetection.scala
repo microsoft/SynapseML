@@ -212,12 +212,12 @@ class MultivariateAnomalyModel(override val uid: String) extends Estimator[Detec
 
   def getDisplayNameCol: String = getVectorParam(displayName)
 
-  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+  val diagnosticsInfo = new ServiceParam[DiagnosticsInfo](this, "diagnosticsInfo",
     "diagnosticsInfo for training a multivariate anomaly detection model")
 
-  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
+  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = setScalarParam(diagnosticsInfo, v)
 
-  def getDiagnosticsInfo: DiagnosticsInfo = getOrDefault(diagnosticsInfo)
+  def getDiagnosticsInfo: DiagnosticsInfo = getScalarParam(diagnosticsInfo)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
