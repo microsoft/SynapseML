@@ -227,6 +227,84 @@ trait PythonWrappable extends BaseWrappable {
     }
   }
 
+  //noinspection ScalaStyle
+  def pyMLFlowMethods: String = {
+    s"""|def save_model(
+        |    self,
+        |    path,
+        |    mlflow_model=None,
+        |    conda_env=None,
+        |    dfs_tmpdir=None,
+        |    sample_input=None,
+        |    signature: ModelSignature = None,
+        |    input_example: ModelInputExample = None,
+        |    pip_requirements=None,
+        |    extra_pip_requirements=None
+        |    ):
+        |    "\""
+        |    Save a SynapseML Model to a local path in the MLFlow format.
+        |    :param path: Local path where the model is to be saved.
+        |    :param mlflow_model: MLflow model config this flavor is being added to.
+        |    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+        |                      Conda environment yaml file. If provided, this decsribes the environment
+        |                      this model should be run in. At minimum, it should specify the dependencies
+        |                      contained in :func:`get_default_conda_env()`. If `None`, the default
+        |                      :func:`get_default_conda_env()` environment is added to the model.
+        |                      The following is an *example* dictionary representation of a Conda
+        |                      environment::
+        |
+        |                        {
+        |                            'name': 'mlflow-env',
+        |                            'channels': ['defaults'],
+        |                            'dependencies': [
+        |                                'python=3.7.0',
+        |                                'pyspark=2.3.0'
+        |                            ]
+        |                        }
+        |    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+        |                       filesystem if running in local mode. The model is be written in this
+        |                       destination and then copied to the requested local path. This is necessary
+        |                       as Spark ML models read from and write to DFS if running on a cluster. All
+        |                       temporary files created on the DFS are removed if this operation
+        |                       completes successfully. Defaults to ``/tmp/mlflow``.
+        |    :param sample_input: A sample input that is used to add the MLeap flavor to the model.
+        |                         This must be a PySpark DataFrame that the model can evaluate. If
+        |                         ``sample_input`` is ``None``, the MLeap flavor is not added.
+        |
+        |    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+        |                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+        |                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+        |                      from datasets with valid model input (e.g. the training dataset with target
+        |                      column omitted) and valid model output (e.g. model predictions generated on
+        |                      the training dataset), for example:
+        |
+        |                      .. code-block:: python
+        |
+        |                        from mlflow.models.signature import infer_signature
+        |                        train = df.drop_column("target_label")
+        |                        predictions = ... # compute model predictions
+        |                        signature = infer_signature(train, predictions)
+        |    :param input_example: Input example provides one or several instances of valid
+        |                          model input. The example can be used as a hint of what data to feed the
+        |                          model. The given example will be converted to a Pandas DataFrame and then
+        |                          serialized to json using the Pandas split-oriented format. Bytes are
+        |                          base64-encoded.
+        |    :param pip_requirements: {{ pip_requirements }}
+        |    :param extra_pip_requirements: {{ extra_pip_requirements }}
+        |
+        |    .. code-block:: python
+        |        :caption: Example
+        |
+        |        from synapse.ml.featurize import CountSelectorModel
+        |
+        |        model = CountSelectorModel()
+        |        model.save_model("count-selector-model")
+        |    "\""
+        |    mlflow.spark.save_model(self, path, mlflow_model, conda_env,
+        |    dfs_tmpdir, sample_input, signature, input_example, pip_requirements, extra_pip_requirements)
+        |""".stripMargin
+  }
+
   protected def pyExtraEstimatorImports: String = {
     this match {
       case _: Estimator[_] =>
@@ -328,6 +406,9 @@ trait PythonWrappable extends BaseWrappable {
         |from synapse.ml.core.schema.Utils import *
         |from pyspark.ml.param import TypeConverters
         |from synapse.ml.core.schema.TypeConversionUtils import generateTypeConverter, complexTypeConverter
+        |import mlflow
+        |from mlflow.models.signature import ModelSignature
+        |from mlflow.models.utils import ModelInputExample
         |$pyExtraEstimatorImports
         |
         |@inherit_doc
@@ -373,6 +454,8 @@ trait PythonWrappable extends BaseWrappable {
         |${indent(pyParamsGetters, 1)}
         |
         |${indent(pyExtraEstimatorMethods, 1)}
+        |
+        |${indent(pyMLFlowMethods, 1)}
         |
         |${indent(pyAdditionalMethods, 1)}
         """.stripMargin

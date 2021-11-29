@@ -138,6 +138,9 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
        |
        |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
        |
+       |    model.save_model(join(test_data_dir, "mlflow-model-$num"))
+       |    mlflow_model = mlflow.spark.load_model(join(test_data_dir, "mlflow-model-$num"))
+       |
        |${indent(fittingTest, 1)}
        |
        |""".stripMargin
@@ -158,6 +161,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |from $importPathString import $stageName
          |from os.path import join
          |import json
+         |import mlflow
          |
          |test_data_dir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
