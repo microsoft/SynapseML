@@ -16,6 +16,7 @@ import org.scalactic.Equality
 import spray.json._
 
 import java.net.URI
+import scala.concurrent.blocking
 
 case class MADListModelsResponse(models: Seq[MADModel],
                                  currentCount: Int,
@@ -50,7 +51,7 @@ object MADUtils extends AnomalyKey {
     }
     request.setURI(new URI(path + paramString))
 
-    retry(List(100, 500, 1000), { () =>
+    retry(List(100, 500, 1000, 5000), { () =>
       request.addHeader("Ocp-Apim-Subscription-Key", anomalyKey)
       request.addHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
