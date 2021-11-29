@@ -143,12 +143,6 @@ class ICETransformer(override val uid: String) extends Transformer
     getKind.toLowerCase match {
       case this.individualKind =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
-          .map {
-            df =>
-              (categoricalFeatures ++ numericFeatures).foldLeft(df) {
-                case (accDf, feature) => accDf//.withColumnRenamed(feature.name, feature.getOutputColName)
-              }
-          }
           .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
       case this.averageKind =>
         dependenceDfs.reduce(_ crossJoin _)
