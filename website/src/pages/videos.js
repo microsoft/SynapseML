@@ -62,7 +62,7 @@ function Videos() {
               <h2>Spark + AI Summit 2018</h2>
               <p>
                 We use CNTK on Spark to distribute a Faster RCNN object
-                detection network and deploy it as a web service with MMLSpark
+                detection network and deploy it as a web service with SynapseML
                 Serving for use on Unmanned Aerial Vehicals (UAVs)
               </p>
               <a

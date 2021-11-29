@@ -111,6 +111,7 @@ object PIIResponseV3 extends SparkBindings[TAResponse[PIIDocV3]]
 
 case class PIIDocV3(id: String,
                     entities: Seq[PIIEntityV3],
+                    redactedText: String,
                     warnings: Seq[TAWarning],
                     statistics: Option[DocumentStatistics])
 

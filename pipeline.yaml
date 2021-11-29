@@ -56,25 +56,29 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
+        sbt publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
         sbt release
       displayName: Publish Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-    - bash: sbt publishBadges
+    - bash: |
+        set -e
+        sbt publishBadges
       condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       displayName: Publish Badges
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -97,12 +101,13 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -138,13 +143,14 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
     - bash: |
+        set -e
         source activate synapseml
-        jupyter nbconvert --to script ./notebooks/*.ipynb*
+        jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
         sbt packagePython
         sbt publishBlob
       displayName: Publish Blob Artifacts
       env:
-        STORAGE_KEY: $(storage-key)
+        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -245,6 +251,7 @@ jobs:
         echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Git Tag'
     - bash: |
+        set -e
         wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
@@ -259,6 +266,33 @@ jobs:
         tagSource: 'auto'
         releaseNotesFile: 'CHANGELOG.md'
         isDraft: true
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      condition: startsWith(variables['tag'], 'v')
+      displayName: Add conda to PATH
+    - bash: conda info
+      condition: startsWith(variables['tag'], 'v')
+    - bash: conda env create -f environment.yaml
+      condition: startsWith(variables['tag'], 'v')
+      displayName: Create Anaconda environment
+    - task: AzureKeyVault@1
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
+    - bash: |
+        set -e
+        source activate synapseml
+        sbt publishPypi
+      condition: startsWith(variables['tag'], 'v')
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+        PYPI-API-TOKEN: $(pypi-api-token)
+      displayName: 'publish python package to pypi'
 
 - job: PythonTests
   cancelTimeoutInMinutes: 0
@@ -300,6 +334,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -350,6 +385,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -397,6 +433,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"
@@ -420,19 +457,39 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         keyVaultName: mmlspark-keys
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: conda env create -f environment.yaml
+      displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Convert notebooks to markdowns'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate synapseml
+          sbt convertNotebooks
     - bash: |
+        set -e
         yarn install
+        cd website
+        yarn
+        yarn build
+      displayName: 'yarn install and build'
+    - bash: |
+        set -e
         git config --global user.name "${GH_NAME}"
         git config --global user.email "${GH_EMAIL}"
         git checkout -b main
         echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
         cd website
-        yarn && GIT_USER="${GH_NAME}" yarn deploy
+        GIT_USER="${GH_NAME}" yarn deploy
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       env:
         GH_NAME: $(gh-name)
         GH_EMAIL: $(gh-email)
         GH_TOKEN: $(gh-token)
-      displayName: 'yarn install and build'
+      displayName: 'yarn deploy'
 
 
 - job: UnitTests
@@ -468,6 +525,8 @@ jobs:
         PACKAGE: "explainers.split2"
       explainers3:
         PACKAGE: "explainers.split3"
+      exploratory:
+        PACKAGE: "exploratory"
       featurize:
         PACKAGE: "featurize"
       image:
@@ -547,6 +606,7 @@ jobs:
         keyVaultName: mmlspark-keys
       condition: succeededOrFailed()
     - bash: |
+        set -e
         curl -s https://codecov.io/bash > .codecov
         chmod +x .codecov
         echo "Starting Codecov Upload"

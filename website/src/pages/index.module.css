@@ -35,6 +35,23 @@
   
 }
 
+.announcement {
+  font-weight: bold;
+  font-size: 24px;
+  padding: 48px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.announcementDark {
+  background-color: transparent;
+}
+
+.announcementInner {
+  margin: 0 auto;
+  max-width: 100%;
+}
+
 .features {
   display: flex;
   align-items: center;

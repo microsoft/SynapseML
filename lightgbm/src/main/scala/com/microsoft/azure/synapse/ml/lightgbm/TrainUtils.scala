@@ -114,13 +114,14 @@ private object TrainUtils extends Serializable {
 
       isFinished = updateOneIteration(trainParams, booster, log, iters)
 
-      val trainEvalResults: Option[Map[String, Double]] = if (trainParams.isProvideTrainingMetric && !isFinished) {
-        val evalResults: Array[(String, Double)] = booster.getEvalResults(evalNames, 0)
-        evalResults.foreach { case (evalName: String, score: Double) => log.info(s"Train $evalName=$score") }
-        Option(Map(evalResults:_*))
-      } else {
-        None
-      }
+      val trainEvalResults: Option[Map[String, Double]] =
+        if (trainParams.isProvideTrainingMetric.getOrElse(false) && !isFinished) {
+          val evalResults: Array[(String, Double)] = booster.getEvalResults(evalNames, 0)
+          evalResults.foreach { case (evalName: String, score: Double) => log.info(s"Train $evalName=$score") }
+          Option(Map(evalResults:_*))
+        } else {
+          None
+        }
 
       val validEvalResults: Option[Map[String, Double]] = if (hasValid && !isFinished) {
         val evalResults: Array[(String, Double)] = booster.getEvalResults(evalNames, 1)

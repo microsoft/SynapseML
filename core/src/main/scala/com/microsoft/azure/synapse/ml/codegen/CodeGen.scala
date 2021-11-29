@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import java.io.File
 import CodegenConfigProtocol._
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
@@ -87,13 +88,14 @@ object CodeGen {
           |Config/testthat/edition: 3
           |""".stripMargin)
 
+    val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
     writeFile(new File(conf.rSrcDir, "package_register.R"),
       s"""|#' @import sparklyr
           |spark_dependencies <- function(spark_version, scala_version, ...) {
           |    spark_dependency(
           |        jars = c(),
           |        packages = c(
-          |           "com.microsoft.azure:${conf.name}:${conf.version}"
+          |           "com.microsoft.azure:${conf.name}_${scalaVersion}:${conf.version}"
           |        ),
           |        repositories = c("https://mmlspark.azureedge.net/maven")
           |    )
@@ -134,6 +136,7 @@ object CodeGen {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
     }
+    val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     writeFile(join(conf.pySrcDir, "setup.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -151,15 +154,15 @@ object CodeGen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="mmlspark-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
-         |        "Intended Audience :: Data Scientists",
-         |        "Topic :: Software Development :: Datascience Tools",
+         |        "Intended Audience :: Science/Research",
+         |        "Topic :: Software Development :: Libraries",
          |        "License :: OSI Approved :: MIT License",
          |        "Programming Language :: Python :: 2",
          |        "Programming Language :: Python :: 3",

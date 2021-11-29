@@ -13,7 +13,7 @@ dependencies:
   - r-devtools
   - pip:
     - wheel
-    - sphinx
+    - sphinx==4.2.0
     - sphinx_rtd_theme
     - coverage
     - pytest
@@ -22,3 +22,5 @@ dependencies:
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
+    - twine
+    - jupyter
