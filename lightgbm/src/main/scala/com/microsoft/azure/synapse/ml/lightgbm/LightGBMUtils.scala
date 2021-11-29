@@ -36,7 +36,7 @@ object LightGBMUtils {
     */
   def initializeNativeLibrary(): Unit = {
     val osPrefix = NativeLoader.getOSPrefix
-    if (System.getProperty("os.version").toLowerCase.equals("4.15.0-1124-azure")) {
+    if (System.getProperty("os.version").toLowerCase.equals("4.15.0-1126-azure")) {
       new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbmcuda")
       new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbmcuda_swig")
     }
