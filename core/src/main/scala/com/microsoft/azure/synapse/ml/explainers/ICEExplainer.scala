@@ -1,9 +1,10 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
@@ -64,7 +65,6 @@ class ICETransformer(override val uid: String) extends Transformer
   with HasExplainTarget
   with HasModel
   with ICEFeatureParams
-  with HasOutputCol
   with Wrappable
   with ComplexParamsWritable {
 
@@ -75,7 +75,7 @@ class ICETransformer(override val uid: String) extends Transformer
   }
 
   private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
-                             feature: String, values: Array[_]): DataFrame = {
+                             feature: String, values: Array[_], outputColName: String): DataFrame = {
 
     val dataType = df.schema(feature).dataType
     val explodeFunc = explode(array(values.map(v => lit(v)): _*).cast(ArrayType(dataType)))
@@ -97,7 +97,7 @@ class ICETransformer(override val uid: String) extends Transformer
             map_from_arrays(
               collect_list(feature),
               collect_list(dependenceCol)
-            ).alias(feature)
+            ).alias(outputColName)
           )
 
       case this.individualKind =>
@@ -108,7 +108,7 @@ class ICETransformer(override val uid: String) extends Transformer
             map_from_arrays(
               collect_list(feature),
               collect_list(targetCol)
-            ).alias(feature)
+            ).alias(outputColName)
           )
     }
   }
@@ -124,18 +124,18 @@ class ICETransformer(override val uid: String) extends Transformer
 
     // collect feature values for all features from original dataset - dfWithId
     val (categoricalFeatures, numericFeatures) = (this.getCategoricalFeatures, this.getNumericFeatures)
-    
+
     val sampled: Dataset[Row] = this.get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
         val values = collectCategoricalValues(dfWithId, f)
-        calcDependence(sampled, idCol, targetClasses, f.name, values)
+        calcDependence(sampled, idCol, targetClasses, f.name, values, f.getOutputColName)
     }
     val calcNumericFunc: ICENumericFeature => DataFrame = {
       f: ICENumericFeature =>
         val values = collectSplits(dfWithId, f)
-        calcDependence(sampled, idCol, targetClasses, f.name, values)
+        calcDependence(sampled, idCol, targetClasses, f.name, values, f.getOutputColName)
     }
 
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
@@ -146,12 +146,12 @@ class ICETransformer(override val uid: String) extends Transformer
           .map {
             df =>
               (categoricalFeatures ++ numericFeatures).foldLeft(df) {
-                case (accDf, feature) => accDf.withColumnRenamed(feature.name, feature.name + "_dependence")
+                case (accDf, feature) => accDf//.withColumnRenamed(feature.name, feature.getOutputColName)
               }
           }
           .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
       case this.averageKind =>
-        dependenceDfs.reduceOption(_ crossJoin _).get
+        dependenceDfs.reduce(_ crossJoin _)
     }
   }
 
@@ -226,6 +226,18 @@ class ICETransformer(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
+    // Check the data type for categorical features
+    val categoricalFeaturesTypes= getCategoricalFeatures.map(_.name).map(schema(_).dataType)
+    val allowedCategoricalTypes = Array(StringType, BooleanType, ByteType, ShortType, IntegerType, LongType)
+    require(categoricalFeaturesTypes.forall(allowedCategoricalTypes.contains(_)),
+      s"Data type for categorical features must be String, Boolean, Byte, Short, Integer or Long type.")
+
+    // Check the data type for numeric features
+    val numericFeaturesTypes= getNumericFeatures.map(_.name).map(schema(_).dataType)
+    val allowedNumericTypes = Array(FloatType, DoubleType, DecimalType)
+    require(numericFeaturesTypes.forall(allowedNumericTypes.contains(_)),
+      s"Data type for numeric features must be Float, Double or Decimal type.")
+
     // Check if features are specified
     val featureNames = getCategoricalFeatures.map(_.name) ++ getNumericFeatures.map(_.name)
     if (featureNames.isEmpty) {
@@ -238,7 +250,7 @@ class ICETransformer(override val uid: String) extends Transformer
       throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
     }
     this.validateSchema(schema)
-    schema.add(getOutputCol, ArrayType(VectorType))
+    schema
   }
 }
 

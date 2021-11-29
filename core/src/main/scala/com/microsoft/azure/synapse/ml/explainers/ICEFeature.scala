@@ -1,9 +1,14 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.explainers
 
 import spray.json._
 
-private[explainers] abstract class ICEFeature(val name: String) {
+private[explainers] abstract class ICEFeature(val name: String, outputColName: Option[String] = None) {
   def validate: Boolean
+  private val defaultOutputColName = name + "_dependence"
+  def getOutputColName: String = this.outputColName.getOrElse(defaultOutputColName)
 }
 
 /**
@@ -11,9 +16,12 @@ private[explainers] abstract class ICEFeature(val name: String) {
   * @param name The name of the categorical feature.
   * @param numTopValues The max number of top-occurring values to be included in the categorical feature.
   *                     Default: 100.
+  * @param outputColName The name for output column with explanations for the feature.
+  *                      Default: input name of the feature + _dependence.
   */
-case class ICECategoricalFeature(override val name: String, numTopValues: Option[Int] = None)
- extends ICEFeature(name) {
+case class ICECategoricalFeature(override val name: String, numTopValues: Option[Int] = None,
+                                 outputColName: Option[String] = None)
+ extends ICEFeature(name, outputColName) {
   override def validate: Boolean = {
     numTopValues.forall(_ > 0)
   }
@@ -39,13 +47,17 @@ object ICECategoricalFeature {
         case Some(JsNumber(value)) => Some(value.toInt)
         case _ => None
       }
-
-      ICECategoricalFeature(name, numTopValues)
+      val outputColName = fields.get("outputColName") match {
+        case Some(JsString(value)) => Some(value)
+        case _ => None
+      }
+      ICECategoricalFeature(name, numTopValues, outputColName)
 
     }
     override def write(obj: ICECategoricalFeature): JsValue = {
       val map = Map("name" -> JsString(obj.name))++
-        obj.numTopValues.map("numTopValues" -> JsNumber(_))
+        obj.numTopValues.map("numTopValues" -> JsNumber(_))++
+        obj.outputColName.map("outputColName" -> JsString(_))
       JsObject(map)
     }
   }
@@ -60,10 +72,13 @@ object ICECategoricalFeature {
   *                 it will be computed from the background dataset.
   * @param rangeMax Specifies the max value of the range for the numeric feature. If not specified,
   *                 it will be computed from the background dataset.
+  * @param outputColName The name for output column with explanations for the feature.
+  *                      Default: input name of the feature + "_dependence"
   */
 case class ICENumericFeature(override val name: String, numSplits: Option[Int] = None,
-                             rangeMin: Option[Double] = None, rangeMax: Option[Double] = None)
-  extends ICEFeature(name) {
+                             rangeMin: Option[Double] = None, rangeMax: Option[Double] = None,
+                             outputColName: Option[String] = None)
+  extends ICEFeature(name, outputColName) {
   override def validate: Boolean = {
     // rangeMax and rangeMin may not be specified, but if specified: rangeMin <= rangeMax.
     numSplits.forall(_ > 0) && (rangeMax.isEmpty || rangeMin.isEmpty || rangeMin.get <= rangeMax.get)
@@ -100,7 +115,12 @@ object ICENumericFeature {
         case JsNumber(value) => value.toDouble
       }
 
-      ICENumericFeature(name, numSplits, rangeMin, rangeMax)
+      val outputColName = fields.get("outputColName") match {
+        case Some(JsString(value)) => Some(value)
+        case _ => None
+      }
+
+      ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
 
     }
 
@@ -108,7 +128,8 @@ object ICENumericFeature {
       val map = Map("name" -> JsString(obj.name))++
         obj.numSplits.map("numSplits" -> JsNumber(_))++
         obj.rangeMin.map("rangeMin" -> JsNumber(_))++
-        obj.rangeMax.map("rangeMax" -> JsNumber(_))
+        obj.rangeMax.map("rangeMax" -> JsNumber(_))++
+        obj.outputColName.map("outputColName" -> JsString(_))
       JsObject(map)
     }
   }
