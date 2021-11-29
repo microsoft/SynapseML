@@ -62,7 +62,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate multiple pieces of text with language autodetection") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\n再见")
+    assert(result1(0).getSeq(0).mkString("\n") == "您好，您叫什么名字？\n再见")
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -71,7 +71,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
-    assert(result3(0).getSeq(0).mkString("\n") == "嗨， 这是突触！")
+    assert(result3(0).getSeq(0).mkString("\n") == "嗨，这是突触！")
 
     val translate2: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -81,7 +81,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result4 = getTranslationTextResult(translate2, textDf6).collect()
-    assert(result4(0).getSeq(0).mkString("") == "嗨， 这是突触！")
+    assert(result4(0).getSeq(0).mkString("") == "嗨，这是突触！")
     assert(result4(1).get(0) == null)
     assert(result4(2).get(0) == null)
   }
@@ -103,13 +103,13 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("transliteration", col("translation.transliteration.text"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "你好，你叫什么名字？")
-    assert(results.head.getSeq(1).mkString("\n") === "nǐ hǎo ， nǐ jiào shén me míng zì ？")
+    assert(results.head.getSeq(0).mkString("\n") === "您好，您叫什么名字？")
+    assert(results.head.getSeq(1).mkString("\n") === "nín hǎo ， nín jiào shén me míng zì ？")
   }
 
   test("Translate to multiple languages") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "你好，你叫什么名字？\nHallo, wie heißt du?")
+    assert(result1(0).getSeq(0).mkString("\n") == "您好，您叫什么名字？\nHallo, wie heißt du?")
   }
 
   test("Handle profanity") {

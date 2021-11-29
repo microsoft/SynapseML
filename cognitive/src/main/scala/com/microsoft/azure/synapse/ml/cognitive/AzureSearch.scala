@@ -173,7 +173,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
         if (keyCol == fullName) Some(true) else None,
         None, None, None, None,
         structFieldToSearchFields(sf.dataType,
-          keyCol, searchActionCol, prefix=Some(prefix.getOrElse("") + sf.name + "."))
+          keyCol, searchActionCol, prefix = Some(prefix.getOrElse("") + sf.name + "."))
       )
     }
   }
@@ -226,6 +226,15 @@ object AzureSearchWriter extends IndexParser with SLogging {
       List("keyCol", "indexName").foreach(opt =>
         assert(options.get(opt).isEmpty, s"Cannot set both indexJson options and $opt")
       )
+    }
+
+    df.schema.fields.foreach { sf: StructField =>
+      sf.dataType match {
+        case ArrayType(ArrayType(_, _), _) => throw new IllegalArgumentException(
+          s"Cannot make an index with a doubly nested array, " +
+            s"please wrap column ${sf.name} with a struct to avoid this error")
+        case _ =>
+      }
     }
 
     val indexJson = indexJsonOpt.getOrElse {
@@ -297,9 +306,9 @@ object AzureSearchWriter extends IndexParser with SLogging {
       case LongType => ("Edm.Int64", None)
       case DoubleType => ("Edm.Double", None)
       case DateType => ("Edm.DateTimeOffset", None)
-      case StructType(fields) => ("Edm.ComplexType", Some(fields.map{f=>
+      case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
         val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
-        IndexField(f.name, innerType,None, None, None, None, None, None, None, None, None, None, innerFields)
+        IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields)
       }))
     }
   }
@@ -308,7 +317,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     case (ArrayType(it1, _), ArrayType(it2, _)) => dtEqualityModuloNullability(it1, it2)
     case (StructType(fields1), StructType(fields2)) =>
       fields1.zip(fields2).forall {
-        case (sf1, sf2) => sf1.name==sf2.name && dtEqualityModuloNullability(sf1.dataType, sf2.dataType)
+        case (sf1, sf2) => sf1.name == sf2.name && dtEqualityModuloNullability(sf1.dataType, sf2.dataType)
       }
     case _ => dt1 == dt2
   }

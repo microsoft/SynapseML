@@ -107,22 +107,89 @@ rootGenDir := {
   join(targetDir, "generated")
 }
 
-val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
-generatePythonDoc := {
-  installPipPackage.all(ScopeFilter(
-    inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
-    inConfigurations(Compile))).value
-  mergePyCode.all(ScopeFilter(
+def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
+  task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
     inConfigurations(Compile))
-  ).value
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
-  val codegenDir = join(targetDir, "generated")
-  val dir = join(codegenDir, "src", "python", "synapse")
+  )
+}
+
+val generatePythonDoc = TaskKey[Unit]("generatePythonDoc", "Generate sphinx docs for python")
+generatePythonDoc := {
+  runTaskForAllInCompile(installPipPackage).value
+  runTaskForAllInCompile(mergePyCode).value
+  val dir = join(rootGenDir.value, "src", "python", "synapse")
   join(dir, "__init__.py").createNewFile()
-  join(dir,"ml", "__init__.py").createNewFile()
-  runCmd(activateCondaEnv.value ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
-  runCmd(activateCondaEnv.value ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+  join(dir, "ml", "__init__.py").createNewFile()
+  runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
+  runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
+packageSynapseML := {
+  def writeSetupFileToTarget(dir: File): Unit = {
+    if (!dir.exists()) {
+      dir.mkdir()
+    }
+    val content =
+      s"""
+         |# Copyright (C) Microsoft Corporation. All rights reserved.
+         |# Licensed under the MIT License. See LICENSE in project root for information.
+         |
+         |import os
+         |from setuptools import setup, find_namespace_packages
+         |import codecs
+         |import os.path
+         |
+         |setup(
+         |    name="synapseml",
+         |    version="${pythonizedVersion(version.value)}",
+         |    description="Synpase Machine Learning",
+         |    long_description="SynapseML contains Microsoft's open source "
+         |                     + "contributions to the Apache Spark ecosystem",
+         |    license="MIT",
+         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    url="https://github.com/Microsoft/SynapseML",
+         |    author="Microsoft",
+         |    author_email="mmlspark-support@microsoft.com",
+         |    classifiers=[
+         |        "Development Status :: 4 - Beta",
+         |        "Intended Audience :: Developers",
+         |        "Intended Audience :: Science/Research",
+         |        "Topic :: Software Development :: Libraries",
+         |        "License :: OSI Approved :: MIT License",
+         |        "Programming Language :: Python :: 2",
+         |        "Programming Language :: Python :: 3",
+         |    ],
+         |    zip_safe=True,
+         |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |)
+         |
+         |""".stripMargin
+    IO.write(join(dir, "setup.py"), content)
+  }
+
+  Def.sequential(
+    runTaskForAllInCompile(packagePython),
+    runTaskForAllInCompile(mergePyCode)
+  ).value
+  val targetDir = rootGenDir.value
+  val dir = join(targetDir, "src", "python")
+  val packageDir = join(targetDir, "package", "python").absolutePath
+  writeSetupFileToTarget(dir)
+  packagePythonWheelCmd(packageDir, dir)
+}
+
+val publishPypi = TaskKey[Unit]("publishPypi", "publish synapseml python wheel to pypi")
+publishPypi := {
+  packageSynapseML.value
+  val fn = s"${name.value}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
+  runCmd(
+    activateCondaEnv ++
+      Seq("twine", "upload", "--skip-existing",
+        join(rootGenDir.value, "package", "python", fn).toString,
+        "--username", "__token__", "--password", Secrets.pypiApiToken, "--verbose")
+  )
 }
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
@@ -192,6 +259,7 @@ val settings = Seq(
   assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
+  sbtPlugin := false
 )
 ThisBuild / publishMavenStyle := true
 
@@ -207,7 +275,7 @@ lazy val core = (project in file("core"))
       baseDirectory
     ),
     name := "synapseml-core",
-    buildInfoPackage := "com.microsoft.azure.synapse.ml.build",
+    buildInfoPackage := "com.microsoft.azure.synapse.ml.build"
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
@@ -218,7 +286,7 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
-    name := "synapseml-deep-learning",
+    name := "synapseml-deep-learning"
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
@@ -295,10 +363,16 @@ testWebsiteDocs := {
   )
 }
 
-sonatypeProjectHosting := Some(
+ThisBuild / sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-developers := List(
+ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/Azure/SynapseML"),
+    "scm:git@github.com:Azure/SynapseML.git"
+  )
+)
+ThisBuild / developers := List(
   Developer("mhamilton723", "Mark Hamilton",
     "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
   Developer("imatiach-msft", "Ilya Matiach",
@@ -307,9 +381,9 @@ developers := List(
     "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
-licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
+ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
 
-credentials += Credentials("Sonatype Nexus Repository Manager",
+ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
   Secrets.nexusUsername,
   Secrets.nexusPassword)
@@ -331,7 +405,7 @@ pgpPublicRing := {
   }
   temp
 }
-publishTo := sonatypePublishToBundle.value
+ThisBuild / publishTo := sonatypePublishToBundle.value
 
 dynverSonatypeSnapshots in ThisBuild := true
 dynverSeparator in ThisBuild := "-"
