@@ -515,6 +515,9 @@ jobs:
         PACKAGE: "cognitive.split3"
         FFMPEG: "true"
         FLAKY: "true"
+      cognitive4:
+        PACKAGE: "cognitive.split4"
+        FLAKY: "true"
       core:
         PACKAGE: "core"
       downloader:
