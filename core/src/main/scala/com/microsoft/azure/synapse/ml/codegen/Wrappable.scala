@@ -303,7 +303,8 @@ trait PythonWrappable extends BaseWrappable {
             |        model.save_model("count-selector-model")
             |    "\""
             |    mlflow.spark.save_model(self, path, mlflow_model, conda_env,
-            |    dfs_tmpdir, sample_input, signature, input_example, pip_requirements, extra_pip_requirements)
+            |                            dfs_tmpdir, sample_input, signature,
+            |                            input_example, pip_requirements, extra_pip_requirements)
             |""".stripMargin
       case _ => ""
     }
