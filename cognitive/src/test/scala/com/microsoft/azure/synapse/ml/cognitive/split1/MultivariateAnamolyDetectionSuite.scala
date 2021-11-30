@@ -60,7 +60,7 @@ object MADUtils extends AnomalyKey {
             case _ => ""
           }
           if (response.getStatusLine.getStatusCode.toString.equals("429")) {
-            val retryTime = response.getHeaders("Retry-After").head.getValue.toLong
+            val retryTime = response.getHeaders("Retry-After").head.getValue.toLong * 1000
             Thread.sleep(retryTime)
           }
           throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
