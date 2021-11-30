@@ -60,8 +60,8 @@ object MADUtils extends AnomalyKey {
             case _ => ""
           }
           if (response.getStatusLine.getStatusCode.toString.equals("429")) {
-            val retryTime = response.getHeaders("Retry-After").head.getValue.toLong * 1000
-            Thread.sleep(retryTime)
+            val retryTime = response.getHeaders("Retry-After").head.getValue.toInt * 1000
+            Thread.sleep(retryTime.toLong)
           }
           throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
             s"requestBody: $bodyOpt")
@@ -168,7 +168,11 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
   }
 
   override def testSerialization(): Unit = {
-    println("ignore the Serialization Fuzzing test because fitting process takes too long")
+    println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
+  }
+
+  override def testExperiments(): Unit = {
+    println("ignore the Experiment Fuzzing test because fitting process takes more than 3 minutes")
   }
 
   override def afterAll(): Unit = {
