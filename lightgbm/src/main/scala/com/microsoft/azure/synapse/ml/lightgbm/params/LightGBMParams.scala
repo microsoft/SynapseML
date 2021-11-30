@@ -257,6 +257,14 @@ trait LightGBMPredictionParams extends Wrappable {
 
   def getFeaturesShapCol: String = $(featuresShapCol)
   def setFeaturesShapCol(value: String): this.type = set(featuresShapCol, value)
+
+  val predictDisableShapeCheck = new BooleanParam(this, "predictDisableShapeCheck",
+    "control whether or not LightGBM raises an error " +
+      "when you try to predict on data with a different number of features than the training data")
+  setDefault(predictDisableShapeCheck -> false)
+
+  def getPredictDisableShapeCheck: Boolean = $(predictDisableShapeCheck)
+  def setPredictDisableShapeCheck(value: Boolean): this.type = set(predictDisableShapeCheck, value)
 }
 
 /** Defines parameters for LightGBM models

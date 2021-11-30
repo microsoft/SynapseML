@@ -127,7 +127,7 @@ class LightGBMRegressionModel(override val uid: String)
 
   override def predict(features: Vector): Double = {
     logPredict(
-      getModel.score(features, false, false)(0)
+      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
     )
   }
 
