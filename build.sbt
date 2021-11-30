@@ -309,7 +309,10 @@ lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
+    libraryDependencies ++= Seq(
+      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+      "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
+),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
