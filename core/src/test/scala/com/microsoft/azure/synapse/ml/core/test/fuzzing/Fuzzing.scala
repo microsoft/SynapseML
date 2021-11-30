@@ -131,6 +131,14 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
            |""".stripMargin
       case _ => ""
     }
+    val mlflowTest = stage match {
+      case _: Model[_] =>
+        s"""
+           |model.save_model(join(test_data_dir, "mlflow-model-$num"))
+           |mlflow_model = mlflow.spark.load_model(join(test_data_dir, "mlflow-model-$num"))
+           |""".stripMargin
+      case _ => ""
+    }
 
     s"""
        |def test_${stageName}_constructor_$num(self):
@@ -138,10 +146,9 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
        |
        |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
        |
-       |    model.save_model(join(test_data_dir, "mlflow-model-$num"))
-       |    mlflow_model = mlflow.spark.load_model(join(test_data_dir, "mlflow-model-$num"))
-       |
        |${indent(fittingTest, 1)}
+       |
+       |${indent(mlflowTest, 1)}
        |
        |""".stripMargin
   }
