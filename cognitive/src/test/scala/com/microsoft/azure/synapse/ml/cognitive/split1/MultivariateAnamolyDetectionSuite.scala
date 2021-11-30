@@ -1,10 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split4
+package com.microsoft.azure.synapse.ml.cognitive.split1
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -35,7 +34,7 @@ object MADListModelsProtocol extends DefaultJsonProtocol {
   implicit val MADLMRespEnc: RootJsonFormat[MADListModelsResponse] = jsonFormat4(MADListModelsResponse)
 }
 
-import com.microsoft.azure.synapse.ml.cognitive.split4.MADListModelsProtocol._
+import com.microsoft.azure.synapse.ml.cognitive.split1.MADListModelsProtocol._
 
 object MADUtils extends AnomalyKey {
 
