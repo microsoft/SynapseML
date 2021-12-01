@@ -1,4 +1,6 @@
 
+import org.apache.commons.io.IOUtils
+
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 
@@ -40,7 +42,9 @@ object BuildUtils {
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
-    assert(pb.start().waitFor() == 0)
+    val proc = pb.start()
+    assert(proc.waitFor() == 0, s"CMD: ${cmd} failed" +
+      s" with error ${IOUtils.toString(proc.getErrorStream, "UTF-8")}")
   }
 
   def condaEnvName: String = "synapseml"
