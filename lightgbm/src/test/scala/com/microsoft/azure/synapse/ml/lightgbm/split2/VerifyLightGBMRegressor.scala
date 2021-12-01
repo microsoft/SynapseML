@@ -27,7 +27,7 @@ class VerifyLightGBMRegressor extends Benchmarks
   verifyLearnerOnRegressionCsvFile("energyefficiency2012_data.train.csv", "Y1", 0,
     Some(Seq("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "Y2")))
   verifyLearnerOnRegressionCsvFile("airfoil_self_noise.train.csv", "Scaled sound pressure level", 1)
-  verifyLearnerOnRegressionCsvFile("Buzz.TomsHardware.train.csv", "Mean Number of display (ND)", -3)
+  verifyLearnerOnRegressionCsvFile("Buzz.TomsHardware.train.csv", "Mean Number of display (ND)", -4)
   verifyLearnerOnRegressionCsvFile("machine.train.csv", "ERP", -2)
   // TODO: Spark doesn't seem to like the column names here because of '.', figure out how to read in the data
   // verifyLearnerOnRegressionCsvFile("slump_test.train.csv", "Compressive Strength (28-day)(Mpa)", 2)

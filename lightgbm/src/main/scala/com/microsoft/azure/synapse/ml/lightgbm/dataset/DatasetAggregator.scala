@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.getRowAsDoub
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
 import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConstants}
+import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
@@ -181,7 +182,7 @@ private[lightgbm] final class DenseChunkedColumns(rowsIter: PeekingIterator[Row]
 
 }
 
-private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) {
+private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) extends Logging {
   protected var labels: FloatSwigArray = _
   protected var weights: Option[FloatSwigArray] = None
   protected var initScores: Option[DoubleSwigArray] = None
@@ -327,14 +328,17 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
 
   def getFeatures: DoubleSwigArray = features
 
-  def generateDataset(referenceDataset: Option[LightGBMDataset], datasetParams: String): LightGBMDataset = {
+  def generateDataset(referenceDataset: Option[LightGBMDataset],
+                      datasetParams: String): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     try {
+      val numRows = rowCount.get().toInt
+      logInfo(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
       // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
         lightgbmlib.double_to_voidp_ptr(features.array),
         lightgbmlibConstants.C_API_DTYPE_FLOAT64,
-        rowCount.get().toInt,
+        numRows,
         numCols,
         1,
         datasetParams,
@@ -434,9 +438,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     }
   }
 
-  def generateDataset(referenceDataset: Option[LightGBMDataset], datasetParams: String): LightGBMDataset = {
+  def generateDataset(referenceDataset: Option[LightGBMDataset],
+                      datasetParams: String): LightGBMDataset = {
     indexPointerArrayIncrement(getIndexPointers.array)
     val pointer = lightgbmlib.voidpp_handle()
+    val numRows = indptrCount.get() - 1
+    logInfo(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
       lightgbmlib.int_to_voidp_ptr(indexPointers.array),
