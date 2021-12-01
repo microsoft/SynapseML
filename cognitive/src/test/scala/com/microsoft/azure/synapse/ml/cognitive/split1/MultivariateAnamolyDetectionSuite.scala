@@ -103,7 +103,7 @@ trait MADUtils extends TestBase with AnomalyKey {
   lazy val endTime: String = "2021-01-02T12:00:00Z"
 }
 
-class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomalyModel] with MADUtils {
+class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEstimator] with MADUtils {
 
   import MADUtils._
 
@@ -115,7 +115,7 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
-  def mad: MultivariateAnomalyModel = new MultivariateAnomalyModel()
+  def mae: MultivariateAnomalyEstimator = new MultivariateAnomalyEstimator()
     .setSubscriptionKey(anomalyKey)
     .setLocation("westus2")
     .setOutputCol("result")
@@ -125,7 +125,7 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
     .setConcurrency(5)
 
   test("Basic Usage") {
-    val mam = mad.setSlidingWindow(200)
+    val mam = mae.setSlidingWindow(200).setAlignMode("outer").setFillNAMethod("linear")
     val model = mam.fit(df)
     val diagnosticsInfo = mam.getDiagnosticsInfo
     assert(diagnosticsInfo.variableStates.get.length.equals(5))
@@ -145,16 +145,23 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
     madDelete(model.getModelId)
   }
 
+  test("Throw errors if alignMode is not set correctly") {
+    val caught = intercept[IllegalArgumentException] {
+      mae.setSlidingWindow(200).setAlignMode("alignMode").fit(df)
+    }
+    assert(caught.getMessage.contains("parameter alignMode given invalid value"))
+  }
+
   test("Throw errors if slidingWindow is not between 28 and 2880") {
     val caught = intercept[IllegalArgumentException] {
-      mad.setSlidingWindow(20).fit(df)
+      mae.setSlidingWindow(20).fit(df)
     }
     assert(caught.getMessage.contains("parameter slidingWindow given invalid value"))
   }
 
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
-      new MultivariateAnomalyModel()
+      new MultivariateAnomalyEstimator()
         .setSubscriptionKey(anomalyKey)
         .setLocation("westus2")
         .setOutputCol("result")
@@ -183,10 +190,10 @@ class MultivariateAnomalyModelSuite extends EstimatorFuzzing[MultivariateAnomaly
     super.afterAll()
   }
 
-  override def testObjects(): Seq[TestObject[MultivariateAnomalyModel]] =
-    Seq(new TestObject(mad.setSlidingWindow(200), df))
+  override def testObjects(): Seq[TestObject[MultivariateAnomalyEstimator]] =
+    Seq(new TestObject(mae.setSlidingWindow(200), df))
 
-  override def reader: MLReadable[_] = MultivariateAnomalyModel
+  override def reader: MLReadable[_] = MultivariateAnomalyEstimator
 
   override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
 }

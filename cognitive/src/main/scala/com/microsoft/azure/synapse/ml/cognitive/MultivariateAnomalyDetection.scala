@@ -95,13 +95,14 @@ trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with 
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
     val fields = IOUtils.toString(resp.entity.get.content, "UTF-8").parseJson.asJsObject.fields
-    var status = "none"
-    if (fields.keySet.contains("modelInfo")) {
-      status = fields("modelInfo").asInstanceOf[JsObject].fields
+    val status = if (fields.keySet.contains("modelInfo")) {
+      fields("modelInfo").asInstanceOf[JsObject].fields
         .get("status").map(_.convertTo[String]).get.toLowerCase()
     } else if (fields.keySet.contains("summary")) {
-      status = fields("summary").asInstanceOf[JsObject]
+      fields("summary").asInstanceOf[JsObject]
         .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
+    } else {
+      "None"
     }
     status match {
       case "ready" | "failed" => Some(resp)
@@ -137,9 +138,9 @@ trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with 
   }
 }
 
-object MultivariateAnomalyModel extends ComplexParamsReadable[MultivariateAnomalyModel] with Serializable
+object MultivariateAnomalyEstimator extends ComplexParamsReadable[MultivariateAnomalyEstimator] with Serializable
 
-class MultivariateAnomalyModel(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
   with MADBase {
   logClass()
 
@@ -163,11 +164,11 @@ class MultivariateAnomalyModel(override val uid: String) extends Estimator[Detec
 
   val alignMode = new ServiceParam[String](this, "alignMode", "An optional field, indicates how " +
     "we align different variables into the same time-range which is required by the model.{Inner, Outer}", {
-    case Left(s) => Set("Inner", "Outer")(s)
+    case Left(s) => Set("inner", "outer")(s.toLowerCase)
     case Right(_) => true
   })
 
-  def setAlignMode(v: String): this.type = setScalarParam(alignMode, v)
+  def setAlignMode(v: String): this.type = setScalarParam(alignMode, v.toLowerCase.capitalize)
 
   def setAlignModeCol(v: String): this.type = setVectorParam(alignMode, v)
 
@@ -178,11 +179,11 @@ class MultivariateAnomalyModel(override val uid: String) extends Estimator[Detec
   val fillNAMethod = new ServiceParam[String](this, "fillNAMethod", "An optional field, indicates how missed " +
     "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
     " Linear, Zero, Fixed}", {
-    case Left(s) => Set("Previous", "Subsequent", "Linear", "Zero", "Fixed")(s)
+    case Left(s) => Set("previous", "subsequent", "linear", "zero", "fixed")(s.toLowerCase)
     case Right(_) => true
   })
 
-  def setFillNAMethod(v: String): this.type = setScalarParam(fillNAMethod, v)
+  def setFillNAMethod(v: String): this.type = setScalarParam(fillNAMethod, v.toLowerCase.capitalize)
 
   def setFillNAMethodCol(v: String): this.type = setVectorParam(fillNAMethod, v)
 
@@ -190,8 +191,8 @@ class MultivariateAnomalyModel(override val uid: String) extends Estimator[Detec
 
   def getFillNAMethodCol: String = getVectorParam(fillNAMethod)
 
-  val paddingValue = new ServiceParam[Int](this, "paddingValue", "optional field, only be useful" +
-    " if FillNAMethod is set to Pad.")
+  val paddingValue = new ServiceParam[Int](this, "paddingValue", "optional field, is only useful" +
+    " if FillNAMethod is set to Fixed.")
 
   def setPaddingValue(v: Int): this.type = setScalarParam(paddingValue, v)
 
@@ -232,7 +233,7 @@ class MultivariateAnomalyModel(override val uid: String) extends Estimator[Detec
         .toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
-  override def responseDataType: DataType = MAMResponse.schema
+  override def responseDataType: DataType = MAEResponse.schema
 
   protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)

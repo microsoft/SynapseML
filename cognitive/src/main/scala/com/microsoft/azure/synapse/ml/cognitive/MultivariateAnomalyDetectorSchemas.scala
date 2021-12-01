@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
+// DMA stands for DetectMultivariateAnomaly
 object DMARequest extends SparkBindings[DMARequest]
 
 case class DMARequest(source: String,
@@ -45,23 +46,24 @@ case class DMAValue(contributors: Option[Seq[DMAContributor]],
 
 case class DMAContributor(contributionScore: Option[Double], variable: Option[String])
 
-object MAMRequest extends SparkBindings[MAMRequest]
+// MAE stands for MultivariateAnomalyEstimator
+object MAERequest extends SparkBindings[MAERequest]
 
-case class MAMRequest(source: String,
+case class MAERequest(source: String,
                       startTime: String,
                       endTime: String,
                       slidingWindow: Option[Int],
                       alignPolicy: Option[AlignPolicy],
                       displayName: Option[String])
 
-object MAMResponse extends SparkBindings[MAMResponse]
+object MAEResponse extends SparkBindings[MAEResponse]
 
-case class MAMResponse(modelId: String,
+case class MAEResponse(modelId: String,
                        createdTime: String,
                        lastUpdatedTime: String,
-                       modelInfo: MAMModelInfo)
+                       modelInfo: MAEModelInfo)
 
-case class MAMModelInfo(slidingWindow: Option[Int],
+case class MAEModelInfo(slidingWindow: Option[Int],
                         alignPolicy: Option[AlignPolicy],
                         source: String,
                         startTime: String,
@@ -87,5 +89,5 @@ object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val MSEnc: RootJsonFormat[ModelState] = jsonFormat4(ModelState.apply)
   implicit val DIEnc: RootJsonFormat[DiagnosticsInfo] = jsonFormat2(DiagnosticsInfo.apply)
   implicit val APEnc: RootJsonFormat[AlignPolicy] = jsonFormat3(AlignPolicy.apply)
-  implicit val MAMReqEnc: RootJsonFormat[MAMRequest] = jsonFormat6(MAMRequest.apply)
+  implicit val MAEReqEnc: RootJsonFormat[MAERequest] = jsonFormat6(MAERequest.apply)
 }
