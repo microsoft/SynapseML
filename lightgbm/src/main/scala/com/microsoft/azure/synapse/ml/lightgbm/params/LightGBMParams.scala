@@ -61,7 +61,7 @@ trait LightGBMExecutionParams extends Wrappable {
   val useSingleDatasetMode = new BooleanParam(this, "useSingleDatasetMode",
     "Use single dataset execution mode to create a single native dataset per executor (singleton) " +
       "to reduce memory and communication overhead. Note this is disabled when running spark in local mode.")
-  setDefault(useSingleDatasetMode -> false)
+  setDefault(useSingleDatasetMode -> true)
 
   def getUseSingleDatasetMode: Boolean = $(useSingleDatasetMode)
   def setUseSingleDatasetMode(value: Boolean): this.type = set(useSingleDatasetMode, value)
