@@ -11,13 +11,11 @@ import com.microsoft.azure.synapse.ml.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{DataFrame, Row}
-import scala.collection.mutable.WrappedArray
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 trait TextEndpoint {
-  lazy val textKey = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
-  lazy val textApiLocation = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
+  lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
+  lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
 }
 
 class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with TextEndpoint {
@@ -44,7 +42,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with 
         .getItem("name"))
       .select("lang")
       .collect().toList
-    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
+    assert(replies.head.getString(0) == "English" && replies(2).getString(0) == "Spanish")
   }
 
   test("Is serializable ") {
@@ -52,7 +50,7 @@ class LanguageDetectorSuite extends TransformerFuzzing[LanguageDetectorV2] with 
       .withColumn("lang", col("replies").getItem(0)
         .getItem("detectedLanguages").getItem(0)
         .getItem("name"))
-      .select("text2","lang")
+      .select("text2", "lang")
       .sort("text2")
       .collect().toList
     assert(replies(2).getString(1) == "English" && replies(3).getString(1) == "Spanish")
@@ -96,7 +94,7 @@ class LanguageDetectorV3Suite extends TransformerFuzzing[LanguageDetector] with 
         .getItem("name"))
       .select("lang")
       .collect().toList
-    assert(replies(0).getString(0) == "English" && replies(2).getString(0) == "Spanish")
+    assert(replies.head.getString(0) == "English" && replies(2).getString(0) == "Spanish")
   }
 
   override def testObjects(): Seq[TestObject[LanguageDetector]] =
@@ -167,6 +165,7 @@ class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with Text
 }
 
 trait TextSentimentBaseSuite extends TestBase with TextEndpoint {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -193,13 +192,13 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
       col("replies").alias("scoredDocuments")
     ).collect().toList
 
-    assert(List(4,5).forall(results(_).get(0) == null))
+    assert(List(4, 5).forall(results(_).get(0) == null))
     assert(
       results(0).getSeq[Row](0).head.getString(0) == "positive" &&
-      results(2).getSeq[Row](0).head.getString(0) == "negative")
+        results(2).getSeq[Row](0).head.getString(0) == "negative")
   }
 
-  test("batch usage"){
+  test("batch usage") {
     val t = new TextSentiment()
       .setSubscriptionKey(textKey)
       .setLocation("eastus")
@@ -231,11 +230,11 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
       col("replies").getItem(0).getItem("score"))
       .select("score").collect().toList
 
-    assert(List(4,5).forall(results(_).get(0) == null))
-    assert(results(0).getFloat(0) > .5 && results(2).getFloat(0) < .5)
+    assert(List(4, 5).forall(results(_).get(0) == null))
+    assert(results.head.getFloat(0) > .5 && results(2).getFloat(0) < .5)
   }
 
-  test("batch usage"){
+  test("batch usage") {
     val t = new TextSentimentV2()
       .setSubscriptionKey(textKey)
       .setLocation("eastus")
@@ -278,7 +277,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] w
 
     println(results)
 
-    assert(results(0).getSeq[String](0).toSet === Set("world", "input text"))
+    assert(results.head.getSeq[String](0).toSet === Set("world", "input text"))
     assert(results(2).getSeq[String](0).toSet === Set("carretera", "tráfico", "día"))
   }
 
@@ -292,6 +291,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 
   import spark.implicits._
 
+  //noinspection ScalaStyle
   lazy val df: DataFrame = Seq(
     ("en", "Hello world. This is some input text that I love."),
     ("fr", "Bonjour tout le monde"),
@@ -312,7 +312,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 
     println(results)
 
-    assert(results(0).getSeq[String](0).toSet === Set("Hello world", "input text"))
+    assert(results.head.getSeq[String](0).toSet === Set("Hello world", "input text"))
     assert(results(2).getSeq[String](0).toSet === Set("mucho tráfico", "día", "carretera", "ayer"))
   }
 
@@ -323,12 +323,13 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 }
 
 class NERSuite extends TransformerFuzzing[NERV2] with TextEndpoint {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "en", "Jeff bought three dozen eggs because there was a 50% discount."),
-    ("2", "en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
-  ).toDF("id", "language", "text")
+    ("en", "Jeff bought three dozen eggs because there was a 50% discount."),
+    ("en", "The Great Depression began in 1929. By 1933, the GDP in America fell by 25%.")
+  ).toDF("language", "text")
 
   lazy val n: NERV2 = new NERV2()
     .setSubscriptionKey(textKey)
@@ -362,12 +363,13 @@ class NERSuite extends TransformerFuzzing[NERV2] with TextEndpoint {
 }
 
 class NERSuiteV3 extends TransformerFuzzing[NER] with TextEndpoint {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "en", "I had a wonderful trip to Seattle last week."),
-    ("2", "en", "I visited Space Needle 2 times.")
-  ).toDF("id", "language", "text")
+    ("en", "I had a wonderful trip to Seattle last week."),
+    ("en", "I visited Space Needle 2 times.")
+  ).toDF("language", "text")
 
   lazy val n: NER = new NER()
     .setSubscriptionKey(textKey)
@@ -401,14 +403,15 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextEndpoint {
 }
 
 class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    ("1", "en", "My SSN is 859-98-0987"),
-    ("2", "en",
+    ("en", "My SSN is 859-98-0987"),
+    ("en",
       "Your ABA number - 111000025 - is the first 9 digits in the lower left hand corner of your personal check."),
-    ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
-  ).toDF("id", "language", "text")
+    ("en", "Is 998.214.865-68 your Brazilian CPF number?")
+  ).toDF("language", "text")
 
   lazy val n: PII = new PII()
     .setSubscriptionKey(textKey)
@@ -424,7 +427,7 @@ class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
         .getItem(0)
         .getItem("redactedText"))
       .select("redactedText")
-    val redactedText = redactedTexts.collect().head(0).toString()
+    val redactedText = redactedTexts.collect().head(0).toString
     assert(redactedText === "My SSN is ***********")
 
     val matches = results.withColumn("match",
@@ -450,25 +453,22 @@ class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
   override def reader: MLReadable[_] = PII
 }
 
-
 class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint {
 
   import spark.implicits._
 
   lazy val dfBasic: DataFrame = Seq(
-    ("1", "en", "I had a wonderful trip to Seattle last week and visited Microsoft."),
-    ("2", "invalid", "This is irrelevant as the language is invalid")
-  ).toDF("id", "language", "text")
+    ("en", "I had a wonderful trip to Seattle last week and visited Microsoft."),
+    ("invalid", "This is irrelevant as the language is invalid")
+  ).toDF("language", "text")
 
   lazy val dfBatched: DataFrame = Seq(
     (
-      Seq("1", "2"),
       Seq("en", "invalid"),
       Seq("I had a wonderful trip to Seattle last week and visited Microsoft.",
-          "This is irrelevant as the language is invalid")
+        "This is irrelevant as the language is invalid")
     )
-  ).toDF("id", "language", "text")
-
+  ).toDF("language", "text")
 
   lazy val n: TextAnalyze = new TextAnalyze()
     .setSubscriptionKey(textKey)
@@ -484,86 +484,88 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
   def getEntityRecognitionResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityRecognition",
-                        col("response")
-                          .getItem(resultIndex)
-                          .getItem("entityRecognition")
-                          .getItem(0)
-                          .getItem("result")
-                          .getItem("entities")
-                          .getItem(0)
-                        ).select("entityRecognition")
-                        .collect()
+      col("response")
+        .getItem(resultIndex)
+        .getItem("entityRecognition")
+        .getItem(0)
+        .getItem("result")
+        .getItem("entities")
+        .getItem(0)
+    ).select("entityRecognition")
+      .collect()
   }
+
   def getEntityRecognitionErrors(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("error",
-                        col("response")
-                          .getItem(resultIndex)
-                          .getItem("entityRecognition")
-                          .getItem(0)
-                          .getItem("error")
-                          .getItem("error")
-                        ).select("error")
-                        .collect()
+      col("response")
+        .getItem(resultIndex)
+        .getItem("entityRecognition")
+        .getItem(0)
+        .getItem("error")
+        .getItem("error")
+    ).select("error")
+      .collect()
   }
+
   def getEntityRecognitionPiiResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityRecognitionPii",
-                        col("response")
-                          .getItem(resultIndex)
-                          .getItem("entityRecognitionPii")
-                          .getItem(0)
-                          .getItem("result")
-                          .getItem("entities")
-                          .getItem(0)
-                        ).select("entityRecognitionPii")
-                        .collect()
+      col("response")
+        .getItem(resultIndex)
+        .getItem("entityRecognitionPii")
+        .getItem(0)
+        .getItem("result")
+        .getItem("entities")
+        .getItem(0)
+    ).select("entityRecognitionPii")
+      .collect()
   }
+
   def getKeyPhraseResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("keyPhrase",
-                        col("response")
-                          .getItem(0)
-                          .getItem("keyPhraseExtraction")
-                          .getItem(0)
-                          .getItem("result")
-                          .getItem("keyPhrases")
-                          .getItem(0)
-                        ).select("keyPhrase")
-                        .collect()
+      col("response")
+        .getItem(0)
+        .getItem("keyPhraseExtraction")
+        .getItem(0)
+        .getItem("result")
+        .getItem("keyPhrases")
+        .getItem(0)
+    ).select("keyPhrase")
+      .collect()
   }
+
   def getSentimentAnalysisResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("sentimentAnalysis",
-                        col("response")
-                          .getItem(0)
-                          .getItem("sentimentAnalysis")
-                          .getItem(0)
-                          .getItem("result")
-                          .getItem("sentiment")
-                        ).select("sentimentAnalysis")
-                        .collect()
+      col("response")
+        .getItem(0)
+        .getItem("sentimentAnalysis")
+        .getItem(0)
+        .getItem("result")
+        .getItem("sentiment")
+    ).select("sentimentAnalysis")
+      .collect()
   }
+
   def getEntityLinkingResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityLinking",
-                        col("response")
-                          .getItem(0)
-                          .getItem("entityLinking")
-                          .getItem(0)
-                          .getItem("result")
-                          .getItem("entities")
-                          .getItem(0)
-                        ).select("entityLinking")
-                        .collect()
+      col("response")
+        .getItem(0)
+        .getItem("entityLinking")
+        .getItem(0)
+        .getItem("result")
+        .getItem("entities")
+        .getItem(0)
+    ).select("entityLinking")
+      .collect()
   }
 
   test("Basic Usage") {
     val results = n.transform(dfBasic).cache()
-
-    //
     // Validate first row (successful execution)
-    //
 
     // entity recognition
     val entityRows = getEntityRecognitionResults(results, resultIndex = 0)
-    var entityRow = entityRows(0)
-    var entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityRow = entityRows(0)
+    val entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
 
     assert(entityResult.getAs[String]("text") === "trip")
     assert(entityResult.getAs[Int]("offset") === 18)
@@ -573,8 +575,8 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
     // entity recognition pii
     val entityPiiRows = getEntityRecognitionPiiResults(results, resultIndex = 0)
-    var entityPiiRow = entityPiiRows(0)
-    var entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityPiiRow = entityPiiRows(0)
+    val entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityPiiResult.getAs[String]("text") === "last week")
     assert(entityPiiResult.getAs[Int]("offset") === 34)
     assert(entityPiiResult.getAs[Int]("length") === 9)
@@ -583,40 +585,34 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
     // key phrases
     val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)
-    var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
+    val keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
     assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
 
     // text sentiment
     val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)
-    var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
+    val sentimentAnalysisRow = sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
     assert(sentimentAnalysisRow.getAs[String](0) === "positive")
-
 
     // entity linking
     val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)
-    var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
-    var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
+    val entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityLinkingResult.getAs[String]("name") === "Seattle")
 
-    //
     // Validate second row has error
-    //
     val entityRows2 = getEntityRecognitionErrors(results, resultIndex = 0)
-    var entityRow2 = entityRows2(1).asInstanceOf[GenericRowWithSchema]
+    val entityRow2 = entityRows2(1).asInstanceOf[GenericRowWithSchema]
     assert(entityRow2.getAs[String]("error").contains("\"code\":\"UnsupportedLanguageCode\""))
   }
 
   test("Batched Usage") {
     val results = n.transform(dfBatched).cache()
-
-    //
     // First batch entry
-    //
 
     // entity recognition
     val entityRows = getEntityRecognitionResults(results, resultIndex = 0)
-    var entityRow = entityRows(0)
-    var entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityRow = entityRows(0)
+    val entityResult = entityRow(0).asInstanceOf[GenericRowWithSchema]
 
     assert(entityResult.getAs[String]("text") === "trip")
     assert(entityResult.getAs[Int]("offset") === 18)
@@ -626,8 +622,8 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
     // entity recognition pii
     val entityPiiRows = getEntityRecognitionPiiResults(results, resultIndex = 0)
-    var entityPiiRow = entityPiiRows(0)
-    var entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityPiiRow = entityPiiRows(0)
+    val entityPiiResult = entityPiiRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityPiiResult.getAs[String]("text") === "last week")
     assert(entityPiiResult.getAs[Int]("offset") === 34)
     assert(entityPiiResult.getAs[Int]("length") === 9)
@@ -636,26 +632,23 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
     // key phrases
     val keyPhraseRows = getKeyPhraseResults(results, resultIndex = 0)
-    var keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
+    val keyPhraseRow = keyPhraseRows(0).asInstanceOf[GenericRowWithSchema]
     assert(keyPhraseRow.getAs[String](0) === "wonderful trip")
 
     // text sentiment
     val sentimentAnalysisRows = getSentimentAnalysisResults(results, resultIndex = 0)
-    var sentimentAnalysisRow= sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
+    val sentimentAnalysisRow = sentimentAnalysisRows(0).asInstanceOf[GenericRowWithSchema]
     assert(sentimentAnalysisRow.getAs[String](0) === "positive")
-
 
     // entity linking
     val entityLinkingRows = getEntityLinkingResults(results, resultIndex = 0)
-    var entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
-    var entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
+    val entityLinkingRow = entityLinkingRows(0).asInstanceOf[GenericRowWithSchema]
+    val entityLinkingResult = entityLinkingRow(0).asInstanceOf[GenericRowWithSchema]
     assert(entityLinkingResult.getAs[String]("name") === "Seattle")
 
-    //
     // Second batch entry
-    //
     val entityRows2 = getEntityRecognitionErrors(results, resultIndex = 1)
-    var entityRow2 = entityRows2(0).asInstanceOf[GenericRowWithSchema]
+    val entityRow2 = entityRows2(0).asInstanceOf[GenericRowWithSchema]
     assert(entityRow2.getAs[String]("error").contains("\"code\":\"UnsupportedLanguageCode\""))
   }
 

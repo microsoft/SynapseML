@@ -4,9 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import spray.json.RootJsonFormat
-import org.apache.spark.ml.param.Params
-import org.apache.spark.ml.param.ParamValidators
 
 // Text Analytics /analyze endpoint schemas
 
@@ -28,17 +25,17 @@ object TAAnalyzeTasks extends SparkBindings[TAAnalyzeTasks]
 
 case class TAAnalyzeRequest(displayName: String,
                             analysisInput: TAAnalyzeAnalysisInput,
-                            tasks: TAAnalyzeTasks
-                           )
+                            tasks: TAAnalyzeTasks)
 
 object TAAnalyzeRequest extends SparkBindings[TAAnalyzeRequest]
 
 
 case class TAAnalyzeResponseTaskResults[T](documents: Seq[T],
-                                        errors: Seq[TAError],
-                                        modelVersion: String)
+                                           errors: Seq[TAError],
+                                           modelVersion: String)
+
 case class TAAnalyzeResponseTask[T](state: String,
-                                 results: TAAnalyzeResponseTaskResults[T])
+                                    results: TAAnalyzeResponseTaskResults[T])
 
 case class TAAnalyzeResponseTasks(completed: Int,
                                   failed: Int,
@@ -47,8 +44,8 @@ case class TAAnalyzeResponseTasks(completed: Int,
                                   entityRecognitionTasks: Option[Seq[TAAnalyzeResponseTask[NERDocV3]]],
                                   entityLinkingTasks: Option[Seq[TAAnalyzeResponseTask[DetectEntitiesScoreV3]]],
                                   entityRecognitionPiiTasks: Option[Seq[TAAnalyzeResponseTask[PIIDocV3]]],
-                                  keyPhraseExtractionTasks:  Option[Seq[TAAnalyzeResponseTask[KeyPhraseScoreV3]]],
-                                  sentimentAnalysisTasks:  Option[Seq[TAAnalyzeResponseTask[SentimentScoredDocumentV3]]]
+                                  keyPhraseExtractionTasks: Option[Seq[TAAnalyzeResponseTask[KeyPhraseScoreV3]]],
+                                  sentimentAnalysisTasks: Option[Seq[TAAnalyzeResponseTask[SentimentScoredDocumentV3]]]
                                  )
 
 // API call response
@@ -60,7 +57,7 @@ case class TAAnalyzeResponse(status: String,
 object TAAnalyzeResponse extends SparkBindings[TAAnalyzeResponse]
 
 case class TAAnalyzeResultTaskResults[T](result: Option[T],
-                                           error: Option[TAError])
+                                         error: Option[TAError])
 
 case class TAAnalyzeResult(entityRecognition: Option[Seq[TAAnalyzeResultTaskResults[NERDocV3]]],
                            entityLinking: Option[Seq[TAAnalyzeResultTaskResults[DetectEntitiesScoreV3]]],
@@ -69,8 +66,3 @@ case class TAAnalyzeResult(entityRecognition: Option[Seq[TAAnalyzeResultTaskResu
                            sentimentAnalysis: Option[Seq[TAAnalyzeResultTaskResults[SentimentScoredDocumentV3]]])
 
 object TAAnalyzeResults extends SparkBindings[TAAnalyzeResult]
-
-
-
-
-

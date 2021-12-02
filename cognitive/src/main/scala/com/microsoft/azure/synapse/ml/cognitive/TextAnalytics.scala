@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.io.http.SimpleHTTPTransformer
+import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
@@ -13,20 +13,19 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import scala.collection.mutable.WrappedArray
-import scala.collection.JavaConverters._
 
 import java.net.URI
-import java.util.HashMap
+import java.util
+import scala.collection.JavaConverters._
 
-
-abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBase(uid)
+abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
   with HasSetLinkedService {
 
@@ -94,40 +93,20 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
-  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+  protected def reshapeToArray(schema: StructType, parameterName: String): Option[(Transformer, String, String)] = {
+    val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
+    getVectorParamMap.get(parameterName).flatMap {
+      case c if schema(c).dataType == StringType =>
+        Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
+          getVectorParam(parameterName),
+          reshapedColName))
+      case _ => None
     }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+  }
 
-    def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
-      val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
-      getVectorParamMap.get(parameterName).flatMap {
-        case c if schema(c).dataType == StringType =>
-          Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
-            getVectorParam(parameterName),
-            reshapedColName))
-        case _ => None
-      }
-    }
-
-    val reshapeCols = Seq(reshapeToArray("text"), reshapeToArray("language")).flatten
-
-    val newColumnMapping = reshapeCols.map {
-      case (_, oldCol, newCol) => (oldCol, newCol)
-    }.toMap
-
-    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
-      val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
-      col(newCol).alias(oldCol)
-    }.toSeq
-
+  protected def unpackBatchUDF: UserDefinedFunction = {
     val innerFields = innerResponseDataType.fields.filter(_.name != "id")
-
-    val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
+    UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val documents = row.getSeq[Row](1).map(doc =>
           (doc.getString(0).toInt, doc)).toMap
@@ -146,6 +125,32 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
       }.add("error-message", StringType)
     )
     )
+  }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic input columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val reshapeCols = Seq(
+      reshapeToArray(schema, "text"),
+      reshapeToArray(schema, "language")).flatten
+
+    val newColumnMapping = reshapeCols.map {
+      case (_, oldCol, newCol) => (oldCol, newCol)
+    }.toMap
+
+    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
+      val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
+      col(newCol).alias(oldCol)
+    }.toSeq
 
     val stages = reshapeCols.map(_._1).toArray ++ Array(
       Lambda(_.withColumn(
@@ -156,7 +161,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(getHandler)
+        .setHandler(handlingFunc)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
@@ -209,7 +214,7 @@ trait HasStringIndexType extends HasServiceParams {
 object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
 class TextSentimentV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("TextSentimentV2"))
@@ -223,7 +228,7 @@ class TextSentimentV2(override val uid: String)
 object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 
 class LanguageDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
@@ -236,7 +241,7 @@ class LanguageDetectorV2(override val uid: String)
 object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 
 class EntityDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetectorV2"))
@@ -248,7 +253,7 @@ class EntityDetectorV2(override val uid: String)
 
 object NERV2 extends ComplexParamsReadable[NERV2]
 
-class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging {
+class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("NERV2"))
@@ -261,7 +266,7 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicL
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 
 class KeyPhraseExtractorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging {
+  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
@@ -271,10 +276,12 @@ class KeyPhraseExtractorV2(override val uid: String)
   def urlPath: String = "/text/analytics/v2.0/keyPhrases"
 }
 
+trait TAV3Mixins extends HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging with HasHandler
+
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 class TextSentiment(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
+  extends TextAnalyticsBase(uid) with TAV3Mixins {
   logClass()
 
   def this() = this(Identifiable.randomUID("TextSentiment"))
@@ -300,7 +307,7 @@ class TextSentiment(override val uid: String)
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging {
+  extends TextAnalyticsBase(uid) with TAV3Mixins {
   logClass()
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
@@ -313,7 +320,8 @@ class KeyPhraseExtractor(override val uid: String)
 object NER extends ComplexParamsReadable[NER]
 
 class NER(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion
+    with HasShowStats with HasStringIndexType with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("NER"))
@@ -326,7 +334,7 @@ class NER(override val uid: String)
 object PII extends ComplexParamsReadable[PII]
 
 class PII(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
+  extends TextAnalyticsBase(uid) with TAV3Mixins {
   logClass()
 
   def this() = this(Identifiable.randomUID("PII"))
@@ -349,7 +357,7 @@ class PII(override val uid: String)
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging {
+  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging with HasHandler {
   logClass()
 
   def this() = this(Identifiable.randomUID("LanguageDetector"))
@@ -362,7 +370,7 @@ class LanguageDetector(override val uid: String)
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
 class EntityDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging {
+  extends TextAnalyticsBase(uid) with TAV3Mixins {
   logClass()
 
   def this() = this(Identifiable.randomUID("EntityDetector"))
@@ -374,67 +382,51 @@ class EntityDetector(override val uid: String)
 
 
 class TextAnalyzeTaskParam(parent: Params,
-                              name: String,
-                              doc: String,
-                              isValid: Seq[TAAnalyzeTask] => Boolean =  (_: Seq[TAAnalyzeTask]) => true)
-                              (@transient implicit val dataFormat: JsonFormat[TAAnalyzeTask])
+                           name: String,
+                           doc: String,
+                           isValid: Seq[TAAnalyzeTask] => Boolean = (_: Seq[TAAnalyzeTask]) => true)
+                          (@transient implicit val dataFormat: JsonFormat[TAAnalyzeTask])
   extends JsonEncodableParam[Seq[TAAnalyzeTask]](parent, name, doc, isValid) {
   type ValueType = TAAnalyzeTask
 
   override def w(value: Seq[TAAnalyzeTask]): ParamPair[Seq[TAAnalyzeTask]] = super.w(value)
-  def w(value: java.util.ArrayList[HashMap[String,Any]]): ParamPair[Seq[TAAnalyzeTask]] =
+
+  def w(value: java.util.ArrayList[util.HashMap[String, Any]]): ParamPair[Seq[TAAnalyzeTask]] =
     super.w(value.asScala.toArray.map(hashMapToTAAnalyzeTask))
 
-  def hashMapToTAAnalyzeTask(value: HashMap[String, Any]): TAAnalyzeTask = {
+  def hashMapToTAAnalyzeTask(value: util.HashMap[String, Any]): TAAnalyzeTask = {
     if (!value.containsKey("parameters")) {
       throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
     }
-    if (value.size() > 1){
+    if (value.size() > 1) {
       throw new IllegalArgumentException("Task options should only include 'parameters' value")
     }
-    val valParameters = value.get("parameters").asInstanceOf[HashMap[String, Any]]
-    val parameters = valParameters.asScala.toMap.map{x=>(x._1, x._2.toString())}
+    val valParameters = value.get("parameters").asInstanceOf[util.HashMap[String, Any]]
+    val parameters = valParameters.asScala.toMap.map { x => (x._1, x._2.toString) }
     TAAnalyzeTask(parameters)
   }
 }
 
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
-class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
+
+class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
   with HasSetLinkedService with BasicAsyncReply {
 
   import TAJSONFormat._
 
-  val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
-
   def this() = this(Identifiable.randomUID("TextAnalyze"))
-
-  def setTextCol(v: String): this.type = setVectorParam(text, v)
-
-  def setText(v: Seq[String]): this.type = setScalarParam(text, v)
-
-  def setText(v: String): this.type = setScalarParam(text, Seq(v))
-
-  setDefault(text -> Right("text"))
-
-  val language = new ServiceParam[Seq[String]](this, "language",
-    "the language code of the text (optional for some services)")
-
-  def setLanguageCol(v: String): this.type = setVectorParam(language, v)
-
-  def setLanguage(v: Seq[String]): this.type = setScalarParam(language, v)
-
-  def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
-
-  setDefault(language -> Left(Seq("en")))
 
   val entityRecognitionTasks = new TextAnalyzeTaskParam(
     this,
     "entityRecognitionTasks",
     "the entity recognition tasks to perform on submitted documents"
   )
+
   def getEntityRecognitionTasks: Seq[TAAnalyzeTask] = $(entityRecognitionTasks)
+
   def setEntityRecognitionTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
+
   setDefault(entityRecognitionTasks -> Seq[TAAnalyzeTask]())
 
   val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
@@ -442,8 +434,11 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     "entityRecognitionPiiTasks",
     "the entity recognition pii tasks to perform on submitted documents"
   )
+
   def getEntityRecognitionPiiTasks: Seq[TAAnalyzeTask] = $(entityRecognitionPiiTasks)
+
   def setEntityRecognitionPiiTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
+
   setDefault(entityRecognitionPiiTasks -> Seq[TAAnalyzeTask]())
 
   val entityLinkingTasks = new TextAnalyzeTaskParam(
@@ -451,8 +446,11 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     "entityLinkingTasks",
     "the entity linking tasks to perform on submitted documents"
   )
+
   def getEntityLinkingTasks: Seq[TAAnalyzeTask] = $(entityLinkingTasks)
+
   def setEntityLinkingTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityLinkingTasks, v)
+
   setDefault(entityLinkingTasks -> Seq[TAAnalyzeTask]())
 
   val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
@@ -460,8 +458,11 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     "keyPhraseExtractionTasks",
     "the key phrase extraction tasks to perform on submitted documents"
   )
+
   def getKeyPhraseExtractionTasks: Seq[TAAnalyzeTask] = $(keyPhraseExtractionTasks)
+
   def setKeyPhraseExtractionTasks(v: Seq[TAAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
+
   setDefault(keyPhraseExtractionTasks -> Seq[TAAnalyzeTask]())
 
   val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
@@ -469,11 +470,15 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
     "sentimentAnalysisTasks",
     "the sentiment analysis tasks to perform on submitted documents"
   )
+
   def getSentimentAnalysisTasks: Seq[TAAnalyzeTask] = $(sentimentAnalysisTasks)
+
   def setSentimentAnalysisTasks(v: Seq[TAAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
+
   setDefault(sentimentAnalysisTasks -> Seq[TAAnalyzeTask]())
 
   override protected def responseDataType: StructType = TAAnalyzeResponse.schema
+
   def urlPath: String = "/text/analytics/v3.1/analyze"
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
@@ -502,87 +507,44 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
         val displayName = "SynapseML"
         val analysisInput = TAAnalyzeAnalysisInput(documents)
         val tasks = TAAnalyzeTasks(
-            entityRecognitionTasks=getEntityRecognitionTasks,
-            entityLinkingTasks=getEntityLinkingTasks,
-            entityRecognitionPiiTasks=getEntityRecognitionPiiTasks,
-            keyPhraseExtractionTasks=getKeyPhraseExtractionTasks,
-            sentimentAnalysisTasks=getSentimentAnalysisTasks
-          )
+          entityRecognitionTasks = getEntityRecognitionTasks,
+          entityLinkingTasks = getEntityLinkingTasks,
+          entityRecognitionPiiTasks = getEntityRecognitionPiiTasks,
+          keyPhraseExtractionTasks = getKeyPhraseExtractionTasks,
+          sentimentAnalysisTasks = getSentimentAnalysisTasks
+        )
         val json = TAAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
     }
   }
-  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamicInput", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-    s"Could not find dynamic input columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+  // TODO refactor to remove duplicate from TextAnalyticsBase
+  private def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int): Option[Seq[Row]] = {
+    val namedTaskRow = tasksRow
+      .getAs[Seq[GenericRowWithSchema]](taskName)
+    if (namedTaskRow == null) {
+      None
+    } else {
+      val taskResults = namedTaskRow
+        .map(x => x.getAs[GenericRowWithSchema]("results"))
+      val rows = taskResults.map(result => {
+        val documents = result.getAs[Seq[GenericRowWithSchema]]("documents")
+        val errors = result.getAs[Seq[GenericRowWithSchema]]("errors")
+        val doc = documents.find { d => d.getAs[String]("id").toInt == documentIndex }
+        val error = errors.find { e => e.getAs[String]("id").toInt == documentIndex }
+        val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
+        resultRow
+      })
+      Some(rows)
     }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+  }
 
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
-    // TODO refactor to remove duplicate from TextAnalyticsBase
-    def reshapeToArray(parameterName: String): Option[(Transformer, String, String)] = {
-      val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
-      getVectorParamMap.get(parameterName).flatMap {
-        case c if schema(c).dataType == StringType =>
-          Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
-            getVectorParam(parameterName),
-            reshapedColName))
-        case _ => None
-      }
-    }
-
-    val reshapeCols = Seq(reshapeToArray("text"), reshapeToArray("language")).flatten
-
-    val newColumnMapping = reshapeCols.map {
-      case (_, oldCol, newCol) => (oldCol, newCol)
-    }.toMap
-
-    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
-      val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
-      col(newCol).alias(oldCol)
-    }.toSeq
-
+  override protected def unpackBatchUDF: UserDefinedFunction = {
     val innerResponseDataType = TAAnalyzeResults.schema
 
-    def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int): Option[Seq[Row]] ={
-      val namedTaskRow = tasksRow
-                            .getAs[WrappedArray[GenericRowWithSchema]](taskName)
-      if (namedTaskRow == null){
-        None
-      } else {
-        val taskResults = namedTaskRow
-                            .map(x=>x.getAs[GenericRowWithSchema]("results"))
-        val rows = taskResults.map(result => {
-          val documents = result.getAs[WrappedArray[GenericRowWithSchema]]("documents")
-          val errors = result.getAs[WrappedArray[GenericRowWithSchema]]("errors")
-          val doc = documents.find{d=> d.getAs[String]("id").toInt == documentIndex}
-          var error = errors.find{e => e.getAs[String]("id").toInt == documentIndex}
-          val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
-          resultRow
-        })
-        Some(rows)
-      }
-    }
-    def getFirstNonNullTask(tasks: GenericRowWithSchema, taskNames: Seq[String]) = {
-      taskNames
-          .map(name => tasks.getAs[WrappedArray[GenericRowWithSchema]](name))
-          .filter(r=> r != null)
-          .head
-    }
-
-    val unpackBatchUDF = UDFUtils.oldUdf({ rowOpt: Row =>
+    UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
         val tasks = row.getAs[GenericRowWithSchema]("tasks")
 
@@ -590,19 +552,19 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
         // We need to handle the fact that entityRecognition might not have been specified
         // - i.e. find the first task with results
         val taskNames = Seq(
-                          "entityRecognitionTasks",
-                          "entityLinkingTasks",
-                          "entityRecognitionPiiTasks",
-                          "keyPhraseExtractionTasks",
-                          "sentimentAnalysisTasks")
-        val taskSet = taskNames.map(name => tasks.getAs[WrappedArray[GenericRowWithSchema]](name))
-                            .filter(r=> r != null)
-                            .head
-        val results = taskSet.map(x=>x.getAs[GenericRowWithSchema]("results"))
-        val docCount = results(0).getAs[WrappedArray[GenericRowWithSchema]]("documents").size
-        val errorCount = results(0).getAs[WrappedArray[GenericRowWithSchema]]("errors").size
+          "entityRecognitionTasks",
+          "entityLinkingTasks",
+          "entityRecognitionPiiTasks",
+          "keyPhraseExtractionTasks",
+          "sentimentAnalysisTasks")
+        val taskSet = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
+          .filter(r => r != null)
+          .head
+        val results = taskSet.map(x => x.getAs[GenericRowWithSchema]("results"))
+        val docCount = results.head.getAs[Seq[GenericRowWithSchema]]("documents").size
+        val errorCount = results.head.getAs[Seq[GenericRowWithSchema]]("errors").size
 
-        val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i =>{
+        val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
           val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
           val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
           val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
@@ -610,11 +572,11 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
           val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
 
           val taaResult = Seq(
-                            entityRecognitionRows,
-                            entityLinkingRows,
-                            entityRecognitionPiiRows,
-                            keyPhraseRows,
-                            sentimentAnalysisRows)
+            entityRecognitionRows,
+            entityLinkingRows,
+            entityRecognitionPiiRows,
+            keyPhraseRows,
+            sentimentAnalysisRows)
           val resultRow = Row.fromSeq(taaResult)
           resultRow
         })
@@ -622,30 +584,6 @@ class TextAnalyze(override val uid: String) extends CognitiveServicesBaseNoHandl
       }
     }, ArrayType(innerResponseDataType)
     )
-
-
-    val stages = reshapeCols.map(_._1).toArray ++ Array(
-      Lambda(_.withColumn(
-        dynamicParamColName,
-        struct(columnsToGroup: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new UDFTransformer()
-        .setInputCol(getOutputCol)
-        .setOutputCol(getOutputCol)
-        .setUDF(unpackBatchUDF),
-      new DropColumns().setCols(Array(
-        dynamicParamColName) ++ newColumnMapping.values.toArray.asInstanceOf[Array[String]])
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-
   }
+
 }
