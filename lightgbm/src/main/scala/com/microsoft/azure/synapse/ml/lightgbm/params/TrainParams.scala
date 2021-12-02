@@ -43,6 +43,7 @@ abstract class TrainParams extends Serializable {
   def dartModeParams: DartModeParams
   def executionParams: ExecutionParams
   def objectiveParams: ObjectiveParams
+  def deviceType: String
 
   def paramToString[T](paramName: String, paramValueOpt: Option[T]): String = {
     paramValueOpt match {
@@ -75,7 +76,8 @@ abstract class TrainParams extends Serializable {
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
       (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")} ") +
       (if (boostingType == "dart") s"${dartModeParams.toString()} " else "") +
-      executionParams.toString()
+      executionParams.toString() +
+      s"device_type=$deviceType"
   }
 }
 
@@ -118,7 +120,8 @@ case class ClassifierTrainParams(parallelism: String,
                                  delegate: Option[LightGBMDelegate],
                                  dartModeParams: DartModeParams,
                                  executionParams: ExecutionParams,
-                                 objectiveParams: ObjectiveParams)
+                                 objectiveParams: ObjectiveParams,
+                                 deviceType: String)
   extends TrainParams {
   override def toString: String = {
     val extraStr =
@@ -167,7 +170,8 @@ case class RegressorTrainParams(parallelism: String,
                                 delegate: Option[LightGBMDelegate],
                                 dartModeParams: DartModeParams,
                                 executionParams: ExecutionParams,
-                                objectiveParams: ObjectiveParams)
+                                objectiveParams: ObjectiveParams,
+                                deviceType: String)
   extends TrainParams {
   override def toString: String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -214,7 +218,8 @@ case class RankerTrainParams(parallelism: String,
                              delegate: Option[LightGBMDelegate],
                              dartModeParams: DartModeParams,
                              executionParams: ExecutionParams,
-                             objectiveParams: ObjectiveParams)
+                             objectiveParams: ObjectiveParams,
+                             deviceType: String)
   extends TrainParams {
   override def toString: String = {
     val labelGainStr =

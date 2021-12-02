@@ -36,8 +36,14 @@ object LightGBMUtils {
     */
   def initializeNativeLibrary(): Unit = {
     val osPrefix = NativeLoader.getOSPrefix
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
-    new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
+    if (System.getProperty("os.version").toLowerCase.equals("4.15.0-1126-azure")) {
+      new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbmcuda")
+      new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbmcuda_swig")
+    }
+    else {
+      new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm")
+      new NativeLoader("/com/microsoft/ml/lightgbm").loadLibraryByName(osPrefix + "_lightgbm_swig")
+    }
   }
 
   def getFeaturizer(dataset: Dataset[_], labelColumn: String, featuresColumn: String,
