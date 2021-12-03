@@ -60,7 +60,7 @@ class LightGBMRanker(override val uid: String)
       getVerbosity, categoricalIndexes, getBoostingType, get(lambdaL1), get(lambdaL2), getMaxPosition, getLabelGain,
       get(isProvideTrainingMetric), get(metric), getEvalAt, get(minGainToSplit), get(maxDeltaStep),
       getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate, getDartParams,
-      getExecutionParams, getObjectiveParams)
+      getExecutionParams(numTasksPerExec), getObjectiveParams)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
@@ -144,7 +144,7 @@ class LightGBMRankerModel(override val uid: String)
 
   override def predict(features: Vector): Double = {
     logPredict(
-      getModel.score(features, false, false)(0)
+      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
     )
   }
 

@@ -105,7 +105,7 @@ docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/releas
 ```
 
 Navigate to <http://localhost:8888/> in your web browser to run the sample
-notebooks.  See the [documentation](https://github.com/microsoft/SynapseML/blob/master/docs/docker.md) for more on Docker use.
+notebooks.  See the [documentation](reference/docker.md) for more on Docker use.
 
 > To read the EULA for using the docker image, run 
 ``` bash
@@ -116,7 +116,7 @@ docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula
 ### Building from source
 
 SynapseML has recently transitioned to a new build infrastructure. 
-For detailed developer docs please see the [Developer Readme](https://github.com/microsoft/SynapseML/blob/master/docs/developer-readme.md)
+For detailed developer docs please see the [Developer Readme](reference/developer-readme.md)
 
 If you are an existing SynapseML developer, you will need to reconfigure your 
 development setup. We now support platform independent development and 

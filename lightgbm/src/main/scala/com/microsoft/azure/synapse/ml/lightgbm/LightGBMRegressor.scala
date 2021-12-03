@@ -70,7 +70,7 @@ class LightGBMRegressor(override val uid: String)
       getBoostFromAverage, getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
       get(metric), get(minGainToSplit), get(maxDeltaStep),
       getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate,
-      getDartParams, getExecutionParams, getObjectiveParams)
+      getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
@@ -127,7 +127,7 @@ class LightGBMRegressionModel(override val uid: String)
 
   override def predict(features: Vector): Double = {
     logPredict(
-      getModel.score(features, false, false)(0)
+      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
     )
   }
 
