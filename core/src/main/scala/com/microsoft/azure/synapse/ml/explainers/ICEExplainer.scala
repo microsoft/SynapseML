@@ -61,6 +61,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   * average - across all the samples in the dataset.
   * Note: This transformer only supports one-way dependence plot.
   */
+@org.apache.spark.annotation.Experimental
 class ICETransformer(override val uid: String) extends Transformer
   with HasExplainTarget
   with HasModel
@@ -221,19 +222,19 @@ class ICETransformer(override val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     // Check the data type for categorical features
-    val categoricalFeaturesTypes= getCategoricalFeatures.map(_.name).map(schema(_).dataType)
+    val categoricalFeaturesTypes= getCategoricalFeatures.map(f => schema(f.name).dataType)
     val allowedCategoricalTypes = Array(StringType, BooleanType, ByteType, ShortType, IntegerType, LongType)
-    require(categoricalFeaturesTypes.forall(allowedCategoricalTypes.contains(_)),
-      s"Data type for categorical features must be String, Boolean, Byte, Short, Integer or Long type.")
+    require(categoricalFeaturesTypes.forall(allowedCategoricalTypes.contains),
+      s"Data type for categorical features must be ${allowedCategoricalTypes.mkString("[", ",", "]")}.")
 
     // Check the data type for numeric features
-    val numericFeaturesTypes= getNumericFeatures.map(_.name).map(schema(_).dataType)
+    val numericFeaturesTypes= getNumericFeatures.map(f => schema(f.name).dataType)
     val allowedNumericTypes = Array(FloatType, DoubleType, DecimalType)
-    require(numericFeaturesTypes.forall(allowedNumericTypes.contains(_)),
-      s"Data type for numeric features must be Float, Double or Decimal type.")
+    require(numericFeaturesTypes.forall(allowedNumericTypes.contains),
+      s"Data type for numeric features must be ${allowedNumericTypes.mkString("[", ",", "]")}.")
 
     // Check if features are specified
-    val featureNames = getCategoricalFeatures.map(_.name) ++ getNumericFeatures.map(_.name)
+    val featureNames = (getCategoricalFeatures ++ getNumericFeatures).map(_.name)
     if (featureNames.isEmpty) {
       throw new Exception("No categorical features or numeric features are set to the explainer. " +
         "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
