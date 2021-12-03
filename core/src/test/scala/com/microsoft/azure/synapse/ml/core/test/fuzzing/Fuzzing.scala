@@ -134,7 +134,8 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     val mlflowTest = stage match {
       case _: Model[_] =>
         s"""
-           |model.save_model(join(test_data_dir, "mlflow-model-$num"))
+           |model.save_as_mlflow_model(join(test_data_dir, "mlflow-model-$num"))
+           |model.log_as_mlflow_model(join(test_data_dir, "mlflow-model-$num"))
            |mlflow_model = mlflow.spark.load_model(join(test_data_dir, "mlflow-model-$num"))
            |""".stripMargin
       case _ => ""

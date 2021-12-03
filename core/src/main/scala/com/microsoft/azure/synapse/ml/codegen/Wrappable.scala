@@ -231,7 +231,7 @@ trait PythonWrappable extends BaseWrappable {
   def pyMLFlowModelMethods: String = {
     this match {
       case _: Model[_] =>
-        s"""|def save_model(
+        s"""|def save_as_mlflow_model(
             |    self,
             |    path,
             |    mlflow_model=None,
@@ -300,11 +300,99 @@ trait PythonWrappable extends BaseWrappable {
             |        from synapse.ml.featurize import CountSelectorModel
             |
             |        model = CountSelectorModel()
-            |        model.save_model("count-selector-model")
+            |        model.save_as_mlflow_model("count-selector-model")
             |    "\""
             |    mlflow.spark.save_model(self, path, mlflow_model, conda_env,
             |                            dfs_tmpdir, sample_input, signature,
             |                            input_example, pip_requirements, extra_pip_requirements)
+            |
+            |
+            |def log_as_mlflow_model(
+            |    self,
+            |    artifact_path,
+            |    conda_env=None,
+            |    dfs_tmpdir=None,
+            |    sample_input=None,
+            |    registered_model_name=None,
+            |    signature: ModelSignature = None,
+            |    input_example: ModelInputExample = None,
+            |    await_registration_for=None,
+            |    pip_requirements=None,
+            |    extra_pip_requirements=None,
+            |    ):
+            |    "\""
+            |    Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
+            |    MLlib persistence format and produces an MLflow Model with the Spark flavor.
+            |
+            |    Note: If no run is active, it will instantiate a run to obtain a run_id.
+            |
+            |    :param spark_model: Spark model to be saved - MLflow can only save descendants of
+            |                        pyspark.ml.Model which implement MLReadable and MLWritable.
+            |    :param artifact_path: Run relative artifact path.
+            |    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+            |                      Conda environment yaml file. If provided, this decsribes the environment
+            |                      this model should be run in. At minimum, it should specify the dependencies
+            |                      contained in :func:`get_default_conda_env()`. If `None`, the default
+            |                      :func:`get_default_conda_env()` environment is added to the model.
+            |                      The following is an *example* dictionary representation of a Conda
+            |                      environment::
+            |
+            |                        {
+            |                            'name': 'mlflow-env',
+            |                            'channels': ['defaults'],
+            |                            'dependencies': [
+            |                                'python=3.7.0',
+            |                                'pyspark=2.3.0'
+            |                            ]
+            |                        }
+            |    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            |                       filesystem if running in local mode. The model is written in this
+            |                       destination and then copied into the model's artifact directory. This is
+            |                       necessary as Spark ML models read from and write to DFS if running on a
+            |                       cluster. If this operation completes successfully, all temporary files
+            |                       created on the DFS are removed. Defaults to ``/tmp/mlflow``.
+            |    :param sample_input: A sample input used to add the MLeap flavor to the model.
+            |                         This must be a PySpark DataFrame that the model can evaluate. If
+            |                         ``sample_input`` is ``None``, the MLeap flavor is not added.
+            |    :param registered_model_name: If given, create a model version under
+            |                                  ``registered_model_name``, also creating a registered model if one
+            |                                  with the given name does not exist.
+            |
+            |    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            |                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            |                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            |                      from datasets with valid model input (e.g. the training dataset with target
+            |                      column omitted) and valid model output (e.g. model predictions generated on
+            |                      the training dataset), for example:
+            |
+            |                      .. code-block:: python
+            |
+            |                        from mlflow.models.signature import infer_signature
+            |                        train = df.drop_column("target_label")
+            |                        predictions = ... # compute model predictions
+            |                        signature = infer_signature(train, predictions)
+            |    :param input_example: Input example provides one or several instances of valid
+            |                          model input. The example can be used as a hint of what data to feed the
+            |                          model. The given example will be converted to a Pandas DataFrame and then
+            |                          serialized to json using the Pandas split-oriented format. Bytes are
+            |                          base64-encoded.
+            |    :param await_registration_for: Number of seconds to wait for the model version to finish
+            |                            being created and is in ``READY`` status. By default, the function
+            |                            waits for five minutes. Specify 0 or None to skip waiting.
+            |    :param pip_requirements: {{ pip_requirements }}
+            |    :param extra_pip_requirements: {{ extra_pip_requirements }}
+            |
+            |    .. code-block:: python
+            |        :caption: Example
+            |
+            |        from synapse.ml.featurize import CountSelectorModel
+            |
+            |        model = CountSelectorModel()
+            |        model.log_as_mlflow_model("count-selector-model")
+            |    "\""
+            |    mlflow.spark.log_model(self, artifact_path, conda_env, dfs_tmpdir, sample_input,
+            |                           registered_model_name, signature, input_example,
+            |                           await_registration_for, pip_requirements, extra_pip_requirements)
             |""".stripMargin
       case _ => ""
     }
