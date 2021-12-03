@@ -1,3 +1,6 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 from synapse.ml.explainers._ICETransformer import _ICETransformer
 from pyspark.ml.common import inherit_doc
 from pyspark import SparkContext
