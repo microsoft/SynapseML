@@ -9,7 +9,7 @@ dependencies:
   - pip
   - r-base
   - r-dplyr
-  - r-sparklyr
+  - r-sparklyr=1.7.2
   - r-devtools
   - pip:
     - wheel

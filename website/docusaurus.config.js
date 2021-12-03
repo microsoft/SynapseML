@@ -1,5 +1,7 @@
+const math = require('remark-math')
+const katex = require('rehype-katex')
 const path = require('path');
-const {all_examples} = require('./src/plugins/examples');
+const { all_examples } = require('./src/plugins/examples');
 let version = "0.9.4";
 
 module.exports = {
@@ -15,6 +17,13 @@ module.exports = {
     examples: all_examples(),
     version: "0.9.4",
   },
+  stylesheets: [
+    {
+      href: "https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css",
+      integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
+      crossorigin: "anonymous",
+    },
+  ],
   themeConfig: {
     prism: {
       theme: require('./src/plugins/prism_themes/github'),
@@ -31,9 +40,9 @@ module.exports = {
         src: 'img/logo.svg',
       },
       items: [
-        {to: 'docs/about', label: 'Docs', position: 'left'},
-        {to: 'blog', label: 'Blog', position: 'left'},
-        {to: 'videos', label: 'Videos', position: 'left'},
+        { to: 'docs/about', label: 'Docs', position: 'left' },
+        { to: 'blog', label: 'Blog', position: 'left' },
+        { to: 'videos', label: 'Videos', position: 'left' },
         {
           type: 'docsVersionDropdown',
           position: 'right',
@@ -134,6 +143,8 @@ module.exports = {
       {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
+          remarkPlugins: [math],
+          rehypePlugins: [katex],
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
