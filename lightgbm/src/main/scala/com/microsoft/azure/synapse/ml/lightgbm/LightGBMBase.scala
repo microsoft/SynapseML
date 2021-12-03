@@ -247,8 +247,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     *
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
-  protected def getExecutionParams: ExecutionParams = {
-    ExecutionParams(getChunkSize, getMatrixType, getNumThreads, getUseSingleDatasetMode)
+  protected def getExecutionParams(numTasksPerExec: Int): ExecutionParams = {
+    val execNumThreads =
+      if (getUseSingleDatasetMode) get(numThreads).getOrElse(numTasksPerExec - 1)
+      else getNumThreads
+
+    ExecutionParams(getChunkSize, getMatrixType, execNumThreads, getUseSingleDatasetMode)
   }
 
   protected def getColumnParams: ColumnParams = {

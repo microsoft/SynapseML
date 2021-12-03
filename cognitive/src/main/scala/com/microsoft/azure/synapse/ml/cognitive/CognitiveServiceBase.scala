@@ -332,10 +332,4 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
 }
 
 abstract class CognitiveServicesBase(uid: String) extends
-  CognitiveServicesBaseNoHandler(uid) with HasHandler {
-  setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
-
-  override def handlingFunc(client: CloseableHttpClient,
-                            request: HTTPRequestData): HTTPResponseData =
-    getHandler(client, request)
-}
+  CognitiveServicesBaseNoHandler(uid) with HasHandler
