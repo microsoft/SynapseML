@@ -12,6 +12,7 @@ import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import scala.collection.mutable.WrappedArray
 
 trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
@@ -222,10 +223,10 @@ class FlattenBatch(val uid: String)
                 if (rowOfLists.isNullAt(i)) {
                   null
                 } else {
-                  val fieldSchema = rowOfLists.schema.fields(i)
-                  fieldSchema.dataType match {
-                    case _: ArrayType => rowOfLists.getSeq(i)
-                    case _ => rowOfLists.get(i)
+                  val value = rowOfLists.get(i)
+                  value match {
+                    case _: WrappedArray[_] => rowOfLists.getSeq(i)
+                    case _ => value
                   }
                 }
               }))
