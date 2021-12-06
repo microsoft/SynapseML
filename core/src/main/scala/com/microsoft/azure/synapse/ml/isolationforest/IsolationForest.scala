@@ -28,7 +28,7 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
 
   override def fit(data: Dataset[_]): IsolationForestModel = {
     logFit(
-      new IsolationForestModel(uid).setInnerModel(that.fit(data))
+      new IsolationForestModel(uid).setInnerModel(that.fit(data).setPredictionCol("prediction"))
     )
   }
 
