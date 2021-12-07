@@ -52,7 +52,6 @@ object ICECategoricalFeature {
         case _ => None
       }
       ICECategoricalFeature(name, numTopValues, outputColName)
-
     }
     override def write(obj: ICECategoricalFeature): JsValue = {
       val map = Map("name" -> JsString(obj.name))++
@@ -60,6 +59,19 @@ object ICECategoricalFeature {
         obj.outputColName.map("outputColName" -> JsString(_))
       JsObject(map)
     }
+  }
+  def fromMap(inputMap: java.util.HashMap[String, Any]): ICECategoricalFeature = {
+    val name: String = inputMap.get("name").toString
+    val numTopValues: Option[Int] = inputMap.get("numTopValues") match {
+      case value: Integer => Some(Integer2int(value))
+      case _ => None
+    }
+    val outputColName: Option[String] = inputMap.get("outputColName") match {
+      case value: String => Some(value)
+      case _ => None
+    }
+
+    ICECategoricalFeature(name, numTopValues, outputColName)
   }
 }
 
@@ -121,7 +133,6 @@ object ICENumericFeature {
       }
 
       ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
-
     }
 
     override def write(obj: ICENumericFeature): JsValue = {
@@ -132,5 +143,26 @@ object ICENumericFeature {
         obj.outputColName.map("outputColName" -> JsString(_))
       JsObject(map)
     }
+  }
+  def fromMap(inputMap: java.util.HashMap[String, Any]): ICENumericFeature = {
+    val name: String = inputMap.get("name").toString
+    val numSplits: Option[Int] = inputMap.get("numSplits") match {
+      case value: Integer => Some(Integer2int(value))
+      case _ => None
+    }
+    val rangeMin: Option[Double] = inputMap.get("rangeMin") match {
+      case value: java.lang.Double => Some(value.doubleValue())
+      case _ => None
+    }
+    val rangeMax: Option[Double] = inputMap.get("rangeMax") match {
+      case value: java.lang.Double => Some(value.doubleValue())
+      case _ => None
+    }
+    val outputColName = inputMap.get("outputColName") match {
+      case value: String => Some(value)
+      case _ => None
+    }
+
+    ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
   }
 }

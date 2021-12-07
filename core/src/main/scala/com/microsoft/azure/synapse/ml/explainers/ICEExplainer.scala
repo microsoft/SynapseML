@@ -13,6 +13,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 
+//import scala.collection.JavaConverters
+import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 trait ICEFeatureParams extends Params with HasNumSamples {
 
@@ -26,8 +28,16 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     _.forall(_.validate)
   )
 
+
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
+
+  def setCategoricalFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
+    val features: Seq[ICECategoricalFeature] = values.asScala.toSeq.map(ICECategoricalFeature.fromMap)
+
+    this.setCategoricalFeatures(features)
+    //this.set(categoricalFeatures, features)
+  }
 
   val numericFeatures = new TypedArrayParam[ICENumericFeature] (
     this,
@@ -38,6 +48,14 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   def setNumericFeatures(values: Seq[ICENumericFeature]): this.type = this.set(numericFeatures, values)
   def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
+
+  def setNumericFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
+    val features: Seq[ICENumericFeature] = values.asScala.toSeq.map(ICENumericFeature.fromMap)
+
+    //this.set(numericFeatures, features)
+
+    this.setNumericFeatures(features)
+  }
 
   val kind = new Param[String] (
     this,
@@ -51,7 +69,8 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
-  setDefault(kind -> "individual", numericFeatures -> Seq.empty[ICENumericFeature],
+  setDefault(kind -> "individual",
+    numericFeatures -> Seq.empty[ICENumericFeature],
     categoricalFeatures -> Seq.empty[ICECategoricalFeature])
 }
 
@@ -69,11 +88,9 @@ class ICETransformer(override val uid: String) extends Transformer
   with Wrappable
   with ComplexParamsWritable {
 
-  override protected lazy val pyInternalWrapper = true
+  //override protected lazy val pyInternalWrapper = true
 
-  def this() = {
-    this(Identifiable.randomUID("ICETransformer"))
-  }
+  def this() = this(Identifiable.randomUID("ICETransformer"))
 
   private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
                              feature: String, values: Array[_], outputColName: String): DataFrame = {
@@ -121,12 +138,12 @@ class ICETransformer(override val uid: String) extends Transformer
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
       .withColumn(idCol, monotonically_increasing_id())
-      .withColumn(targetClasses, this.get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
+      .withColumn(targetClasses, get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
     // collect feature values for all features from original dataset - dfWithId
-    val (categoricalFeatures, numericFeatures) = (this.getCategoricalFeatures, this.getNumericFeatures)
+    val (categoricalFeatures, numericFeatures) = (getCategoricalFeatures, getNumericFeatures)
 
-    val sampled: Dataset[Row] = this.get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
+    val sampled: Dataset[Row] = get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
@@ -152,13 +169,11 @@ class ICETransformer(override val uid: String) extends Transformer
 
   private def collectCategoricalValues[_](df: DataFrame, feature: ICECategoricalFeature): Array[_] = {
     val featureCountCol = DatasetExtensions.findUnusedColumnName("__feature__count__", df)
-    val values = df
-      .groupBy(col(feature.name))
+    df.groupBy(col(feature.name))
       .agg(count("*").as(featureCountCol))
       .orderBy(col(featureCountCol).desc)
       .head(feature.getNumTopValue)
       .map(row => row.get(0))
-    values
   }
 
   private def createNSplits(n: Int)(from: Double, to: Double): Seq[Double] = {
@@ -222,17 +237,25 @@ class ICETransformer(override val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     // Check the data type for categorical features
-    val categoricalFeaturesTypes= getCategoricalFeatures.map(f => schema(f.name).dataType)
     val allowedCategoricalTypes = Array(StringType, BooleanType, ByteType, ShortType, IntegerType, LongType)
-    require(categoricalFeaturesTypes.forall(allowedCategoricalTypes.contains),
-      s"Data type for categorical features must be ${allowedCategoricalTypes.mkString("[", ",", "]")}.")
-
-    // Check the data type for numeric features
-    val numericFeaturesTypes= getNumericFeatures.map(f => schema(f.name).dataType)
-    val allowedNumericTypes = Array(FloatType, DoubleType, DecimalType)
-    require(numericFeaturesTypes.forall(allowedNumericTypes.contains),
-      s"Data type for numeric features must be ${allowedNumericTypes.mkString("[", ",", "]")}.")
-
+    getCategoricalFeatures.foreach {
+      f =>
+        schema(f.name).dataType match {
+          case StringType| BooleanType | ByteType | ShortType | IntegerType | LongType =>
+          case _ => throw new
+              Exception(s"Data type for categorical features" +
+                s" must be ${allowedCategoricalTypes.mkString("[", ",", "]")}.")
+        }
+    }
+    val allowedNumericTypes = Array(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType, DecimalType)
+    getNumericFeatures.foreach {
+      f =>
+        schema(f.name).dataType match {
+          case ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | _: DecimalType =>
+          case _ => throw new
+              Exception(s"Data type for numeric features must be ${allowedNumericTypes.mkString("[", ",", "]")}.")
+        }
+    }
     // Check if features are specified
     val featureNames = (getCategoricalFeatures ++ getNumericFeatures).map(_.name)
     if (featureNames.isEmpty) {

@@ -14,6 +14,8 @@ import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENume
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 
+import scala.jdk.CollectionConverters.mapAsJavaMapConverter
+
 
 class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer] {
 
@@ -27,6 +29,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
 
   val data: DataFrame = dataDF.withColumn("col4", rand()*100)
 
+  data.show()
   val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),
     new OneHotEncoder().setInputCol("col2_ind").setOutputCol("col2_enc"),
@@ -41,15 +44,18 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setCategoricalFeatures(Array(ICECategoricalFeature("col2", Some(2)), ICECategoricalFeature("col3", Some(4))))
     .setTargetClasses(Array(1))
   val output: DataFrame = ice.transform(data)
+  output.show(truncate = false)
 
   val iceAvg = new ICETransformer()
   iceAvg.setModel(model)
     .setTargetCol("probability")
-    .setCategoricalFeatures(Array(ICECategoricalFeature("col1", Some(100)), ICECategoricalFeature("col2")))
+    .setCategoricalFeatures(Array(ICECategoricalFeature("col1", Some(100)), ICECategoricalFeature("col2"),
+      ICECategoricalFeature("col3")))
     .setNumericFeatures(Array(ICENumericFeature("col4", Some(5))))
     .setTargetClasses(Array(1))
     .setKind("average")
   val outputAvg: DataFrame = iceAvg.transform(data)
+  outputAvg.show(truncate = false)
 
   test("col2 doesn't contribute to the prediction.") {
 
@@ -61,9 +67,21 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     val impA: Double = outputCol2.get("a").head.toArray.head
     val impB: Double = outputCol2.get("b").head.toArray.head
 
-    assert(0.4 < impA && impA < 0.6)
-    assert(0.4 < impB && impB < 0.6)
+    val eps = 0.01
+    assert((impA - impB).abs < eps)
+  }
 
+  test("col3 contribute to the prediction.") {
+
+    val outputCol3: Map[Int, Vector] = outputAvg.select("col3_dependence").collect().map {
+      case Row(map: Map[Int, Vector]) =>
+        map
+    }.head
+
+    val impFirst: Double = outputCol3.get(-5).head.toArray.head
+    val impSec: Double = outputCol3.get(5).head.toArray.head
+
+    assert((impFirst - impSec).abs > 0.4)
   }
 
   test("The length of explainer map for numeric feature is equal to it's numSplits.") {
@@ -74,7 +92,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     }.head
 
     assert(outputCol1.size == iceAvg.getNumericFeatures.head.getNumSplits + 1)
-
   }
 
   test("The length of explainer map for categorical feature is less or equal to it's numTopValues.") {
@@ -84,7 +101,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     }.head
 
     assert(outputCol.size <= ice.getCategoricalFeatures.last.getNumTopValue)
-
   }
 
   test("No features specified.") {
@@ -114,6 +130,27 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
       .setTargetClasses(Array(1))
     val output = ice.transform(data)
     assert(output.count() == 2)
+  }
+
+  test("ICECategoricalFeature is successfully created from java.util.Map") {
+    //val map = Map("name" -> "my_name", "numTopValues" -> 100).asJava
+    val map = new java.util.HashMap[String, Any]()
+    map.put("name", "my_name")
+    map.put("numTopValues", 100)
+    val feature = ICECategoricalFeature.fromMap(map)
+    println(feature)
+    assert(feature.name == map.get("name"))
+    assert(feature.numTopValues.contains(map.get("numTopValues")))
+    assert(feature.outputColName.isEmpty)
+  }
+
+  test("Set categorical") {
+    val map = new java.util.HashMap[String, Any]()
+    map.put("name", "col2")
+    map.put("numTopValues", 2)
+    val feature = ICECategoricalFeature.fromMap(map)
+    ice.setCategoricalFeatures(Array(feature))
+    assert(ice.getCategoricalFeatures.head == feature)
   }
 
   override def testObjects(): Seq[TestObject[ICETransformer]] = Seq(new TestObject(ice, data))
