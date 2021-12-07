@@ -38,13 +38,12 @@ object TaskTrainingMethods {
                       validationData: Option[Broadcast[Array[Row]]],
                       sharedState: SharedState): (BaseAggregatedColumns, Option[BaseAggregatedColumns]) = {
     val aggregatedColumns = {
-      val prepAggregatedColumns = sharedState.prep(inputRows)
-      sharedState.merge(prepAggregatedColumns)
+      val prepAggregatedColumns = sharedState.datasetState.prep(inputRows)
+      sharedState.datasetState.merge(prepAggregatedColumns)
     }
-
     val aggregatedValidationColumns = validationData.map { data =>
-      val prepAggregatedColumns = sharedState.prep(data.value.toIterator)
-      sharedState.merge(prepAggregatedColumns)
+      val prepAggregatedColumns = sharedState.validationDatasetState.prep(data.value.toIterator)
+      sharedState.validationDatasetState.merge(prepAggregatedColumns)
     }
     (aggregatedColumns, aggregatedValidationColumns)
   }
