@@ -54,4 +54,5 @@ object Secrets {
   lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
 
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
