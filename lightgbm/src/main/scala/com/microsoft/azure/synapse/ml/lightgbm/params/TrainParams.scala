@@ -262,7 +262,7 @@ case class ObjectiveParams(objective: String, fobj: Option[FObjTrait]) extends S
     if (fobj.isEmpty) {
       s"objective=$objective "
     } else {
-      ""
+      "objective=custom "
     }
   }
 }
