@@ -26,7 +26,7 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
     "Indonesia{Jakarta,Jakarta}-jalan haji abah no 1 kelurahan pinang kecamatan pinang tangerang",
     "Serbia{Belgrade,Belgrade}-Ulica Aleksinackih rudara 10a, 11070 Beograd, Srbija",
     "Chile{Santiago,Region Metropolitana}-Domingo Campos Lagos 1887",
-    "Finland{Helsinki,Uusimaa}-Riistakatu, Salo",
+    "Chile{Santiago,Santiago Metropolitan}-Schelmenwasenstraße Stuttgart 70567 Baden-Württemberg DE",
     "United States{Ozark,Alabama}-1014 Indian Pass Rd, Port St Joe, FL 32456",
   ).toDF("addresses")
 
@@ -37,9 +37,17 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
 
 
   test("Basic Batch Geocode Usage") {
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(5).transform(df.coalesce(2))
-    val flattened = new FlattenBatch().transform(batchSearchMaps.transform(batchedDF)).collect()
-    print("flattened")
+    val batchedDF = batchSearchMaps.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
+    val batchResultsDF = batchedDF.select(col("addresses"), col("output.batchItems").as("output"))
+    val flattenedResults = new FlattenBatch().transform(batchResultsDF).select(col("addresses"),
+      col("output.response.results").getItem(0).getField("position").getField("lat")
+      .as("latitude"),
+      col("output.response.results").getItem(0).getField("position").getField("lon"))
+      .as("longitude")
+      .collect()
+
+    assert(flattenedResults !=null)
+    assert(flattenedResults.length == 10)
   }
 
   override def testObjects(): Seq[TestObject[BatchSearchAddress]] =

@@ -91,7 +91,8 @@ trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with
         val post = new HttpPost(new URI(getUrl + queryParams))
         post.setHeader("Content-Type", "application/json")
         val addressesCol = getValueOpt(row, addresses)
-        val payloadItems =  addressesCol.get.map(x => s"""{ "query": "?query=$x&limit=1" }""").toList.mkString(",")
+        val encodedAddresses = addressesCol.get.map(x => URLEncoder.encode(x, "UTF-8")).toList
+        val payloadItems = encodedAddresses.map(x => s"""{ "query": "?query=$x&limit=1" }""").mkString(",")
         val payload = s"""{ "batchItems": [ $payloadItems ] }"""
         post.setEntity(new StringEntity(payload))
         Some(post)
