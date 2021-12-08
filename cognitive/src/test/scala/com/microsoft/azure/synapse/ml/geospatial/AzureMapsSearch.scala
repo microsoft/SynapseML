@@ -7,14 +7,15 @@ import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 
 trait AzureMapsKey {
-  lazy val azureMapsKey = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
+  lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
 
-class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] with AzureMapsKey{
+class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] with AzureMapsKey {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -27,7 +28,7 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
     "Serbia{Belgrade,Belgrade}-Ulica Aleksinackih rudara 10a, 11070 Beograd, Srbija",
     "Chile{Santiago,Region Metropolitana}-Domingo Campos Lagos 1887",
     "Chile{Santiago,Santiago Metropolitan}-Schelmenwasenstraße Stuttgart 70567 Baden-Württemberg DE",
-    "United States{Ozark,Alabama}-1014 Indian Pass Rd, Port St Joe, FL 32456",
+    "United States{Ozark,Alabama}-1014 Indian Pass Rd, Port St Joe, FL 32456"
   ).toDF("addresses")
 
   lazy val batchSearchMaps: BatchSearchAddress = new BatchSearchAddress()
@@ -35,18 +36,20 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
     .setAddressesCol("address")
     .setOutputCol("output")
 
-
   test("Basic Batch Geocode Usage") {
     val batchedDF = batchSearchMaps.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
-    val batchResultsDF = batchedDF.select(col("address"), col("output.batchItems").as("output"))
-    val flattenedResults = new FlattenBatch().transform(batchResultsDF).select(col("addresses"),
-      col("output.response.results").getItem(0).getField("position").getField("lat")
-      .as("latitude"),
-      col("output.response.results").getItem(0).getField("position").getField("lon"))
-      .as("longitude")
+    val batchResultsDF = batchedDF.select(col("address"),
+      col("output.batchItems").as("output"))
+    val flattenedResults = new FlattenBatch().transform(batchResultsDF)
+      .select(
+        col("addresses"),
+        col("output.response.results").getItem(0).getField("position")
+          .getField("lat").as("latitude"),
+        col("output.response.results").getItem(0).getField("position")
+          .getField("lon").as("longitude"))
       .collect()
 
-    assert(flattenedResults !=null)
+    assert(flattenedResults != null)
     assert(flattenedResults.length == 10)
   }
 
@@ -56,7 +59,8 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
   override def reader: MLReadable[_] = BatchSearchAddress
 }
 
-class AzureMapsGetSearchSuite extends TransformerFuzzing[SearchAddress] with AzureMapsKey{
+class AzureMapsGetSearchSuite extends TransformerFuzzing[SearchAddress] with AzureMapsKey {
+
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
@@ -72,12 +76,11 @@ class AzureMapsGetSearchSuite extends TransformerFuzzing[SearchAddress] with Azu
     .setAddressCol("address")
     .setOutputCol("output")
 
-
   test("Basic Get Search Address Usage") {
     val results = searchMaps.transform(df).select(col("address"),
-        col("output.results").getItem(0).getField("position").getField("lat"),
-        col("output.results").getItem(0).getField("position").getField("lon"),
-      ).collect()
+      col("output.results").getItem(0).getField("position").getField("lat"),
+      col("output.results").getItem(0).getField("position").getField("lon")
+    ).collect()
     assert(results != null)
   }
 

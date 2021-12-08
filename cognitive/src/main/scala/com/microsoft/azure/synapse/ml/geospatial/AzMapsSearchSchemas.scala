@@ -55,8 +55,7 @@ case class Address (
   // This field is used to build the `freeformAddress` property.
   localName: Option[String] = None,
   // Bounding box coordinates.
-  boundingBox: Option[BoundingBox] = None
-)
+  boundingBox: Option[BoundingBox] = None)
 
 case class AddressRanges (
   // Address range on the left side of the street.
@@ -64,45 +63,38 @@ case class AddressRanges (
   // Address range on the right side of the street.
   rangeRight: Option[String] = None,
   from: Option[LatLongPairAbbreviated] = None,
-  to: Option[LatLongPairAbbreviated] = None
-)
+  to: Option[LatLongPairAbbreviated] = None)
 
 case class BrandName (
   // Name of the brand
-  name: Option[String] = None
-)
+  name: Option[String] = None)
 
 case class BoundingBox (
   // top-left
   topLeftPoint: Option[LatLongPairAbbreviated] = None,
   // bottom-right
-  btmRightPoint: Option[LatLongPairAbbreviated] = None
-)
+  btmRightPoint: Option[LatLongPairAbbreviated] = None)
 
 case class Classification (
   // Code property
   code: Option[String] = None,
   // Names array
-  names: Option[Seq[ClassificationName]] = None
-)
+  names: Option[Seq[ClassificationName]] = None)
 
 case class ClassificationName (
   // Name Locale property
   nameLocale: Option[String] = None,
   // Name property
-  name: Option[String] = None
-)
+  name: Option[String] = None)
 
 
 case class DataSources (
-  geometry: Option[Geometry] = None
-)
+  geometry: Option[Geometry] = None)
 
 case class EntryPoint (
   // The type of entry point. Value can be either _main_ or _minor_.
   `type`: Option[String] = None,
-  position: Option[LatLongPairAbbreviated] = None
-)
+  position: Option[LatLongPairAbbreviated] = None)
 
 case class ErrorDetail (
   // The error code.
@@ -114,37 +106,31 @@ case class ErrorDetail (
   // The error details.
   details: Option[Seq[String]] = None,
   // The error additional info.
-  additionalInfo: Option[Seq[ErrorAdditionalInfo]] = None
-)
-
+  additionalInfo: Option[Seq[ErrorAdditionalInfo]] = None)
 
 case class ErrorAdditionalInfo (
   // The additional info type.
   `type`: Option[String] = None,
   // The additional info.
-  info: Option[String] = None
-)
+  info: Option[String] = None)
 
 case class Geometry (
   // Pass this as geometryId to the
   // [Get Search Polygon](https://docs.microsoft.com/rest/api/maps/search/getsearchpolygon) API to fetch
   // geometry information for this result.
-  id: Option[String] = None
-)
+  id: Option[String] = None)
 
 case class LatLongPair (
   // Latitude property
   latitude: Option[Double] = None,
   // Longitude property
-  longitude: Option[Double] = None
-)
+  longitude: Option[Double] = None)
 
 case class LatLongPairAbbreviated (
   // Latitude property
   lat: Option[Double] = None,
   // Longitude property
-  lon: Option[Double] = None
-)
+  lon: Option[Double] = None)
 
 object LongRunningOperationResult extends SparkBindings[LongRunningOperationResult]
 case class LongRunningOperationResult (
@@ -155,16 +141,14 @@ case class LongRunningOperationResult (
   // The created timestamp.
   created: Option[Date] = None,
   error: Option[ErrorDetail] = None,
-  warning: Option[ErrorDetail] = None
-)
+  warning: Option[ErrorDetail] = None)
 
 
 case class OperatingHours (
   // Value used in the request: none or \"nextSevenDays\"
   mode: Option[String] = None,
   // List of time ranges for the next 7 days
-  timeRanges: Option[Seq[OperatingHoursTimeRange]] = None
-)
+  timeRanges: Option[Seq[OperatingHoursTimeRange]] = None)
 
 case class OperatingHoursTime (
   // Represents current calendar date in POI time zone, e.g. \"2019-02-07\".
@@ -172,8 +156,7 @@ case class OperatingHoursTime (
   // Hours are in the 24 hour format in the local time of a POI; possible values are 0 - 23.
   hour: Option[Integer] = None,
   // Minutes are in the local time of a POI; possible values are 0 - 59.
-  minute: Option[Integer] = None
-)
+  minute: Option[Integer] = None)
 
 case class OperatingHoursTimeRange (
  // The point in the next 7 days range when a given POI is being opened, or the beginning of the range
@@ -181,8 +164,7 @@ case class OperatingHoursTimeRange (
  startTime: Option[OperatingHoursTime] = None,
  // The point in the next 7 days range when a given POI is being closed, or the beginning of the range
  // if it was closed before the range.
- endTime: Option[OperatingHoursTime] = None
-)
+ endTime: Option[OperatingHoursTime] = None)
 
 
 case class PointOfInterest (
@@ -198,13 +180,11 @@ case class PointOfInterest (
  classifications: Option[Seq[Classification]] = None,
  // Brands array. The name of the brand for the POI being returned.
  brands: Option[Seq[BrandName]] = None,
- openingHours: Option[OperatingHours] = None
-)
+ openingHours: Option[OperatingHours] = None)
 
 case class PointOfInterestCategorySet (
   // Category ID
-  id: Option[Integer] = None
-)
+  id: Option[Integer] = None)
 
 
 object ReverseSearchAddressResult extends SparkBindings[ReverseSearchAddressResult]
@@ -214,8 +194,7 @@ case class ReverseSearchAddressResult (
   // Summary object for a Search Address Reverse response
   summary: Option[SearchSummary] = None,
   // Addresses array
-  addresses: Option[Seq[ReverseSearchAddressResultItem]] = None
-)
+  addresses: Option[Seq[ReverseSearchAddressResultItem]] = None)
 
 case class ReverseSearchAddressResultItem (
   address: Option[Address] = None,
@@ -223,22 +202,19 @@ case class ReverseSearchAddressResultItem (
   position: Option[String] = None,
   roadUse: Option[Seq[String]] = None,
   // Information on the type of match.  One of:   * AddressPoint   * HouseNumberRange   * Street
-  matchType: Option[String] = None
-)
+  matchType: Option[String] = None)
 
 object ReverseSearchAddressBatchResult extends SparkBindings[ReverseSearchAddressBatchResult]
 case class ReverseSearchAddressBatchResult (
   summary: Option[SearchBatchSummary] = None,
-  batchItems: Option[Seq[ReverseSearchAddressBatchItem]] = None
-)
+  batchItems: Option[Seq[ReverseSearchAddressBatchItem]] = None)
 
 object ReverseSearchAddressBatchItem extends SparkBindings[ReverseSearchAddressBatchItem]
 case class ReverseSearchAddressBatchItem (
   // HTTP request status code.
   statusCode: Option[Integer] = None,
   // The result of the query.
-  response: Option[ReverseSearchAddressResult] = None
-)
+  response: Option[ReverseSearchAddressResult] = None)
 
 case class SearchBatchSummary(
   successfulRequests: Option[Integer] = None,
@@ -250,16 +226,14 @@ case class SearchAddressBatchProcessResult (
   // Summary of the results for the batch request
   summary: Option[SearchBatchSummary] = None,
   // Array containing the batch results.
-  batchItems: Option[Seq[SearchAddressBatchItem]] = None
-)
+  batchItems: Option[Seq[SearchAddressBatchItem]] = None)
 
 object SearchAddressBatchItem extends SparkBindings[SearchAddressBatchItem]
 case class SearchAddressBatchItem (
   // HTTP request status code.
   statusCode: Option[Integer] = None,
   // The result of the query.
-  response: Option[SearchAddressResult] = None
-)
+  response: Option[SearchAddressResult] = None)
 
 object SearchAddressResult extends SparkBindings[SearchAddressResult]
 case class SearchAddressResult (
@@ -268,8 +242,7 @@ case class SearchAddressResult (
   // Summary object for a Search API response
   summary: SearchSummary,
   // A list of Search API results.
-  results: Option[Seq[SearchAddressResultItem]] = None,
-)
+  results: Option[Seq[SearchAddressResultItem]] = None)
 
 case class SearchSummary (
   // The query parameter that was used to produce these search results.
@@ -291,8 +264,7 @@ case class SearchSummary (
   // Indication when the internal search engine has applied a geospatial bias to improve the ranking of results.
   // In  some methods, this can be affected by setting the lat and lon parameters where available.
   // In other cases it is  purely internal.
-  geoBias: Option[LatLongPairAbbreviated] = None
-)
+  geoBias: Option[LatLongPairAbbreviated] = None)
 
 case class SearchAddressResultItem (
  // One of: * POI * Street * Geography * Point Address * Address Range * Cross Street
@@ -319,10 +291,8 @@ case class SearchAddressResultItem (
  // Information on the type of match.  One of:   * AddressPoint   * HouseNumberRange   * Street
  matchType: Option[String] = None,
  // Detour time in seconds. Only returned for calls to the Search Along Route API.
- detourTime: Option[Integer] = None
-)
+ detourTime: Option[Integer] = None)
 
 case class Viewport (
   topLeftPoint: Option[LatLongPairAbbreviated] = None,
-  btmRightPoint: Option[LatLongPairAbbreviated] = None
-)
+  btmRightPoint: Option[LatLongPairAbbreviated] = None)
