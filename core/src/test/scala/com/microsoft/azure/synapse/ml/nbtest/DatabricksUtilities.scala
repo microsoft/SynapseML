@@ -277,7 +277,7 @@ object DatabricksUtilities extends HasHttpClient {
 
       val error = finalState match {
         case Some("SUCCESS") =>
-          if (logLevel >= 1) println(s"Notebook $nbName Suceeded")
+          if (logLevel >= 1) println(s"Notebook $nbName Succeeded")
           None
         case Some(state) =>
           Some(new RuntimeException(s"Notebook $nbName failed with state $state. " +

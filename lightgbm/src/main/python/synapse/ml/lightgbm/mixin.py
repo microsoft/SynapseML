@@ -64,3 +64,14 @@ class LightGBMModelMixin:
             The number of features.
         """
         return self._java_obj.getBoosterNumFeatures()
+
+    def setPredictDisableShapeCheck(self, value=None):
+        """
+        Set shape check or not when predict.
+        """
+        if not value:
+            value = False
+        else:
+            value = True
+
+        self._java_obj.setPredictDisableShapeCheck(value)

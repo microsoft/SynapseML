@@ -74,7 +74,7 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
       new BasicResponseHandler().handleResponse(res)
     }
     res.close()
-    //println("request suceeded")
+    //println("request succeeded")
     (out, (t1 - t0).toDouble / 1e6)
   }
 
