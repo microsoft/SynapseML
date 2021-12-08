@@ -32,13 +32,13 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
 
   lazy val batchSearchMaps: BatchSearchAddress = new BatchSearchAddress()
     .setSubscriptionKey(azureMapsKey)
-    .setAddressesCol("addresses")
+    .setAddressesCol("address")
     .setOutputCol("output")
 
 
   test("Basic Batch Geocode Usage") {
     val batchedDF = batchSearchMaps.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
-    val batchResultsDF = batchedDF.select(col("addresses"), col("output.batchItems").as("output"))
+    val batchResultsDF = batchedDF.select(col("address"), col("output.batchItems").as("output"))
     val flattenedResults = new FlattenBatch().transform(batchResultsDF).select(col("addresses"),
       col("output.response.results").getItem(0).getField("position").getField("lat")
       .as("latitude"),

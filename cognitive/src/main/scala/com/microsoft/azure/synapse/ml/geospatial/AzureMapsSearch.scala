@@ -1,7 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-
 package com.microsoft.azure.synapse.ml.geospatial
 
 import com.microsoft.azure.synapse.ml.cognitive.HasInternalJsonOutputParser
@@ -11,7 +10,6 @@ import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.DataType
-
 
 object AzureMapsAPIConstants {
   val DefaultAPIVersion = "1.0"

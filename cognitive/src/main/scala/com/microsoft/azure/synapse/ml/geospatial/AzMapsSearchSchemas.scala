@@ -226,8 +226,8 @@ case class ReverseSearchAddressResultItem (
   matchType: Option[String] = None
 )
 
-object ReverseSearchAddressBatchProcessResult extends SparkBindings[ReverseSearchAddressBatchProcessResult]
-case class ReverseSearchAddressBatchProcessResult (
+object ReverseSearchAddressBatchResult extends SparkBindings[ReverseSearchAddressBatchResult]
+case class ReverseSearchAddressBatchResult (
   summary: Option[SearchBatchSummary] = None,
   batchItems: Option[Seq[ReverseSearchAddressBatchItem]] = None
 )

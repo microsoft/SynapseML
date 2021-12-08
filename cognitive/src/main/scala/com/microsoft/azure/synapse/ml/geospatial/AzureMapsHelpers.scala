@@ -46,8 +46,8 @@ trait HasAddressInput extends HasServiceParams with HasSubscriptionKey with HasU
         None
       } else {
         val req = prepareMethod()
-        val addressValue =  getValueOpt(row, address).mkString("")
-        val queryParams = "?" + URLEncodingUtils.format(Map("api-version"-> "1.0",
+        val addressValue = getValueOpt(row, address).mkString("")
+        val queryParams = "?" + URLEncodingUtils.format(Map("api-version" -> "1.0",
           "subscription-key" -> getSubscriptionKey,
           "query" -> addressValue))
         req.setURI(new URI(getUrl + queryParams))
@@ -63,18 +63,18 @@ trait HasAddressInput extends HasServiceParams with HasSubscriptionKey with HasU
 }
 
 trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with HasURL {
-  val addresses = new ServiceParam[Seq[String]](
+  val address = new ServiceParam[Seq[String]](
     this, "address", "the address to geocode")
 
-  def getAddresses: Seq[String] = getScalarParam(addresses)
+  def getAddresses: Seq[String] = getScalarParam(address)
 
-  def setAddresses(v: Seq[String]): this.type = setScalarParam(addresses, v)
+  def setAddresses(v: Seq[String]): this.type = setScalarParam(address, v)
 
-  def setAddresses(v: String): this.type = setScalarParam(addresses, Seq(v))
+  def setAddresses(v: String): this.type = setScalarParam(address, Seq(v))
 
-  def getAddressesCol: String = getVectorParam(addresses)
+  def getAddressesCol: String = getVectorParam(address)
 
-  def setAddressesCol(v: String): this.type = setVectorParam(addresses, v)
+  def setAddressesCol(v: String): this.type = setVectorParam(address, v)
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity]
 
@@ -86,11 +86,11 @@ trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with
         None
       } else {
 
-        val queryParams = "?" + URLEncodingUtils.format(Map("api-version"-> "1.0",
+        val queryParams = "?" + URLEncodingUtils.format(Map("api-version" -> "1.0",
           "subscription-key" -> getSubscriptionKey))
         val post = new HttpPost(new URI(getUrl + queryParams))
         post.setHeader("Content-Type", "application/json")
-        val addressesCol = getValueOpt(row, addresses)
+        val addressesCol = getValueOpt(row, address)
         val encodedAddresses = addressesCol.get.map(x => URLEncoder.encode(x, "UTF-8")).toList
         val payloadItems = encodedAddresses.map(x => s"""{ "query": "?query=$x&limit=1" }""").mkString(",")
         val payload = s"""{ "batchItems": [ $payloadItems ] }"""
@@ -114,9 +114,9 @@ trait BatchAsyncReply extends HasAsyncReply with HasSubscriptionKey {
     val resp = convertAndClose(sendWithRetries(client, statusRequest, getBackoffs))
     statusRequest.releaseConnection()
     val status = resp.statusLine.statusCode
-    if (status == 202){
+    if (status == 202) {
       None
-    } else if (status == 200){
+    } else if (status == 200) {
       Some(resp)
     } else {
       throw new RuntimeException(s"Received unknown status code: $status")
