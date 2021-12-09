@@ -13,6 +13,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 
+import scala.collection.mutable
+
 //import scala.collection.JavaConverters
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
@@ -28,15 +30,12 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     _.forall(_.validate)
   )
 
-
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
   def setCategoricalFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
-    val features: Seq[ICECategoricalFeature] = values.asScala.toSeq.map(ICECategoricalFeature.fromMap)
-
+    val features: Seq[ICECategoricalFeature] = values.asScala.toSeq.map(f => ICECategoricalFeature.fromMap(f))
     this.setCategoricalFeatures(features)
-    //this.set(categoricalFeatures, features)
   }
 
   val numericFeatures = new TypedArrayParam[ICENumericFeature] (
@@ -51,9 +50,6 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   def setNumericFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
     val features: Seq[ICENumericFeature] = values.asScala.toSeq.map(ICENumericFeature.fromMap)
-
-    //this.set(numericFeatures, features)
-
     this.setNumericFeatures(features)
   }
 
@@ -88,7 +84,7 @@ class ICETransformer(override val uid: String) extends Transformer
   with Wrappable
   with ComplexParamsWritable {
 
-  //override protected lazy val pyInternalWrapper = true
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("ICETransformer"))
 
@@ -237,8 +233,9 @@ class ICETransformer(override val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     // Check the data type for categorical features
+    val (categoricalFeatures, numericFeatures) = (getCategoricalFeatures, getNumericFeatures)
     val allowedCategoricalTypes = Array(StringType, BooleanType, ByteType, ShortType, IntegerType, LongType)
-    getCategoricalFeatures.foreach {
+    categoricalFeatures.foreach {
       f =>
         schema(f.name).dataType match {
           case StringType| BooleanType | ByteType | ShortType | IntegerType | LongType =>
@@ -248,7 +245,7 @@ class ICETransformer(override val uid: String) extends Transformer
         }
     }
     val allowedNumericTypes = Array(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType, DecimalType)
-    getNumericFeatures.foreach {
+    numericFeatures.foreach {
       f =>
         schema(f.name).dataType match {
           case ByteType | ShortType | IntegerType | LongType | FloatType | DoubleType | _: DecimalType =>
@@ -257,7 +254,7 @@ class ICETransformer(override val uid: String) extends Transformer
         }
     }
     // Check if features are specified
-    val featureNames = (getCategoricalFeatures ++ getNumericFeatures).map(_.name)
+    val featureNames = (categoricalFeatures ++ numericFeatures).map(_.name)
     if (featureNames.isEmpty) {
       throw new Exception("No categorical features or numeric features are set to the explainer. " +
         "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")

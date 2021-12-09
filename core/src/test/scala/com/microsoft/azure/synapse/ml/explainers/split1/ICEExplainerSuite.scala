@@ -14,7 +14,7 @@ import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENume
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 
-import scala.jdk.CollectionConverters.mapAsJavaMapConverter
+import scala.jdk.CollectionConverters._
 
 
 class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer] {
@@ -149,7 +149,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     map.put("name", "col2")
     map.put("numTopValues", 2)
     val feature = ICECategoricalFeature.fromMap(map)
-    ice.setCategoricalFeatures(Array(feature))
+    ice.setCategoricalFeatures(List(map).asJava)
     assert(ice.getCategoricalFeatures.head == feature)
   }
 
