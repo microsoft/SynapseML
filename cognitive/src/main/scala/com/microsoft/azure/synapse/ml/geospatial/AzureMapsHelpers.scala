@@ -37,48 +37,6 @@ trait HasAddressInput extends HasServiceParams with HasSubscriptionKey with HasU
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity]
 
-  protected def prepareMethod(): HttpRequestBase = new HttpGet()
-
-  protected def contentType: Row => String = { _ => "application/json" }
-
-  protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
-    { row: Row =>
-      if (shouldSkip(row)) {
-        None
-      } else {
-        val req = prepareMethod()
-        val addressValue = getValueOpt(row, address).mkString("")
-        val queryParams = "?" + URLEncodingUtils.format(Map("api-version" -> "1.0",
-          "subscription-key" -> getSubscriptionKey,
-          "query" -> addressValue))
-        req.setURI(new URI(getUrl + queryParams))
-
-        Some(req)
-      }
-    }
-  }
-
-  protected def getInternalInputParser(schema: StructType): HTTPInputParser = {
-    new CustomInputParser().setNullableUDF(inputFunc(schema))
-  }
-}
-
-trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with HasURL {
-  val address = new ServiceParam[Seq[String]](
-    this, "address", "the address to geocode")
-
-  def getAddress: Seq[String] = getScalarParam(address)
-
-  def setAddress(v: Seq[String]): this.type = setScalarParam(address, v)
-
-  def setAddress(v: String): this.type = setScalarParam(address, Seq(v))
-
-  def getAddressCol: String = getVectorParam(address)
-
-  def setAddressCol(v: String): this.type = setVectorParam(address, v)
-
-  protected def prepareEntity: Row => Option[AbstractHttpEntity]
-
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {

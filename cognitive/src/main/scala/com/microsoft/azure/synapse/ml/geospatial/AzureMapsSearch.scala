@@ -20,7 +20,7 @@ object AzureMapsAPIConstants {
 object AddressGeocoder extends ComplexParamsReadable[AddressGeocoder]
 
 class AddressGeocoder(override val uid: String)
-  extends CognitiveServicesBaseNoHandler(uid) with HasBatchAddressInput
+  extends CognitiveServicesBaseNoHandler(uid) with HasAddressInput
     with HasInternalJsonOutputParser
     with MapsAsyncReply
     with BasicLogging {
