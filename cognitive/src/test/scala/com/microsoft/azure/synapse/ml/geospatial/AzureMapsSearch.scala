@@ -19,16 +19,21 @@ class AzureMapSearchSuite extends TransformerFuzzing[AddressGeocoder] with Azure
   import spark.implicits._
 
   lazy val df: DataFrame = Seq(
-    "Finland{Helsinki,Uusimaa}-Katajatie 7, 04260 Kerava, Suomi",
-    "57{Polverigi,Marches}-Via Roma 261, Via Roma, Palermo, PA",
-    "SAM{Samara,Samara}-Артемовская улица, 17, Самара",
-    "Yorkshire And The H{Sheffield,Sheffield}-Alconbury Hill, Huntingdon PE28 4HY",
-    "Taiwan{Hualien,Taiwan}-玉里鎮城東六街26號",
-    "Indonesia{Jakarta,Jakarta}-jalan haji abah no 1 kelurahan pinang kecamatan pinang tangerang",
-    "Serbia{Belgrade,Belgrade}-Ulica Aleksinackih rudara 10a, 11070 Beograd, Srbija",
-    "Chile{Santiago,Region Metropolitana}-Domingo Campos Lagos 1887",
-    "Chile{Santiago,Santiago Metropolitan}-Schelmenwasenstraße Stuttgart 70567 Baden-Württemberg DE",
-    "United States{Ozark,Alabama}-1014 Indian Pass Rd, Port St Joe, FL 32456"
+    "One, Microsoft Way, Redmond",
+    "Katajatie 7, 04260 Kerava, Suomi",
+    "Via Roma 261, Via Roma, Palermo, PA",
+    "Артемовская улица, 17, Самара",
+    "Alconbury Hill, Huntingdon PE28 4HY",
+    "玉里鎮城東六街26號",
+    "jalan haji abah no 1 kelurahan pinang kecamatan pinang tangerang",
+    "Ulica Aleksinackih rudara 10a, 11070 Beograd, Srbija",
+    "Domingo Campos Lagos 1887",
+    "Schelmenwasenstraße Stuttgart 70567 Baden-Württemberg DE",
+    "1014 Indian Pass Rd, Port St Joe, FL 32456",
+    "400 Broad St, Seattle",
+    "350 5th Ave, New York",
+    "Pike Pl, Seattle",
+    "Champ de Mars, 5 Avenue Anatole France, 75007 Paris"
   ).toDF("address")
 
   lazy val batchGeocodeAddresses: AddressGeocoder = new AddressGeocoder()
@@ -48,7 +53,8 @@ class AzureMapSearchSuite extends TransformerFuzzing[AddressGeocoder] with Azure
       .collect()
 
     assert(flattenedResults != null)
-    assert(flattenedResults.length == 10)
+    assert(flattenedResults.length == 15)
+    assert(flattenedResults.toSeq(0).get(1) == 47.64016)
   }
 
   override def testObjects(): Seq[TestObject[AddressGeocoder]] =
