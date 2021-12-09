@@ -3,45 +3,29 @@
 
 package com.microsoft.azure.synapse.ml.geospatial
 
-import com.microsoft.azure.synapse.ml.cognitive.HasInternalJsonOutputParser
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBaseNoHandler, HasInternalJsonOutputParser}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.http.entity.AbstractHttpEntity
-import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{DataType, StructType}
 
 object AzureMapsAPIConstants {
   val DefaultAPIVersion = "1.0"
 }
 
-object SearchAddress extends ComplexParamsReadable[SearchAddress]
+object AddressGeocoder extends ComplexParamsReadable[AddressGeocoder]
 
-class SearchAddress(override val uid: String)
-  extends AzureMapsBase(uid) with HasAddressInput
+class AddressGeocoder(override val uid: String)
+  extends CognitiveServicesBaseNoHandler(uid) with HasBatchAddressInput
     with HasInternalJsonOutputParser
-    with BasicLogging {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("GetSearchAddress"))
-
-  setDefault(
-    url -> "https://atlas.microsoft.com/search/address/json")
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
-  override protected def responseDataType: DataType = SearchAddressResult.schema
-
-}
-
-object BatchSearchAddress extends ComplexParamsReadable[BatchSearchAddress]
-
-class BatchSearchAddress(override val uid: String)
-  extends AzureMapsBaseNoHandler(uid) with HasBatchAddressInput
-    with HasInternalJsonOutputParser
-    with BatchAsyncReply
+    with MapsAsyncReply
     with BasicLogging {
 
-  def this() = this(Identifiable.randomUID("BatchSearchAddress"))
+  def this() = this(Identifiable.randomUID("AddressGeocoder"))
 
   setDefault(
     url -> "https://atlas.microsoft.com/search/address/batch/json")
@@ -49,4 +33,12 @@ class BatchSearchAddress(override val uid: String)
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
   override protected def responseDataType: DataType = SearchAddressBatchProcessResult.schema
 
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val basePipeline =  super.getInternalTransformer(schema)
+    val stages = Array(
+      basePipeline,
+      Lambda(_.withColumn(getOutputCol, col("output.batchItems")))
+    )
+    NamespaceInjections.pipelineModel(stages)
+  }
 }

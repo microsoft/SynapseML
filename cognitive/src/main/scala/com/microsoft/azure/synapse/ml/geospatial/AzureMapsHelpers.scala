@@ -66,15 +66,15 @@ trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with
   val address = new ServiceParam[Seq[String]](
     this, "address", "the address to geocode")
 
-  def getAddresses: Seq[String] = getScalarParam(address)
+  def getAddress: Seq[String] = getScalarParam(address)
 
-  def setAddresses(v: Seq[String]): this.type = setScalarParam(address, v)
+  def setAddress(v: Seq[String]): this.type = setScalarParam(address, v)
 
-  def setAddresses(v: String): this.type = setScalarParam(address, Seq(v))
+  def setAddress(v: String): this.type = setScalarParam(address, Seq(v))
 
-  def getAddressesCol: String = getVectorParam(address)
+  def getAddressCol: String = getVectorParam(address)
 
-  def setAddressesCol(v: String): this.type = setVectorParam(address, v)
+  def setAddressCol(v: String): this.type = setVectorParam(address, v)
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity]
 
@@ -105,7 +105,7 @@ trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with
   }
 }
 
-trait BatchAsyncReply extends HasAsyncReply with HasSubscriptionKey {
+trait MapsAsyncReply extends HasAsyncReply with HasSubscriptionKey {
 
   protected def queryForResult(key: Option[String], client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData] = {

@@ -14,7 +14,7 @@ trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
 
-class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] with AzureMapsKey {
+class AzureMapSearchSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {
 
   import spark.implicits._
 
@@ -29,20 +29,18 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
     "Chile{Santiago,Region Metropolitana}-Domingo Campos Lagos 1887",
     "Chile{Santiago,Santiago Metropolitan}-Schelmenwasenstraße Stuttgart 70567 Baden-Württemberg DE",
     "United States{Ozark,Alabama}-1014 Indian Pass Rd, Port St Joe, FL 32456"
-  ).toDF("addresses")
+  ).toDF("address")
 
-  lazy val batchSearchMaps: BatchSearchAddress = new BatchSearchAddress()
+  lazy val batchGeocodeAddresses: AddressGeocoder = new AddressGeocoder()
     .setSubscriptionKey(azureMapsKey)
-    .setAddressesCol("address")
+    .setAddressCol("address")
     .setOutputCol("output")
 
   test("Basic Batch Geocode Usage") {
-    val batchedDF = batchSearchMaps.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
-    val batchResultsDF = batchedDF.select(col("address"),
-      col("output.batchItems").as("output"))
-    val flattenedResults = new FlattenBatch().transform(batchResultsDF)
+    val batchedDF = batchGeocodeAddresses.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
+    val flattenedResults = new FlattenBatch().transform(batchedDF)
       .select(
-        col("addresses"),
+        col("address"),
         col("output.response.results").getItem(0).getField("position")
           .getField("lat").as("latitude"),
         col("output.response.results").getItem(0).getField("position")
@@ -53,39 +51,8 @@ class AzureMapBatchSearchSuite extends TransformerFuzzing[BatchSearchAddress] wi
     assert(flattenedResults.length == 10)
   }
 
-  override def testObjects(): Seq[TestObject[BatchSearchAddress]] =
-    Seq(new TestObject[BatchSearchAddress](batchSearchMaps, df))
+  override def testObjects(): Seq[TestObject[AddressGeocoder]] =
+    Seq(new TestObject[AddressGeocoder](batchGeocodeAddresses, df))
 
-  override def reader: MLReadable[_] = BatchSearchAddress
-}
-
-class AzureMapsGetSearchSuite extends TransformerFuzzing[SearchAddress] with AzureMapsKey {
-
-  import spark.implicits._
-
-  lazy val df: DataFrame = Seq(
-    "United Kingdom{Wolverhampton,West Midlands}-Walsall, WV14 8ET, United Kingdom",
-    "United Kingdom{Sheffield,South Yorkshire}-148 burngreave road s3",
-    "LA{Natchitoches,Louisiana}-97 American Way, Natchitoches, LA 71457",
-    "JAL{Tonala,Jalisco}-403 Rosedell St, Amity, OR 97101, EE. UU",
-    "France{Paris,Ile-De-France}-AVENUE FRIEDLAND PARIS"
-  ).toDF("address")
-
-  lazy val searchMaps: SearchAddress = new SearchAddress()
-    .setSubscriptionKey(azureMapsKey)
-    .setAddressCol("address")
-    .setOutputCol("output")
-
-  test("Basic Get Search Address Usage") {
-    val results = searchMaps.transform(df).select(col("address"),
-      col("output.results").getItem(0).getField("position").getField("lat"),
-      col("output.results").getItem(0).getField("position").getField("lon")
-    ).collect()
-    assert(results != null)
-  }
-
-  override def testObjects(): Seq[TestObject[SearchAddress]] =
-    Seq(new TestObject[SearchAddress](searchMaps, df))
-
-  override def reader: MLReadable[_] = SearchAddress
+  override def reader: MLReadable[_] = AddressGeocoder
 }
