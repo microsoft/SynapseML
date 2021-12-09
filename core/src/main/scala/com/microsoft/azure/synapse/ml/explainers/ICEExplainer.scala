@@ -12,10 +12,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-
-import scala.collection.mutable
-
-//import scala.collection.JavaConverters
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 trait ICEFeatureParams extends Params with HasNumSamples {

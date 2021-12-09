@@ -13,7 +13,6 @@ import org.apache.spark.ml.classification.LogisticRegression
 import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENumericFeature, ICETransformer}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
-
 import scala.jdk.CollectionConverters._
 
 
@@ -29,7 +28,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
 
   val data: DataFrame = dataDF.withColumn("col4", rand()*100)
 
-  data.show()
   val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),
     new OneHotEncoder().setInputCol("col2_ind").setOutputCol("col2_enc"),
@@ -44,7 +42,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setCategoricalFeatures(Array(ICECategoricalFeature("col2", Some(2)), ICECategoricalFeature("col3", Some(4))))
     .setTargetClasses(Array(1))
   val output: DataFrame = ice.transform(data)
-  output.show(truncate = false)
 
   val iceAvg = new ICETransformer()
   iceAvg.setModel(model)
@@ -55,7 +52,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setTargetClasses(Array(1))
     .setKind("average")
   val outputAvg: DataFrame = iceAvg.transform(data)
-  outputAvg.show(truncate = false)
 
   test("col2 doesn't contribute to the prediction.") {
 
