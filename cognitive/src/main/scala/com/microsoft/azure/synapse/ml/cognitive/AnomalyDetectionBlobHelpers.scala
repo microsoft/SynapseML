@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.azure.storage.blob.sas.{BlobSasPermission, BlobServiceSasSignatureValues}
 import com.azure.storage.blob.{BlobContainerClient, BlobServiceClientBuilder}
-import org.apache.spark.sql.types.{DateType, StructField, TimestampType}
+import com.azure.storage.common.StorageSharedKeyCredential
+import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.{DataFrame, Row}
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, OutputStream, PrintWriter}
@@ -20,25 +21,50 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
   */
 class AnomalyDetectionBlobHelpers(blobContainerClient: BlobContainerClient) {
 
-  def this(storageConnectionString: String, containerName: String) =
-    this(new BlobServiceClientBuilder()
-      .connectionString(storageConnectionString)
-      .buildClient()
-      .getBlobContainerClient(containerName))
+  var blobName = ""
+  var timestampCol = "timestamp"
 
-  def this(endpoint: String, sasToken: String, containerName: String) =
-    this(new BlobServiceClientBuilder()
-      .endpoint(endpoint)
-      .sasToken(sasToken)
-      .buildClient()
-      .getBlobContainerClient(containerName))
+  def this(storageConnectionString: String, containerName: String) =
+    this {
+      val blobContainerClient = new BlobServiceClientBuilder()
+        .connectionString(storageConnectionString)
+        .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
+        .buildClient()
+        .getBlobContainerClient(containerName.toLowerCase())
+      if (!blobContainerClient.exists()) {
+        blobContainerClient.create()
+      }
+      blobContainerClient
+    }
+
+  def this(storageName: String, storageKey: String, endpoint: String, sasToken: String, containerName: String) =
+    this {
+      val blobContainerClient = new BlobServiceClientBuilder()
+        .endpoint(endpoint)
+        .sasToken(sasToken)
+        .credential(new StorageSharedKeyCredential(storageName, storageKey))
+        .buildClient()
+        .getBlobContainerClient(containerName.toLowerCase())
+      if (!blobContainerClient.exists()) {
+        blobContainerClient.create()
+      }
+      blobContainerClient
+    }
+
+  def setTimestampCol(v: String): this.type = {
+    timestampCol = v
+    this
+  }
+
+  def deleteBlob(): Unit =
+    blobContainerClient.getBlobClient(blobName).delete()
 
   def upload(df: DataFrame): String = {
-    val timestampCol = df.schema
-      .find(p => p.dataType == DateType || p.dataType == TimestampType)
+    val timestampColumn = df.schema
+      .find(p => p.name == timestampCol)
       .get
 
-    upload(df, timestampCol)
+    upload(df, timestampColumn)
   }
 
   def upload(df: DataFrame, timestampCol: StructField): String = {
@@ -70,7 +96,7 @@ class AnomalyDetectionBlobHelpers(blobContainerClient: BlobContainerClient) {
 
     // upload blob
     val formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd").withZone(ZoneId.from(ZoneOffset.UTC))
-    val blobName = s"${formatter.format(Instant.now())}/${UUID.randomUUID()}.zip"
+    blobName = s"${formatter.format(Instant.now())}/${UUID.randomUUID()}.zip"
     val blobClient = blobContainerClient.getBlobClient(blobName)
 
     blobClient.upload(new ByteArrayInputStream(zipInBytes), zipInBytes.length, true)
@@ -94,7 +120,7 @@ class AnomalyDetectionBlobHelpers(blobContainerClient: BlobContainerClient) {
     for (row <- rows) {
       // <timestamp>,<value>
       // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
-      val timestamp = row.getTimestamp(timestampColIdx).toInstant
+      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
 
       pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
       pw.write(',')

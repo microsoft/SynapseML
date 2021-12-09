@@ -17,7 +17,7 @@ import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
+import org.apache.spark.ml.param.{ParamMap, ServiceParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, lit, struct}
@@ -287,9 +287,6 @@ class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[D
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
         .setModelId(modelId)
-        .setSourceCol(getSourceCol)
-        .setStartTime(getStartTime)
-        .setEndTime(getEndTime)
     })
   }
 

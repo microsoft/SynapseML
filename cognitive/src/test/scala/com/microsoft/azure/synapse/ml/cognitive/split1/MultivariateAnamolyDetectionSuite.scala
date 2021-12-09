@@ -3,9 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.split1
 
+import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpDelete, HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
@@ -36,7 +38,13 @@ object MADListModelsProtocol extends DefaultJsonProtocol {
 
 import com.microsoft.azure.synapse.ml.cognitive.split1.MADListModelsProtocol._
 
-object MADUtils extends AnomalyKey {
+trait storageCredentials {
+  lazy val connectionString: String = sys.env.getOrElse("STORAGE_CONNECTION_STRING", Secrets.StorageConnectionString)
+  lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", Secrets.StorageKey)
+  lazy val storageSASToken: String = sys.env.getOrElse("STORAGE_SAS_TOKEN", Secrets.StorageSASToken)
+}
+
+object MADUtils extends AnomalyKey with storageCredentials {
 
   import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
 
@@ -172,6 +180,88 @@ class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEst
     assert(caught.getMessage.contains("source"))
     assert(caught.getMessage.contains("startTime"))
     assert(caught.getMessage.contains("endTime"))
+  }
+
+  import spark.implicits._
+
+  lazy val fileLocation: String = DatasetUtils.madTestFile("mad_example.csv").toString
+  lazy val dataset: DataFrame = spark.read.format("csv").option("header", "true")
+    .load(fileLocation)
+  lazy val emptyDf: DataFrame = Seq("").toDF()
+
+  test("Blob Helper basic usage with connectionString") {
+
+    val blobHelper = new AnomalyDetectionBlobHelpers(
+      storageConnectionString = connectionString, containerName = "madtest")
+    val sourceUrl = blobHelper.setTimestampCol("timestamp").upload(dataset)
+
+    val mae = new MultivariateAnomalyEstimator()
+      .setSubscriptionKey(anomalyKey)
+      .setLocation("westus2")
+      .setOutputCol("result")
+      .setSource(sourceUrl)
+      .setStartTime(startTime)
+      .setEndTime(endTime)
+      .setSlidingWindow(200)
+      .setConcurrency(5)
+
+    val model = mae.fit(emptyDf)
+    val diagnosticsInfo = mae.getDiagnosticsInfo
+    assert(diagnosticsInfo.variableStates.get.length.equals(3))
+
+    val result = model
+      .setSource(sourceUrl).setStartTime(startTime).setEndTime(endTime)
+      .setOutputCol("result")
+      .transform(emptyDf)
+      .withColumn("status", col("result.summary.status"))
+      .withColumn("variableStates", col("result.summary.variableStates"))
+      .select("status", "variableStates")
+      .collect()
+
+    assert(result.head.getString(0).equals("READY"))
+    assert(result.head.getSeq(1).length.equals(3))
+
+    madDelete(model.getModelId)
+
+    blobHelper.deleteBlob()
+  }
+
+  test("Blob Helper basic usage with endpoint and sas token") {
+
+    val blobHelper = new AnomalyDetectionBlobHelpers(
+      storageName = "mmlspark", storageKey = storageKey, endpoint = "https://mmlspark.blob.core.windows.net/",
+      sasToken = storageSASToken, containerName = "madtest")
+    val sourceUrl = blobHelper.setTimestampCol("timestamp").upload(dataset)
+
+    val mae = new MultivariateAnomalyEstimator()
+      .setSubscriptionKey(anomalyKey)
+      .setLocation("westus2")
+      .setOutputCol("result")
+      .setSource(sourceUrl)
+      .setStartTime(startTime)
+      .setEndTime(endTime)
+      .setSlidingWindow(200)
+      .setConcurrency(5)
+
+    val model = mae.fit(emptyDf)
+    val diagnosticsInfo = mae.getDiagnosticsInfo
+    assert(diagnosticsInfo.variableStates.get.length.equals(3))
+
+    val result = model
+      .setSource(sourceUrl).setStartTime(startTime).setEndTime(endTime)
+      .setOutputCol("result")
+      .transform(emptyDf)
+      .withColumn("status", col("result.summary.status"))
+      .withColumn("variableStates", col("result.summary.variableStates"))
+      .select("status", "variableStates")
+      .collect()
+
+    assert(result.head.getString(0).equals("READY"))
+    assert(result.head.getSeq(1).length.equals(3))
+
+    madDelete(model.getModelId)
+
+    blobHelper.deleteBlob()
   }
 
   override def testSerialization(): Unit = {
