@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.geospatial
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive.{HasAsyncReply, HasServiceParams, HasSubscriptionKey, URLEncodingUtils}
 import com.microsoft.azure.synapse.ml.io.http.{CustomInputParser, HTTPInputParser, HasURL}
 import com.microsoft.azure.synapse.ml.io.http._
@@ -90,6 +91,7 @@ trait HasBatchAddressInput extends HasServiceParams with HasSubscriptionKey with
           "subscription-key" -> getSubscriptionKey))
         val post = new HttpPost(new URI(getUrl + queryParams))
         post.setHeader("Content-Type", "application/json")
+        post.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
         val addressesCol = getValueOpt(row, address)
         val encodedAddresses = addressesCol.get.map(x => URLEncoder.encode(x, "UTF-8")).toList
         val payloadItems = encodedAddresses.map(x => s"""{ "query": "?query=$x&limit=1" }""").mkString(",")
@@ -111,6 +113,7 @@ trait MapsAsyncReply extends HasAsyncReply {
                                location: URI): Option[HTTPResponseData] = {
     val statusRequest = new HttpGet()
     statusRequest.setURI(location)
+    statusRequest.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, statusRequest, getBackoffs))
     statusRequest.releaseConnection()
     val status = resp.statusLine.statusCode
