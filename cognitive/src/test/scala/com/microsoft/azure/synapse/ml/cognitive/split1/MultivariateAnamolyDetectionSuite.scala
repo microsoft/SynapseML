@@ -39,9 +39,9 @@ object MADListModelsProtocol extends DefaultJsonProtocol {
 import com.microsoft.azure.synapse.ml.cognitive.split1.MADListModelsProtocol._
 
 trait storageCredentials {
-  lazy val connectionString: String = sys.env.getOrElse("STORAGE_CONNECTION_STRING", Secrets.StorageConnectionString)
-  lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", Secrets.StorageKey)
-  lazy val storageSASToken: String = sys.env.getOrElse("STORAGE_SAS_TOKEN", Secrets.StorageSASToken)
+  lazy val connectionString: String = sys.env.getOrElse("STORAGE_CONNECTION_STRING", Secrets.MADTestConnectionString)
+  lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", Secrets.MADTestStorageKey)
+  lazy val storageSASToken: String = sys.env.getOrElse("STORAGE_SAS_TOKEN", Secrets.MADTestSASToken)
 }
 
 object MADUtils extends AnomalyKey with storageCredentials {

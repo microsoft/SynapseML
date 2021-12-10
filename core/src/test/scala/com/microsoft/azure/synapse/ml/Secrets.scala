@@ -53,9 +53,9 @@ object Secrets {
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
-  lazy val StorageConnectionString: String = getSecret("mmlspark-connection-string")
-  lazy val StorageKey: String = getSecret("mmlspark-storage-key")
-  lazy val StorageSASToken: String = getSecret("mmlspark-storage-sas-token")
+  lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
+  lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
+  lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
