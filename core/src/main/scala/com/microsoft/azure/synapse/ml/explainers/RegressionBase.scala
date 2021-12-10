@@ -3,8 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import breeze.linalg.{*, sum, DenseMatrix => BDM, DenseVector => BDV, Vector => BV, Matrix => BM}
+import breeze.linalg._
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, Matrix => BM, Vector => BV}
 import breeze.numerics.sqrt
+import breeze.storage.Zero
+
+import scala.reflect.ClassTag
+import scala.util.Try
 
 case class RegressionResult(coefficients: BDV[Double], intercept: Double, rSquared: Double, loss: Double)
   extends (BDV[Double] => Double) {
@@ -21,6 +26,38 @@ abstract class RegressionBase {
   def fit(data: BM[Double], outputs: BV[Double], fitIntercept: Boolean): RegressionResult = {
     val weights = BDV.ones[Double](data.rows)
     fit(data, outputs, weights, fitIntercept)
+  }
+
+  /**
+    * Provides an implementation for sum operation of BroadcastedColumns in breeze.
+    * Spark 3.0.* and 3.1.* depends on breeze 1.0 and Spark 3.2.* depends on breeze 1.2, and there is
+    * a breaking change in the way the implicit sum implementation is provided.
+    * In breeze 1.0, the implementation is constructed via
+    *   `sum.vectorizeCols_Double(ClassTag[Double], Zero.DoubleZero, sum.helper_Double)`,
+    * while in breeze 1.2, it's constructed via
+    *   `sum.vectorizeCols_Double(sum.helper_Double)`
+    * If our code is compiled against Spark 3.1.2/breeze 1.0, the scala compiler implicitly constructs
+    * the implementation via
+    *   `sum.vectorizeCols_Double(ClassTag[Double], Zero.DoubleZero, sum.helper_Double)`,
+    * which does not exist in breeze 1.2, thus causing `java.lang.NoSuchMethodError` when running on Spark 3.2.0.
+    * Conversely, if our code is compiled against Spark 3.2.0/breeze 1.2, it will cause `java.lang.NoSuchMethodError`
+    * when running on Spark 3.0.* and 3.1.*.
+    * Workaround: use reflection to construct the implementation.
+    */
+  implicit lazy val sumImpl: sum.Impl[BroadcastedColumns[BDM[Double], BDV[Double]], Transpose[BDV[Double]]] = {
+    Try {
+      // This works for breeze 1.2
+      sum
+        .getClass
+        .getMethod("vectorizeCols_Double", classOf[sum.VectorizeHelper[_]])
+        .invoke(sum, sum.helper_Double)
+    }.getOrElse(
+      // This works for breeze 1.0
+      sum
+        .getClass
+        .getMethod("vectorizeCols_Double", classOf[ClassTag[_]], classOf[Zero[_]], classOf[sum.VectorizeHelper[_]])
+        .invoke(sum, ClassTag.Double, Zero.DoubleZero, sum.helper_Double)
+    ).asInstanceOf[sum.Impl[BroadcastedColumns[BDM[Double], BDV[Double]], Transpose[BDV[Double]]]]
   }
 
   def fit(data: BM[Double], outputs: BV[Double], sampleWeights: BV[Double], fitIntercept: Boolean)
