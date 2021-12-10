@@ -229,7 +229,8 @@ class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEst
   test("Blob Helper basic usage with endpoint and sas token") {
 
     val blobHelper = new AnomalyDetectionBlobHelpers(
-      storageName = "mmlspark", storageKey = storageKey, endpoint = "https://mmlspark.blob.core.windows.net/",
+      storageName = "anomalydetectiontest", storageKey = storageKey,
+      endpoint = "https://anomalydetectiontest.blob.core.windows.net/",
       sasToken = storageSASToken, containerName = "madtest")
     val sourceUrl = blobHelper.setTimestampCol("timestamp").upload(dataset)
 
