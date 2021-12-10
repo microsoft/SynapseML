@@ -311,6 +311,8 @@ jobs:
         PACKAGE: "opencv"
       vw:
         PACKAGE: "vw"
+      cognitive:
+        PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
