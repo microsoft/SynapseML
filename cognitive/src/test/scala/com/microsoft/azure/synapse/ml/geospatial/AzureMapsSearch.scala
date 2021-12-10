@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, Flatten
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
+import org.scalactic.Equality
 
 trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
@@ -41,24 +42,33 @@ class AzureMapSearchSuite extends TransformerFuzzing[AddressGeocoder] with Azure
     .setAddressCol("address")
     .setOutputCol("output")
 
+  def extractFields(df: DataFrame): DataFrame = {
+    df.select(
+      col("address"),
+      col("output.response.results").getItem(0).getField("position")
+        .getField("lat").as("latitude"),
+      col("output.response.results").getItem(0).getField("position")
+        .getField("lon").as("longitude"))
+  }
+
   test("Basic Batch Geocode Usage") {
     val batchedDF = batchGeocodeAddresses.transform(new FixedMiniBatchTransformer().setBatchSize(5).transform(df))
-    val flattenedResults = new FlattenBatch().transform(batchedDF)
-      .select(
-        col("address"),
-        col("output.response.results").getItem(0).getField("position")
-          .getField("lat").as("latitude"),
-        col("output.response.results").getItem(0).getField("position")
-          .getField("lon").as("longitude"))
+    val flattenedResults = extractFields(new FlattenBatch().transform(batchedDF))
       .collect()
 
     assert(flattenedResults != null)
     assert(flattenedResults.length == 15)
-    assert(flattenedResults.toSeq(0).get(1) == 47.64016)
+    assert(flattenedResults.toSeq.head.get(1) == 47.64016)
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(extractFields(df1), extractFields(df2))(eq)
   }
 
   override def testObjects(): Seq[TestObject[AddressGeocoder]] =
-    Seq(new TestObject[AddressGeocoder](batchGeocodeAddresses, df))
+    Seq(new TestObject[AddressGeocoder](
+      batchGeocodeAddresses,
+      new FixedMiniBatchTransformer().setBatchSize(5).transform(df)))
 
   override def reader: MLReadable[_] = AddressGeocoder
 }
