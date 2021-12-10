@@ -57,4 +57,5 @@ object Secrets {
   lazy val StorageKey: String = getSecret("mmlspark-storage-key")
   lazy val StorageSASToken: String = getSecret("mmlspark-storage-sas-token")
 
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }

@@ -299,12 +299,36 @@ jobs:
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-18.04
+  strategy:
+    matrix:
+      core:
+        PACKAGE: "core"
+      deep-learning:
+        PACKAGE: "deepLearning"
+      lightgbm:
+        PACKAGE: "lightgbm"
+      opencv:
+        PACKAGE: "opencv"
+      vw:
+        PACKAGE: "vw"
+      cognitive:
+        PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Install Pip Package'
+      timeoutInMinutes: 10
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate synapseml
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt installPipPackage
     - task: AzureCLI@1
       displayName: 'Test Python Code'
       timeoutInMinutes: 30
@@ -313,8 +337,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testPython) || (sbt coverage testPython) || (sbt coverage testPython)
+          (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
