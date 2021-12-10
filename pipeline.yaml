@@ -527,6 +527,10 @@ jobs:
         PACKAGE: "automl"
       cntk:
         PACKAGE: "cntk"
+      geospatial:
+        PACKAGE: "geospatial"
+      onnx:
+        PACKAGE: "onnx"
       cognitive1:
         PACKAGE: "cognitive.split1"
         FLAKY: "true"

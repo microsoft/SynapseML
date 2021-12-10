@@ -50,8 +50,7 @@ trait HasAddressInput extends HasServiceParams with HasSubscriptionKey with HasU
         val post = new HttpPost(new URI(getUrl + queryParams))
         post.setHeader("Content-Type", "application/json")
         post.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-        val addressesCol = getValueOpt(row, address)
-        val encodedAddresses = addressesCol.get.map(x => URLEncoder.encode(x, "UTF-8")).toList
+        val encodedAddresses = getValue(row, address).map(x => URLEncoder.encode(x, "UTF-8")).toList
         val payloadItems = encodedAddresses.map(x => s"""{ "query": "?query=$x&limit=1" }""").mkString(",")
         val payload = s"""{ "batchItems": [ $payloadItems ] }"""
         post.setEntity(new StringEntity(payload))
