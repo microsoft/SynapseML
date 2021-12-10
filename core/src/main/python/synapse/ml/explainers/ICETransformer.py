@@ -3,22 +3,46 @@
 
 from synapse.ml.explainers._ICETransformer import _ICETransformer
 from pyspark.ml.common import inherit_doc
-from typing import List, Dict
+from typing import List, Dict, Union
 
 @inherit_doc
 class ICETransformer(_ICETransformer):
-    def setCategoricalFeatures(self, value: List[Dict]):
+    def setCategoricalFeatures(self, values: Union[List[str], List[Dict]]):
         """
         Args:
-        value: The list of dicts with parameters for categorical features to explain.
+        values: The list of values that represent categorical features to explain.
+        Values are list of dicts with parameters or just a list of names of categorical features
         """
-        self._java_obj.setCategoricalFeatures(value)
+        if len(values) == 0:
+            pass
+        else:
+            list_values = []
+            for value in values:
+                if isinstance(value, str):
+                    list_values.append({"name": value})
+                elif isinstance(value, dict):
+                    list_values.append(value)
+                else:
+                    pass
+            self._java_obj.setCategoricalFeaturesPy(list_values)
         return self
 
-    def setNumericFeatures(self, value: List[Dict]):
+    def setNumericFeatures(self, values: List[Dict]):
         """
         Args:
-        value: The list of dicts with parameters for numeric features to explain.
+        values: The list of values that represent numeric features to explain.
+        Values are list of dicts with parameters or just a list of names of numeric features
         """
-        self._java_obj.setNumericFeatures(value)
+        if len(values) == 0:
+            pass
+        else:
+            list_values = []
+            for value in values:
+                if isinstance(value, str):
+                    list_values.append({"name": value})
+                elif isinstance(value, dict):
+                    list_values.append(value)
+                else:
+                    pass
+            self._java_obj.setNumericFeaturesPy(list_values)
         return self

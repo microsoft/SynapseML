@@ -12,7 +12,12 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import org.apache.spark.sql.execution.r.MapPartitionsRWrapper
+
+import scala.collection.generic.SeqForwarder
+import scala.collection.{AbstractSeq, LinearSeq, SeqProxy, SeqViewLike, immutable, mutable}
 import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.reflect.ClassTag.AnyVal
 
 trait ICEFeatureParams extends Params with HasNumSamples {
 
@@ -29,7 +34,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
-  def setCategoricalFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
+  def setCategoricalFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
     val features: Seq[ICECategoricalFeature] = values.asScala.toSeq.map(f => ICECategoricalFeature.fromMap(f))
     this.setCategoricalFeatures(features)
   }
@@ -44,10 +49,11 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def setNumericFeatures(values: Seq[ICENumericFeature]): this.type = this.set(numericFeatures, values)
   def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
 
-  def setNumericFeatures(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
+  def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
     val features: Seq[ICENumericFeature] = values.asScala.toSeq.map(ICENumericFeature.fromMap)
     this.setNumericFeatures(features)
   }
+
 
   val kind = new Param[String] (
     this,

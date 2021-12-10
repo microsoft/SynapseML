@@ -145,7 +145,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     map.put("name", "col2")
     map.put("numTopValues", 2)
     val feature = ICECategoricalFeature.fromMap(map)
-    ice.setCategoricalFeatures(List(map).asJava)
+    ice.setCategoricalFeaturesPy(List(map).asJava)
     assert(ice.getCategoricalFeatures.head == feature)
   }
 
