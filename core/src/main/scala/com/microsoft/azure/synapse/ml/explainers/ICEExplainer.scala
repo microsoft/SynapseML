@@ -12,12 +12,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import org.apache.spark.sql.execution.r.MapPartitionsRWrapper
-
-import scala.collection.generic.SeqForwarder
-import scala.collection.{AbstractSeq, LinearSeq, SeqProxy, SeqViewLike, immutable, mutable}
 import scala.jdk.CollectionConverters.asScalaBufferConverter
-import scala.reflect.ClassTag.AnyVal
+
 
 trait ICEFeatureParams extends Params with HasNumSamples {
 
@@ -104,7 +100,7 @@ class ICETransformer(override val uid: String) extends Transformer
     val result = predicted.withColumn(targetCol, explainTarget)
 
     getKind.toLowerCase match {
-      case this.averageKind =>
+      case `averageKind` =>
         // PDP output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
         result
           .groupBy(feature)
@@ -116,7 +112,7 @@ class ICETransformer(override val uid: String) extends Transformer
             ).alias(outputColName)
           )
 
-      case this.individualKind =>
+      case `individualKind` =>
         // ICE output schema: n rows * 2 cols (idCol + ice for the given feature: map(feature_value -> explanations))
         result
           .groupBy(idCol)
@@ -138,11 +134,13 @@ class ICETransformer(override val uid: String) extends Transformer
       .withColumn(idCol, monotonically_increasing_id())
       .withColumn(targetClasses, get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
-    // collect feature values for all features from original dataset - dfWithId
+    // Collect feature values for all features from original dataset - dfWithId
     val (categoricalFeatures, numericFeatures) = (getCategoricalFeatures, getNumericFeatures)
 
+    // If numSamples is specified, randomly pick numSamples instances from the input dataset
     val sampled: Dataset[Row] = get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
+    // Collect values from the input dataframe and create dependenceDF from them
     val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
       f: ICECategoricalFeature =>
         val values = collectCategoricalValues(dfWithId, f)
@@ -156,11 +154,14 @@ class ICETransformer(override val uid: String) extends Transformer
 
     val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
+    // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
+    // In the case of PDP the function will return df with a shape (1 row * number of features to explain)
+
     getKind.toLowerCase match {
-      case this.individualKind =>
+      case `individualKind` =>
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
           .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
-      case this.averageKind =>
+      case `averageKind` =>
         dependenceDfs.reduce(_ crossJoin _)
     }
   }
