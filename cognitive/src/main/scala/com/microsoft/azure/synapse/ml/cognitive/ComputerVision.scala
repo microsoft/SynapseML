@@ -222,7 +222,7 @@ trait BasicAsyncReply extends HasAsyncReply {
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
       .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
     status.map(_.toLowerCase()).flatMap {
-      case "succeeded" | "failed" => Some(resp)
+      case "succeeded" | "failed" | "partiallycompleted" => Some(resp)
       case "notstarted" | "running" => None
       case s => throw new RuntimeException(s"Received unknown status code: $s")
     }
@@ -231,10 +231,13 @@ trait BasicAsyncReply extends HasAsyncReply {
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 202) {
+    if (response != null && response.statusLine.statusCode == 202) {
       val location = new URI(response.headers.filter(_.name.toLowerCase() == "operation-location").head.value)
       val maxTries = getMaxPollingRetries
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
+      blocking {
+        Thread.sleep(getInitialPollingDelay.toLong)
+      }
       val it = (0 to maxTries).toIterator.flatMap { _ =>
         queryForResult(key, client, location).orElse({
           blocking {
@@ -283,8 +286,17 @@ trait HasAsyncReply extends Params {
   /** @group setParam */
   def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
 
+  val initialPollingDelay: IntParam = new IntParam(
+    this, "initialPollingDelay", "number of milliseconds to wait before first poll for result")
+
+  /** @group getParam */
+  def getInitialPollingDelay: Int = $(initialPollingDelay)
+
+  /** @group setParam */
+  def setInitialPollingDelay(value: Int): this.type = set(initialPollingDelay, value)
+
   //scalastyle:off magic.number
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300)
+  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300, initialPollingDelay -> 300)
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],
