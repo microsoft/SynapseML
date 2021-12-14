@@ -17,7 +17,7 @@ import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
+import org.apache.spark.ml.param.{DataFrameParam, ParamMap, ServiceParam}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, lit, struct}
@@ -144,7 +144,7 @@ class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[D
   with MADBase {
   logClass()
 
-  def this() = this(Identifiable.randomUID("MultivariateAnomalyModel"))
+  def this() = this(Identifiable.randomUID("MultivariateAnomalyEstimator"))
 
   def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
 
@@ -295,6 +295,133 @@ class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[D
   override def transformSchema(schema: StructType): StructType = {
     getInternalTransformer(schema).transformSchema(schema)
   }
+}
+
+trait HasBlobHelper extends HasServiceParams {
+
+  val timestampCol = new ServiceParam[String](this, "timestampCol", "Timestamp column name")
+
+  def setTimestampCol(v: String): this.type = setScalarParam(timestampCol, v)
+
+  def getTimestampCol: String = getScalarParam(timestampCol)
+
+  setDefault(timestampCol -> Left("timestamp"))
+
+  val connectionString = new ServiceParam[String](this, "connectionString", "Connection String " +
+    "for your storage account used for uploading files.")
+
+  def setConnectionString(v: String): this.type = setScalarParam(connectionString, v)
+
+  def getConnectionString: String = getScalarParam(connectionString)
+
+  val storageName = new ServiceParam[String](this, "storageName", "Storage Name " +
+    "for your storage account used for uploading files.")
+
+  def setStorageName(v: String): this.type = setScalarParam(storageName, v)
+
+  def getStorageName: String = getScalarParam(storageName)
+
+  val storageKey = new ServiceParam[String](this, "storageKey", "Storage Key " +
+    "for your storage account used for uploading files.")
+
+  def setStorageKey(v: String): this.type = setScalarParam(storageKey, v)
+
+  def getStorageKey: String = getScalarParam(storageKey)
+
+  val endpoint = new ServiceParam[String](this, "endpoint", "End Point " +
+    "for your storage account used for uploading files.")
+
+  def setEndpoint(v: String): this.type = setScalarParam(endpoint, v)
+
+  def getEndpoint: String = getScalarParam(endpoint)
+
+  val sasToken = new ServiceParam[String](this, "sasToken", "SAS Token " +
+    "for your storage account used for uploading files.")
+
+  def setSASToken(v: String): this.type = setScalarParam(sasToken, v)
+
+  def getSASToken: String = getScalarParam(sasToken)
+
+  val containerName = new ServiceParam[String](this, "containerName", "Container that will be " +
+    "used to upload files to.")
+
+  def setContainerName(v: String): this.type = setScalarParam(containerName, v)
+
+  def getContainerName: String = getScalarParam(containerName)
+
+  val sourceDF = new DataFrameParam(this, "sourceDF", "DataFrame as multivariate " +
+    "anomaly detection estimator training input")
+
+  def setSourceDF(v: DataFrame): this.type = set(sourceDF, v)
+
+  def getSourceDF: DataFrame = $(sourceDF)
+
+}
+
+object SimpleMultiAnomalyEstimator extends ComplexParamsReadable[SimpleMultiAnomalyEstimator] with Serializable
+
+class SimpleMultiAnomalyEstimator(override val uid: String) extends MultivariateAnomalyEstimator with HasBlobHelper {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("SimpleMultiAnomalyEstimator"))
+
+  setDefault(source -> Left(""))
+
+  var blobName = ""
+
+  def cleanUpIntermediateData(): Unit = {
+    val blobHelper = if (this.get(connectionString).nonEmpty) {
+      AnomalyDetectionBlobHelpers(getConnectionString, getContainerName, getTimestampCol)
+    } else {
+      AnomalyDetectionBlobHelpers(getStorageName, getStorageKey, getEndpoint,
+        getSASToken, getContainerName, getTimestampCol)
+    }
+    blobHelper.getBlobContainerClient.getBlobClient(blobName).delete()
+  }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+    val blobHelper = if (this.get(connectionString).nonEmpty) {
+      AnomalyDetectionBlobHelpers(getConnectionString, getContainerName, getTimestampCol)
+    } else {
+      AnomalyDetectionBlobHelpers(getStorageName, getStorageKey, getEndpoint,
+        getSASToken, getContainerName, getTimestampCol)
+    }
+    this.setSource(blobHelper.upload(getSourceDF))
+    blobName = blobHelper.blobName
+
+    val stages = Array(
+      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(handlingFunc)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCol(dynamicParamColName)
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+  }
+
 }
 
 object DetectMultivariateAnomaly extends ComplexParamsReadable[DetectMultivariateAnomaly] with Serializable

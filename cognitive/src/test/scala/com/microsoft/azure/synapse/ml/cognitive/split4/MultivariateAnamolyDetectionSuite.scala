@@ -117,7 +117,7 @@ class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEst
   import MADUtils._
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
+    def prep(df: DataFrame): DataFrame = {
       df.select("source")
     }
 
@@ -183,89 +183,6 @@ class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEst
     assert(caught.getMessage.contains("endTime"))
   }
 
-  import spark.implicits._
-
-  lazy val fileLocation: String = DatasetUtils.madTestFile("mad_example.csv").toString
-  lazy val dataset: DataFrame = spark.read.format("csv").option("header", "true")
-    .load(fileLocation)
-  lazy val emptyDf: DataFrame = Seq("").toDF()
-
-  test("Blob Helper basic usage with connectionString") {
-
-    val blobHelper = new AnomalyDetectionBlobHelpers(
-      storageConnectionString = connectionString, containerName = "madtest")
-    val sourceUrl = blobHelper.setTimestampCol("timestamp").upload(dataset)
-
-    val mae = new MultivariateAnomalyEstimator()
-      .setSubscriptionKey(anomalyKey)
-      .setLocation("westus2")
-      .setOutputCol("result")
-      .setSource(sourceUrl)
-      .setStartTime(startTime)
-      .setEndTime(endTime)
-      .setSlidingWindow(200)
-      .setConcurrency(5)
-
-    val model = mae.fit(emptyDf)
-    val diagnosticsInfo = mae.getDiagnosticsInfo
-    assert(diagnosticsInfo.variableStates.get.length.equals(3))
-
-    val result = model
-      .setSource(sourceUrl).setStartTime(startTime).setEndTime(endTime)
-      .setOutputCol("result")
-      .transform(emptyDf)
-      .withColumn("status", col("result.summary.status"))
-      .withColumn("variableStates", col("result.summary.variableStates"))
-      .select("status", "variableStates")
-      .collect()
-
-    assert(result.head.getString(0).equals("READY"))
-    assert(result.head.getSeq(1).length.equals(3))
-
-    madDelete(model.getModelId)
-
-    blobHelper.deleteBlob()
-  }
-
-  test("Blob Helper basic usage with endpoint and sas token") {
-
-    val blobHelper = new AnomalyDetectionBlobHelpers(
-      storageName = "anomalydetectiontest", storageKey = storageKey,
-      endpoint = "https://anomalydetectiontest.blob.core.windows.net/",
-      sasToken = storageSASToken, containerName = "madtest")
-    val sourceUrl = blobHelper.setTimestampCol("timestamp").upload(dataset)
-
-    val mae = new MultivariateAnomalyEstimator()
-      .setSubscriptionKey(anomalyKey)
-      .setLocation("westus2")
-      .setOutputCol("result")
-      .setSource(sourceUrl)
-      .setStartTime(startTime)
-      .setEndTime(endTime)
-      .setSlidingWindow(200)
-      .setConcurrency(5)
-
-    val model = mae.fit(emptyDf)
-    val diagnosticsInfo = mae.getDiagnosticsInfo
-    assert(diagnosticsInfo.variableStates.get.length.equals(3))
-
-    val result = model
-      .setSource(sourceUrl).setStartTime(startTime).setEndTime(endTime)
-      .setOutputCol("result")
-      .transform(emptyDf)
-      .withColumn("status", col("result.summary.status"))
-      .withColumn("variableStates", col("result.summary.variableStates"))
-      .select("status", "variableStates")
-      .collect()
-
-    assert(result.head.getString(0).equals("READY"))
-    assert(result.head.getSeq(1).length.equals(3))
-
-    madDelete(model.getModelId)
-
-    blobHelper.deleteBlob()
-  }
-
   override def testSerialization(): Unit = {
     println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
   }
@@ -286,6 +203,131 @@ class MultiAnomalyEstimatorSuite extends EstimatorFuzzing[MultivariateAnomalyEst
     Seq(new TestObject(mae.setSlidingWindow(200), df))
 
   override def reader: MLReadable[_] = MultivariateAnomalyEstimator
+
+  override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
+}
+
+
+class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnomalyEstimator] with MADUtils {
+
+  import MADUtils._
+  import spark.implicits._
+
+  lazy val fileLocation: String = DatasetUtils.madTestFile("mad_example.csv").toString
+  lazy val dataset: DataFrame = spark.read.format("csv").option("header", "true")
+    .load(fileLocation)
+  lazy val emptyDf: DataFrame = Seq("").toDF()
+
+  def simpleMultiAnomalyEstimator: SimpleMultiAnomalyEstimator = new SimpleMultiAnomalyEstimator()
+    .setSubscriptionKey(anomalyKey)
+    .setLocation("westus2")
+    .setOutputCol("result")
+    .setContainerName("madtest")
+    .setSourceDF(dataset)
+    .setStartTime(startTime)
+    .setEndTime(endTime)
+    .setConcurrency(5)
+
+  test("SimpleMultiAnomalyEstimator basic usage with connectionString") {
+
+    val smae = simpleMultiAnomalyEstimator.setSlidingWindow(200).setConnectionString(connectionString)
+    val model = smae.fit(emptyDf)
+    val diagnosticsInfo = smae.getDiagnosticsInfo
+    assert(diagnosticsInfo.variableStates.get.length.equals(3))
+
+    val result = model
+      .setSource(smae.getSource).setStartTime(startTime).setEndTime(endTime)
+      .setOutputCol("result")
+      .transform(emptyDf)
+      .withColumn("status", col("result.summary.status"))
+      .withColumn("variableStates", col("result.summary.variableStates"))
+      .select("status", "variableStates")
+      .collect()
+
+    assert(result.head.getString(0).equals("READY"))
+    assert(result.head.getSeq(1).length.equals(3))
+
+    madDelete(model.getModelId)
+
+    smae.cleanUpIntermediateData()
+  }
+
+  test("SimpleMultiAnomalyEstimator basic usage with endpoint and sasToken") {
+
+    val smae = simpleMultiAnomalyEstimator.setSlidingWindow(200)
+      .setStorageName("anomalydetectiontest")
+      .setStorageKey(storageKey)
+      .setEndpoint("https://anomalydetectiontest.blob.core.windows.net/")
+      .setSASToken(storageSASToken)
+    val model = smae.fit(emptyDf)
+    val diagnosticsInfo = smae.getDiagnosticsInfo
+    assert(diagnosticsInfo.variableStates.get.length.equals(3))
+
+    val result = model
+      .setSource(smae.getSource).setStartTime(startTime).setEndTime(endTime)
+      .setOutputCol("result")
+      .transform(emptyDf)
+      .withColumn("status", col("result.summary.status"))
+      .withColumn("variableStates", col("result.summary.variableStates"))
+      .select("status", "variableStates")
+      .collect()
+
+    assert(result.head.getString(0).equals("READY"))
+    assert(result.head.getSeq(1).length.equals(3))
+
+    madDelete(model.getModelId)
+
+    smae.cleanUpIntermediateData()
+  }
+
+  test("Throw errors if alignMode is not set correctly") {
+    val caught = intercept[IllegalArgumentException] {
+      simpleMultiAnomalyEstimator.setSlidingWindow(200).setAlignMode("alignMode").fit(df)
+    }
+    assert(caught.getMessage.contains("parameter alignMode given invalid value"))
+  }
+
+  test("Throw errors if slidingWindow is not between 28 and 2880") {
+    val caught = intercept[IllegalArgumentException] {
+      simpleMultiAnomalyEstimator.setSlidingWindow(20).fit(df)
+    }
+    assert(caught.getMessage.contains("parameter slidingWindow given invalid value"))
+  }
+
+  test("Throw errors if required fields not set") {
+    val caught = intercept[AssertionError] {
+      new SimpleMultiAnomalyEstimator()
+        .setSubscriptionKey(anomalyKey)
+        .setLocation("westus2")
+        .setOutputCol("result")
+        .fit(df)
+    }
+    assert(caught.getMessage.contains("Missing required params"))
+    assert(caught.getMessage.contains("slidingWindow"))
+    assert(caught.getMessage.contains("startTime"))
+    assert(caught.getMessage.contains("endTime"))
+  }
+
+  override def testSerialization(): Unit = {
+    println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
+  }
+
+  override def testExperiments(): Unit = {
+    println("ignore the Experiment Fuzzing test because fitting process takes more than 3 minutes")
+  }
+
+  override def afterAll(): Unit = {
+    val models = madListModels().parseJson.convertTo[MADListModelsResponse].models.map(_.modelId)
+    for (modelId <- models) {
+      madDelete(modelId)
+    }
+    super.afterAll()
+  }
+
+  override def testObjects(): Seq[TestObject[SimpleMultiAnomalyEstimator]] =
+    Seq(new TestObject(simpleMultiAnomalyEstimator.setSlidingWindow(200), df))
+
+  override def reader: MLReadable[_] = SimpleMultiAnomalyEstimator
 
   override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
 }

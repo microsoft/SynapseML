@@ -15,53 +15,53 @@ import java.time.{Instant, OffsetDateTime, ZoneId, ZoneOffset}
 import java.util.UUID
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
+object AnomalyDetectionBlobHelpers {
+
+  def apply(storageConnectionString: String, containerName: String,
+            timestampCol: String): AnomalyDetectionBlobHelpers = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .connectionString(storageConnectionString)
+      .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
+    }
+    new AnomalyDetectionBlobHelpers(blobContainerClient, timestampCol)
+  }
+
+  def apply(storageName: String, storageKey: String, endpoint: String, sasToken: String,
+            containerName: String, timestampCol: String): AnomalyDetectionBlobHelpers = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .endpoint(endpoint)
+      .sasToken(sasToken)
+      .credential(new StorageSharedKeyCredential(storageName, storageKey))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
+    }
+    new AnomalyDetectionBlobHelpers(blobContainerClient, timestampCol)
+  }
+}
+
 /** Helper to upload data from dataframe to Azure Blob storage. Stored as CSV and zipped.
   *
   * @param blobContainerClient configured with credentials.
+  * @param timestampCol        timestamp column of the source dataframe.
   */
-class AnomalyDetectionBlobHelpers(blobContainerClient: BlobContainerClient) {
+class AnomalyDetectionBlobHelpers(blobContainerClient: BlobContainerClient, timestampCol: String) {
 
   var blobName = ""
-  var timestampCol = "timestamp"
 
-  def this(storageConnectionString: String, containerName: String) =
-    this {
-      val blobContainerClient = new BlobServiceClientBuilder()
-        .connectionString(storageConnectionString)
-        .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
-        .buildClient()
-        .getBlobContainerClient(containerName.toLowerCase())
-      if (!blobContainerClient.exists()) {
-        blobContainerClient.create()
-      }
-      blobContainerClient
-    }
-
-  def this(storageName: String, storageKey: String, endpoint: String, sasToken: String, containerName: String) =
-    this {
-      val blobContainerClient = new BlobServiceClientBuilder()
-        .endpoint(endpoint)
-        .sasToken(sasToken)
-        .credential(new StorageSharedKeyCredential(storageName, storageKey))
-        .buildClient()
-        .getBlobContainerClient(containerName.toLowerCase())
-      if (!blobContainerClient.exists()) {
-        blobContainerClient.create()
-      }
-      blobContainerClient
-    }
-
-  def setTimestampCol(v: String): this.type = {
-    timestampCol = v
-    this
-  }
+  def getBlobContainerClient: BlobContainerClient = this.blobContainerClient
 
   def deleteBlob(): Unit =
     blobContainerClient.getBlobClient(blobName).delete()
 
   def upload(df: DataFrame): String = {
     val timestampColumn = df.schema
-      .find(p => p.name == timestampCol)
+      .find(p => p.name == this.timestampCol)
       .get
 
     upload(df, timestampColumn)
