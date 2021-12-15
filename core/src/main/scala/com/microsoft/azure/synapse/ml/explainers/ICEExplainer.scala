@@ -50,7 +50,6 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this.setNumericFeatures(features)
   }
 
-
   val kind = new Param[String] (
     this,
     "kind",
@@ -197,6 +196,7 @@ class ICETransformer(override val uid: String) extends Transformer
           } else {
             createSplits(mi, ma)
           }
+
         case _ =>
           createSplits(mi, ma)
       }
@@ -227,6 +227,7 @@ class ICETransformer(override val uid: String) extends Transformer
           createSplits(mi, ma)
       }
     }
+
     values.toArray
   }
 
@@ -239,12 +240,13 @@ class ICETransformer(override val uid: String) extends Transformer
     categoricalFeatures.foreach {
       f =>
         schema(f.name).dataType match {
-          case StringType| BooleanType | ByteType | ShortType | IntegerType | LongType =>
+          case StringType | BooleanType | ByteType | ShortType | IntegerType | LongType =>
           case _ => throw new
               Exception(s"Data type for categorical features" +
                 s" must be ${allowedCategoricalTypes.mkString("[", ",", "]")}.")
         }
     }
+
     val allowedNumericTypes = Array(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType, DecimalType)
     numericFeatures.foreach {
       f =>
@@ -254,17 +256,20 @@ class ICETransformer(override val uid: String) extends Transformer
               Exception(s"Data type for numeric features must be ${allowedNumericTypes.mkString("[", ",", "]")}.")
         }
     }
+
     // Check if features are specified
     val featureNames = (categoricalFeatures ++ numericFeatures).map(_.getName)
     if (featureNames.isEmpty) {
       throw new Exception("No categorical features or numeric features are set to the explainer. " +
         "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
     }
+
     // Check for duplicate feature specification
     val duplicateFeatureNames = featureNames.groupBy(identity).mapValues(_.length).filter(_._2 > 1).keys.toArray
     if (duplicateFeatureNames.nonEmpty) {
       throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
     }
+
     validateSchema(schema)
     schema
   }
