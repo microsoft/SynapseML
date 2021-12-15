@@ -138,16 +138,8 @@ trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with 
   }
 }
 
-object MultivariateAnomalyEstimator extends ComplexParamsReadable[MultivariateAnomalyEstimator] with Serializable
-
-class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+trait MADEstimatorBase extends HasServiceParams
   with MADBase {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("MultivariateAnomalyEstimator"))
-
-  def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
-
   val slidingWindow = new ServiceParam[Int](this, "slidingWindow", "An optional field, indicates" +
     " how many history points will be used to determine the anomaly score of one subsequent point.", {
     case Left(x) => (x >= 28) && (x <= 2880)
@@ -232,6 +224,17 @@ class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[D
         "displayName" -> getValueOpt(r, displayName).toJson)
         .toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
+}
+
+object MultivariateAnomalyEstimator extends ComplexParamsReadable[MultivariateAnomalyEstimator] with Serializable
+
+class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+  with MADEstimatorBase {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("MultivariateAnomalyEstimator"))
+
+  def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
 
   override def responseDataType: DataType = MAEResponse.schema
 
@@ -360,10 +363,15 @@ trait HasBlobHelper extends HasServiceParams {
 
 object SimpleMultiAnomalyEstimator extends ComplexParamsReadable[SimpleMultiAnomalyEstimator] with Serializable
 
-class SimpleMultiAnomalyEstimator(override val uid: String) extends MultivariateAnomalyEstimator with HasBlobHelper {
+class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+  with MADEstimatorBase with HasBlobHelper {
   logClass()
 
   def this() = this(Identifiable.randomUID("SimpleMultiAnomalyEstimator"))
+
+  def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
+
+  override def responseDataType: DataType = MAEResponse.schema
 
   setDefault(source -> Left(""))
 
@@ -379,7 +387,7 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Multivariate
     blobHelper.getBlobContainerClient.getBlobClient(blobName).delete()
   }
 
-  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+  protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
     val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
     assert(badColumns.isEmpty,
@@ -420,6 +428,33 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Multivariate
     )
 
     NamespaceInjections.pipelineModel(stages)
+  }
+
+  override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
+    logFit({
+      import MADJsonProtocol._
+
+      val df = getInternalTransformer(dataset.schema)
+        .transform(dataset)
+        .withColumn("diagnosticsInfo", col(getOutputCol)
+          .getField("modelInfo").getField("diagnosticsInfo"))
+        .withColumn("modelId", col(getOutputCol).getField("modelId"))
+        .select(getOutputCol, "modelId", "diagnosticsInfo")
+        .collect()
+      this.setDiagnosticsInfo(df.head.get(2).asInstanceOf[GenericRowWithSchema]
+        .json.parseJson.convertTo[DiagnosticsInfo])
+      val modelId = df.head.getString(1)
+      new DetectMultivariateAnomaly()
+        .setSubscriptionKey(getSubscriptionKey)
+        .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
+        .setModelId(modelId)
+    })
+  }
+
+  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
+
+  override def transformSchema(schema: StructType): StructType = {
+    getInternalTransformer(schema).transformSchema(schema)
   }
 
 }
