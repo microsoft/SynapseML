@@ -31,7 +31,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
   def setCategoricalFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
-    val features: Seq[ICECategoricalFeature] = values.asScala.toSeq.map(f => ICECategoricalFeature.fromMap(f))
+    val features: Seq[ICECategoricalFeature] = values.asScala.map(f => ICECategoricalFeature.fromMap(f))
     this.setCategoricalFeatures(features)
   }
 
@@ -46,7 +46,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
 
   def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
-    val features: Seq[ICENumericFeature] = values.asScala.toSeq.map(ICENumericFeature.fromMap)
+    val features: Seq[ICENumericFeature] = values.asScala.map(ICENumericFeature.fromMap)
     this.setNumericFeatures(features)
   }
 
@@ -141,18 +141,16 @@ class ICETransformer(override val uid: String) extends Transformer
     val sampled: Dataset[Row] = get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
     // Collect values from the input dataframe and create dependenceDF from them
-    val calcCategoricalFunc: ICECategoricalFeature => DataFrame = {
-      f: ICECategoricalFeature =>
-        val values = collectCategoricalValues(dfWithId, f)
-        calcDependence(sampled, idCol, targetClasses, f.name, values, f.getOutputColName)
+    val features = categoricalFeatures ++ numericFeatures
+    val dependenceDfs= features.map {
+      case f: ICECategoricalFeature =>
+        (f, collectCategoricalValues(dfWithId, f))
+      case f: ICENumericFeature =>
+        (f, collectSplits(dfWithId, f))
+    }.map {
+      case (f, values) =>
+        calcDependence(sampled, idCol, targetClasses, f.getName, values, f.getOutputColName)
     }
-    val calcNumericFunc: ICENumericFeature => DataFrame = {
-      f: ICENumericFeature =>
-        val values = collectSplits(dfWithId, f)
-        calcDependence(sampled, idCol, targetClasses, f.name, values, f.getOutputColName)
-    }
-
-    val dependenceDfs = (categoricalFeatures map calcCategoricalFunc) ++ (numericFeatures map calcNumericFunc)
 
     // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
     // In the case of PDP the function will return df with a shape (1 row * number of features to explain)
@@ -167,10 +165,10 @@ class ICETransformer(override val uid: String) extends Transformer
   }
 
   private def collectCategoricalValues[_](df: DataFrame, feature: ICECategoricalFeature): Array[_] = {
-    val featureCountCol = DatasetExtensions.findUnusedColumnName("__feature__count__", df)
+    val featureCount = DatasetExtensions.findUnusedColumnName("__feature__count__", df)
     df.groupBy(col(feature.name))
-      .agg(count("*").as(featureCountCol))
-      .orderBy(col(featureCountCol).desc)
+      .agg(count("*").as(featureCount))
+      .orderBy(col(featureCount).desc)
       .head(feature.getNumTopValue)
       .map(row => row.get(0))
   }
@@ -257,7 +255,7 @@ class ICETransformer(override val uid: String) extends Transformer
         }
     }
     // Check if features are specified
-    val featureNames = (categoricalFeatures ++ numericFeatures).map(_.name)
+    val featureNames = (categoricalFeatures ++ numericFeatures).map(_.getName)
     if (featureNames.isEmpty) {
       throw new Exception("No categorical features or numeric features are set to the explainer. " +
         "Call setCategoricalFeatures or setNumericFeatures to set the features to be explained.")
@@ -267,7 +265,7 @@ class ICETransformer(override val uid: String) extends Transformer
     if (duplicateFeatureNames.nonEmpty) {
       throw new Exception(s"Duplicate features specified: ${duplicateFeatureNames.mkString(", ")}")
     }
-    this.validateSchema(schema)
+    validateSchema(schema)
     schema
   }
 }

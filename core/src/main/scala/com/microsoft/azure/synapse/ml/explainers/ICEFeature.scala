@@ -3,12 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
+import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-private[explainers] abstract class ICEFeature(val name: String, outputColName: Option[String] = None) {
+private[explainers] abstract class ICEFeature(name: String, outputColName: Option[String] = None) {
   def validate: Boolean
   private val defaultOutputColName = name + "_dependence"
   def getOutputColName: String = this.outputColName.getOrElse(defaultOutputColName)
+  def getName: String = name
 }
 
 /**
@@ -19,16 +21,15 @@ private[explainers] abstract class ICEFeature(val name: String, outputColName: O
   * @param outputColName The name for output column with explanations for the feature.
   *                      Default: input name of the feature + _dependence.
   */
-case class ICECategoricalFeature(override val name: String, numTopValues: Option[Int] = None,
+case class ICECategoricalFeature(name: String, numTopValues: Option[Int] = None,
                                  outputColName: Option[String] = None)
  extends ICEFeature(name, outputColName) {
   override def validate: Boolean = {
     numTopValues.forall(_ > 0)
   }
 
-  private val defaultNumTopValue = 100
   def getNumTopValue: Int = {
-    this.numTopValues.getOrElse(defaultNumTopValue)
+    this.numTopValues.getOrElse(ICECategoricalFeature.DefaultNumTopValue)
   }
 }
 
@@ -36,36 +37,15 @@ case class ICECategoricalFeature(override val name: String, numTopValues: Option
   * Companion object to provide JSON serializer and deserializer for ICECategoricalFeature.
   */
 object ICECategoricalFeature {
-  implicit val JsonFormat: JsonFormat[ICECategoricalFeature] = new JsonFormat[ICECategoricalFeature] {
-    override def read(json: JsValue): ICECategoricalFeature = {
-      val fields = json.asJsObject.fields
-      val name = fields("name") match {
-        case JsString(value) => value
-        case _ => throw new Exception("The name field must be a JsString.")
-      }
-      val numTopValues = fields.get("numTopValues") match {
-        case Some(JsNumber(value)) => Some(value.toInt)
-        case _ => None
-      }
-      val outputColName = fields.get("outputColName") match {
-        case Some(JsString(value)) => Some(value)
-        case _ => None
-      }
-      ICECategoricalFeature(name, numTopValues, outputColName)
-    }
-    override def write(obj: ICECategoricalFeature): JsValue = {
-      val map = Map("name" -> JsString(obj.name))++
-        obj.numTopValues.map("numTopValues" -> JsNumber(_))++
-        obj.outputColName.map("outputColName" -> JsString(_))
-      JsObject(map)
-    }
-  }
+  val DefaultNumTopValue: Int = 100
+  implicit val JsonFormat: JsonFormat[ICECategoricalFeature] = jsonFormat3(ICECategoricalFeature.apply)
   def fromMap(inputMap: java.util.HashMap[String, Any]): ICECategoricalFeature = {
     val name: String = inputMap.get("name").toString
     val numTopValues: Option[Int] = inputMap.get("numTopValues") match {
       case value: Integer => Some(Integer2int(value))
       case _ => None
     }
+
     val outputColName: Option[String] = inputMap.get("outputColName") match {
       case value: String => Some(value)
       case _ => None
@@ -87,7 +67,7 @@ object ICECategoricalFeature {
   * @param outputColName The name for output column with explanations for the feature.
   *                      Default: input name of the feature + "_dependence"
   */
-case class ICENumericFeature(override val name: String, numSplits: Option[Int] = None,
+case class ICENumericFeature(name: String, numSplits: Option[Int] = None,
                              rangeMin: Option[Double] = None, rangeMax: Option[Double] = None,
                              outputColName: Option[String] = None)
   extends ICEFeature(name, outputColName) {
@@ -96,9 +76,8 @@ case class ICENumericFeature(override val name: String, numSplits: Option[Int] =
     numSplits.forall(_ > 0) && (rangeMax.isEmpty || rangeMin.isEmpty || rangeMin.get <= rangeMax.get)
   }
 
-  private val defaultNumSplits = 10
   def getNumSplits: Int = {
-    this.numSplits.getOrElse(defaultNumSplits)
+    this.numSplits.getOrElse(ICENumericFeature.DefaultNumSplits)
   }
 }
 
@@ -106,58 +85,25 @@ case class ICENumericFeature(override val name: String, numSplits: Option[Int] =
   * Companion object to provide JSON serializer and deserializer for ICENumericFeature.
   */
 object ICENumericFeature {
-  implicit val JsonFormat: JsonFormat[ICENumericFeature] = new JsonFormat[ICENumericFeature] {
-    override def read(json: JsValue): ICENumericFeature = {
-      val fields = json.asJsObject.fields
-      val name = fields("name") match {
-        case JsString(value) => value
-        case _ => throw new Exception("The name field must be a JsString.")
-      }
-
-      val numSplits = fields.get("numSplits") match {
-        case Some(JsNumber(value)) => Some(value.toInt)
-        case _ => None
-      }
-
-      val rangeMin = fields.get("rangeMin").map {
-        case JsNumber(value) => value.toDouble
-      }
-
-      val rangeMax = fields.get("rangeMax").map {
-        case JsNumber(value) => value.toDouble
-      }
-
-      val outputColName = fields.get("outputColName") match {
-        case Some(JsString(value)) => Some(value)
-        case _ => None
-      }
-
-      ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
-    }
-
-    override def write(obj: ICENumericFeature): JsValue = {
-      val map = Map("name" -> JsString(obj.name))++
-        obj.numSplits.map("numSplits" -> JsNumber(_))++
-        obj.rangeMin.map("rangeMin" -> JsNumber(_))++
-        obj.rangeMax.map("rangeMax" -> JsNumber(_))++
-        obj.outputColName.map("outputColName" -> JsString(_))
-      JsObject(map)
-    }
-  }
+  val DefaultNumSplits: Int = 10
+  implicit val JsonFormat: JsonFormat[ICENumericFeature] = jsonFormat5(ICENumericFeature.apply)
   def fromMap(inputMap: java.util.HashMap[String, Any]): ICENumericFeature = {
     val name: String = inputMap.get("name").toString
     val numSplits: Option[Int] = inputMap.get("numSplits") match {
       case value: Integer => Some(Integer2int(value))
       case _ => None
     }
+
     val rangeMin: Option[Double] = inputMap.get("rangeMin") match {
       case value: java.lang.Double => Some(value.doubleValue())
       case _ => None
     }
+
     val rangeMax: Option[Double] = inputMap.get("rangeMax") match {
       case value: java.lang.Double => Some(value.doubleValue())
       case _ => None
     }
+
     val outputColName = inputMap.get("outputColName") match {
       case value: String => Some(value)
       case _ => None

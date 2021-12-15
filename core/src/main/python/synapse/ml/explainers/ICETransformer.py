@@ -7,7 +7,7 @@ from typing import List, Dict, Union
 
 @inherit_doc
 class ICETransformer(_ICETransformer):
-    def setCategoricalFeatures(self, values: Union[List[str], List[Dict]]):
+    def setCategoricalFeatures(self, values: List[Union[str, Dict]]):
         """
         Args:
         values: The list of values that represent categorical features to explain.
@@ -27,7 +27,7 @@ class ICETransformer(_ICETransformer):
             self._java_obj.setCategoricalFeaturesPy(list_values)
         return self
 
-    def setNumericFeatures(self, values: List[Dict]):
+    def setNumericFeatures(self, values: List[Union[str, Dict]]):
         """
         Args:
         values: The list of values that represent numeric features to explain.
