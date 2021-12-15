@@ -12,6 +12,7 @@ import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import scala.collection.mutable.WrappedArray
 
 trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
@@ -189,20 +190,23 @@ class FlattenBatch(val uid: String)
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))
 
-  def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
+  def transpose(nestedSeq: Seq[Any]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.filter {
       case null => false
-      case _ => true
-    }.head.length
+      case _: Seq[Any] => true
+      case _ => false
+    }.head.asInstanceOf[Seq[Any]].length
 
     assert(nestedSeq.forall{
       case null => true
-      case innerSeq => innerSeq.lengthCompare(innerLength) == 0
+      case innerSeq: Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
+      case _ => true
     })
     (0 until innerLength).map(i => nestedSeq.map{
       case null => null
-      case innerSeq => innerSeq(i)
+      case innerSeq: Seq[Any] => innerSeq(i)
+      case any => any
     })
   }
 
@@ -215,8 +219,17 @@ class FlattenBatch(val uid: String)
         it.flatMap { rowOfLists =>
           val transposed: Seq[Seq[Any]] = transpose(
             (0 until rowOfLists.length)
-              .filterNot(rowOfLists.isNullAt)
-              .map(rowOfLists.getSeq))
+              .map(i => {
+                if (rowOfLists.isNullAt(i)) {
+                  null
+                } else {
+                  val value = rowOfLists.get(i)
+                  value match {
+                    case _: WrappedArray[_] => rowOfLists.getSeq(i)
+                    case _ => value
+                  }
+                }
+              }))
           transposed.map {
             values => new GenericRowWithSchema(values.toArray, outputSchema)
           }
@@ -228,11 +241,11 @@ class FlattenBatch(val uid: String)
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    assert(schema.fields.forall(sf => sf.dataType match {
-      case _: ArrayType => true
-      case _ => false
+    StructType(schema.map(f => {
+      f.dataType match {
+        case arrayField: ArrayType => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)
+        case nonArrayField => StructField(f.name, f.dataType)
+      }
     }))
-    StructType(schema.map(f => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)))
   }
-
 }
