@@ -13,6 +13,7 @@ import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, 
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -228,6 +229,27 @@ trait BasicAsyncReply extends HasAsyncReply {
     }
   }
 
+  private def getRetriesExceededHTTPResponseData(maxTries: Int) = {
+    val headers = Array[HeaderData]()
+    val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" + 
+          s"SynapseML: Querying for results did not complete within ${maxTries} tries" + "\"}}";
+    val errorResponse = errorResponseString.getBytes()
+    val entityData = EntityData(
+      errorResponse,
+      None,
+      Some(errorResponse.length.toLong),
+      Some(HeaderData("Content-Type", "application/json")),
+      false,
+      false,
+      false)
+    val statusLineData = StatusLineData(
+      ProtocolVersionData("1.1", 1, 1),
+      418,
+      s"SynapseML: Querying for results did not complete within $maxTries tries")
+    new HTTPResponseData(headers, Some(entityData), statusLineData, "en-us")
+
+  }
+
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
@@ -238,7 +260,7 @@ trait BasicAsyncReply extends HasAsyncReply {
       blocking {
         Thread.sleep(getInitialPollingDelay.toLong)
       }
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
+      val it = (0 to maxTries).toIterator.flatMap { i =>
         queryForResult(key, client, location).orElse({
           blocking {
             Thread.sleep(getPollingDelay.toLong)
@@ -249,8 +271,12 @@ trait BasicAsyncReply extends HasAsyncReply {
       if (it.hasNext) {
         it.next()
       } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
+        if (getSuppressMaxRetriesExceededException){
+          getRetriesExceededHTTPResponseData(maxTries)
+        } else {
+          throw new TimeoutException(
+            s"Querying for results did not complete within $maxTries tries")
+        }
       }
     } else {
       response
@@ -295,8 +321,25 @@ trait HasAsyncReply extends Params {
   /** @group setParam */
   def setInitialPollingDelay(value: Int): this.type = set(initialPollingDelay, value)
 
+  val suppressMaxRetriesExceededException: BooleanParam = new BooleanParam(
+    this,
+    "suppressMaxRetriesExceededException",
+    "set true to suppress the maxumimum retries exception and report in the error column")
+
+  /** @group getParam */
+  def getSuppressMaxRetriesExceededException: Boolean = $(suppressMaxRetriesExceededException)
+
+  /** @group setParam */
+  def setSuppressMaxRetriesExceededException(value: Boolean): this.type = set(suppressMaxRetriesExceededException, value)
+
+
   //scalastyle:off magic.number
-  setDefault(backoffs -> Array(100, 500, 1000), maxPollingRetries -> 1000, pollingDelay -> 300, initialPollingDelay -> 300)
+  setDefault(
+    backoffs -> Array(100, 500, 1000),
+    maxPollingRetries -> 1000,
+    pollingDelay -> 300,
+    initialPollingDelay -> 300,
+    suppressMaxRetriesExceededException -> false)
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],
@@ -305,6 +348,8 @@ trait HasAsyncReply extends Params {
 
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData
+
+  
 
 }
 
