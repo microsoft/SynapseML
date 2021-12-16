@@ -231,7 +231,7 @@ trait BasicAsyncReply extends HasAsyncReply {
 
   private def getRetriesExceededHTTPResponseData(maxTries: Int) = {
     val headers = Array[HeaderData]()
-    val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" + 
+    val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" +
           s"SynapseML: Querying for results did not complete within ${maxTries} tries" + "\"}}";
     val errorResponse = errorResponseString.getBytes()
     val entityData = EntityData(
@@ -283,8 +283,8 @@ trait BasicAsyncReply extends HasAsyncReply {
       response
     }
   }
-  
-  protected def modifyPollingURI(originalURI : URI) : URI = { originalURI }
+
+  protected def modifyPollingURI(originalURI: URI): URI = { originalURI }
 }
 
 trait HasAsyncReply extends Params {
@@ -333,7 +333,8 @@ trait HasAsyncReply extends Params {
   def getSuppressMaxRetriesExceededException: Boolean = $(suppressMaxRetriesExceededException)
 
   /** @group setParam */
-  def setSuppressMaxRetriesExceededException(value: Boolean): this.type = set(suppressMaxRetriesExceededException, value)
+  def setSuppressMaxRetriesExceededException(value: Boolean): this.type =
+      set(suppressMaxRetriesExceededException, value)
 
 
   //scalastyle:off magic.number
@@ -351,9 +352,6 @@ trait HasAsyncReply extends Params {
 
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData
-
-  
-
 }
 
 

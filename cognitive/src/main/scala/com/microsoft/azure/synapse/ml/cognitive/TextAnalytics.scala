@@ -483,7 +483,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
-  override protected def modifyPollingURI(originalURI: URI) : URI = {
+  override protected def modifyPollingURI(originalURI: URI): URI = {
     // async API allows up to 25 results to be submitted in a batch, but defaults to 20 results per page
     // Add $top=25 to force the full batch in the response
     val originalQuery = originalURI.getQuery()
@@ -585,7 +585,8 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
         val succeededTask = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
           .filter(r => r != null)
           .flatten
-          .filter(r => r.getAs[String]("state") == "succeeded") // only consider tasks that succeeded to handle 'partiallycompleted' requests
+          // only consider tasks that succeeded to handle 'partiallycompleted' requests
+          .filter(r => r.getAs[String]("state") == "succeeded")
           .head
         val results = succeededTask.getAs[GenericRowWithSchema]("results")
         val docCount = results.getAs[Seq[GenericRowWithSchema]]("documents").size
