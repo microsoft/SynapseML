@@ -254,7 +254,8 @@ trait BasicAsyncReply extends HasAsyncReply {
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
     if (response != null && response.statusLine.statusCode == 202) {
-      val location = new URI(response.headers.filter(_.name.toLowerCase() == "operation-location").head.value)
+      val originalLocation = new URI(response.headers.filter(_.name.toLowerCase() == "operation-location").head.value)
+      val location = modifyPollingURI(originalLocation)
       val maxTries = getMaxPollingRetries
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
       blocking {
@@ -282,6 +283,8 @@ trait BasicAsyncReply extends HasAsyncReply {
       response
     }
   }
+  
+  protected def modifyPollingURI(originalURI : URI) : URI = { originalURI }
 }
 
 trait HasAsyncReply extends Params {

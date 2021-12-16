@@ -483,6 +483,24 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
+  override protected def modifyPollingURI(originalURI: URI) : URI = {
+    // async API allows up to 25 results to be submitted in a batch, but defaults to 20 results per page
+    // Add $top=25 to force the full batch in the response
+    val originalQuery = originalURI.getQuery()
+    val newQuery = originalQuery match{
+      case "" => "$top=25"
+      case _ => "$top=25&" + originalQuery // The API picks up the first value of top so add as a prefix
+    }
+    return new URI(
+      originalURI.getScheme(),
+      originalURI.getUserInfo(),
+      originalURI.getHost(),
+      originalURI.getPort(),
+      originalURI.getPath(),
+      newQuery,
+      originalURI.getFragment()
+    )
+  }
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
