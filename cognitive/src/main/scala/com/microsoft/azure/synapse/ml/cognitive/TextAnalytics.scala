@@ -582,33 +582,38 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
           "entityRecognitionPiiTasks",
           "keyPhraseExtractionTasks",
           "sentimentAnalysisTasks")
-        val succeededTask = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
+        val succeededTasks = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
           .filter(r => r != null)
           .flatten
           // only consider tasks that succeeded to handle 'partiallycompleted' requests
           .filter(r => r.getAs[String]("state") == "succeeded")
-          .head
-        val results = succeededTask.getAs[GenericRowWithSchema]("results")
-        val docCount = results.getAs[Seq[GenericRowWithSchema]]("documents").size
-        val errorCount = results.getAs[Seq[GenericRowWithSchema]]("errors").size
 
-        val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
-          val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
-          val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
-          val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
-          val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
-          val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
+          if (succeededTasks.length == 0) {
+           Seq()
+          } else {
+            val succeededTask = succeededTasks.head
+            val results = succeededTask.getAs[GenericRowWithSchema]("results")
+            val docCount = results.getAs[Seq[GenericRowWithSchema]]("documents").size
+            val errorCount = results.getAs[Seq[GenericRowWithSchema]]("errors").size
 
-          val taaResult = Seq(
-            entityRecognitionRows,
-            entityLinkingRows,
-            entityRecognitionPiiRows,
-            keyPhraseRows,
-            sentimentAnalysisRows)
-          val resultRow = Row.fromSeq(taaResult)
-          resultRow
-        })
-        rows
+            val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
+              val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
+              val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
+              val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
+              val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
+              val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
+
+              val taaResult = Seq(
+                entityRecognitionRows,
+                entityLinkingRows,
+                entityRecognitionPiiRows,
+                keyPhraseRows,
+                sentimentAnalysisRows)
+              val resultRow = Row.fromSeq(taaResult)
+              resultRow
+            })
+            rows
+          }
       }
     }, ArrayType(innerResponseDataType)
     )
