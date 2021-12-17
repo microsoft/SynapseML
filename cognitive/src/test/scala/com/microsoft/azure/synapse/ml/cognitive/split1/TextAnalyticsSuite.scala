@@ -12,6 +12,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import scala.collection.mutable.WrappedArray
 
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
@@ -462,11 +463,12 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     ("invalid", "This is irrelevant as the language is invalid")
   ).toDF("language", "text")
 
+  val batchSize = 25
   lazy val dfBatched: DataFrame = Seq(
     (
-      Seq("en", "invalid"),
+      Seq("en", "invalid") ++ Seq.fill(batchSize-2)("en"),
       Seq("I had a wonderful trip to Seattle last week and visited Microsoft.",
-        "This is irrelevant as the language is invalid")
+        "This is irrelevant as the language is invalid") ++ Seq.fill(batchSize-2)("Placeholder content")
     )
   ).toDF("language", "text")
 
@@ -523,7 +525,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   def getKeyPhraseResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("keyPhrase",
       col("response")
-        .getItem(0)
+        .getItem(resultIndex)
         .getItem("keyPhraseExtraction")
         .getItem(0)
         .getItem("result")
@@ -536,7 +538,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   def getSentimentAnalysisResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("sentimentAnalysis",
       col("response")
-        .getItem(0)
+        .getItem(resultIndex)
         .getItem("sentimentAnalysis")
         .getItem(0)
         .getItem("result")
@@ -548,7 +550,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   def getEntityLinkingResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityLinking",
       col("response")
-        .getItem(0)
+        .getItem(resultIndex)
         .getItem("entityLinking")
         .getItem(0)
         .getItem("result")
@@ -607,6 +609,15 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
 
   test("Batched Usage") {
     val results = n.transform(dfBatched).cache()
+
+    // Check we have the correct number of responses
+    val response = results.select("response").collect()(0).asInstanceOf[GenericRowWithSchema](0)
+    val responseCount = response match {
+      case a: WrappedArray[_] => a.length
+      case _ => -1
+    }
+    assert(responseCount == batchSize)
+
     // First batch entry
 
     // entity recognition
