@@ -23,7 +23,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import spray.json._
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, OutputStream, PrintWriter}
@@ -35,7 +35,7 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.concurrent.blocking
 import scala.language.existentials
 
-trait MADSimpleHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
+trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   protected def prepareUrl: String
 
   protected def prepareMethod(): HttpRequestBase = new HttpPost()
@@ -114,7 +114,7 @@ trait MADSimpleHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncR
 }
 
 trait MADBase extends HasOutputCol
-  with MADSimpleHttpRequest with HasSetLocation
+  with MADHttpRequest with HasSetLocation with HasInputCols
   with HTTPParams with ComplexParamsWritable with Wrappable
   with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
@@ -131,111 +131,6 @@ trait MADBase extends HasOutputCol
   def setEndTime(v: String): this.type = set(endTime, v)
 
   def getEndTime: String = $(endTime)
-
-  setDefault(
-    outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"))
-}
-
-
-trait AnomalyDetectionBlobHelpers {
-
-  protected def getBlobContainerClient(storageConnectionString: String,
-                                       containerName: String): BlobContainerClient = {
-    val blobContainerClient = new BlobServiceClientBuilder()
-      .connectionString(storageConnectionString)
-      .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
-      .buildClient()
-      .getBlobContainerClient(containerName.toLowerCase())
-    if (!blobContainerClient.exists()) {
-      blobContainerClient.create()
-    }
-    blobContainerClient
-  }
-
-  protected def getBlobContainerClient(storageName: String, storageKey: String, endpoint: String,
-                                       sasToken: String, containerName: String): BlobContainerClient = {
-    val blobContainerClient = new BlobServiceClientBuilder()
-      .endpoint(endpoint)
-      .sasToken(sasToken)
-      .credential(new StorageSharedKeyCredential(storageName, storageKey))
-      .buildClient()
-      .getBlobContainerClient(containerName.toLowerCase())
-    if (!blobContainerClient.exists()) {
-      blobContainerClient.create()
-    }
-    blobContainerClient
-  }
-
-  protected def upload(blobContainerClient: BlobContainerClient, df: DataFrame,
-                       timestampCol: String, blobName: String): String = {
-    val timestampColumn = df.schema
-      .find(p => p.name == timestampCol)
-      .get
-    val timestampColIdx = df.schema.indexOf(timestampColumn)
-
-    val rows = df.collect
-
-    val zipTargetStream = new ByteArrayOutputStream()
-
-    val zipOut = new ZipOutputStream(zipTargetStream)
-
-    // loop over all features
-    for (feature <- df.schema.filter(p => p != timestampColumn).zipWithIndex) {
-      val featureIdx = df.schema.indexOf(feature._1)
-
-      // create zip entry. must be named series_{idx}
-      zipOut.putNextEntry(new ZipEntry(s"series_${feature._2}.csv"))
-
-      // write CSV
-      storeFeatureInCsv(rows, timestampColIdx, featureIdx, zipOut)
-
-      zipOut.closeEntry
-    }
-
-    zipOut.close()
-
-    // upload zip file
-    val zipInBytes = zipTargetStream.toByteArray
-
-    // upload blob
-    val blobClient = blobContainerClient.getBlobClient(blobName)
-    blobClient.upload(new ByteArrayInputStream(zipInBytes), zipInBytes.length, true)
-
-    // generate SAS
-    val sas = blobClient.generateSas(new BlobServiceSasSignatureValues(
-      OffsetDateTime.now().plusHours(2),
-      new BlobSasPermission().setReadPermission(true)
-    ))
-
-    s"${blobClient.getBlobUrl}?${sas}"
-  }
-
-  protected def storeFeatureInCsv(rows: Array[Row], timestampColIdx: Int, featureIdx: Int, out: OutputStream): Unit = {
-    // create CSV file per feature
-    val pw = new PrintWriter(out)
-
-    // CSV header
-    pw.println("timestamp,value")
-
-    for (row <- rows) {
-      // <timestamp>,<value>
-      // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
-      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
-
-      pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
-      pw.write(',')
-
-      // TODO: do we have to worry about locale?
-      // pw.format(Locale.US, "%f", row.get(featureIdx))
-      pw.println(row.get(featureIdx))
-    }
-    pw.flush
-  }
-
-}
-
-trait SimpleMultiADParams extends Params with HasInputCols with AnomalyDetectionBlobHelpers {
 
   val timestampCol = new Param[String](this, "timestampCol", "Timestamp column name")
 
@@ -294,6 +189,10 @@ trait SimpleMultiADParams extends Params with HasInputCols with AnomalyDetection
 
   def getContainerName: String = $(containerName)
 
+  setDefault(
+    outputCol -> (this.uid + "_output"),
+    errorCol -> (this.uid + "_error"))
+
   protected def getBlobContainerClient: BlobContainerClient = {
     if (this.get(connectionString).nonEmpty) {
       getBlobContainerClient(getConnectionString.get, getContainerName)
@@ -307,15 +206,106 @@ trait SimpleMultiADParams extends Params with HasInputCols with AnomalyDetection
     }
   }
 
+  protected def getBlobContainerClient(storageConnectionString: String,
+                                       containerName: String): BlobContainerClient = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .connectionString(storageConnectionString)
+      .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
+    }
+    blobContainerClient
+  }
+
+  protected def getBlobContainerClient(storageName: String, storageKey: String, endpoint: String,
+                                       sasToken: String, containerName: String): BlobContainerClient = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .endpoint(endpoint)
+      .sasToken(sasToken)
+      .credential(new StorageSharedKeyCredential(storageName, storageKey))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
+    }
+    blobContainerClient
+  }
+
+  protected def blobName: String = s"$getIntermediateSaveDir/$uid.zip"
+
+  protected def upload(blobContainerClient: BlobContainerClient, df: DataFrame): String = {
+    val timestampColumn = df.schema
+      .find(p => p.name == getTimestampCol)
+      .get
+    val timestampColIdx = df.schema.indexOf(timestampColumn)
+    val rows = df.collect
+    val zipTargetStream = new ByteArrayOutputStream()
+    val zipOut = new ZipOutputStream(zipTargetStream)
+
+    // loop over all features
+    for (feature <- df.schema.filter(p => p != timestampColumn).zipWithIndex) {
+      val featureIdx = df.schema.indexOf(feature._1)
+      // create zip entry. must be named series_{idx}
+      zipOut.putNextEntry(new ZipEntry(s"series_${feature._2}.csv"))
+      // write CSV
+      storeFeatureInCsv(rows, timestampColIdx, featureIdx, zipOut)
+      zipOut.closeEntry()
+    }
+    zipOut.close()
+
+    // upload zip file
+    val zipInBytes = zipTargetStream.toByteArray
+    val blobClient = blobContainerClient.getBlobClient(blobName)
+    blobClient.upload(new ByteArrayInputStream(zipInBytes), zipInBytes.length, true)
+
+    // generate SAS
+    val sas = blobClient.generateSas(new BlobServiceSasSignatureValues(
+      OffsetDateTime.now().plusHours(24),
+      new BlobSasPermission().setReadPermission(true)
+    ))
+
+    s"${blobClient.getBlobUrl}?${sas}"
+  }
+
+  protected def storeFeatureInCsv(rows: Array[Row], timestampColIdx: Int, featureIdx: Int, out: OutputStream): Unit = {
+    // create CSV file per feature
+    val pw = new PrintWriter(out)
+
+    // CSV header
+    pw.println("timestamp,value")
+
+    for (row <- rows) {
+      // <timestamp>,<value>
+      // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
+      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
+
+      pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
+      pw.write(',')
+
+      // TODO: do we have to worry about locale?
+      // pw.format(Locale.US, "%f", row.get(featureIdx))
+      pw.println(row.get(featureIdx))
+    }
+    pw.flush()
+  }
+
+  def cleanUpIntermediateData(): Unit = {
+    val blobContainerClient = getBlobContainerClient
+    blobContainerClient.getBlobClient(blobName).delete()
+  }
+
+
 }
 
-object SimpleMultiAnomalyEstimator extends ComplexParamsReadable[SimpleMultiAnomalyEstimator] with Serializable
+object FitMultivariateAnomaly extends ComplexParamsReadable[FitMultivariateAnomaly] with Serializable
 
-class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[SimpleDetectMultivariateAnomaly]
-  with SimpleMultiADParams with MADBase {
+class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
+  with MADBase {
   logClass()
 
-  def this() = this(Identifiable.randomUID("SimpleMultiAnomalyEstimator"))
+  def this() = this(Identifiable.randomUID("FitMultivariateAnomaly"))
 
   def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
 
@@ -386,20 +376,14 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[Si
       .toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
-  def cleanUpIntermediateData(): Unit = {
-    val blobContainerClient = getBlobContainerClient
-    blobContainerClient.getBlobClient(s"${getIntermediateSaveDir}/${this.uid}.zip").delete()
-  }
-
   protected def prepareUrl: String = getUrl
 
-  override def fit(dataset: Dataset[_]): SimpleDetectMultivariateAnomaly = {
+  override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
     logFit({
 
       val blobContainerClient = getBlobContainerClient
       val df = dataset.toDF().select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
-      val blobName = s"${getIntermediateSaveDir}/${this.uid}.zip"
-      val sasUrl = upload(blobContainerClient, df, getTimestampCol, blobName)
+      val sasUrl = upload(blobContainerClient, df)
 
       val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
       val request = new HTTPRequestData(httpRequestBase.get)
@@ -411,7 +395,7 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[Si
       this.setDiagnosticsInfo(responseDict("modelInfo").asJsObject.fields
         .get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
 
-      val simpleDetectMultivariateAnomaly = new SimpleDetectMultivariateAnomaly()
+      val simpleDetectMultivariateAnomaly = new DetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
         .setModelId(responseDict.get("modelId").map(_.convertTo[String]).get)
@@ -431,7 +415,7 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[Si
     })
   }
 
-  override def copy(extra: ParamMap): Estimator[SimpleDetectMultivariateAnomaly] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)
@@ -442,13 +426,13 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[Si
 
 }
 
-object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetectMultivariateAnomaly] with Serializable
+object DetectMultivariateAnomaly extends ComplexParamsReadable[DetectMultivariateAnomaly] with Serializable
 
-class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
-  with SimpleMultiADParams with MADBase {
+class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMultivariateAnomaly]
+  with MADBase {
   logClass()
 
-  def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
+  def this() = this(Identifiable.randomUID("DetectMultivariateAnomaly"))
 
   def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models/"
 
@@ -457,11 +441,6 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
   def setModelId(v: String): this.type = set(modelId, v)
 
   def getModelId: String = $(modelId)
-
-  def cleanUpIntermediateData(): Unit = {
-    val blobContainerClient = getBlobContainerClient
-    blobContainerClient.getBlobClient(s"${getIntermediateSaveDir}/${this.uid}.zip").delete()
-  }
 
   protected def prepareEntity(source: String): Option[AbstractHttpEntity] = {
     Some(new StringEntity(
@@ -477,19 +456,17 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
       val blobContainerClient = getBlobContainerClient
       val df = dataset.select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
         .sort(col(getTimestampCol).asc).toDF()
-      val blobName = s"${getIntermediateSaveDir}/${this.uid}.zip"
-      val sasUrl = upload(blobContainerClient, df, getTimestampCol, blobName)
+      val sasUrl = upload(blobContainerClient, df)
 
       val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
       val request = new HTTPRequestData(httpRequestBase.get)
       val response = handlingFunc(Client, request)
 
-      val responseDict = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.asJsObject.fields
+      val responseJson = IOUtils.toString(response.entity.get.content, "UTF-8")
+        .parseJson.asJsObject.fields("results").toString()
 
-      val outputDF = df.sparkSession.read.json(
-        df.sparkSession.sparkContext.parallelize(
-          Seq(responseDict("results").toString())))
+      val outputDF = df.sparkSession.read
+        .json(df.sparkSession.createDataset(Seq(responseJson))(Encoders.STRING))
         .toDF()
         .sort(col("timestamp").asc)
         .withColumnRenamed("timestamp", "resultTimestamp")
@@ -513,7 +490,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
     }
   }
 
-  override def copy(extra: ParamMap): SimpleDetectMultivariateAnomaly = defaultCopy(extra)
+  override def copy(extra: ParamMap): DetectMultivariateAnomaly = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)

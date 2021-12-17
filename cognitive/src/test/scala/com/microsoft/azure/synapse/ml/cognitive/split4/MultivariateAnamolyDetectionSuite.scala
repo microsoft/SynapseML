@@ -112,13 +112,13 @@ trait MADUtils extends TestBase with AnomalyKey {
 }
 
 
-class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnomalyEstimator] with MADUtils {
+class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADUtils {
 
   import MADUtils._
 
   var modelIdList: Seq[String] = Seq()
 
-  def simpleMultiAnomalyEstimator: SimpleMultiAnomalyEstimator = new SimpleMultiAnomalyEstimator()
+  def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation("westus2")
     .setOutputCol("result")
@@ -195,7 +195,7 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
 
   test("Throw errors if required fields not set") {
     val caught = intercept[Exception] {
-      new SimpleMultiAnomalyEstimator()
+      new FitMultivariateAnomaly()
         .setSubscriptionKey(anomalyKey)
         .setLocation("westus2")
         .setOutputCol("result")
@@ -220,11 +220,11 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
     super.afterAll()
   }
 
-  override def testObjects(): Seq[TestObject[SimpleMultiAnomalyEstimator]] =
+  override def testObjects(): Seq[TestObject[FitMultivariateAnomaly]] =
     Seq(new TestObject(simpleMultiAnomalyEstimator.setSlidingWindow(200), df))
 
-  override def reader: MLReadable[_] = SimpleMultiAnomalyEstimator
+  override def reader: MLReadable[_] = FitMultivariateAnomaly
 
-  override def modelReader: MLReadable[_] = SimpleDetectMultivariateAnomaly
+  override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
 }
 
