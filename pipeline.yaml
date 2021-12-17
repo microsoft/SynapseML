@@ -388,7 +388,7 @@ jobs:
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage testR
+          (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
