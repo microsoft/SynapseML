@@ -24,6 +24,8 @@ case class DMASummary(status: String,
                       variableStates: Option[Seq[DMAVariableState]],
                       setupInfo: DMASetupInfo)
 
+object DMAError extends SparkBindings[DMAError]
+
 case class DMAError(code: String, message: String)
 
 case class DMAVariableState(variable: Option[String],
@@ -90,4 +92,7 @@ object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DIEnc: RootJsonFormat[DiagnosticsInfo] = jsonFormat2(DiagnosticsInfo.apply)
   implicit val APEnc: RootJsonFormat[AlignPolicy] = jsonFormat3(AlignPolicy.apply)
   implicit val MAEReqEnc: RootJsonFormat[MAERequest] = jsonFormat6(MAERequest.apply)
+  implicit val DMAContributorEnc: RootJsonFormat[DMAContributor] = jsonFormat2(DMAContributor.apply)
+  implicit val DMAValueEnc: RootJsonFormat[DMAValue] = jsonFormat4(DMAValue.apply)
+  implicit val DMAResEnc: RootJsonFormat[DMAResult] = jsonFormat3(DMAResult.apply)
 }
