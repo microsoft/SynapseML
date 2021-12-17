@@ -3,87 +3,62 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.azure.storage.blob.sas.{BlobSasPermission, BlobServiceSasSignatureValues}
+import com.azure.storage.blob.{BlobContainerClient, BlobServiceClientBuilder}
+import com.azure.storage.common.StorageSharedKeyCredential
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
-import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.Client
+import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.HttpGet
+import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameParam, ParamMap, ServiceParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.{col, lit, struct}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, OutputStream, PrintWriter}
 import java.net.URI
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.concurrent.blocking
 import scala.language.existentials
 
+trait MADSimpleHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
+  protected def prepareUrl: String
 
-trait HasMADSource extends HasServiceParams {
-  val source = new ServiceParam[String](this, "source", "The blob link to the input data. " +
-    "It should be a zipped folder containing csv files. Each csv file should has two columns with header 'timestamp'" +
-    " and 'value' (case sensitive). The file name will be used as the variable name. The variables used for" +
-    " detection should be exactly the same as for training. Please refer to the sample data to prepare your" +
-    " own data accordingly.", isRequired = true)
+  protected def prepareMethod(): HttpRequestBase = new HttpPost()
 
-  def setSource(v: String): this.type = setScalarParam(source, v)
+  protected def prepareEntity(source: String): Option[AbstractHttpEntity]
 
-  def setSourceCol(v: String): this.type = setVectorParam(source, v)
+  protected val subscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
 
-  def getSource: String = getScalarParam(source)
+  protected def contentType: String = "application/json"
 
-  def getSourceCol: String = getVectorParam(source)
-}
+  protected def prepareRequest(entity: AbstractHttpEntity): Option[HttpRequestBase] = {
+    val req = prepareMethod()
+    req.setURI(new URI(prepareUrl))
+    req.setHeader(subscriptionKeyHeaderName, getSubscriptionKey)
+    req.setHeader("Content-Type", contentType)
 
-trait HasMADStartTime extends HasServiceParams {
-  val startTime = new ServiceParam[String](this, "startTime", "A required field, start time" +
-    " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.",
-    isRequired = true)
-
-  def setStartTime(v: String): this.type = setScalarParam(startTime, v)
-
-  def setStartTimeCol(v: String): this.type = setVectorParam(startTime, v)
-
-  def getStartTime: String = getScalarParam(startTime)
-
-  def getStartTimeCol: String = getVectorParam(startTime)
-
-}
-
-trait HasMADEndTime extends HasServiceParams {
-  val endTime = new ServiceParam[String](this, "endTime", "A required field, end time of data" +
-    " to be used for detection/generating multivariate anomaly detection model, should be date-time.",
-    isRequired = true)
-
-  def setEndTime(v: String): this.type = setScalarParam(endTime, v)
-
-  def setEndTimeCol(v: String): this.type = setVectorParam(endTime, v)
-
-  def getEndTime: String = getScalarParam(endTime)
-
-  def getEndTimeCol: String = getVectorParam(endTime)
-}
-
-trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with HasMADEndTime
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with Wrappable
-  with HTTPParams with HasOutputCol with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasErrorCol with BasicLogging {
-
-  setDefault(
-    outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"))
+    req match {
+      case er: HttpEntityEnclosingRequestBase =>
+        er.setEntity(entity)
+      case _ =>
+    }
+    Some(req)
+  }
 
   protected def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
@@ -138,419 +113,411 @@ trait MADBase extends HasAsyncReply with HasMADSource with HasMADStartTime with 
   }
 }
 
-trait MADEstimatorBase extends HasServiceParams
-  with MADBase {
-  val slidingWindow = new ServiceParam[Int](this, "slidingWindow", "An optional field, indicates" +
-    " how many history points will be used to determine the anomaly score of one subsequent point.", {
-    case Left(x) => (x >= 28) && (x <= 2880)
-    case Right(_) => true
-  }, isRequired = true)
+trait MADBase extends HasOutputCol
+  with MADSimpleHttpRequest with HasSetLocation
+  with HTTPParams with ComplexParamsWritable with Wrappable
+  with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
-  def setSlidingWindow(v: Int): this.type = setScalarParam(slidingWindow, v)
+  val startTime = new Param[String](this, "startTime", "A required field, start time" +
+    " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setSlidingWindowCol(v: String): this.type = setVectorParam(slidingWindow, v)
+  def setStartTime(v: String): this.type = set(startTime, v)
 
-  def getSlidingWindow: Int = getScalarParam(slidingWindow)
+  def getStartTime: String = $(startTime)
 
-  def getSlidingWindowCol: String = getVectorParam(slidingWindow)
+  val endTime = new Param[String](this, "endTime", "A required field, end time of data" +
+    " to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  val alignMode = new ServiceParam[String](this, "alignMode", "An optional field, indicates how " +
-    "we align different variables into the same time-range which is required by the model.{Inner, Outer}", {
-    case Left(s) => Set("inner", "outer")(s.toLowerCase)
-    case Right(_) => true
-  })
+  def setEndTime(v: String): this.type = set(endTime, v)
 
-  def setAlignMode(v: String): this.type = setScalarParam(alignMode, v.toLowerCase.capitalize)
+  def getEndTime: String = $(endTime)
 
-  def setAlignModeCol(v: String): this.type = setVectorParam(alignMode, v)
-
-  def getAlignMode: String = getScalarParam(alignMode)
-
-  def getAlignModeCol: String = getVectorParam(alignMode)
-
-  val fillNAMethod = new ServiceParam[String](this, "fillNAMethod", "An optional field, indicates how missed " +
-    "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
-    " Linear, Zero, Fixed}", {
-    case Left(s) => Set("previous", "subsequent", "linear", "zero", "fixed")(s.toLowerCase)
-    case Right(_) => true
-  })
-
-  def setFillNAMethod(v: String): this.type = setScalarParam(fillNAMethod, v.toLowerCase.capitalize)
-
-  def setFillNAMethodCol(v: String): this.type = setVectorParam(fillNAMethod, v)
-
-  def getFillNAMethod: String = getScalarParam(fillNAMethod)
-
-  def getFillNAMethodCol: String = getVectorParam(fillNAMethod)
-
-  val paddingValue = new ServiceParam[Int](this, "paddingValue", "optional field, is only useful" +
-    " if FillNAMethod is set to Fixed.")
-
-  def setPaddingValue(v: Int): this.type = setScalarParam(paddingValue, v)
-
-  def setPaddingValueCol(v: String): this.type = setVectorParam(paddingValue, v)
-
-  def getPaddingValue: Int = getScalarParam(paddingValue)
-
-  def getPaddingValueCol: String = getVectorParam(paddingValue)
-
-  val displayName = new ServiceParam[String](this, "displayName", "optional field," +
-    " name of the model")
-
-  def setDisplayName(v: String): this.type = setScalarParam(displayName, v)
-
-  def setDisplayNameCol(v: String): this.type = setVectorParam(displayName, v)
-
-  def getDisplayName: String = getScalarParam(displayName)
-
-  def getDisplayNameCol: String = getVectorParam(displayName)
-
-  val diagnosticsInfo = new ServiceParam[DiagnosticsInfo](this, "diagnosticsInfo",
-    "diagnosticsInfo for training a multivariate anomaly detection model")
-
-  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = setScalarParam(diagnosticsInfo, v)
-
-  def getDiagnosticsInfo: DiagnosticsInfo = getScalarParam(diagnosticsInfo)
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r =>
-      Some(new StringEntity(Map("source" -> getValue(r, source).toJson,
-        "startTime" -> getValue(r, startTime).toJson,
-        "endTime" -> getValue(r, endTime).toJson,
-        "slidingWindow" -> getValue(r, slidingWindow).toJson,
-        "alignPolicy" -> Map("alignMode" -> getValueOpt(r, alignMode).toJson,
-          "fillNAMethod" -> getValueOpt(r, fillNAMethod).toJson,
-          "paddingValue" -> getValueOpt(r, paddingValue).toJson).toJson,
-        "displayName" -> getValueOpt(r, displayName).toJson)
-        .toJson.compactPrint, ContentType.APPLICATION_JSON))
-  }
+  setDefault(
+    outputCol -> (this.uid + "_output"),
+    errorCol -> (this.uid + "_error"))
 }
 
-object MultivariateAnomalyEstimator extends ComplexParamsReadable[MultivariateAnomalyEstimator] with Serializable
 
-class MultivariateAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
-  with MADEstimatorBase {
-  logClass()
+trait AnomalyDetectionBlobHelpers {
 
-  def this() = this(Identifiable.randomUID("MultivariateAnomalyEstimator"))
-
-  def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
-
-  override def responseDataType: DataType = MAEResponse.schema
-
-  protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+  protected def getBlobContainerClient(storageConnectionString: String,
+                                       containerName: String): BlobContainerClient = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .connectionString(storageConnectionString)
+      .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
     }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+    blobContainerClient
+  }
 
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
+  protected def getBlobContainerClient(storageName: String, storageKey: String, endpoint: String,
+                                       sasToken: String, containerName: String): BlobContainerClient = {
+    val blobContainerClient = new BlobServiceClientBuilder()
+      .endpoint(endpoint)
+      .sasToken(sasToken)
+      .credential(new StorageSharedKeyCredential(storageName, storageKey))
+      .buildClient()
+      .getBlobContainerClient(containerName.toLowerCase())
+    if (!blobContainerClient.exists()) {
+      blobContainerClient.create()
+    }
+    blobContainerClient
+  }
+
+  protected def upload(blobContainerClient: BlobContainerClient, df: DataFrame,
+                       timestampCol: String, blobName: String): String = {
+    val timestampColumn = df.schema
+      .find(p => p.name == timestampCol)
+      .get
+    val timestampColIdx = df.schema.indexOf(timestampColumn)
+
+    val rows = df.collect
+
+    val zipTargetStream = new ByteArrayOutputStream()
+
+    val zipOut = new ZipOutputStream(zipTargetStream)
+
+    // loop over all features
+    for (feature <- df.schema.filter(p => p != timestampColumn).zipWithIndex) {
+      val featureIdx = df.schema.indexOf(feature._1)
+
+      // create zip entry. must be named series_{idx}
+      zipOut.putNextEntry(new ZipEntry(s"series_${feature._2}.csv"))
+
+      // write CSV
+      storeFeatureInCsv(rows, timestampColIdx, featureIdx, zipOut)
+
+      zipOut.closeEntry
     }
 
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
+    zipOut.close()
 
-    NamespaceInjections.pipelineModel(stages)
+    // upload zip file
+    val zipInBytes = zipTargetStream.toByteArray
+
+    // upload blob
+    val blobClient = blobContainerClient.getBlobClient(blobName)
+    blobClient.upload(new ByteArrayInputStream(zipInBytes), zipInBytes.length, true)
+
+    // generate SAS
+    val sas = blobClient.generateSas(new BlobServiceSasSignatureValues(
+      OffsetDateTime.now().plusHours(2),
+      new BlobSasPermission().setReadPermission(true)
+    ))
+
+    s"${blobClient.getBlobUrl}?${sas}"
   }
 
-  override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
-    logFit({
-      import MADJsonProtocol._
+  protected def storeFeatureInCsv(rows: Array[Row], timestampColIdx: Int, featureIdx: Int, out: OutputStream): Unit = {
+    // create CSV file per feature
+    val pw = new PrintWriter(out)
 
-      val df = getInternalTransformer(dataset.schema)
-        .transform(dataset)
-        .withColumn("diagnosticsInfo", col(getOutputCol)
-          .getField("modelInfo").getField("diagnosticsInfo"))
-        .withColumn("modelId", col(getOutputCol).getField("modelId"))
-        .select(getOutputCol, "modelId", "diagnosticsInfo")
-        .collect()
-      this.setDiagnosticsInfo(df.head.get(2).asInstanceOf[GenericRowWithSchema]
-        .json.parseJson.convertTo[DiagnosticsInfo])
-      val modelId = df.head.getString(1)
-      new DetectMultivariateAnomaly()
-        .setSubscriptionKey(getSubscriptionKey)
-        .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
-        .setModelId(modelId)
-    })
+    // CSV header
+    pw.println("timestamp,value")
+
+    for (row <- rows) {
+      // <timestamp>,<value>
+      // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
+      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
+
+      pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
+      pw.write(',')
+
+      // TODO: do we have to worry about locale?
+      // pw.format(Locale.US, "%f", row.get(featureIdx))
+      pw.println(row.get(featureIdx))
+    }
+    pw.flush
   }
 
-  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
-
-  override def transformSchema(schema: StructType): StructType = {
-    getInternalTransformer(schema).transformSchema(schema)
-  }
 }
 
-trait HasBlobHelper extends HasServiceParams {
+trait SimpleMultiADParams extends Params with HasInputCols with AnomalyDetectionBlobHelpers {
 
-  val timestampCol = new ServiceParam[String](this, "timestampCol", "Timestamp column name")
+  val timestampCol = new Param[String](this, "timestampCol", "Timestamp column name")
 
-  def setTimestampCol(v: String): this.type = setScalarParam(timestampCol, v)
+  def setTimestampCol(v: String): this.type = set(timestampCol, v)
 
-  def getTimestampCol: String = getScalarParam(timestampCol)
+  def getTimestampCol: String = $(timestampCol)
 
-  setDefault(timestampCol -> Left("timestamp"))
+  setDefault(timestampCol -> "timestamp")
 
-  val connectionString = new ServiceParam[String](this, "connectionString", "Connection String " +
+  val intermediateSaveDir = new Param[String](this, "intermediateSaveDir", "Directory name " +
+    "of which you want to save the intermediate data produced while training.")
+
+  def setIntermediateSaveDir(v: String): this.type = set(intermediateSaveDir, v)
+
+  def getIntermediateSaveDir: String = $(intermediateSaveDir)
+
+  val connectionString = new Param[String](this, "connectionString", "Connection String " +
     "for your storage account used for uploading files.")
 
-  def setConnectionString(v: String): this.type = setScalarParam(connectionString, v)
+  def setConnectionString(v: String): this.type = set(connectionString, v)
 
-  def getConnectionString: String = getScalarParam(connectionString)
+  def getConnectionString: Option[String] = get(connectionString)
 
-  val storageName = new ServiceParam[String](this, "storageName", "Storage Name " +
+  val storageName = new Param[String](this, "storageName", "Storage Name " +
     "for your storage account used for uploading files.")
 
-  def setStorageName(v: String): this.type = setScalarParam(storageName, v)
+  def setStorageName(v: String): this.type = set(storageName, v)
 
-  def getStorageName: String = getScalarParam(storageName)
+  def getStorageName: Option[String] = get(storageName)
 
-  val storageKey = new ServiceParam[String](this, "storageKey", "Storage Key " +
+  val storageKey = new Param[String](this, "storageKey", "Storage Key " +
     "for your storage account used for uploading files.")
 
-  def setStorageKey(v: String): this.type = setScalarParam(storageKey, v)
+  def setStorageKey(v: String): this.type = set(storageKey, v)
 
-  def getStorageKey: String = getScalarParam(storageKey)
+  def getStorageKey: Option[String] = get(storageKey)
 
-  val endpoint = new ServiceParam[String](this, "endpoint", "End Point " +
+  val endpoint = new Param[String](this, "endpoint", "End Point " +
     "for your storage account used for uploading files.")
 
-  def setEndpoint(v: String): this.type = setScalarParam(endpoint, v)
+  def setEndpoint(v: String): this.type = set(endpoint, v)
 
-  def getEndpoint: String = getScalarParam(endpoint)
+  def getEndpoint: Option[String] = get(endpoint)
 
-  val sasToken = new ServiceParam[String](this, "sasToken", "SAS Token " +
+  val sasToken = new Param[String](this, "sasToken", "SAS Token " +
     "for your storage account used for uploading files.")
 
-  def setSASToken(v: String): this.type = setScalarParam(sasToken, v)
+  def setSASToken(v: String): this.type = set(sasToken, v)
 
-  def getSASToken: String = getScalarParam(sasToken)
+  def getSASToken: Option[String] = get(sasToken)
 
-  val containerName = new ServiceParam[String](this, "containerName", "Container that will be " +
+  val containerName = new Param[String](this, "containerName", "Container that will be " +
     "used to upload files to.")
 
-  def setContainerName(v: String): this.type = setScalarParam(containerName, v)
+  def setContainerName(v: String): this.type = set(containerName, v)
 
-  def getContainerName: String = getScalarParam(containerName)
+  def getContainerName: String = $(containerName)
 
-  val sourceDF = new DataFrameParam(this, "sourceDF", "DataFrame as multivariate " +
-    "anomaly detection estimator training input")
-
-  def setSourceDF(v: DataFrame): this.type = set(sourceDF, v)
-
-  def getSourceDF: DataFrame = $(sourceDF)
+  protected def getBlobContainerClient: BlobContainerClient = {
+    if (this.get(connectionString).nonEmpty) {
+      getBlobContainerClient(getConnectionString.get, getContainerName)
+    } else if (this.get(storageName).nonEmpty && this.get(storageKey).nonEmpty &&
+      this.get(endpoint).nonEmpty && this.get(sasToken).nonEmpty) {
+      getBlobContainerClient(getStorageName.get, getStorageKey.get, getEndpoint.get,
+        getSASToken.get, getContainerName)
+    } else {
+      throw new Exception("You need to set either {connectionString, containerName} or " +
+        "{storageName, storageKey, endpoint, sasToken, containerName} in order to access the blob container")
+    }
+  }
 
 }
 
 object SimpleMultiAnomalyEstimator extends ComplexParamsReadable[SimpleMultiAnomalyEstimator] with Serializable
 
-class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[DetectMultivariateAnomaly]
-  with MADEstimatorBase with HasBlobHelper {
+class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[SimpleDetectMultivariateAnomaly]
+  with SimpleMultiADParams with MADBase {
   logClass()
 
   def this() = this(Identifiable.randomUID("SimpleMultiAnomalyEstimator"))
 
   def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models"
 
-  override def responseDataType: DataType = MAEResponse.schema
+  val slidingWindow = new IntParam(this, "slidingWindow", "An optional field, indicates" +
+    " how many history points will be used to determine the anomaly score of one subsequent point.")
 
-  setDefault(source -> Left(""))
+  def setSlidingWindow(v: Int): this.type = {
+    if ((v >= 28) && (v <= 2880)) {
+      set(slidingWindow, v)
+    } else {
+      throw new IllegalArgumentException("slidingWindow must be between 28 and 2880 (both inclusive).")
+    }
+  }
 
-  var blobName = ""
+  def getSlidingWindow: Option[Int] = get(slidingWindow)
+
+  val alignMode = new Param[String](this, "alignMode", "An optional field, indicates how " +
+    "we align different variables into the same time-range which is required by the model.{Inner, Outer}")
+
+  def setAlignMode(v: String): this.type = {
+    if (Set("inner", "outer").contains(v.toLowerCase)) {
+      set(alignMode, v.toLowerCase.capitalize)
+    } else {
+      throw new IllegalArgumentException("alignMode must be either `inner` or `outer`.")
+    }
+  }
+
+  def getAlignMode: Option[String] = get(alignMode)
+
+  val fillNAMethod = new Param[String](this, "fillNAMethod", "An optional field, indicates how missed " +
+    "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
+    " Linear, Zero, Fixed}")
+
+  def setFillNAMethod(v: String): this.type = {
+    if (Set("previous", "subsequent", "linear", "zero", "fixed").contains(v.toLowerCase)) {
+      set(fillNAMethod, v.toLowerCase.capitalize)
+    } else {
+      throw new IllegalArgumentException("fillNAMethod must be one of {Previous, Subsequent, Linear, Zero, Fixed}.")
+    }
+  }
+
+  def getFillNAMethod: Option[String] = get(fillNAMethod)
+
+  val paddingValue = new IntParam(this, "paddingValue", "optional field, is only useful" +
+    " if FillNAMethod is set to Fixed.")
+
+  def setPaddingValue(v: Int): this.type = set(paddingValue, v)
+
+  def getPaddingValue: Option[Int] = get(paddingValue)
+
+  val displayName = new Param[String](this, "displayName", "optional field," +
+    " name of the model")
+
+  def setDisplayName(v: String): this.type = set(displayName, v)
+
+  def getDisplayName: Option[String] = get(displayName)
+
+  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+    "diagnosticsInfo for training a multivariate anomaly detection model")
+
+  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
+
+  def getDiagnosticsInfo: Option[DiagnosticsInfo] = get(diagnosticsInfo)
+
+  protected def prepareEntity(source: String): Option[AbstractHttpEntity] = {
+    Some(new StringEntity(MAERequest(source, getStartTime, getEndTime, getSlidingWindow,
+      Option(AlignPolicy(getAlignMode, getFillNAMethod, getPaddingValue)), getDisplayName)
+      .toJson.compactPrint, ContentType.APPLICATION_JSON))
+  }
 
   def cleanUpIntermediateData(): Unit = {
-    val blobHelper = if (this.get(connectionString).nonEmpty) {
-      AnomalyDetectionBlobHelpers(getConnectionString, getContainerName, getTimestampCol)
-    } else {
-      AnomalyDetectionBlobHelpers(getStorageName, getStorageKey, getEndpoint,
-        getSASToken, getContainerName, getTimestampCol)
-    }
-    blobHelper.getBlobContainerClient.getBlobClient(blobName).delete()
+    val blobContainerClient = getBlobContainerClient
+    blobContainerClient.getBlobClient(s"${getIntermediateSaveDir}/${this.uid}.zip").delete()
   }
 
-  protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+  protected def prepareUrl: String = getUrl
 
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
-    }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
-
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
-    val blobHelper = if (this.get(connectionString).nonEmpty) {
-      AnomalyDetectionBlobHelpers(getConnectionString, getContainerName, getTimestampCol)
-    } else {
-      AnomalyDetectionBlobHelpers(getStorageName, getStorageKey, getEndpoint,
-        getSASToken, getContainerName, getTimestampCol)
-    }
-    this.setSource(blobHelper.upload(getSourceDF))
-    blobName = blobHelper.blobName
-
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-  }
-
-  override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
+  override def fit(dataset: Dataset[_]): SimpleDetectMultivariateAnomaly = {
     logFit({
-      import MADJsonProtocol._
 
-      val df = getInternalTransformer(dataset.schema)
-        .transform(dataset)
-        .withColumn("diagnosticsInfo", col(getOutputCol)
-          .getField("modelInfo").getField("diagnosticsInfo"))
-        .withColumn("modelId", col(getOutputCol).getField("modelId"))
-        .select(getOutputCol, "modelId", "diagnosticsInfo")
-        .collect()
-      this.setDiagnosticsInfo(df.head.get(2).asInstanceOf[GenericRowWithSchema]
-        .json.parseJson.convertTo[DiagnosticsInfo])
-      val modelId = df.head.getString(1)
-      new DetectMultivariateAnomaly()
+      val blobContainerClient = getBlobContainerClient
+      val df = dataset.toDF().select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
+      val blobName = s"${getIntermediateSaveDir}/${this.uid}.zip"
+      val sasUrl = upload(blobContainerClient, df, getTimestampCol, blobName)
+
+      val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
+      val request = new HTTPRequestData(httpRequestBase.get)
+      val response = handlingFunc(Client, request)
+
+      val responseDict = IOUtils.toString(response.entity.get.content, "UTF-8")
+        .parseJson.asJsObject.fields
+
+      this.setDiagnosticsInfo(responseDict("modelInfo").asJsObject.fields
+        .get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
+
+      val simpleDetectMultivariateAnomaly = new SimpleDetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
-        .setModelId(modelId)
+        .setModelId(responseDict.get("modelId").map(_.convertTo[String]).get)
+        .setContainerName(getContainerName)
+        .setIntermediateSaveDir(getIntermediateSaveDir)
+
+      if (this.get(connectionString).nonEmpty) {
+        simpleDetectMultivariateAnomaly
+          .setConnectionString(getConnectionString.get)
+      } else {
+        simpleDetectMultivariateAnomaly
+          .setStorageName(getStorageName.get)
+          .setStorageKey(getStorageKey.get)
+          .setEndpoint(getEndpoint.get)
+          .setSASToken(getSASToken.get)
+      }
     })
   }
 
-  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[SimpleDetectMultivariateAnomaly] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    getInternalTransformer(schema).transformSchema(schema)
+    schema.add(getErrorCol, ErrorUtils.ErrorSchema)
+      .add(getOutputCol, DMAResponse.schema)
   }
 
 }
 
-object DetectMultivariateAnomaly extends ComplexParamsReadable[DetectMultivariateAnomaly] with Serializable
+object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetectMultivariateAnomaly] with Serializable
 
-class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMultivariateAnomaly]
-  with MADBase {
+class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
+  with SimpleMultiADParams with MADBase {
   logClass()
 
-  def this() = this(Identifiable.randomUID("DetectMultivariateAnomaly"))
+  def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
 
   def urlPath: String = "anomalydetector/v1.1-preview/multivariate/models/"
 
-  val modelId = new ServiceParam[String](this, "modelId", "Format - uuid. Model identifier.",
-    isRequired = true)
+  val modelId = new Param[String](this, "modelId", "Format - uuid. Model identifier.")
 
-  def setModelId(v: String): this.type = setScalarParam(modelId, v)
+  def setModelId(v: String): this.type = set(modelId, v)
 
-  def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+  def getModelId: String = $(modelId)
 
-  def getModelId: String = getScalarParam(modelId)
-
-  def getModelIdCol: String = getVectorParam(modelId)
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
-    Some(new StringEntity(DMARequest(
-      getValue(row, source),
-      getValue(row, startTime),
-      getValue(row, endTime)
-    ).toJson.compactPrint))
+  def cleanUpIntermediateData(): Unit = {
+    val blobContainerClient = getBlobContainerClient
+    blobContainerClient.getBlobClient(s"${getIntermediateSaveDir}/${this.uid}.zip").delete()
   }
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-    // This semicolon is needed to avoid argument confusion
-    { row: Row =>
-      val base = getUrl + s"${getValue(row, modelId)}/detect"
-      val appended = if (!urlParams.isEmpty) {
-        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
+  protected def prepareEntity(source: String): Option[AbstractHttpEntity] = {
+    Some(new StringEntity(
+      DMARequest(source, getStartTime, getEndTime)
+        .toJson.compactPrint))
   }
 
-  override def responseDataType: DataType = DMAResponse.schema
-
-  protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
-    }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
-
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-  }
+  protected def prepareUrl: String = getUrl + s"${getModelId}/detect"
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform[DataFrame](
-      getInternalTransformer(dataset.schema).transform(dataset)
-    )
+    logTransform[DataFrame] {
+
+      val blobContainerClient = getBlobContainerClient
+      val df = dataset.select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
+        .sort(col(getTimestampCol).asc).toDF()
+      val blobName = s"${getIntermediateSaveDir}/${this.uid}.zip"
+      val sasUrl = upload(blobContainerClient, df, getTimestampCol, blobName)
+
+      val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
+      val request = new HTTPRequestData(httpRequestBase.get)
+      val response = handlingFunc(Client, request)
+
+      val responseDict = IOUtils.toString(response.entity.get.content, "UTF-8")
+        .parseJson.asJsObject.fields
+
+      val outputDF = df.sparkSession.read.json(
+        df.sparkSession.sparkContext.parallelize(
+          Seq(responseDict("results").toString())))
+        .toDF()
+        .sort(col("timestamp").asc)
+        .withColumnRenamed("timestamp", "resultTimestamp")
+
+      val outputDF2 = if (outputDF.columns.contains("value")) {
+        outputDF.withColumn("isAnomaly", col("value.isAnomaly"))
+          .withColumn("severity", col("value.severity"))
+          .withColumn("score", col("value.score"))
+          .withColumn("contributionScore", col("value.contributors"))
+          .drop("value")
+      } else {
+        outputDF
+      }
+
+      val finalDF = if (outputDF2.columns.contains("errors")) {
+        outputDF2.withColumnRenamed("errors", "timestampErrors")
+      } else {
+        outputDF2
+      }
+
+      df.join(finalDF, df(getTimestampCol) === finalDF("resultTimestamp"), "left")
+        .drop("resultTimestamp")
+    }
   }
 
-  override def copy(extra: ParamMap): DetectMultivariateAnomaly = defaultCopy(extra)
+  override def copy(extra: ParamMap): SimpleDetectMultivariateAnomaly = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    getInternalTransformer(schema).transformSchema(schema)
+    schema.add(getErrorCol, ErrorUtils.ErrorSchema)
+      .add(getOutputCol, DMAResponse.schema)
   }
 
 }

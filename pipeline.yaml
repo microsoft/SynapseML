@@ -544,7 +544,6 @@ jobs:
         FLAKY: "true"
       cognitive4:
         PACKAGE: "cognitive.split4"
-        FFMPEG: "true"
         FLAKY: "true"
       core:
         PACKAGE: "core"
