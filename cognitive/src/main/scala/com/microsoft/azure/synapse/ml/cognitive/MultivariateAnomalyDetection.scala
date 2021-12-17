@@ -434,8 +434,10 @@ class SimpleMultiAnomalyEstimator(override val uid: String) extends Estimator[Si
   override def copy(extra: ParamMap): Estimator[SimpleDetectMultivariateAnomaly] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getErrorCol, ErrorUtils.ErrorSchema)
+    schema.add(getErrorCol, DMAError.schema)
       .add(getOutputCol, DMAResponse.schema)
+      .add("isAnomaly", BooleanType)
+      .add("isAnomaly", BooleanType)
   }
 
 }
@@ -494,18 +496,16 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
 
       val outputDF2 = if (outputDF.columns.contains("value")) {
         outputDF.withColumn("isAnomaly", col("value.isAnomaly"))
-          .withColumn("severity", col("value.severity"))
-          .withColumn("score", col("value.score"))
-          .withColumn("contributionScore", col("value.contributors"))
-          .drop("value")
+          .withColumnRenamed("value", getOutputCol)
       } else {
-        outputDF
+        outputDF.withColumn(getOutputCol, lit(None))
+          .withColumn("isAnomaly", lit(None))
       }
 
       val finalDF = if (outputDF2.columns.contains("errors")) {
-        outputDF2.withColumnRenamed("errors", "timestampErrors")
+        outputDF2.withColumnRenamed("errors", getErrorCol)
       } else {
-        outputDF2
+        outputDF2.withColumn(getErrorCol, lit(None))
       }
 
       df.join(finalDF, df(getTimestampCol) === finalDF("resultTimestamp"), "left")
@@ -516,8 +516,9 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
   override def copy(extra: ParamMap): SimpleDetectMultivariateAnomaly = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    schema.add(getErrorCol, ErrorUtils.ErrorSchema)
+    schema.add(getErrorCol, DMAError.schema)
       .add(getOutputCol, DMAResponse.schema)
+      .add("isAnomaly", BooleanType)
   }
 
 }

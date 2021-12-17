@@ -137,6 +137,7 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
       .setConnectionString(connectionString)
     val model = smae.fit(df)
     modelIdList ++= Seq(model.getModelId)
+    smae.cleanUpIntermediateData()
     val diagnosticsInfo = smae.getDiagnosticsInfo.get
     assert(diagnosticsInfo.variableStates.get.length.equals(3))
 
@@ -148,12 +149,8 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
       .setInputCols(inputColumns)
       .transform(df)
       .collect()
-
-    assert(result.length == df.collect().length)
-
-    madDelete(model.getModelId)
-    smae.cleanUpIntermediateData()
     model.cleanUpIntermediateData()
+    assert(result.length == df.collect().length)
   }
 
   test("SimpleMultiAnomalyEstimator basic usage with endpoint and sasToken") {
@@ -166,6 +163,7 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
       .setSASToken(storageSASToken)
     val model = smae.fit(df)
     modelIdList ++= Seq(model.getModelId)
+    smae.cleanUpIntermediateData()
     val diagnosticsInfo = smae.getDiagnosticsInfo.get
     assert(diagnosticsInfo.variableStates.get.length.equals(3))
 
@@ -177,12 +175,8 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
       .setInputCols(inputColumns)
       .transform(df)
       .collect()
-
-    assert(result.length == df.collect().length)
-
-    madDelete(model.getModelId)
-    smae.cleanUpIntermediateData()
     model.cleanUpIntermediateData()
+    assert(result.length == df.collect().length)
   }
 
   test("Throw errors if alignMode is not set correctly") {
@@ -221,11 +215,7 @@ class SimpleMultiAnomalyEstimatorSuite extends EstimatorFuzzing[SimpleMultiAnoma
 
   override def afterAll(): Unit = {
     for (modelId <- modelIdList) {
-      try {
-        madDelete(modelId)
-      } catch {
-        case _: Exception => print(s"$modelId has been deleted.")
-      }
+      madDelete(modelId)
     }
     super.afterAll()
   }
