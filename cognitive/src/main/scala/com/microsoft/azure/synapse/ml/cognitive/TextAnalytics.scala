@@ -483,6 +483,24 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
+  override protected def modifyPollingURI(originalURI: URI): URI = {
+    // async API allows up to 25 results to be submitted in a batch, but defaults to 20 results per page
+    // Add $top=25 to force the full batch in the response
+    val originalQuery = originalURI.getQuery()
+    val newQuery = originalQuery match{
+      case "" => "$top=25"
+      case _ => "$top=25&" + originalQuery // The API picks up the first value of top so add as a prefix
+    }
+    return new URI(
+      originalURI.getScheme(),
+      originalURI.getUserInfo(),
+      originalURI.getHost(),
+      originalURI.getPort(),
+      originalURI.getPath(),
+      newQuery,
+      originalURI.getFragment()
+    )
+  }
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -527,15 +545,22 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     if (namedTaskRow == null) {
       None
     } else {
-      val taskResults = namedTaskRow
-        .map(x => x.getAs[GenericRowWithSchema]("results"))
-      val rows = taskResults.map(result => {
-        val documents = result.getAs[Seq[GenericRowWithSchema]]("documents")
-        val errors = result.getAs[Seq[GenericRowWithSchema]]("errors")
-        val doc = documents.find { d => d.getAs[String]("id").toInt == documentIndex }
-        val error = errors.find { e => e.getAs[String]("id").toInt == documentIndex }
-        val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
-        resultRow
+      val rows = namedTaskRow.map(inputRow => {
+        val state = inputRow.getAs[String]("state")
+        if (state == "succeeded"){
+          val result = inputRow.getAs[GenericRowWithSchema]("results")
+          val documents = result.getAs[Seq[GenericRowWithSchema]]("documents")
+          val errors = result.getAs[Seq[GenericRowWithSchema]]("errors")
+          val doc = documents.find { d => d.getAs[String]("id").toInt == documentIndex }
+          val error = errors.find { e => e.getAs[String]("id").toInt == documentIndex }
+          val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
+          resultRow
+        } else {
+          // Task failed
+          val error = Seq(documentIndex, "Task failed")
+          val resultRow = Row.fromSeq(Seq(None, error))
+          resultRow
+        }
       })
       Some(rows)
     }
@@ -557,30 +582,38 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
           "entityRecognitionPiiTasks",
           "keyPhraseExtractionTasks",
           "sentimentAnalysisTasks")
-        val taskSet = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
+        val succeededTasks = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
           .filter(r => r != null)
-          .head
-        val results = taskSet.map(x => x.getAs[GenericRowWithSchema]("results"))
-        val docCount = results.head.getAs[Seq[GenericRowWithSchema]]("documents").size
-        val errorCount = results.head.getAs[Seq[GenericRowWithSchema]]("errors").size
+          .flatten
+          // only consider tasks that succeeded to handle 'partiallycompleted' requests
+          .filter(r => r.getAs[String]("state") == "succeeded")
 
-        val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
-          val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
-          val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
-          val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
-          val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
-          val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
+          if (succeededTasks.length == 0) {
+           Seq()
+          } else {
+            val succeededTask = succeededTasks.head
+            val results = succeededTask.getAs[GenericRowWithSchema]("results")
+            val docCount = results.getAs[Seq[GenericRowWithSchema]]("documents").size
+            val errorCount = results.getAs[Seq[GenericRowWithSchema]]("errors").size
 
-          val taaResult = Seq(
-            entityRecognitionRows,
-            entityLinkingRows,
-            entityRecognitionPiiRows,
-            keyPhraseRows,
-            sentimentAnalysisRows)
-          val resultRow = Row.fromSeq(taaResult)
-          resultRow
-        })
-        rows
+            val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
+              val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
+              val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
+              val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
+              val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
+              val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
+
+              val taaResult = Seq(
+                entityRecognitionRows,
+                entityLinkingRows,
+                entityRecognitionPiiRows,
+                keyPhraseRows,
+                sentimentAnalysisRows)
+              val resultRow = Row.fromSeq(taaResult)
+              resultRow
+            })
+            rows
+          }
       }
     }, ArrayType(innerResponseDataType)
     )
