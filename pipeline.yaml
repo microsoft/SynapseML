@@ -299,12 +299,36 @@ jobs:
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-18.04
+  strategy:
+    matrix:
+      core:
+        PACKAGE: "core"
+      deep-learning:
+        PACKAGE: "deepLearning"
+      lightgbm:
+        PACKAGE: "lightgbm"
+      opencv:
+        PACKAGE: "opencv"
+      vw:
+        PACKAGE: "vw"
+      cognitive:
+        PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache.yml
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
+    - task: AzureCLI@1
+      displayName: 'Install Pip Package'
+      timeoutInMinutes: 10
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        inlineScript: |
+          source activate synapseml
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt installPipPackage
     - task: AzureCLI@1
       displayName: 'Test Python Code'
       timeoutInMinutes: 30
@@ -313,8 +337,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testPython) || (sbt coverage testPython) || (sbt coverage testPython)
+          (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -365,7 +388,7 @@ jobs:
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt coverage testR
+          (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -504,6 +527,10 @@ jobs:
         PACKAGE: "automl"
       cntk:
         PACKAGE: "cntk"
+      geospatial:
+        PACKAGE: "geospatial"
+      onnx:
+        PACKAGE: "onnx"
       cognitive1:
         PACKAGE: "cognitive.split1"
         FLAKY: "true"
@@ -514,6 +541,9 @@ jobs:
       cognitive3:
         PACKAGE: "cognitive.split3"
         FFMPEG: "true"
+        FLAKY: "true"
+      cognitive4:
+        PACKAGE: "cognitive.split4"
         FLAKY: "true"
       core:
         PACKAGE: "core"
@@ -574,7 +604,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@1
       displayName: 'Unit Test'
-      timeoutInMinutes: 60
+      timeoutInMinutes: 90
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
@@ -583,9 +613,9 @@ jobs:
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
-          (timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 20m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'

@@ -37,18 +37,15 @@ this process:
     produce PySpark bindings.
 -   Use SparkML `PipelineStage`s so your algorithm can be used as a part of
     pipeline.
--   For parameters use `MMLParam`s.
 -   Implement model saving and loading by extending SparkML `MLReadable`.
 -   Use good Scala style.
 -   Binary dependencies should be on Maven Central.
--   See this [pull request](https://github.com/Microsoft/SynapseML/pull/22) for an
+-   See this [pull request](https://github.com/microsoft/SynapseML/pull/1282) for an
     example contribution.
 
 #### Implement tests
 
--   Set up build environment.  Use a Linux machine or VM (we use Ubuntu, but other
-    distros should work too), and install environment using the [`runme`
-    script](runme).
+-   Set up build environment using the (developer guide)[https://microsoft.github.io/SynapseML/docs/reference/developer-readme/]
 -   Test your code locally.
 -   Add tests using ScalaTests — unit tests are required.
 -   A sample notebook is required as an end-to-end test.

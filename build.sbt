@@ -67,7 +67,7 @@ pomPostProcess := pomPostFunc
 val speechResolver = "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2021-07-27.tgz"
+val datasetName = "datasets-2021-12-10.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -309,7 +309,10 @@ lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0"),
+    libraryDependencies ++= Seq(
+      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+      "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
+),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
