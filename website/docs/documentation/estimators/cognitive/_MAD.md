@@ -15,6 +15,7 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!--pytest-codeblocks:cont-->
 
 ```python
 from synapse.ml.cognitive import *
