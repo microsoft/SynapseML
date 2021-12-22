@@ -4,9 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import org.apache.spark.ml.param.{Param, ParamPair, PythonWrappableParam}
-
-import scala.reflect.runtime.universe._
+import org.apache.spark.ml.param._
 
 object GenerationUtils {
   def indent(lines: String, numTabs: Int): String = {

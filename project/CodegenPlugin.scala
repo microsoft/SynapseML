@@ -117,7 +117,7 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.PyTestGen $arg").value
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
     }
   } tag (PyTestGenTag)
 
@@ -126,7 +126,7 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetTestGen $arg").value
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.DotnetTestGen $arg").value
     }
   } tag (DotnetTestGenTag)
 
@@ -135,7 +135,7 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.DotnetCodegen $arg").value
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.DotnetCodegen $arg").value
     }
   } tag (DotnetCodeGenTag)
 

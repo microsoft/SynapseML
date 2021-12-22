@@ -1,9 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.codegen
+package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.spark.ml.param._
 
 import scala.reflect.ClassTag
@@ -84,9 +84,9 @@ object DefaultParamInfo {
       case "Int" => IntInfo
       case "Seq[String]" => StringArrayInfo
       case "Array[Byte]" => ByteArrayInfo
-      case "Seq[com.microsoft.ml.spark.cognitive.TimeSeriesPoint]" => SeqTimeSeriesPointInfo
-      case "Seq[com.microsoft.ml.spark.cognitive.TargetInput]" => SeqTargetInputInfo
-      case "Seq[com.microsoft.ml.spark.cognitive.TextAndTranslation]" => SeqTextAndTranslationInfo
+      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => SeqTimeSeriesPointInfo
+      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => SeqTargetInputInfo
+      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => SeqTextAndTranslationInfo
       case _ => throw new Exception(s"unsupported type $dataType")
     }
   }

@@ -530,7 +530,7 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           post.setHeader("Content-Type", "application/json; charset=UTF-8")
 
           val json = textAndTranslations.head.getClass.getTypeName match {
-            case "com.microsoft.ml.spark.cognitive.TextAndTranslation" => textAndTranslations.map(
+            case "com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation" => textAndTranslations.map(
               t => Map("Text" -> t.text, "Translation" -> t.translation)).toJson.compactPrint
             case _ => textAndTranslations.asInstanceOf[Seq[Row]].map(
               s => Map("Text" -> s.getString(0), "Translation" -> s.getString(1))).toJson.compactPrint

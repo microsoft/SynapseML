@@ -5,21 +5,19 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import org.apache.commons.lang.StringEscapeUtils
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.{Estimator, Model, Transformer}
 
 import java.lang.reflect.ParameterizedType
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import org.apache.spark.ml.evaluation.Evaluator
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.{Estimator, Model, Transformer}
-import org.apache.commons.lang.StringEscapeUtils
-import org.apache.commons.lang.StringUtils.capitalize
-
 import scala.collection.Iterator.iterate
 
 trait BaseWrappable extends Params {
 
-  import DefaultParamInfo._
+  import com.microsoft.azure.synapse.ml.codegen.DefaultParamInfo._
 
   protected val thisStage: Params = this
 

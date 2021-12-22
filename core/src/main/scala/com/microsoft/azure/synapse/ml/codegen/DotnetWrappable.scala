@@ -1,14 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.ml.spark.codegen
+package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.ml.spark.core.env.FileUtilities
-import com.microsoft.ml.spark.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.commons.lang.StringUtils.capitalize
-import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage, Transformer}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
+import org.apache.spark.ml._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -49,7 +49,7 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected lazy val dotnetNamespace: String =
     thisStage.getClass.getName
-      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
       .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).dropRight(1).mkString(".")
 
@@ -286,7 +286,7 @@ trait DotnetWrappable extends BaseWrappable {
            |{
            |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
            |    JvmObjectReference hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |        "com.microsoft.ml.spark.codegen.DotnetHelper", "convertToJavaMap", jvmObject);
+           |        "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "convertToJavaMap", jvmObject);
            |    JvmObjectReference[] keySet = (JvmObjectReference[])(
            |        (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
            |    ${getParamInfo(p).dotnetType} result = new ${getParamInfo(p).dotnetType}();
@@ -316,7 +316,7 @@ trait DotnetWrappable extends BaseWrappable {
            |    for (int i = 0; i < result.Length; i++)
            |    {
            |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |            "com.microsoft.ml.spark.codegen.DotnetHelper", "mapScalaToJava", (object)jvmObjects[i]);
+           |            "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "mapScalaToJava", (object)jvmObjects[i]);
            |    }
            |    return result;
            |}
@@ -335,14 +335,14 @@ trait DotnetWrappable extends BaseWrappable {
            |    for (int i = 0; i < result.Length; i++)
            |    {
            |        hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |            "com.microsoft.ml.spark.codegen.DotnetHelper", "convertToJavaMap", jvmObjects[i]);
+           |            "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "convertToJavaMap", jvmObjects[i]);
            |        keySet = (JvmObjectReference[])(
            |            (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
            |        dic = new Dictionary<string, object>();
            |        foreach (var k in keySet)
            |        {
            |            val = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |                "com.microsoft.ml.spark.codegen.DotnetHelper", "mapScalaToJava", hashMap.Invoke("get", k));
+           |                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "mapScalaToJava", hashMap.Invoke("get", k));
            |            dic.Add((string)k.Invoke("toString"), val);
            |        }
            |        result[i] = dic;
@@ -432,7 +432,7 @@ trait DotnetWrappable extends BaseWrappable {
     thisStage match {
       case _: Estimator[_] =>
         val companionModelImport = companionModelClassName
-          .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+          .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
           .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
           .replaceAllLiterally("org.apache.spark", "Microsoft.Spark")
           .split(".".toCharArray)
@@ -507,7 +507,7 @@ trait DotnetWrappable extends BaseWrappable {
   def makeDotnetFile(conf: CodegenConfig): Unit = {
     val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
     val srcFolders = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.ml.spark", "mmlspark").split(".".toCharArray)
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "mmlspark").split(".".toCharArray)
     val srcDir = FileUtilities.join((Seq(conf.dotnetSrcDir.toString) ++ srcFolders.toSeq): _*)
     srcDir.mkdirs()
     Files.write(

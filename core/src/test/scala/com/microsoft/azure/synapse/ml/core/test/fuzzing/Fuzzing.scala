@@ -12,13 +12,11 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{
-  DataFrameEquality, ExternalDotnetWrappableParam,
-  ExternalPythonWrappableParam, ParamPair
-}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
+import org.apache.commons.lang.StringUtils.capitalize
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -90,7 +88,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
     val fullStageName = stage.getClass.getName
-      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
       .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).mkString(".")
 
@@ -125,7 +123,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val stage = testObject.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
     val fullStageName = stage.getClass.getName
-      .replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replace("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
       .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).mkString(".")
     val fittingTest = stage match {
@@ -150,7 +148,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
        |    void AssertCorrespondence($fullStageName model, string name, int num)
        |    {
        |        model.Write().Overwrite().Save(Path.Combine(TestDataDir, name));
-       |        _jvm.CallStaticJavaMethod("com.microsoft.ml.spark.core.utils.ModelEquality",
+       |        _jvm.CallStaticJavaMethod("com.microsoft.azure.synapse.ml.core.utils.ModelEquality",
        |            "assertEqual", "${stage.getClass.getName}", Path.Combine(TestDataDir, name),
        |            Path.Combine(TestDataDir, String.Format("model-{0}.model", num)));
        |    }
@@ -173,11 +171,11 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val stage = dotnetTestObjects().head.stage
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
       .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).mkString(".")
     val namespaceString = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.ml.spark", "MMLSparktest")
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "MMLSparktest")
       .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
       .split(".".toCharArray).map(capitalize).mkString(".")
     val testClass =
