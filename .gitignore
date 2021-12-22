@@ -23,6 +23,7 @@
 # Generic editors
 .vscode
 .idea
+.metals
 
 # .NET plugins and build
 .metals
@@ -62,3 +63,4 @@ node_modules/
 # Misc
 .bsp
 website/.docusaurus
+null/

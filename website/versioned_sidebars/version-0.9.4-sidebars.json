@@ -1,0 +1,360 @@
+{
+  "version-0.9.4/docs": [
+    {
+      "type": "doc",
+      "id": "version-0.9.4/about"
+    },
+    {
+      "type": "category",
+      "label": "Getting Started",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.4/getting_started/installation"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/getting_started/first_example"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/getting_started/first_model"
+        }
+      ],
+      "collapsible": true,
+      "collapsed": true
+    },
+    {
+      "type": "category",
+      "label": "Features",
+      "items": [
+        {
+          "type": "category",
+          "label": "Cognitive Services",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Celebrity Quote Analysis"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Overview"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/cognitive_services/CognitiveServices - Predictive Maintenance"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Responsible AI",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Data Balance Analysis"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/DataBalanceAnalysis - Adult Census Income"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Explanation Dashboard"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Image Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Snow Leopard Detection"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Tabular SHAP explainer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Interpretability - Text Explainers"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/responsible_ai/Model Interpretation on Spark"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "ONNX",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/onnx/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/onnx/ONNX - Inference on Spark"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "LightGBM",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/lightgbm/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/lightgbm/LightGBM - Overview"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Vowpal Wabbit",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/vw/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/vw/Vowpal Wabbit - Overview"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Spark Serving",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/spark_serving/about"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/spark_serving/SparkServing - Deploying a Classifier"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "OpenCV",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/opencv/OpenCV - Pipeline Image Transformations"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Classification",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/classification/Classification - Adult Census with Vowpal Wabbit"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/classification/Classification - Adult Census"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/classification/Classification - Before and After SynapseML"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/classification/Classification - Twitter Sentiment with Vowpal Wabbit"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Regression",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/regression/Regression - Auto Imports"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/regression/Regression - Flight Delays with DataCleaning"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/regression/Regression - Flight Delays"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/regression/Regression - Vowpal Wabbit vs. LightGBM vs. Linear Regressor"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        },
+        {
+          "type": "category",
+          "label": "Other",
+          "items": [
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/AzureSearchIndex - Met Artworks"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/ConditionalKNN - Exploring Art Across Cultures"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/CyberML - Anomalous Access Detection"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/DeepLearning - BiLSTM Medical Entity Extraction"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/DeepLearning - CIFAR10 Convolutional Network"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/DeepLearning - Flower Image Classification"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/DeepLearning - Transfer Learning"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/HyperParameterTuning - Fighting Breast Cancer"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/TextAnalytics - Amazon Book Reviews with Word2Vec"
+            },
+            {
+              "type": "doc",
+              "id": "version-0.9.4/features/other/TextAnalytics - Amazon Book Reviews"
+            }
+          ],
+          "collapsible": true,
+          "collapsed": true
+        }
+      ],
+      "collapsible": true,
+      "collapsed": true
+    },
+    {
+      "type": "category",
+      "label": "Transformers",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/transformers/transformers_cognitive"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/transformers/transformers_core"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/transformers/transformers_opencv"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/transformers/transformers_vw"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/transformers/transformers_deep_learning"
+        }
+      ],
+      "collapsible": true,
+      "collapsed": true
+    },
+    {
+      "type": "category",
+      "label": "Estimators",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/estimators/estimators_core"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/estimators/estimators_lightgbm"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/documentation/estimators/estimators_vw"
+        }
+      ],
+      "collapsible": true,
+      "collapsed": true
+    },
+    {
+      "type": "category",
+      "label": "Reference",
+      "items": [
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/developer-readme"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/contributing_guide"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/docker"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/R-setup"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/SAR"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/cyber"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/datasets"
+        },
+        {
+          "type": "doc",
+          "id": "version-0.9.4/reference/vagrant"
+        }
+      ],
+      "collapsible": true,
+      "collapsed": true
+    }
+  ]
+}

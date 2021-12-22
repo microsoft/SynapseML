@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.core.utils.ParamEquality
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.scalactic.TripleEquals._
