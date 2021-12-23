@@ -98,6 +98,7 @@ module.exports = {
       type: 'category',
       label: 'Estimators',
       items: [
+        'documentation/estimators/estimators_cognitive',
         'documentation/estimators/estimators_core',
         'documentation/estimators/estimators_lightgbm',
         'documentation/estimators/estimators_vw',
