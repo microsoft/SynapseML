@@ -435,6 +435,8 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           source activate synapseml
+          sbt packagePython
+          sbt publishBlob
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testWebsiteDocs)
     - task: PublishTestResults@2
