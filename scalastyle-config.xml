@@ -12,7 +12,7 @@
     <parameter name="header">^// Copyright \(C\) Microsoft Corporation\. All rights reserved\.
 // Licensed under the MIT License\. See LICENSE in project root for information\.
 
-package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm|com\.microsoft\.lightgbm)[.
+package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\.CNTK|com\.microsoft\.ml\.lightgbm|com\.microsoft\.lightgbm)[.
 ]</parameter>
     <parameter name="regex">true</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"></check>
@@ -72,7 +72,7 @@ package (?:com\.microsoft\.ml\.spark|org\.apache\.spark|com\.microsoft\.CNTK|com
   <check level="error" class="org.scalastyle.scalariform.NonASCIICharacterChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ImportOrderChecker" enabled="true"><parameters>
     <parameter name="groups">our,scala,java,other</parameter>
-    <parameter name="our">com.microsoft.ml.spark[.].+</parameter>
+    <parameter name="our">com.microsoft.azure.synapse.ml[.].+</parameter>
     <parameter name="scala">scala[.].+</parameter>
     <parameter name="java">java[.].+</parameter>
     <parameter name="other">.+</parameter></parameters></check>

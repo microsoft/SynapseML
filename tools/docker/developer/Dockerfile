@@ -8,15 +8,17 @@ RUN apt-get -qq update \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda update conda \
-    && apt-get install default-jdk -y \
-    && apt-get install apt-transport-https \
-    && echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list \
-    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 \
+    && apt-get install openjdk-8-jdk -qq \
+    && apt-get install apt-transport-https gnupg -yqq \
+    && echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list \
+    && echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list \
+    && curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | gpg --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --import \
+    && chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg \
     && apt-get update \
-    && apt-get install sbt -y \
+    && apt-get install sbt -qq \
     && curl -sL https://aka.ms/InstallAzureCLIDeb | bash \
-    && apt-get -qq -y remove curl bzip2 \
-    && apt-get -qq -y autoremove \
+    && apt-get -qq remove bzip2 \
+    && apt-get -qq autoremove \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
     && conda clean --all --yes
@@ -26,20 +28,16 @@ ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 
 RUN mkdir -p /__w/1
 WORKDIR /__w/1
-RUN git clone https://github.com/Azure/mmlspark.git s \
-    && cd s \
-    && git checkout build-refactor
+
+RUN git clone https://github.com/Microsoft/SynapseML.git s
+
 WORKDIR /__w/1/s
 
-ADD environment.yaml .
 RUN conda env create -f environment.yaml && conda clean --all --yes
-ADD . .
 
 ENV SBT_OPTS="${SBT_OPTS} -Dsbt.io.jdktimestamps=true"
 RUN sbt setup
 RUN conda init bash
-RUN echo "source activate mmlspark" > ~/.bashrc
+RUN echo "source activate synapseml" > ~/.bashrc
 
 # RUN /bin/bash -c "sbt testPython"
-
-
