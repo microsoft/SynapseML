@@ -454,9 +454,9 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Basic
 
     def cleanUp(): Unit = {
       recognizer.stopContinuousRecognitionAsync().get()
-      pullStream.close()
-      speechConfig.close()
-      audioConfig.close()
+      Option(pullStream).foreach(_.close())
+      Option(speechConfig).foreach(_.close())
+      Option(audioConfig).foreach(_.close())
     }
 
     def sessionStoppedHandler(s: Any, e: SessionEventArgs): Unit = {
@@ -537,10 +537,10 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
 
     def cleanUp(): Unit = {
       transcriber.stopTranscribingAsync().get()
-      conversation.close()
-      pullStream.close()
-      speechConfig.close()
-      audioConfig.close()
+      Option(conversation).foreach(_.close())
+      Option(pullStream).foreach(_.close())
+      Option(speechConfig).foreach(_.close())
+      Option(audioConfig).foreach(_.close())
     }
 
     def recognizedHandler(s: Any, e: ConversationTranscriptionEventArgs): Unit = {

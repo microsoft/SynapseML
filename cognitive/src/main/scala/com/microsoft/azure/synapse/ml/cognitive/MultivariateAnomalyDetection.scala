@@ -296,6 +296,14 @@ trait MADBase extends HasOutputCol
     blobContainerClient.getBlobClient(blobName).delete()
   }
 
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """
+      |def cleanUpIntermediateData(self):
+      |    self._java_obj.cleanUpIntermediateData()
+      |    return
+      |""".stripMargin
+  }
+
 
 }
 
@@ -487,6 +495,7 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
 
       df.join(finalDF, df(getTimestampCol) === finalDF("resultTimestamp"), "left")
         .drop("resultTimestamp")
+        .sort(col(getTimestampCol).asc)
     }
   }
 

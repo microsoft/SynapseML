@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
+import com.microsoft.cognitiveservices.speech.SpeechSynthesisCancellationDetails
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 case class DetailedSpeechResponse(Confidence: Double,
@@ -58,3 +59,11 @@ object SpeechFormat extends DefaultJsonProtocol {
     jsonFormat3(TranscriptionParticipant.apply)
 
 }
+
+object SpeechSynthesisError extends SparkBindings[SpeechSynthesisError] {
+  def fromSDK(error: SpeechSynthesisCancellationDetails): SpeechSynthesisError = {
+    SpeechSynthesisError(error.getErrorCode.name(), error.getErrorDetails, error.getReason.name())
+  }
+}
+
+case class SpeechSynthesisError(errorCode: String, errorDetails: String, errorReason: String)
