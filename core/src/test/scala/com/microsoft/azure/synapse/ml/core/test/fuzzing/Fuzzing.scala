@@ -114,6 +114,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
   }
 
 
+  //noinspection ScalaStyle
   def makePyTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -134,10 +135,20 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     val mlflowTest = stage match {
       case _: Model[_] =>
         s"""
-           |model.save_as_mlflow_model("mlflow-save-model-$num")
-           |model.log_as_mlflow_model("mlflow-log-model-$num")
+           |mlflow.spark.save_model(model, "mlflow-save-model-$num")
+           |mlflow.spark.log_model(model, "mlflow-log-model-$num")
            |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
            |""".stripMargin
+      case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
+        case "cognitive" =>
+          s"""
+             |pipeline_model = PipelineModel(stages=[model])
+             |mlflow.spark.save_model(pipeline_model, "mlflow-save-model-$num")
+             |mlflow.spark.log_model(pipeline_model, "mlflow-log-model-$num")
+             |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
+             |""".stripMargin
+        case _ => ""
+      }
       case _ => ""
     }
 
@@ -170,6 +181,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |from os.path import join
          |import json
          |import mlflow
+         |from pyspark.ml import PipelineModel
          |
          |test_data_dir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
