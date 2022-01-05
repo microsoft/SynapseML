@@ -308,7 +308,7 @@ lazy val vw = (project in file("vw"))
 
 
 val cognitiveExcludes = Seq(
-  ExclusionRule("io.projectreactor.netty")
+  ExclusionRule("io.projectreactor.netty", "reactor-netty")
 )
 
 lazy val cognitive = (project in file("cognitive"))
@@ -318,8 +318,8 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
-      ("com.azure" % "azure-ai-textanalytics" % "5.1.4") excludeAll (cognitiveExcludes: _*),
-    ),
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
