@@ -25,10 +25,8 @@ import java.net.URI
 import java.util
 import scala.collection.JavaConverters._
 
-abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
-  with HasSetLinkedService {
 
+trait TextAnalyticsInputParams extends HasServiceParams {
   val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
 
   def setTextCol(v: String): this.type = setVectorParam(text, v)
@@ -48,7 +46,13 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
 
   def setLanguage(v: String): this.type = setScalarParam(language, Seq(v))
 
-  setDefault(language -> Left(Seq("en")))
+  //setDefault(language -> Left(Seq("en")))
+
+}
+
+abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
+  with HasSetLinkedService with TextAnalyticsInputParams {
 
   protected def innerResponseDataType: StructType =
     responseDataType("documents").dataType match {
