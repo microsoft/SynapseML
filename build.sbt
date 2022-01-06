@@ -307,7 +307,7 @@ lazy val vw = (project in file("vw"))
 
 
 val cognitiveExcludes = Seq(
-  ExclusionRule("io.projectreactor.netty", "reactor-netty"),
+  //ExclusionRule("io.projectreactor.netty", "reactor-netty"),
 )
 
 lazy val cognitive = (project in file("cognitive"))
@@ -318,6 +318,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+      "io.projectreactor.netty" % "reactor-netty-http" % "1.0.11",
     ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
