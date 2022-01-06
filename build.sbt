@@ -305,6 +305,11 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
+
+val cognitiveExcludes = Seq(
+  ExclusionRule("io.projectreactor.netty", "reactor-netty"),
+)
+
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -313,7 +318,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4",
-    ),
+    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
