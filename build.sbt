@@ -9,7 +9,7 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.1.2"
+val sparkVersion = "3.2.0"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.10"
@@ -22,7 +22,6 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -306,15 +305,6 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
-
-val cognitiveExcludes = Seq(
-  ExclusionRule("io.projectreactor.netty", "reactor-netty"),
-  ExclusionRule("io.netty"),
-  ExclusionRule("com.fasterxml.jackson.core"),
-  ExclusionRule("com.fasterxml.jackson.dataformat"),
-  ExclusionRule("com.fasterxml.jackson.datatype")
-)
-
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -323,7 +313,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
       "com.azure" % "azure-ai-textanalytics" % "5.1.4",
-    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
+    ),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
