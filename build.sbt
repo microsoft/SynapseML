@@ -308,7 +308,8 @@ lazy val vw = (project in file("vw"))
 
 
 val cognitiveExcludes = Seq(
-  ExclusionRule("io.projectreactor.netty", "reactor-netty")
+  ExclusionRule("io.projectreactor.netty", "reactor-netty"),
+  ExclusionRule("io.netty")
 )
 
 lazy val cognitive = (project in file("cognitive"))
