@@ -164,13 +164,8 @@ class TrainedRegressorModel(val uid: String)
         else SparkSchema.setLabelColumnName(
           cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
 
-      SparkSchema.setScoresColumnName(
-        schematizedScoredDataWithLabel.withColumnRenamed(
-          SchemaConstants.SparkPredictionColumn,
-          SchemaConstants.ScoresColumn),
-        moduleName,
-        SchemaConstants.ScoresColumn,
-        SchemaConstants.RegressionKind)
+      SparkSchema.updateColumnMetadata(schematizedScoredDataWithLabel,
+        moduleName, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
     })
   }
 

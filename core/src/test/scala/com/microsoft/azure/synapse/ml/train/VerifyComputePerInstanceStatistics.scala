@@ -38,7 +38,7 @@ class VerifyComputePerInstanceStatistics extends TestBase {
     val datasetWithLabel =
       SparkSchema.setLabelColumnName(dataset, scoreModelName, labelColumn, SchemaConstants.RegressionKind)
     val datasetWithScores =
-      SparkSchema.setScoresColumnName(datasetWithLabel, scoreModelName, predictionColumn,
+      SparkSchema.updateColumnMetadata(datasetWithLabel, scoreModelName, predictionColumn,
                                       SchemaConstants.RegressionKind)
 
     val evaluatedData = new ComputePerInstanceStatistics().transform(datasetWithScores)
