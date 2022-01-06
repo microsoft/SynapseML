@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.io.http.{HTTPParams, SharedSingleton}
+import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, SharedSingleton}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
@@ -19,7 +19,7 @@ import scala.concurrent.blocking
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
 
 class PartitionConsolidator(val uid: String)
-  extends Transformer with HTTPParams with HasInputCol
+  extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol
     with ComplexParamsWritable with BasicLogging {
   logClass()
