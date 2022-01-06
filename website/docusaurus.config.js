@@ -123,8 +123,8 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} Microsoft.`,
     },
     algolia: {
-      appId: 'BH4D9OD16A',
-      apiKey: 'edc58a221b8a7df52bf7058219bbf9c9',
+      appId: 'GBW8AA15RD',
+      apiKey: '70a6807005c645678741ab941bb89ed8',
       indexName: 'synapseML',
       contextualSearch: true,
     },
