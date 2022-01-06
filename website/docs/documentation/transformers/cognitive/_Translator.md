@@ -410,6 +410,7 @@ val dictionaryExamples = (new DictionaryExamples()
                         .setLocation("eastus")
                         .setFromLanguage("en")
                         .setToLanguage("es")
+                        .setTextAndTranslationCol("textAndTranslation")
                         .setOutputCol("result"))
 
 (dictionaryExamples
