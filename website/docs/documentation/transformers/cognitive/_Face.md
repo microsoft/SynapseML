@@ -37,7 +37,7 @@ face = (DetectFace()
     .setReturnFaceAttributes(["age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
       "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise"]))
 
-display(face.transform(df))
+face.transform(df).show()
 ```
 
 </TabItem>
@@ -63,7 +63,7 @@ val face = (new DetectFace()
       "age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
       "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise")))
 
-display(face.transform(df))
+face.transform(df).show()
 ```
 
 </TabItem>
@@ -119,7 +119,7 @@ findSimilar = (FindSimilarFace()
     .setFaceIdCol("id")
     .setFaceIds(faceIds))
 
-display(findSimilar.transform(faceIdDF))
+findSimilar.transform(faceIdDF).show()
 ```
 
 </TabItem>
@@ -156,7 +156,7 @@ val findSimilar = (new FindSimilarFace()
     .setFaceIdCol("id")
     .setFaceIds(faceIds))
 
-display(findSimilar.transform(faceIdDF))
+findSimilar.transform(faceIdDF).show()
 ```
 
 </TabItem>
@@ -211,7 +211,7 @@ group = (GroupFaces()
     .setOutputCol("grouping")
     .setFaceIds(faceIds))
 
-display(group.transform(faceIdDF))
+group.transform(faceIdDF).show()
 ```
 
 </TabItem>
@@ -247,7 +247,7 @@ val group = (new GroupFaces()
     .setOutputCol("grouping")
     .setFaceIds(faceIds))
 
-display(group.transform(faceIdDF))
+group.transform(faceIdDF).show()
 ```
 
 </TabItem>
@@ -359,7 +359,7 @@ verify = (VerifyFaces()
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2"))
 
-display(verify.transform(faceIdDF2))
+verify.transform(faceIdDF2).show()
 ```
 
 </TabItem>
@@ -397,7 +397,7 @@ val verify = (new VerifyFaces()
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2"))
 
-display(verify.transform(faceIdDF2))
+verify.transform(faceIdDF2).show()
 ```
 
 </TabItem>

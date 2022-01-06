@@ -31,7 +31,7 @@ it = (ImageTransformer(inputCol="image", outputCol="features")
     .normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], color_scale_factor = 1/255)
     .setTensorElementType(FloatType()))
 
-# display(it.transform(images))
+# it.transform(images).show()
 ```
 
 </TabItem>
@@ -48,7 +48,7 @@ val it = (new ImageTransformer()
       .setOutputCol("out")
       .resize(height = 15, width = 10))
 
-display(it.transform(images))
+it.transform(images).show()
 ```
 
 </TabItem>
@@ -88,7 +88,7 @@ isa = (ImageSetAugmenter()
     .setFlipLeftRight(True)
     .setFlipUpDown(True))
 
-# display(it.transform(images))
+# it.transform(images).show()
 ```
 
 </TabItem>
@@ -107,7 +107,7 @@ val isa = (new ImageSetAugmenter()
     .setFlipLeftRight(true)
     .setFlipUpDown(true))
 
-display(isa.transform(images))
+isa.transform(images).show()
 ```
 
 </TabItem>

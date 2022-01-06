@@ -108,7 +108,7 @@ df = spark.createDataFrame([
 
 cs = CountSelector().setInputCol("col1").setOutputCol("col3")
 
-display(cs.fit(df).transform(df))
+cs.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -128,7 +128,7 @@ val cs = (new CountSelector()
             .setInputCol("col1")
             .setOutputCol("col3"))
 
-display(cs.fit(df).transform(df))
+cs.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -172,7 +172,7 @@ feat = (Featurize()
       .setInputCols(["col1", "col2", "col3"])
       .setOneHotEncodeCategoricals(False))
 
-display(feat.fit(dataset).transform(dataset))
+feat.fit(dataset).transform(dataset).show()
 ```
 
 </TabItem>
@@ -197,7 +197,7 @@ val feat = (new Featurize()
       .setInputCols(featureColumns)
       .setOneHotEncodeCategoricals(false))
 
-display(feat.fit(dataset).transform(dataset))
+feat.fit(dataset).transform(dataset).show()
 ```
 
 </TabItem>
@@ -235,7 +235,7 @@ df = spark.createDataFrame([
 
 vi = ValueIndexer().setInputCol("string").setOutputCol("string_cat")
 
-display(vi.fit(df).transform(df))
+vi.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -252,7 +252,7 @@ val df = Seq[(Int, Long, Double, Boolean, String)](
 
 val vi = new ValueIndexer().setInputCol("string").setOutputCol("string_cat")
 
-display(vi.fit(df).transform(df))
+vi.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -295,7 +295,7 @@ tfRaw = (TextFeaturizer()
       .setOutputCol("features")
       .setNumFeatures(20))
 
-display(tfRaw.fit(dfRaw).transform(dfRaw))
+tfRaw.fit(dfRaw).transform(dfRaw).show()
 ```
 
 </TabItem>
@@ -315,7 +315,7 @@ val tfRaw = (new TextFeaturizer()
       .setOutputCol("features")
       .setNumFeatures(20))
 
-display(tfRaw.fit(dfRaw).transform(dfRaw))
+tfRaw.fit(dfRaw).transform(dfRaw).show()
 ```
 
 </TabItem>

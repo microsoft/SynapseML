@@ -554,7 +554,7 @@ val infer = Seq(
     Tuple1(Vectors.dense(1d, 1d, 1d, 1d, 1d))
   ) toDF "features"
 val predicted = model.transform(infer)
-display(shap.transform(predicted))
+shap.transform(predicted).show()
 ```
 
 </TabItem>

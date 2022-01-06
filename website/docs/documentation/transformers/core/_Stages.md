@@ -39,7 +39,7 @@ df = (spark.createDataFrame([
 
 cacher = Cacher()
 
-display(cacher.transform(df))
+cacher.transform(df).show()
 ```
 
 </TabItem>
@@ -65,7 +65,7 @@ val df = Seq(
 
 val cacher = new Cacher()
 
-display(cacher.transform(df))
+cacher.transform(df).show()
 ```
 
 </TabItem>
@@ -103,7 +103,7 @@ df = (spark.createDataFrame([
 
 dc = DropColumns().setCols([])
 
-display(dc.transform(df))
+dc.transform(df).show()
 ```
 
 </TabItem>
@@ -120,7 +120,7 @@ val df = (Seq(
 
 val dc = new DropColumns().setCols(Array())
 
-display(dc.transform(df))
+dc.transform(df).show()
 ```
 
 </TabItem>
@@ -162,7 +162,7 @@ scoreDF2 = va.transform(scoreDF)
 
 ebk = EnsembleByKey().setKeys(["label1"]).setCols(["score1"])
 
-display(ebk.transform(scoreDF2))
+ebk.transform(scoreDF2).show()
 ```
 
 </TabItem>
@@ -183,7 +183,7 @@ val scoreDF2 = va.transform(scoreDF)
 
 val ebk = new EnsembleByKey().setKey("label1").setCol("score1")
 
-display(ebk.transform(scoreDF2))
+ebk.transform(scoreDF2).show()
 ```
 
 </TabItem>
@@ -221,7 +221,7 @@ df = (spark.createDataFrame([
 
 explode = Explode().setInputCol("words").setOutputCol("exploded")
 
-display(explode.transform(df))
+explode.transform(df).show()
 ```
 
 </TabItem>
@@ -238,7 +238,7 @@ val df = (Seq(
 
 val explode = new Explode().setInputCol("words").setOutputCol("exploded")
 
-display(explode.transform(df))
+explode.transform(df).show()
 ```
 
 </TabItem>
@@ -304,7 +304,7 @@ val lambda = (new Lambda()
       .setTransform(df => df.select("numbers"))
       .setTransformSchema(schema => new StructType(Array(schema("numbers")))))
 
-display(lambda.transform(df))
+lambda.transform(df).show()
 ```
 
 </TabItem>
@@ -339,7 +339,7 @@ df = (spark.createDataFrame([(_, "foo") for _ in range(1, 11)], ["in1", "in2"]))
 
 dmbt = DynamicMiniBatchTransformer()
 
-display(dmbt.transform(df))
+dmbt.transform(df).show()
 ```
 
 </TabItem>
@@ -352,7 +352,7 @@ val df = (1 until 11).map(x => (x, "foo")).toDF("in1", "in2")
 
 val dmbt = new DynamicMiniBatchTransformer()
 
-display(dmbt.transform(df))
+dmbt.transform(df).show()
 ```
 
 </TabItem>
@@ -431,7 +431,7 @@ timbt = (TimeIntervalMiniBatchTransformer()
         .setMillisToWait(1000)
         .setMaxBatchSize(30))
 
-display(timbt.transform(df))
+timbt.transform(df).show()
 ```
 
 </TabItem>
@@ -446,7 +446,7 @@ val timbt = (new TimeIntervalMiniBatchTransformer()
         .setMillisToWait(1000)
         .setMaxBatchSize(30))
 
-display(timbt.transform(df))
+timbt.transform(df).show()
 ```
 
 </TabItem>
@@ -482,7 +482,7 @@ transDF = DynamicMiniBatchTransformer().transform(df)
 
 fb = FlattenBatch()
 
-display(fb.transform(transDF))
+fb.transform(transDF).show()
 ```
 
 </TabItem>
@@ -497,7 +497,7 @@ val transDF = new DynamicMiniBatchTransformer().transform(df)
 
 val fb = new FlattenBatch()
 
-display(fb.transform(transDF))
+fb.transform(transDF).show()
 ```
 
 </TabItem>
@@ -535,7 +535,7 @@ df = (spark.createDataFrame([
 
 rc = RenameColumn().setInputCol("words").setOutputCol("numbers")
 
-display(rc.transform(df))
+rc.transform(df).show()
 ```
 
 </TabItem>
@@ -552,7 +552,7 @@ val df = (Seq(
 
 val rc = new RenameColumn().setInputCol("words").setOutputCol("numbers")
 
-display(rc.transform(df))
+rc.transform(df).show()
 ```
 
 </TabItem>
@@ -599,7 +599,7 @@ df = (spark.createDataFrame([
 
 repartition = Repartition().setN(1)
 
-display(repartition.transform(df))
+repartition.transform(df).show()
 ```
 
 </TabItem>
@@ -625,7 +625,7 @@ val df = (Seq(
 
 val repartition = new Repartition().setN(1)
 
-display(repartition.transform(df))
+repartition.transform(df).show()
 ```
 
 </TabItem>
@@ -663,7 +663,7 @@ df = (spark.createDataFrame([
 
 sc = SelectColumns().setCols(["words", "more"])
 
-display(sc.transform(df))
+sc.transform(df).show()
 ```
 
 </TabItem>
@@ -680,7 +680,7 @@ val df = (Seq(
 
 val sc = new SelectColumns().setCols(Array("words", "more"))
 
-display(sc.transform(df))
+sc.transform(df).show()
 ```
 
 </TabItem>
@@ -751,7 +751,7 @@ val df = (Seq(
 
 val sr = new StratifiedRepartition().setLabelCol("values").setMode("equal")
 
-display(sr.transform(df))
+sr.transform(df).show()
 ```
 
 </TabItem>
@@ -789,7 +789,7 @@ df = (spark.createDataFrame([
 
 summary = SummarizeData()
 
-display(summary.transform(df))
+summary.transform(df).show()
 ```
 
 </TabItem>
@@ -806,7 +806,7 @@ val df = (Seq(
 
 val summary = new SummarizeData()
 
-display(summary.transform(df))
+summary.transform(df).show()
 ```
 
 </TabItem>
@@ -852,7 +852,7 @@ textPreprocessor = (TextPreprocessor()
       .setInputCol("words1")
       .setOutputCol("out"))
 
-display(textPreprocessor.transform(df))
+textPreprocessor.transform(df).show()
 ```
 
 </TabItem>
@@ -881,7 +881,7 @@ val textPreprocessor = (new TextPreprocessor()
       .setInputCol("words1")
       .setOutputCol("out"))
 
-display(textPreprocessor.transform(df))
+textPreprocessor.transform(df).show()
 ```
 
 </TabItem>
@@ -925,7 +925,7 @@ udfTransformer = (UDFTransformer()
       .setInputCol("numbers")
       .setOutputCol("out"))
 
-display(udfTransformer.transform(df))
+udfTransformer.transform(df).show()
 ```
 
 </TabItem>
@@ -948,7 +948,7 @@ val udfTransformer = (new UDFTransformer()
       .setInputCol("numbers")
       .setOutputCol("out"))
 
-display(udfTransformer.transform(df))
+udfTransformer.transform(df).show()
 ```
 
 </TabItem>
@@ -989,7 +989,7 @@ unicodeNormalize = (UnicodeNormalize()
       .setInputCol("words1")
       .setOutputCol("norm1"))
 
-display(unicodeNormalize.transform(df))
+unicodeNormalize.transform(df).show()
 ```
 
 </TabItem>
@@ -1009,7 +1009,7 @@ val unicodeNormalize = (new UnicodeNormalize()
       .setInputCol("words1")
       .setOutputCol("norm1"))
 
-display(unicodeNormalize.transform(df))
+unicodeNormalize.transform(df).show()
 ```
 
 </TabItem>

@@ -41,13 +41,13 @@ bingSearch = (BingImageSearch()
 getUrls = BingImageSearch.getUrlTransformer("images", "url")
 
 # This displays the full results returned
-display(bingSearch.transform(bingParameters))
+bingSearch.transform(bingParameters).show()
 
 # Since we have two services, they are put into a pipeline
 pipeline = PipelineModel(stages=[bingSearch, getUrls])
 
 # Show the results of your search: image URLs
-display(pipeline.transform(bingParameters))
+pipeline.transform(bingParameters).show()
 
 ```
 
@@ -79,10 +79,10 @@ val bingSearch = (new BingImageSearch()
 val getUrls = BingImageSearch.getUrlTransformer("images", "url")
 
 // This displays the full results returned
-display(bingSearch.transform(bingParameters))
+bingSearch.transform(bingParameters).show()
 
 // Show the results of your search: image URLs
-display(getUrls.transform(bingSearch.transform(bingParameters)))
+getUrls.transform(bingSearch.transform(bingParameters)).show()
 ```
 
 </TabItem>

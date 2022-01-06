@@ -33,7 +33,7 @@ entity = (EntityDetector()
       .setOutputCol("replies")
       .setErrorCol("error"))
 
-display(entity.transform(df))
+entity.transform(df).show()
 ```
 
 </TabItem>
@@ -56,7 +56,7 @@ val entity = (new EntityDetector()
             .setLanguage("en")
             .setOutputCol("replies"))
 
-display(entity.transform(df))
+entity.transform(df).show()
 ```
 
 </TabItem>
@@ -98,7 +98,7 @@ keyPhrase = (KeyPhraseExtractor()
             .setOutputCol("replies")
             .setErrorCol("error"))
 
-display(keyPhrase.transform(df))
+keyPhrase.transform(df).show()
 ```
 
 </TabItem>
@@ -122,7 +122,7 @@ val keyPhrase = (new KeyPhraseExtractor()
                   .setLanguageCol("lang")
                   .setOutputCol("replies"))
 
-display(keyPhrase.transform(df))
+keyPhrase.transform(df).show()
 ```
 
 </TabItem>
@@ -169,7 +169,7 @@ language = (LanguageDetector()
             .setOutputCol("language")
             .setErrorCol("error"))
 
-display(language.transform(df))
+language.transform(df).show()
 ```
 
 </TabItem>
@@ -192,7 +192,7 @@ val language = (new LanguageDetector()
       .setLocation("eastus")
       .setOutputCol("replies"))
 
-display(language.transform(df))
+language.transform(df).show()
 ```
 
 </TabItem>
@@ -235,7 +235,7 @@ ner = (NER()
       .setOutputCol("replies")
       .setErrorCol("error"))
 
-display(ner.transform(df))
+ner.transform(df).show()
 ```
 
 </TabItem>
@@ -257,7 +257,7 @@ val ner = (new NER()
             .setLanguage("en")
             .setOutputCol("response"))
 
-display(ner.transform(df)
+ner.transform(df).show()
 ```
 
 </TabItem>
@@ -301,7 +301,7 @@ pii = (PII()
       .setLanguage("en")
       .setOutputCol("response"))
 
-display(pii.transform(df))
+pii.transform(df).show()
 ```
 
 </TabItem>
@@ -325,7 +325,7 @@ val pii = (new PII()
             .setLanguage("en")
             .setOutputCol("response"))
 
-display(pii.transform(df))
+pii.transform(df).show()
 ```
 
 </TabItem>
@@ -370,7 +370,7 @@ sentiment = (TextSentiment()
             .setErrorCol("error")
             .setLanguageCol("language"))
 
-display(sentiment.transform(df))
+sentiment.transform(df).show()
 ```
 
 </TabItem>
@@ -398,7 +398,7 @@ val sentiment = (new TextSentiment()
             .setShowStats(true)
             .setOutputCol("replies"))
 
-display(sentiment.transform(df))
+sentiment.transform(df).show()
 ```
 
 </TabItem>

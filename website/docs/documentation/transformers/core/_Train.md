@@ -32,7 +32,7 @@ cms = (ComputeModelStatistics()
       .setScoredLabelsCol("prediction")
       .setEvaluationMetric("classification"))
 
-display(cms.transform(df))
+cms.transform(df).show()
 ```
 
 </TabItem>
@@ -52,7 +52,7 @@ val cms = (new ComputeModelStatistics()
       .setScoredLabelsCol("prediction")
       .setEvaluationMetric("classification"))
 
-display(cms.transform(df))
+cms.transform(df).show()
 ```
 
 </TabItem>
@@ -137,7 +137,7 @@ val cps = (new ComputePerInstanceStatistics()
       .setScoredProbabilitiesCol("LogRegProbCol")
       .setEvaluationMetric("classification"))
 
-display(cps.transform(scoredData))
+cps.transform(scoredData).show()
 ```
 
 </TabItem>
