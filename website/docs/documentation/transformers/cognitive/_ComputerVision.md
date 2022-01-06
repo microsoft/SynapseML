@@ -35,7 +35,7 @@ ocr = (OCR()
         .setDetectOrientation(True)
         .setOutputCol("ocr"))
 
-display(ocr.transform(df))
+ocr.transform(df).show()
 ```
 
 </TabItem>
@@ -58,7 +58,7 @@ val ocr = (new OCR()
         .setDetectOrientation(true)
         .setOutputCol("ocr"))
 
-display(ocr.transform(df))
+ocr.transform(df).show()
 ```
 
 </TabItem>
@@ -105,7 +105,7 @@ ai = (AnalyzeImage()
         .setDetails(["Celebrities", "Landmarks"])
         .setOutputCol("features"))
 
-display(ai.transform(df))
+ai.transform(df).show()
 ```
 
 </TabItem>
@@ -131,7 +131,7 @@ val ai = (new AnalyzeImage()
         .setDetails(Seq("Celebrities", "Landmarks"))
         .setOutputCol("features"))
 
-display(ai.transform(df).select("url", "features"))
+ai.transform(df).select("url", "features").show()
 ```
 
 </TabItem>
@@ -176,7 +176,7 @@ rt = (RecognizeText()
         .setOutputCol("ocr")
         .setConcurrency(5))
 
-display(rt.transform(df))
+rt.transform(df).show()
 ```
 
 </TabItem>
@@ -201,7 +201,7 @@ val rt = (new RecognizeText()
         .setOutputCol("ocr")
         .setConcurrency(5))
 
-display(rt.transform(df))
+rt.transform(df).show()
 ```
 
 </TabItem>
@@ -245,7 +245,7 @@ ri = (ReadImage()
     .setOutputCol("ocr")
     .setConcurrency(5))
 
-display(ri.transform(df))
+ri.transform(df).show()
 ```
 
 </TabItem>
@@ -269,7 +269,7 @@ val ri = (new ReadImage()
         .setOutputCol("ocr")
         .setConcurrency(5))
 
-display(ri.transform(df))
+ri.transform(df).show()
 ```
 
 </TabItem>
@@ -311,7 +311,7 @@ celeb = (RecognizeDomainSpecificContent()
         .setImageUrlCol("url")
         .setOutputCol("celebs"))
 
-display(celeb.transform(df))
+celeb.transform(df).show()
 ```
 
 </TabItem>
@@ -333,7 +333,7 @@ val celeb = (new RecognizeDomainSpecificContent()
                 .setImageUrlCol("url")
                 .setOutputCol("celebs"))
 
-display(celeb.transform(df))
+celeb.transform(df).show()
 ```
 
 </TabItem>
@@ -377,7 +377,7 @@ gt = (GenerateThumbnails()
         .setImageUrlCol("url")
         .setOutputCol("thumbnails"))
 
-display(gt.transform(df))
+gt.transform(df).show()
 ```
 
 </TabItem>
@@ -401,7 +401,7 @@ val gt = (new GenerateThumbnails()
         .setImageUrlCol("url")
         .setOutputCol("thumbnails"))
 
-display(gt.transform(df))
+gt.transform(df).show()
 ```
 
 </TabItem>
@@ -442,7 +442,7 @@ ti = (TagImage()
         .setImageUrlCol("url")
         .setOutputCol("tags"))
 
-display(ti.transform(df))
+ti.transform(df).show()
 ```
 
 </TabItem>
@@ -463,7 +463,7 @@ val ti = (new TagImage()
         .setImageUrlCol("url")
         .setOutputCol("tags"))
 
-display(ti.transform(df))
+ti.transform(df).show()
 ```
 
 </TabItem>
@@ -505,7 +505,7 @@ di = (DescribeImage()
         .setImageUrlCol("url")
         .setOutputCol("descriptions"))
 
-display(di.transform(df))
+di.transform(df).show()
 ```
 
 </TabItem>
@@ -527,7 +527,7 @@ val di = (new DescribeImage()
         .setImageUrlCol("url")
         .setOutputCol("descriptions"))
 
-display(di.transform(df))
+di.transform(df).show()
 ```
 
 </TabItem>

@@ -54,7 +54,7 @@ dla = (DetectLastAnomaly()
       .setGranularity("monthly")
       .setErrorCol("errors"))
 
-display(dla.transform(df))
+dla.transform(df).show()
 ```
 
 </TabItem>
@@ -96,7 +96,7 @@ val dla = (new DetectLastAnomaly()
             .setGranularity("monthly")
             .setErrorCol("errors"))
 
-display(dla.transform(df))
+dla.transform(df).show()
 ```
 
 </TabItem>
@@ -155,7 +155,7 @@ da = (DetectAnomalies()
       .setSeriesCol("inputs")
       .setGranularity("monthly"))
 
-display(da.transform(df))
+da.transform(df).show()
 ```
 
 </TabItem>
@@ -195,7 +195,7 @@ val da = (new DetectAnomalies()
             .setSeriesCol("inputs")
             .setGranularity("monthly"))
 
-display(da.transform(df))
+da.transform(df).show()
 ```
 
 </TabItem>
@@ -265,7 +265,7 @@ sda = (SimpleDetectAnomalies()
         .setGroupbyCol("group")
         .setGranularity("monthly"))
 
-display(sda.transform(df))
+sda.transform(df).show()
 ```
 
 </TabItem>
@@ -304,7 +304,7 @@ val sda = (new SimpleDetectAnomalies()
             .setGroupbyCol("group")
             .setGranularity("monthly"))
 
-display(sda.transform(df))
+sda.transform(df).show()
 ```
 
 </TabItem>

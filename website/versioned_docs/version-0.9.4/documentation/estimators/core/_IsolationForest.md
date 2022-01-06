@@ -58,7 +58,7 @@ val isolationForest = (new IsolationForest()
 </TabItem>
 </Tabs>
 
-<DocTable className="CleanMissingData"
+<DocTable className="IsolationForest"
 py="synapse.ml.isolationforest.html#module-synapse.ml.isolationforest.IsolationForest"
 scala="com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />

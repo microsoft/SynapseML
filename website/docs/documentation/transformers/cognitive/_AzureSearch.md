@@ -71,7 +71,7 @@ ad = (AddDocuments()
       .setIndexName(indexName)
       .setActionCol("searchAction"))
 
-display(ad.transform(df))
+ad.transform(df).show()
 
 AzureSearchWriter.writeToAzureSearch(df,
     subscriptionKey=azureSearchKey,
@@ -134,7 +134,7 @@ val ad = (new AddDocuments()
       .setIndexName(indexName)
       .setActionCol("searchAction"))
 
-display(ad.transform(df))
+ad.transform(df).show()
 
 AzureSearchWriter.write(df,
       Map("subscriptionKey" -> azureSearchKey,

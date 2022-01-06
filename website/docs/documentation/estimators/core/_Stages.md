@@ -37,7 +37,7 @@ df = (spark.createDataFrame([
 
 cb = ClassBalancer().setInputCol("label")
 
-display(cb.fit(df).transform(df))
+cb.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -60,7 +60,7 @@ val df = Seq(
 
 val cb = new ClassBalancer().setInputCol("label")
 
-display(cb.fit(df).transform(df))
+cb.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -104,7 +104,7 @@ mca = (MultiColumnAdapter()
         .setInputCols(["words1",  "words2"])
         .setOutputCols(["output1", "output2"]))
 
-display(mca.fit(df).transform(df))
+mca.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -127,7 +127,7 @@ val mca = (new MultiColumnAdapter()
         .setInputCols(Array[String]("words1",  "words2"))
         .setOutputCols(Array[String]("output1", "output2")))
 
-display(mca.fit(df).transform(df))
+mca.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -176,7 +176,7 @@ df3 = HashingTF().setInputCol("tokens").setOutputCol("hash").transform(df2)
 idf = IDF().setInputCol("hash").setOutputCol("idf")
 timer = Timer().setStage(idf)
 
-display(timer.fit(df3).transform(df3))
+timer.fit(df3).transform(df3).show()
 ```
 
 </TabItem>
@@ -204,7 +204,7 @@ val df3 = new HashingTF().setInputCol("tokens").setOutputCol("hash").transform(d
 val idf = new IDF().setInputCol("hash").setOutputCol("idf")
 val timer = new Timer().setStage(idf)
 
-display(timer.fit(df3).transform(df3))
+timer.fit(df3).transform(df3).show()
 ```
 
 </TabItem>

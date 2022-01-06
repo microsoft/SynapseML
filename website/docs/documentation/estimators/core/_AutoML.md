@@ -55,7 +55,7 @@ findBestModel = (FindBestModel()
   .setModels([model, model])
   .setEvaluationMetric("accuracy"))
 bestModel = findBestModel.fit(df)
-display(bestModel.transform(df))
+bestModel.transform(df).show()
 ```
 
 </TabItem>
@@ -101,7 +101,7 @@ val findBestModel = (new FindBestModel()
   .setModels(Array(model.asInstanceOf[Transformer], model.asInstanceOf[Transformer]))
   .setEvaluationMetric("accuracy"))
 val bestModel = findBestModel.fit(df)
-display(bestModel.transform(df))
+bestModel.transform(df).show()
 ```
 
 </TabItem>
@@ -200,7 +200,7 @@ val dataset: DataFrame = Seq(
 val tuneHyperparameters = new TuneHyperparameters().setEvaluationMetric("accuracy")
   .setModels(mmlmodels.toArray).setNumFolds(2).setNumRuns(mmlmodels.length * 2)
   .setParallelism(1).setParamSpace(randomSpace).setSeed(0)
-display(tuneHyperparameters.fit(dataset))
+tuneHyperparameters.fit(dataset).show()
 ```
 
 </TabItem>

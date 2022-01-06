@@ -87,7 +87,7 @@ adapter = (RankingAdapter()
     .setK(evaluator.getK())
     .setRecommender(als))
 
-display(adapter.fit(transformedDf).transform(transformedDf))
+adapter.fit(transformedDf).transform(transformedDf).show()
 
 paramGrid = (ParamGridBuilder()
     .addGrid(als.regParam, [1.0])
@@ -102,7 +102,7 @@ tvRecommendationSplit = (RankingTrainValidationSplit()
       .setItemCol(recommendationIndexer.getItemOutputCol())
       .setRatingCol("rating"))
 
-display(tvRecommendationSplit.fit(transformedDf).transform(transformedDf))
+tvRecommendationSplit.fit(transformedDf).transform(transformedDf).show()
 ```
 
 </TabItem>
@@ -177,7 +177,7 @@ val adapter = (new RankingAdapter()
     .setK(evaluator.getK)
     .setRecommender(als))
 
-display(adapter.fit(transformedDf).transform(transformedDf))
+adapter.fit(transformedDf).transform(transformedDf).show()
 
 val paramGrid = (new ParamGridBuilder()
     .addGrid(als.regParam, Array(1.0))
@@ -192,7 +192,7 @@ val tvRecommendationSplit = (new RankingTrainValidationSplit()
       .setItemCol(recommendationIndexer.getItemOutputCol)
       .setRatingCol("rating"))
 
-display(tvRecommendationSplit.fit(transformedDf).transform(transformedDf))
+tvRecommendationSplit.fit(transformedDf).transform(transformedDf).show()
 ```
 
 </TabItem>
@@ -293,7 +293,7 @@ adapter = (RankingAdapter()
 
 res1 = recommendationIndexer.fit(ratings).transform(ratings).cache()
 
-display(adapter.fit(res1).transform(res1))
+adapter.fit(res1).transform(res1).show()
 ```
 
 </TabItem>
@@ -362,7 +362,7 @@ val adapter = (new RankingAdapter()
 
 val res1 = recommendationIndexer.fit(ratings).transform(ratings).cache()
 
-display(adapter.fit(res1).transform(res1))
+adapter.fit(res1).transform(res1).show()
 ```
 
 </TabItem>

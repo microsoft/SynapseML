@@ -41,7 +41,7 @@ vectorZipper = (VectorZipper()
     .setInputCols(["sequence_one", "sequence_two"])
     .setOutputCol("out"))
 
-display(vectorZipper.transform(seqDF))
+vectorZipper.transform(seqDF).show()
 ```
 
 </TabItem>
@@ -71,7 +71,7 @@ val vectorZipper = (new VectorZipper()
     .setInputCols(Array("sequence_one", "sequence_two"))
     .setOutputCol("out"))
 
-display(vectorZipper.transform(seqDF))
+vectorZipper.transform(seqDF).show()
 ```
 
 </TabItem>
@@ -224,7 +224,7 @@ val interactions = (new VowpalWabbitInteractions()
     .setInputCols(Array("v1"))
     .setOutputCol("out"))
 
-display(interactions.transform(df))
+interactions.transform(df).show()
 ```
 
 </TabItem>

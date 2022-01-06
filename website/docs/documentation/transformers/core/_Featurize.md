@@ -32,7 +32,7 @@ dc = (DataConversion()
         .setCols(["byte"])
         .setConvertTo("boolean"))
 
-display(dc.transform(df))
+dc.transform(df).show()
 ```
 
 </TabItem>
@@ -52,7 +52,7 @@ val dc = (new DataConversion()
         .setCols(Array("byte"))
         .setConvertTo("boolean"))
 
-display(dc.transform(df))
+dc.transform(df).show()
 ```
 
 </TabItem>
@@ -94,7 +94,7 @@ itv = (IndexToValue()
         .setInputCol("string_cat")
         .setOutputCol("string_noncat"))
 
-display(itv.transform(df2))
+itv.transform(df2).show()
 ```
 
 </TabItem>
@@ -115,7 +115,7 @@ val itv = (new IndexToValue()
         .setInputCol("string_cat")
         .setOutputCol("string_noncat"))
 
-display(itv.transform(df2))
+itv.transform(df2).show()
 ```
 
 </TabItem>
@@ -166,7 +166,7 @@ mng = (MultiNGram()
     .setInputCol("tokens")
     .setOutputCol("ngrams"))
 
-display(mng.transform(dfTok))
+mng.transform(dfTok).show()
 ```
 
 </TabItem>
@@ -195,7 +195,7 @@ val mng = (new MultiNGram()
     .setInputCol("tokens")
     .setOutputCol("ngrams"))
 
-display(mng.transform(dfTok))
+mng.transform(dfTok).show()
 ```
 
 </TabItem>
@@ -240,7 +240,7 @@ ps = (PageSplitter()
     .setMinimumPageLength(10)
     .setOutputCol("pages"))
 
-display(ps.transform(df))
+ps.transform(df).show()
 ```
 
 </TabItem>
@@ -266,7 +266,7 @@ val ps = (new PageSplitter()
     .setMinimumPageLength(10)
     .setOutputCol("pages"))
 
-display(ps.transform(df))
+ps.transform(df).show()
 ```
 
 </TabItem>

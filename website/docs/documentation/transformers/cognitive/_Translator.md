@@ -33,11 +33,11 @@ translate = (Translate()
             .setOutputCol("translation")
             .setConcurrency(5))
 
-display(translate
+(translate
       .transform(df)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
-      .select("translation"))
+      .select("translation")).show()
 ```
 
 </TabItem>
@@ -59,11 +59,11 @@ val translate = (new Translate()
                   .setOutputCol("translation")
                   .setConcurrency(5))
 
-display(translate
+(translate
       .transform(df)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("translation", col("translation.text"))
-      .select("translation"))
+      .select("translation")).show()
 ```
 
 </TabItem>
@@ -107,11 +107,11 @@ transliterate = (Transliterate()
             .setTextCol("text")
             .setOutputCol("result"))
 
-display(transliterate
+(transliterate
     .transform(df)
     .withColumn("text", col("result.text"))
     .withColumn("script", col("result.script"))
-    .select("text", "script"))
+    .select("text", "script")).show()
 ```
 
 </TabItem>
@@ -134,11 +134,11 @@ val transliterate = (new Transliterate()
                         .setTextCol("text")
                         .setOutputCol("result"))
 
-display(transliterate
+(transliterate
     .transform(df)
     .withColumn("text", col("result.text"))
     .withColumn("script", col("result.script"))
-    .select("text", "script"))
+    .select("text", "script")).show()
 ```
 
 </TabItem>
@@ -179,10 +179,10 @@ detect = (Detect()
       .setTextCol("text")
       .setOutputCol("result"))
 
-display(detect
+(detect
     .transform(df)
     .withColumn("language", col("result.language"))
-    .select("language"))
+    .select("language")).show()
 ```
 
 </TabItem>
@@ -202,10 +202,10 @@ val detect = (new Detect()
             .setTextCol("text")
             .setOutputCol("result"))
 
-display(detect
+(detect
     .transform(df)
     .withColumn("language", col("result.language"))
-    .select("language"))
+    .select("language")).show()
 ```
 
 </TabItem>
@@ -246,10 +246,10 @@ breakSentence = (BreakSentence()
             .setTextCol("text")
             .setOutputCol("result"))
 
-display(breakSentence
+(breakSentence
     .transform(df)
     .withColumn("sentLen", flatten(col("result.sentLen")))
-    .select("sentLen"))
+    .select("sentLen")).show()
 ```
 
 </TabItem>
@@ -269,10 +269,10 @@ val breakSentence = (new BreakSentence()
                         .setTextCol("text")
                         .setOutputCol("result"))
 
-display(breakSentence
+(breakSentence
     .transform(df)
     .withColumn("sentLen", flatten(col("result.sentLen")))
-    .select("sentLen"))
+    .select("sentLen")).show()
 ```
 
 </TabItem>
@@ -315,11 +315,11 @@ dictionaryLookup = (DictionaryLookup()
                   .setTextCol("text")
                   .setOutputCol("result"))
 
-display(dictionaryLookup
+(dictionaryLookup
     .transform(df)
     .withColumn("translations", flatten(col("result.translations")))
     .withColumn("normalizedTarget", col("translations.normalizedTarget"))
-    .select("normalizedTarget"))
+    .select("normalizedTarget")).show()
 ```
 
 </TabItem>
@@ -341,11 +341,11 @@ val dictionaryLookup = (new DictionaryLookup()
                         .setTextCol("text")
                         .setOutputCol("result"))
 
-display(dictionaryLookup
+(dictionaryLookup
       .transform(df)
       .withColumn("translations", flatten(col("result.translations")))
       .withColumn("normalizedTarget", col("translations.normalizedTarget"))
-      .select("normalizedTarget"))
+      .select("normalizedTarget")).show()
 ```
 
 </TabItem>
@@ -385,12 +385,13 @@ dictionaryExamples = (DictionaryExamples()
                   .setLocation("eastus")
                   .setFromLanguage("en")
                   .setToLanguage("es")
+                  .setTextAndTranslationCol("textAndTranslation")
                   .setOutputCol("result"))
 
-display(dictionaryExamples
+(dictionaryExamples
     .transform(df)
     .withColumn("examples", flatten(col("result.examples")))
-    .select("examples"))
+    .select("examples")).show()
 ```
 
 </TabItem>
@@ -409,12 +410,13 @@ val dictionaryExamples = (new DictionaryExamples()
                         .setLocation("eastus")
                         .setFromLanguage("en")
                         .setToLanguage("es")
+                        .setTextAndTranslationCol("textAndTranslation")
                         .setOutputCol("result"))
 
-display(dictionaryExamples
+(dictionaryExamples
     .transform(df)
     .withColumn("examples", flatten(col("result.examples")))
-    .select("examples"))
+    .select("examples")).show()
 ```
 
 </TabItem>

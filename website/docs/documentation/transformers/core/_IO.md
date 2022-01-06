@@ -35,7 +35,7 @@ ht = (HTTPTransformer()
       .setInputCol("request")
       .setOutputCol("response"))
 
-display(ht.transform(df))
+ht.transform(df).show()
 ```
 
 </TabItem>

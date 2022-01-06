@@ -35,7 +35,7 @@ stt = (SpeechToText()
     .setLanguage("en-US")
     .setFormat("simple"))
 
-display(stt.transform(df))
+stt.transform(df).show()
 ```
 
 </TabItem>
@@ -62,7 +62,7 @@ val stt = (new SpeechToText()
     .setLanguage("en-US")
     .setFormat("simple"))
 
-display(stt.transform(df))
+stt.transform(df).show()
 ```
 
 </TabItem>
@@ -105,7 +105,7 @@ speech_to_text = (SpeechToTextSDK()
     .setLanguage("en-US")
     .setProfanity("Masked"))
 
-display(speech_to_text.transform(df))
+speech_to_text.transform(df).show()
 ```
 
 </TabItem>
@@ -130,7 +130,7 @@ val speech_to_text = (new SpeechToTextSDK()
     .setLanguage("en-US")
     .setProfanity("Masked"))
 
-display(speech_to_text.transform(df))
+speech_to_text.transform(df).show()
 ```
 
 </TabItem>

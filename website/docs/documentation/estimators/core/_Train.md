@@ -43,7 +43,7 @@ tc = (TrainClassifier()
       .setModel(LogisticRegression())
       .setLabelCol("Label"))
 
-display(tc.fit(df).transform(df))
+tc.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -72,7 +72,7 @@ val tc = (new TrainClassifier()
       .setModel(new LogisticRegression())
       .setLabelCol("Label"))
 
-display(tc.fit(df).transform(df))
+tc.fit(df).transform(df).show()
 ```
 
 </TabItem>
@@ -125,7 +125,7 @@ trainRegressor = (TrainRegressor()
       .setModel(linearRegressor)
       .setLabelCol("label"))
 
-display(trainRegressor.fit(dataset).transform(dataset))
+trainRegressor.fit(dataset).transform(dataset).show()
 ```
 
 </TabItem>
@@ -157,7 +157,7 @@ val trainRegressor = (new TrainRegressor()
       .setModel(linearRegressor)
       .setLabelCol("label"))
 
-display(trainRegressor.fit(dataset).transform(dataset))
+trainRegressor.fit(dataset).transform(dataset).show()
 ```
 
 </TabItem>

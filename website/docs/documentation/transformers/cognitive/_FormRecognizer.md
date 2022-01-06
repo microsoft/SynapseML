@@ -32,14 +32,13 @@ analyzeLayout = (AnalyzeLayout()
             .setOutputCol("layout")
             .setConcurrency(5))
 
-display(analyzeLayout
-        .transform(imageDf)
+(analyzeLayout.transform(imageDf)
         .withColumn("lines", flatten(col("layout.analyzeResult.readResults.lines")))
         .withColumn("readLayout", col("lines.text"))
         .withColumn("tables", flatten(col("layout.analyzeResult.pageResults.tables")))
         .withColumn("cells", flatten(col("tables.cells")))
         .withColumn("pageLayout", col("cells.text"))
-        .select("source", "readLayout", "pageLayout"))
+        .select("source", "readLayout", "pageLayout")).show()
 ```
 
 </TabItem>
@@ -61,7 +60,7 @@ val analyzeLayout = (new AnalyzeLayout()
                         .setOutputCol("layout")
                         .setConcurrency(5))
 
-display(analyzeLayout.transform(imageDf)
+analyzeLayout.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -104,7 +103,7 @@ analyzeReceipts = (AnalyzeReceipts()
                   .setOutputCol("receipts")
                   .setConcurrency(5))
 
-display(analyzeReceipts.transform(imageDf))
+analyzeReceipts.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -127,7 +126,7 @@ val analyzeReceipts = (new AnalyzeReceipts()
                         .setOutputCol("receipts")
                         .setConcurrency(5))
 
-display(analyzeReceipts.transform(imageDf))
+analyzeReceipts.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -169,7 +168,7 @@ analyzeBusinessCards = (AnalyzeBusinessCards()
                         .setOutputCol("businessCards")
                         .setConcurrency(5))
 
-display(analyzeBusinessCards.transform(imageDf))
+analyzeBusinessCards.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -191,7 +190,7 @@ val analyzeBusinessCards = (new AnalyzeBusinessCards()
                               .setOutputCol("businessCards")
                               .setConcurrency(5))
 
-display(analyzeBusinessCards.transform(imageDf)
+analyzeBusinessCards.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -231,10 +230,10 @@ analyzeInvoices = (AnalyzeInvoices()
                   .setOutputCol("invoices")
                   .setConcurrency(5))
 
-display(analyzeInvoices
+(analyzeInvoices
         .transform(imageDf)
         .withColumn("documents", explode(col("invoices.analyzeResult.documentResults.fields")))
-        .select("source", "documents"))
+        .select("source", "documents")).show()
 ```
 
 </TabItem>
@@ -256,7 +255,7 @@ val analyzeInvoices = (new AnalyzeInvoices()
                         .setOutputCol("invoices")
                         .setConcurrency(5))
 
-display(analyzeInvoices.transform(imageD4))
+analyzeInvoices.transform(imageD4).show()
 ```
 
 </TabItem>
@@ -296,10 +295,10 @@ analyzeIDDocuments = (AnalyzeIDDocuments()
                   .setOutputCol("ids")
                   .setConcurrency(5))
 
-display(analyzeIDDocuments
+(analyzeIDDocuments
         .transform(imageDf)
         .withColumn("documents", explode(col("ids.analyzeResult.documentResults.fields")))
-        .select("source", "documents"))
+        .select("source", "documents")).show()
 ```
 
 </TabItem>
@@ -321,7 +320,7 @@ val analyzeIDDocuments = (new AnalyzeIDDocuments()
                         .setOutputCol("ids")
                         .setConcurrency(5))
 
-display(analyzeIDDocuments.transform(imageDf))
+analyzeIDDocuments.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -365,13 +364,13 @@ analyzeCustomModel = (AnalyzeCustomModel()
                  .setOutputCol("output")
                  .setConcurrency(5))
 
-display(analyzeCustomModel
+(analyzeCustomModel
         .transform(imageDf)
         .withColumn("keyValuePairs", flatten(col("output.analyzeResult.pageResults.keyValuePairs")))
         .withColumn("keys", col("keyValuePairs.key.text"))
         .withColumn("values", col("keyValuePairs.value.text"))
         .withColumn("keyValuePairs", create_map(lit("key"), col("keys"), lit("value"), col("values")))
-        .select("source", "keyValuePairs"))
+        .select("source", "keyValuePairs")).show()
 ```
 
 </TabItem>
@@ -395,7 +394,7 @@ val analyzeCustomModel = (new AnalyzeCustomModel()
                         .setOutputCol("output")
                         .setConcurrency(5))
 
-display(analyzeCustomModel.transform(imageDf))
+analyzeCustomModel.transform(imageDf).show()
 ```
 
 </TabItem>
@@ -437,11 +436,11 @@ getCustomModel = (GetCustomModel()
                   .setOutputCol("model")
                   .setConcurrency(5))
 
-display(getCustomModel
+(getCustomModel
         .transform(emptyDf)
         .withColumn("modelInfo", col("model.ModelInfo"))
         .withColumn("trainResult", col("model.TrainResult"))
-        .select("modelInfo", "trainResult"))
+        .select("modelInfo", "trainResult")).show()
 ```
 
 </TabItem>
@@ -463,7 +462,7 @@ val getCustomModel = (new GetCustomModel()
                         .setOutputCol("model")
                         .setConcurrency(5))
 
-display(getCustomModel.transform(emptyDf))
+getCustomModel.transform(emptyDf).show()
 ```
 
 </TabItem>
@@ -503,10 +502,10 @@ listCustomModels = (ListCustomModels()
                   .setOutputCol("models")
                   .setConcurrency(5))
 
-display(listCustomModels
+(listCustomModels
        .transform(emptyDf)
        .withColumn("modelIds", col("models.modelList.modelId"))
-       .select("modelIds"))
+       .select("modelIds")).show()
 ```
 
 </TabItem>
@@ -526,7 +525,7 @@ val listCustomModels = (new ListCustomModels()
                         .setOutputCol("models")
                         .setConcurrency(5))
 
-display(listCustomModels.transform(emptyDf))
+listCustomModels.transform(emptyDf).show()
 ```
 
 </TabItem>

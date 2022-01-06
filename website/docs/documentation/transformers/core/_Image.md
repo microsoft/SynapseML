@@ -31,7 +31,7 @@ rit = (ResizeImageTransformer()
         .setHeight(15)
         .setWidth(10))
 
-# display(rit.transform(images))
+# rit.transform(images).show()
 ```
 
 </TabItem>
@@ -50,7 +50,7 @@ val rit = (new ResizeImageTransformer()
     .setHeight(15)
     .setWidth(10))
 
-// display(rit.transform(images))
+// rit.transform(images).show()
 ```
 
 </TabItem>
@@ -96,7 +96,7 @@ unroll = (UnrollImage()
       .setInputCol("out")
       .setOutputCol("final"))
 
-# display(unroll.transform(preprocessed))
+# unroll.transform(preprocessed).show()
 ```
 
 </TabItem>
@@ -121,7 +121,7 @@ val unroll = (new UnrollImage()
       .setInputCol(rit.getOutputCol)
       .setOutputCol("final"))
 
-display(unroll.transform(preprocessed))
+unroll.transform(preprocessed).show()
 ```
 
 </TabItem>
