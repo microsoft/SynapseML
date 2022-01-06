@@ -309,7 +309,10 @@ lazy val vw = (project in file("vw"))
 
 val cognitiveExcludes = Seq(
   ExclusionRule("io.projectreactor.netty", "reactor-netty"),
-  ExclusionRule("io.netty")
+  ExclusionRule("io.netty"),
+  ExclusionRule("com.fasterxml.jackson.core"),
+  ExclusionRule("com.fasterxml.jackson.dataformat"),
+  ExclusionRule("com.fasterxml.jackson.datatype")
 )
 
 lazy val cognitive = (project in file("cognitive"))
