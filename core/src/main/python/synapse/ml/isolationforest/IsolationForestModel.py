@@ -11,3 +11,6 @@ class IsolationForestModel(_IsolationForestModel):
     # The generated implementation does not work. Override it to return the java object.
     def getInnerModel(self):
         return self._java_obj.getInnerModel()
+
+    def getOutlierScoreThreshold(self):
+        return self.getInnerModel().getOutlierScoreThreshold()
