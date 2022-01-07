@@ -33,8 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.1.1" % "2.0.7",
-  "org.json4s" %% "json4s-jackson" % "4.0.3"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.1.1" % "2.0.7"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -306,10 +305,6 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
-val cognitiveExcludes = Seq(
-  ExclusionRule("io.netty")
-)
-
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -318,7 +313,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
       "com.azure" % "azure-ai-textanalytics" % "5.1.0",
-    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
+    ),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
