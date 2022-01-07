@@ -311,7 +311,7 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.14.2",
+      "com.azure" % "azure-storage-blob" % "12.13.0",
       "com.azure" % "azure-ai-textanalytics" % "5.1.0",
     ),
     resolvers += speechResolver,
