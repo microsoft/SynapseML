@@ -312,8 +312,7 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
-      "io.projectreactor.netty" % "reactor-netty" % "1.0.14"
+      "com.azure" % "azure-ai-textanalytics" % "5.1.0",
     ),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
