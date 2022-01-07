@@ -27,8 +27,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-3.2"
-  val AdbRuntime = "10.2.x-scala2.12"
+  val PoolName = "synapseml-build-10.1"
+  val AdbRuntime = "10.1.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
