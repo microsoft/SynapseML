@@ -246,7 +246,7 @@ function Home() {
                 and cloud native.
               </p>
               <p>
-                Note: SynpaseML will be built-in for{" "}
+                Note: SynapseML will be built-in for{" "}
                 <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">
                   Azure Synapse soon.
                 </a>
