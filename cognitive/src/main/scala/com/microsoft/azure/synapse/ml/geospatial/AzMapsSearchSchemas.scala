@@ -138,6 +138,8 @@ case class LongRunningOperationResult (
   operationId: Option[String],
   // The status state of the request.
   status: Option[String],
+  // resource location
+  resourceLocation: Option[String],
   // The created timestamp.
   created: Option[Date],
   error: Option[ErrorDetail],

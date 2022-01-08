@@ -20,7 +20,7 @@ object AzureMapsAPIConstants {
 object AddressGeocoder extends ComplexParamsReadable[AddressGeocoder]
 
 class AddressGeocoder(override val uid: String)
-  extends CognitiveServicesBaseNoHandler(uid) with HasAddressInput
+  extends CognitiveServicesBaseNoHandler(uid) with BatchAddressGeocoding
     with HasInternalJsonOutputParser
     with MapsAsyncReply
     with BasicLogging {
@@ -32,6 +32,31 @@ class AddressGeocoder(override val uid: String)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
   override protected def responseDataType: DataType = SearchAddressBatchProcessResult.schema
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val basePipeline =  super.getInternalTransformer(schema)
+    val stages = Array(
+      basePipeline,
+      Lambda(_.withColumn(getOutputCol, col("output.batchItems")))
+    )
+    NamespaceInjections.pipelineModel(stages)
+  }
+}
+
+object ReverseAddressGeocoder extends ComplexParamsReadable[ReverseAddressGeocoder]
+class ReverseAddressGeocoder(override  val uid: String)
+  extends CognitiveServicesBaseNoHandler(uid) with BatchReverseAddressGeocoding
+    with HasInternalJsonOutputParser
+    with MapsAsyncReply
+    with BasicLogging {
+
+  def this() = this(Identifiable.randomUID("ReverseGeocoder"))
+
+  setDefault(
+    url -> "https://atlas.microsoft.com/search/address/reverse/batch/json")
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+  override protected def responseDataType: DataType = ReverseSearchAddressBatchResult.schema
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     val basePipeline =  super.getInternalTransformer(schema)
