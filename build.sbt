@@ -144,7 +144,7 @@ packageSynapseML := {
          |setup(
          |    name="synapseml",
          |    version="${pythonizedVersion(version.value)}",
-         |    description="Synpase Machine Learning",
+         |    description="Synapse Machine Learning",
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
