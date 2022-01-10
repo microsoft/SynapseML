@@ -79,7 +79,7 @@ class TabularSHAPExplainerSuite extends TestBase
     assert(probability(1) === breeze.linalg.sum(shapBz))
 
     // Null feature (col2) should have zero shap values
-    assert(shapBz(2) === 1E-5)
+    assert(Math.abs(shapBz(2)) < 1E-5)
 
     // col1 and col3 are symmetric so they should have same shap values.
     assert(shapBz(1) === shapBz(3))

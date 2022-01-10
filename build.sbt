@@ -9,10 +9,10 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.1.2"
+val sparkVersion = "3.2.0"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / scalaVersion := "2.12.15"
 
 val scalaMajorVersion = 2.12
 
@@ -22,7 +22,6 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.3",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -34,7 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -72,7 +71,7 @@ val datasetName = "datasets-2021-12-10.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
-  join(artifactPath.in(packageBin).in(Compile).value.getParentFile,
+  join((Compile / packageBin / artifactPath).value.getParentFile,
     "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
@@ -104,7 +103,7 @@ genBuildInfo := {
 
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   join(targetDir, "generated")
 }
 
@@ -204,7 +203,7 @@ publishDocs := {
       |<a href="scala/index.html">scala/</u>
       |</pre></body></html>
     """.stripMargin
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   val codegenDir = join(targetDir, "generated")
   val unifiedDocDir = join(codegenDir, "doc")
   val scalaDir = join(unifiedDocDir.toString, "scala")
@@ -249,15 +248,15 @@ publishBadges := {
 }
 
 val settings = Seq(
-  (scalastyleConfig in Test) := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
-  logBuffered in Test := false,
-  parallelExecution in Test := false,
-  test in assembly := {},
-  assemblyMergeStrategy in assembly := {
+  Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
+  Test / logBuffered := false,
+  Test / parallelExecution := false,
+  assembly / test := {},
+  assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
     case x => MergeStrategy.first
   },
-  assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
+  assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
   sbtPlugin := false
@@ -306,21 +305,15 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
-
-val cognitiveExcludes = Seq(
-  ExclusionRule("io.projectreactor.netty", "reactor-netty"),
-  ExclusionRule("io.netty")
-)
-
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
+      "com.azure" % "azure-storage-blob" % "12.14.2",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4",
-    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
+    ),
     resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
@@ -417,5 +410,5 @@ pgpPublicRing := {
 }
 ThisBuild / publishTo := sonatypePublishToBundle.value
 
-dynverSonatypeSnapshots in ThisBuild := true
-dynverSeparator in ThisBuild := "-"
+ThisBuild / dynverSonatypeSnapshots := true
+ThisBuild / dynverSeparator := "-"

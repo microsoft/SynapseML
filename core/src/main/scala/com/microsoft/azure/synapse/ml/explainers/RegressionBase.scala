@@ -36,7 +36,7 @@ abstract class RegressionBase {
     *   `sum.vectorizeCols_Double(ClassTag[Double], Zero.DoubleZero, sum.helper_Double)`,
     * while in breeze 1.2, it's constructed via
     *   `sum.vectorizeCols_Double(sum.helper_Double)`
-    * If our code is compiled against Spark 3.1.2/breeze 1.0, the scala compiler implicitly constructs
+    * If our code is compiled against Spark 3.2.0/breeze 1.0, the scala compiler implicitly constructs
     * the implementation via
     *   `sum.vectorizeCols_Double(ClassTag[Double], Zero.DoubleZero, sum.helper_Double)`,
     * which does not exist in breeze 1.2, thus causing `java.lang.NoSuchMethodError` when running on Spark 3.2.0.
