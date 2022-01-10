@@ -12,7 +12,7 @@ val condaEnvName = "synapseml"
 val sparkVersion = "3.2.0"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / scalaVersion := "2.12.15"
 
 val scalaMajorVersion = 2.12
 
@@ -71,7 +71,7 @@ val datasetName = "datasets-2021-12-10.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
-  join(artifactPath.in(packageBin).in(Compile).value.getParentFile,
+  join((Compile / packageBin / artifactPath).value.getParentFile,
     "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
@@ -103,7 +103,7 @@ genBuildInfo := {
 
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   join(targetDir, "generated")
 }
 
@@ -203,7 +203,7 @@ publishDocs := {
       |<a href="scala/index.html">scala/</u>
       |</pre></body></html>
     """.stripMargin
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   val codegenDir = join(targetDir, "generated")
   val unifiedDocDir = join(codegenDir, "doc")
   val scalaDir = join(unifiedDocDir.toString, "scala")
@@ -248,15 +248,15 @@ publishBadges := {
 }
 
 val settings = Seq(
-  (scalastyleConfig in Test) := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
-  logBuffered in Test := false,
-  parallelExecution in Test := false,
-  test in assembly := {},
-  assemblyMergeStrategy in assembly := {
+  Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
+  Test / logBuffered := false,
+  Test / parallelExecution := false,
+  assembly / test := {},
+  assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
     case x => MergeStrategy.first
   },
-  assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
+  assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
   sbtPlugin := false
@@ -410,5 +410,5 @@ pgpPublicRing := {
 }
 ThisBuild / publishTo := sonatypePublishToBundle.value
 
-dynverSonatypeSnapshots in ThisBuild := true
-dynverSeparator in ThisBuild := "-"
+ThisBuild / dynverSonatypeSnapshots := true
+ThisBuild / dynverSeparator := "-"

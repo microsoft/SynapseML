@@ -124,7 +124,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
         // Verify columns are supported for imputation
         verifyColumnsSupported(dataset, colsToClean)
         val row =
-          dataset.select(columns.map(column => callUDF("percentile_approx",
+          dataset.select(columns.map(column => call_udf("percentile_approx",
             column, lit(0.5))): _*)
             .collect()(0)
         rowToValues(row)
