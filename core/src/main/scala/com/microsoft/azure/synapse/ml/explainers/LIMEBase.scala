@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, *}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._

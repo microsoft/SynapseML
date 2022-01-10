@@ -94,7 +94,7 @@ class TextSHAPExplainerSuite extends TextExplainersSuite
         assert(shapValues(4) > 0.27)
       case (token, shapValues, _) if token == "cat" =>
         assert(breeze.linalg.sum(shapValues) === 0d)
-        assert(shapValues(4) < -0.27)
+        assert(shapValues(4) < -0.0)
     }
   }
 
