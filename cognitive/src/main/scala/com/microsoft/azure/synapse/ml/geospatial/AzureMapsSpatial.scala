@@ -24,7 +24,6 @@ class CheckPointInPolygon(override val uid: String)
   setDefault(
     url -> "https://atlas.microsoft.com/")
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
   override protected def responseDataType: DataType = PointInPolygonProcessResult.schema
 
   override def urlPath: String = "spatial/pointInPolygon/json"

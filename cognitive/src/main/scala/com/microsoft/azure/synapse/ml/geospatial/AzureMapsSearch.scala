@@ -30,7 +30,6 @@ class AddressGeocoder(override val uid: String)
   setDefault(
     url -> "https://atlas.microsoft.com/search/address/batch/json")
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
   override protected def responseDataType: DataType = SearchAddressBatchProcessResult.schema
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
@@ -55,7 +54,6 @@ class ReverseAddressGeocoder(override  val uid: String)
   setDefault(
     url -> "https://atlas.microsoft.com/search/address/reverse/batch/json")
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
   override protected def responseDataType: DataType = ReverseSearchAddressBatchResult.schema
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {

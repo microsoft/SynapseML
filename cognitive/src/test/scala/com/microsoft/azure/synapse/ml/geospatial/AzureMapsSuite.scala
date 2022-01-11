@@ -128,6 +128,10 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
 
   }
 
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(extractFields(df1), extractFields(df2))(eq)
+  }
+
   override def testObjects(): Seq[TestObject[ReverseAddressGeocoder]] =
     Seq(new TestObject[ReverseAddressGeocoder](
       batchReverseGeocode,
@@ -164,6 +168,10 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
     val result = extractFields(pointInPolygonCheck.transform(df)).collect()
     assert(result != null)
     assert(result.toSeq.head.get(2) === false)
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(extractFields(df1), extractFields(df2))(eq)
   }
 
   lazy val pointInPolygonCheck: CheckPointInPolygon = new CheckPointInPolygon()

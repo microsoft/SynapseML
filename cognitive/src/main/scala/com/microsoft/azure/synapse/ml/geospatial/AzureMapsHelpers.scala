@@ -95,10 +95,6 @@ trait HasAddressInput extends HasServiceParams{
 trait BatchAddressGeocoding extends HasServiceParams
   with HasSubscriptionKey with HasURL with HasAddressInput {
 
-  protected def prepareEntity: Row => Option[AbstractHttpEntity]
-
-  protected def contentType: Row => String = { _ => "application/json" }
-
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -126,9 +122,6 @@ trait BatchAddressGeocoding extends HasServiceParams
 
 trait BatchReverseAddressGeocoding extends HasServiceParams
   with HasSubscriptionKey with HasURL with HasLatLonPairInput{
-  protected def prepareEntity: Row => Option[AbstractHttpEntity]
-
-  protected def contentType: Row => String = { _ => "application/json" }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
@@ -159,9 +152,6 @@ trait BatchReverseAddressGeocoding extends HasServiceParams
 
 trait GetPointInPolygon extends HasServiceParams
   with HasSubscriptionKey with HasSetGeography with HasLatLonPairInput with HasUserDataIdInput {
-  protected def prepareEntity: Row => Option[AbstractHttpEntity]
-
-  protected def contentType: Row => String = { _ => "application/json" }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
