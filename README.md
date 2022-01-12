@@ -26,7 +26,7 @@ can embed **any** web service into their SparkML models.
 For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
-SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
+SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
 See the API documentation [for
 Scala](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) and [for
 PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
@@ -83,7 +83,6 @@ the above example, or from python:
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
             .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5") \
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
 import synapse.ml
 ```
@@ -94,7 +93,6 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
 libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.9.5"
 
 ```
@@ -105,9 +103,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use SynapseML
@@ -144,7 +142,6 @@ Excluding certain packages from the library may be necessary due to current issu
     "name": "synapseml",
     "conf": {
         "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
-        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12"
     }
 }
@@ -158,7 +155,6 @@ In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to o
     "name": "synapseml",
     "conf": {
         "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
-        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
         "spark.yarn.user.classpath.first": "true"
     }
