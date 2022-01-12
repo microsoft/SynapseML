@@ -64,8 +64,6 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 
 pomPostProcess := pomPostFunc
 
-val speechResolver = "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
-
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
 val datasetName = "datasets-2021-12-10.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
@@ -213,20 +211,6 @@ publishDocs := {
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
-val release = TaskKey[Unit]("release", "publish the library to synapseml blob")
-release := Def.taskDyn {
-  val v = isSnapshot.value
-  if (!v) {
-    Def.task {
-      sonatypeBundleRelease.value
-    }
-  } else {
-    Def.task {
-      "Not a release"
-    }
-  }
-}
-
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to synapseml blob")
 publishBadges := {
   def enc(s: String): String = {
@@ -310,11 +294,10 @@ lazy val cognitive = (project in file("cognitive"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
+      "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4",
     ),
-    resolvers += speechResolver,
     name := "synapseml-cognitive"
   ): _*)
 
