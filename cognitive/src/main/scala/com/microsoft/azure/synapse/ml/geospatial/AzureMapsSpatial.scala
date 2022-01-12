@@ -19,7 +19,7 @@ class CheckPointInPolygon(override val uid: String)
     with HasInternalJsonOutputParser
     with BasicLogging {
 
-  def this() = this(Identifiable.randomUID("GetPointInPolygon"))
+  def this() = this(Identifiable.randomUID("CheckPointInPolygon"))
 
   setDefault(
     url -> "https://atlas.microsoft.com/")

@@ -49,7 +49,7 @@ class ReverseAddressGeocoder(override  val uid: String)
     with MapsAsyncReply
     with BasicLogging {
 
-  def this() = this(Identifiable.randomUID("ReverseGeocoder"))
+  def this() = this(Identifiable.randomUID("ReverseAddressGeocoder"))
 
   setDefault(
     url -> "https://atlas.microsoft.com/search/address/reverse/batch/json")

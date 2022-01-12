@@ -27,7 +27,7 @@ trait HasSetGeography extends Wrappable with HasURL with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setGeography(self, value):
-      |    self._java_obj = self._java_obj.setLocation(value)
+      |    self._java_obj = self._java_obj.setGeography(value)
       |    return self
       |""".stripMargin
   }
