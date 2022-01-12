@@ -2,22 +2,22 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://microsoft.github.io/SynapseML/blog</id>
     <title>SynapseML Blog</title>
-    <updated>2022-01-12T20:43:34.202Z</updated>
+    <updated>2022-01-12T22:43:41.127Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://microsoft.github.io/SynapseML/blog"/>
     <subtitle>SynapseML Blog</subtitle>
     <icon>https://microsoft.github.io/SynapseML/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[Overview]]></title>
-        <id>Overview</id>
+        <id>/overview</id>
         <link href="https://microsoft.github.io/SynapseML/blog/overview"/>
-        <updated>2022-01-12T20:43:34.202Z</updated>
+        <updated>2022-01-12T22:43:41.127Z</updated>
         <summary type="html"><![CDATA[SynapseML Overview]]></summary>
         <content type="html"><![CDATA[<p>Synapse Machine Learning expands the distributed computing framework <a href="https://github.com/apache/spark">Apache Spark</a> in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including <a href="/docs/features/lightgbm/about">LightGBM</a>, <a href="/docs/features/vw/about">Vowpal Wabbit</a>, <a href="https://opencv.org/">OpenCV</a>, <a href="https://github.com/linkedin/isolation-forest">Isolation Forest</a>, and the <a href="https://www.microsoft.com/en-us/research/product/cognitive-toolkit/">Microsoft Cognitive Toolkit (CNTK)</a> . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.</p><p>SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Microsoft Cognitive Services. Finally, the Spark Serving project enables high throughput, sub-millisecond latency web services, backed by your Spark cluster.</p><p>Visit the SynapseML Github repository to learn more.</p>]]></content>
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
-        <id>Publication - Large-Scale Intelligent Microservices</id>
+        <id>/2020/12/01/Large-Scale Intelligent Microservices</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2020/12/01/Large-Scale Intelligent Microservices"/>
         <updated>2020-12-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Large-Scale Intelligent Microservices]]></summary>
@@ -25,7 +25,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></title>
-        <id>MMLSpark: empowering AI for Good with Mark Hamilton</id>
+        <id>/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton"/>
         <updated>2019-10-02T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></summary>
@@ -33,7 +33,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></title>
-        <id>Dear Spark developers: Welcome to Azure Cognitive Services</id>
+        <id>/2019/08/24/Welcome to Azure Cognitive Services</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/08/24/Welcome to Azure Cognitive Services"/>
         <updated>2019-08-24T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></summary>
@@ -42,7 +42,7 @@ Today at Spark + AI Summit 2019, we&#x27;re excited to introduce a new set of mo
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></title>
-        <id>Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales</id>
+        <id>/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales"/>
         <updated>2019-06-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></summary>
@@ -50,7 +50,7 @@ Today at Spark + AI Summit 2019, we&#x27;re excited to introduce a new set of mo
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Flexible and Scalable Deep Learning with MMLSpark]]></title>
-        <id>Publication - Flexible and Scalable Deep Learning with MMLSpark</id>
+        <id>/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark"/>
         <updated>2018-04-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Flexible and Scalable Deep Learning with MMLSpark]]></summary>
