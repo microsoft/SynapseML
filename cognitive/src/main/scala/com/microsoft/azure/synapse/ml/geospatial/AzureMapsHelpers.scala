@@ -11,7 +11,7 @@ import com.microsoft.azure.synapse.ml.io.http.{CustomInputParser, HTTPInputParse
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils._
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
-import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.Row
@@ -39,7 +39,7 @@ trait HasSetGeography extends Wrappable with HasURL with HasUrlPath {
 
 trait HasUserDataIdInput extends HasServiceParams {
   val udid = new ServiceParam[String](
-    this, "udid", "the API key to use")
+    this, "UserDataIdentifier", "the API key to use")
 
   def getUserDataIdentifier: String = getScalarParam(udid)
 
@@ -52,9 +52,9 @@ trait HasUserDataIdInput extends HasServiceParams {
 
 trait HasLatLonPairInput extends HasServiceParams{
   val latitude = new ServiceParam[Seq[Double]](
-    this, "lat", "the latitude of location")
+    this, "Latitude", "the latitude of location")
   val longitude = new ServiceParam[Seq[Double]](
-    this, "lon", "the longitude of location")
+    this, "Longitude", "the longitude of location")
 
   def getLatitude: Seq[Double] = getScalarParam(latitude)
 
