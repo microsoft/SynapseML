@@ -52,6 +52,7 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
     .setSubscriptionKey(azureMapsKey)
     .setAddressCol("address")
     .setOutputCol("output")
+    .setErrorCol("errors")
 
   def extractFields(df: DataFrame): DataFrame = {
     df.select(
@@ -107,6 +108,7 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
     .setLatitudeCol("lat")
     .setLongitudeCol("lon")
     .setOutputCol("output")
+    .setErrorCol("errors")
 
   def extractFields(df: DataFrame): DataFrame = {
     df.select(
@@ -180,6 +182,7 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
     .setLatitudeCol("lat")
     .setLongitudeCol("lon")
     .setOutputCol("output")
+    .setErrorCol("errors")
 
   override def afterAll(): Unit = {
     lazy val queryParams =  URLEncodingUtils.format(Map("api-version" -> "1.0",
