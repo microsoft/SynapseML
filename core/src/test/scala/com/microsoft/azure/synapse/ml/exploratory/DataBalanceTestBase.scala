@@ -15,7 +15,7 @@ trait DataBalanceTestBase extends TestBase {
 
   import spark.implicits._
 
-  lazy val errorTolerance: Double = 1e-12
+  lazy val errorTolerance: Double = 1e-8
 
   lazy val featureProbCol = "featureProb"
   lazy val positiveFeatureCountCol = "positiveFeatureCount"
