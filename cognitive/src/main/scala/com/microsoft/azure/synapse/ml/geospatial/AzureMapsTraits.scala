@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.cognitive.{HasAsyncReply, HasServiceParams
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils._
 import com.microsoft.azure.synapse.ml.io.http.{HasURL, _}
 import org.apache.http.client.methods.HttpGet
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
 import spray.json.DefaultJsonProtocol.{DoubleJsonFormat, StringJsonFormat, seqFormat}
@@ -17,6 +18,7 @@ import java.net.URI
 import java.util.concurrent.TimeoutException
 import scala.concurrent.blocking
 import scala.language.{existentials, postfixOps}
+import com.microsoft.azure.synapse.ml.cognitive.BasicAsyncReply
 
 trait HasSetGeography extends Wrappable with HasURL with HasUrlPath {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
@@ -87,10 +89,10 @@ trait HasAddressInput extends HasServiceParams {
   def setAddressCol(v: String): this.type = setVectorParam(address, v)
 }
 
-trait MapsAsyncReply extends HasAsyncReply {
+trait MapsAsyncReply extends BasicAsyncReply with BasicLogging {
 
-  protected def queryForResult(key: Option[String], client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData] = {
+  protected override def queryForResult(key: Option[String], client: CloseableHttpClient,
+                               location: URI): Either[String, HTTPResponseData] = {
     val statusRequest = new HttpGet()
     statusRequest.setURI(location)
     statusRequest.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
@@ -98,34 +100,52 @@ trait MapsAsyncReply extends HasAsyncReply {
     statusRequest.releaseConnection()
     val status = resp.statusLine.statusCode
     if (status == 202) {
-      None
+      Left("202")
     } else if (status == 200) {
-      Some(resp)
+      Right(resp)
     } else {
       throw new RuntimeException(s"Received unknown status code: $status")
     }
   }
 
-  protected def handlingFunc(client: CloseableHttpClient,
+  protected override def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
     if (response.statusLine.statusCode == 202) {
-
+      val startedTime = System.nanoTime
       val maxTries = getMaxPollingRetries
       val location = new URI(response.headers.filter(_.name.toLowerCase() == "location").head.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(None, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
+      val it = (0 to maxTries).toIterator.foldLeft[Either[String, HTTPResponseData]](Left(""))( (prevResponse, i) => {
+        prevResponse match {
+          case Right(value) => Right(value) // have value don't want to requery
+          case Left(value) => {
+            if (i > 0){
+              blocking {
+                Thread.sleep(getPollingDelay.toLong)
+              }
+            }
+            queryForResult(None, client, location)
           }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
+        }
+      })
+      it match {
+        case Right(value) =>{
+          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
+          if (asyncCompletionLogMessagePrefixValue != "") {
+            val completedTime = System.nanoTime
+            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
+            logInfo(s"${asyncCompletionLogMessagePrefixValue}:${durationMs}")
+          }
+          value
+        }
+        case Left(lastStatus) => {
+          if (getSuppressMaxRetriesExceededException){
+            getRetriesExceededHTTPResponseData(maxTries, lastStatus)
+          } else {
+            throw new TimeoutException(
+              s"Querying for results did not complete within $maxTries tries. Last status: $lastStatus")
+          }
+        }
       }
     } else {
       response

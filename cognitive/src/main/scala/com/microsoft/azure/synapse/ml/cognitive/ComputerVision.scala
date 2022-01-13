@@ -209,11 +209,11 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
   }
 }
 
-trait BasicAsyncReply extends HasAsyncReply {
+trait BasicAsyncReply extends HasAsyncReply with BasicLogging {
 
   protected def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData] = {
+                               location: URI): Either[String, HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -222,17 +222,21 @@ trait BasicAsyncReply extends HasAsyncReply {
     get.releaseConnection()
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
       .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
-    status.map(_.toLowerCase()).flatMap {
-      case "succeeded" | "failed" | "partiallycompleted" => Some(resp)
-      case "notstarted" | "running" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    status.map(_.toLowerCase()) match {
+      case Some(value) => value match {
+        case "succeeded" | "failed" | "partiallycompleted" => Right(resp)
+        case "notstarted" | "running" => Left(value)
+        case s => throw new RuntimeException(s"Received unknown status code: $s")
+      }
+      case None => Left("<status not found>")
     }
   }
 
-  private def getRetriesExceededHTTPResponseData(maxTries: Int) = {
+  protected def getRetriesExceededHTTPResponseData(maxTries: Int, lastStatus: String) = {
     val headers = Array[HeaderData]()
     val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" +
-          s"SynapseML: Querying for results did not complete within ${maxTries} tries" + "\"}}";
+          s"SynapseML: Querying for results did not complete within ${maxTries} tries. Last status: $lastStatus" +
+          "\"}}";
     val errorResponse = errorResponseString.getBytes()
     val entityData = EntityData(
       errorResponse,
@@ -245,7 +249,7 @@ trait BasicAsyncReply extends HasAsyncReply {
     val statusLineData = StatusLineData(
       ProtocolVersionData("1.1", 1, 1),
       418,
-      s"SynapseML: Querying for results did not complete within $maxTries tries")
+      s"SynapseML: Querying for results did not complete within $maxTries tries. Last status: $lastStatus")
     new HTTPResponseData(headers, Some(entityData), statusLineData, "en-us")
 
   }
@@ -253,6 +257,7 @@ trait BasicAsyncReply extends HasAsyncReply {
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
+    val startedTime = System.nanoTime
     if (response != null && response.statusLine.statusCode == 202) {
       val originalLocation = new URI(response.headers.filter(_.name.toLowerCase() == "operation-location").head.value)
       val location = modifyPollingURI(originalLocation)
@@ -261,22 +266,36 @@ trait BasicAsyncReply extends HasAsyncReply {
       blocking {
         Thread.sleep(getInitialPollingDelay.toLong)
       }
-      val it = (0 to maxTries).toIterator.flatMap { i =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
+      val it = (0 to maxTries).toIterator.foldLeft[Either[String, HTTPResponseData]](Left(""))( (prevResponse, i) => {
+        prevResponse match {
+          case Right(value) => Right(value) // have value don't want to requery
+          case Left(value) => {
+            if (i > 0){
+              blocking {
+                Thread.sleep(getPollingDelay.toLong)
+              }
+            }
+            queryForResult(key, client, location)
           }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        if (getSuppressMaxRetriesExceededException){
-          getRetriesExceededHTTPResponseData(maxTries)
-        } else {
-          throw new TimeoutException(
-            s"Querying for results did not complete within $maxTries tries")
+        }
+      })
+      it match {
+        case Right(value) =>{
+          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
+          if (asyncCompletionLogMessagePrefixValue != "") {
+            val completedTime = System.nanoTime
+            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
+            logInfo(s"${asyncCompletionLogMessagePrefixValue}:${durationMs}")
+          }
+          value
+        }
+        case Left(lastStatus) => {
+          if (getSuppressMaxRetriesExceededException){
+            getRetriesExceededHTTPResponseData(maxTries, lastStatus)
+          } else {
+            throw new TimeoutException(
+              s"Querying for results did not complete within $maxTries tries. Last status: $lastStatus")
+          }
         }
       }
     } else {
@@ -336,6 +355,14 @@ trait HasAsyncReply extends Params {
   def setSuppressMaxRetriesExceededException(value: Boolean): this.type =
       set(suppressMaxRetriesExceededException, value)
 
+  val asyncCompletionLogMessagePrefix = new Param[String](this, "asyncCompletionLogMessagePrefix",
+  "the prefix to use when outputting async completion log messages, or empty string to disable")
+
+  /** @group setParam */
+  def getAsyncCompletionLogMessagePrefix: String = $(asyncCompletionLogMessagePrefix)
+
+  /** @group setParam */
+  def setAsyncCompletionLogMessagePrefix(v: String): this.type = set(asyncCompletionLogMessagePrefix, v)
 
   //scalastyle:off magic.number
   setDefault(
@@ -343,12 +370,13 @@ trait HasAsyncReply extends Params {
     maxPollingRetries -> 1000,
     pollingDelay -> 300,
     initialPollingDelay -> 300,
-    suppressMaxRetriesExceededException -> false)
+    suppressMaxRetriesExceededException -> false,
+    asyncCompletionLogMessagePrefix -> "")
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData]
+                               location: URI): Either[String, HTTPResponseData]
 
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData

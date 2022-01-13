@@ -28,7 +28,7 @@ trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
 
   override protected def queryForResult(key: Option[String],
                                         client: CloseableHttpClient,
-                                        location: URI): Option[HTTPResponseData] = {
+                                        location: URI): Either[String, HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -37,10 +37,13 @@ trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
     get.releaseConnection()
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
       .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
-    status.map(_.toLowerCase()).flatMap {
-      case "succeeded" | "failed" | "canceled" | "ValidationFailed" => Some(resp)
-      case "notstarted" | "running" | "cancelling" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
+    status.map(_.toLowerCase()) match {
+      case Some(value) => value match {
+        case "succeeded" | "failed" | "canceled" | "ValidationFailed" => Right(resp)
+        case "notstarted" | "running" | "cancelling" => Left(value)
+        case s => throw new RuntimeException(s"Received unknown status code: $s")
+      }
+      case None => Left("<status not found>")
     }
   }
 }

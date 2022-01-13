@@ -35,7 +35,7 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.concurrent.blocking
 import scala.language.existentials
 
-trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
+trait MADHttpRequest extends HasURL with HasSubscriptionKey with BasicAsyncReply with BasicLogging {
   protected def prepareUrl: String
 
   protected def prepareMethod(): HttpRequestBase = new HttpPost()
@@ -60,9 +60,9 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     Some(req)
   }
 
-  protected def queryForResult(key: Option[String],
+  protected override def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData] = {
+                               location: URI): Either[String, HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -80,32 +80,51 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
       "None"
     }
     status match {
-      case "ready" | "failed" => Some(resp)
-      case "created" | "running" => None
+      case "ready" | "failed" => Right(resp)
+      case "created" | "running" => Left(status)
       case s => throw new RuntimeException(s"Received unknown status code: $s")
     }
   }
 
-  protected def handlingFunc(client: CloseableHttpClient,
+  protected override def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
+    val startedTime = System.nanoTime
     if (response.statusLine.statusCode == 201) {
       val location = new URI(response.headers.filter(_.name == "Location").head.value)
       val maxTries = getMaxPollingRetries
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
+      val it = (0 to maxTries).toIterator.foldLeft[Either[String, HTTPResponseData]](Left(""))( (prevResponse, i) => {
+        prevResponse match {
+          case Right(value) => Right(value) // have value don't want to requery
+          case Left(value) => {
+            if (i > 0){
+              blocking {
+                Thread.sleep(getPollingDelay.toLong)
+              }
+            }
+            queryForResult(key, client, location)
           }
-          None
-        })
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
+        }
+      })
+      it match {
+        case Right(value) =>{
+          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
+          if (asyncCompletionLogMessagePrefixValue != "") {
+            val completedTime = System.nanoTime
+            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
+            logInfo(s"${asyncCompletionLogMessagePrefixValue}:${durationMs}")
+          }
+          value
+        }
+        case Left(lastStatus) => {
+          if (getSuppressMaxRetriesExceededException){
+            getRetriesExceededHTTPResponseData(maxTries, lastStatus)
+          } else {
+            throw new TimeoutException(
+              s"Querying for results did not complete within $maxTries tries. Last status: $lastStatus")
+          }
+        }
       }
     } else {
       response
