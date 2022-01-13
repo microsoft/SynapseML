@@ -37,7 +37,7 @@ trait HasHandler extends Params {
     getHandler(client, request)
 }
 
-trait HTTPParams extends Wrappable {
+trait ConcurrencyParams extends Wrappable {
   val concurrency: Param[Int] = new IntParam(
     this, "concurrency", "max number of concurrent calls")
 
@@ -70,8 +70,7 @@ trait HTTPParams extends Wrappable {
     case None => clear(concurrentTimeout)
   }
 
-  setDefault(concurrency -> 1,
-    timeout -> 60.0)
+  setDefault(concurrency -> 1, timeout -> 60.0)
 
 }
 
@@ -90,7 +89,7 @@ trait HasURL extends Params {
 object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 
 class HTTPTransformer(val uid: String)
-  extends Transformer with HTTPParams with HasInputCol
+  extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol with HasHandler
     with ComplexParamsWritable with BasicLogging {
   logClass()

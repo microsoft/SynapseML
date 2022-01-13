@@ -227,7 +227,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
         explode(arrays_zip(
           col(contextCol),
           UDFUtils.oldUdf(formatResultsFunc(), ArrayType(ADSingleResponse.schema))(
-            col(getOutputCol), size(col(contextCol))).alias(getOutputCol)
+            col(getOutputCol), size(col(contextCol)))
         )).alias(getOutputCol)
       ).select(
         s"$getOutputCol.$contextCol.*",

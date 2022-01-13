@@ -381,11 +381,12 @@ df = spark.createDataFrame([
 ], ["textAndTranslation",])
 
 dictionaryExamples = (DictionaryExamples()
-                  .setSubscriptionKey(translatorKey)
-                  .setLocation("eastus")
-                  .setFromLanguage("en")
-                  .setToLanguage("es")
-                  .setOutputCol("result"))
+                      .setSubscriptionKey(translatorKey)
+                      .setLocation("eastus")
+                      .setFromLanguage("en")
+                      .setToLanguage("es")
+                      .setTextAndTranslationCol("textAndTranslation")
+                      .setOutputCol("result"))
 
 display(dictionaryExamples
     .transform(df)
@@ -405,11 +406,12 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
 
 val dictionaryExamples = (new DictionaryExamples()
-                        .setSubscriptionKey(translatorKey)
-                        .setLocation("eastus")
-                        .setFromLanguage("en")
-                        .setToLanguage("es")
-                        .setOutputCol("result"))
+                          .setSubscriptionKey(translatorKey)
+                          .setLocation("eastus")
+                          .setFromLanguage("en")
+                          .setToLanguage("es")
+                          .setTextAndTranslationCol("textAndTranslation")
+                          .setOutputCol("result"))
 
 display(dictionaryExamples
     .transform(df)

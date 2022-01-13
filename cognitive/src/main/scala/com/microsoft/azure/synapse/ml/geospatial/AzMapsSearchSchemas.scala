@@ -87,7 +87,6 @@ case class ClassificationName (
   // Name property
   name: Option[String])
 
-
 case class DataSources (
   geometry: Option[Geometry])
 
@@ -138,6 +137,8 @@ case class LongRunningOperationResult (
   operationId: Option[String],
   // The status state of the request.
   status: Option[String],
+  // resource location
+  resourceLocation: Option[String],
   // The created timestamp.
   created: Option[Date],
   error: Option[ErrorDetail],
@@ -166,7 +167,6 @@ case class OperatingHoursTimeRange (
  // if it was closed before the range.
  endTime: Option[OperatingHoursTime])
 
-
 case class PointOfInterest (
  // Name of the POI property
  name: Option[String],
@@ -185,7 +185,6 @@ case class PointOfInterest (
 case class PointOfInterestCategorySet (
   // Category ID
   id: Option[Integer])
-
 
 object ReverseSearchAddressResult extends SparkBindings[ReverseSearchAddressResult]
 case class ReverseSearchAddressResult (

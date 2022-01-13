@@ -4,9 +4,9 @@
 
 [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
 
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
+[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
 
-[![Version](https://img.shields.io/badge/version-0.9.4-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
+[![Version](https://img.shields.io/badge/version-0.9.5-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
 SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
@@ -26,10 +26,10 @@ can embed **any** web service into their SparkML models.
 For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
-SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
+SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
 See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html).
+Scala](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) and [for
+PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
@@ -64,7 +64,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html).
 
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
 |:---:|:---:|:---:|
-|  [**Isolation Forest on Spark**](https://microsoft.github.io/SynapseML/docs/documentation/estimators/estimators_core/#isolationforest)  | [**CyberML**](https://github.com/Microsoft/SynapseML/blob/master/notebooks/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | [**Conditional KNN**](https://microsoft.github.io/SynapseML/docs/features/other/ConditionalKNN%20-%20Exploring%20Art%20Across%20Cultures/)  |
+|  [**Isolation Forest on Spark**](https://microsoft.github.io/SynapseML/docs/documentation/estimators/estimators_core/#isolationforest)  | [**CyberML**](https://github.com/microsoft/SynapseML/blob/master/notebooks/features/other/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | [**Conditional KNN**](https://microsoft.github.io/SynapseML/docs/features/other/ConditionalKNN%20-%20Exploring%20Art%20Across%20Cultures/)  |
 |  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries | 
 
 ## Documentation and Examples
@@ -82,8 +82,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.4") \
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5") \
             .getOrCreate()
 import synapse.ml
 ```
@@ -94,8 +93,7 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.9.4"
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.9.5"
 
 ```
 
@@ -105,9 +103,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.4 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.4 --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.4 MyApp.jar --conf spark.jars.repositories=https://mmlspark.azureedge.net/maven
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar
 ```
 
 This can be used in other Spark contexts too. For example, you can use SynapseML
@@ -122,7 +120,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.4` 
+For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.5` 
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
@@ -130,7 +128,7 @@ Finally, ensure that your Spark cluster has at least Spark 3.12 and Scala 2.12.
 
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.4.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.5.dbc`
 
 ### Apache Livy and HDInsight
 
@@ -143,8 +141,7 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
-        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12"
     }
 }
@@ -157,8 +154,7 @@ In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to o
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
-        "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
         "spark.yarn.user.classpath.first": "true"
     }

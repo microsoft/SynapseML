@@ -244,9 +244,11 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.explainers.TextSHAP",
       "com.microsoft.azure.synapse.ml.explainers.VectorLIME",
       "com.microsoft.azure.synapse.ml.explainers.VectorSHAP",
+      "com.microsoft.azure.synapse.ml.explainers.ICETransformer",
       "com.microsoft.azure.synapse.ml.exploratory.AggregateBalanceMeasure",
       "com.microsoft.azure.synapse.ml.exploratory.DistributionBalanceMeasure",
-      "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure"
+      "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure",
+      "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel"
     )
 
     pipelineStages.foreach { stage =>

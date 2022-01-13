@@ -168,9 +168,9 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
       val results = readAndScoreDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
       results.foreach { case (name, result) =>
         val probCol = if (Set(gbtName, mlpName)(name)) {
-          SchemaConstants.ScoredLabelsColumn
+          SchemaConstants.SparkPredictionColumn
         } else {
-          SchemaConstants.ScoresColumn
+          SchemaConstants.SparkRawPredictionColumn
         }
         evalAUC(name + s"_${fileName}_", result, labelCol, probCol, decimals)
       }

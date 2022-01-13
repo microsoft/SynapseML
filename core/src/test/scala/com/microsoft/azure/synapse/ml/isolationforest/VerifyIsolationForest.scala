@@ -17,7 +17,7 @@ import org.scalactic.Tolerance._
 
 case class MammographyRecord(feature0: Double, feature1: Double, feature2: Double, feature3: Double,
                              feature4: Double, feature5: Double, label: Double)
-case class ScoringResult(features: Vector, label: Double, predictedLabel: Double, outlierScore: Double)
+case class ScoringResult(features: Vector, label: Double, prediction: Double, outlierScore: Double)
 
 class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationForest] {
   test ("Verify isolationForestMammographyDataTest") {
@@ -33,7 +33,7 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
       .setMaxSamples(256)
       .setMaxFeatures(1.0)
       .setFeaturesCol("features")
-      .setPredictionCol("predictedLabel")
+      .setPredictionCol("prediction")
       .setScoreCol("outlierScore")
       .setContamination(0.02)
       .setContaminationError(contamination * 0.01)
@@ -47,7 +47,7 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
     val metrics = new ComputeModelStatistics()
       .setEvaluationMetric(MetricConstants.AucSparkMetric)
       .setLabelCol("label")
-      .setScoredLabelsCol("predictedLabel")
+      .setScoredLabelsCol("prediction")
       .setScoresCol("outlierScore")
       .transform(scores)
 

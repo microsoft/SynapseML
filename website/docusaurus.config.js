@@ -1,8 +1,8 @@
-const math = require('remark-math')
+const math = import('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
 const { all_examples } = require('./src/plugins/examples');
-let version = "0.9.4";
+let version = "0.9.5";
 
 module.exports = {
   title: 'SynapseML',
@@ -15,7 +15,7 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.9.4",
+    version: "0.9.5",
   },
   stylesheets: [
     {
@@ -89,11 +89,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html',
             },
           ],
         },
@@ -123,8 +123,8 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} Microsoft.`,
     },
     algolia: {
-      appId: 'BH4D9OD16A',
-      apiKey: 'edc58a221b8a7df52bf7058219bbf9c9',
+      appId: 'GBW8AA15RD',
+      apiKey: '70a6807005c645678741ab941bb89ed8',
       indexName: 'synapseML',
       contextualSearch: true,
     },

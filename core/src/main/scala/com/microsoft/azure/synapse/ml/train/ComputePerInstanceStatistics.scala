@@ -62,7 +62,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
         // Compute the LogLoss for classification case
         val scoredLabelsColumnName =
           if (isDefined(scoredLabelsCol)) getScoredLabelsCol
-          else SparkSchema.getScoredLabelsColumnName(dataframe, modelName)
+          else SparkSchema.getSparkPredictionColumnName(dataframe, modelName)
 
         // Get levels if categorical
         val levels = CategoricalUtilities.getLevels(dataframe.schema, labelColumnName)
@@ -83,13 +83,13 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
           })
         val probabilitiesColumnName =
           if (isDefined(scoredProbabilitiesCol)) getScoredProbabilitiesCol
-          else SparkSchema.getScoredProbabilitiesColumnName(dataframe, modelName)
+          else SparkSchema.getSparkProbabilityColumnName(dataframe, modelName)
         dataframe.withColumn(MetricConstants.LogLossMetric,
           logLossFunc(dataset(scoredLabelsColumnName), dataset(probabilitiesColumnName)))
       } else {
         val scoresColumnName =
           if (isDefined(scoresCol)) getScoresCol
-          else SparkSchema.getScoresColumnName(dataframe, modelName)
+          else SparkSchema.getSparkPredictionColumnName(dataframe, modelName)
         // Compute the L1 and L2 loss for regression case
         val l1LossFunc = udf((trueLabel: Double, scoredLabel: Double) => math.abs(trueLabel - scoredLabel))
         val l2LossFunc = udf((trueLabel: Double, scoredLabel: Double) => {
