@@ -124,7 +124,7 @@ For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.5`
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
-Finally, ensure that your Spark cluster has at least Spark 3.12 and Scala 2.12.
+Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12. If you encounter Netty dependency issues please use DBR 10.1.
 
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
