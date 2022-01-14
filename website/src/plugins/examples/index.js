@@ -28,6 +28,7 @@ function all_examples() {
     `features/other/AzureSearchIndex - Met Artworks.md`,
     `features/classification/Classification - Adult Census.md`,
     `features/cognitive_services/CognitiveServices - Overview.md`,
+    `features/geospatial_services/GeospatialServices - Overview.md`,
     `features/other/ConditionalKNN - Exploring Art Across Cultures.md`,
     `features/other/CyberML - Anomalous Access Detection.md`,
     `features/responsible_ai/DataBalanceAnalysis - Adult Census Income.md`,
