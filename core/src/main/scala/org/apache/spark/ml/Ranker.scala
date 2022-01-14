@@ -3,8 +3,9 @@
 
 package org.apache.spark.ml
 
-// Note: a bit strange to have the mmlspark import here, but it works
-import com.microsoft.ml.spark.core.contracts.HasGroupCol
+import com.microsoft.azure.synapse.ml.core.contracts.HasGroupCol
+
+// Note: a bit strange to have the synapsemlimport here, but it works
 
 /**
   * Ranker base class

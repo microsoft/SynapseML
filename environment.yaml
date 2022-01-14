@@ -1,4 +1,4 @@
-name: mmlspark
+name: synapseml
 channels:
   - conda-forge
   - default
@@ -9,12 +9,18 @@ dependencies:
   - pip
   - r-base
   - r-dplyr
-  - r-sparklyr
+  - r-sparklyr=1.7.2
   - r-devtools
   - pip:
     - wheel
-    - sphinx
+    - sphinx==4.2.0
     - sphinx_rtd_theme
     - coverage
     - pytest
     - pytest-cov
+    - nbconvert
+    - ipython
+    - pytest-codeblocks
+    - azure-storage-blob
+    - twine
+    - jupyter

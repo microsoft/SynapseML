@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM openjdk:8-alpine
+FROM openjdk:17-ea-22-jdk-oracle
 
 ARG spark_jars=jars
 ARG img_path=kubernetes/dockerfiles

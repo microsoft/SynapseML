@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.nn.{BallTree, ConditionalBallTree}
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.nn.{BallTree, ConditionalBallTree}
 
 /** Param for a BallTree.
   */

@@ -3,7 +3,7 @@
 
 package org.apache.spark.ml.recommendation
 
-import com.microsoft.ml.spark.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}

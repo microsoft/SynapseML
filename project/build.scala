@@ -1,3 +1,4 @@
+
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 
@@ -22,6 +23,13 @@ object BuildUtils {
     }
   }
 
+  def pythonizedVersion(version: String): String = {
+    version match {
+      case s if s.contains("-") => s.split("-".head).head + ".dev1"
+      case s => s
+    }
+  }
+
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
              envVars: Map[String, String] = Map()): Unit = {
@@ -33,6 +41,26 @@ object BuildUtils {
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
     assert(pb.start().waitFor() == 0)
+  }
+
+  def condaEnvName: String = "synapseml"
+
+  def activateCondaEnv: Seq[String] = {
+    if (sys.props("os.name").toLowerCase.contains("windows")) {
+      osPrefix ++ Seq("activate", condaEnvName, "&&")
+    } else {
+      Seq()
+      //TODO figure out why this doesent work
+      //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
+    }
+  }
+
+  def packagePythonWheelCmd(packageDir: String,
+                            workDir: File = new File(".")): Unit = {
+    runCmd(
+      activateCondaEnv ++
+        Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
+      workDir)
   }
 
   def uploadToBlob(source: String,

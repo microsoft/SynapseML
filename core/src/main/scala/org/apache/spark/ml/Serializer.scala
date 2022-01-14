@@ -3,10 +3,10 @@
 
 package org.apache.spark.ml
 
-import java.io.{InputStream, ObjectOutputStream, OutputStream}
+import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
 
-import com.microsoft.ml.spark.core.env.StreamUtilities._
-import com.microsoft.ml.spark.core.utils.ContextObjectInputStream
+import java.io.{InputStream, ObjectOutputStream, OutputStream}
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable

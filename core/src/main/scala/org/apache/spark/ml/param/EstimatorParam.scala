@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.core.utils.{ModelEquality, ParamEquality}
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
@@ -32,7 +32,7 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
 
 }
 
-/** Param for Estimator.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
+/** Param for Estimator.  Needed as spark has explicit params for many different
   * types but not Estimator.
   */
 class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimator[_ <: Model[_]] => Boolean)
