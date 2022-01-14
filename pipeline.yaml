@@ -63,7 +63,6 @@ jobs:
         sbt publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
-        sbt release
       displayName: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
@@ -293,6 +292,20 @@ jobs:
         PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN: $(pypi-api-token)
       displayName: 'publish python package to pypi'
+    - bash: |
+        set -e
+        source activate synapseml
+        sbt publishSigned
+        sbt sonatypeBundleRelease
+      condition: startsWith(variables['tag'], 'v')
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+      displayName: 'publish jar package to maven central'
 
 - job: PythonTests
   cancelTimeoutInMinutes: 0
@@ -377,7 +390,7 @@ jobs:
       displayName: Add conda to PATH
     - bash: conda env create -f environment.yaml
       displayName: Create Anaconda environment
-    - bash: curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
+    - bash: curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
       displayName: Download spark
     - task: AzureCLI@1
       displayName: 'Test R Code'

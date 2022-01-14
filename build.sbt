@@ -9,10 +9,10 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.1.2"
+val sparkVersion = "3.2.0"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / scalaVersion := "2.12.15"
 
 val scalaMajorVersion = 2.12
 
@@ -33,7 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -64,14 +64,12 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 
 pomPostProcess := pomPostFunc
 
-val speechResolver = "Speech" at "https://mmlspark.blob.core.windows.net/maven/"
-
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
 val datasetName = "datasets-2021-12-10.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
-  join(artifactPath.in(packageBin).in(Compile).value.getParentFile,
+  join((Compile / packageBin / artifactPath).value.getParentFile,
     "datasets", datasetName.split(".".toCharArray.head).head)
 }
 
@@ -103,7 +101,7 @@ genBuildInfo := {
 
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   join(targetDir, "generated")
 }
 
@@ -144,7 +142,7 @@ packageSynapseML := {
          |setup(
          |    name="synapseml",
          |    version="${pythonizedVersion(version.value)}",
-         |    description="Synpase Machine Learning",
+         |    description="Synapse Machine Learning",
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
@@ -203,7 +201,7 @@ publishDocs := {
       |<a href="scala/index.html">scala/</u>
       |</pre></body></html>
     """.stripMargin
-  val targetDir = artifactPath.in(packageBin).in(Compile).in(root).value.getParentFile
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
   val codegenDir = join(targetDir, "generated")
   val unifiedDocDir = join(codegenDir, "doc")
   val scalaDir = join(unifiedDocDir.toString, "scala")
@@ -211,20 +209,6 @@ publishDocs := {
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
-}
-
-val release = TaskKey[Unit]("release", "publish the library to synapseml blob")
-release := Def.taskDyn {
-  val v = isSnapshot.value
-  if (!v) {
-    Def.task {
-      sonatypeBundleRelease.value
-    }
-  } else {
-    Def.task {
-      "Not a release"
-    }
-  }
 }
 
 val publishBadges = TaskKey[Unit]("publishBadges", "publish badges to synapseml blob")
@@ -248,15 +232,15 @@ publishBadges := {
 }
 
 val settings = Seq(
-  (scalastyleConfig in Test) := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
-  logBuffered in Test := false,
-  parallelExecution in Test := false,
-  test in assembly := {},
-  assemblyMergeStrategy in assembly := {
+  Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
+  Test / logBuffered := false,
+  Test / parallelExecution := false,
+  assembly / test := {},
+  assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
     case x => MergeStrategy.first
   },
-  assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
+  assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
   sbtPlugin := false
@@ -310,10 +294,10 @@ lazy val cognitive = (project in file("cognitive"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.8.0", // can't upgrade higher due to conflict with jackson-databind
-),
-    resolvers += speechResolver,
+      "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
+      "com.azure" % "azure-storage-blob" % "12.14.2",
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+    ),
     name := "synapseml-cognitive"
   ): _*)
 
@@ -409,5 +393,5 @@ pgpPublicRing := {
 }
 ThisBuild / publishTo := sonatypePublishToBundle.value
 
-dynverSonatypeSnapshots in ThisBuild := true
-dynverSeparator in ThisBuild := "-"
+ThisBuild / dynverSonatypeSnapshots := true
+ThisBuild / dynverSeparator := "-"
