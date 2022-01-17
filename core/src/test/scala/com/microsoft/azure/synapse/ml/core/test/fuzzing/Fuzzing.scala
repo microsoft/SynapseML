@@ -296,6 +296,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
   }
 
 
+  //noinspection ScalaStyle
   def makePyTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -313,6 +314,25 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
            |""".stripMargin
       case _ => ""
     }
+    val mlflowTest = stage match {
+      case _: Model[_] =>
+        s"""
+           |mlflow.spark.save_model(model, "mlflow-save-model-$num")
+           |mlflow.spark.log_model(model, "mlflow-log-model-$num")
+           |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
+           |""".stripMargin
+      case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
+        case "cognitive" =>
+          s"""
+             |pipeline_model = PipelineModel(stages=[model])
+             |mlflow.spark.save_model(pipeline_model, "mlflow-save-model-$num")
+             |mlflow.spark.log_model(pipeline_model, "mlflow-log-model-$num")
+             |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
+             |""".stripMargin
+        case _ => ""
+      }
+      case _ => ""
+    }
 
     s"""
        |def test_${stageName}_constructor_$num(self):
@@ -321,6 +341,8 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
        |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
        |
        |${indent(fittingTest, 1)}
+       |
+       |${indent(mlflowTest, 1)}
        |
        |""".stripMargin
   }
@@ -340,6 +362,8 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |from $importPathString import $stageName
          |from os.path import join
          |import json
+         |import mlflow
+         |from pyspark.ml import PipelineModel
          |
          |test_data_dir = "${pyTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |

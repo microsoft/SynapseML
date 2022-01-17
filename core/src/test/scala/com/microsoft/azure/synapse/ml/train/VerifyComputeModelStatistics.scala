@@ -83,7 +83,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val datasetWithLabel =
       SparkSchema.setLabelColumnName(dataset, scoreModelName, labelColumn, SchemaConstants.RegressionKind)
     val datasetWithScores =
-      SparkSchema.setScoresColumnName(datasetWithLabel, scoreModelName, predictionColumn,
+      SparkSchema.updateColumnMetadata(datasetWithLabel, scoreModelName, predictionColumn,
                                       SchemaConstants.RegressionKind)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(datasetWithScores.schema)
@@ -117,7 +117,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val datasetWithLabel =
       SparkSchema.setLabelColumnName(dataset, scoreModelName, labelColumn, SchemaConstants.RegressionKind)
     val datasetWithScores =
-      SparkSchema.setScoresColumnName(datasetWithLabel, scoreModelName, predictionColumn,
+      SparkSchema.updateColumnMetadata(datasetWithLabel, scoreModelName, predictionColumn,
         SchemaConstants.RegressionKind)
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScores)
@@ -240,7 +240,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       SparkSchema.setLabelColumnName(labelsAndPrediction, scoreModelName, labelColumn,
         SchemaConstants.ClassificationKind)
     val datasetWithScoredLabels =
-      SparkSchema.setScoredLabelsColumnName(datasetWithLabel, scoreModelName, predictionColumn,
+      SparkSchema.updateColumnMetadata(datasetWithLabel, scoreModelName, predictionColumn,
         SchemaConstants.ClassificationKind)
 
     val evaluatedData = new ComputeModelStatistics().transform(datasetWithScoredLabels)
@@ -300,16 +300,16 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val binaryEvaluator = new BinaryClassificationEvaluator()
       .setMetricName("areaUnderROC")
       .setLabelCol(label)
-      .setRawPredictionCol(SchemaConstants.ScoresColumn)
+      .setRawPredictionCol(SchemaConstants.SparkRawPredictionColumn)
 
     val levels = CategoricalUtilities.getLevels(scored.schema, label)
     val levelsToIndexMap: Map[Any, Double] = levels.get.zipWithIndex.map(t => t._1 -> t._2.toDouble).toMap
 
     // Calculate confusion matrix and output it as DataFrame
     val predictionAndLabels = spark
-      .createDataFrame(scored.select(col(SchemaConstants.ScoresColumn), col(label)).rdd.map {
+      .createDataFrame(scored.select(col(SchemaConstants.SparkRawPredictionColumn), col(label)).rdd.map {
       case Row(prediction: Vector, label) => (prediction(1), levelsToIndexMap(label))
-    }).toDF(SchemaConstants.ScoresColumn, label)
+    }).toDF(SchemaConstants.SparkRawPredictionColumn, label)
 
     val auc = binaryEvaluator.evaluate(predictionAndLabels)
     assert(auc === cmsAUC)

@@ -134,7 +134,7 @@ class EntityDetectorSuite extends TransformerFuzzing[EntityDetectorV2] with Text
   override def reader: MLReadable[_] = EntityDetectorV2
 }
 
-class EntityDetectorSuiteV3 extends TransformerFuzzing[EntityDetector] with TextEndpoint {
+class EntityDetectorV3Suite extends TransformerFuzzing[EntityDetector] with TextEndpoint {
 
   import spark.implicits._
 
@@ -202,7 +202,7 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
   test("batch usage") {
     val t = new TextSentiment()
       .setSubscriptionKey(textKey)
-      .setLocation("eastus")
+      .setLocation(textApiLocation)
       .setTextCol("text")
       .setLanguage("en")
       .setOutputCol("score")
@@ -222,7 +222,7 @@ class TextSentimentSuite extends TransformerFuzzing[TextSentimentV2] with TextSe
 
   lazy val t: TextSentimentV2 = new TextSentimentV2()
     .setSubscriptionKey(textKey)
-    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment")
+    .setLocation(textApiLocation)
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -267,7 +267,7 @@ class KeyPhraseExtractorSuite extends TransformerFuzzing[KeyPhraseExtractorV2] w
 
   lazy val t: KeyPhraseExtractorV2 = new KeyPhraseExtractorV2()
     .setSubscriptionKey(textKey)
-    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v2.0/keyPhrases")
+    .setLocation(textApiLocation)
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -302,7 +302,7 @@ class KeyPhraseExtractorV3Suite extends TransformerFuzzing[KeyPhraseExtractor] w
 
   lazy val t: KeyPhraseExtractor = new KeyPhraseExtractor()
     .setSubscriptionKey(textKey)
-    .setUrl(s"https://$textApiLocation.api.cognitive.microsoft.com/text/analytics/v3.0/keyPhrases")
+    .setLocation(textApiLocation)
     .setLanguageCol("lang")
     .setOutputCol("replies")
 
@@ -363,7 +363,7 @@ class NERSuite extends TransformerFuzzing[NERV2] with TextEndpoint {
   override def reader: MLReadable[_] = NERV2
 }
 
-class NERSuiteV3 extends TransformerFuzzing[NER] with TextEndpoint {
+class NERV3Suite extends TransformerFuzzing[NER] with TextEndpoint {
 
   import spark.implicits._
 
@@ -403,7 +403,7 @@ class NERSuiteV3 extends TransformerFuzzing[NER] with TextEndpoint {
   override def reader: MLReadable[_] = NER
 }
 
-class PIISuiteV3 extends TransformerFuzzing[PII] with TextEndpoint {
+class PIIV3Suite extends TransformerFuzzing[PII] with TextEndpoint {
 
   import spark.implicits._
 
@@ -466,9 +466,9 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
   val batchSize = 25
   lazy val dfBatched: DataFrame = Seq(
     (
-      Seq("en", "invalid") ++ Seq.fill(batchSize-2)("en"),
+      Seq("en", "invalid") ++ Seq.fill(batchSize - 2)("en"),
       Seq("I had a wonderful trip to Seattle last week and visited Microsoft.",
-        "This is irrelevant as the language is invalid") ++ Seq.fill(batchSize-2)("Placeholder content")
+        "This is irrelevant as the language is invalid") ++ Seq.fill(batchSize - 2)("Placeholder content")
     )
   ).toDF("language", "text")
 

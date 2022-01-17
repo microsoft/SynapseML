@@ -158,7 +158,7 @@ object CodeGen {
          |setup(
          |    name="${conf.name}",
          |    version="${conf.pythonizedVersion}",
-         |    description="Synpase Machine Learning",
+         |    description="Synapse Machine Learning",
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",

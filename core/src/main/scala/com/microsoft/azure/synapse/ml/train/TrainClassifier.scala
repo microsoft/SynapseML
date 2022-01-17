@@ -23,20 +23,20 @@ import java.util.UUID
   *
   * Note the behavior of the reindex and labels parameters, the parameters interact as:
   *
-  *   reindex -> false
-  *   labels -> false (Empty)
+  * reindex -> false
+  * labels -> false (Empty)
   * Assume all double values, don't use metadata, assume natural ordering
   *
-  *   reindex -> true
-  *   labels -> false (Empty)
+  * reindex -> true
+  * labels -> false (Empty)
   * Index, use natural ordering of string indexer
   *
-  *   reindex -> false
-  *   labels -> true (Specified)
+  * reindex -> false
+  * labels -> true (Specified)
   * Assume user knows indexing, apply label values. Currently only string type supported.
   *
-  *   reindex -> true
-  *   labels -> true (Specified)
+  * reindex -> true
+  * labels -> true (Specified)
   * Validate labels matches column type, try to recast to label type, reindex label column
   *
   * The currently supported classifiers are:
@@ -59,28 +59,35 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
 
   /** Specifies whether to reindex the given label column.
     * See class documentation for how this parameter interacts with specified labels.
+    *
     * @group param
     */
   val reindexLabel = new BooleanParam(this, "reindexLabel", "Re-index the label column")
   setDefault(reindexLabel -> true)
+
   /** @group getParam */
   def getReindexLabel: Boolean = $(reindexLabel)
+
   /** @group setParam */
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
   /** Specifies the labels metadata on the column.
     * See class documentation for how this parameter interacts with reindex labels parameter.
+    *
     * @group param
     */
   val labels = new StringArrayParam(this, "labels", "Sorted label values on the labels column")
+
   /** @group getParam */
   def getLabels: Array[String] = $(labels)
+
   /** @group setParam */
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /** Optional parameter, specifies the name of the features column passed to the learner.
     * Must have a unique name different from the input columns.
     * By default, set to <uid>_features.
+    *
     * @group param
     */
   setDefault(featuresCol, this.uid + "_features")
@@ -280,7 +287,7 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
-    extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
+  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))
@@ -295,6 +302,7 @@ class TrainedClassifierModel(val uid: String)
 
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 
+  //scalastyle:off
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val hasScoreCols = hasScoreColumns(getLastStage)
@@ -318,28 +326,18 @@ class TrainedClassifierModel(val uid: String)
       // Note: The GBT model does not have scores, only scored labels.  Same for OneVsRest with any binary model.
       val schematizedScoredDataWithScores =
         if (hasScoreCols) {
-          setMetadataForColumnName(SparkSchema.setScoredProbabilitiesColumnName,
-            SchemaConstants.SparkProbabilityColumn,
-            SchemaConstants.ScoredProbabilitiesColumn,
-            moduleName,
-            setMetadataForColumnName(SparkSchema.setScoresColumnName,
-              SchemaConstants.SparkRawPredictionColumn,
-              SchemaConstants.ScoresColumn,
-              moduleName,
-              schematizedScoredDataWithLabel))
+          setMetadataForColumnName(SchemaConstants.SparkProbabilityColumn,
+            moduleName, setMetadataForColumnName(SchemaConstants.SparkRawPredictionColumn,
+              moduleName, schematizedScoredDataWithLabel))
         } else schematizedScoredDataWithLabel
 
       val scoredDataWithUpdatedScoredLabels =
-        setMetadataForColumnName(SparkSchema.setScoredLabelsColumnName,
-          SchemaConstants.SparkPredictionColumn,
-          SchemaConstants.ScoredLabelsColumn,
-          moduleName,
-          schematizedScoredDataWithScores)
+        setMetadataForColumnName(SchemaConstants.SparkPredictionColumn, moduleName, schematizedScoredDataWithScores)
 
       val scoredDataWithUpdatedScoredLevels =
         if (get(levels).isEmpty) scoredDataWithUpdatedScoredLabels
         else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLabels,
-          SchemaConstants.ScoredLabelsColumn,
+          SchemaConstants.SparkPredictionColumn,
           getLevels)
 
       // add metadata to the scored labels and true labels for the levels in label column
@@ -350,16 +348,12 @@ class TrainedClassifierModel(val uid: String)
     })
   }
 
-  private def setMetadataForColumnName(setter: (DataFrame, String, String, String) => DataFrame,
-                                       sparkColumnName: String,
-                                       mmlColumnName: String,
+  private def setMetadataForColumnName(sparkColumnName: String,
                                        moduleName: String,
                                        dataset: DataFrame): DataFrame = {
     if (dataset.columns.contains(sparkColumnName)) {
-      setter(dataset.withColumnRenamed(sparkColumnName, mmlColumnName),
-        moduleName,
-        mmlColumnName,
-        SchemaConstants.ClassificationKind)
+      SparkSchema.updateColumnMetadata(dataset,
+        moduleName, sparkColumnName, SchemaConstants.ClassificationKind)
     } else {
       dataset
     }
