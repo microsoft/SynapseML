@@ -61,6 +61,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -109,6 +110,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -156,6 +158,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -241,9 +244,11 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.explainers.TextSHAP",
       "com.microsoft.azure.synapse.ml.explainers.VectorLIME",
       "com.microsoft.azure.synapse.ml.explainers.VectorSHAP",
+      "com.microsoft.azure.synapse.ml.explainers.ICETransformer",
       "com.microsoft.azure.synapse.ml.exploratory.AggregateBalanceMeasure",
       "com.microsoft.azure.synapse.ml.exploratory.DistributionBalanceMeasure",
-      "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure"
+      "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure",
+      "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel"
     )
 
     pipelineStages.foreach { stage =>

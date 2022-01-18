@@ -54,7 +54,7 @@ class LightGBMClassifier(override val uid: String)
       getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
       getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
       get(metric), get(minGainToSplit), get(maxDeltaStep), getMaxBinByFeature, get(minDataInLeaf), getSlotNames,
-      getDelegate, getDartParams, getExecutionParams, getObjectiveParams)
+      getDelegate, getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams)
   }
 
   def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
@@ -163,11 +163,11 @@ class LightGBMClassificationModel(override val uid: String)
   override def numClasses: Int = getActualNumClasses
 
   override def predictRaw(features: Vector): Vector = {
-    Vectors.dense(getModel.score(features, true, true))
+    Vectors.dense(getModel.score(features, true, true, getPredictDisableShapeCheck))
   }
 
   override def predictProbability(features: Vector): Vector = {
-    Vectors.dense(getModel.score(features, false, true))
+    Vectors.dense(getModel.score(features, false, true, getPredictDisableShapeCheck))
   }
 
   override def copy(extra: ParamMap): LightGBMClassificationModel = defaultCopy(extra)

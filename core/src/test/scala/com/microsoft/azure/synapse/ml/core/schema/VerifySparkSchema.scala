@@ -9,16 +9,16 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 class VerifySparkSchema extends TestBase {
 
   val labelColumn = "label"
-  val scoreColumn = "score"
+  val rawPredictionColumn = "rawPrediction"
   val probabilityColumn = "probability"
-  val scoredLabelsColumn = "scored label"
+  val predictionColumn = "prediction"
   test("Spark schema should be able to set and get label, score, probability and scored labels column name") {
     val dataset = spark.createDataFrame(Seq(
       (0, Array("Hi", "I", "can", "not", "foo"), 0.50, 0.60, 0),
       (1, Array("I"),                            0.40, 0.50, 1),
       (2, Array("Logistic", "regression"),       0.78, 0.99, 2),
       (3, Array("Log","f", "reg"),               0.12, 0.34, 3)
-    )).toDF(labelColumn, "words", scoreColumn, probabilityColumn, scoredLabelsColumn)
+    )).toDF(labelColumn, "words", rawPredictionColumn, probabilityColumn, predictionColumn)
 
     val modelName = "Test model name"
     val datasetWithLabel =
@@ -29,26 +29,26 @@ class VerifySparkSchema extends TestBase {
     assert(labelColumnNameRetrieved == labelColumn)
 
     val datasetWithScore =
-      SparkSchema.setScoresColumnName(dataset, modelName, scoreColumn, SchemaConstants.RegressionKind)
+      SparkSchema.updateColumnMetadata(dataset, modelName, rawPredictionColumn, SchemaConstants.RegressionKind)
     val scoreColumnNameRetrieved =
-      SparkSchema.getScoresColumnName(datasetWithScore, modelName)
+      SparkSchema.getSparkRawPredictionColumnName(datasetWithScore, modelName)
 
-    assert(scoreColumnNameRetrieved == scoreColumn)
+    assert(scoreColumnNameRetrieved == rawPredictionColumn)
 
     val datasetWithProbability =
-      SparkSchema.setScoredProbabilitiesColumnName(dataset, modelName, probabilityColumn,
+      SparkSchema.updateColumnMetadata(dataset, modelName, probabilityColumn,
                                                    SchemaConstants.RegressionKind)
     val probabilityColumnNameRetrieved =
-      SparkSchema.getScoredProbabilitiesColumnName(datasetWithProbability, modelName)
+      SparkSchema.getSparkProbabilityColumnName(datasetWithProbability, modelName)
 
     assert(probabilityColumnNameRetrieved == probabilityColumn)
 
     val datasetWithScoredLabels =
-      SparkSchema.setScoredLabelsColumnName(dataset, modelName, scoredLabelsColumn, SchemaConstants.RegressionKind)
+      SparkSchema.updateColumnMetadata(dataset, modelName, predictionColumn, SchemaConstants.RegressionKind)
     val scoredLabelsColumnNameRetrieved =
-      SparkSchema.getScoredLabelsColumnName(datasetWithScoredLabels, modelName)
+      SparkSchema.getSparkPredictionColumnName(datasetWithScoredLabels.schema, modelName)
 
-    assert(scoredLabelsColumnNameRetrieved == scoredLabelsColumn)
+    assert(scoredLabelsColumnNameRetrieved == predictionColumn)
   }
 
 }

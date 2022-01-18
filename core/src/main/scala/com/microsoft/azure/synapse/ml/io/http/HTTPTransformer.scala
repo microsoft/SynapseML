@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -28,9 +29,15 @@ trait HasHandler extends Params {
   def setHandler(v: HandlerFunc): HasHandler.this.type = {
     set(handler, UDFUtils.oldUdf(v, StringType))
   }
+
+  setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
+
+  def handlingFunc(client: CloseableHttpClient,
+                   request: HTTPRequestData): HTTPResponseData =
+    getHandler(client, request)
 }
 
-trait HTTPParams extends Wrappable {
+trait ConcurrencyParams extends Wrappable {
   val concurrency: Param[Int] = new IntParam(
     this, "concurrency", "max number of concurrent calls")
 
@@ -63,8 +70,7 @@ trait HTTPParams extends Wrappable {
     case None => clear(concurrentTimeout)
   }
 
-  setDefault(concurrency -> 1,
-    timeout -> 60.0)
+  setDefault(concurrency -> 1, timeout -> 60.0)
 
 }
 
@@ -83,24 +89,24 @@ trait HasURL extends Params {
 object HTTPTransformer extends ComplexParamsReadable[HTTPTransformer]
 
 class HTTPTransformer(val uid: String)
-  extends Transformer with HTTPParams with HasInputCol
+  extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol with HasHandler
     with ComplexParamsWritable with BasicLogging {
   logClass()
 
-  setDefault(handler -> HandlingUtils.advancedUDF(100,500,1000)) //scalastyle:ignore magic.number
+  setDefault(handler -> HandlingUtils.advancedUDF(100, 500, 1000)) //scalastyle:ignore magic.number
 
   def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
   val clientHolder = SharedVariable {
     getConcurrency match {
-      case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout*1000).toInt)
+      case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout * 1000).toInt)
       case n if n > 1 =>
         val dur = get(concurrentTimeout)
-          .map(ct => Duration.fromNanos((ct* math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
+          .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
           .getOrElse(Duration.Inf)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(getHandler,n, dur, (getTimeout*1000).toInt)(ec)
+        new AsyncHTTPClient(getHandler, n, dur, (getTimeout * 1000).toInt)(ec)
     }
   }
 
@@ -134,7 +140,7 @@ class HTTPTransformer(val uid: String)
 
   def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.Request)
-    schema.add(getOutputCol, HTTPSchema.Response, nullable=true)
+    schema.add(getOutputCol, HTTPSchema.Response, nullable = true)
   }
 
 }

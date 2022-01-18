@@ -53,21 +53,23 @@ class FormOntologyLearner(override val uid: String) extends Estimator[FormOntolo
   }
 
   override def fit(dataset: Dataset[_]): FormOntologyTransformer = {
-    val fromRow = AnalyzeResponse.makeFromRowConverter
+    logFit({
+      val fromRow = AnalyzeResponse.makeFromRowConverter
 
-    def combine(st1: StructType, st2: StructType): StructType = {
-      FormOntologyLearner.combineDataTypes(st1, st2).asInstanceOf[StructType]
-    }
+      def combine(st1: StructType, st2: StructType): StructType = {
+        FormOntologyLearner.combineDataTypes(st1, st2).asInstanceOf[StructType]
+      }
 
-    val mergedSchema = dataset.toDF()
-      .select(col(getInputCol))
-      .map(extractOntology(fromRow))(Encoders.kryo[StructType])
-      .reduce(combine _)
+      val mergedSchema = dataset.toDF()
+        .select(col(getInputCol))
+        .map(extractOntology(fromRow))(Encoders.kryo[StructType])
+        .reduce(combine _)
 
-    new FormOntologyTransformer()
-      .setInputCol(getInputCol)
-      .setOutputCol(getOutputCol)
-      .setOntology(mergedSchema)
+      new FormOntologyTransformer()
+        .setInputCol(getInputCol)
+        .setOutputCol(getOutputCol)
+        .setOntology(mergedSchema)
+    })
   }
 
   override def copy(extra: ParamMap): Estimator[FormOntologyTransformer] = defaultCopy(extra)
@@ -109,11 +111,13 @@ class FormOntologyTransformer(override val uid: String) extends Model[FormOntolo
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val fromRow = AnalyzeResponse.makeFromRowConverter
-    val convertToOntologyUDF = UDFUtils.oldUdf(convertToOntology(fromRow) _, getOntology)
+    logTransform[DataFrame]({
+      val fromRow = AnalyzeResponse.makeFromRowConverter
+      val convertToOntologyUDF = UDFUtils.oldUdf(convertToOntology(fromRow) _, getOntology)
 
-    dataset.toDF()
-      .withColumn(getOutputCol, convertToOntologyUDF(col(getInputCol)))
+      dataset.toDF()
+        .withColumn(getOutputCol, convertToOntologyUDF(col(getInputCol)))
+    })
   }
 
   override def transformSchema(schema: StructType): StructType = {

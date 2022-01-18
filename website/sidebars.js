@@ -1,6 +1,7 @@
 const { listExamplePaths } = require('./src/plugins/examples');
 
 let cs_pages = listExamplePaths("features", "cognitive_services");
+let gs_pages = listExamplePaths("features", "geospatial_services");
 let rai_pages = listExamplePaths("features", "responsible_ai");
 let onnx_pages = listExamplePaths("features", "onnx");
 let lgbm_pages = listExamplePaths("features", "lightgbm");
@@ -34,6 +35,11 @@ module.exports = {
           type: 'category',
           label: 'Cognitive Services',
           items: cs_pages,
+        },
+        {
+          type: 'category',
+          label: 'Geospatial Services',
+          items: gs_pages,
         },
         {
           type: 'category',
@@ -98,6 +104,7 @@ module.exports = {
       type: 'category',
       label: 'Estimators',
       items: [
+        'documentation/estimators/estimators_cognitive',
         'documentation/estimators/estimators_core',
         'documentation/estimators/estimators_lightgbm',
         'documentation/estimators/estimators_vw',

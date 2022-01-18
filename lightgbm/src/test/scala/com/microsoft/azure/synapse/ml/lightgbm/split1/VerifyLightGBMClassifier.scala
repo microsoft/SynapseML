@@ -14,8 +14,8 @@ import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
-import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import org.apache.spark.ml.feature.{LabeledPoint, StringIndexer, VectorAssembler}
+import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Estimator, Model}
@@ -329,11 +329,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       }
     }
     val scoredDF1 = baseModel
+      .setUseSingleDatasetMode(false)
       .fit(pimaDF)
       .transform(pimaDF)
+
     // Note: run for more iterations than non-custom objective to prevent flakiness
     // Note we intentionally overfit here on the training data and don't do a split
     val scoredDF2 = baseModel
+      .setUseSingleDatasetMode(false)
       .setFObj(new LogLikelihood())
       .setNumIterations(300)
       .fit(pimaDF)
@@ -426,36 +429,38 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier with validation dataset") {
-    val df = au3DF.orderBy(rand()).withColumn(validationCol, lit(false))
+    tryWithRetries(Array(0, 100, 500)) {() =>
+      val df = au3DF.orderBy(rand()).withColumn(validationCol, lit(false))
 
-    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
-    val valid = validIntermediate.withColumn(validationCol, lit(true))
-    val trainAndValid = train.union(valid.orderBy(rand()))
+      val Array(train, validIntermediate, test) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
+      val valid = validIntermediate.withColumn(validationCol, lit(true))
+      val trainAndValid = train.union(valid.orderBy(rand()))
 
-    // model1 should overfit on the given dataset
-    val model1 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(100)
-      .setLearningRate(0.9)
-      .setMinDataInLeaf(2)
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(100)
+      // model1 should overfit on the given dataset
+      val model1 = baseModel
+        .setNumLeaves(100)
+        .setNumIterations(100)
+        .setLearningRate(0.9)
+        .setMinDataInLeaf(2)
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(100)
 
-    // model2 should terminate early before overfitting
-    val model2 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(100)
-      .setLearningRate(0.9)
-      .setMinDataInLeaf(2)
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(5)
+      // model2 should terminate early before overfitting
+      val model2 = baseModel
+        .setNumLeaves(100)
+        .setNumIterations(100)
+        .setLearningRate(0.9)
+        .setMinDataInLeaf(2)
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(5)
 
-    // Assert evaluation metric improves
-    Array("auc", "binary_logloss", "binary_error").foreach { metric =>
-      assertBinaryImprovement(
-        model1.setMetric(metric), trainAndValid, test,
-        model2.setMetric(metric), trainAndValid, test
-      )
+      // Assert evaluation metric improves
+      Array("auc", "binary_logloss", "binary_error").foreach { metric =>
+        assertBinaryImprovement(
+          model1.setMetric(metric), trainAndValid, test,
+          model2.setMetric(metric), trainAndValid, test
+        )
+      }
     }
   }
 
@@ -639,6 +644,31 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
     // Validate fit works and doesn't get stuck
     assertFitWithoutErrors(baseModel, df)
+  }
+
+  test("Verify LightGBM Classifier won't get stuck on " +
+    "number of features in data is not the same as it was in training data") {
+    val inputData = Seq(
+      LabeledPoint(1.0, Vectors.dense(1.0, 0.0, 3.0)),
+      LabeledPoint(0.0, Vectors.sparse(3, Array(0, 2), Array(1.0, 3.0)))
+    )
+    val testData = Seq(
+      (
+        "uuid-value",
+        Vectors.sparse(15, Array(2, 6, 8, 14), Array(1.0, 1.0, 1.0, 2.0))
+      )
+    )
+
+    val modelDF = spark.createDataFrame(inputData).toDF("labels", "features")
+    val testDF = spark.createDataFrame(testData).toDF("uuid", "features")
+
+    val fitModel = baseModel.fit(modelDF)
+    val oldModelString = fitModel.getModel.modelStr.get
+
+    val testModel = LightGBMClassificationModel.loadNativeModelFromString(oldModelString)
+    testModel.setPredictDisableShapeCheck(true)
+
+    assert(testModel.transform(testDF).collect().length > 0)
   }
 
   def verifyLearnerOnBinaryCsvFile(fileName: String,
