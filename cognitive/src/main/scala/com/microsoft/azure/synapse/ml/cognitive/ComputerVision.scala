@@ -285,11 +285,17 @@ trait BasicAsyncReply extends HasAsyncReply with BasicLogging {
           if (asyncCompletionLogMessagePrefixValue != "") {
             val completedTime = System.nanoTime
             val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
-            logInfo(s"${asyncCompletionLogMessagePrefixValue}:${durationMs}")
+            logInfo(s"${asyncCompletionLogMessagePrefixValue}:true:${durationMs}")
           }
           value
         }
         case Left(lastStatus) => {
+          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
+          if (asyncCompletionLogMessagePrefixValue != "") {
+            val completedTime = System.nanoTime
+            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
+            logInfo(s"${asyncCompletionLogMessagePrefixValue}:false:${durationMs}")
+          }
           if (getSuppressMaxRetriesExceededException){
             getRetriesExceededHTTPResponseData(maxTries, lastStatus)
           } else {
