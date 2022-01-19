@@ -160,7 +160,7 @@ object CodegenPlugin extends AutoPlugin {
       val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
       val rPackageDir = join(codegenDir.value, "package", "R")
       val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
-      rCmd(activateCondaEnv, Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
+      rCmd(activateCondaEnv, Seq("R", "-q", "-e", "'roxygen2::roxygenise()'"), rSrcDir, libPath)
       rPackageDir.mkdirs()
       zipFolder(rSrcDir, new File(rPackageDir, s"${name.value}-${version.value}.zip"))
     },
