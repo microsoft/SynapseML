@@ -1,4 +1,4 @@
-const math = import('remark-math')
+const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
 const { all_examples } = require('./src/plugins/examples');

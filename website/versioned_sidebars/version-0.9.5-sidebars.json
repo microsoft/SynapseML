@@ -25,9 +25,15 @@
             "features/cognitive_services/CognitiveServices - Celebrity Quote Analysis",
             "features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms",
             "features/cognitive_services/CognitiveServices - Overview",
-            "features/cognitive_services/CognitiveServices - Predictive Maintenance",
-            "features/cognitive_services/GeospatialServices - Flooding Risk",
-            "features/cognitive_services/GeospatialServices - Overview"
+            "features/cognitive_services/CognitiveServices - Predictive Maintenance"
+          ]
+        },
+        {
+          "type": "category",
+          "label": "Geospatial Services",
+          "items": [
+            "features/geospatial_services/GeospatialServices - Flooding Risk",
+            "features/geospatial_services/GeospatialServices - Overview"
           ]
         },
         {
