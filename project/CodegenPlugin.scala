@@ -1,11 +1,11 @@
 import java.io.File
-
 import BuildUtils.{join, runCmd, singleUploadToBlob, zipFolder}
-import CondaPlugin.autoImport.{activateCondaEnv, condaEnvLocation, createCondaEnvTask}
+import CondaPlugin.autoImport.{condaEnvLocation, createCondaEnvTask}
 import org.apache.commons.io.FileUtils
 import sbt.Keys._
-import sbt.{Def, _}
+import sbt.{Def, Global, Tags, _}
 import spray.json._
+import BuildUtils._
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
   implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
@@ -32,13 +32,16 @@ object CodegenPlugin extends AutoPlugin {
     runCmd(activateCondaEnv ++ cmd, wd, Map("R_LIBS" -> libPath, "R_USER_LIBS" -> libPath))
   }
 
-  val RInstall = Tags.Tag("rInstall")
+  val RInstallTag = Tags.Tag("rInstall")
+  val TestGenTag = Tags.Tag("testGen")
 
   object autoImport {
-    val pythonizedVersion = settingKey[String]("Pythonized version")
     val rVersion = settingKey[String]("R version")
-    val genPackageNamespace = settingKey[String]("genPackageNamespace")
+    val genPyPackageNamespace = settingKey[String]("genPyPackageNamespace")
+    val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
+
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
+
     val codegenJarName = settingKey[Option[String]]("codegenJarName")
     val testgenJarName = settingKey[Option[String]]("testgenJarName")
     val codegenArgs = settingKey[String]("codegenArgs")
@@ -67,24 +70,33 @@ object CodegenPlugin extends AutoPlugin {
   import autoImport._
 
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
-    Global / concurrentRestrictions += Tags.limit(RInstall, 1)
+    Global / concurrentRestrictions ++= Seq(
+      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
     packageR.value
     publishLocal.value
     val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
-    val rSrcDir = join(codegenDir.value, "src", "R", genPackageNamespace.value)
-    rCmd(activateCondaEnv.value,
-      Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genPackageNamespace.value),
+    val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
+    rCmd(activateCondaEnv,
+      Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
     if (join(rSrcDir,"tests").exists()){
-      rCmd(activateCondaEnv.value,
+      rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
-  } tag(RInstall)
+  } tag(RInstallTag)
 
+  def testGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.TestGen $arg").value
+    }
+  } tag(TestGenTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -95,9 +107,9 @@ object CodegenPlugin extends AutoPlugin {
         baseDirectory.value.getAbsolutePath,
         targetDir.value.getAbsolutePath,
         version.value,
-        pythonizedVersion.value,
+        pythonizedVersion(version.value),
         rVersion.value,
-        genPackageNamespace.value
+        genPyPackageNamespace.value
       ).toJson.compactPrint
     },
     testgenArgs := {
@@ -107,9 +119,9 @@ object CodegenPlugin extends AutoPlugin {
         baseDirectory.value.getAbsolutePath,
         targetDir.value.getAbsolutePath,
         version.value,
-        pythonizedVersion.value,
+        pythonizedVersion(version.value),
         rVersion.value,
-        genPackageNamespace.value
+        genPyPackageNamespace.value
       ).toJson.compactPrint
     },
     codegenJarName := {
@@ -131,24 +143,10 @@ object CodegenPlugin extends AutoPlugin {
       (Test / compile).value
       val arg = codegenArgs.value
       Def.task {
-        (Compile / runMain).toTask(s" com.microsoft.ml.spark.codegen.CodeGen $arg").value
+        (Compile / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.CodeGen $arg").value
       }
     }.value),
-    testgen := (Def.taskDyn {
-      (Compile / compile).value
-      (Test / compile).value
-      val arg = testgenArgs.value
-      Def.task {
-        (Test / runMain).toTask(s" com.microsoft.ml.spark.codegen.TestGen $arg").value
-      }
-    }.value),
-    pythonizedVersion := {
-      if (version.value.contains("-")) {
-        version.value.split("-".head).head + ".dev1"
-      } else {
-        version.value
-      }
-    },
+    testgen := testGenImpl.value,
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
@@ -159,10 +157,10 @@ object CodegenPlugin extends AutoPlugin {
     packageR := {
       createCondaEnvTask.value
       codegen.value
-      val rSrcDir = join(codegenDir.value, "src", "R", genPackageNamespace.value)
+      val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
       val rPackageDir = join(codegenDir.value, "package", "R")
       val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
-      rCmd(activateCondaEnv.value, Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
+      rCmd(activateCondaEnv, Seq("R", "-q", "-e", "roxygen2::roxygenise()"), rSrcDir, libPath)
       rPackageDir.mkdirs()
       zipFolder(rSrcDir, new File(rPackageDir, s"${name.value}-${version.value}.zip"))
     },
@@ -177,36 +175,33 @@ object CodegenPlugin extends AutoPlugin {
     packagePython := {
       codegen.value
       createCondaEnvTask.value
-      val destPyDir = join(targetDir.value, "classes", genPackageNamespace.value)
+      val destPyDir = join(targetDir.value, "classes", genPyPackageNamespace.value)
       val packageDir = join(codegenDir.value, "package", "python").absolutePath
       val pythonSrcDir = join(codegenDir.value, "src", "python")
       if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPackageNamespace.value)
+      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPyPackageNamespace.value)
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
-      runCmd(
-        activateCondaEnv.value ++
-          Seq(s"python", "setup.py", "bdist_wheel", "--universal", "-d", packageDir),
-        pythonSrcDir)
+      packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
     installPipPackage := {
       packagePython.value
       publishLocal.value
       runCmd(
-        activateCondaEnv.value ++ Seq("pip", "install", "-I",
-          s"${name.value.replace("-", "_")}-${pythonizedVersion.value}-py2.py3-none-any.whl"),
+        activateCondaEnv ++ Seq("pip", "install", "-I",
+          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
     publishPython := {
       publishLocal.value
       packagePython.value
-      val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion.value}-py2.py3-none-any.whl"
+      val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
         version.value + "/" + fn, "pip")
     },
     mergePyCode := {
-      val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
+      val srcDir = join(codegenDir.value, "src", "python", genPyPackageNamespace.value)
+      val destDir = join(mergePyCodeDir.value, "src", "python", genPyPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
@@ -214,10 +209,10 @@ object CodegenPlugin extends AutoPlugin {
       testgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       runCmd(
-        activateCondaEnv.value ++ Seq("python",
+        activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          s"--cov=${genPackageNamespace.value}",
+          s"--cov=${genPyPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
           "--cov-report=xml",
           genTestPackageNamespace.value
@@ -226,19 +221,22 @@ object CodegenPlugin extends AutoPlugin {
       )
     },
     targetDir := {
-      artifactPath.in(packageBin).in(Compile).value.getParentFile
+      (Compile / packageBin / artifactPath).value.getParentFile
     },
     mergePyCodeDir := {
-      join(baseDirectory.value.getParent, "target", "scala-2.12", "sbt-1.0", "generated")
+      join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
     },
     codegenDir := {
       join(targetDir.value, "generated")
     },
-    genPackageNamespace := {
-      "mmlspark"
+    genPyPackageNamespace := {
+      "synapse"
+    },
+    genRPackageNamespace := {
+      "synapseml"
     },
     genTestPackageNamespace := {
-      "mmlsparktest"
+      "synapsemltest"
     }
 
   )

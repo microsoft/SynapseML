@@ -1,0 +1,15 @@
+Use ``TrainRegressor`` to train a regression model on a dataset.
+
+Below is an example that uses ``TrainRegressor``.  Given a DataFrame,
+myDataFrame, with a label column, "MyLabel", split the DataFrame into
+train and test sets.  Train a regressor on the dataset with a solver,
+such as l-bfgs:
+
+>>> from synapse.ml.TrainRegressor import TrainRegressor
+>>> from pysppark.ml.regression import LinearRegression
+>>> lr = LinearRegression().setSolver("l-bfgs").setRegParam(0.1).setElasticNetParam(0.3)
+>>> model = TrainRegressor(model=lr, labelCol="MyLabel", numFeatures=1 << 18).fit(train)
+
+Now that you have a model, you can score the regressor on the test data:
+
+>>> scoredData = model.transform(test)

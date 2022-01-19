@@ -3,8 +3,8 @@
 
 package org.apache.spark.sql.execution.streaming
 
-import com.microsoft.ml.spark.io.http.HTTPResponseData
-import com.microsoft.ml.spark.io.http.HTTPSchema.{binary_to_response, empty_response, string_to_response}
+import com.microsoft.azure.synapse.ml.io.http.HTTPResponseData
+import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.{binary_to_response, empty_response, string_to_response}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceStateHolder
 import org.apache.spark.sql.expressions.UserDefinedFunction

@@ -24,7 +24,7 @@ newPRWelcomeComment: >
     - `style: Remove nulls from CNTKModel`
     - `test: Add test coverage for CNTKModel`
 
-  Make sure to check out the [developer guide](https://github.com/Azure/mmlspark/blob/master/CONTRIBUTING.md) for guidance on testing your change.
+  Make sure to check out the [developer guide](https://github.com/Microsoft/SynapseML/blob/master/CONTRIBUTING.md) for guidance on testing your change.
 
 # Configuration for first-pr-merge - https://github.com/behaviorbot/first-pr-merge
 

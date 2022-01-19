@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.ml.spark.core.serialize.ComplexParam
-import com.microsoft.ml.spark.core.utils.ParamEquality
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -51,11 +51,11 @@ trait DataFrameEquality extends Serializable {
         false
       } else {
         (0 until a.length).forall(j => {
-          a(j) match {
+          val isEq = a(j) match {
             case lhs: DenseVector =>
               lhs === b(j)
             case lhs: Seq[_] =>
-              lhs === b(j).asInstanceOf[Seq[_]]
+              seqEq.areEqual(lhs, b(j).asInstanceOf[Seq[_]])
             case lhs: Array[Byte] =>
               lhs === b(j)
             case lhs: Double if lhs.isNaN =>
@@ -65,6 +65,7 @@ trait DataFrameEquality extends Serializable {
             case lhs =>
               lhs === b(j)
           }
+          isEq
         })
       }
   }
@@ -111,7 +112,7 @@ trait DataFrameEquality extends Serializable {
 }
 
 
-/** Param for DataFrame.  Needed as spark has explicit com.microsoft.ml.spark.core.serialize.params for many different
+/** Param for DataFrame.  Needed as spark has explicit params for many different
   * types but not DataFrame.
   */
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)

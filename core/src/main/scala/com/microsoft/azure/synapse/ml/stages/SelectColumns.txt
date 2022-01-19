@@ -1,0 +1,19 @@
+``SelectColumns`` takes a list of column names and returns a DataFrame
+consisting of only those columns.  Any columns in the DataFrame that are
+not in the selection list are dropped.
+
+:Example:
+
+>>> import pandas as pd
+>>> from synapse.ml import SelectColumns
+>>> from pyspark.sql import SQLContext
+>>> spark = pyspark.sql.SparkSession.builder.appName("Test SelectCol").getOrCreate()
+>>> tmp1 = {"col1": [1, 2, 3, 4, 5],
+...         "col2": [6, 7, 8, 9, 10],
+...         "col2": [5, 4, 3, 2, 1] }
+>>> data = pd.DataFrame(tmp1)
+>>> data.columns
+['col1', 'col2', 'col3']
+>>> data2 = SelectColumns(cols = ["col1", "col2"]).transform(data)
+>>> data2.columns
+['col1', 'col2']

@@ -1,0 +1,39 @@
+# Dependencies
+/node_modules
+
+# Production
+/build
+
+# Generated files
+.docusaurus
+.cache-loader
+
+# Converted markdowns
+/docs/features/*
+!/docs/features/lightgbm
+/docs/features/lightgbm/*
+!/docs/features/lightgbm/about.md
+!/docs/features/onnx
+/docs/features/onnx/*
+!/docs/features/onnx/about.md
+!/docs/features/responsible_ai
+/docs/features/responsible_ai/*
+!/docs/features/responsible_ai/Data Balance Analysis.md
+!/docs/features/responsible_ai/Model Interpretation on Spark.md
+!/docs/features/spark_serving
+/docs/features/spark_serving/*
+!/docs/features/spark_serving/about.md
+!/docs/features/vw
+/docs/features/vw/*
+!/docs/features/vw/about.md
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
