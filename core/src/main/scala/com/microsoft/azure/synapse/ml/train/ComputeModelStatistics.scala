@@ -90,7 +90,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
             .toDF(MetricConstants.EvaluationType)
         val scoredLabelsColumnName =
           if (isDefined(scoredLabelsCol)) getScoredLabelsCol
-          else SparkSchema.getScoredLabelsColumnName(dataset.schema, modelName)
+          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
 
         // Get levels for label column if categorical
         val levels = CategoricalUtilities.getLevels(dataset.schema, labelColumnName)
@@ -108,7 +108,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
         lazy val scoresAndLabels = {
           val scoresColumnName =
             if (isDefined(scoresCol)) getScoresCol
-            else SparkSchema.getScoresColumnName(dataset.schema, modelName)
+            else SparkSchema.getSparkRawPredictionColumnName(dataset.schema, modelName)
           if (scoresColumnName == null) predictionAndLabels
           else if (levelsExist) getScoresAndLabels(dataset, labelColumnName, scoresColumnName, levelsToIndexMap)
           else getScalarScoresAndLabels(dataset, labelColumnName, scoresColumnName)
@@ -145,7 +145,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       } else if (scoreValueKind == SchemaConstants.RegressionKind) {
         val scoresColumnName =
           if (isDefined(scoresCol)) getScoresCol
-          else SparkSchema.getScoresColumnName(dataset.schema, modelName)
+          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
 
         val scoresAndLabels = selectAndCastToRDD(dataset, scoresColumnName, labelColumnName)
 

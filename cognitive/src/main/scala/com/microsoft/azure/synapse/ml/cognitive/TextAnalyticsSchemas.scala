@@ -5,6 +5,8 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.RootJsonFormat
+import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.ParamValidators
 
 // General Text Analytics Schemas
 
@@ -36,7 +38,10 @@ object TAJSONFormat {
 
   implicit val DocumentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
   implicit val RequestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
-
+  implicit val AnalysisInputsFormat: RootJsonFormat[TAAnalyzeAnalysisInput] = jsonFormat1(TAAnalyzeAnalysisInput.apply)
+  implicit val AnalysisTaskFormat: RootJsonFormat[TAAnalyzeTask] = jsonFormat1(TAAnalyzeTask.apply)
+  implicit val AnalysisTasksFormat: RootJsonFormat[TAAnalyzeTasks] = jsonFormat5(TAAnalyzeTasks.apply)
+  implicit val AnalyzeRequestFormat: RootJsonFormat[TAAnalyzeRequest] = jsonFormat3(TAAnalyzeRequest.apply)
 }
 
 // SentimentV3 Schemas

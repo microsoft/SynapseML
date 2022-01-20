@@ -1,6 +1,8 @@
+const math = require('remark-math')
+const katex = require('rehype-katex')
 const path = require('path');
-const {all_examples} = require('./src/plugins/examples');
-let version = "0.9.4";
+const { all_examples } = require('./src/plugins/examples');
+let version = "0.9.5";
 
 module.exports = {
   title: 'SynapseML',
@@ -13,8 +15,15 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.9.4",
+    version: "0.9.5",
   },
+  stylesheets: [
+    {
+      href: "https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css",
+      integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
+      crossorigin: "anonymous",
+    },
+  ],
   themeConfig: {
     prism: {
       theme: require('./src/plugins/prism_themes/github'),
@@ -31,9 +40,9 @@ module.exports = {
         src: 'img/logo.svg',
       },
       items: [
-        {to: 'docs/about', label: 'Docs', position: 'left'},
-        {to: 'blog', label: 'Blog', position: 'left'},
-        {to: 'videos', label: 'Videos', position: 'left'},
+        { to: 'docs/about', label: 'Docs', position: 'left' },
+        { to: 'blog', label: 'Blog', position: 'left' },
+        { to: 'videos', label: 'Videos', position: 'left' },
         {
           type: 'docsVersionDropdown',
           position: 'right',
@@ -80,11 +89,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.4/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html',
             },
           ],
         },
@@ -114,8 +123,8 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} Microsoft.`,
     },
     algolia: {
-      appId: 'BH4D9OD16A',
-      apiKey: 'edc58a221b8a7df52bf7058219bbf9c9',
+      appId: 'GBW8AA15RD',
+      apiKey: '70a6807005c645678741ab941bb89ed8',
       indexName: 'synapseML',
       contextualSearch: true,
     },
@@ -134,6 +143,8 @@ module.exports = {
       {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
+          remarkPlugins: [math],
+          rehypePlugins: [katex],
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),

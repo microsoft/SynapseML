@@ -387,14 +387,14 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     }
   }
 
-  def score(features: Vector, raw: Boolean, classification: Boolean): Array[Double] = {
+  def score(features: Vector, raw: Boolean, classification: Boolean, disableShapeCheck: Boolean): Array[Double] = {
     val kind =
       if (raw) boosterHandler.rawScoreConstant
       else boosterHandler.normalScoreConstant
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind,
+      case dense: DenseVector => predictForMat(dense.toArray, kind, disableShapeCheck,
         boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
-      case sparse: SparseVector => predictForCSR(sparse, kind,
+      case sparse: SparseVector => predictForCSR(sparse, kind, disableShapeCheck,
         boosterHandler.scoredDataLengthLongPtr.get().ptr, boosterHandler.scoredDataOutPtr.get().ptr)
     }
     predScoreToArray(classification, boosterHandler.scoredDataOutPtr.get().ptr, kind)
@@ -403,9 +403,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   def predictLeaf(features: Vector): Array[Double] = {
     val kind = boosterHandler.leafIndexPredictConstant
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind,
+      case dense: DenseVector => predictForMat(dense.toArray, kind, false,
         boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
-      case sparse: SparseVector => predictForCSR(sparse, kind,
+      case sparse: SparseVector => predictForCSR(sparse, kind, false,
         boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
     }
     predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
@@ -414,9 +414,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   def featuresShap(features: Vector): Array[Double] = {
     val kind = boosterHandler.contribPredictConstant
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind,
+      case dense: DenseVector => predictForMat(dense.toArray, kind, false,
         boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
-      case sparse: SparseVector => predictForCSR(sparse, kind,
+      case sparse: SparseVector => predictForCSR(sparse, kind, false,
         boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
     }
     shapToArray(boosterHandler.shapDataOutPtr.get().ptr)
@@ -508,11 +508,12 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   lazy val numTotalIterations: Int = numTotalModel / numModelPerIteration
 
   protected def predictForCSR(sparseVector: SparseVector, kind: Int,
+                              disableShapeCheck: Boolean,
                               dataLengthLongPtr: SWIGTYPE_p_long_long,
                               dataOutPtr: SWIGTYPE_p_double): Unit = {
     val numCols = sparseVector.size
 
-    val datasetParams = "max_bin=255"
+    val datasetParams = s"max_bin=255 predict_disable_shape_check=${disableShapeCheck.toString}"
     val dataInt32bitType = boosterHandler.dataInt32bitType
     val data64bitType = boosterHandler.data64bitType
 
@@ -526,6 +527,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   }
 
   protected def predictForMat(row: Array[Double], kind: Int,
+                              disableShapeCheck: Boolean,
                               dataLengthLongPtr: SWIGTYPE_p_long_long,
                               dataOutPtr: SWIGTYPE_p_double): Unit = {
     val data64bitType = boosterHandler.data64bitType
@@ -533,7 +535,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     val numCols = row.length
     val isRowMajor = 1
 
-    val datasetParams = "max_bin=255"
+    val datasetParams = s"max_bin=255 predict_disable_shape_check=${disableShapeCheck.toString}"
 
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterPredictForMatSingle(

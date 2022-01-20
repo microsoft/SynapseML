@@ -27,8 +27,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "mmlspark-build-3.1"
-  val AdbRuntime = "8.3.x-scala2.12"
+  val PoolName = "synapseml-build-10.1"
+  val AdbRuntime = "10.1.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -53,7 +53,8 @@ object DatabricksUtilities extends HasHttpClient {
     Map("pypi" -> Map("package" -> "plotly")),
     Map("pypi" -> Map("package" -> "Pillow")),
     Map("pypi" -> Map("package" -> "onnxmltools")),
-    Map("pypi" -> Map("package" -> "lightgbm"))
+    Map("pypi" -> Map("package" -> "lightgbm")),
+    Map("pypi" -> Map("package" -> "mlflow"))
   ).toJson.compactPrint
 
   // Execution Params
@@ -277,7 +278,7 @@ object DatabricksUtilities extends HasHttpClient {
 
       val error = finalState match {
         case Some("SUCCESS") =>
-          if (logLevel >= 1) println(s"Notebook $nbName Suceeded")
+          if (logLevel >= 1) println(s"Notebook $nbName Succeeded")
           None
         case Some(state) =>
           Some(new RuntimeException(s"Notebook $nbName failed with state $state. " +
