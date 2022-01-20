@@ -107,17 +107,15 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with BasicAsyncReply
           }
         }
       })
+      val completedTime = System.nanoTime
+      val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
       it match {
         case Right(value) =>{
-          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
-          if (asyncCompletionLogMessagePrefixValue != "") {
-            val completedTime = System.nanoTime
-            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
-            logInfo(s"${asyncCompletionLogMessagePrefixValue}:${durationMs}")
-          }
+          logInfo(s"Async operation:succeeded=true:${durationMs}")
           value
         }
         case Left(lastStatus) => {
+          logInfo(s"Async operation:succeeded=false:${durationMs}")
           if (getSuppressMaxRetriesExceededException){
             getRetriesExceededHTTPResponseData(maxTries, lastStatus)
           } else {

@@ -279,23 +279,15 @@ trait BasicAsyncReply extends HasAsyncReply with BasicLogging {
           }
         }
       })
+      val completedTime = System.nanoTime
+      val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
       it match {
         case Right(value) =>{
-          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
-          if (asyncCompletionLogMessagePrefixValue != "") {
-            val completedTime = System.nanoTime
-            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
-            logInfo(s"${asyncCompletionLogMessagePrefixValue}:true:${durationMs}")
-          }
+          logInfo(s"Async operation:succeeded=true:${durationMs}")
           value
         }
         case Left(lastStatus) => {
-          val asyncCompletionLogMessagePrefixValue = getAsyncCompletionLogMessagePrefix
-          if (asyncCompletionLogMessagePrefixValue != "") {
-            val completedTime = System.nanoTime
-            val durationMs = (completedTime - startedTime)/1000000 // seconds -> milli -> micro -> nano
-            logInfo(s"${asyncCompletionLogMessagePrefixValue}:false:${durationMs}")
-          }
+          logInfo(s"Async operation:succeeded=false:${durationMs}")
           if (getSuppressMaxRetriesExceededException){
             getRetriesExceededHTTPResponseData(maxTries, lastStatus)
           } else {
@@ -361,23 +353,13 @@ trait HasAsyncReply extends Params {
   def setSuppressMaxRetriesExceededException(value: Boolean): this.type =
       set(suppressMaxRetriesExceededException, value)
 
-  val asyncCompletionLogMessagePrefix = new Param[String](this, "asyncCompletionLogMessagePrefix",
-  "the prefix to use when outputting async completion log messages, or empty string to disable")
-
-  /** @group setParam */
-  def getAsyncCompletionLogMessagePrefix: String = $(asyncCompletionLogMessagePrefix)
-
-  /** @group setParam */
-  def setAsyncCompletionLogMessagePrefix(v: String): this.type = set(asyncCompletionLogMessagePrefix, v)
-
   //scalastyle:off magic.number
   setDefault(
     backoffs -> Array(100, 500, 1000),
     maxPollingRetries -> 1000,
     pollingDelay -> 300,
     initialPollingDelay -> 300,
-    suppressMaxRetriesExceededException -> false,
-    asyncCompletionLogMessagePrefix -> "")
+    suppressMaxRetriesExceededException -> false)
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],
