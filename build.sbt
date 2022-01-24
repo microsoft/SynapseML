@@ -289,6 +289,8 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
+val textanalyticsResolver = "TextAnalytics" at "https://mmlspark.blob.core.windows.net/maven/"
+
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -296,8 +298,9 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.8.0",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4-shaded"
     ),
+    resolvers += textanalyticsResolver,
     name := "synapseml-cognitive"
   ): _*)
 

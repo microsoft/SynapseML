@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import com.azure.ai.textanalytics.models._
-import com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
-import com.azure.core.credential.AzureKeyCredential
-import com.azure.core.http.policy.RetryPolicy
-import com.azure.core.util.{ClientOptions, Context, Header}
+import org.example.shaded.com.azure.ai.textanalytics.models._
+import org.example.shaded.com.azure.ai.textanalytics.{TextAnalyticsClient, TextAnalyticsClientBuilder}
+import org.example.shaded.com.azure.core.credential.AzureKeyCredential
+import org.example.shaded.com.azure.core.http.policy.RetryPolicy
+import org.example.shaded.com.azure.core.util.{ClientOptions, Header, Context}
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive.SDKConverters._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
