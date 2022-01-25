@@ -58,11 +58,12 @@ object SynapseUtilities extends HasHttpClient {
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
   def listPythonFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
+    Option({
+      val rootDirectory = FileUtilities
+        .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
         .getCanonicalFile
-        .listFiles()
+
+      FileUtilities.recursiveListFiles(rootDirectory)
         .filter(_.getAbsolutePath.endsWith(".py"))
         .filter(_.getAbsolutePath.contains("-"))
         .filterNot(_.getAbsolutePath.contains("CyberML"))
@@ -73,35 +74,40 @@ object SynapseUtilities extends HasHttpClient {
         .filterNot(_.getAbsolutePath.contains("Overview"))
         .filterNot(_.getAbsolutePath.contains("ModelInterpretation"))
         .filterNot(_.getAbsolutePath.contains("Interpretability"))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+        .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def listPythonJobFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
-        .getCanonicalFile
-        .listFiles()
-        .filter(_.getAbsolutePath.endsWith(".py"))
-        .filterNot(_.getAbsolutePath.contains("-"))
-        .filterNot(_.getAbsolutePath.contains(" "))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+    Option({
+        val rootDirectory = FileUtilities
+          .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
+          .getCanonicalFile
+
+        FileUtilities.recursiveListFiles(rootDirectory)
+          .filter(_.getAbsolutePath.endsWith(".py"))
+          .filterNot(_.getAbsolutePath.contains("-"))
+          .filterNot(_.getAbsolutePath.contains(" "))
+          .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def listNoteBookFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
+    Option({
+      val rootDirectory = FileUtilities
+        .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
         .getCanonicalFile
-        .listFiles()
+
+      FileUtilities.recursiveListFiles(rootDirectory)
         .filter(_.getAbsolutePath.endsWith(".ipynb"))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+        .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {

@@ -81,4 +81,22 @@ class SynapseTests extends TestBase {
         throw t
     }
   }
+
+  test("listPythonFiles") {
+    val allPythonFiles = SynapseUtilities.listPythonFiles()
+
+    assert(allPythonFiles.length == 0)
+  }
+
+  test("listNoteBookFiles") {
+    val allPythonNotebooks = SynapseUtilities.listNoteBookFiles()
+
+    assert(allPythonNotebooks.length > 0)
+  }
+
+  test("listPythonJobFiles") {
+    val allPythonJobFiles = SynapseUtilities.listPythonJobFiles()
+
+    assert(allPythonJobFiles.length == 0)
+  }
 }
