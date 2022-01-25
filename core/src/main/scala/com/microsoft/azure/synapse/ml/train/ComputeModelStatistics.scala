@@ -281,7 +281,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     // Calculate confusion matrix and output it as DataFrame
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoredLabelsColumnName), col(labelColumnName))
+    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName))
       .cache()
       .na
       .drop(Array(scoredLabelsColumnName, labelColumnName))
@@ -295,7 +295,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   private def getScalarScoresAndLabels(dataset: Dataset[_],
                                        labelColumnName: String,
                                        scoresColumnName: String): RDD[(Double, Double)] = {
-    selectAndCastToDF(dataset, scoresColumnName, labelColumnName).show
+
     selectAndCastToDF(dataset, scoresColumnName, labelColumnName)
       .rdd
       .map {
