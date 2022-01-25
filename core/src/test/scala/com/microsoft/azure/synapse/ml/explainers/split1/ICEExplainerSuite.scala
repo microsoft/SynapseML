@@ -13,7 +13,7 @@ import org.apache.spark.ml.classification.LogisticRegression
 import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENumericFeature, ICETransformer}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
-import scala.jdk.CollectionConverters._
+import collection.JavaConverters._
 
 
 class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer] {

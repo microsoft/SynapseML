@@ -22,6 +22,7 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.5",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -289,23 +290,15 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
-val textanalyticsResolver = "TextAnalytics" at "https://mmlspark.blob.core.windows.net/maven/"
-
-val cognitiveExcludes = Seq(
-  ExclusionRule("com.azure", "azure-core"),
-  ExclusionRule("com.azure", "azure-core-http-netty")
-)
-
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.8.0",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4-shaded"
-    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
-    resolvers += textanalyticsResolver,
+      "com.azure" % "azure-storage-blob" % "12.14.2",
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+    ),
     name := "synapseml-cognitive"
   ): _*)
 
