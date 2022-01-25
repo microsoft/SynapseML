@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import org.example.shaded.com.azure.ai.textanalytics.models._
+import com.azure.ai.textanalytics.models._
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 
 import scala.collection.JavaConverters._

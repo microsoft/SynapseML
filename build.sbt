@@ -291,6 +291,11 @@ lazy val vw = (project in file("vw"))
 
 val textanalyticsResolver = "TextAnalytics" at "https://mmlspark.blob.core.windows.net/maven/"
 
+val cognitiveExcludes = Seq(
+  ExclusionRule("com.azure", "azure-core"),
+  ExclusionRule("com.azure", "azure-core-http-netty")
+)
+
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -299,7 +304,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.8.0",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4-shaded"
-    ),
+    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     resolvers += textanalyticsResolver,
     name := "synapseml-cognitive"
   ): _*)
