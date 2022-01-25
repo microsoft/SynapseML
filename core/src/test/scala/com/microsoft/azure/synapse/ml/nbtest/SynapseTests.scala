@@ -23,7 +23,8 @@ class SynapseTests extends TestBase {
       case x if x contains "windows" =>
         exec("conda activate synapseml && jupyter nbconvert --to script .\\notebooks\\*.ipynb")
       case _ =>
-        Process(s"conda init bash; conda activate synapseml; jupyter nbconvert --to script ./notebooks/features/**/*.ipynb")
+        Process(s"conda init bash; conda activate synapseml; " +
+        "jupyter nbconvert --to script ./notebooks/features/**/*.ipynb")
     }
 
     SynapseUtilities.listPythonFiles().map(f => {
