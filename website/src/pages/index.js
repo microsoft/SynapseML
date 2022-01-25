@@ -269,7 +269,7 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
       "spark.yarn.user.classpath.first": "true"
@@ -277,12 +277,13 @@ function Home() {
 }`}
                     lang="bash"
                   ></CodeSnippet>
-                  Please also include `synapseml==0.9.5` in your
+                  Please also include "synapseml==0.9.4" in your
                   requirements.txt file for usage of PySpark. [
                   <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">
                     Install Python libraries in Synapse
                   </a>
-                  ]
+                  ]. Note that you're installing version 0.9.4 because 0.9.5 requires Spark 3.2, which is not
+                  yet available in Synapse.
                 </TabItem>
                 <TabItem value="Spark Packages">
                   SynapseML can be conveniently installed on existing Spark
