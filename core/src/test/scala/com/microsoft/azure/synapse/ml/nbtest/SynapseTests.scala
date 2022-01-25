@@ -21,7 +21,8 @@ class SynapseTests extends TestBase {
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" =>
-        exec("conda activate synapseml && jupyter nbconvert --to script .\\notebooks\\*.ipynb")
+        exec("conda activate synapseml "
+        "&& jupyter nbconvert --to script .\\notebooks\\features\\**\\*.ipynb")
       case _ =>
         Process(s"conda init bash; conda activate synapseml; " +
         "jupyter nbconvert --to script ./notebooks/features/**/*.ipynb")
