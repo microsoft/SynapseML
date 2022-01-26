@@ -46,7 +46,7 @@ object DatabricksUtilities extends HasHttpClient {
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
   val Exclusions = JsArray(JsString("org.scalactic:scalactic_2.12"), JsString("org.scalatest:scalatest_2.12"),
-    JsString("org.slf4j:slf4j-api"))
+    JsString("org.slf4j:slf4j-api"), JsString("org.antlr:antlr4-runtime"))
 
   val Libraries: String = List(
     JsObject("maven" -> JsObject("coordinates" -> JsString(Version),
