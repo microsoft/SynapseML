@@ -228,7 +228,7 @@ object SynapseUtilities extends HasHttpClient {
     bodyList.add(new BasicNameValuePair("grant_type", "client_credentials"))
     bodyList.add(new BasicNameValuePair("client_id", s"$ClientId"))
     bodyList.add(new BasicNameValuePair("client_secret", s"$spnKey"))
-    bodyList.add(new BasicNameValuePair("resource", "https://dev.azuresynapse-dogfood.net/"))
+    bodyList.add(new BasicNameValuePair("resource", "https://dev.azuresynapse.net/"))
 
     createRequest.setEntity(new UrlEncodedFormEntity(bodyList, "UTF-8"))
 
