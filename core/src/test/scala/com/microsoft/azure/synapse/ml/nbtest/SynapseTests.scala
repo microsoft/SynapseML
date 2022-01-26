@@ -36,8 +36,7 @@ class SynapseTests extends TestBase {
     })
 
     val workspaceName = "mmlspark"
-    //val sparkPools = Array("buildpool", "buildpool2", "buildpool3")
-    val sparkPools = Array("e2etestsspark32")
+    val sparkPools = Array("e2etstspark32i1", "e2etstspark32i2", "e2etstspark32i3")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
