@@ -28,7 +28,7 @@ object DatabricksUtilities extends HasHttpClient {
   // ADB Info
   val Region = "eastus"
   val PoolName = "mmlspark-build-3.1"
-  val AdbRuntime = "8.3.x-scala2.12"
+  val AdbRuntime = "9.0.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
