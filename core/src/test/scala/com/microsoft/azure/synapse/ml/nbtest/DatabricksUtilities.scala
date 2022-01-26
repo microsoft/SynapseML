@@ -47,7 +47,8 @@ object DatabricksUtilities extends HasHttpClient {
   val Repository = "https://mmlspark.azureedge.net/maven"
 
   val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository,
+      "exclusions" -> Array("org.scalactic:scalactic_2.12","org.scalatest:scalatest_2.12","org.slf4j:slf4j-api"))),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
@@ -166,6 +167,10 @@ object DatabricksUtilities extends HasHttpClient {
          |  "num_workers": $NumWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
+         |  "spark_conf": {
+         |    "spark.executor.userClassPathFirst": "true",
+         |    "spark.driver.userClassPathFirst": "true"
+         |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
          |   }
