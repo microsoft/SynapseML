@@ -35,7 +35,7 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val workspaceName = "mmlspark"
+    val workspaceName = "mmlsparkppe"
     val sparkPools = Array("e2etstspark32i1", "e2etstspark32i2", "e2etstspark32i3")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
