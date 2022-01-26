@@ -28,7 +28,7 @@ object DatabricksUtilities extends HasHttpClient {
   // ADB Info
   val Region = "eastus"
   val PoolName = "mmlspark-build-3.1"
-  val AdbRuntime = "9.0.x-scala2.12"
+  val AdbRuntime = "9.1LTS.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -46,7 +46,7 @@ object DatabricksUtilities extends HasHttpClient {
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
   val Exclusions = JsArray(JsString("org.scalactic:scalactic_2.12"), JsString("org.scalatest:scalatest_2.12"),
-    JsString("org.slf4j:slf4j-api"), JsString("org.antlr:antlr4-runtime"))
+    JsString("org.slf4j:slf4j-api"))
 
   val Libraries: String = List(
     JsObject("maven" -> JsObject("coordinates" -> JsString(Version),
@@ -170,8 +170,7 @@ object DatabricksUtilities extends HasHttpClient {
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_conf": {
-         |    "spark.executor.userClassPathFirst": "true",
-         |    "spark.driver.userClassPathFirst": "true"
+         |    "spark.executor.userClassPathFirst": "true"
          |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
