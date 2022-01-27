@@ -10,21 +10,30 @@ description: SynapseML Development Setup
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
     - Make sure to download JDK 11 if you don't have it
 2) Fork the repository on github
-    - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
-3) Git Clone your fork, or the repo directly
-    - `git clone https://github.com/Microsoft/SynapseML.git`
-    - NOTE: If you would like to contribute to synapseml regularly, add your fork as a remote named ``origin`` and Microsoft/SynapseML as a remote named ``upstream``
-4) Run sbt to compile and grab datasets
+    - See how to here: [Fork a repo - GitHub Docs](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
+3) Clone your fork
+    - `git clone https://github.com/<your GitHub handle>/SynapseML.git`
+    - This will automatically add your fork as the default remote, called `origin`
+4) Add another Git Remote to track the original SynapseML repo. It's recommended to call it `upstream`:
+    - `git remote add upstream https://github.com/microsoft/SynapseML.git`
+    - See more about Git remotes here: [Git - Working with remotes](https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes)
+5) Run sbt to compile and grab datasets
     - `cd synapseml`
     - `sbt setup`
-5) [Install IntelliJ](https://www.jetbrains.com/idea/download)
+6) [Install IntelliJ](https://www.jetbrains.com/idea/download)
     - Install Scala plugins during install
-6) Configure IntelliJ
+7) Configure IntelliJ
     - **OPEN** the synapseml directory
     - If the project does not automatically import,click on `build.sbt` and import project
-7) Prepare your Python Environment
+8) Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Activate the `synapseml` conda environment by running `conda env create -f environment.yaml` from the `synapseml` directory.
+
+> NOTE
+> 
+> If you will be regularly contributing to the SynapseML repo, you'll want to keep your fork synced with the
+> upstream repository. Please read [this GitHub doc](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
+> to know more and learn techniques about how to do it.
 
 # Publishing and Using Build Secrets
 
