@@ -42,8 +42,7 @@ model_prediction_df = (ONNXModel()
   },
   {
     label: "Responsible AI",
-    further:
-      "docs/features/responsible_ai/Model%20Interpretation%20on%20Spark",
+    further: "docs/features/responsible_ai/Model%20Interpretation%20on%20Spark",
     config: `from synapse.ml.explainers import *
     
 interpretation_df = (TabularSHAP()
@@ -71,7 +70,8 @@ quantile_df = (LightGBMRegressor()
   },
   {
     label: "OpenCV",
-    further: "docs/features/opencv/OpenCV%20-%20Pipeline%20Image%20Transformations",
+    further:
+      "docs/features/opencv/OpenCV%20-%20Pipeline%20Image%20Transformations",
     config: `from synapse.ml.opencv import *
 
 image_df = (ImageTransformer()
@@ -195,8 +195,11 @@ function Home() {
         <div className="container">
           <div className={clsx(styles.announcement, styles.announcementDark)}>
             <div className={styles.announcementInner}>
-              Coming from <a href="https://mmlspark.blob.core.windows.net/website/index.html">MMLSpark</a>?
-              We have been renamed to SynapseML!
+              Coming from{" "}
+              <a href="https://mmlspark.blob.core.windows.net/website/index.html">
+                MMLSpark
+              </a>
+              ? We have been renamed to SynapseML!
             </div>
           </div>
         </div>
@@ -263,7 +266,8 @@ function Home() {
                 ]}
               >
                 <TabItem value="Synapse">
-                  SynapseML can be conveniently installed on Synapse:
+                  <p>SynapseML can be conveniently installed on Synapse:</p>
+                  For Spark3.1 pool:
                   <CodeSnippet
                     snippet={`%%configure -f
 {
@@ -277,21 +281,28 @@ function Home() {
 }`}
                     lang="bash"
                   ></CodeSnippet>
-                  Please also include "synapseml==0.9.4" in your
-                  requirements.txt file for usage of PySpark. [
-                  <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-manage-python-packages#pool-libraries">
-                    Install Python libraries in Synapse
-                  </a>
-                  ]. Note that you're installing version 0.9.4 because 0.9.5 requires Spark 3.2, which is not
-                  yet available in Synapse.
+                  For Spark3.2 pool:
+                  <CodeSnippet
+                    snippet={`%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+      "spark.yarn.user.classpath.first": "true"
+  }
+}`}
+                    lang="bash"
+                  ></CodeSnippet>
                 </TabItem>
                 <TabItem value="Spark Packages">
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar `}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.4 # Please use 0.9.4 version for Spark3.1 and 0.9.5 version for Spark3.2
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.4
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.4 MyApp.jar `}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -316,7 +327,13 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar `}
                     in your workspace. in your workspace.
                   </p>
                   <p>
-                    For the coordinates use:
+                    <p>For the coordinates:</p>
+                    Spark 3.1 Cluster:
+                    <CodeSnippet
+                      snippet={`com.microsoft.azure:synapseml_2.12:0.9.4`}
+                      lang="bash"
+                    ></CodeSnippet>
+                    Spark 3.2 Cluster:
                     <CodeSnippet
                       snippet={`com.microsoft.azure:synapseml_2.12:0.9.5`}
                       lang="bash"
@@ -330,7 +347,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar `}
                   </p>
                   <p>
                     Finally, ensure that your Spark cluster has at least Spark
-                    2.4 and Scala 2.11.
+                    3.1 and Scala 2.12.
                   </p>
                   You can use SynapseML in both your Scala and PySpark
                   notebooks. To get started with our example notebooks import
@@ -374,7 +391,8 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.4") # Please use 0.9.4 version for Spark3.1 and 0.9.5 version for Spark3.2
+        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate()
 import synapse.ml`}
                     lang="python"
@@ -385,7 +403,7 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.5"`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml" % "0.9.4" // Please use 0.9.4 version for Spark3.1 and 0.9.5 version for Spark3.2`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
