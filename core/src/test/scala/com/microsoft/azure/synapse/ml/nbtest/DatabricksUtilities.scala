@@ -170,6 +170,7 @@ object DatabricksUtilities extends HasHttpClient {
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_conf": {
+         |    "spark.driver.userClassPathFirst": "true",
          |    "spark.executor.userClassPathFirst": "true"
          |  },
          |  "spark_env_vars": {
@@ -224,8 +225,7 @@ object DatabricksUtilities extends HasHttpClient {
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
-         |  },
-         |  "libraries": $Libraries
+         |  }
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Int]("run_id")
