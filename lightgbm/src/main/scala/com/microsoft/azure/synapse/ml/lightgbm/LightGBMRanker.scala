@@ -93,13 +93,24 @@ class LightGBMRanker(override val uid: String)
     if (getRepartitionByGroupingColumn) {
       val repartitionedDataset = getOptGroupCol match {
         case None => dataset
-        case Some(groupingCol) => {
-          val df = dataset.repartition(new Column(groupingCol)).cache()
-          //force materialization
-          df.count
-          df
-        }
+        case Some(groupingCol) =>
+          val numPartitions = dataset.rdd.getNumPartitions
+
+          // in barrier mode, will use repartition in super.prepareDataframe,
+          // this will let repartition on groupingCol fail
+          // so repartition here, then super.prepareDataframe won't repartion
+          if (getUseBarrierExecutionMode) {
+            if (numPartitions > numTasks) {
+              dataset.repartition(numTasks, new Column(groupingCol))
+            } else {
+              dataset.repartition(numPartitions, new Column(groupingCol))
+            }
+          } else {
+            // if not in barrier mode, coalesce won't break repartition by groupingCol
+            dataset.repartition(new Column(groupingCol))
+          }
       }
+
       super.prepareDataframe(repartitionedDataset, numTasks)
     } else {
       super.prepareDataframe(dataset, numTasks)
