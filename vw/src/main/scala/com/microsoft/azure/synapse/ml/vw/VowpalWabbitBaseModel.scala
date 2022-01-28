@@ -108,9 +108,9 @@ trait VowpalWabbitBaseModel extends org.apache.spark.ml.param.shared.HasFeatures
 
     val f = new java.io.File(path)
 
-    session.createDataFrame(Seq(PathAndData(f.getCanonicalPath, getModel)))
+    session.createDataFrame(Seq(PathAndData(f.getName, getModel)))
       .write.mode("overwrite")
       .format(classOf[BinaryFileFormat].getName)
-      .save(f.getName)
+      .save(f.getPath)
   }
 }
