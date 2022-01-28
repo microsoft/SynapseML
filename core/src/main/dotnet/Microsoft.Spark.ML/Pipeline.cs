@@ -6,8 +6,8 @@ using System.Reflection;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
-using MMLSpark.Dotnet.Wrapper;
-using MMLSpark.Dotnet.Utils;
+using SynapseML.Dotnet.Wrapper;
+using SynapseML.Dotnet.Utils;
 using Microsoft.Spark.Interop.Internal.Java.Util;
 
 namespace Microsoft.Spark.ML
@@ -49,7 +49,7 @@ namespace Microsoft.Spark.ML
                 arrayList.Add(pipelineStage);
             }
             return WrapAsPipeline((JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-                "com.microsoft.ml.spark.codegen.DotnetHelper", "setPipelineStages", Reference, (object)arrayList));
+                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "setPipelineStages", Reference, (object)arrayList));
         }
 
 

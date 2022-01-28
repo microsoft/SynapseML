@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.WrappableParam
 import org.scalactic.TripleEquals._
 
 /** Param for ByteArray.  Needed as spark has explicit params for many different

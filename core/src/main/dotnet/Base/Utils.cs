@@ -9,7 +9,7 @@ using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
 
-namespace MMLSpark.Dotnet.Utils
+namespace SynapseML.Dotnet.Utils
 {
 
     public interface MLWriter : IJvmObjectReferenceProvider
@@ -119,7 +119,7 @@ namespace MMLSpark.Dotnet.Utils
         {
             JvmObjectReference jvmClass = (JvmObjectReference)jvmObject.Invoke("getClass");
             string returnClass = (string)jvmClass.Invoke("getTypeName");
-            var dotnetClass = returnClass.Replace("com.microsoft.ml.spark", "Microsoft.ML.Spark")
+            var dotnetClass = returnClass.Replace("com.microsoft.azure.synapse.ml", "Synapse.ML")
                 .Replace("org.apache.spark.ml", "Microsoft.Spark.ML")
                 .Split(".".ToCharArray());
             var renameClass = dotnetClass.Select(x => new string(char.ToUpper(x[0]) + x.Substring(1))).ToArray();

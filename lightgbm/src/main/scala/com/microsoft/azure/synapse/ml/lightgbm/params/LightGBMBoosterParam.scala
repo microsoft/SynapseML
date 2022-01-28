@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.params
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.WrappableParam
 
 /** Custom ComplexParam for LightGBMBooster, to make it settable on the LightGBM models.
   */

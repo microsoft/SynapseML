@@ -17,7 +17,7 @@ setup(
     url="https://github.com/Microsoft/SynapseML",
     # Author details
     author="Microsoft",
-    author_email="mmlspark-support@microsoft.com",
+    author_email="synapseml-support@microsoft.com",
 
     classifiers=[
         "Development Status :: 3 - Alpha",

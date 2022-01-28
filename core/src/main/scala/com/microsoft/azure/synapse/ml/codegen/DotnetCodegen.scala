@@ -34,15 +34,15 @@ object DotnetCodegen {
       case "deep-learning" => "deepLearning"
       case s => s.capitalize
     }
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
-      .replaceAllLiterally(curName, "core")
-    writeFile(new File(join(conf.dotnetSrcDir, "mmlspark"), s"${packageName}ProjectSetup.csproj"),
+    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
+      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
+    writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
-         |    <AssemblyName>MMLSpark.$packageName</AssemblyName>
+         |    <AssemblyName>SynapseML.$packageName</AssemblyName>
          |  </PropertyGroup>
          |
          |  <ItemGroup>

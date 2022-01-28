@@ -13,7 +13,7 @@ using Microsoft.Spark.ML.Feature.Param;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 
-namespace MMLSpark.Dotnet.Wrapper
+namespace SynapseML.Dotnet.Wrapper
 {
 
     public abstract class Params : Identifiable, IJvmObjectReferenceProvider

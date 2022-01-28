@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.param.WrappableParam
 
 /** Param for FObjTrait.  Needed as spark has explicit params for many different
   * types but not FObjTrait.

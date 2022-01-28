@@ -371,7 +371,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   def getDisplayName: Option[String] = get(displayName)
 
-  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
     "diagnosticsInfo for training a multivariate anomaly detection model")
 
   def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)

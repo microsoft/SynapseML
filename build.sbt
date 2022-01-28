@@ -149,7 +149,7 @@ packageSynapseML := {
          |    packages=find_namespace_packages(include=['synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -360,11 +360,11 @@ ThisBuild / scmInfo := Some(
 )
 ThisBuild / developers := List(
   Developer("mhamilton723", "Mark Hamilton",
-    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
+    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
   Developer("imatiach-msft", "Ilya Matiach",
-    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
+    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
   Developer("drdarshan", "Sudarshan Raghunathan",
-    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
+    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
 ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))

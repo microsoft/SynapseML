@@ -49,7 +49,7 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected lazy val dotnetNamespace: String =
     thisStage.getClass.getName
-      .replace("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
+      .replace("com.microsoft.azure.synapse.ml", "Synapse.ML")
       .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).dropRight(1).mkString(".")
 
@@ -432,7 +432,7 @@ trait DotnetWrappable extends BaseWrappable {
     thisStage match {
       case _: Estimator[_] =>
         val companionModelImport = companionModelClassName
-          .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Microsoft.ML.Spark")
+          .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Synapse.ML")
           .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
           .replaceAllLiterally("org.apache.spark", "Microsoft.Spark")
           .split(".".toCharArray)
@@ -459,8 +459,8 @@ trait DotnetWrappable extends BaseWrappable {
         |using Microsoft.Spark.Interop.Internal.Java.Util;
         |using Microsoft.Spark.Sql;
         |using Microsoft.Spark.Sql.Types;
-        |using MMLSpark.Dotnet.Wrapper;
-        |using MMLSpark.Dotnet.Utils;
+        |using SynapseML.Dotnet.Wrapper;
+        |using SynapseML.Dotnet.Utils;
         |$dotnetExtraEstimatorImports
         |
         |namespace $dotnetNamespace
@@ -507,7 +507,7 @@ trait DotnetWrappable extends BaseWrappable {
   def makeDotnetFile(conf: CodegenConfig): Unit = {
     val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
     val srcFolders = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "mmlspark").split(".".toCharArray)
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml").split(".".toCharArray)
     val srcDir = FileUtilities.join((Seq(conf.dotnetSrcDir.toString) ++ srcFolders.toSeq): _*)
     srcDir.mkdirs()
     Files.write(

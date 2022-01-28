@@ -13,12 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="MMLSpark.Cognitive" />
-    <InternalsVisibleTo Include="MMLSpark.Core" />
-    <InternalsVisibleTo Include="MMLSpark.DeepLearning" />
-    <InternalsVisibleTo Include="MMLSpark.Lightgbm" />
-    <InternalsVisibleTo Include="MMLSpark.Opencv" />
-    <InternalsVisibleTo Include="MMLSpark.Vw" />
+    <InternalsVisibleTo Include="SynapseML.Cognitive" />
+    <InternalsVisibleTo Include="SynapseML.Core" />
+    <InternalsVisibleTo Include="SynapseML.DeepLearning" />
+    <InternalsVisibleTo Include="SynapseML.Lightgbm" />
+    <InternalsVisibleTo Include="SynapseML.Opencv" />
+    <InternalsVisibleTo Include="SynapseML.Vw" />
   </ItemGroup>
 
   <PropertyGroup>

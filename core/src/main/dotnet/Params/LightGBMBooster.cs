@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
-using MMLSpark.Dotnet.Wrapper;
+using SynapseML.Dotnet.Wrapper;
 
 namespace Microsoft.Spark.ML.Feature.Param
 {
@@ -15,7 +15,7 @@ namespace Microsoft.Spark.ML.Feature.Param
     /// </summary>
     public class LightGBMBooster : IJvmObjectReferenceProvider
     {
-        private static readonly string s_LightGBMBoosterClassName = "com.microsoft.ml.spark.lightgbm.booster.LightGBMBooster";
+        private static readonly string s_LightGBMBoosterClassName = "com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster";
 
         public LightGBMBooster(string model)
             : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, model))

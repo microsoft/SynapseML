@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.codegen
 import java.io.File
 import CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
@@ -42,14 +43,6 @@ object CodeGen {
     }
   }
 
-  def generateDotnetClasses(conf: CodegenConfig): Unit = {
-    val instantiatedClasses = instantiateServices[DotnetWrappable](conf.jarName)
-    instantiatedClasses.foreach { w =>
-      println(w.getClass.getName)
-      w.makeDotnetFile(conf)
-    }
-  }
-
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
@@ -83,7 +76,7 @@ object CodeGen {
           |Version: ${conf.rVersion}
           |Date: $today
           |Author: Microsoft Corporation
-          |Maintainer: SynapseML Team <mmlspark-support@microsoft.com>
+          |Maintainer: SynapseML Team <synapseml-support@microsoft.com>
           |URL: https://github.com/Microsoft/SynapseML
           |BugReports: https://github.com/Microsoft/SynapseML/issues
           |Depends:
@@ -165,7 +158,7 @@ object CodeGen {
          |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -178,48 +171,6 @@ object CodeGen {
          |    zip_safe=True,
          |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
          |)
-         |
-         |""".stripMargin)
-  }
-
-  //noinspection ScalaStyle
-  def generateDotnetProjFile(conf: CodegenConfig): Unit = {
-    val packageName = conf.name match {
-      case "mmlspark-deep-learning" => "DeepLearning"
-      case _ => conf.name.split("-".toCharArray).last.capitalize
-    }
-    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
-      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
-    if (!conf.dotnetSrcDir.exists()) {
-      conf.dotnetSrcDir.mkdir()
-    }
-    writeFile(new File(join(conf.dotnetSrcDir, "mmlspark"), s"${packageName}ProjectSetup.csproj"),
-      s"""<Project Sdk="Microsoft.NET.Sdk">
-         |
-         |  <PropertyGroup>
-         |    <TargetFramework>net5.0</TargetFramework>
-         |    <LangVersion>9.0</LangVersion>
-         |    <RootNamespace>MMLSpark.$packageName</RootNamespace>
-         |  </PropertyGroup>
-         |
-         |  <ItemGroup>
-         |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
-         |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
-         |  </ItemGroup>
-         |
-         |  <ItemGroup>
-         |    <ProjectReference Include="$dotnetBasePath" />
-         |  </ItemGroup>
-         |
-         |  <PropertyGroup>
-         |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
-         |  </PropertyGroup>
-         |
-         |  <PropertyGroup>
-         |    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
-         |  </PropertyGroup>
-         |
-         |</Project>
          |
          |""".stripMargin)
   }
@@ -243,15 +194,6 @@ object CodeGen {
     if (conf.pySrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.pySrcOverrideDir), toDir(conf.pySrcDir))
     makeInitFiles(conf)
-  }
-
-  def dotnetGen(conf: CodegenConfig): Unit = {
-    println(s"Generating dotnet for ${conf.jarName}")
-    clean(conf.dotnetSrcDir)
-    generateDotnetClasses(conf)
-    if (conf.dotnetSrcOverrideDir.exists())
-      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcDir))
-    generateDotnetProjFile(conf)
   }
 
   def main(args: Array[String]): Unit = {

@@ -17,7 +17,7 @@ using Microsoft.Spark.ML.Feature;
 using Microsoft.Spark.ML.Feature.Param;
 using Xunit;
 
-namespace MMLSparktest.Utils
+namespace SynapseMLtest.Utils
 {
     /// <summary>
     /// Creates a temporary folder that is automatically cleaned up when disposed.
@@ -240,7 +240,7 @@ namespace MMLSparktest.Utils
                 .Append(packagesOption)
                 .Append(GetAvroPackage())
                 .Append(",")
-                .Append(GetMMLSparkPackage());
+                .Append(GetSynapseMLPackage());
             if (splits.Length > 1)
             {
                 newArgs.Append(",").Append(splits[1]);
@@ -262,27 +262,27 @@ namespace MMLSparktest.Utils
             return $"org.apache.spark:{avroVersion}";
         }
 
-        public string GetMMLSparkPackage()
+        public string GetSynapseMLPackage()
         {
-            return "com.microsoft.ml.spark:mmlspark:1.0.0-rc3-247-d7d6f4a6-SNAPSHOT";
+            return "com.microsoft.azure:synapseml_2.12:0.9.5-108-6a1165b3-20220128-1654-SNAPSHOT";
         }
 
-        public string AddMMLSparkRepo()
+        public string AddSynapseMLRepo()
         {
-            bool addMMLSparkRepo = true;
-            if (addMMLSparkRepo)
+            bool addSynapseMLRepo = true;
+            if (addSynapseMLRepo)
             {
                 return "--repositories  https://mmlspark.blob.core.windows.net/maven/";
             }
             return "";
         }
 
-        public string AddLocalMMLSparkJar()
+        public string ExclusionsForSynapseML()
         {
-            bool addLocalMMLSparkJar = true;
-            if (addLocalMMLSparkJar)
+            bool excludePackages = true;
+            if (excludePackages)
             {
-                return "--jars D:\\repos\\mmlspark\\target\\scala-2.12\\mmlspark-1.0.0-rc3-148-87ec5f74-SNAPSHOT.jar";
+                return "--exclude-packages org.json4s:json4s-ast_2.12,io.netty:netty-tcnative-boringssl-static";
             }
             return "";
         }
@@ -350,7 +350,7 @@ namespace MMLSparktest.Utils
             string logOption = "--conf spark.driver.extraJavaOptions=-Dlog4j.configuration=" +
                 $"{resourceUri}/log4j.properties";
 
-            args = $"{logOption} {warehouseDir} {AddPackages(extraArgs)} {AddMMLSparkRepo()} {classArg} --master local {jar} debug";
+            args = $"{logOption} {warehouseDir} {AddPackages(extraArgs)} {AddSynapseMLRepo()} {ExclusionsForSynapseML()} {classArg} --master local {jar} debug";
         }
 
         private string GetJarPrefix()

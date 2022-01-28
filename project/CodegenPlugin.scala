@@ -41,7 +41,6 @@ object CodegenPlugin extends AutoPlugin {
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
-    val genPyPackageNamespace = settingKey[String]("genPyPackageNamespace")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
 
     val dotnetVersion = settingKey[String]("Dotnet version")
@@ -71,7 +70,7 @@ object CodegenPlugin extends AutoPlugin {
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
-    val dotnetCodeGen = TaskKey[Unit]("dotnetCodeGen", "Generate dotnet code")
+    val dotnetCodeGen = TaskKey[Unit]("dotnetCodegen", "Generate dotnet code")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
@@ -151,7 +150,6 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        genPyPackageNamespace.value
         dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
@@ -165,7 +163,6 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        genPyPackageNamespace.value
         dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
@@ -194,13 +191,6 @@ object CodegenPlugin extends AutoPlugin {
     }.value),
     testgen := testGenImpl.value,
     pyTestgen := pyTestGenImpl.value,
-    pythonizedVersion := {
-      if (version.value.contains("-")) {
-        version.value.split("-".head).head + ".dev1"
-      } else {
-        version.value
-      }
-    },
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
@@ -232,11 +222,11 @@ object CodegenPlugin extends AutoPlugin {
     packagePython := {
       codegen.value
       createCondaEnvTask.value
-      val destPyDir = join(targetDir.value, "classes", genPyPackageNamespace.value)
+      val destPyDir = join(targetDir.value, "classes", genPackageNamespace.value)
       val packageDir = join(codegenDir.value, "package", "python").absolutePath
       val pythonSrcDir = join(codegenDir.value, "src", "python")
       if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPyPackageNamespace.value)
+      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPackageNamespace.value)
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
@@ -257,8 +247,8 @@ object CodegenPlugin extends AutoPlugin {
         version.value + "/" + fn, "pip")
     },
     mergePyCode := {
-      val srcDir = join(codegenDir.value, "src", "python", genPyPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPyPackageNamespace.value)
+      val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
+      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
@@ -269,7 +259,7 @@ object CodegenPlugin extends AutoPlugin {
         activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          s"--cov=${genPyPackageNamespace.value}",
+          s"--cov=${genPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
           "--cov-report=xml",
           genTestPackageNamespace.value
@@ -286,7 +276,7 @@ object CodegenPlugin extends AutoPlugin {
       runCmd(
         Seq("dotnet",
           "test",
-          s"${join(codegenDir.value, "test", "dotnet", "MMLSparktest", "TestProjectSetup.csproj")}",
+          s"${join(codegenDir.value, "test", "dotnet", "SynapseMLtest", "TestProjectSetup.csproj")}",
           "--logger",
           s""""trx;LogFileName=${join(mainTargetDir, s"dotnet_test_results_${name.value}.trx")}""""
         ),
@@ -302,7 +292,7 @@ object CodegenPlugin extends AutoPlugin {
     codegenDir := {
       join(targetDir.value, "generated")
     },
-    genPyPackageNamespace := {
+    genPackageNamespace := {
       "synapse"
     },
     genRPackageNamespace := {

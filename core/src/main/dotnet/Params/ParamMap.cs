@@ -7,7 +7,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
-using MMLSpark.Dotnet.Wrapper;
+using SynapseML.Dotnet.Wrapper;
 
 namespace Microsoft.Spark.ML.Feature.Param
 {
@@ -37,7 +37,7 @@ namespace Microsoft.Spark.ML.Feature.Param
 
     // <summary>
     /// Param for Estimator.  Needed as spark has explicit 
-    /// com.microsoft.ml.spark.core.serialize.params for many different types but not Estimator.
+    /// com.microsoft.azure.synapse.ml.core.serialize.params for many different types but not Estimator.
     /// </summary>
     public class ParamMap : IJvmObjectReferenceProvider
     {

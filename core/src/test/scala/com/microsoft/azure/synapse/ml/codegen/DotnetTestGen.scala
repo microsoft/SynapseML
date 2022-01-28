@@ -29,7 +29,7 @@ object DotnetTestGen {
   }
 
   def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "MMLSparktest")
+    val dir = new File(conf.dotnetTestDir,  "SynapseMLtest")
     if (!dir.exists()){
       dir.mkdirs()
     }
@@ -38,13 +38,13 @@ object DotnetTestGen {
          |// Copyright (C) Microsoft Corporation. All rights reserved.
          |// Licensed under the MIT License. See LICENSE in project root for information.
          |
-         |using MMLSparktest.Utils;
+         |using SynapseMLtest.Utils;
          |using Xunit;
          |
-         |namespace MMLSparktest.Helper
+         |namespace SynapseMLtest.Helper
          |{
-         |    [CollectionDefinition("MMLSpark Tests")]
-         |    public class MMLSparkCollection: ICollectionFixture<SparkFixture>
+         |    [CollectionDefinition("SynapseML Tests")]
+         |    public class SynapseMLCollection: ICollectionFixture<SparkFixture>
          |    {
          |        // This class has no code, and is never created. Its purpose is simply
          |        // to be the place to apply [CollectionDefinition] and all the
@@ -56,7 +56,7 @@ object DotnetTestGen {
 
   // noinspection ScalaStyle
   def generateDotnetTestProjFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "MMLSparktest")
+    val dir = new File(conf.dotnetTestDir,  "SynapseMLtest")
     if (!dir.exists()){
       dir.mkdirs()
     }
@@ -65,13 +65,13 @@ object DotnetTestGen {
       case "deep-learning" => "deepLearning"
       case s => s
     }
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
-      .replaceAllLiterally(curName, "core")
+    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
+      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
     val curPath = conf.dotnetSrcDir.getAbsolutePath
     val corePath = curPath.replace(curProject, "core")
     val referenceCore = conf.name match {
-      case "mmlspark-opencv" =>
-        s"""<ProjectReference Include="$corePath\\mmlspark\\CoreProjectSetup.csproj" />"""
+      case "synapseml-opencv" =>
+        s"""<ProjectReference Include="$corePath\\synapse\\ml\\CoreProjectSetup.csproj" />"""
       case _ => ""
     }
     writeFile(new File(dir, "TestProjectSetup.csproj"),
@@ -98,7 +98,7 @@ object DotnetTestGen {
          |
          |  <ItemGroup>
          |    <ProjectReference Include="$dotnetBasePath" />
-         |    <ProjectReference Include="$curPath\\mmlspark\\${curProject.capitalize}ProjectSetup.csproj" />
+         |    <ProjectReference Include="$curPath\\synapse\\ml\\${curProject.capitalize}ProjectSetup.csproj" />
          |    $referenceCore
          |  </ItemGroup>
          |
