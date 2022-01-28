@@ -9,10 +9,10 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.0"
+val sparkVersion = "3.1.2"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.10"
 
 val scalaMajorVersion = 2.12
 
@@ -22,6 +22,7 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.5",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -33,7 +34,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -289,6 +290,10 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
+val cognitiveExcludes = Seq(
+  ExclusionRule("io.netty", "netty-tcnative-boringssl-static"),
+)
+
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -296,8 +301,8 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
-    ),
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     name := "synapseml-cognitive"
   ): _*)
 

@@ -27,8 +27,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-10.1"
-  val AdbRuntime = "10.1.x-scala2.12"
+  val PoolName = "mmlspark-build-3.1"
+  val AdbRuntime = "9.1.x-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -45,16 +45,19 @@ object DatabricksUtilities extends HasHttpClient {
   // SynapseML info
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
+  val Exclusions = JsArray(JsString("org.scalactic:scalactic_2.12"), JsString("org.scalatest:scalatest_2.12"),
+    JsString("org.slf4j:slf4j-api"))
 
   val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
-    Map("pypi" -> Map("package" -> "nltk")),
-    Map("pypi" -> Map("package" -> "bs4")),
-    Map("pypi" -> Map("package" -> "plotly")),
-    Map("pypi" -> Map("package" -> "Pillow")),
-    Map("pypi" -> Map("package" -> "onnxmltools")),
-    Map("pypi" -> Map("package" -> "lightgbm")),
-    Map("pypi" -> Map("package" -> "mlflow"))
+    JsObject("maven" -> JsObject("coordinates" -> JsString(Version),
+      "repo" -> JsString(Repository), "exclusions" -> Exclusions)),
+    JsObject("pypi" -> JsObject("package" -> JsString("nltk"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("bs4"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("plotly"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("Pillow"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("onnxmltools"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("lightgbm"))),
+    JsObject("pypi" -> JsObject("package" -> JsString("mlflow")))
   ).toJson.compactPrint
 
   // Execution Params
@@ -67,6 +70,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   val NotebookFiles: Array[File] = recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
       "notebooks").getCanonicalFile)
+    // filter out geospatialServices cuz ADB's 9.1 Runtime doesn't support sending requests to them
+    .filterNot(_.getName.contains("GeospatialServices"))
 
   val ParallizableNotebooks: Seq[File] = NotebookFiles
 
@@ -166,6 +171,10 @@ object DatabricksUtilities extends HasHttpClient {
          |  "num_workers": $NumWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
+         |  "spark_conf": {
+         |    "spark.driver.userClassPathFirst": "true",
+         |    "spark.executor.userClassPathFirst": "true"
+         |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
          |   }
@@ -218,8 +227,7 @@ object DatabricksUtilities extends HasHttpClient {
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
-         |  },
-         |  "libraries": $Libraries
+         |  }
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Int]("run_id")

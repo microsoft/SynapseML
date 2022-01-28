@@ -51,11 +51,11 @@ trait DataFrameEquality extends Serializable {
         false
       } else {
         (0 until a.length).forall(j => {
-          val isEq = a(j) match {
+          a(j) match {
             case lhs: DenseVector =>
               lhs === b(j)
             case lhs: Seq[_] =>
-              seqEq.areEqual(lhs, b(j).asInstanceOf[Seq[_]])
+              lhs === b(j).asInstanceOf[Seq[_]]
             case lhs: Array[Byte] =>
               lhs === b(j)
             case lhs: Double if lhs.isNaN =>
@@ -65,7 +65,6 @@ trait DataFrameEquality extends Serializable {
             case lhs =>
               lhs === b(j)
           }
-          isEq
         })
       }
   }

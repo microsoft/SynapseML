@@ -44,10 +44,10 @@ class TestDataFrameUtils(unittest.TestCase):
         dataframe = self.create_sample_dataframe()
         result = DataFrameUtils.zip_with_index(df=dataframe, partition_col="tenant", order_by_col="user")
         expected = [
+            ("OrgB", "Joe", 0),
             ("OrgA", "Alice", 0),
             ("OrgA", "Bob", 1),
-            ("OrgA", "Joe", 2),
-            ("OrgB", "Joe", 0)
+            ("OrgA", "Joe", 2)
         ]
         assert result.collect() == expected
 
