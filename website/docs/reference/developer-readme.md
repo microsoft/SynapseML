@@ -8,7 +8,7 @@ description: SynapseML Development Setup
 # SynapseML Development Setup
 
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-    - Make sure to download JDK 11 if you don't have it
+    - Make sure to download [JDK 11](https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html) if you don't have it
 2) Fork the repository on github
     - See how to here: [Fork a repo - GitHub Docs](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
 3) Clone your fork
