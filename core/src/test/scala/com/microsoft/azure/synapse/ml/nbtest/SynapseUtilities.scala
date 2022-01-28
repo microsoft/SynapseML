@@ -51,7 +51,7 @@ object SynapseUtilities extends HasHttpClient {
   lazy val Token: String = getSynapseToken
 
   val Folder = s"build_${BuildInfo.version}/scripts"
-  val TimeoutInMillis: Int = 20 * 60 * 1000
+  val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkeuap"
   val StorageContainer: String = "mmlsparkppefs"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
