@@ -70,6 +70,8 @@ object DatabricksUtilities extends HasHttpClient {
 
   val NotebookFiles: Array[File] = recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
       "notebooks").getCanonicalFile)
+    // filter out geospatialServices cuz ADB's 9.1 Runtime doesn't support sending requests to them
+    .filterNot(_.getName.contains("GeospatialServices"))
 
   val ParallizableNotebooks: Seq[File] = NotebookFiles
 
