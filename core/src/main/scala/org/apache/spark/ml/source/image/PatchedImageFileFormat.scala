@@ -3,9 +3,9 @@
 
 package org.apache.spark.ml.source.image
 
-import com.google.common.io.{ByteStreams, Closeables}
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce._
@@ -21,6 +21,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.util.SerializableConfiguration
 
 import javax.imageio.ImageIO
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logging {
 
@@ -62,15 +64,16 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
   }
 
   //This is needed due to a multi-threading bug n the jvm
+  @annotation.tailrec
   private def catchFlakiness[T](times: Int)(f: => Option[T]): Option[T] = {
-    try {
+    Try {
       f
-    } catch {
-      case e: NullPointerException if times >= 1 =>
-        logWarning("caught null pointer exception due to jvm bug", e)
+    } match {
+      case Success(x) => x
+      case Failure(exception: NullPointerException) if times >= 1 =>
+        logWarning("caught null pointer exception due to jvm bug", exception)
         catchFlakiness(times - 1)(f)
-      case _: Exception =>
-        None
+      case _ => None
     }
   }
 
@@ -80,7 +83,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
                                      requiredSchema: StructType,
                                      filters: Seq[Filter],
                                      options: Map[String, String],
-                                     hadoopConf: Configuration): (PartitionedFile) => Iterator[InternalRow] = {
+                                     hadoopConf: Configuration): PartitionedFile => Iterator[InternalRow] = {
     assert(
       requiredSchema.length <= 1,
       "Image data source only produces a single data column named \"image\".")
@@ -100,10 +103,11 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
         val fs = path.getFileSystem(broadcastedHadoopConf.value.value)
         val stream = fs.open(path)
         val bytes = try {
-          ByteStreams.toByteArray(stream)
+          IOUtils.toByteArray(stream)
         } finally {
-          Closeables.close(stream, true)
+          IOUtils.close(stream)
         }
+
         val resultOpt = catchFlakiness(5)(ImageSchema.decode(origin, bytes))
         val filteredResult = if (imageSourceOptions.dropInvalid) {
           resultOpt.toIterator
@@ -137,7 +141,7 @@ class ImageOutputWriter(val path: String,
   override def write(row: InternalRow): Unit = {
     val imgRow = row.getStruct(imageCol, 6)
     val bImg = ImageUtils.toBufferedImage(imgRow)
-    val nonTempPath = new Path(path).getParent.getParent.getParent.getParent.getParent
+    val nonTempPath = new Path(path).getParent
     val outputPath = new Path(nonTempPath, row.getString(pathCol))
     val os = fs.create(outputPath)
     try {
