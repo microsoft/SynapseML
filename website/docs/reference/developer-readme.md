@@ -6,9 +6,11 @@ description: SynapseML Development Setup
 ---
 
 # SynapseML Development Setup
+
+## Windows
 1) Install JDK 11
     - https://docs.microsoft.com/en-us/java/openjdk/download#openjdk-11
-1) On Windows, Configure Hadoop "winutils"
+1)Configure Hadoop "winutils"
     - Download from https://github.com/cdarlint/winutils
     - Create new folder, for exaxmple "C:\Hadoop". Create "C:Hadoop\bin", and place winutils.exe inside
     - Set winutils.exe properties to "Allow Execution"
@@ -16,7 +18,7 @@ description: SynapseML Development Setup
     - Add HADOOP_HOME to Path
     - Restart Computer
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-1) Install Python via Anaconda
+1) Install Python 3.8 via Anaconda
     -  Full - https://docs.anaconda.com/anaconda/install/windows/
     -  Small - https://docs.conda.io/en/latest/miniconda.html#windows-installers
 1) Fork the repository on github
@@ -35,6 +37,17 @@ description: SynapseML Development Setup
     - If the project does not automatically import,click on `build.sbt` and import project
 1) Confirm Setup by running ScalaTests in Intellij
 <img width="407" alt="image" src="https://user-images.githubusercontent.com/9027725/151844306-67478ed9-72c2-4709-95ac-80683688fa05.png">
+
+## Linux - Ubuntu 20.04
+1) Install JDK 11
+1) Install SBT
+1) Install Python 3.8
+1) Fork and Clone Repository
+1) Run SBT
+1) Install Intellij
+1) Open Intellij
+1) Confirm Setup Steps
+
 
 # Publishing and Using Build Secrets
 
