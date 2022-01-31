@@ -16,8 +16,12 @@ description: SynapseML Development Setup
     - Add HADOOP_HOME to Path
     - Restart Computer
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
+1) Install Python via Anaconda
+    -  Full - https://docs.anaconda.com/anaconda/install/windows/
+    -  Small - https://docs.conda.io/en/latest/miniconda.html#windows-installers
 1) Fork the repository on github
     - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
+    - https://desktop.github.com/
 1) Git Clone your fork, or the repo directly
     - `git clone https://github.com/Microsoft/SynapseML.git`
     - NOTE: If you would like to contribute to synapseml regularly, add your fork as a remote named ``origin`` and Microsoft/SynapseML as a remote named ``upstream``
