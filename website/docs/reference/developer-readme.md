@@ -10,7 +10,7 @@ description: SynapseML Development Setup
 ## Windows
 1) Install JDK 11
     - https://docs.microsoft.com/en-us/java/openjdk/download#openjdk-11
-1)Configure Hadoop "winutils"
+1) Configure Hadoop "winutils"
     - Download from https://github.com/cdarlint/winutils/tree/master/hadoop-3.2.2/bin
     - Create new folder, "C:\Program Files\Hadoop\bin", and place winutils.exe and hadoop.dll inside
     - Add HADOOP_HOME="C:\Program Files\Hadoop" to Env Vars
