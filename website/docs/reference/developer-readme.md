@@ -12,11 +12,10 @@ description: SynapseML Development Setup
     - https://docs.microsoft.com/en-us/java/openjdk/download#openjdk-11
 1)Configure Hadoop "winutils"
     - Download from https://github.com/cdarlint/winutils
-    - Create new folder, for exaxmple "C:\Hadoop". Create "C:Hadoop\bin", and place winutils.exe inside
-    - Set winutils.exe properties to "Allow Execution"
-    - Add HADOOP_HOME="C:\Hadoop" to Env Vars
-    - Add HADOOP_HOME to Path
-    - Restart Computer
+    - Create new folder, "C:\Program Files\Hadoop\bin", and place winutils.exe inside
+    - PENDING CONFIRMATION _Set winutils.exe properties to "Allow Execution"_
+    - Add HADOOP_HOME="C:\Program Files\Hadoop" to Env Vars
+    - Restart Intellij if Open.
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
 1) Install Python 3.8 via Anaconda
     -  Full - https://docs.anaconda.com/anaconda/install/windows/
