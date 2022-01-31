@@ -33,6 +33,8 @@ description: SynapseML Development Setup
 1) Configure IntelliJ
     - **OPEN** the synapseml directory
     - If the project does not automatically import,click on `build.sbt` and import project
+1) Confirm Setup by running ScalaTests in Intellij
+<img width="407" alt="image" src="https://user-images.githubusercontent.com/9027725/151844306-67478ed9-72c2-4709-95ac-80683688fa05.png">
 
 # Publishing and Using Build Secrets
 
