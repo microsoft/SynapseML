@@ -6,20 +6,27 @@ description: SynapseML Development Setup
 ---
 
 # SynapseML Development Setup
-
+1) Install JDK 11
+    - https://docs.microsoft.com/en-us/java/openjdk/download#openjdk-11
+1) On Windows, Configure Hadoop "winutils"
+    - Download from https://github.com/cdarlint/winutils
+    - Create new folder, for exaxmple "C:\Hadoop". Create "C:Hadoop\bin", and place winutils.exe inside
+    - Set winutils.exe properties to "Allow Execution"
+    - Add HADOOP_HOME="C:\Hadoop" to Env Vars
+    - Add HADOOP_HOME to Path
+    - Restart Computer
 1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-    - Make sure to download JDK 11 if you don't have it
-3) Fork the repository on github
+1) Fork the repository on github
     - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
-2) Git Clone your fork, or the repo directly
+1) Git Clone your fork, or the repo directly
     - `git clone https://github.com/Microsoft/SynapseML.git`
     - NOTE: If you would like to contribute to synapseml regularly, add your fork as a remote named ``origin`` and Microsoft/SynapseML as a remote named ``upstream``
-3) Run sbt to compile and grab datasets
+1) Run sbt to compile and grab datasets
     - `cd synapseml`
     - `sbt setup`
-4) [Install IntelliJ](https://www.jetbrains.com/idea/download)
+1) [Install IntelliJ](https://www.jetbrains.com/idea/download)
     - Install Scala plugins during install
-5) Configure IntelliJ
+1) Configure IntelliJ
     - **OPEN** the synapseml directory
     - If the project does not automatically import,click on `build.sbt` and import project
 
