@@ -51,18 +51,19 @@ object SynapseUtilities extends HasHttpClient {
   lazy val Token: String = getSynapseToken
 
   val Folder = s"build_${BuildInfo.version}/scripts"
-  val TimeoutInMillis: Int = 20 * 60 * 1000
+  val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkeuap"
-  val StorageContainer: String = "synapse"
+  val StorageContainer: String = "mmlsparkppefs"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
   def listPythonFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
+    Option({
+      val rootDirectory = FileUtilities
+        .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
         .getCanonicalFile
-        .listFiles()
+
+      FileUtilities.recursiveListFiles(rootDirectory)
         .filter(_.getAbsolutePath.endsWith(".py"))
         .filter(_.getAbsolutePath.contains("-"))
         .filterNot(_.getAbsolutePath.contains("CyberML"))
@@ -73,35 +74,40 @@ object SynapseUtilities extends HasHttpClient {
         .filterNot(_.getAbsolutePath.contains("Overview"))
         .filterNot(_.getAbsolutePath.contains("ModelInterpretation"))
         .filterNot(_.getAbsolutePath.contains("Interpretability"))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+        .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def listPythonJobFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
-        .getCanonicalFile
-        .listFiles()
-        .filter(_.getAbsolutePath.endsWith(".py"))
-        .filterNot(_.getAbsolutePath.contains("-"))
-        .filterNot(_.getAbsolutePath.contains(" "))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+    Option({
+        val rootDirectory = FileUtilities
+          .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
+          .getCanonicalFile
+
+        FileUtilities.recursiveListFiles(rootDirectory)
+          .filter(_.getAbsolutePath.endsWith(".py"))
+          .filterNot(_.getAbsolutePath.contains("-"))
+          .filterNot(_.getAbsolutePath.contains(" "))
+          .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def listNoteBookFiles(): Array[String] = {
-    Option(
-      FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks")
+    Option({
+      val rootDirectory = FileUtilities
+        .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
         .getCanonicalFile
-        .listFiles()
+
+      FileUtilities.recursiveListFiles(rootDirectory)
         .filter(_.getAbsolutePath.endsWith(".ipynb"))
-        .map(file => file.getAbsolutePath))
-      .get
-      .sorted
+        .map(file => file.getAbsolutePath)
+    })
+    .get
+    .sorted
   }
 
   def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {
@@ -122,7 +128,7 @@ object SynapseUtilities extends HasHttpClient {
   def showSubmittingJobs(workspaceName: String, poolName: String): Applications = {
     val uri: String =
       "https://" +
-        s"$workspaceName.dev.azuresynapse.net" +
+        s"$workspaceName.dev.azuresynapse-dogfood.net" +
         "/monitoring/workloadTypes/spark/applications" +
         "?api-version=2020-10-01-preview" +
         "&filter=(((state%20eq%20%27Queued%27)%20or%20(state%20eq%20%27Submitting%27))" +
@@ -152,7 +158,7 @@ object SynapseUtilities extends HasHttpClient {
       readyPool
     }
     else {
-      println(s"None spark pool is ready to submit job, waiting 10s")
+      println(s"No spark pool is ready to submit a new job, waiting 10s")
       blocking {
         Thread.sleep(10000)
       }
@@ -243,7 +249,8 @@ object SynapseUtilities extends HasHttpClient {
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
-      "org.scalatest:scalatest_2.12"
+      "org.scalatest:scalatest_2.12," +
+      "org.slf4j:slf4j-api"
 
     val livyPayload: String =
       s"""
@@ -257,7 +264,7 @@ object SynapseUtilities extends HasHttpClient {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "com.microsoft.azure:synapseml:${BuildInfo.version}",
+         |         "spark.jars.packages" : "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}",
          |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
