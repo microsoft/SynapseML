@@ -228,7 +228,7 @@ class BinaryOutputWriter(val path: String,
   override def write(row: InternalRow): Unit = {
     val bytes = row.getBinary(bytesCol)
     val filename = row.getString(pathCol)
-    val nonTempPath = new Path(path).getParent.getParent.getParent.getParent.getParent
+    val nonTempPath = new Path(path).getParent
     val outputPath = new Path(nonTempPath, filename)
     val os = fs.create(outputPath)
     try {
