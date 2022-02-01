@@ -287,7 +287,7 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
       "spark.yarn.user.classpath.first": "true"

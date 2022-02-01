@@ -85,22 +85,4 @@ class SynapseTests extends TestBase {
         throw t
     }
   }
-
-  test("listPythonFiles") {
-    val allPythonFiles = SynapseUtilities.listPythonFiles()
-
-    allPythonFiles.foreach(file => println(file))
-  }
-
-  test("listNoteBookFiles") {
-    val allPythonNotebooks = SynapseUtilities.listNoteBookFiles()
-
-    allPythonNotebooks.foreach(file => println(file))
-  }
-
-  test("listPythonJobFiles") {
-    val allPythonJobFiles = SynapseUtilities.listPythonJobFiles()
-
-    allPythonJobFiles.foreach(file => println(file))
-  }
 }
