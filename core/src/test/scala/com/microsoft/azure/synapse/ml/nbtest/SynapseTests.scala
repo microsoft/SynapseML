@@ -8,9 +8,7 @@ import SynapseUtilities.exec
 
 import java.io.File
 import java.nio.file.{Path, Paths}
-import java.util
 import java.util.concurrent.TimeUnit
-import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
@@ -18,7 +16,7 @@ import scala.sys.process.Process
 
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
-  val os = sys.props("os.name").toLowerCase
+  val os: String = sys.props("os.name").toLowerCase
   os match {
     case x if x contains "windows" =>
       exec("conda activate synapseml " +
@@ -36,14 +34,12 @@ class SynapseTests extends TestBase {
   })
 
   val workspaceName = "mmlsparkppe"
-  val sparkPools = Array(
+  val sparkPools: Array[String] = Array(
     "e2etstspark32i1",
     "e2etstspark32i2",
     "e2etstspark32i3",
     "e2etstspark32i4",
     "e2etstspark32i5")
-
-  val livyBatchJobForEachFile: util.HashMap[String, LivyBatchJob] = new util.HashMap[String, LivyBatchJob]
 
   SynapseUtilities.listPythonJobFiles()
     .filterNot(_.contains(" "))
@@ -56,45 +52,36 @@ class SynapseTests extends TestBase {
         poolName +
         "/batches"
       val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
-      println(s"submitted livy job: ${livyBatch.id} for file ${file} to sparkPool: $poolName")
+      println(s"submitted livy job: ${livyBatch.id} for file $file to sparkPool: $poolName")
 
       val path: Path = Paths.get(file)
-      val fileName: String = path.getFileName().toString()
-
-      livyBatchJobForEachFile.put(fileName, LivyBatchJob(livyBatch, poolName, livyUrl))
-    })
-
-  try {
-    val batchFuturesForEachFile: util.HashMap[String, Future[Any]] = new util.HashMap[String, Future[Any]]
-
-    livyBatchJobForEachFile.forEach((fileName: String, batchJob: LivyBatchJob) => {
-      batchFuturesForEachFile.put(fileName, Future {
-        val batch = batchJob.livyBatch
-        val livyUrl = batchJob.livyUrl
-
-        if(batch.state != "success") {
-          SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
-        }
-      }(ExecutionContext.global))
-    })
-
-    batchFuturesForEachFile.forEach((fileName: String, future: Future[Any]) => {
-      val result = Await.ready(
-        future,
-        Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+      val fileName: String = path.getFileName.toString()
+      val livyBatchJob: LivyBatchJob = LivyBatchJob(livyBatch, poolName, livyUrl)
 
       test(fileName) {
-        assert(result.isSuccess)
+        try {
+          val future: Future[Any] = Future {
+            if(livyBatchJob.livyBatch.state != "success") {
+              SynapseUtilities.retry(
+                livyBatchJob.livyBatch.id,
+                livyBatchJob.livyUrl,
+                SynapseUtilities.TimeoutInMillis,
+                System.currentTimeMillis())
+            }
+          }(ExecutionContext.global)
+
+          val result = Await.ready(
+            future,
+            Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+
+          assert(result.isSuccess)
+        } catch {
+          case t: Throwable =>
+            println(s"Cancelling job ${livyBatchJob.livyBatch.id} for file $fileName")
+            SynapseUtilities.cancelRun(livyBatchJob.livyUrl, livyBatchJob.livyBatch.id)
+
+            throw t
+        }
       }
     })
-  }
-  catch {
-    case t: Throwable =>
-      livyBatchJobForEachFile.forEach((file:String, batchJob:LivyBatchJob) => {
-        println(s"Cancelling job ${batchJob.livyBatch.id} for file ${file}")
-        SynapseUtilities.cancelRun(batchJob.livyUrl, batchJob.livyBatch.id)
-      })
-
-      throw t
-  }
 }
