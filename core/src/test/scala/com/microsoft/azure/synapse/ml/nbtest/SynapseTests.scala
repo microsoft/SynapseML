@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import SynapseUtilities.exec
 
 import java.io.File
+import java.nio.file.{Path, Paths}
 import java.util
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
@@ -57,14 +58,17 @@ class SynapseTests extends TestBase {
       val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
       println(s"submitted livy job: ${livyBatch.id} for file ${file} to sparkPool: $poolName")
 
-      livyBatchJobForEachFile.put(file, LivyBatchJob(livyBatch, poolName, livyUrl))
+      val path: Path = Paths.get(file)
+      val fileName: String = path.getFileName().toString()
+
+      livyBatchJobForEachFile.put(fileName, LivyBatchJob(livyBatch, poolName, livyUrl))
     })
 
   try {
     val batchFuturesForEachFile: util.HashMap[String, Future[Any]] = new util.HashMap[String, Future[Any]]
 
-    livyBatchJobForEachFile.forEach((file: String, batchJob: LivyBatchJob) => {
-      batchFuturesForEachFile.put(file, Future {
+    livyBatchJobForEachFile.forEach((fileName: String, batchJob: LivyBatchJob) => {
+      batchFuturesForEachFile.put(fileName, Future {
         val batch = batchJob.livyBatch
         val livyUrl = batchJob.livyUrl
 
@@ -74,12 +78,12 @@ class SynapseTests extends TestBase {
       }(ExecutionContext.global))
     })
 
-    batchFuturesForEachFile.forEach((file: String, future: Future[Any]) => {
+    batchFuturesForEachFile.forEach((fileName: String, future: Future[Any]) => {
       val result = Await.ready(
         future,
         Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-      test(file) {
+      test(fileName) {
         assert(result.isSuccess)
       }
     })
