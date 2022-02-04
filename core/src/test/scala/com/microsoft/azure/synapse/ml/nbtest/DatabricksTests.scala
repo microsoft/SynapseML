@@ -15,8 +15,8 @@ import scala.language.existentials
 /** Tests to validate fuzzing of modules. */
 class DatabricksTests extends TestBase {
 
-  val clusterId = createClusterInPool(ClusterName, PoolId)
-  val jobIdsToCancel = mutable.ListBuffer[Int]()
+  val clusterId: String = createClusterInPool(ClusterName, PoolId)
+  val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
 
   println("Checking if cluster is active")
   tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
@@ -31,12 +31,12 @@ class DatabricksTests extends TestBase {
   workspaceMkDir(Folder)
 
   println(s"Submitting jobs")
-  val parNotebookRuns = ParallizableNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
+  val parNotebookRuns: Seq[DatabricksNotebookRun] = ParallizableNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
   parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
 
   println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
 
-  assert(parNotebookRuns.length > 0)
+  assert(parNotebookRuns.nonEmpty)
 
   parNotebookRuns.foreach(run => {
     println(s"Testing ${run.notebookName}")
@@ -45,10 +45,6 @@ class DatabricksTests extends TestBase {
       val result = Await.ready(
         run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-
-      if(!result.isSuccess) {
-        cancelRun(run.runId)
-      }
 
       assert(result.isSuccess)
     }
@@ -64,16 +60,16 @@ class DatabricksTests extends TestBase {
         run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-      if(!result.isSuccess) {
-        cancelRun(run.runId)
-      }
-
       assert(result.isSuccess)
     }
   })
 
   protected override def afterAll(): Unit = {
+    println("Suite DatabricksTests finished. Running afterAll procedure...")
+    jobIdsToCancel.foreach(cancelRun)
+
     deleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId.")
 
     super.afterAll()
   }
