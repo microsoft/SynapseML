@@ -23,7 +23,7 @@ import spray.json._
 import java.io.{File, InputStream}
 import java.util
 import scala.annotation.tailrec
-import scala.concurrent.{TimeoutException, blocking}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 import scala.io.Source
 import scala.language.postfixOps
 import scala.sys.process._
@@ -36,7 +36,19 @@ case class LivyBatch(id: Int,
 
 case class LivyBatchJob(livyBatch: LivyBatch,
                         sparkPool: String,
-                        livyUrl: String)
+                        livyUrl: String) {
+  def monitor(): Future[Any] = {
+    Future {
+      if(livyBatch.state != "success") {
+        SynapseUtilities.retry(
+          livyBatch.id,
+          livyUrl,
+          SynapseUtilities.TimeoutInMillis,
+          System.currentTimeMillis())
+      }
+    }(ExecutionContext.global)
+  }
+}
 
 case class Application(state: String,
                        name: String,

@@ -61,18 +61,8 @@ class SynapseTests extends TestBase {
 
       test(fileName) {
         try {
-          val future: Future[Any] = Future {
-            if(livyBatchJob.livyBatch.state != "success") {
-              SynapseUtilities.retry(
-                livyBatchJob.livyBatch.id,
-                livyBatchJob.livyUrl,
-                SynapseUtilities.TimeoutInMillis,
-                System.currentTimeMillis())
-            }
-          }(ExecutionContext.global)
-
           val result = Await.ready(
-            future,
+            livyBatchJob.monitor(),
             Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
           assert(result.isSuccess)

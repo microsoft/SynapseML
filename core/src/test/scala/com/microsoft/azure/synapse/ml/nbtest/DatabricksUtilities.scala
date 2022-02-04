@@ -356,7 +356,7 @@ object DatabricksUtilities extends HasHttpClient {
 }
 
 case class DatabricksNotebookRun(runId: Int, notebookName: String) {
-  def monitor(): Future[Any] = {
-    monitorJob(runId, TimeoutInMillis, logLevel = 2)
+  def monitor(logLevel: Int = 2): Future[Any] = {
+    monitorJob(runId, TimeoutInMillis, logLevel)
   }
 }
