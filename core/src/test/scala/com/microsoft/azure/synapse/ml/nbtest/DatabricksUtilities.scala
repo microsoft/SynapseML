@@ -60,8 +60,9 @@ object DatabricksUtilities extends HasHttpClient {
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
-  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
-      "notebooks").getCanonicalFile)
+  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
+    FileUtilities.join(
+      BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile)
 
   val ParallizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
