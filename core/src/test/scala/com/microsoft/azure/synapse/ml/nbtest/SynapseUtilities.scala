@@ -122,7 +122,7 @@ object SynapseUtilities extends HasHttpClient {
     .sorted
   }
 
-  def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {
+  def postMortem(batch: LivyBatch): LivyBatch = {
     batch.log.foreach(println)
     write(batch)
     batch
@@ -189,11 +189,11 @@ object SynapseUtilities extends HasHttpClient {
         throw new TimeoutException(s"Job $id timed out.")
       }
       else if (batch.state == "dead") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Dead")
       }
       else if (batch.state == "error") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Error")
       }
       else {
