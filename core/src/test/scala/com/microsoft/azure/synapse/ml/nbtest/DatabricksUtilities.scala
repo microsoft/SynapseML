@@ -63,7 +63,7 @@ object DatabricksUtilities extends HasHttpClient {
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
       "notebooks").getCanonicalFile)
 
-  val ParallizableNotebooks: Seq[File] = NotebookFiles
+  val ParallizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
   val NonParallizableNotebooks: Seq[File] = Nil
 

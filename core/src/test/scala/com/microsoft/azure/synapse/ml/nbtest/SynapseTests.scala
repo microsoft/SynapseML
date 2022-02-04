@@ -52,10 +52,11 @@ class SynapseTests extends TestBase {
         poolName +
         "/batches"
       val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
-      println(s"submitted livy job: ${livyBatch.id} for file $file to sparkPool: $poolName")
-
       val path: Path = Paths.get(file)
       val fileName: String = path.getFileName.toString()
+
+      println(s"submitted livy job: ${livyBatch.id} for file $fileName to sparkPool: $poolName")
+
       val livyBatchJob: LivyBatchJob = LivyBatchJob(livyBatch, poolName, livyUrl)
 
       test(fileName) {
