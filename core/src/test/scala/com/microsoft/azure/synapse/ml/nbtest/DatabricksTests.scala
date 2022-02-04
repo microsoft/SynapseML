@@ -31,7 +31,7 @@ class DatabricksTests extends TestBase {
   workspaceMkDir(Folder)
 
   println(s"Submitting jobs")
-  val parNotebookRuns: Seq[DatabricksNotebookRun] = ParallizableNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
+  val parNotebookRuns: Seq[DatabricksNotebookRun] = ParallelizableNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
   parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
 
   println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
@@ -51,7 +51,7 @@ class DatabricksTests extends TestBase {
   })
 
   println(s"Submitting nonparallelizable job...")
-  NonParallizableNotebooks.toIterator.foreach(notebook => {
+  NonParallelizableNotebooks.toIterator.foreach(notebook => {
     val run: DatabricksNotebookRun = uploadAndSubmitNotebook(clusterId, notebook)
     jobIdsToCancel.append(run.runId)
 

@@ -21,7 +21,6 @@ import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
-import java.nio.file.{Path, Paths}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 //noinspection ScalaStyle
@@ -66,21 +65,21 @@ object DatabricksUtilities extends HasHttpClient {
     FileUtilities.join(
       BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile)
 
-  val ParallizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
+  val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val NonParallizableNotebooks: Seq[File] = Nil
+  val NonParallelizableNotebooks: Seq[File] = Nil
 
-  def retry[T](backoffs: List[Int], f: () => T): T = {
+  def retry[T](backoffList: List[Int], f: () => T): T = {
     try {
       f()
     } catch {
       case t: Throwable =>
-        val waitTime = backoffs.headOption.getOrElse(throw t)
+        val waitTime = backoffList.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
         blocking {
           Thread.sleep(waitTime.toLong)
         }
-        retry(backoffs.tail, f)
+        retry(backoffList.tail, f)
     }
   }
 
@@ -206,7 +205,7 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
-  def submitRun(clusterId: String, notebookPath: String, timeout: Int = 10 * 60): Int = {
+  def submitRun(clusterId: String, notebookPath: String): Int = {
     val body =
       s"""
          |{
