@@ -43,7 +43,7 @@ class DatabricksTests extends TestBase {
 
     test(run.notebookName) {
       val result = Await.ready(
-        run.monitor(logLevel = 1),
+        run.monitor(),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
       if(!result.isSuccess) {
@@ -61,7 +61,7 @@ class DatabricksTests extends TestBase {
 
     test(run.notebookName) {
       val result = Await.ready(
-        run.monitor(logLevel = 1),
+        run.monitor(),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
       if(!result.isSuccess) {
