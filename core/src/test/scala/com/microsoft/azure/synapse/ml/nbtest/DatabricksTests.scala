@@ -38,12 +38,12 @@ class DatabricksTests extends TestBase {
 
   assert(parNotebookRuns.length > 0)
 
-  parNotebookRuns.par.foreach(run => {
+  parNotebookRuns.foreach(run => {
     println(s"Testing ${run.notebookName}")
 
     test(run.notebookName) {
       val result = Await.ready(
-        run.monitor(),
+        run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
       if(!result.isSuccess) {
@@ -61,7 +61,7 @@ class DatabricksTests extends TestBase {
 
     test(run.notebookName) {
       val result = Await.ready(
-        run.monitor(),
+        run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
       if(!result.isSuccess) {
