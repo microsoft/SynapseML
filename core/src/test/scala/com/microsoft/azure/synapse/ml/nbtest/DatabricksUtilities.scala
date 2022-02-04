@@ -13,6 +13,7 @@ import SprayImplicits._
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
+import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -20,6 +21,7 @@ import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
+import java.nio.file.{Path, Paths}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 //noinspection ScalaStyle
@@ -296,9 +298,15 @@ object DatabricksUtilities extends HasHttpClient {
     }(ExecutionContext.global)
   }
 
-  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): Int = {
-    uploadNotebook(notebookFile, Folder + "/" + notebookFile.getName)
-    submitRun(clusterId, Folder + "/" + notebookFile.getName)
+  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
+    val destination: String = Folder + "/" + notebookFile.getName
+    uploadNotebook(notebookFile, destination)
+    val runId: Int = submitRun(clusterId, destination)
+    val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
+
+    println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
+
+    run
   }
 
   def cancelRun(runId: Int): Unit = {
@@ -345,5 +353,10 @@ object DatabricksUtilities extends HasHttpClient {
   def cancelAllJobs(clusterId: String): Unit = {
     listActiveJobs(clusterId).foreach(cancelRun)
   }
+}
 
+case class DatabricksNotebookRun(runId: Int, notebookName: String) {
+  def monitor(): Future[Any] = {
+    monitorJob(runId, TimeoutInMillis, logLevel = 2)
+  }
 }
