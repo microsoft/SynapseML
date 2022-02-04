@@ -4,13 +4,13 @@
 package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import SynapseUtilities.exec
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.exec
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
 import scala.sys.process.Process
 
@@ -53,7 +53,7 @@ class SynapseTests extends TestBase {
         "/batches"
       val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
       val path: Path = Paths.get(file)
-      val fileName: String = path.getFileName.toString()
+      val fileName: String = path.getFileName.toString
 
       println(s"submitted livy job: ${livyBatch.id} for file $fileName to sparkPool: $poolName")
 
