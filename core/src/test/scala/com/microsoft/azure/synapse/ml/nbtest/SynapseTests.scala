@@ -16,16 +16,14 @@ import scala.sys.process.Process
 /** Tests to validate fuzzing of modules. */
 class SynapseTests extends TestBase {
 
-  test("Synapse") {
+  ignore("Synapse") {
 
     val os = sys.props("os.name").toLowerCase
     os match {
       case x if x contains "windows" =>
-        exec("conda activate synapseml " +
-        "&& jupyter nbconvert --to script .\\notebooks\\features\\**\\*.ipynb")
+        exec("conda activate synapseml && jupyter nbconvert --to script .\\notebooks\\*.ipynb")
       case _ =>
-        Process(s"conda init bash; conda activate synapseml; " +
-        "jupyter nbconvert --to script ./notebooks/features/**/*.ipynb")
+        Process(s"conda init bash; conda activate synapseml; jupyter nbconvert --to script ./notebooks/*.ipynb")
     }
 
     SynapseUtilities.listPythonFiles().map(f => {
@@ -35,13 +33,8 @@ class SynapseTests extends TestBase {
       new File(f).renameTo(new File(newPath))
     })
 
-    val workspaceName = "mmlsparkppe"
-    val sparkPools = Array(
-      "e2etstspark32i1",
-      "e2etstspark32i2",
-      "e2etstspark32i3",
-      "e2etstspark32i4",
-      "e2etstspark32i5")
+    val workspaceName = "mmlspark"
+    val sparkPools = Array("buildpool", "buildpool2", "buildpool3")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
@@ -50,7 +43,7 @@ class SynapseTests extends TestBase {
         val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
         val livyUrl = "https://" +
           workspaceName +
-          ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+          ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
           poolName +
           "/batches"
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
