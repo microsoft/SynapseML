@@ -128,7 +128,7 @@ object SynapseUtilities extends HasHttpClient {
   def showSubmittingJobs(workspaceName: String, poolName: String): Applications = {
     val uri: String =
       "https://" +
-        s"$workspaceName.dev.azuresynapse.net" +
+        s"$workspaceName.dev.azuresynapse-dogfood.net" +
         "/monitoring/workloadTypes/spark/applications" +
         "?api-version=2020-10-01-preview" +
         "&filter=(((state%20eq%20%27Queued%27)%20or%20(state%20eq%20%27Submitting%27))" +
