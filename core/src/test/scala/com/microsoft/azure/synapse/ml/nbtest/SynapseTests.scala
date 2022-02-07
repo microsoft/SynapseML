@@ -50,7 +50,7 @@ class SynapseTests extends TestBase {
         val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
         val livyUrl = "https://" +
           workspaceName +
-          ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+          ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
           poolName +
           "/batches?detailed=True"
         val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
