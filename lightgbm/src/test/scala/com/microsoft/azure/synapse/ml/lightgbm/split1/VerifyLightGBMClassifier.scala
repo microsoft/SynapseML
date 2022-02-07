@@ -39,7 +39,6 @@ class TrainDelegate extends LightGBMDelegate {
       previousLearningRate * 0.05
     }
   }
-
 }
 
 // scalastyle:off magic.number
@@ -499,6 +498,21 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val delegate = new TrainDelegate()
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setDelegate(delegate)
+      .setLearningRate(0.1)
+      .setNumIterations(2)  // expected learning_rate: iters 0 => 0.1, iters 1 => 0.005
+
+    val model = untrainedModel.fit(train)
+
+    // Verify updating learning_rate
+    assert(model.getModel.modelStr.get.contains("learning_rate: 0.005"))
+  }
+
+  test("Verify LightGBM Classifier using before/afterTrainBatch") {
     val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
     val delegate = new TrainDelegate()
     val untrainedModel = baseModel
