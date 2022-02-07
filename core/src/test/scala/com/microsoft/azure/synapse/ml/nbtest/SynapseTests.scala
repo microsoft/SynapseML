@@ -39,7 +39,9 @@ class SynapseTests extends TestBase {
     val sparkPools = Array(
       "e2etstspark31i1",
       "e2etstspark31i2",
-      "e2etstspark31i3")
+      "e2etstspark31i3",
+      "e2etstspark31i4",
+      "e2etstspark31i5")
 
     val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
       .filterNot(_.contains(" "))
