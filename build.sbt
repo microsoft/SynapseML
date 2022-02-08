@@ -99,6 +99,32 @@ genBuildInfo := {
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
 }
 
+val genDotnetTestHelper = TaskKey[Unit]("genDotnetTestHelper",
+  "generate dotnet test helper file with current library version")
+genDotnetTestHelper := {
+  val fileContent =
+    s"""// Licensed to the .NET Foundation under one or more agreements.
+       |// The .NET Foundation licenses this file to you under the MIT license.
+       |// See the LICENSE file in the project root for more information.
+       |
+       |namespace SynapseMLtest.Utils
+       |{
+       |    public class Helper
+       |    {
+       |        public static string GetSynapseMLPackage()
+       |        {
+       |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
+       |        }
+       |    }
+       |
+       |}
+       |""".stripMargin
+  val dotnetHelperFile = join(baseDirectory.value, "core",
+    "src", "main", "dotnet", "E2ETestUtils", "SynapseMLVersion.cs")
+  if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
+  FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
+}
+
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {
   val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile

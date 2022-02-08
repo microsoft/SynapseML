@@ -8,7 +8,7 @@ namespace SynapseMLtest.Utils
     {
         public static string GetSynapseMLPackage()
         {
-            return "com.microsoft.azure:synapseml_2.12:0.9.5-114-1ffba1d9-20220208-1654-SNAPSHOT";
+            return "com.microsoft.azure:synapseml_2.12:0.9.5-125-642ee83a-20220208-1825-SNAPSHOT";
         }
     }
 

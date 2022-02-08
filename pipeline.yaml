@@ -423,6 +423,7 @@ jobs:
         inlineScript: |
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
+          sbt genDotnetTestHelper
           sbt publishBlob
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testDotnet) || (sbt coverage testDotnet) || (sbt coverage testDotnet)
