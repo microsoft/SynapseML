@@ -244,17 +244,18 @@ private object TrainUtils extends Serializable {
           io =>
             val driverInput = io(0).asInstanceOf[BufferedReader]
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
+            val partitionId = LightGBMUtils.getPartitionId
+            val taskHost = driverSocket.getLocalAddress.getHostAddress
             val taskStatus =
               if (ignoreTask) {
-                log.info("send empty status to driver")
-                LightGBMConstants.IgnoreStatus
+                log.info(s"send empty status to driver with partitionId: $partitionId")
+                s"${LightGBMConstants.IgnoreStatus}:$taskHost:$partitionId"
               } else {
-                val taskHost = driverSocket.getLocalAddress.getHostAddress
-                val taskInfo = s"$taskHost:$localListenPort"
+                val taskInfo = s"$taskHost:$localListenPort:$partitionId"
                 log.info(s"send current task info to driver: $taskInfo ")
                 taskInfo
               }
-            // Send the current host:port to the driver
+            // Send the current host:port:partitionId to the driver
             driverOutput.write(s"$taskStatus\n")
             driverOutput.flush()
             // If barrier execution mode enabled, create a barrier across tasks
@@ -265,7 +266,7 @@ private object TrainUtils extends Serializable {
                 setFinishedStatus(networkParams, localListenPort, log)
               }
             }
-            if (taskStatus != LightGBMConstants.IgnoreStatus) {
+            if (!taskStatus.startsWith(LightGBMConstants.IgnoreStatus)) {
               // Wait to get the list of nodes from the driver
               val nodes = driverInput.readLine()
               log.info(s"LightGBM worker got nodes for network init: $nodes")

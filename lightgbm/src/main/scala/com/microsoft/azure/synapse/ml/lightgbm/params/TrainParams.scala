@@ -5,6 +5,22 @@ package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDelegate}
 
+/** Helper utilities for converting params to a string, to be passed to LightGBM. */
+object ParamUtils {
+  def paramToString[T](paramName: String, paramValueOpt: Option[T]): String = {
+    paramValueOpt match {
+      case Some(paramValue) => s"$paramName=$paramValue"
+      case None => ""
+    }
+  }
+
+  def paramsToString(paramNamesToValues: Array[(String, Option[_])]): String = {
+    paramNamesToValues.map {
+      case (paramName: String, paramValue: Option[_]) => paramToString(paramName, paramValue)
+    }.mkString(" ")
+  }
+}
+
 /** Defines the common Booster parameters passed to the LightGBM learners.
   */
 abstract class TrainParams extends Serializable {
@@ -43,25 +59,13 @@ abstract class TrainParams extends Serializable {
   def dartModeParams: DartModeParams
   def executionParams: ExecutionParams
   def objectiveParams: ObjectiveParams
-
-  def paramToString[T](paramName: String, paramValueOpt: Option[T]): String = {
-    paramValueOpt match {
-      case Some(paramValue) => s"$paramName=$paramValue"
-      case None => ""
-    }
-  }
-
-  def paramsToString(paramNamesToValues: Array[(String, Option[_])]): String = {
-    paramNamesToValues.map {
-      case (paramName: String, paramValue: Option[_]) => paramToString(paramName, paramValue)
-    }.mkString(" ")
-  }
+  def seedParams: SeedParams
 
   override def toString: String = {
     // Since passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
     // let's fetch and print training metrics in `TrainUtils.scala` through JNI.
     s"is_pre_partition=True boosting_type=$boostingType tree_learner=$parallelism " +
-      paramsToString(Array(("top_k", topK), ("num_leaves", numLeaves), ("max_bin", maxBin),
+      ParamUtils.paramsToString(Array(("top_k", topK), ("num_leaves", numLeaves), ("max_bin", maxBin),
         ("bagging_fraction", baggingFraction), ("pos_bagging_fraction", posBaggingFraction),
         ("neg_bagging_fraction", negBaggingFraction), ("bagging_freq", baggingFreq),
         ("bagging_seed", baggingSeed), ("feature_fraction", featureFraction), ("max_depth", maxDepth),
@@ -75,7 +79,8 @@ abstract class TrainParams extends Serializable {
       (if (categoricalFeatures.isEmpty) "" else s"categorical_feature=${categoricalFeatures.mkString(",")} ") +
       (if (maxBinByFeature.isEmpty) "" else s"max_bin_by_feature=${maxBinByFeature.mkString(",")} ") +
       (if (boostingType == "dart") s"${dartModeParams.toString()} " else "") +
-      executionParams.toString()
+      executionParams.toString() +
+      seedParams.toString()
   }
 }
 
@@ -118,7 +123,8 @@ case class ClassifierTrainParams(parallelism: String,
                                  delegate: Option[LightGBMDelegate],
                                  dartModeParams: DartModeParams,
                                  executionParams: ExecutionParams,
-                                 objectiveParams: ObjectiveParams)
+                                 objectiveParams: ObjectiveParams,
+                                 seedParams: SeedParams)
   extends TrainParams {
   override def toString: String = {
     val extraStr =
@@ -167,7 +173,8 @@ case class RegressorTrainParams(parallelism: String,
                                 delegate: Option[LightGBMDelegate],
                                 dartModeParams: DartModeParams,
                                 executionParams: ExecutionParams,
-                                objectiveParams: ObjectiveParams)
+                                objectiveParams: ObjectiveParams,
+                                seedParams: SeedParams)
   extends TrainParams {
   override def toString: String = {
     s"alpha=$alpha tweedie_variance_power=$tweedieVariancePower boost_from_average=${boostFromAverage.toString} " +
@@ -214,7 +221,8 @@ case class RankerTrainParams(parallelism: String,
                              delegate: Option[LightGBMDelegate],
                              dartModeParams: DartModeParams,
                              executionParams: ExecutionParams,
-                             objectiveParams: ObjectiveParams)
+                             objectiveParams: ObjectiveParams,
+                             seedParams: SeedParams)
   extends TrainParams {
   override def toString: String = {
     val labelGainStr =
@@ -264,5 +272,36 @@ case class ObjectiveParams(objective: String, fobj: Option[FObjTrait]) extends S
     } else {
       "objective=custom "
     }
+  }
+}
+
+/** Defines parameters related to seed and determinism for lightgbm.
+  *
+  * @param seed                Main seed, used to generate other seeds.
+  *
+  * @param deterministic       Setting this to true should ensure stable results when using the
+  *                            same data and the same parameters.
+  * @param baggingSeed         Bagging seed.
+  * @param featureFractionSeed Feature fraction seed.
+  * @param extraSeed           Random seed for selecting threshold when extra_trees is true.
+  * @param dropSeed            Random seed to choose dropping models. Only used in dart.
+  * @param dataRandomSeed      Random seed for sampling data to construct histogram bins.
+  * @param objectiveSeed       Random seed for objectives, if random process is needed.
+  *                            Currently used only for rank_xendcg objective.
+  * @param boostingType        Boosting type, used to determine if drop seed should be set.
+  * @param objective           Objective, used to determine if objective seed should be set.
+  */
+case class SeedParams(seed: Option[Int], deterministic: Option[Boolean],
+                      baggingSeed: Option[Int], featureFractionSeed: Option[Int],
+                      extraSeed: Option[Int], dropSeed: Option[Int],
+                      dataRandomSeed: Option[Int], objectiveSeed: Option[Int],
+                      boostingType: String, objective: String) extends Serializable {
+  override def toString: String = {
+    ParamUtils.paramsToString(Array(("seed", seed), ("deterministic", deterministic),
+      ("bagging_seed", baggingSeed), ("feature_fraction_seed", featureFractionSeed),
+      ("extra_seed", extraSeed), ("data_random_seed", dataRandomSeed))) +
+      (if (boostingType == "dart" && dropSeed.isDefined) s"drop_seed=${dropSeed.toString()} " else "") +
+      (if (objective == "rank_xendcg" && objectiveSeed.isDefined)
+        s"objective_seed=${objectiveSeed.toString()} " else "")
   }
 }
