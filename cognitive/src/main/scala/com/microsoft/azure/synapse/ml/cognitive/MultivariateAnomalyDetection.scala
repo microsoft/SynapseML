@@ -115,7 +115,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
-  with ConcurrencyParams with ComplexParamsWritable with Wrappable
+  with ComplexParamsWritable with Wrappable
   with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
