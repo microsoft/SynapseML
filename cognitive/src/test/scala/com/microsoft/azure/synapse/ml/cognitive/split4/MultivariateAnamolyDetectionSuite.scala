@@ -128,7 +128,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setConcurrency(5)
 
   test("SimpleMultiAnomalyEstimator basic usage with connectionString") {
 
