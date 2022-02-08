@@ -342,7 +342,8 @@ trait DotnetWrappable extends BaseWrappable {
            |        foreach (var k in keySet)
            |        {
            |            val = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "mapScalaToJava", hashMap.Invoke("get", k));
+           |                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper",
+           |                "mapScalaToJava", hashMap.Invoke("get", k));
            |            dic.Add((string)k.Invoke("toString"), val);
            |        }
            |        result[i] = dic;
