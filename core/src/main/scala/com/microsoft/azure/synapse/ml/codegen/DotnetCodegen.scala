@@ -69,11 +69,11 @@ object DotnetCodegen {
   }
 
   def generateSynapseMLVersionHelper(conf: CodegenConfig): Unit = {
-    if (!conf.dotnetSrcDir.exists()) {
-      conf.dotnetSrcDir.mkdir()
-    }
     val dotnetCoreDir = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
       "core", "src", "main", "dotnet", "E2ETestUtils")
+    if (!dotnetCoreDir.exists()) {
+      dotnetCoreDir.mkdir()
+    }
     writeFile(new File(dotnetCoreDir, "SynapseMLVersion.cs"),
       s"""// Licensed to the .NET Foundation under one or more agreements.
          |// The .NET Foundation licenses this file to you under the MIT license.
@@ -96,6 +96,7 @@ object DotnetCodegen {
   def dotnetGen(conf: CodegenConfig): Unit = {
     println(s"Generating dotnet for ${conf.jarName}")
     clean(conf.dotnetSrcDir)
+    generateSynapseMLVersionHelper(conf)
     generateDotnetClasses(conf)
     if (conf.dotnetSrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetSrcOverrideDir), toDir(conf.dotnetSrcHelperDir))
@@ -105,7 +106,6 @@ object DotnetCodegen {
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.dotnetPackageDir)
-    generateSynapseMLVersionHelper(conf)
     dotnetGen(conf)
   }
 
