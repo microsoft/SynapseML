@@ -110,3 +110,26 @@ class ServiceParam[T: TypeTag](parent: Params,
   def getType: String = typeOf[T].toString
 
 }
+
+class CognitiveServiceStructParam[T: TypeTag](parent: Params,
+                                              name: String,
+                                              doc: String,
+                                              isValid: T => Boolean = (_: T) => true)
+                                             (@transient implicit val dataFormat: JsonFormat[T])
+  extends JsonEncodableParam[T](parent, name, doc, isValid)
+    with PythonWrappableParam[T] with DotnetWrappableParam[T] {
+
+  override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
+
+  override def dotnetValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
+
+  override def dotnetSetterLine(v: T): String = {
+    typeOf[T].toString match {
+      case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TAAnalyzeTask]" =>
+        s"""Set${dotnetName(v).capitalize}(new TAAnalyzeTask[]{${dotnetValue(v)}})"""
+      case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+    }
+  }
+
+  def getType: String = typeOf[T].toString
+}

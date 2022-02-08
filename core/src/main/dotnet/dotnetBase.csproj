@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="xunit" Version="2.4.1" />
-    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
     <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
   </ItemGroup>
 

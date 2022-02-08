@@ -262,10 +262,7 @@ namespace SynapseMLtest.Utils
             return $"org.apache.spark:{avroVersion}";
         }
 
-        public string GetSynapseMLPackage()
-        {
-            return "com.microsoft.azure:synapseml_2.12:0.9.5-108-6a1165b3-20220128-1654-SNAPSHOT";
-        }
+        public string GetSynapseMLPackage() => Helper.GetSynapseMLPackage();
 
         public string AddSynapseMLRepo()
         {
@@ -320,11 +317,8 @@ namespace SynapseMLtest.Utils
             string classArg = "--class org.apache.spark.deploy.dotnet.DotnetRunner";
             string curDir = AppDomain.CurrentDomain.BaseDirectory;
             string jarPrefix = GetJarPrefix();
-            // string scalaDir = Path.Combine(curDir, "..", "..", "..", "..", "..", "src", "scala");
-            // string jarDir = Path.Combine(curDir, jarPrefix, "target");
             string jarDir = curDir;
-            // string assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
-            string assemblyVersion = "2.0.0";
+            string assemblyVersion = "2.1.0";
             string scalaVersion = (SparkSettings.Version.Major == 3) ? "2.12" : "2.11";
             string jar = Path.Combine(jarDir, $"{jarPrefix}_{scalaVersion}-{assemblyVersion}.jar");
 

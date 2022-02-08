@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
@@ -46,7 +47,7 @@ object DotnetCodegen {
          |  </PropertyGroup>
          |
          |  <ItemGroup>
-         |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+         |    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |
@@ -67,6 +68,31 @@ object DotnetCodegen {
          |""".stripMargin)
   }
 
+  def generateSynapseMLVersionHelper(conf: CodegenConfig): Unit = {
+    if (!conf.dotnetSrcDir.exists()) {
+      conf.dotnetSrcDir.mkdir()
+    }
+    val dotnetCoreDir = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
+      "core", "src", "main", "dotnet", "E2ETestUtils")
+    writeFile(new File(dotnetCoreDir, "SynapseMLVersion.cs"),
+      s"""// Licensed to the .NET Foundation under one or more agreements.
+         |// The .NET Foundation licenses this file to you under the MIT license.
+         |// See the LICENSE file in the project root for more information.
+         |
+         |namespace SynapseMLtest.Utils
+         |{
+         |    public class Helper
+         |    {
+         |        public static string GetSynapseMLPackage()
+         |        {
+         |            return "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}";
+         |        }
+         |    }
+         |
+         |}
+         |""".stripMargin)
+  }
+
   def dotnetGen(conf: CodegenConfig): Unit = {
     println(s"Generating dotnet for ${conf.jarName}")
     clean(conf.dotnetSrcDir)
@@ -79,6 +105,7 @@ object DotnetCodegen {
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.dotnetPackageDir)
+    generateSynapseMLVersionHelper(conf)
     dotnetGen(conf)
   }
 

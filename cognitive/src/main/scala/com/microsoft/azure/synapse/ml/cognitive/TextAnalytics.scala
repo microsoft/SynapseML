@@ -389,8 +389,8 @@ class TextAnalyzeTaskParam(parent: Params,
                            name: String,
                            doc: String,
                            isValid: Seq[TAAnalyzeTask] => Boolean = (_: Seq[TAAnalyzeTask]) => true)
-                          (@transient implicit val dataFormat: JsonFormat[TAAnalyzeTask])
-  extends JsonEncodableParam[Seq[TAAnalyzeTask]](parent, name, doc, isValid) {
+                          (@transient override implicit val dataFormat: JsonFormat[Seq[TAAnalyzeTask]])
+  extends CognitiveServiceStructParam[Seq[TAAnalyzeTask]](parent, name, doc, isValid) {
   type ValueType = TAAnalyzeTask
 
   override def w(value: Seq[TAAnalyzeTask]): ParamPair[Seq[TAAnalyzeTask]] = super.w(value)
@@ -409,6 +409,10 @@ class TextAnalyzeTaskParam(parent: Params,
     val parameters = valParameters.asScala.toMap.map { x => (x._1, x._2.toString) }
     TAAnalyzeTask(parameters)
   }
+
+  override def dotnetValue(v: Seq[TAAnalyzeTask]): String =
+    v.map(x => s"new TAAnalyzeTask(new Dictionary<string, string>" +
+      s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
 }
 
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]

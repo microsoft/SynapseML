@@ -92,7 +92,7 @@ object DotnetTestGen {
          |      <PrivateAssets>all</PrivateAssets>
          |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
          |    </PackageReference>
-         |    <PackageReference Include="Microsoft.Spark" Version="2.0.0" />
+         |    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |
