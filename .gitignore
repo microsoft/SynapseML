@@ -30,6 +30,7 @@
 .net
 /core/src/main/dotnet/bin
 /core/src/main/dotnet/obj
+/core/src/main/dotnet/E2ETestUtils/SynapseMLVersion.cs
 
 # Vagrant configuration
 /tools/vagrant/.vagrant

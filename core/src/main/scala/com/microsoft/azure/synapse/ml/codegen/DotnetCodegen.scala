@@ -35,8 +35,8 @@ object DotnetCodegen {
       case "deep-learning" => "deepLearning"
       case s => s.capitalize
     }
-    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
-      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+      .replaceAllLiterally(curName, "core")
     writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |

@@ -65,8 +65,8 @@ object DotnetTestGen {
       case "deep-learning" => "deepLearning"
       case s => s
     }
-    val dotnetBasePath = join(conf.topDir.split("\\".toCharArray).dropRight(1).mkString("\\"),
-      "core", "src", "main", "dotnet", "dotnetBase.csproj").toString
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+      .replaceAllLiterally(curName, "core")
     val curPath = conf.dotnetSrcDir.getAbsolutePath
     val corePath = curPath.replace(curProject, "core")
     val referenceCore = conf.name match {
