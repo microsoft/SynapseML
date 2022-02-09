@@ -236,6 +236,12 @@ trait PythonWrappable extends BaseWrappable {
             |${indent(docString, 1)}
             |    return JavaParams._from_java(self._java_obj.get$capName())
             |""".stripMargin
+      case _: ServiceParam[_] =>
+        s"""|
+            |def get$capName(self):
+            |${indent(docString, 1)}
+            |    return self._java_obj.get$capName()
+            |""".stripMargin
       case _ =>
         s"""|
             |def get$capName(self):

@@ -116,7 +116,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
-  with HasSubscriptionKey with HasErrorCol with BasicLogging {
+  with HasErrorCol with BasicLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")

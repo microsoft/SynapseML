@@ -51,7 +51,7 @@ object DefaultParamInfo extends Logging {
   val SeqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
   val SeqTextAndTranslationInfo = new ParamInfo[ServiceParam[_]]("object", "TextAndTranslation[]")
   val DiagnosticsInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "DiagnosticsInfo")
-  val TextAnalyzeTaskParamInfo = new ParamInfo[CognitiveServiceStructParam[_]]("list", "TAAnalyzeTask[]")
+  val TextAnalyzeTaskParamInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "TAAnalyzeTask[]")
 
   val UnknownInfo = new ParamInfo[Param[_]]("object", "object")
 
