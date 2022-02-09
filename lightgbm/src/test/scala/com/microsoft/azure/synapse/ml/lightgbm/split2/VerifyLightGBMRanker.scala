@@ -1,4 +1,4 @@
->// Copyright (C) Microsoft Corporation. All rights reserved.
+// Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.azure.synapse.ml.lightgbm.split2
@@ -157,7 +157,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     })
   }
 
-
+/*
   test("verify string from trained model") {
     val fileName = "PimaIndian.csv"
     val outputFileName = "model.txt"
@@ -173,7 +173,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     val modelString = baseModel.stringFromTrainedModel(rankerModel)
     assert(modelString == "foo")
   }
-
+*/
   /*verifySaveBooster(
     fileName = "PimaIndian.csv",
     labelColumnName = "Diabetes mellitus",
@@ -184,7 +184,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
                         outputFileName: String,
                         labelColumnName: String,
                         colsToVerify: Array[String]): Unit = { */
-
+/*
   test("Verify LightGBMClassifier save booster") {
     val fileName = "PimaIndian.csv"
     val outputFileName = "model.txt"
@@ -226,7 +226,7 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     assert(resultsFromString === resultsOriginal)
     assert(resultsFromFile === resultsOriginal)
   }
-
+*/
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
     Seq(new TestObject(baseModel, rankingDF))
   }
