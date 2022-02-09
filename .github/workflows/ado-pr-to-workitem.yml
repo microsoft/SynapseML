@@ -10,7 +10,7 @@ jobs:
   alert:
     runs-on: ubuntu-latest
     steps:
-    - uses: riserrad/github-actions-pr-to-work-item@fix-null-replace
+    - uses: riserrad/github-actions-pr-to-work-item@master
       env:
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'   
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'    
