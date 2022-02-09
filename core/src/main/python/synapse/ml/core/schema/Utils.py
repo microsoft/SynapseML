@@ -79,9 +79,13 @@ class ComplexParamsMixin(MLReadable):
                 # SPARK-14931: Only check set com.microsoft.azure.synapse.ml.core.serialize.params back to avoid default com.microsoft.azure.synapse.ml.core.serialize.params mismatch.
                 complex_param_class = sc._gateway.jvm.com.microsoft.azure.synapse.ml.core.serialize.ComplexParam._java_lang_class
                 is_complex_param = complex_param_class.isAssignableFrom(java_param.getClass())
+                service_param_class = sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                is_service_param = service_param_class.isAssignableFrom(java_param.getClass())
                 if self._java_obj.isSet(java_param):
                     if is_complex_param:
                         value = self._java_obj.getOrDefault(java_param)
+                    elif is_service_param:
+                        value = getattr(self._java_obj, "get{}".format(param.name[0].upper() + param.name[1:]))()
                     else:
                         value = _java2py(sc, self._java_obj.getOrDefault(java_param))
                     self._set(**{param.name: value})
