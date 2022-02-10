@@ -162,4 +162,4 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
   override def reader: MLReadable[_] = LightGBMRanker
 
   override def modelReader: MLReadable[_] = LightGBMRankerModel
- }
+}
