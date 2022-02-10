@@ -2,6 +2,7 @@ resources:
 - repo: self
 
 trigger:
+  batch: true
   branches:
     include:
     - master
