@@ -39,6 +39,7 @@ class TrainDelegate extends LightGBMDelegate {
       previousLearningRate * 0.05
     }
   }
+
 }
 
 // scalastyle:off magic.number
@@ -97,11 +98,7 @@ trait LightGBMTestUtils extends TestBase {
   }
 
   def assertFitWithoutErrors(model: Estimator[_ <: Model[_]], df: DataFrame): Unit = {
-    assert(model
-      .fit(df)
-      .transform(df)
-      .collect()
-      .length > 0)
+    assert(model.fit(df).transform(df).collect().length > 0)
   }
 
   def assertImportanceLengths(fitModel: Model[_] with LightGBMModelMethods, df: DataFrame): Unit = {
