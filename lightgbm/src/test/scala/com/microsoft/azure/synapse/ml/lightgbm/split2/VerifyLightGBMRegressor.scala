@@ -186,6 +186,20 @@ class VerifyLightGBMRegressor extends Benchmarks
     assert(!evaluatedDf2.columns.contains(featuresShapCol))
   }
 
+  test("Verify LightGBM Regressor with alpha parameter") {
+    val alphas = Array(0.1, 5.3, 98.6)
+    alphas.foreach(alpha => assertFitWithoutErrors(baseModel.setAlpha(alpha), flareDF))
+  }
+
+  test("Verify LightGBM Regressor with num leafPredictionCol parameter") {
+    val cols = Array("Zurich class", "Activity", "Area of the largest spot")
+    cols.foreach(col => assertFitWithoutErrors(baseModel.setLeafPredictionCol(col), flareDF))
+  }
+
+ /* test("Verify save") {
+    baseModel.save
+  }*/
+
   def verifyLearnerOnRegressionCsvFile(fileName: String,
                                        labelCol: String,
                                        decimals: Int,
