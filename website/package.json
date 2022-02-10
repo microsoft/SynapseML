@@ -38,7 +38,8 @@
     "@docusaurus/**/browserslist": "^4.16.5",
     "@docusaurus/**/nth-check": "^2.0.1",
     "yarn-audit-fix/**/ansi-regex": "^5.0.1",
-    "@docusaurus/**/ansi-regex": "^5.0.1"
+    "@docusaurus/**/ansi-regex": "^5.0.1",
+    "node-fetch": "^2.6.7"
   },
   "browserslist": {
     "production": [

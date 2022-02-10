@@ -26,6 +26,14 @@ object FileUtilities {
     val CREATE = S.CREATE
   }
 
+  def recursiveListFiles(f: File): Array[File] = {
+    val these = f.listFiles()
+    these ++ these
+      .filter(_.isDirectory)
+      .flatMap(recursiveListFiles)
+      .filter(!_.isDirectory)
+  }
+
   def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)

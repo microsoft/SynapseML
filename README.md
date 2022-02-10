@@ -134,7 +134,7 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 To install SynapseML from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
 
-Excluding certain packages from the library may be necessary due to current issues with Livy 0.5
+Excluding certain packages from the library may be necessary due to current issues with Livy 0.5.
 
 ```
 %%configure -f
@@ -147,14 +147,15 @@ Excluding certain packages from the library may be necessary due to current issu
 }
 ```
 
-In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing SynapseML packages
+In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing SynapseML packages.
+Note that Azure Synapse is currently on spark 3.1, hence SynapseML 0.9.4 should be used instead of latest 0.9.5 release.
 
 ```
 %%configure -f
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
         "spark.yarn.user.classpath.first": "true"
     }
