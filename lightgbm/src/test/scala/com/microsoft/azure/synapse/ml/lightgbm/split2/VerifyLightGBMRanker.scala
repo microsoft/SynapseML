@@ -78,6 +78,10 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     assertFitWithoutErrors(baseModel, rankingDF)
   }
 
+  test("Verify LightGBM Ranker on ranking dataset with repartitioning") {
+    assertFitWithoutErrors(baseModel.setRepartitionByGroupingColumn(true), rankingDF)
+  }
+
   test("Throws error when group column is not long, int or string") {
     val df = rankingDF.withColumn(queryCol, from_json(lit("{}"), StructType(Seq())))
     assertThrows[IllegalArgumentException] {
@@ -157,23 +161,24 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
     })
   }
 
-/*
+
   test("verify string from trained model") {
     val fileName = "PimaIndian.csv"
     val outputFileName = "model.txt"
     val labelColumnName = "Diabetes mellitus"
     val colsToVerify = Array("Diabetes pedigree function", "Age (years)")
     val model = baseModel
-    val trainParams = baseModel.getTrainParams(2, rankingDF, 2)
+    val trainParams = model.getTrainParams(2, rankingDF, 2)
     //val booster = baseModel.getLightGBMBooster()
+/*
+    val booster = model.getModelString
 
-    val booster = trainParams.getLightGBMBooster
-
-    val rankerModel = model.getModel(trainParams, booster)
+    val rankerModel = model.getModel. //(trainParams, booster)
     val modelString = baseModel.stringFromTrainedModel(rankerModel)
     assert(modelString == "foo")
+    */
   }
-*/
+
   /*verifySaveBooster(
     fileName = "PimaIndian.csv",
     labelColumnName = "Diabetes mellitus",
@@ -225,8 +230,8 @@ class VerifyLightGBMRanker extends Benchmarks with EstimatorFuzzing[LightGBMRank
 
     assert(resultsFromString === resultsOriginal)
     assert(resultsFromFile === resultsOriginal)
-  }
-*/
+  }*/
+
   override def testObjects(): Seq[TestObject[LightGBMRanker]] = {
     Seq(new TestObject(baseModel, rankingDF))
   }
