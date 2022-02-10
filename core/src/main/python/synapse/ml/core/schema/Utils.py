@@ -85,10 +85,34 @@ class ComplexParamsMixin(MLReadable):
                     if is_complex_param:
                         value = self._java_obj.getOrDefault(java_param)
                     elif is_service_param:
-                        value = getattr(self._java_obj, "get{}".format(param.name[0].upper() + param.name[1:]))()
+                        jvObj = self._java_obj.getOrDefault(java_param)
+                        if jvObj.isLeft():
+                            value = _java2py(sc, jvObj.value())
+                        else:
+                            value = None
                     else:
                         value = _java2py(sc, self._java_obj.getOrDefault(java_param))
                     self._set(**{param.name: value})
+
+    def _transfer_params_to_java(self):
+        """
+        Transforms the embedded params to the companion Java object.
+        """
+        pair_defaults = []
+        for param in self.params:
+            if self.isSet(param):
+                try:
+                    getattr(self._java_obj, "set{}".format(param.name[0].upper()+param.name[1:]))(self._paramMap[param])
+                except:
+                    pair = self._make_java_param_pair(param, self._paramMap[param])
+                    self._java_obj.set(pair)
+            if self.hasDefault(param):
+                pair = self._make_java_param_pair(param, self._defaultParamMap[param])
+                pair_defaults.append(pair)
+        if len(pair_defaults) > 0:
+            sc = SparkContext._active_spark_context
+            pair_defaults_seq = sc._jvm.PythonUtils.toSeq(pair_defaults)
+            self._java_obj.setDefault(pair_defaults_seq)
 
 @inherit_doc
 class JavaMMLReader(JavaMLReader):
