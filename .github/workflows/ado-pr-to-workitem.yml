@@ -21,3 +21,4 @@ jobs:
           ado_new_state: "To Do"
           ado_active_state: "In Progress"
           ado_close_state: "Done"
+          ado_bypassrules: true
