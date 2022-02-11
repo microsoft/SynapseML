@@ -10,14 +10,13 @@ jobs:
   alert:
     runs-on: ubuntu-latest
     steps:
-    - uses: danhellem/github-actions-pr-to-work-item@master
+    - uses: riserrad/github-actions-pr-to-work-item@user/riserrad/master/test-message-nonewline
       env:
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'   
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'    
         ado_organization: 'msdata'
         ado_project: 'A365'
         ado_wit: 'Task' 
-        ado_new_state: 'To Do'
         ado_active_state: 'In Progress'
         ado_close_state: 'Done'
         ado_area_path: 'A365\\A plus I\\Synapse ML'
