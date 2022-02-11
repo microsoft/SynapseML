@@ -101,9 +101,9 @@ class ComplexParamsMixin(MLReadable):
         pair_defaults = []
         for param in self.params:
             if self.isSet(param):
-                try:
+                if param.doc.startswith("ServiceParam"):
                     getattr(self._java_obj, "set{}".format(param.name[0].upper()+param.name[1:]))(self._paramMap[param])
-                except:
+                else:
                     pair = self._make_java_param_pair(param, self._paramMap[param])
                     self._java_obj.set(pair)
             if self.hasDefault(param):
