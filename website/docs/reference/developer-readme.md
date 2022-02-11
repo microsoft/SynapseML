@@ -20,13 +20,14 @@ description: SynapseML Development Setup
 5) Run sbt to compile and grab datasets
     - `cd synapseml`
     - `sbt setup`
-6) [Install IntelliJ](https://www.jetbrains.com/idea/download)
-    - Install Scala plugins during install
+6) [Install IntelliJ](https://www.jetbrains.com/idea/download)    
 7) Configure IntelliJ
+    - Install [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala) during initialization
     - **OPEN** the synapseml directory
     - If the project does not automatically import,click on `build.sbt` and import project
 8) Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+    - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
     - Activate the `synapseml` conda environment by running `conda env create -f environment.yaml` from the `synapseml` directory.
 
 > NOTE

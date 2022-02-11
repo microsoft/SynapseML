@@ -23,7 +23,7 @@ import spray.json._
 import java.io.{File, InputStream}
 import java.util
 import scala.annotation.tailrec
-import scala.concurrent.{TimeoutException, blocking}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 import scala.io.Source
 import scala.language.postfixOps
 import scala.sys.process._
@@ -36,7 +36,19 @@ case class LivyBatch(id: Int,
 
 case class LivyBatchJob(livyBatch: LivyBatch,
                         sparkPool: String,
-                        livyUrl: String)
+                        livyUrl: String) {
+  def monitor(): Future[Any] = {
+    Future {
+      if(livyBatch.state != "success") {
+        SynapseUtilities.retry(
+          livyBatch.id,
+          livyUrl,
+          SynapseUtilities.TimeoutInMillis,
+          System.currentTimeMillis())
+      }
+    }(ExecutionContext.global)
+  }
+}
 
 case class Application(state: String,
                        name: String,
@@ -110,7 +122,7 @@ object SynapseUtilities extends HasHttpClient {
     .sorted
   }
 
-  def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {
+  def postMortem(batch: LivyBatch): LivyBatch = {
     batch.log.foreach(println)
     write(batch)
     batch
@@ -177,11 +189,11 @@ object SynapseUtilities extends HasHttpClient {
         throw new TimeoutException(s"Job $id timed out.")
       }
       else if (batch.state == "dead") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Dead")
       }
       else if (batch.state == "error") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Error")
       }
       else {

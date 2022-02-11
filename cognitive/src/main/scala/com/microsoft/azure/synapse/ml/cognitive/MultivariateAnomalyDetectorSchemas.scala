@@ -95,4 +95,6 @@ object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMAContributorEnc: RootJsonFormat[DMAContributor] = jsonFormat2(DMAContributor.apply)
   implicit val DMAValueEnc: RootJsonFormat[DMAValue] = jsonFormat4(DMAValue.apply)
   implicit val DMAResEnc: RootJsonFormat[DMAResult] = jsonFormat3(DMAResult.apply)
+  implicit val DMASetupInfoEnc: RootJsonFormat[DMASetupInfo] = jsonFormat3(DMASetupInfo.apply)
+  implicit val DMASummaryEnc: RootJsonFormat[DMASummary] = jsonFormat4(DMASummary.apply)
 }
