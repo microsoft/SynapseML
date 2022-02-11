@@ -20,3 +20,4 @@ jobs:
         ado_active_state: 'In Progress'
         ado_close_state: 'Done'
         ado_area_path: 'A365\\A plus I\\Synapse ML'
+        debug: true
