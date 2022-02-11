@@ -38,6 +38,7 @@ object CodegenPlugin extends AutoPlugin {
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
   val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
+  val TestDotnetTag = Tags.Tag("testDotnet")
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
@@ -84,7 +85,7 @@ object CodegenPlugin extends AutoPlugin {
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
       Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(DotnetTestGenTag, 1),
-      Tags.limit(DotnetCodeGenTag, 1))
+      Tags.limit(DotnetCodeGenTag, 1), Tags.limit(TestDotnetTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -138,6 +139,20 @@ object CodegenPlugin extends AutoPlugin {
     }
   } tag (DotnetCodeGenTag)
 
+  def testDotnetImpl: Def.Initialize[Task[Unit]] = Def.task {
+    dotnetCodeGen.value
+    dotnetTestGen.value
+    val mainTargetDir = join(baseDirectory.value.getParent, "target")
+    runCmd(
+      Seq("dotnet",
+        "test",
+        s"${join(codegenDir.value, "test", "dotnet", "SynapseMLtest", "TestProjectSetup.csproj")}",
+        "--logger",
+        s""""trx;LogFileName=${join(mainTargetDir, s"dotnet_test_results_${name.value}.trx")}""""
+      ),
+      new File(codegenDir.value, "test/dotnet/")
+    )
+  } tag (TestDotnetTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -269,20 +284,7 @@ object CodegenPlugin extends AutoPlugin {
     },
     dotnetCodeGen := dotnetCodeGenImpl.value,
     dotnetTestGen := dotnetTestGenImpl.value,
-    testDotnet := {
-      dotnetCodeGen.value
-      dotnetTestGen.value
-      val mainTargetDir = join(baseDirectory.value.getParent, "target")
-      runCmd(
-        Seq("dotnet",
-          "test",
-          s"${join(codegenDir.value, "test", "dotnet", "SynapseMLtest", "TestProjectSetup.csproj")}",
-          "--logger",
-          s""""trx;LogFileName=${join(mainTargetDir, s"dotnet_test_results_${name.value}.trx")}""""
-        ),
-        new File(codegenDir.value, "test/dotnet/")
-      )
-    },
+    testDotnet := testDotnetImpl.value,
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
