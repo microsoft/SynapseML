@@ -12,8 +12,8 @@ jobs:
     steps:
     - uses: riserrad/github-actions-pr-to-work-item@user/riserrad/master/ado_token_issue
       env:
-        ado_token: 'Foo'   
-        github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'    
+        ado_token: ${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}
+        github_token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
         ado_organization: 'msdata'
         ado_project: 'A365'
         ado_wit: 'Task' 
