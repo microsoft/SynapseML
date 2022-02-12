@@ -13,8 +13,8 @@ from synapse.ml.core.schema.Utils import *
 @inherit_doc
 class SARModel:
     
-    def __init__(self):
-        sarplus = None
+    def __init__(self, sarplus=None):
+        self.sarplus = sarplus
 
     def recommendForAllUsers(self, numItems):
         return self.sarplus.recommend_k_items(top_k=numItems)
