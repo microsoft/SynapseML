@@ -10,6 +10,7 @@ from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.wrapper import JavaParams
 from pysarplus import SARPlus
 from synapse.ml.recommendation._SAR import _SAR
+from synapse.ml.recommendation.SARModel import SARModel
 
 
 class RankingTrainValidationSplit(_ValidatorParams, _SAR):
@@ -36,6 +37,6 @@ class RankingTrainValidationSplit(_ValidatorParams, _SAR):
           col_rating=self.getRatingCol(),
           col_timestamp=self.getTimeCol()
         )
-        sarplus.fit(dataset)
+        sarplus.fit(dataset)            
         
-        return sarplus
+        return SARModel(sarplus)
