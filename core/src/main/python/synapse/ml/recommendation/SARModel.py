@@ -8,10 +8,13 @@ if sys.version >= "3":
     basestring = str
 
 from synapse.ml.core.schema.Utils import *
-from synapse.ml.recommendation._SARModel import _SARModel
 
 
 @inherit_doc
-class SARModel(_SARModel):
+class SARModel:
+    
+    def __init__(self):
+        sarplus = None
+
     def recommendForAllUsers(self, numItems):
-        return self._call_java("recommendForAllUsers", numItems)
+        return self.sarplus.recommend_k_items(top_k=numItems)
