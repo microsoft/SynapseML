@@ -5,13 +5,12 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-  workflow_dispatch:    
+  workflow_dispatch:
 
 jobs:
-  build:
-
+  ScalaStyle:
     runs-on: ubuntu-18.04
-
+    timeout-minutes: 0
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 11
@@ -22,8 +21,9 @@ jobs:
     - name: Run scalastyle
       run: sbt scalastyle test:scalastyle
       
-  publish:
+  Publish:
     runs-on: ubuntu-18.04
+    timeout-minutes: 0
     steps:
       - name: Azure Login
         uses: Azure/login@v1.4.3
@@ -35,9 +35,36 @@ jobs:
           keyvault: mmlspark-keys
           secrets: "storage-key, nexus-un, nexus-pw, pgp-private, pgp-public, pgp-pw"
       - run: echo "##vso[task.prependpath]$CONDA/bin"
-      - name: Add conda to PATH
+        name: Add conda to PATH
       - run: conda info
       - run: conda env create -f environment.yaml
-      - name: Create Anaconda environment
+        name: Create Anaconda environment
+      - run: |
+          set -e
+          source activate synapseml
+          sbt packagePython
+          sbt publishBlob publishDocs publishR publishPython
+          sbt publishSigned
+          sbt genBuildInfo
+          echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+        name: Publish Artifacts
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+      - run: |
+          set -e
+          sbt publishBadges
+        name: Publish Badges
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
       
       
