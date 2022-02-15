@@ -26,9 +26,11 @@ jobs:
     timeout-minutes: 0
     steps:
       - name: Azure Login
-        uses: Azure/login@v1.4.3
+        uses: Azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Azure Key Vault - Get Secrets
-        uses: Azure/get-keyvault-secrets@v1.2
+        uses: Azure/get-keyvault-secrets@v1
         with:
           keyvault: mmlspark-keys
           secrets: "storage-key, nexus-un, nexus-pw, pgp-private, pgp-public, pgp-pw"
