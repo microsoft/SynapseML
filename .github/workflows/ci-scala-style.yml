@@ -34,6 +34,8 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
+    - name: View Python version
+      run: python --version
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:
