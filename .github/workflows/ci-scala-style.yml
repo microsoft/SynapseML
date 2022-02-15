@@ -9,15 +9,15 @@ on:
 
 jobs:
   Publish:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     timeout-minutes: 0
     steps:
-      - name: Azure Login
-        uses: Azure/cli@v1
-        with:
-          inlineScript: az login --service-principal -u ${{ secrets.SYNAPSEML_BUILD_SP_APPID }} -p ${{ secrets.SYNAPSEML_BUILD_SP_PASSWORD }} --tenant ${{ secrets.SYNAPSEML_BUILD_SP_TENANTID }}
-      - name: Azure Key Vault - Get Secrets
-        uses: Azure/get-keyvault-secrets@v1
-        with:
-          keyvault: mmlspark-keys
-          secrets: "storage-key, nexus-un, nexus-pw, pgp-private, pgp-public, pgp-pw"
+    - uses: actions/checkout@master
+    - uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw"'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: myGetSecretAction
