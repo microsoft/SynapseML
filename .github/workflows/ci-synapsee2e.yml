@@ -35,6 +35,7 @@ jobs:
       shell: bash -l {0}
       run: |
         set -e
+        jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
         sbt packagePython
         sbt publishBlob
       env:
