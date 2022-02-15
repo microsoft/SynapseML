@@ -25,4 +25,4 @@ dependencies:
     - twine
     - jupyter
     - mlflow
-    - setuptools
+    - setuptools==41.4.0
