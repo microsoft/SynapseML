@@ -110,7 +110,7 @@ jobs:
         PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
         PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
     - name: Run E2E Tests
-      if: sucess()
+      if: success()
       shell: bash -l {0}
       run: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
     - name: Publish Test Results
