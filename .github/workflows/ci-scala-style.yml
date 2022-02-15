@@ -16,3 +16,8 @@ jobs:
         uses: Azure/cli@v1
         with:
           inlineScript: az login --service-principal -u ${{ secrets.SYNAPSEML_BUILD_SP_APPID }} -p ${{ secrets.SYNAPSEML_BUILD_SP_PASSWORD }} --tenant ${{ secrets.SYNAPSEML_BUILD_SP_TENANTID }}
+      - name: Azure Key Vault - Get Secrets
+        uses: Azure/get-keyvault-secrets@v1
+        with:
+          keyvault: mmlspark-keys
+          secrets: "storage-key, nexus-un, nexus-pw, pgp-private, pgp-public, pgp-pw"
