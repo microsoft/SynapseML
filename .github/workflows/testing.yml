@@ -23,12 +23,12 @@ jobs:
         python-version: 3.8.8
     - name: View Conda info before activation
       run: conda info
-    - name: Create conda environment
-      run: conda env create -f environment_dummy.yaml
     - name: Activate conda environment
-      run: |
-        set -e
-        conda activate dummy
+      uses: conda-incubator/setup-miniconda@v2.1.1
+      with:
+        python-version: 3.8
+        environment-file: environment_dummy.yaml
+        activate-environment: dummy
     - name: View conda info after activation
       run: conda info
 
