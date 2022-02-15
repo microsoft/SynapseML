@@ -39,3 +39,7 @@ jobs:
       with:
         environment-file: environment.yaml
         activate-environment: synapseml
+    - name: Publish Artifact
+      run: |
+        set -e
+        sbt packagePython
