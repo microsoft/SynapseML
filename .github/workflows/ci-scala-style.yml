@@ -46,9 +46,6 @@ jobs:
         set -e
         activate synapseml
         sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
-        sbt publishSigned
-        sbt genBuildInfo
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
