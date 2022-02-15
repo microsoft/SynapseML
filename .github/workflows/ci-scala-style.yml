@@ -37,7 +37,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2.3.2
       with:
-        python-versoin: 3.8
+        python-version: 3.8
     - name: View Python version
       run: python --version
     - name: Setup Miniconda
