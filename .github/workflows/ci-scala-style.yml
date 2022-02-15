@@ -37,7 +37,7 @@ jobs:
     - run: echo "$CONDA/bin"
       name: Add conda to PATH
     - run: conda info
-    - run: conda env create --name sampleEnv
+    - run: conda create --name sampleEnv
       name: Create Anaconda environment
     - run: |
         set -e
