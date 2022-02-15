@@ -1,0 +1,30 @@
+name: Publish Docker
+
+on:
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  PublishDocker:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    steps:
+    - uses: actions/checkout@v2
+    - uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: GetKeyVaultSecrets
+    - name: Get Docker Tag and Version
+      shell: bash -l {0}
+      run: |
+        echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')"
+    - name: Test
+      shell: bash -l {0}
+      run: echo $VERSION
