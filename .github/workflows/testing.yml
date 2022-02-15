@@ -30,6 +30,9 @@ jobs:
         environment-file: environment_dummy.yaml
         activate-environment: dummy
     - name: View conda info after activation
-      run: conda info
+      shell: bash -l {0}
+      run: |
+        conda info
+        conda list
 
     
