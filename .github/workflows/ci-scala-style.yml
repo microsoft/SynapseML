@@ -44,8 +44,7 @@ jobs:
         conda env list
     - run: |
         set -e
-        conda init bash
-        conda activate sampleEnv
+        activate sampleEnv
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
