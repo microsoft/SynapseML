@@ -41,7 +41,7 @@ jobs:
       name: Create Anaconda environment
     - run: |
         set -e
-        source conda activate synapseml
+        conda env list
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
