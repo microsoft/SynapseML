@@ -34,26 +34,8 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
-    - run: echo "$CONDA/bin" >> $GITHUB_PATH
-      name: Add conda to PATH
-    - run: conda info
-    - run: conda env create -f environment.yaml
-      name: Create Anaconda environment
-    - run: |
-        set -e
-        conda env list
-    - run: |
-        set -e
-        activate synapseml
-        sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
-        sbt publishSigned
-        sbt genBuildInfo
-      name: Publish Artifacts
-      env:
-        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
-        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
-        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
-        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
-        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
-        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2.1.1
+      with:
+        environment-file: environment.yaml
+        activate-environment: synapseml
