@@ -8,6 +8,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  ScalaStyle:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+    - name: Run scalastyle
+      run: sbt scalastyle test:scalastyle
+  
   Publish:
     runs-on: ubuntu-latest
     timeout-minutes: 0
@@ -21,3 +34,35 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
+    - run: echo "##vso[task.prependpath]$CONDA/bin"
+      name: Add conda to PATH
+    - run: conda info
+    - run: conda env create -f environment.yaml
+      name: Create Anaconda environment
+    - run: |
+        set -e
+        source activate synapseml
+        sbt packagePython
+        sbt publishBlob publishDocs publishR publishPython
+        sbt publishSigned
+        sbt genBuildInfo
+        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+      name: Publish Artifacts
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+    - run: |
+        set -e
+        sbt publishBadges
+      name: Publish Badges
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
