@@ -34,7 +34,7 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
-    - run: echo "$CONDA/bin"
+    - run: echo "$CONDA/bin" >> $GITHUB_PATH
       name: Add conda to PATH
     - run: conda info
     - run: conda create --name sampleEnv
@@ -44,7 +44,7 @@ jobs:
         conda env list
     - run: |
         set -e
-        $CONDA/bin/activate sampleEnv
+        conda activate sampleEnv
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
