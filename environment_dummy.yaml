@@ -1,0 +1,9 @@
+name: dummy
+channels:
+  - conda-forge
+  - default
+dependencies:
+  - python=3.8.8
+  - pip
+  - pip:
+    - wheel

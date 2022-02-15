@@ -1,0 +1,35 @@
+name: Testing Actions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Python_Conda:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    steps:
+    - uses: actions/checkout@master
+    - uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: GetKeyVaultSecrets
+    - name: Setup Python
+      uses: actions/setup-python@v2.3.2
+      with:
+        python-version: 3.8.8
+    - name: View Conda info before activation
+      run: conda info
+    - name: Create conda environment
+      run: conda env create -f environment_dummy.yaml
+    - name: Activate conda environment
+      run: |
+        set -e
+        conda activate dummy
+    - name: View conda info after activation
+      run: conda info
+
+    
