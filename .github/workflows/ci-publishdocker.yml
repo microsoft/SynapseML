@@ -1,8 +1,8 @@
 name: Publish Docker
 
 on:
-  # push:
-  #   branches: [ master ]
+  push:
+    branches: [ master ]
   # pull_request:
   #   branches: [ master ]
   workflow_dispatch:
@@ -27,7 +27,8 @@ jobs:
       id: getDockerTagAndVersion
       shell: bash -l {0}
       run: |
-        echo "::set-output name=version::$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')"
+        echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')" >> $GITHUB_ENV
+        echo "::set-output name=version::$(echo $VERSION)"
     - name: Test
       shell: bash -l {0}
       run: echo ${{ needs.PublishDocker.outputs.version }}
