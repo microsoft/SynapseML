@@ -1,0 +1,55 @@
+name: Databricks E2E Tests
+
+on:
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  DatabricksE2E:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    steps:
+    - uses: actions/checkout@master
+    - uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: GetKeyVaultSecrets
+    - name: Setup Python
+      uses: actions/setup-python@v2.3.2
+      with:
+        python-version: 3.8.8
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2.1.1
+      with:
+        python-version: 3.8.8
+        environment-file: environment.yaml
+        activate-environment: synapseml
+    - name: Publish Blob Artifacts
+      shell: bash -l {0}
+      run: |
+        set -e
+        sbt packagePython
+        sbt publishBlob
+      env:
+        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
+        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
+        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
+        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
+        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
+        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
+    - name: Run E2E Tests
+      if: success()
+      shell: bash -l {0}
+      run: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: '**/test-reports/TEST-*.xml'
