@@ -46,11 +46,14 @@ jobs:
         set -e
         activate synapseml
         sbt packagePython
+        sbt publishBlob publishDocs publishR publishPython
+        sbt publishSigned
+        sbt genBuildInfo
       name: Publish Artifacts
       env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
+        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
+        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
+        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
+        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
+        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
+        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
