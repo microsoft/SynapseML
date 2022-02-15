@@ -34,14 +34,17 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
-    - run: echo "##vso[task.prependpath]$CONDA/bin"
+    - run: echo "$CONDA/bin"
       name: Add conda to PATH
     - run: conda info
-    - run: conda env create -f environment.yaml
+    - run: conda env create --name sampleEnv
       name: Create Anaconda environment
     - run: |
         set -e
         conda env list
+    - run: |
+        set -e
+        conda activate sampleEnv
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
