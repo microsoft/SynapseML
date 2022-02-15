@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
     steps:
-    # - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
     # - uses: Azure/login@v1
     #   with:
     #     creds: ${{ secrets.AZURE_CREDENTIALS }} 
