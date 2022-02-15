@@ -11,8 +11,6 @@ jobs:
   PublishDocker:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
-    outputs:
-      buildVersion: ${{ steps.getDockerTagAndVersion.outputs.version }}
     steps:
     - uses: actions/checkout@v2
     - uses: Azure/login@v1
@@ -27,8 +25,7 @@ jobs:
       id: getDockerTagAndVersion
       shell: bash -l {0}
       run: |
-        echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')" >> $GITHUB_ENV
-        echo "::set-output name=version::$(echo $VERSION)"
+        echo "::set-output name=version::$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')"
     - name: Test
       shell: bash -l {0}
-      run: echo ${{ needs.PublishDocker.outputs.version }}
+      run: echo ${{ steps.getDockerTagAndVersion.outputs.version }}
