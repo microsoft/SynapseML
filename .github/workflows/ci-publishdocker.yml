@@ -25,8 +25,7 @@ jobs:
       id: getDockerTagAndVersion
       shell: bash -l {0}
       run: |
-        echo "VERSION=1.2.3"
-        echo '::set-output name=version::$(echo $VERSION)'
+        echo '::set-output name=version::$(echo RICARDO SERRADAS)'
     - name: Test
       shell: bash -l {0}
       run: echo ${{ steps.getDockerTagAndVersion.outputs.version }}
