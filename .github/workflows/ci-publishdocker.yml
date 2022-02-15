@@ -11,6 +11,8 @@ jobs:
   PublishDocker:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
+    outputs:
+      buildVersion: ${{ steps.getDockerTagAndVersion.outputs.version }}
     steps:
     - uses: actions/checkout@v2
     - uses: Azure/login@v1
@@ -22,9 +24,11 @@ jobs:
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
     - name: Get Docker Tag and Version
+      id: getDockerTagAndVersion
       shell: bash -l {0}
       run: |
         echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')" >> $GITHUB_ENV
+        echo "::set-output name=version::$VERSION"
     - name: Test
       shell: bash -l {0}
-      run: echo ${{ env.VERSION }}
+      run: echo ${{ needs.PublishDocker.outputs.version }}
