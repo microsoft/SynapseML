@@ -22,7 +22,7 @@ jobs:
       run: sbt scalastyle test:scalastyle
   
   Publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     timeout-minutes: 0
     steps:
     - uses: actions/checkout@master
@@ -41,7 +41,7 @@ jobs:
       name: Create Anaconda environment
     - run: |
         set -e
-        conda activate synapseml
+        source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
         sbt publishSigned
