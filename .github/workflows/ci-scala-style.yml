@@ -42,23 +42,7 @@ jobs:
     - run: |
         set -e
         source conda activate synapseml
-        sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
-        sbt publishSigned
-        sbt genBuildInfo
-        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       name: Publish Artifacts
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-    - run: |
-        set -e
-        sbt publishBadges
-      name: Publish Badges
       env:
         STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
