@@ -39,7 +39,7 @@ jobs:
       with:
         environment-file: environment.yaml
         activate-environment: synapseml
-        python-version: 3.9.5
+        python-version: 3.9
     - name: Publish Artifact
       run: |
         set -e
