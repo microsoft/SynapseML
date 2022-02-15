@@ -44,6 +44,7 @@ jobs:
         conda env list
     - run: |
         set -e
+        conda init bash
         conda activate sampleEnv
       name: Publish Artifacts
       env:
