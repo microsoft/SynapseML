@@ -29,4 +29,4 @@ jobs:
         echo '::set-output name=version::'$VERSION
     - name: Test
       shell: bash -l {0}
-      run: echo ${{ steps.getDockerTagAndVersion.outputs.version }}
+      run: echo $VERSION
