@@ -37,14 +37,18 @@ jobs:
     - run: echo "$CONDA/bin" >> $GITHUB_PATH
       name: Add conda to PATH
     - run: conda info
-    - run: conda create --name sampleEnv
+    - run: conda env create -f environment.yaml
       name: Create Anaconda environment
     - run: |
         set -e
         conda env list
     - run: |
         set -e
-        activate sampleEnv
+        activate synapseml
+        sbt packagePython
+        sbt publishBlob publishDocs publishR publishPython
+        sbt publishSigned
+        sbt genBuildInfo
       name: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
