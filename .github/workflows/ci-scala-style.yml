@@ -37,13 +37,13 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2.3.2
       with:
-        python-version: 3.8
+        python-version: 3.8.8
     - name: View Python version
       run: python --version
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:
-        python-version: 3.8
+        python-version: 3.8.8
         environment-file: environment.yaml
         activate-environment: synapseml
     - name: Publish Artifact
