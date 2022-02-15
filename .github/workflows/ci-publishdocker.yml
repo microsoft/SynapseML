@@ -25,7 +25,8 @@ jobs:
       id: getDockerTagAndVersion
       shell: bash -l {0}
       run: |
-        echo '::set-output name=version::$(echo $(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g'))'
+        echo "VERSION=1.2.3"
+        echo '::set-output name=version::$(echo $VERSION)'
     - name: Test
       shell: bash -l {0}
       run: echo ${{ steps.getDockerTagAndVersion.outputs.version }}
