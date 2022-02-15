@@ -24,7 +24,7 @@ jobs:
     - name: Get Docker Tag and Version
       shell: bash -l {0}
       run: |
-        echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')"
+        echo "VERSION=$(sbt 'core/version' | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')" >> $GITHUB_ENV
     - name: Test
       shell: bash -l {0}
-      run: echo $VERSION
+      run: echo ${{ env.VERSION }}
