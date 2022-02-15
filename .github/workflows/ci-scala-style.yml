@@ -13,6 +13,6 @@ jobs:
     timeout-minutes: 0
     steps:
       - name: Azure Login
-        uses: Azure/login@v1
+        uses: Azure/cli@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          inlineScript: az login --service-principal -u ${{ secrets.SYNAPSEML_BUILD_SP_APPID }} -p ${{ secrets.SYNAPSEML_BUILD_SP_PASSWORD }} --tenant ${{ secrets.SYNAPSEML_BUILD_SP_TENANTID }}
