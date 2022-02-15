@@ -41,7 +41,7 @@ jobs:
       name: Create Anaconda environment
     - run: |
         set -e
-        source activate synapseml
+        source conda activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
         sbt publishSigned
