@@ -49,4 +49,5 @@ jobs:
     - name: Publish Artifact
       run: |
         set -e
+        source activate synapseml
         sbt packagePython
