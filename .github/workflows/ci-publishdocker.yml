@@ -13,14 +13,14 @@ jobs:
     timeout-minutes: 0
     steps:
     - uses: actions/checkout@v2
-    # - uses: Azure/login@v1
-    #   with:
-    #     creds: ${{ secrets.AZURE_CREDENTIALS }} 
-    # - uses: Azure/get-keyvault-secrets@v1
-    #   with:
-    #     keyvault: "mmlspark-keys"
-    #     secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
-    #   id: GetKeyVaultSecrets
+    - uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: GetKeyVaultSecrets
     - name: Get Docker Tag and Version
       id: getDockerTagAndVersion
       shell: bash -l {0}
