@@ -34,6 +34,7 @@ val extraDependencies = Seq(
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "com.microsoft.sarplus" %% "sarplus' % "0.5.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
