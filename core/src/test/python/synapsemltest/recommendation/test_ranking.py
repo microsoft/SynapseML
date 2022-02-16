@@ -81,7 +81,7 @@ class RankingSpec(unittest.TestCase):
     #     sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
     #     self.adapter_evaluator(sar)
 
-    def test_all_tiny_als(self):
+    def test_all_tiny(self):
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
         ratings_index = StringIndexer(inputCol=ITEM_ID, outputCol=ITEM_ID_INDEX)
 
