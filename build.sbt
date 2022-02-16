@@ -162,6 +162,11 @@ packageSynapseML := {
          |    ],
          |    zip_safe=True,
          |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |    extras_require={
+         |      "required": [
+         |        "recommenders==1.0.0",
+         |      ],
+         |    }
          |)
          |
          |""".stripMargin
