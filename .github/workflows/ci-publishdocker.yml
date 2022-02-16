@@ -1,4 +1,4 @@
-name: Publish Docker
+name: CI/Publish Docker
 
 on:
   # push:
