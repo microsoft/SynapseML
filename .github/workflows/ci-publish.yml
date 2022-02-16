@@ -1,4 +1,4 @@
-name: Publish Artifacts
+name: CI/Publish Artifacts
 
 on:
   # push:
@@ -35,9 +35,14 @@ jobs:
       shell: bash -l {0}
       run: |
         set -e
+        source activate synapseml
+        echo "Starting packagePython"
         sbt packagePython
+        echo "Starting publishBlob publishDocs publishR publishPython"
         sbt publishBlob publishDocs publishR publishPython
+        echo "Starting publishSigned"
         sbt publishSigned
+        echo "Starting genBuildInfo"
         sbt genBuildInfo
       env:
         STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
@@ -51,6 +56,8 @@ jobs:
       shell: bash -l {0}
       run: |
         set -e
+        source activate synapseml
+        echo "Starting genBuildInfo"
         sbt publishBadges
       env:
         STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}

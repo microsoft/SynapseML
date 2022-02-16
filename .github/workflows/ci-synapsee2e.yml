@@ -1,4 +1,4 @@
-name: Synapse E2E Tests
+name: CI/Synapse E2E Tests
 
 on:
   # push:

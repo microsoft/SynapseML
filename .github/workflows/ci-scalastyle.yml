@@ -1,4 +1,4 @@
-name: Scala Style
+name: CI/Scala Style
 
 on:
   # push:

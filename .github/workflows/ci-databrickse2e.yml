@@ -1,4 +1,4 @@
-name: Databricks E2E Tests
+name: CI/Databricks E2E Tests
 
 on:
   # push:
