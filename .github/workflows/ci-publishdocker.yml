@@ -32,3 +32,6 @@ jobs:
       run: |
         echo ${{ steps.getDockerTagAndVersion.outputs.version }}
         echo ${{ steps.getDockerTagAndVersion.outputs.gittag }}
+    - name: Demo Image Build
+      shell: bash
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }}
