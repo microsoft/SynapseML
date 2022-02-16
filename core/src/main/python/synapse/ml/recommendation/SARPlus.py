@@ -9,13 +9,13 @@ if sys.version >= "3":
 from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.wrapper import JavaParams
 from pysarplus import SARPlus
-from synapse.ml.recommendation._SAR import _SAR
-from synapse.ml.recommendation.SARModel import SARModel
+from synapse.ml.recommendation._SAR import SAR
+from synapse.ml.recommendation.SARPlusModel import SARPlusModel
 
 
-class RankingTrainValidationSplit(_ValidatorParams, _SAR):
+class SARPlus(_ValidatorParams, _SAR):
     def __init__(self, **kwargs):
-        _SAR.__init__(self, **kwargs)
+        SAR.__init__(self, **kwargs)
 
     def _to_java(self):
         estimator, epms, evaluator = _ValidatorParams._to_java_impl(self)
