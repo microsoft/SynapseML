@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  Release:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    steps:
+    - uses: actions/checkout@master
+    - name: Get Git Tag
+      id: getGitTag
+      shell: bash -l
+      run: |
+        echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
+    - shell: bash
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      run: |
+        set -e
+        wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
+        chmod +x git-chglog_linux_amd64
+        ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
+    - name: Create GitHub Release
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.getGitTag.outputs.gittag }}
+        body_path: CHANGELOG.md
+        draft: true
+        release_name: SynapseML ${{ steps.getGitTag.outputs.gittag }}
+    - name: Azure Login
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+    - name: Get Secrets from KeyVault
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw,pypi-api-token'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+      id: GetKeyVaultSecrets
+    - name: Setup Python
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      uses: actions/setup-python@v2.3.2
+      with:
+        python-version: 3.8.8
+    - name: Setup Miniconda
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      uses: conda-incubator/setup-miniconda@v2.1.1
+      with:
+        python-version: 3.8.8
+        environment-file: environment.yaml
+        activate-environment: synapseml
+    - name: publish python package to pypi
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      shell: bash
+      run: |
+        set -e
+        sbt publishPypi
+      env:
+        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
+        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
+        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
+        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
+        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
+        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
+        PYPI-API-TOKEN: ${{ steps.GetKeyVaultSecrets.outputs.pypi-api-token }}
+    - name: publish jar package to maven central
+      if: startsWith(steps.getGitTag.outputs.gittag, 'v')
+      shell: bash
+      run: |
+        set -e
+        sbt publishSigned
+        sbt sonatypeBundleRelease
+      env:
+        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
+        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
+        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
+        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
+        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
+        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
