@@ -35,7 +35,7 @@ jobs:
       shell: bash -l {0}
       run: |
         set -e
-        source activate synapseml
+        source $CONDA/bin/activate synapseml
         echo "Starting packagePython"
         sbt packagePython
         echo "Starting publishBlob publishDocs publishR publishPython"
@@ -56,7 +56,7 @@ jobs:
       shell: bash -l {0}
       run: |
         set -e
-        source activate synapseml
+        source $CONDA/bin/activate synapseml
         echo "Starting genBuildInfo"
         sbt publishBadges
       env:
