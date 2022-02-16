@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
     strategy:
+      fail-fast: false
       matrix:
         project: ["core", "deepLearning", "lightgbm", "opencv", "vw", "cognitive"]
     steps:
@@ -31,12 +32,12 @@ jobs:
         environment-file: environment.yaml
         activate-environment: synapseml
     - name: Install Pip Package
-      shell: bash
+      shell: bash -l {0}
       run: |
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         sbt installPipPackage
     - name: Test Python Code
-      shell: bash
+      shell: bash -l {0}
       run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
@@ -45,7 +46,7 @@ jobs:
         files: '**/python-test-*.xml'
     - name: Generate Codecov report
       if: always()
-      shell: bash
+      shell: bash -l {0}
       run: sbt coverageReport
     - name: Get Codecov Secret from Key Vault
       uses: Azure/get-keyvault-secrets@v1
@@ -55,7 +56,7 @@ jobs:
       id: GetKeyVaultSecrets
     - name: Upload Coverage Report To Codecov.io
       if: always()
-      shell: bash
+      shell: bash -l {0}
       run: |
         set -e
         curl -s https://codecov.io/bash > .codecov
