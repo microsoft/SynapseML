@@ -36,14 +36,11 @@ jobs:
     - name: Install Pip Package
       shell: bash -l {0}
       run: |
-        source activate synapseml
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         sbt installPipPackage
     - name: Test Python Code
       shell: bash -l {0}
-      run: |
-        source activate synapseml
-        (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
+      run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
       if: always()
