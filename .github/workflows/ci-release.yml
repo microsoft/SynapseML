@@ -15,7 +15,7 @@ jobs:
     - uses: actions/checkout@master
     - name: Get Git Tag
       id: getGitTag
-      shell: bash -l
+      shell: bash
       run: |
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
     - shell: bash
