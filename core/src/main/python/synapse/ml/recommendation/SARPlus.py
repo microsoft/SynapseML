@@ -18,8 +18,6 @@ class SARPlus(_ValidatorParams, SAR):
         SAR.__init__(self, **kwargs)
 
     def _to_java(self):
-        estimator, epms, evaluator = _ValidatorParams._to_java_impl(self)
-
         _java_obj = JavaParams._new_java_obj(
             "com.microsoft.azure.synapse.ml.recommendation.SAR", self.uid
         )
