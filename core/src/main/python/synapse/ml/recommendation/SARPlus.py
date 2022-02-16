@@ -6,7 +6,6 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.wrapper import JavaParams
 from pysarplus import SARPlus
 from synapse.ml.recommendation.SAR import SAR
