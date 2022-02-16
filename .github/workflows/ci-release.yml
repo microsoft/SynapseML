@@ -18,7 +18,8 @@ jobs:
       shell: bash
       run: |
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
-    - shell: bash
+    - name: Generage CHANGELOG
+      shell: bash
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
       run: |
         set -e
