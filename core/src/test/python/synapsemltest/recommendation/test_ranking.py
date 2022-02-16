@@ -8,7 +8,7 @@ from synapse.ml.recommendation import RankingAdapter
 from synapse.ml.recommendation import RankingEvaluator
 from synapse.ml.recommendation import RankingTrainValidationSplit
 from synapse.ml.recommendation import RecommendationIndexer
-from synapse.ml.recommendation import SAR
+from synapse.ml.recommendation import SAR, SARPlus
 from synapsemltest.spark import *
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
@@ -81,7 +81,7 @@ class RankingSpec(unittest.TestCase):
     #     sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
     #     self.adapter_evaluator(sar)
 
-    def test_all_tiny(self):
+    def test_all_tiny_als(self):
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
         ratings_index = StringIndexer(inputCol=ITEM_ID, outputCol=ITEM_ID_INDEX)
 
@@ -111,6 +111,19 @@ class RankingSpec(unittest.TestCase):
 
         print("Sample User Recommendation: " + str(users_recs.take(1)))
         print("Validation Metrics: " + str(tv_model.validationMetrics))
+
+
+    def test_all_tiny_sarplus(self):
+        customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
+        ratings_index = StringIndexer(inputCol=ITEM_ID, outputCol=ITEM_ID_INDEX)
+
+        pipeline = Pipeline(stages=[customer_index, ratings_index])
+        transformed_df = pipeline.fit(ratings).transform(ratings)
+
+        algo = SARPlus(userCol=customer_index.getOutputCol(), ratingCol=RATING_ID, itemCol=ratings_index.getOutputCol())
+        model = algo.fit(transformed_df)
+        users_recs = model.recommendForAllUsers(3)
+        print("One Sample User Recommendation: " + str(users_recs.take(1)))
 
 
 if __name__ == "__main__":
