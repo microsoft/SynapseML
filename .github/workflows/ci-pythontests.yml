@@ -17,6 +17,8 @@ jobs:
         project: ["core", "deepLearning", "lightgbm", "opencv", "vw", "cognitive"]
     steps:
     - uses: actions/checkout@master
+      with:
+        fetch-depth: 0
     - name: Azure Login
       uses: Azure/login@v1
       with:

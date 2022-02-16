@@ -34,5 +34,7 @@ jobs:
       run: |
         conda info
         conda list
-
+    - name: Test Git Repo
+      shell: bash -l {0}
+      run: git log --oneline
     
