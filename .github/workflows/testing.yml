@@ -9,6 +9,8 @@ jobs:
     timeout-minutes: 0
     steps:
     - uses: actions/checkout@master
+      with:
+        fetch-depth: 0
     - uses: Azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }} 
