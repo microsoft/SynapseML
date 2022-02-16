@@ -9,11 +9,11 @@ if sys.version >= "3":
 from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.wrapper import JavaParams
 from pysarplus import SARPlus
-from synapse.ml.recommendation._SAR import SAR
+from synapse.ml.recommendation.SAR import SAR
 from synapse.ml.recommendation.SARPlusModel import SARPlusModel
 
 
-class SARPlus(_ValidatorParams, _SAR):
+class SARPlus(_ValidatorParams, SAR):
     def __init__(self, **kwargs):
         SAR.__init__(self, **kwargs)
 
