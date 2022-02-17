@@ -6,11 +6,6 @@ on:
   # pull_request:
   #   branches: [ master ]
   workflow_dispatch:
-    inputs:
-      debug_enabled:
-        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
-        required: false
-        default: 'false'
 
 jobs:
   Test:
@@ -52,9 +47,6 @@ jobs:
     - name: List ivy directory
       shell: bash -l {0}
       run: ls -laR $HOME/.ivy2/local/com.microsoft.azure
-    # - name: Setup tmate debug session
-    #   uses: mxschmitt/action-tmate@v3
-    #   if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
     # - name: Test Python Code
     #   shell: bash -l {0}
     #   run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
