@@ -52,30 +52,30 @@ jobs:
     - name: List ivy directory
       shell: bash -l {0}
       run: ls -laR $HOME/.ivy2/local/com.microsoft.azure
-    # - name: Test Python Code
-    #   shell: bash -l {0}
-    #   run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
-    # - name: Publish Test Results
-    #   uses: EnricoMi/publish-unit-test-result-action@v1
-    #   if: always()
-    #   with:
-    #     files: '**/python-test-*.xml'
-    # - name: Generate Codecov report
-    #   if: always()
-    #   shell: bash -l {0}
-    #   run: sbt coverageReport
-    # - name: Get Codecov Secret from Key Vault
-    #   uses: Azure/get-keyvault-secrets@v1
-    #   with:
-    #     keyvault: "mmlspark-keys"
-    #     secrets: 'codecov-token'
-    #   id: GetKeyVaultSecrets
-    # - name: Upload Coverage Report To Codecov.io
-    #   if: always()
-    #   shell: bash -l {0}
-    #   run: |
-    #     set -e
-    #     curl -s https://codecov.io/bash > .codecov
-    #     chmod +x .codecov
-    #     echo "Starting Codecov Upload"
-    #     ./.codecov -t ${{ steps.GetKeyVaultSecrets.outputs.codecov-token }}
+    - name: Test Python Code
+      shell: bash -l {0}
+      run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: '**/python-test-*.xml'
+    - name: Generate Codecov report
+      if: always()
+      shell: bash -l {0}
+      run: sbt coverageReport
+    - name: Get Codecov Secret from Key Vault
+      uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'codecov-token'
+      id: GetKeyVaultSecrets
+    - name: Upload Coverage Report To Codecov.io
+      if: always()
+      shell: bash -l {0}
+      run: |
+        set -e
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t ${{ steps.GetKeyVaultSecrets.outputs.codecov-token }}
