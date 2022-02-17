@@ -44,14 +44,7 @@ jobs:
       run: |
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         sbt installPipPackage
-    - name: View conda info after activation
-      shell: bash -l {0}
-      run: |
-        conda info
-        conda list
-    - name: List ivy directory
-      shell: bash -l {0}
-      run: ls -laR $HOME/.ivy2/local/com.microsoft.azure
+        sbt publishM2
     - name: Test Python Code
       shell: bash -l {0}
       run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
