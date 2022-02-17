@@ -1,4 +1,4 @@
-name: CI/PythonTests
+name: CI/Python Tests
 
 on:
   # push:
