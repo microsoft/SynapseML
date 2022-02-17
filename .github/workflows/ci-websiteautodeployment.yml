@@ -1,4 +1,4 @@
-name: CI/Website Samples Tests
+name: CI/Website Auto Deployment
 
 on:
   # push:
