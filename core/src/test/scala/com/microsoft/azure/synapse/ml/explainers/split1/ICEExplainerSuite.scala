@@ -53,6 +53,19 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setKind("average")
   lazy val outputAvg: DataFrame = iceAvg.transform(data).cache()
 
+  lazy val iceFeat: ICETransformer = new ICETransformer()
+    .setModel(model)
+    .setTargetCol("probability")
+    .setCategoricalFeatures(Array(ICECategoricalFeature("col1", Some(100)), ICECategoricalFeature("col2"),
+     ICECategoricalFeature("col3")))
+    .setNumericFeatures(Array(ICENumericFeature("col4", Some(5))))
+    .setTargetClasses(Array(1))
+    .setKind("feature")
+  lazy val outputFeat: DataFrame = iceFeat.transform(data).cache()
+
+  outputFeat.show(truncate = false)
+
+
   // Helper function which returns value from first row in a column specified by "colName".
   def getFirstValueFromOutput(output: DataFrame, colName: String): Map[_, Vector] = {
     output.select(colName).collect().map {

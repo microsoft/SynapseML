@@ -9,9 +9,10 @@ import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 
@@ -19,6 +20,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   val averageKind = "average"
   val individualKind = "individual"
+  val featureKind = "feature"
 
   val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
     this,
@@ -55,8 +57,9 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     "kind",
     "Whether to return the partial dependence plot (PDP) averaged across all the samples in the " +
       "dataset or individual feature importance (ICE) per sample. " +
-      "Allowed values are \"average\" for PDP and \"individual\" for ICE.",
-    ParamValidators.inArray(Array(averageKind, individualKind))
+      "Allowed values are \"average\" for PDP, \"individual\" for ICE and \"feature\" for PDP-based " +
+      "feature importance.",
+    ParamValidators.inArray(Array(averageKind, individualKind, featureKind))
   )
 
   def getKind: String = $(kind)
@@ -86,7 +89,8 @@ class ICETransformer(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("ICETransformer"))
 
   private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
-                             feature: String, values: Array[_], outputColName: String): DataFrame = {
+                             feature: String, values: Array[_], outputColName: String,
+                             isNumeric: Boolean): DataFrame = {
 
     val dataType = df.schema(feature).dataType
     val explodeFunc = explode(array(values.map(v => lit(v)): _*).cast(ArrayType(dataType)))
@@ -95,8 +99,8 @@ class ICETransformer(override val uid: String) extends Transformer
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
     val dependenceCol = DatasetExtensions.findUnusedColumnName("feature__dependence", predicted)
 
-    val explainTarget = extractTarget(predicted.schema, targetClassesColumn)
-    val result = predicted.withColumn(targetCol, explainTarget)
+    val explainTarget: Column = extractTarget(predicted.schema, targetClassesColumn)
+    val result: DataFrame = predicted.withColumn(targetCol, explainTarget)
 
     getKind.toLowerCase match {
       case `averageKind` =>
@@ -121,8 +125,20 @@ class ICETransformer(override val uid: String) extends Transformer
               collect_list(targetCol)
             ).alias(outputColName)
           )
+      case `featureKind` =>
+        if (isNumeric) {
+          result.groupBy(feature)
+            .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
+            .agg(Summarizer.std(col(dependenceCol)).alias(outputColName))
+        } else {
+          result.groupBy(feature)
+            .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
+            .agg(Summarizer.max(col(dependenceCol)).alias("maxCol"),
+              Summarizer.min(col(dependenceCol)).alias("minCol"))
+        }
     }
   }
+
 
   def transform(ds: Dataset[_]): DataFrame = {
     transformSchema(ds.schema)
@@ -147,8 +163,10 @@ class ICETransformer(override val uid: String) extends Transformer
       case f: ICENumericFeature =>
         (f, collectSplits(dfWithId, f))
     }.map {
-      case (f, values) =>
-        calcDependence(sampled, idCol, targetClasses, f.getName, values, f.getOutputColName)
+      case (f: ICECategoricalFeature, values) =>
+        calcDependence(sampled, idCol, targetClasses, f.getName, values, f.getOutputColName, isNumeric = false)
+      case (f: ICENumericFeature, values) =>
+        calcDependence(sampled, idCol, targetClasses, f.getName, values, f.getOutputColName, isNumeric = true)
     }
 
     // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
@@ -159,6 +177,8 @@ class ICETransformer(override val uid: String) extends Transformer
         dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
           .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
       case `averageKind` =>
+        dependenceDfs.reduce(_ crossJoin _)
+      case `featureKind` =>
         dependenceDfs.reduce(_ crossJoin _)
     }
   }
