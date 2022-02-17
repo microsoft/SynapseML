@@ -66,6 +66,6 @@ jobs:
         cd website
         GIT_USER="${GH_NAME}" yarn deploy
       env:
-        GH_NAME: $(gh-name)
-        GH_EMAIL: $(gh-email)
-        GH_TOKEN: $(gh-token)
+        GH_NAME: ${{ steps.GetKeyVaultSecrets.outputs.gh-name }}
+        GH_EMAIL: ${{ steps.GetKeyVaultSecrets.outputs.gh-email }}
+        GH_TOKEN: ${{ steps.GetKeyVaultSecrets.outputs.gh-token }}
