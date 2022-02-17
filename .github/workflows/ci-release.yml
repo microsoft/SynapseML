@@ -17,11 +17,11 @@ jobs:
         fetch-depth: 0
     - name: Get Git Tag
       id: getGitTag
-      shell: bash
+      shell: bash -l {0}
       run: |
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
     - name: Generage CHANGELOG
-      shell: bash
+      shell: bash -l {0}
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
       run: |
         set -e
@@ -65,7 +65,7 @@ jobs:
         activate-environment: synapseml
     - name: publish python package to pypi
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
-      shell: bash
+      shell: bash -l {0}
       run: |
         set -e
         sbt publishPypi
@@ -79,7 +79,7 @@ jobs:
         PYPI-API-TOKEN: ${{ steps.GetKeyVaultSecrets.outputs.pypi-api-token }}
     - name: publish jar package to maven central
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
-      shell: bash
+      shell: bash -l {0}
       run: |
         set -e
         sbt publishSigned

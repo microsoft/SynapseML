@@ -35,10 +35,10 @@ jobs:
         environment-file: environment.yaml
         activate-environment: synapseml
     - name: Download Spark
-      shell: bash
+      shell: bash -l {0}
       run: curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
     - name: Test R code
-      shell: bash
+      shell: bash -l {0}
       run: |
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)

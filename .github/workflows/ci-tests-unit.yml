@@ -64,12 +64,12 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     - name: Setup repo
-      shell: bash
+      shell: bash -l {0}
       run: |
         (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - name: Unit Test
-      shell: bash
+      shell: bash -l {0}
       run: |
         (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
         sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \

@@ -44,10 +44,10 @@ jobs:
         environment-file: environment.yaml
         activate-environment: synapseml
     - name: Convert notebooks to markdowns
-      shell: bash
+      shell: bash -l {0}
       run: sbt convertNotebooks
     - name: yarn install and build
-      shell: bash
+      shell: bash -l {0}
       run: |
         set -e
         yarn install
@@ -56,7 +56,7 @@ jobs:
         yarn build
     - name: yarn deploy
       if: success()
-      shell: bash
+      shell: bash -l {0}
       run: |
         set -e
         git config --global user.name "${GH_NAME}"
