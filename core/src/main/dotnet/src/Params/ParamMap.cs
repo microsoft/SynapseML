@@ -12,7 +12,7 @@ using SynapseML.Dotnet.Wrapper;
 namespace Microsoft.Spark.ML.Feature.Param
 {
 
-    // <summary>
+    /// <summary>
     /// A param and its value.
     /// </summary>
     public sealed class ParamPair<T> : IJvmObjectReferenceProvider
@@ -32,12 +32,11 @@ namespace Microsoft.Spark.ML.Feature.Param
             Reference = jvmObject;
         }
 
-        public JvmObjectReference Reference { get; private set; }
+        public JvmObjectReference Reference { get; init; }
     }
 
-    // <summary>
-    /// Param for Estimator.  Needed as spark has explicit 
-    /// com.microsoft.azure.synapse.ml.core.serialize.params for many different types but not Estimator.
+    /// <summary>
+    /// A param to value map.
     /// </summary>
     public class ParamMap : IJvmObjectReferenceProvider
     {
@@ -55,9 +54,9 @@ namespace Microsoft.Spark.ML.Feature.Param
             Reference = jvmObject;
         }
 
-        public JvmObjectReference Reference { get; private set; }
+        public JvmObjectReference Reference { get; init; }
 
-        public ParamMap Put(Param param, object value) =>
+        public ParamMap Put<T>(Param param, T value) =>
             WrapAsParamMap((JvmObjectReference)Reference.Invoke("put", param, value));
 
         public override string ToString() =>

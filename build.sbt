@@ -120,7 +120,7 @@ genDotnetTestHelper := {
        |}
        |""".stripMargin
   val dotnetHelperFile = join(baseDirectory.value, "core",
-    "src", "main", "dotnet", "E2ETestUtils", "SynapseMLVersion.cs")
+    "src", "main", "dotnet", "test", "SynapseMLVersion.cs")
   if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
 }

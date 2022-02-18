@@ -76,7 +76,7 @@ object DefaultParamInfo extends Logging {
       case _: UntypedArrayParam => UntypedArrayInfo
       case sp: ServiceParam[_] => getServiceParamInfo(sp)
       case csp: CognitiveServiceStructParam[_] => getCognitiveServiceStructParamInfo(csp)
-      case cp: ComplexParam[_] => getComplexParamInfo(cp)
+      case cp: ComplexParam[_] => new ParamInfo[ComplexParam[_]]("object", cp.dotnetType)
       case p => {
         logWarning(s"unsupported type $p")
         UnknownInfo
@@ -106,15 +106,7 @@ object DefaultParamInfo extends Logging {
     dataType.getType match {
       case "com.microsoft.azure.synapse.ml.cognitive.DiagnosticsInfo" => DiagnosticsInfo
       case "Seq[com.microsoft.azure.synapse.ml.cognitive.TAAnalyzeTask]" => TextAnalyzeTaskParamInfo
-      case _ => throw new Exception(s"unsupported type $dataType")
-    }
-  }
-
-  //noinspection ScalaStyle
-  def getComplexParamInfo(dataType: ComplexParam[_]): ParamInfo[_] = {
-    dataType match {
-      case w: WrappableParam[_] => new ParamInfo[ComplexParam[_]]("object", w.dotnetType)
-      case _ => throw new Exception(s"unsupported Complex Param type $dataType")
+      case _ => throw new Exception(s"unsupported type $dataType, please add implementation")
     }
   }
 

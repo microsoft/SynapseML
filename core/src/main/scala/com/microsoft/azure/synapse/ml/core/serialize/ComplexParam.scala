@@ -5,13 +5,13 @@ package com.microsoft.azure.synapse.ml.core.serialize
 
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.Serializer
-import org.apache.spark.ml.param.{Param, Params}
+import org.apache.spark.ml.param.{Param, Params, WrappableParam}
 import org.apache.spark.sql.SparkSession
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: String, isValid: T => Boolean)
-  extends Param[T](parent, name, doc, isValid) {
+  extends Param[T](parent, name, doc, isValid) with WrappableParam[T] {
 
   def ttag: TypeTag[T] = typeTag[T]
 
@@ -30,5 +30,10 @@ abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: Strin
   override def jsonDecode(json: String): T = {
     throw new NotImplementedError("The parameter is a ComplexParam and cannot be JSON decoded.")
   }
+
+  override def dotnetValue(v: T): String =
+    throw new NotImplementedError("No translation found for complex parameter")
+
+  override def dotnetType: String = "object"
 
 }

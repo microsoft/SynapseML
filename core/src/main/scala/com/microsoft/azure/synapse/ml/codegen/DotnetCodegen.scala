@@ -35,7 +35,8 @@ object DotnetCodegen {
       case "deep-learning" => "deepLearning"
       case s => s.capitalize
     }
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+    // TODO: upload dotnetBase to blob and reference it
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "src", "dotnetBase.csproj").toString
       .replaceAllLiterally(curName, "core")
     writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
@@ -44,6 +45,10 @@ object DotnetCodegen {
          |    <TargetFramework>net5.0</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
          |    <AssemblyName>SynapseML.$packageName</AssemblyName>
+         |    <IsPackable>true</IsPackable>
+         |
+         |    <Description>.NET for SynapseML.$packageName</Description>
+         |    <Version>${BuildInfo.version}</Version>
          |  </PropertyGroup>
          |
          |  <ItemGroup>
@@ -52,7 +57,7 @@ object DotnetCodegen {
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <ProjectReference Include="$dotnetBasePath" />
+         |    <ProjectReference Include="$dotnetBasePath" PrivateAssets="All" />
          |  </ItemGroup>
          |
          |  <PropertyGroup>

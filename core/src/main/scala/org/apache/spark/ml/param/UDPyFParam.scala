@@ -10,15 +10,11 @@ import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
   * types but not UserDefinedPythonFunction.
   */
 class UDPyFParam(parent: Params, name: String, doc: String, isValid: UserDefinedPythonFunction => Boolean)
-  extends ComplexParam[UserDefinedPythonFunction](parent, name, doc, isValid)
-    with WrappableParam[UserDefinedPythonFunction] {
+  extends ComplexParam[UserDefinedPythonFunction](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetValue(v: UserDefinedPythonFunction): String =
-    throw new NotImplementedError("No translation found for complex parameter")
-
-  override def dotnetType: String = "UserDefinedPythonFunction"
+//  override def dotnetType: String = "UserDefinedPythonFunction"
 
 }

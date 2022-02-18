@@ -8,7 +8,7 @@ using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
 using SynapseML.Dotnet.Wrapper;
 
-namespace Microsoft.Spark.ML.Feature.Param
+namespace Synapse.ML.LightGBM.Param
 {
     /// <summary>
     /// Represents a LightGBM Booster learner
@@ -16,6 +16,18 @@ namespace Microsoft.Spark.ML.Feature.Param
     public class LightGBMBooster : IJvmObjectReferenceProvider
     {
         private static readonly string s_LightGBMBoosterClassName = "com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster";
+
+#nullable enable
+        public LightGBMBooster(LightGBMDataset? trainDataset = null, string? parameters = null, string? modelStr = null)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, trainDataset, parameters, modelStr))
+        {
+        }
+#nullable disable
+
+        public LightGBMBooster(LightGBMDataset trainDataset, string parameters)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, trainDataset, parameters))
+        {
+        }
 
         public LightGBMBooster(string model)
             : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, model))
@@ -34,6 +46,11 @@ namespace Microsoft.Spark.ML.Feature.Param
         public void MergeBooster(string model) =>
             Reference.Invoke("mergeBooster", model);
 
+        /// <summary>Adds the specified LightGBMDataset to be the validation dataset.</summary>
+        /// <param name="dataset">The LightGBMDataset to add as the validation dataset.</param>
+        public void AddValidationDataset(LightGBMDataset dataset) =>
+            Reference.Invoke("addValidationDataset", dataset);
+
         /// <summary>Saves the booster to string representation.</summary>
         /// <returns>The serialized string representation of the Booster.</returns>
         public string SaveToString() =>
@@ -43,36 +60,36 @@ namespace Microsoft.Spark.ML.Feature.Param
         /// <returns>The evaluation dataset column names.</returns>
         public string[] GetEvalNames() =>
             (string[])Reference.Invoke("getEvalNames");
-        
-        /// <summary>
-        /// Get the evaluation for the training data and validation data.
-        /// </summary>
-        /// <param name="evalNames">The names of the evaluation metrics.</param>
-        /// <param name="dataIndex">
-        /// Index of data, 0: training data, 1: 1st validation data, 2: 2nd validation data and so on.
-        /// </param>
-        /// <returns>Array of tuples containing the evaluation metric name and metric value.</returns>
-        public Tuple<string, double>[] GetEvalResults(string[] evalNames, int dataIndex) =>
-            (Tuple<string, double>[])Reference.Invoke("getEvalResults", evalNames, dataIndex);
-        
+
+        // /// <summary>
+        // /// Get the evaluation for the training data and validation data.
+        // /// </summary>
+        // /// <param name="evalNames">The names of the evaluation metrics.</param>
+        // /// <param name="dataIndex">
+        // /// Index of data, 0: training data, 1: 1st validation data, 2: 2nd validation data and so on.
+        // /// </param>
+        // /// <returns>Array of tuples containing the evaluation metric name and metric value.</returns>
+        // public Tuple<string, double>[] GetEvalResults(string[] evalNames, int dataIndex) =>
+        //     (Tuple<string, double>[])Reference.Invoke("getEvalResults", evalNames, dataIndex);
+
         /// <summary>Reset the specified parameters on the native booster.</summary>
         /// <param name="newParameters">The new parameters to set.</param>
         public void ResetParameter(string newParameters) =>
             Reference.Invoke("resetParameter", newParameters);
 
-        /// <summary>
-        /// Get predictions for the training and evaluation data on the booster.
-        /// </summary>
-        /// <param name="dataIndex">
-        /// Index of data, 0: training data, 1: 1st validation data, 2: 2nd validation data and so on.
-        /// </param>
-        /// <param name="classification">Whether this is a classification scenario or not.</param>
-        /// <returns>
-        /// The predictions as a 2D array where first level is for row index and second level is optional if there are classes.
-        /// </returns>
-        public double[][] InnerPredict(int dataIndex, bool classification) =>
-            (double[][])Reference.Invoke("innerPredict", dataIndex, classification);
-        
+        // /// <summary>
+        // /// Get predictions for the training and evaluation data on the booster.
+        // /// </summary>
+        // /// <param name="dataIndex">
+        // /// Index of data, 0: training data, 1: 1st validation data, 2: 2nd validation data and so on.
+        // /// </param>
+        // /// <param name="classification">Whether this is a classification scenario or not.</param>
+        // /// <returns>
+        // /// The predictions as a 2D array where first level is for row index and second level is optional if there are classes.
+        // /// </returns>
+        // public double[][] InnerPredict(int dataIndex, bool classification) =>
+        //     (double[][])Reference.Invoke("innerPredict", dataIndex, classification);
+
         /// <summary>Updates the booster for one iteration.</summary>
         /// <returns>True if terminated training early.</returns>
         public bool UpdateOneIteration() =>
@@ -109,7 +126,7 @@ namespace Microsoft.Spark.ML.Feature.Param
         /// <param name="bestIteration">The best iteration computed by early stopping.</param>
         public void SetBestIteration(int bestIteration) =>
             Reference.Invoke("setBestIteration", bestIteration);
-        
+
         /// <summary>
         /// Saves the native model serialized representation to file.
         /// </summary>
@@ -118,7 +135,7 @@ namespace Microsoft.Spark.ML.Feature.Param
         /// <param name="overwrite">Whether to overwrite if the file already exists</param>
         public void SaveNativeModel(SparkSession session, string filename, bool overwrite) =>
             Reference.Invoke("saveNativeModel", session, filename, overwrite);
-        
+
         /// <summary>
         /// Dumps the native model pointer to file.
         /// </summary>
@@ -127,13 +144,13 @@ namespace Microsoft.Spark.ML.Feature.Param
         /// <param name="overwrite">Whether to overwrite if the file already exists</param>
         public void DumpModel(SparkSession session, string filename, bool overwrite) =>
             Reference.Invoke("dumpModel", session, filename, overwrite);
-        
+
         /// <summary>
         /// Frees any native memory held by the underlying booster pointer.
         /// </summary>
         public void FreeNativeMemory() =>
             Reference.Invoke("freeNativeMemory");
-        
+
         /// <summary>
         /// Calls into LightGBM to retrieve the feature importances.
         /// </summary>
@@ -144,6 +161,47 @@ namespace Microsoft.Spark.ML.Feature.Param
 
     }
 
-    // Add LightGBMDataset & support above constructor
+    public class LightGBMDataset : IJvmObjectReferenceProvider
+    {
+
+        // doesn't support public constructor yet
+        // public LightGBMDataset(SWIGTYPE_p_void datasetPtr)
+        //     : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.ml.spark.lightgbm.dataset.LightGBMDataset", datasetPtr))
+        // {
+        // }
+
+        internal LightGBMDataset(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+        }
+
+        public JvmObjectReference Reference { get; private set; }
+
+        public float[] GetLabel() => (float[])Reference.Invoke("getLabel");
+
+        public int NumData() => (int)Reference.Invoke("numData");
+
+        public int NumFeature() => (int)Reference.Invoke("numFeature");
+
+        public void ValidateDataset() => Reference.Invoke("validateDataset");
+
+        public void AddDoubleField(double[] field, string fieldName, int numRows) =>
+            Reference.Invoke("addDoubleField", field, fieldName, numRows);
+
+        public void AddIntField(int[] field, string fieldName, int numRows) =>
+            Reference.Invoke("addIntField", field, fieldName, numRows);
+
+        public void AddGroupColumn<T>(T[] rows) =>
+            Reference.Invoke("addGroupColumn", rows);
+
+#nullable enable
+        public void SetFeatureNames(string[]? featureNamesOpt, int numCols) =>
+            Reference.Invoke("setFeatureNames", featureNamesOpt, numCols);
+#nullable disable
+
+        public void Close() =>
+            Reference.Invoke("close");
+
+    }
 
 }

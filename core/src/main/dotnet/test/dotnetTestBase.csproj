@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>SynapseML.DotnetE2ETest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
+    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SynapseML.Cognitive" />
+    <InternalsVisibleTo Include="SynapseML.Core" />
+    <InternalsVisibleTo Include="SynapseML.DeepLearning" />
+    <InternalsVisibleTo Include="SynapseML.Lightgbm" />
+    <InternalsVisibleTo Include="SynapseML.Opencv" />
+    <InternalsVisibleTo Include="SynapseML.Vw" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
+  </PropertyGroup>
+
+</Project>

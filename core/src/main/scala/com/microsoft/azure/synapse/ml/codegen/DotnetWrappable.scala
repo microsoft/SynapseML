@@ -6,9 +6,9 @@ package com.microsoft.azure.synapse.ml.codegen
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.commons.lang.StringUtils.capitalize
+import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
-import org.apache.spark.ml._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -169,32 +169,13 @@ trait DotnetWrappable extends BaseWrappable {
       case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam | _: UntypedArrayParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |{
-            |    var arrayList = new ArrayList(SparkEnvironment.JvmBridge);
-            |    foreach (var v in value)
-            |    {
-            |        arrayList.Add(v);
-            |    }
-            |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)arrayList));
-            |}
+            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToArrayList()));
             |""".stripMargin
       case _: ArrayMapParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |{
-            |    var arrayList = new ArrayList(SparkEnvironment.JvmBridge);
-            |    HashMap hashMap;
-            |    foreach (var v in value)
-            |    {
-            |        hashMap = new HashMap(SparkEnvironment.JvmBridge);
-            |        foreach (var item in v)
-            |        {
-            |            hashMap.Put(item.Key, item.Value);
-            |        }
-            |        arrayList.Add(hashMap);
-            |    }
-            |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)arrayList));
-            |}
+            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
+            |        (object)value.Select(_ => _.ToHashMap()).ToArray().ToArrayList()));
             |""".stripMargin
       // TODO: Fix UDF & UDPyF confusion
       case _: UDFParam | _: UDPyFParam =>
@@ -258,12 +239,6 @@ trait DotnetWrappable extends BaseWrappable {
                |    ($dType)Reference.Invoke(\"get$capName\");
                |""".stripMargin
         }
-      case _: DataFrameParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName() =>
-           |    new ${getParamInfo(p).dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
-           |""".stripMargin
       case _: DataTypeParam =>
         s"""
            |$docString
@@ -396,11 +371,19 @@ trait DotnetWrappable extends BaseWrappable {
            |    return result;
            |}
            |""".stripMargin
-      case _: ComplexParam[_] =>
-        s"""
-           |$docString
-           |public object Get$capName() => Reference.Invoke(\"get$capName\");
-           |""".stripMargin
+      case cp: ComplexParam[_] =>
+        if (cp.dotnetType == "object") {
+          s"""
+             |$docString
+             |public object Get$capName() => Reference.Invoke(\"get$capName\");
+             |""".stripMargin
+        } else {
+          s"""
+             |$docString
+             |public ${cp.dotnetType} Get$capName() =>
+             |    new ${cp.dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
+             |""".stripMargin
+        }
       case _ =>
         s"""
            |$docString
@@ -454,6 +437,7 @@ trait DotnetWrappable extends BaseWrappable {
         |using System.Collections.Generic;
         |using System.Linq;
         |using System.Reflection;
+        |using Microsoft.Spark.ML.Feature;
         |using Microsoft.Spark.ML.Feature.Param;
         |using Microsoft.Spark.Interop;
         |using Microsoft.Spark.Interop.Ipc;
@@ -462,6 +446,7 @@ trait DotnetWrappable extends BaseWrappable {
         |using Microsoft.Spark.Sql.Types;
         |using SynapseML.Dotnet.Wrapper;
         |using SynapseML.Dotnet.Utils;
+        |using Synapse.ML.LightGBM.Param;
         |$dotnetExtraEstimatorImports
         |
         |namespace $dotnetNamespace

@@ -20,5 +20,16 @@ namespace System.Collections.Generic
             }
             return hashMap;
         }
+
+        internal static HashMap ToHashMap(this Dictionary<string, object> value)
+        {
+            var hashMap = new HashMap(SparkEnvironment.JvmBridge);
+            foreach (var item in value)
+            {
+                hashMap.Put(item.Key, item.Value);
+            }
+            return hashMap;
+        }
+
     }
 }

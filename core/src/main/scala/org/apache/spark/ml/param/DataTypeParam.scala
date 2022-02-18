@@ -8,13 +8,10 @@ import org.apache.spark.sql.types.DataType
 
 /** Param for DataType */
 class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType => Boolean)
-    extends ComplexParam[DataType](parent, name, doc, isValid) with WrappableParam[DataType] {
+    extends ComplexParam[DataType](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
-
-  override def dotnetValue(v: DataType): String =
-    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetType: String = "DataType"
 

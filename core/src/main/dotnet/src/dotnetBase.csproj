@@ -3,11 +3,14 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <LangVersion>9.0</LangVersion>
-    <AssemblyName>DotnetBase</AssemblyName>
+    <AssemblyName>SynapseML.DotnetBase</AssemblyName>
+    <IsPackable>true</IsPackable>
+
+    <Description>SynapseML .NET Base</Description>
+    <Version>0.9.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
     <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
   </ItemGroup>

@@ -111,6 +111,7 @@ class ServiceParam[T: TypeTag](parent: Params,
 
 }
 
+// Use this class if you want to extend JsonEncodableParam for Cognitive services param
 class CognitiveServiceStructParam[T: TypeTag](parent: Params,
                                               name: String,
                                               doc: String,

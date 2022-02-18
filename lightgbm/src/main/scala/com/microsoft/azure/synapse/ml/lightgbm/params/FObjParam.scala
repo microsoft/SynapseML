@@ -13,13 +13,9 @@ import org.apache.spark.ml.param.WrappableParam
 class FObjParam(parent: Params, name: String, doc: String,
                 isValid: FObjTrait => Boolean)
 
-  extends ComplexParam[FObjTrait](parent, name, doc, isValid)
-    with WrappableParam[FObjTrait] {
+  extends ComplexParam[FObjTrait](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, {_ => true})
 
-  override def dotnetValue(v: FObjTrait): String = s"""${name}Param"""
-
-  override def dotnetType: String = "object"
 }

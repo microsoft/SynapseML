@@ -5,8 +5,10 @@ package org.apache.spark.ml.param
 
 trait WrappableParam[T] extends DotnetWrappableParam[T] {
 
+  // Corresponding dotnet type used for codegen setters and getters
   def dotnetType: String
 
+  // Override this if dotnet return type is different from the set type
   def dotnetReturnType: String = dotnetType
 
 }

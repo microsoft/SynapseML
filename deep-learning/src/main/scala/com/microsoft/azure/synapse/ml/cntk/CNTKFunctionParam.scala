@@ -19,7 +19,7 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
                         isValid: SerializableFunction => Boolean)
 
   extends ComplexParam[SerializableFunction](parent, name, doc, isValid)
-    with ParamEquality[SerializableFunction] with WrappableParam[SerializableFunction] {
+    with ParamEquality[SerializableFunction] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, { _ => true })
@@ -45,7 +45,5 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
   }
 
   override def dotnetValue(v: SerializableFunction): String = s"""${name}Param"""
-
-  override def dotnetType: String = "object"
 
 }

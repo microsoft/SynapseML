@@ -118,7 +118,7 @@ trait DataFrameEquality extends Serializable {
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)
   extends ComplexParam[DataFrame](parent, name, doc, isValid)
     with ExternalPythonWrappableParam[DataFrame] with ParamEquality[DataFrame] with DataFrameEquality
-    with ExternalDotnetWrappableParam[DataFrame] with WrappableParam[DataFrame] {
+    with ExternalDotnetWrappableParam[DataFrame] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)

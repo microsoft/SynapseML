@@ -10,7 +10,7 @@ using SynapseML.Dotnet.Wrapper;
 using SynapseML.Dotnet.Utils;
 using Microsoft.Spark.Interop.Internal.Java.Util;
 
-namespace Microsoft.Spark.ML
+namespace Microsoft.Spark.ML.Feature
 {
 
     /// <summary>

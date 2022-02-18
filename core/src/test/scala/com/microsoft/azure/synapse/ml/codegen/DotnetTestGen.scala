@@ -65,7 +65,10 @@ object DotnetTestGen {
       case "deep-learning" => "deepLearning"
       case s => s
     }
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "dotnetBase.csproj").toString
+    // TODO: upload dotnetTestBase to blob and reference it
+    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "src", "dotnetBase.csproj").toString
+      .replaceAllLiterally(curName, "core")
+    val dotnetTestBasePath = join(conf.dotnetSrcDir, "helper", "test", "dotnetTestBase.csproj").toString
       .replaceAllLiterally(curName, "core")
     val curPath = conf.dotnetSrcDir.getAbsolutePath
     val corePath = curPath.replace(curProject, "core")
@@ -97,8 +100,9 @@ object DotnetTestGen {
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <ProjectReference Include="$dotnetBasePath" />
          |    <ProjectReference Include="$curPath\\synapse\\ml\\${curProject.capitalize}ProjectSetup.csproj" />
+         |    <ProjectReference Include="$dotnetBasePath" PrivateAssets="All" />
+         |    <ProjectReference Include="$dotnetTestBasePath" PrivateAssets="All" />
          |    $referenceCore
          |  </ItemGroup>
          |

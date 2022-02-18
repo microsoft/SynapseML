@@ -60,8 +60,6 @@ object GenerationUtils {
     p match {
       case pwp: DotnetWrappableParam[T] =>
         "." + pwp.dotnetSetterLine(v)
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
       case _: StringArrayParam | _: DoubleArrayParam | _: IntArrayParam | _: ByteArrayParam | _: DoubleArrayArrayParam |
            _: StringStringMapParam | _: StringIntMapParam | _: ArrayMapParam |
            _: TypedIntArrayParam | _: TypedDoubleArrayParam | _: UntypedArrayParam =>

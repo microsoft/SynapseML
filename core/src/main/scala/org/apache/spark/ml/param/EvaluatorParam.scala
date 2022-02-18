@@ -10,13 +10,10 @@ import org.apache.spark.ml.evaluation.Evaluator
   * types but not Evaluator.
   */
 class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluator => Boolean)
-  extends ComplexParam[Evaluator](parent, name, doc, isValid) with WrappableParam[Evaluator] {
+  extends ComplexParam[Evaluator](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
-
-  override def dotnetValue(v: Evaluator): String =
-    throw new NotImplementedError("No translation found for complex parameter")
 
   override def dotnetType: String = "ScalaEvaluator"
 

@@ -12,78 +12,74 @@ using Microsoft.Spark.Sql;
 namespace SynapseML.Dotnet.Utils
 {
 
-    public interface MLWriter : IJvmObjectReferenceProvider
-    {
-
-        void Save(string path);
-
-        void SaveImpl(string path);
-
-        MLWriter Overwrite();
-
-        MLWriter Option(string key, string value);
-
-        MLWriter Session(SparkSession sparkSession);
-
-    }
-
-    public class ScalaMLWriter : MLWriter, IJvmObjectReferenceProvider
+    /// <summary>
+    /// Class for utility classes that can save ML instances in Spark's internal format.
+    /// </summary>
+    public class ScalaMLWriter : IJvmObjectReferenceProvider
     {
         public ScalaMLWriter(JvmObjectReference jvmObject) => Reference = jvmObject;
 
         public JvmObjectReference Reference { get; private set; }
 
+        /// <summary>Saves the ML instances to the input path.</summary>
         public void Save(string path) => Reference.Invoke("save", path);
 
         public void SaveImpl(string path) => Reference.Invoke("saveImpl", path);
 
-        public MLWriter Overwrite()
+        /// <summary>Overwrites if the output path already exists.</summary>
+        public ScalaMLWriter Overwrite()
         {
             Reference.Invoke("overwrite");
             return this;
         }
 
-        public MLWriter Option(string key, string value)
+        /// <summary>
+        /// Adds an option to the underlying MLWriter. See the documentation for the specific model's
+        /// writer for possible options. The option name (key) is case-insensitive.
+        /// </summary>
+        public ScalaMLWriter Option(string key, string value)
         {
             Reference.Invoke("option", key, value);
             return this;
         }
 
-        public MLWriter Session(SparkSession sparkSession)
+        /// <summary>for Java compatibility</summary>
+        public ScalaMLWriter Session(SparkSession sparkSession)
         {
             Reference.Invoke("session", sparkSession);
             return this;
         }
     }
 
+    /// <summary>
+    /// Interface for classes that provide ScalaMLWriter.
+    /// </summary>
     public interface ScalaMLWritable
     {
-        /// <returns>a <see cref=\"ScalaMLWriter\"/> instance for this ML instance.</returns>
+        /// <returns>a <see cref="ScalaMLWriter"/> instance for this ML instance.</returns>
         ScalaMLWriter Write();
 
         /// <summary>Saves this ML instance to the input path</summary>
         void Save(string path) => Write().Save(path);
     }
 
-    public interface MLReader<T>
-    {
-        T Load(string path);
-
-        MLReader<T> Session(SparkSession sparkSession);
-    }
-
-    public class ScalaMLReader<T> : MLReader<T>, IJvmObjectReferenceProvider
+    /// <summary>
+    /// Class for utility classes that can load ML instances.
+    /// </summary>
+    /// <typeparam name="T">ML instance type</typeparam>
+    public class ScalaMLReader<T> : IJvmObjectReferenceProvider
     {
         public ScalaMLReader(JvmObjectReference jvmObject) => Reference = jvmObject;
 
         public JvmObjectReference Reference { get; private set; }
 
-        public T Load(string path)
-        {
-            return WrapAsType((JvmObjectReference)Reference.Invoke("load", path));
-        }
+        /// <summary>
+        /// Loads the ML component from the input path.
+        /// </summary>
+        public T Load(string path) =>
+            WrapAsType((JvmObjectReference)Reference.Invoke("load", path));
 
-        public MLReader<T> Session(SparkSession sparkSession)
+        public ScalaMLReader<T> Session(SparkSession sparkSession)
         {
             Reference.Invoke("session", sparkSession);
             return this;
@@ -104,13 +100,19 @@ namespace SynapseML.Dotnet.Utils
         }
     }
 
+    /// <summary>
+    /// Interface for objects that provide MLReader.
+    /// </summary>
+    /// <typeparam name="T">
+    /// ML instance type
+    /// </typeparam>
     public interface ScalaMLReadable<T>
     {
-        /// <returns>an <see cref=\"ScalaMLReader\"/> instance for this ML instance.</returns>
+        /// <returns>an <see cref="ScalaMLReader&lt;T&gt;"/> instance for this ML instance.</returns>
         ScalaMLReader<T> Read();
 
-        /// <summary>Reads an ML instance from the input path</summary>
         T Load(string path) => Read().Load(path);
+
     }
 
     public class Helper

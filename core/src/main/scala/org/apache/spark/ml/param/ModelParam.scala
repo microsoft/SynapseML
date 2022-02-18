@@ -12,8 +12,7 @@ import org.apache.spark.ml.Model
   */
 class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: Model[_]] => Boolean)
   extends ComplexParam[Model[_ <: Model[_]]](parent, name, doc, isValid)
-    with PipelineStageWrappable[Model[_ <: Model[_]]]
-    with WrappableParam[Model[_ <: Model[_]]] {
+    with PipelineStageWrappable[Model[_ <: Model[_]]] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
