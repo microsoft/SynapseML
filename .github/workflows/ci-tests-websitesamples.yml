@@ -1,10 +1,15 @@
 name: CI/Tests/Website Samples
 
 on:
-  # push:
-  #   branches: [ master ]
-  # pull_request_target:
-  #   branches: [ master ]
+  pull_request_target:
+    branches: [ master ]
+    paths-ignore:
+    - 'docs/*'
+    - CODEOWNERS
+    - .gitignore
+    - README.md
+    - CONTRIBUTING.md
+    - '.github/**'
   workflow_dispatch:
 
 jobs:
