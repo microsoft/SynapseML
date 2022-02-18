@@ -32,11 +32,6 @@ jobs:
       run: |
         echo '::set-output name=version::'$(sbt "core/version" | tail -2 | cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g' | head -n 1)
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
-    - name: Test
+    - name: Demo Image Build
       shell: bash -l {0}
-      run: |
-        echo ${{ steps.getDockerTagAndVersion.outputs.version }}
-        echo ${{ steps.getDockerTagAndVersion.outputs.gittag }}
-    # - name: Demo Image Build
-    #   shell: bash -l {0}
-    #   run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION="${{ steps.getDockerTagAndVersion.outputs.version }}"
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION="${{ steps.getDockerTagAndVersion.outputs.version }}"
