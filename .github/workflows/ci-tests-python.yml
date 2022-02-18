@@ -1,9 +1,9 @@
-name: CI/Python Tests
+name: CI/Tests/Python
 
 on:
   # push:
   #   branches: [ master ]
-  # pull_request:
+  # pull_request_target:
   #   branches: [ master ]
   workflow_dispatch:
 

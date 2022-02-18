@@ -1,24 +1,26 @@
-name: CI/Publish Artifacts
+name: CI/Tests/Databricks E2E
 
 on:
   # push:
   #   branches: [ master ]
-  # pull_request:
+  # pull_request_target:
   #   branches: [ master ]
   workflow_dispatch:
 
 jobs:
-  Publish:
+  DatabricksE2E:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
     steps:
     - uses: actions/checkout@master
       with:
         fetch-depth: 0
-    - uses: Azure/login@v1
+    - name: Azure Login
+      uses: Azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} 
-    - uses: Azure/get-keyvault-secrets@v1
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Get Secrets from Key Vault
+      uses: Azure/get-keyvault-secrets@v1
       with:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
@@ -33,14 +35,12 @@ jobs:
         python-version: 3.8.8
         environment-file: environment.yaml
         activate-environment: synapseml
-    - name: Publish Artifact
+    - name: Publish Blob Artifacts
       shell: bash -l {0}
       run: |
         set -e
         sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
-        sbt publishSigned
-        sbt genBuildInfo
+        sbt publishBlob
       env:
         STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
         NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
@@ -48,16 +48,12 @@ jobs:
         PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
         PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
         PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
-    - name: Publish Badges
+    - name: Run E2E Tests
       if: success()
       shell: bash -l {0}
-      run: |
-        set -e
-        sbt publishBadges
-      env:
-        STORAGE-KEY: ${{ steps.GetKeyVaultSecrets.outputs.storage-key }}
-        NEXUS-UN: ${{ steps.GetKeyVaultSecrets.outputs.nexus-un }}
-        NEXUS-PW: ${{ steps.GetKeyVaultSecrets.outputs.nexus-pw }}
-        PGP-PRIVATE: ${{ steps.GetKeyVaultSecrets.outputs.pgp-private }}
-        PGP-PUBLIC: ${{ steps.GetKeyVaultSecrets.outputs.pgp-public }}
-        PGP-PW: ${{ steps.GetKeyVaultSecrets.outputs.pgp-pw }}
+      run: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: '**/test-reports/TEST-*.xml'

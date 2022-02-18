@@ -1,9 +1,9 @@
-name: CI/Synapse E2E Tests
+name: CI/Tests/Synapse E2E
 
 on:
   # push:
   #   branches: [ master ]
-  # pull_request:
+  # pull_request_target:
   #   branches: [ master ]
   workflow_dispatch:
 
