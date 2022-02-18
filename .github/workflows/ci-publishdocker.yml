@@ -23,17 +23,20 @@ jobs:
         keyvault: "mmlspark-keys"
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
       id: GetKeyVaultSecrets
-    - name: Get Docker Tag and Version
-      id: getDockerTagAndVersion
+    - name: Run command
       shell: bash -l {0}
-      run: |
-        echo '::set-output name=version::'$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-        echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
-    - name: Test
-      shell: bash -l {0}
-      run: |
-        echo ${{ steps.getDockerTagAndVersion.outputs.version }}
-        echo ${{ steps.getDockerTagAndVersion.outputs.gittag }}
-    - name: Demo Image Build
-      shell: bash -l {0}
-      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }}
+      run: sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g'
+    # - name: Get Docker Tag and Version
+    #   id: getDockerTagAndVersion
+    #   shell: bash -l {0}
+    #   run: |
+    #     echo '::set-output name=version::'$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+    #     echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
+    # - name: Test
+    #   shell: bash -l {0}
+    #   run: |
+    #     echo ${{ steps.getDockerTagAndVersion.outputs.version }}
+    #     echo ${{ steps.getDockerTagAndVersion.outputs.gittag }}
+    # - name: Demo Image Build
+    #   shell: bash -l {0}
+    #   run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION="${{ steps.getDockerTagAndVersion.outputs.version }}"
