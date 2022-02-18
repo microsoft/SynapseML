@@ -14,12 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        - repository-folder: "build-demo"
-          source-folder: "demo"
-        - repository-folder: "build-minimal"
-          source-folder: "minimal"
-        - repository-folder: "release"
-          source-folder: "demo"
+        image:
+          - repository-folder: "build-demo"
+            source-folder: "demo"
+          - repository-folder: "build-minimal"
+            source-folder: "minimal"
+          - repository-folder: "release"
+            source-folder: "demo"
     steps:
     - uses: actions/checkout@master
       with:
@@ -44,14 +45,14 @@ jobs:
       run: |
         echo '::set-output name=version::'$(sbt "core/version" | tail -2 | cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g' | head -n 1)
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
-    - name: Image Build - ${{ matrix.repository-folder }}
-      if: matrix.repository-folder != "release"
+    - name: Image Build - ${{ matrix.image.repository-folder }}
+      if: matrix.image.repository-folder != "release"
       shell: bash -l {0}
-      run: docker build -f tools/docker/${{ matrix.source-folder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.repository-folder }}:${{ steps.getDockerTagAndVersion.outputs.version }} .
+      run: docker build -f tools/docker/${{ matrix.image.source-folder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repository-folder }}:${{ steps.getDockerTagAndVersion.outputs.version }} .
     - name: Image Build - ${{ repository-folder }}
-      if: matrix.repository-folder == "release"
+      if: matrix.image.repository-folder == "release"
       shell: bash -l {0}
-      run: docker build -f tools/docker/${{ matrix.source-folder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.repository-folder }}:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
+      run: docker build -f tools/docker/${{ matrix.image.source-folder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repository-folder }}:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
     - name: Image Push - ${{ repository-folder }}
       shell: bash -l {0}
-      run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.repository-folder }}
+      run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repository-folder }}
