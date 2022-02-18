@@ -51,7 +51,7 @@ jobs:
       if: ${{ startsWith(steps.getDockerTagAndVersion.outputs.gittag, 'v') }}
       shell: bash -l {0}
       run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
-    - name: Release Image Push - ${{ steps.getDockerTagAndVersion.outputs.version }}
+    - name: Release Image Push - build version
       if: ${{ startsWith(steps.getDockerTagAndVersion.outputs.gittag, 'v') }}
       shell: bash -l {0}
       run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/release:${{ steps.getDockerTagAndVersion.outputs.version }}
