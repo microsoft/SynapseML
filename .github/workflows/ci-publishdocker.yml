@@ -34,4 +34,4 @@ jobs:
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
     - name: Demo Image Build
       shell: bash -l {0}
-      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION="${{ steps.getDockerTagAndVersion.outputs.version }}"
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} .
