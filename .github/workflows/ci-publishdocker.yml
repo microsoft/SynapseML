@@ -1,8 +1,8 @@
 name: CI/Publish Docker
 
 on:
-  # push:
-  #   branches: [ master ]
+  push:
+    branches: [ master ]
   # pull_request:
   #   branches: [ master ]
   workflow_dispatch:
@@ -17,15 +17,15 @@ jobs:
         fetch-depth: 0
     - uses: Azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} 
-    - uses: Azure/get-keyvault-secrets@v1
-      with:
-        keyvault: "mmlspark-keys"
-        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
-      id: GetKeyVaultSecrets
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    # - uses: Azure/get-keyvault-secrets@v1
+    #   with:
+    #     keyvault: "mmlspark-keys"
+    #     secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+    #   id: GetKeyVaultSecrets
     - name: Run command
       shell: bash -l {0}
-      run: sbt "core/version" | tail -1
+      run: sbt "core/version" | tail -2
     # - name: Get Docker Tag and Version
     #   id: getDockerTagAndVersion
     #   shell: bash -l {0}
