@@ -18,6 +18,9 @@ jobs:
     - uses: Azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Azure Container Registry Login
+      shell: bash -l {0}
+      run: az acr login --name mmlsparkmcr
     # - uses: Azure/get-keyvault-secrets@v1
     #   with:
     #     keyvault: "mmlspark-keys"
@@ -32,9 +35,12 @@ jobs:
       run: |
         echo '::set-output name=version::'$(sbt "core/version" | tail -2 | cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g' | head -n 1)
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
-    # - name: Demo Image Build
-    #   shell: bash -l {0}
-    #   run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} .
-    - name: Azure Container Registry Login
+    - name: Demo Image Build
       shell: bash -l {0}
-      run: az acr login --name mmlsparkmcr
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} .
+    - name: Demo Image Tag
+      shell: bash -l {0}
+      run: docker tag mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:${{ steps.getDockerTagAndVersion.outputs.version }} mmlsparkmcr.azurecr.io/public/mmlspark
+    - name: Demo Image Push
+      shell: bash -l {0}
+      run: docker push mmlsparkmcr.azurecr.io/public/mmlspark
