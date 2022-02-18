@@ -49,10 +49,10 @@ jobs:
       if: matrix.image.repositoryFolder != "release"
       shell: bash -l {0}
       run: docker build -f tools/docker/${{ matrix.image.sourceFolder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repositoryFolder }}:${{ steps.getDockerTagAndVersion.outputs.version }} .
-    - name: Image Build - ${{ repositoryFolder }}
+    - name: Image Build - ${{ matrix.image.repositoryFolder }}
       if: matrix.image.repositoryFolder == "release"
       shell: bash -l {0}
       run: docker build -f tools/docker/${{ matrix.image.sourceFolder }}/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repositoryFolder }}:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
-    - name: Image Push - ${{ repositoryFolder }}
+    - name: Image Push - ${{ matrix.image.repositoryFolder }}
       shell: bash -l {0}
       run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/${{ matrix.image.repositoryFolder }}
