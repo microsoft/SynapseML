@@ -1,8 +1,8 @@
 name: CI/Publish Docker
 
 on:
-  push:
-    branches: [ master ]
+  # push:
+  #   branches: [ master ]
   # pull_request:
   #   branches: [ master ]
   workflow_dispatch:
@@ -21,14 +21,6 @@ jobs:
     - name: Azure Container Registry Login
       shell: bash -l {0}
       run: az acr login --name mmlsparkmcr
-    # - uses: Azure/get-keyvault-secrets@v1
-    #   with:
-    #     keyvault: "mmlspark-keys"
-    #     secrets: 'acrhost'  # comma separated list of secret keys that need to be fetched from the Key Vault 
-    #   id: GetKeyVaultSecrets
-    # - name: Run command
-    #   shell: bash -l {0}
-    #   run: sbt "core/version" | tail -2 | cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g' | head -n 1
     - name: Get Docker Tag and Version
       id: getDockerTagAndVersion
       shell: bash -l {0}
