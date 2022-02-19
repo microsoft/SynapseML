@@ -88,19 +88,25 @@ jobs:
       run: |
         (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+    - name: Install FFmpeg if necessary
+      if: ${{ matrix.package.ffmpeg == 'true' }}
+      shell: bash -l {0}
+      run: sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y
+    - name: Setup SBT
+      shell: bash -l {0}
+      run: export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
+    - name: Print SBT_OPTS
+      if: always()
+      shell: bash -l {0}
+      run: echo $SBT_OPTS
     - name: Unit Test
       shell: bash -l {0}
       run: |
-        (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
-        sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
-        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
-        export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
         (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
         (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
         (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
       env:
-        PACKAGE: ${{ matrix.package.name }} 
-        FFMPEG: ${{ matrix.package.ffmpeg }}
+        PACKAGE: ${{ matrix.package.name }}
         FLAKY: ${{ matrix.package.flaky }}
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
@@ -126,4 +132,3 @@ jobs:
         chmod +x .codecov
         echo "Starting Codecov Upload"
         ./.codecov -t ${{ steps.GetKeyVaultSecrets.outputs.codecov-token }}
-
