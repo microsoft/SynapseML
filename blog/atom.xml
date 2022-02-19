@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://microsoft.github.io/SynapseML/blog</id>
     <title>SynapseML Blog</title>
-    <updated>2022-02-18T02:30:34.259Z</updated>
+    <updated>2022-02-19T00:45:31.388Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://microsoft.github.io/SynapseML/blog"/>
     <subtitle>SynapseML Blog</subtitle>
@@ -11,7 +11,7 @@
         <title type="html"><![CDATA[Overview]]></title>
         <id>/overview</id>
         <link href="https://microsoft.github.io/SynapseML/blog/overview"/>
-        <updated>2022-02-18T02:30:34.259Z</updated>
+        <updated>2022-02-19T00:45:31.388Z</updated>
         <summary type="html"><![CDATA[SynapseML Overview]]></summary>
         <content type="html"><![CDATA[<p>Synapse Machine Learning expands the distributed computing framework <a href="https://github.com/apache/spark">Apache Spark</a> in several new directions. SynapseML adds several machine learning frameworks to the SparkML Ecosystem, including <a href="/docs/features/lightgbm/about">LightGBM</a>, <a href="/docs/features/vw/about">Vowpal Wabbit</a>, <a href="https://opencv.org/">OpenCV</a>, <a href="https://github.com/linkedin/isolation-forest">Isolation Forest</a>, and the <a href="https://www.microsoft.com/en-us/research/product/cognitive-toolkit/">Microsoft Cognitive Toolkit (CNTK)</a> . These tools allow users to craft powerful and highly-scalable models that span multiple ML ecosystems.</p><p>SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Microsoft Cognitive Services. Finally, the Spark Serving project enables high throughput, sub-millisecond latency web services, backed by your Spark cluster.</p><p>Visit the SynapseML Github repository to learn more.</p>]]></content>
     </entry>
