@@ -102,9 +102,9 @@ jobs:
     - name: Unit Test
       shell: bash -l {0}
       run: |
-        (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+        (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.${PACKAGE}.**") ||
+        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.${PACKAGE}.**") ||
+        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.${PACKAGE}.**")
       env:
         PACKAGE: ${{ matrix.package.name }}
         FLAKY: ${{ matrix.package.flaky }}
