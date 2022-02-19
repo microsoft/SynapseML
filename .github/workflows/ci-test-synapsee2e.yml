@@ -61,3 +61,6 @@ jobs:
       if: always()
       with:
         files: '**/test-reports/TEST-*.xml'
+        check_name: "SynapseE2E Test Results"
+        comment_title: "SynapseE2E Test Results"
+        
