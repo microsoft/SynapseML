@@ -57,6 +57,8 @@ jobs:
       if: always()
       with:
         files: '**/python-test-*.xml'
+        check_name: "${{ matrix.project }} Unit Test Results"
+        comment_title: "${{ matrix.project }} Unit Test Results"
     - name: Generate Codecov report
       if: always()
       shell: bash -l {0}

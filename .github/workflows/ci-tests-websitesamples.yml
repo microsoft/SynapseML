@@ -51,6 +51,8 @@ jobs:
       if: always()
       with:
         files: '**/website-test-result.xml'
+        check_name: "Website Samples Test Results"
+        comment_title: "Website Samples Test Results"
     - name: Generate Codecov report
       if: always()
       shell: bash -l {0}

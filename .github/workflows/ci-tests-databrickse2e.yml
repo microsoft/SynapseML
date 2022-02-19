@@ -62,3 +62,5 @@ jobs:
       if: always()
       with:
         files: '**/test-reports/TEST-*.xml'
+        check_name: "DatabricksE2E Test Results"
+        comment_title: "DatabricksE2E Test Results"

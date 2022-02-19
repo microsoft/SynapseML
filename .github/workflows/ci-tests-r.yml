@@ -52,6 +52,8 @@ jobs:
       if: always()
       with:
         files: '**/r-test-*.xml'
+        check_name: "R Test Results"
+        comment_title: "R Test Results"
     - name: Generate Codecov report
       if: always()
       shell: bash -l {0}
