@@ -1,28 +1,7 @@
 resources:
 - repo: self
-
-trigger:
-  batch: true
-  branches:
-    include:
-    - master
-  paths:
-    exclude:
-    - README.md
-    - docs/*
-    - CODEOWNERS
-    - .github
-
-pr:
-  branches:
-    include:
-    - master
-  paths:
-    exclude:
-    - README.md
-    - docs/*
-    - CODEOWNERS
-    - .github
+# Disabling triggers since we're moving to GitHub Actions
+# It will still be available for manual trigger for now.
 
 variables:
   runTests: True

@@ -1,0 +1,114 @@
+name: CI/Tests/Unit
+
+on:
+  pull_request_target:
+    branches: [ master ]
+    paths-ignore:
+    - 'docs/*'
+    - CODEOWNERS
+    - .gitignore
+    - README.md
+    - CONTRIBUTING.md
+    - '.github/**'
+  workflow_dispatch:
+
+jobs:
+  Test:
+    runs-on: ubuntu-18.04
+    timeout-minutes: 0
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: "automl"
+          - name: "cntk"
+          - name: "geospatial"
+          - name: "onnx"
+          - name: "cognitive.split1"
+            flaky: "true"
+          - name: "cognitive.split2"
+            ffmpeg: "true"
+            flaky: "true"
+          - name: "cognitive.split3"
+            ffmpeg: "true"
+            flaky: "true"
+          - name: "cognitive.split4"
+            flaky: "true"
+          - name: "core"
+          - name: "downloader"
+          - name: "explainers.split1"
+          - name: "explainers.split2"
+          - name: "explainers.split3"
+          - name: "exploratory"
+          - name: "featurize"
+          - name: "image"
+          - name: "io.split1"
+            flaky: "true"
+          - name: "io.split2"
+            flaky: "true"
+          - name: "isolationforest"
+          - name: "flaky"
+            flaky: "true"
+          - name: "lightgbm.split1"
+            flaky: "true"
+          - name: "lightgbm.split2"
+            flaky: "true"
+          - name: "lime"
+          - name: "opencv"
+          - name: "recommendation"
+          - name: "stages"
+          - name: "nn"
+          - name: "train"
+          - name: "vw"
+    steps:
+    - uses: actions/checkout@master
+      with:
+        fetch-depth: 0
+    - name: Azure Login
+      uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Setup repo
+      shell: bash -l {0}
+      run: |
+        (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+        (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+    - name: Unit Test
+      shell: bash -l {0}
+      run: |
+        (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
+        sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
+        export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
+        (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+        (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+      env:
+        PACKAGE: ${{ matrix.package.name }} 
+        FFMPEG: ${{ matrix.package.ffmpeg }}
+        FLAKY: ${{ matrix.package.flaky }}
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: '**/test-reports/TEST-*.xml'
+    - name: Generate Codecov report
+      if: always()
+      shell: bash -l {0}
+      run: sbt coverageReport
+    - name: Get Codecov Secret from Key Vault
+      uses: Azure/get-keyvault-secrets@v1
+      with:
+        keyvault: "mmlspark-keys"
+        secrets: 'codecov-token'
+      id: GetKeyVaultSecrets
+    - name: Upload Coverage Report To Codecov.io
+      if: always()
+      shell: bash -l {0}
+      run: |
+        set -e
+        curl -s https://codecov.io/bash > .codecov
+        chmod +x .codecov
+        echo "Starting Codecov Upload"
+        ./.codecov -t ${{ steps.GetKeyVaultSecrets.outputs.codecov-token }}
+
