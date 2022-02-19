@@ -15,6 +15,8 @@ import scala.language.existentials
 import scala.sys.process.Process
 
 /** Tests to validate fuzzing of modules. */
+// DO NOT APPROVE THIS PR. This is a change
+// to test triggering the GitHub Actions.
 class SynapseTests extends TestBase {
   val os: String = sys.props("os.name").toLowerCase
   os match {
