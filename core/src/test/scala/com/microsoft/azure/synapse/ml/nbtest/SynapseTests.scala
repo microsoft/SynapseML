@@ -15,6 +15,7 @@ import scala.language.existentials
 import scala.sys.process.Process
 
 /** Tests to validate fuzzing of modules. */
+/* Foo comment: DO NOT MERGE */
 class SynapseTests extends TestBase {
   val os: String = sys.props("os.name").toLowerCase
   os match {
