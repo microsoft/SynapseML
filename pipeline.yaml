@@ -1,7 +1,27 @@
 resources:
 - repo: self
-# Disabling triggers since we're moving to GitHub Actions
-# It will still be available for manual trigger for now.
+
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+    - CODEOWNERS
+    - .github
+
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+    - CODEOWNERS
+    - .github
 
 variables:
   runTests: True
