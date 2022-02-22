@@ -9,7 +9,7 @@
 [![Version](https://img.shields.io/badge/version-0.9.5-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
 
 
-SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
+SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines. EXAMPLE
 SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of 
 machine learning, analytics, and model deployment workflows. 
 SynapseML adds many deep learning and data science tools to the Spark ecosystem,
