@@ -1,4 +1,4 @@
-## Interested in contributing to SynapseML?  We're excited to work with you.
+## Interested in contributing to SynapseML?  We're excited to work with you. 
 
 ### You can contribute in many ways:
 
