@@ -63,8 +63,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setKind("feature")
   lazy val outputFeat: DataFrame = iceFeat.transform(data).cache()
 
-  outputFeat.show(truncate = false)
-
 
   // Helper function which returns value from first row in a column specified by "colName".
   def getFirstValueFromOutput(output: DataFrame, colName: String): Map[_, Vector] = {
@@ -144,7 +142,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     map.put("name", "my_name")
     map.put("numTopValues", 100)
     val feature = ICECategoricalFeature.fromMap(map)
-    println(feature)
     assert(feature.name == map.get("name"))
     assert(feature.numTopValues.contains(map.get("numTopValues")))
     assert(feature.outputColName.isEmpty)
@@ -157,6 +154,11 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     val feature = ICECategoricalFeature.fromMap(map)
     ice.setCategoricalFeaturesPy(List(map).asJava)
     assert(ice.getCategoricalFeatures.head == feature)
+  }
+
+  test("For kind `feature` output has a number of rows equal to the number of passed features") {
+    val numFeatures = iceFeat.getCategoricalFeatures.size + iceFeat.getNumericFeatures.size
+    assert(outputFeat.select("featureNames").collect().length == numFeatures)
   }
 
   override def testObjects(): Seq[TestObject[ICETransformer]] = Seq(new TestObject(ice, data))
