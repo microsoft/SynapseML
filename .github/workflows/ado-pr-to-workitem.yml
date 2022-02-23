@@ -10,7 +10,7 @@ jobs:
   alert:
     runs-on: ubuntu-latest
     steps:
-    - uses: mhamilton723/github-actions-pr-to-work-item@master
+    - uses: danhellem/github-actions-pr-to-work-item@master
       env:
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'
@@ -20,3 +20,4 @@ jobs:
         ado_active_state: 'In Progress'
         ado_close_state: 'Done'
         ado_area_path: '${{ secrets.ADO_AREA_PATH }}'
+        debug: true
