@@ -8,7 +8,7 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import BuildUtils._
 import xerial.sbt.Sonatype._
 
-val condaEnvName = "synapseml"
+val condaEnvName = "synapseml" 
 val sparkVersion = "3.2.0"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
