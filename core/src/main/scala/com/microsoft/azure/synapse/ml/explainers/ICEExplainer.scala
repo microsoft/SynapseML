@@ -13,7 +13,7 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector, DenseVector}
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 
 import scala.jdk.CollectionConverters.asScalaBufferConverter
