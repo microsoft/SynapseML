@@ -16,6 +16,7 @@ jobs:
   Publish:
     runs-on: ubuntu-18.04
     timeout-minutes: 0
+    environment: ci
     steps:
     - uses: actions/checkout@master
       with:
