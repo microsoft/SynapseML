@@ -62,6 +62,19 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setTargetClasses(Array(1))
     .setKind("feature")
   lazy val outputFeat: DataFrame = iceFeat.transform(data).cache()
+  // Output schema: number_of_features rows * 2 cols (name of the feature + corresponding dependence)
+  // Output is sorted by dependence in descending order
+  // For this example you should expect:
+  //  outputFeat.show(false)
+ //  +------------------------+---------------+
+//  |dependence              |featureNames   |
+//  +------------------------+---------------+
+//  |[0.1249879667776877]    |col1_dependence|
+//    |[0.1249879667776877]    |col3_dependence|
+//    |[7.096582491573019E-11] |col4_dependence|
+//    |[1.1503853425409716E-12]|col2_dependence|
+//    +------------------------+---------------+
+
 
 
   // Helper function which returns value from first row in a column specified by "colName".

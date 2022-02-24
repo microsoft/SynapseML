@@ -134,23 +134,24 @@ class ICETransformer(override val uid: String) extends Transformer
               collect_list(targetCol)
             ).alias(outputColName)
           )
-      case `featureKind` => val pdp = result
-        .groupBy(featureName)
+      case `featureKind` =>
+        // Output schema: number_of_features rows * 2 cols (name of the feature + corresponding dependence)
+        val pdp = result.groupBy(featureName)
         // compute the pdp for the current feature's values
         .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
-        if (feature.isInstanceOf[ICENumericFeature]) {
-          // compute the std of the pdp values over unique feature values
-          pdp.agg(Summarizer.std(col(dependenceCol)).alias(outputColName))
-            .withColumn(featureNamesCol, lit(outputColName))
-            .withColumnRenamed(outputColName, dependenceCol)
-        } else {
-          pdp.agg(
-            // compute the (max - min) / 4 of the pdp values over unique feature values
-            Summarizer.max(col(dependenceCol)).alias(maxCol),
-            Summarizer.min(col(dependenceCol)).alias(minCol))
-            .withColumn(outputColName, categoricalImpUdf(col(maxCol), col(minCol))).select(outputColName)
-            .withColumn(featureNamesCol, lit(outputColName))
-            .withColumnRenamed(outputColName, dependenceCol)
+        feature match {
+          case _: ICENumericFeature =>
+            pdp.agg(Summarizer.std(col(dependenceCol)).alias(outputColName))
+              .withColumn(featureNamesCol, lit(outputColName))
+              .withColumnRenamed(outputColName, dependenceCol)
+          case _: ICECategoricalFeature =>
+            pdp.agg(
+              // compute the (max - min) / 4 of the pdp values over unique feature values
+              Summarizer.max(col(dependenceCol)).alias(maxCol),
+              Summarizer.min(col(dependenceCol)).alias(minCol))
+              .withColumn(outputColName, categoricalImpUdf(col(maxCol), col(minCol))).select(outputColName)
+              .withColumn(featureNamesCol, lit(outputColName))
+              .withColumnRenamed(outputColName, dependenceCol)
         }
     }
   }
@@ -195,8 +196,7 @@ class ICETransformer(override val uid: String) extends Transformer
       case `averageKind` =>
         dependenceDfs.reduce(_ crossJoin _)
       case `featureKind` =>
-        //dependenceDfs.reduce(_ crossJoin _)
-        dependenceDfs.reduce(_ union(_)).orderBy(desc(dependenceCol))
+        dependenceDfs.reduce(_ union _).orderBy(desc(dependenceCol))
     }
   }
 
