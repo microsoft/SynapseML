@@ -161,7 +161,7 @@ packageSynapseML := {
          |        "Programming Language :: Python :: 3",
          |    ],
          |    zip_safe=True,
-         |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]}
+         |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
          |)
          |
          |""".stripMargin
