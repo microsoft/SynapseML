@@ -112,6 +112,14 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'MLflow',
+      items: [
+        'mlflow/introduction',
+        'mlflow/examples',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Reference',
       items: [
         'reference/developer-readme',
