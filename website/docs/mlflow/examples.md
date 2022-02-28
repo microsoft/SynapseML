@@ -30,7 +30,7 @@ from synapse.ml.train import ComputeModelStatistics
 
 with mlflow.start_run():
 
-    featureColumns = ["Number of times pregnant","Plasma glucose concentration a 2 hours in an oral glucose tolerance test",
+    feature_columns = ["Number of times pregnant","Plasma glucose concentration a 2 hours in an oral glucose tolerance test",
     "Diastolic blood pressure (mm Hg)","Triceps skin fold thickness (mm)","2-Hour serum insulin (mu U/ml)",
     "Body mass index (weight in kg/(height in m)^2)","Diabetes pedigree function","Age (years)"]
     df = spark.createDataFrame([
@@ -55,7 +55,7 @@ with mlflow.start_run():
         (9,119,80,35,0,29.0,0.263,29,1),
         (6,93,50,30,64,28.7,0.356,23,0),
         (1,126,60,0,0,30.1,0.349,47,1)
-    ], featureColumns+["labels"]).repartition(2)
+    ], feature_columns+["labels"]).repartition(2)
 
 
     featurize = (Featurize()
@@ -66,7 +66,7 @@ with mlflow.start_run():
 
     df_trans = featurize.fit(df).transform(df)
 
-    lightgbmClassifier = (LightGBMClassifier()
+    lightgbm_classifier = (LightGBMClassifier()
             .setFeaturesCol("features")
             .setRawPredictionCol("rawPrediction")
             .setDefaultListenPort(12402)
@@ -77,20 +77,20 @@ with mlflow.start_run():
             .setLeafPredictionCol("leafPrediction")
             .setFeaturesShapCol("featuresShap"))
 
-    lightbmCM = lightgbmClassifier.fit(df_trans)
+    lightgbm_model = lightgbm_classifier.fit(df_trans)
 
     # Use mlflow.spark.save_model to save the model to your path
-    mlflow.spark.save_model(lightbmCM, "lightbmCM")
+    mlflow.spark.save_model(lightgbm_model, "lightgbm_model")
     # Use mlflow.spark.log_model to log the model if you have a connected mlflow service
-    mlflow.spark.log_model(lightbmCM, "lightbmCM")
+    mlflow.spark.log_model(lightgbm_model, "lightgbm_model")
 
     # Use mlflow.pyfunc.load_model to load model back as PyFuncModel and apply predict
-    prediction = mlflow.pyfunc.load_model("lightbmCM").predict(df_trans.toPandas())
+    prediction = mlflow.pyfunc.load_model("lightgbm_model").predict(df_trans.toPandas())
     prediction = list(map(str, prediction))
     mlflow.log_param("prediction", ",".join(prediction))
 
     # Use mlflow.spark.load_model to load model back as PipelineModel and apply transform
-    predictions = mlflow.spark.load_model("lightbmCM").transform(df_trans)
+    predictions = mlflow.spark.load_model("lightgbm_model").transform(df_trans)
     metrics = ComputeModelStatistics(evaluationMetric="classification", labelCol='labels', scoredLabelsCol='prediction').transform(predictions).collect()
     mlflow.log_metric("accuracy", metrics[0]['accuracy'])
 ```
@@ -108,7 +108,7 @@ from pyspark.ml import PipelineModel
 
 with mlflow.start_run():
 
-    textKey = "YOUR_COG_SERVICE_SUBSCRIPTION_KEY"
+    text_key = "YOUR_COG_SERVICE_SUBSCRIPTION_KEY"
     df = spark.createDataFrame([
     ("I am so happy today, its sunny!", "en-US"),
     ("I am frustrated by this rush hour traffic", "en-US"),
@@ -116,7 +116,7 @@ with mlflow.start_run():
     ], ["text", "language"])
 
     sentiment = (TextSentiment()
-                .setSubscriptionKey(textKey)
+                .setSubscriptionKey(text_key)
                 .setLocation("eastus")
                 .setTextCol("text")
                 .setOutputCol("prediction")
@@ -126,16 +126,16 @@ with mlflow.start_run():
     display(sentiment.transform(df))
 
     # Wrap it as a stage in the PipelineModel
-    sentimentM = PipelineModel(stages=[sentiment])
-    mlflow.spark.save_model(sentimentM, "sentimentM")
-    mlflow.spark.log_model(sentimentM, "sentimentM")
+    sentiment_model = PipelineModel(stages=[sentiment])
+    mlflow.spark.save_model(sentiment_model, "sentiment_model")
+    mlflow.spark.log_model(sentiment_model, "sentiment_model")
 
-    outputDF = mlflow.spark.load_model("sentimentM").transform(df)
-    display(outputDF)
+    output_df = mlflow.spark.load_model("sentiment_model").transform(df)
+    display(output_df)
 
     # In order to call the predict function successfully you need to specify the
     # outputCol name as `prediction`
-    prediction = mlflow.pyfunc.load_model("sentimentM").predict(df.toPandas())
+    prediction = mlflow.pyfunc.load_model("sentiment_model").predict(df.toPandas())
     prediction = list(map(str, prediction))
     mlflow.log_param("prediction", ",".join(prediction))
 ```
