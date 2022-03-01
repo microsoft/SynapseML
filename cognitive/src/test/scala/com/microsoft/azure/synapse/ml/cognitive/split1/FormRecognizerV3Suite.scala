@@ -12,6 +12,7 @@ import org.scalactic.Equality
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
+import scala.collection.mutable.WrappedArray
 
 object FormRecognizerV3Utils {
   def layoutTest(model: AnalyzeDocumentV3, df: DataFrame): DataFrame = {
@@ -187,7 +188,7 @@ class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with 
     assert(result1.head.getString(2).startsWith("Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
       "123-456-7890\n6/10/2019 13:59\nSales Associate"))
     assert(result1.head.getSeq(3).mkString(",").equals("123 Main Street,123,Redmond,WA,98052,6/10/2019 " +
-      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104.40,$ 1203.39"))
+      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104,40,$ 1203.39"))
     assert(result1.head.getMap(4).toString().equals("Map(Sales Associate: -> Paul, Sub-Total -> $ 1098.99," +
       " Tax -> 104.40, Total -> $ 1203.39)"))
 
@@ -197,7 +198,7 @@ class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with 
     assert(result2.head.getString(2).startsWith("Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
       "123-456-7890\n6/10/2019 13:59\nSales Associate"))
     assert(result2.head.getSeq(3).mkString(",").equals("123 Main Street,123,Redmond,WA,98052,6/10/2019 " +
-      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104.40,$ 1203.39"))
+      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104,40,$ 1203.39"))
     assert(result2.head.getMap(4).toString().equals("Map(Sales Associate: -> Paul, Sub-Total -> $ 1098.99," +
       " Tax -> 104.40, Total -> $ 1203.39)"))
   }
