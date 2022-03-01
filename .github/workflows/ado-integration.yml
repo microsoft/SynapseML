@@ -13,12 +13,11 @@ jobs:
         env:
           ado_token: "${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}"
           github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"
-          ado_organization: "msdata"
-          ado_project: "A365"
-          ado_area_path: "A365\\Synapse ML"
-          ado_iteration_path: "A365\\CY21- H1"
+          ado_organization: "${{ secrets.ADO_ORGANIZATION }}"
+          ado_project: "${{ secrets.ADO_PROJECT }}"
+          ado_area_path: "${{ secrets.ADO_AREA_PATH }}"
           ado_wit: "Task"
-          ado_new_state: "New"
-          ado_active_state: "Active"
-          ado_close_state: "Closed"
+          ado_new_state: "To Do"
+          ado_active_state: "In Progress"
+          ado_close_state: "Done"
           ado_bypassrules: true

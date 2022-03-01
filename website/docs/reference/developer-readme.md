@@ -7,21 +7,35 @@ description: SynapseML Development Setup
 
 # SynapseML Development Setup
 
-1) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-    - Make sure to download JDK 11 if you don't have it
+1) [Install JDK 11](https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html)
+    - You may need an Oracle login to download.
+2) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
 3) Fork the repository on github
-    - This is required if you would like to make PRs. If you choose the fork option, replace the clone link below with that of your fork.
-2) Git Clone your fork, or the repo directly
-    - `git clone https://github.com/Microsoft/SynapseML.git`
-    - NOTE: If you would like to contribute to synapseml regularly, add your fork as a remote named ``origin`` and Microsoft/SynapseML as a remote named ``upstream``
-3) Run sbt to compile and grab datasets
-    - `cd synapseml`
+    - See how to here: [Fork a repo - GitHub Docs](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
+4) Clone your fork
+    - `git clone https://github.com/<your GitHub handle>/SynapseML.git`
+    - This will automatically add your fork as the default remote, called `origin`
+5) Add another Git Remote to track the original SynapseML repo. It's recommended to call it `upstream`:
+    - `git remote add upstream https://github.com/microsoft/SynapseML.git`
+    - See more about Git remotes here: [Git - Working with remotes](https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes)
+6) Go to the directory where you cloed the repo (e.g., `SynapseML`) with `cd SynapseML`
+6) Run sbt to compile and grab datasets
     - `sbt setup`
-4) [Install IntelliJ](https://www.jetbrains.com/idea/download)
-    - Install Scala plugins during install
-5) Configure IntelliJ
-    - **OPEN** the synapseml directory
+7) [Install IntelliJ](https://www.jetbrains.com/idea/download)    
+8) Configure IntelliJ
+    - Install [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala) during initialization
+    - **OPEN** the synapseml directory from IntelliJ
     - If the project does not automatically import,click on `build.sbt` and import project
+9) Prepare your Python Environment
+    - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+    - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
+    - Activate the `synapseml` conda environment by running `conda env create -f environment.yaml` from the `synapseml` directory.
+
+> NOTE
+> 
+> If you will be regularly contributing to the SynapseML repo, you'll want to keep your fork synced with the
+> upstream repository. Please read [this GitHub doc](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
+> to know more and learn techniques about how to do it.
 
 # Publishing and Using Build Secrets
 

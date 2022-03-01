@@ -13,6 +13,7 @@ import SprayImplicits._
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
+import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -60,29 +61,25 @@ object DatabricksUtilities extends HasHttpClient {
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
-  def recursiveListFiles(f: File): Array[File] = {
-    val files = f.listFiles()
-    files.filter(_.isFile) ++ files.filter(_.isDirectory).flatMap(recursiveListFiles)
-  }
+  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
+    FileUtilities.join(
+      BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile)
 
-  val NotebookFiles: Array[File] = recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
-      "notebooks").getCanonicalFile)
+  val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val ParallizableNotebooks: Seq[File] = NotebookFiles
+  val NonParallelizableNotebooks: Seq[File] = Nil
 
-  val NonParallizableNotebooks: Seq[File] = Nil
-
-  def retry[T](backoffs: List[Int], f: () => T): T = {
+  def retry[T](backoffList: List[Int], f: () => T): T = {
     try {
       f()
     } catch {
       case t: Throwable =>
-        val waitTime = backoffs.headOption.getOrElse(throw t)
+        val waitTime = backoffList.headOption.getOrElse(throw t)
         println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
         blocking {
           Thread.sleep(waitTime.toLong)
         }
-        retry(backoffs.tail, f)
+        retry(backoffList.tail, f)
     }
   }
 
@@ -208,7 +205,7 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
-  def submitRun(clusterId: String, notebookPath: String, timeout: Int = 10 * 60): Int = {
+  def submitRun(clusterId: String, notebookPath: String): Int = {
     val body =
       s"""
          |{
@@ -300,9 +297,15 @@ object DatabricksUtilities extends HasHttpClient {
     }(ExecutionContext.global)
   }
 
-  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): Int = {
-    uploadNotebook(notebookFile, Folder + "/" + notebookFile.getName)
-    submitRun(clusterId, Folder + "/" + notebookFile.getName)
+  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
+    val destination: String = Folder + "/" + notebookFile.getName
+    uploadNotebook(notebookFile, destination)
+    val runId: Int = submitRun(clusterId, destination)
+    val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
+
+    println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
+
+    run
   }
 
   def cancelRun(runId: Int): Unit = {
@@ -349,5 +352,10 @@ object DatabricksUtilities extends HasHttpClient {
   def cancelAllJobs(clusterId: String): Unit = {
     listActiveJobs(clusterId).foreach(cancelRun)
   }
+}
 
+case class DatabricksNotebookRun(runId: Int, notebookName: String) {
+  def monitor(logLevel: Int = 2): Future[Any] = {
+    monitorJob(runId, TimeoutInMillis, logLevel)
+  }
 }

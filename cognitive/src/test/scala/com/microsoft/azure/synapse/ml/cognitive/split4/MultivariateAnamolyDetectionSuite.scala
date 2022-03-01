@@ -128,7 +128,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setConcurrency(5)
 
   test("SimpleMultiAnomalyEstimator basic usage with connectionString") {
 
@@ -203,6 +202,40 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     }
     assert(caught.getMessage.contains("You need to set either {connectionString, containerName} " +
       "or {storageName, storageKey, endpoint, sasToken, containerName} in order to access the blob container"))
+  }
+
+  test("Expose correct error message during fitting") {
+    val caught = intercept[RuntimeException] {
+      val testDf = df.limit(50)
+      val smae = simpleMultiAnomalyEstimator
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      smae.fit(testDf)
+    }
+    assert(caught.getMessage.contains("Not enough data."))
+  }
+
+  test("Expose correct error message during inference") {
+    val caught = intercept[RuntimeException] {
+      val testDf = df.limit(50)
+      val smae = simpleMultiAnomalyEstimator
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      val model = smae.fit(df)
+      modelIdList ++= Seq(model.getModelId)
+      smae.cleanUpIntermediateData()
+      val diagnosticsInfo = smae.getDiagnosticsInfo.get
+      assert(diagnosticsInfo.variableStates.get.length.equals(3))
+
+      model.setStartTime(startTime)
+        .setEndTime(endTime)
+        .setOutputCol("result")
+        .setTimestampCol(timestampColumn)
+        .setInputCols(inputColumns)
+        .transform(testDf)
+        .collect()
+    }
+    assert(caught.getMessage.contains("Not enough data."))
   }
 
   override def testSerialization(): Unit = {
