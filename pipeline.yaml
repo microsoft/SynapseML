@@ -344,7 +344,7 @@ jobs:
           sbt installPipPackage
     - task: AzureCLI@1
       displayName: 'Test Python Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 40
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
