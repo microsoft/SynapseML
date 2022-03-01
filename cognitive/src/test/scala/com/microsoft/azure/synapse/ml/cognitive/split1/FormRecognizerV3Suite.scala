@@ -202,14 +202,6 @@ class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with 
       " Tax -> 104.40, Total -> $ 1203.39)"))
   }
 
-  lazy val analyzeCustomModel: AnalyzeDocumentV3 = analyzeDocumentV3
-    .setPrebuiltModelId(modelId.get)
-    .setImageUrlCol("source")
-
-  lazy val bytesAnalyzeCustomModel: AnalyzeDocumentV3 = analyzeDocumentV3
-    .setPrebuiltModelId(modelId.get)
-    .setImageBytesCol("imageBytes")
-
   override def testObjects(): Seq[TestObject[AnalyzeDocumentV3]] =
     Seq(new TestObject(analyzeLayout, imageDf1))
 
