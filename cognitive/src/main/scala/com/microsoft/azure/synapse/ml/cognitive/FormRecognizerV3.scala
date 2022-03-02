@@ -17,10 +17,10 @@ trait HasPrebuiltModelID extends HasServiceParams {
   // TODO: Add back custom modelId support after cog service team's fix
   // Currently custom modelId generated from the old version can't be used by V3
   val prebuiltModelId = new ServiceParam[String](this, "prebuiltModelId",
-    "Prebuilt Model identifier for Form Recognizer V3.0, supported modelId: prebuilt-layout," +
+    "Prebuilt Model identifier for Form Recognizer V3.0, supported modelId: prebuilt-read, prebuilt-layout," +
       "prebuilt-document, prebuilt-businessCard, prebuilt-idDocument, prebuilt-invoice, prebuilt-receipt," +
       "or your custom modelId", {
-      case Left(s) => Set("prebuilt-layout", "prebuilt-document", "prebuilt-businessCard",
+      case Left(s) => Set("prebuilt-read", "prebuilt-layout", "prebuilt-document", "prebuilt-businessCard",
         "prebuilt-idDocument", "prebuilt-invoice", "prebuilt-receipt")(s)
       case Right(_) => true
     }, isRequired = true)
@@ -34,15 +34,18 @@ trait HasPrebuiltModelID extends HasServiceParams {
   def getPrebuiltModelIdCol: String = getVectorParam(prebuiltModelId)
 }
 
-object AnalyzeDocumentV3 extends ComplexParamsReadable[AnalyzeDocumentV3]
+object AnalyzeDocument extends ComplexParamsReadable[AnalyzeDocument] {
+  // Different versions might have different results so make sure tests pass before updating
+  val DefaultAPIVersion = "2022-01-30-preview"
+}
 
-class AnalyzeDocumentV3(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
+class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
   with HasPrebuiltModelID with HasPages with HasLocale
   with HasImageInput with HasSetLocation with BasicLogging {
   logClass()
 
-  def this() = this(Identifiable.randomUID("AnalyzeDocumentV3"))
+  def this() = this(Identifiable.randomUID("AnalyzeDocument"))
 
   def urlPath: String = "formrecognizer/documentModels/"
 
@@ -60,7 +63,7 @@ class AnalyzeDocumentV3(override val uid: String) extends CognitiveServicesBaseN
 
   def getStringIndexTypeCol: String = getVectorParam(stringIndexType)
 
-  override protected def responseDataType: DataType = AnalyzeDocumentV3Response.schema
+  override protected def responseDataType: DataType = AnalyzeDocumentResponse.schema
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
@@ -77,7 +80,7 @@ class AnalyzeDocumentV3(override val uid: String) extends CognitiveServicesBaseN
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
     { row: Row =>
-      val base = getUrl + s"${getValue(row, prebuiltModelId)}:analyze?api-version=2021-09-30-preview"
+      val base = getUrl + s"${getValue(row, prebuiltModelId)}:analyze?api-version=${AnalyzeDocument.DefaultAPIVersion}"
       val appended = if (!urlParams.isEmpty) {
         "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
           getValueOpt(row, p).map(v => p.name -> p.toValueString(v))

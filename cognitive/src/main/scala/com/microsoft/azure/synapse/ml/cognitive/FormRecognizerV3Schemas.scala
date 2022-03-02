@@ -5,9 +5,9 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 
-object AnalyzeDocumentV3Response extends SparkBindings[AnalyzeDocumentV3Response]
+object AnalyzeDocumentResponse extends SparkBindings[AnalyzeDocumentResponse]
 
-case class AnalyzeDocumentV3Response(status: String,
+case class AnalyzeDocumentResponse(status: String,
                                      createdDateTime: String,
                                      lastUpdatedDateTime: String,
                                      analyzeResult: AnalyzeResultV3)

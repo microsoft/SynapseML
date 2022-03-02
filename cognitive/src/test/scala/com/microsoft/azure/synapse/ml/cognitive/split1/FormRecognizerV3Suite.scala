@@ -11,18 +11,16 @@ import org.apache.spark.sql.functions._
 import org.scalactic.Equality
 
 import scala.collection.immutable.HashMap
-import scala.collection.mutable
-import scala.collection.mutable.WrappedArray
 
 object FormRecognizerV3Utils {
-  def layoutTest(model: AnalyzeDocumentV3, df: DataFrame): DataFrame = {
+  def layoutTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {
     model.transform(df)
       .withColumn("content", col("result.analyzeResult.content"))
       .withColumn("cells", flatten(col("result.analyzeResult.tables.cells")))
       .withColumn("cells", col("cells.content"))
   }
 
-  def modelsTest(model: AnalyzeDocumentV3, df: DataFrame, useBytes: Boolean): Array[Row] = {
+  def modelsTest(model: AnalyzeDocument, df: DataFrame, useBytes: Boolean): Array[Row] = {
     val transDF = model.transform(df)
       .withColumn("content", col("result.analyzeResult.content"))
       .withColumn("fields", col("result.analyzeResult.documents.fields"))
@@ -39,7 +37,7 @@ object FormRecognizerV3Utils {
       .keys.toSeq.sortWith(_ < _).mkString(",").equals(str2))
   }
 
-  def documentTest(model: AnalyzeDocumentV3, df: DataFrame): DataFrame = {
+  def documentTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {
     model.transform(df)
       .withColumn("content", col("result.analyzeResult.content"))
       .withColumn("entities", col("result.analyzeResult.entities.content"))
@@ -49,7 +47,7 @@ object FormRecognizerV3Utils {
   }
 }
 
-class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with FormRecognizerUtils
+class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with FormRecognizerUtils
   with CustomModelUtils {
 
   import FormRecognizerV3Utils._
@@ -62,17 +60,41 @@ class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with 
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
-  def analyzeDocumentV3: AnalyzeDocumentV3 = new AnalyzeDocumentV3()
+  def analyzeDocument: AnalyzeDocument = new AnalyzeDocument()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("result")
     .setConcurrency(5)
 
-  lazy val analyzeLayout: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzeRead: AnalyzeDocument = analyzeDocument
+    .setPrebuiltModelId("prebuilt-read")
+    .setImageUrlCol("source")
+
+  lazy val bytesAnalyzeRead: AnalyzeDocument = analyzeDocument
+    .setPrebuiltModelId("prebuilt-read")
+    .setImageBytesCol("imageBytes")
+
+  test("Prebuilt-read Basic Usage") {
+    val result1 = analyzeRead.transform(imageDf1)
+      .withColumn("content", col("result.analyzeResult.content"))
+      .select("source", "content")
+      .collect()
+
+    val result2 = bytesAnalyzeRead.transform(bytesDF1)
+      .withColumn("content", col("result.analyzeResult.content"))
+      .select("imageBytes", "content")
+      .collect()
+
+    for (result <- Seq(result1, result2)) {
+      assert(result.head.getString(1).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n"))
+    }
+  }
+
+  lazy val analyzeLayout: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-layout")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeLayout: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzeLayout: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-layout")
     .setImageBytesCol("imageBytes")
 
@@ -80,131 +102,119 @@ class AnalyzeDocumentV3Suite extends TransformerFuzzing[AnalyzeDocumentV3] with 
     val result1 = layoutTest(analyzeLayout, imageDf1)
       .select("source", "result", "content", "cells")
       .collect()
-    assert(result1.head.getString(2).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n" +
-      "Website: www.herolimited.com"))
-    assert(result1.head.getSeq(3).mkString(";").startsWith("Details;Quantity;Unit Price;Total;Bindings;20;1.00"))
-
     val result2 = layoutTest(bytesAnalyzeLayout, bytesDF1)
       .select("imageBytes", "result", "content", "cells")
       .collect()
-    assert(result2.head.getString(2).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n" +
-      "Website: www.herolimited.com"))
-    assert(result2.head.getSeq(3).mkString(";").startsWith("Details;Quantity;Unit Price;Total;Bindings;20;1.00"))
+
+    for (result <- Seq(result1, result2)) {
+      assert(result.head.getString(2).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n" +
+        "Website: www.herolimited.com"))
+      assert(result.head.getSeq(3).mkString(";").startsWith("Details;Quantity;Unit Price;Total;Bindings;20;1.00"))
+    }
   }
 
-  lazy val analyzeIDDocuments: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzeIDDocuments: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-idDocument")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeIDDocuments: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzeIDDocuments: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-idDocument")
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-idDocument Basic Usage") {
     val result1 = modelsTest(analyzeIDDocuments, imageDf5, false)
-    resultAssert(result1, "USA WASHINGTON\nWA\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY",
-      "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber,Endorsements,FirstName," +
-        "LastName,Locale,Region,Restrictions,Sex")
-
     val result2 = modelsTest(bytesAnalyzeIDDocuments, bytesDF5, true)
-    resultAssert(result2, "USA WASHINGTON\nWA\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY",
-      "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber,Endorsements,FirstName," +
-        "LastName,Locale,Region,Restrictions,Sex")
+    for (result <- Seq(result1, result2)) {
+      resultAssert(result, "WA WASHINGTON\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY\n" +
+        "4d LIC#WDLABCD456DG 9CLASS\nDONORS\n1 TALBOT\n2 LIAM R.\n3 DOB 01/06/1958\n",
+        "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber," +
+        "Endorsements,FirstName,LastName,Region,Restrictions,Sex")
+    }
   }
 
-  lazy val analyzeBusinessCards: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzeBusinessCards: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-businessCard")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeBusinessCards: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzeBusinessCards: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-businessCard")
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-businessCard Basic Usage") {
     val result1 = modelsTest(analyzeBusinessCards, imageDf3, false)
-    resultAssert(result1, "Dr. Avery Smith\nSenior Researcher\nCloud & Al Department\navery.smith@contoso.com\n" +
-      "https://www.contoso.com/\nmob:", "Addresses,CompanyNames,ContactNames,Departments,Emails,Faxes," +
-      "JobTitles,Locale,MobilePhones,Websites,WorkPhones")
-
     val result2 = modelsTest(bytesAnalyzeBusinessCards, bytesDF3, true)
-    resultAssert(result2, "Dr. Avery Smith\nSenior Researcher\nCloud & Al Department\navery.smith@contoso.com\n" +
-      "https://www.contoso.com/\nmob:", "Addresses,CompanyNames,ContactNames,Departments,Emails,Faxes," +
-      "JobTitles,Locale,MobilePhones,Websites,WorkPhones")
+    for (result <- Seq(result1, result2)) {
+      resultAssert(result, "Dr. Avery Smith\nSenior Researcher\nCloud & Al Department\n" +
+        "avery.smith@contoso.com\nhttps://www.contoso.com/\nmob:", "Addresses,CompanyNames,ContactNames," +
+        "Departments,Emails,Faxes,JobTitles,Locale,MobilePhones,Websites,WorkPhones")
+    }
   }
 
-  lazy val analyzeInvoices: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzeInvoices: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-invoice")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeInvoices: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzeInvoices: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-invoice")
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-invoice Basic Usage") {
     val result1 = modelsTest(analyzeInvoices, imageDf4, false)
-    resultAssert(result1, "Contoso\nAddress:\nInvoice For: Microsoft\n1 Redmond way Suite\n1020 Enterprise Way\n",
-      "CustomerAddress,CustomerAddressRecipient,CustomerName,DueDate,InvoiceDate," +
-        "InvoiceId,Items,Locale,VendorAddress,VendorName")
-
     val result2 = modelsTest(bytesAnalyzeInvoices, bytesDF4, true)
-    resultAssert(result2, "Contoso\nAddress:\nInvoice For: Microsoft\n1 Redmond way Suite\n1020 Enterprise Way\n",
-      "CustomerAddress,CustomerAddressRecipient,CustomerName,DueDate,InvoiceDate," +
-        "InvoiceId,Items,Locale,VendorAddress,VendorName")
+    for (result <- Seq(result1, result2)) {
+      resultAssert(result, "Contoso\nAddress:\n1 Redmond way Suite\n6000 Redmond, WA\n99243\n" +
+        "Invoice For: Microsoft\n1020 Enterprise Way", "CustomerAddress,CustomerAddressRecipient," +
+        "CustomerName,DueDate,InvoiceDate,InvoiceId,Items,VendorAddress,VendorName")
+    }
   }
 
-  lazy val analyzeReceipts: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzeReceipts: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-receipt")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeReceipts: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzeReceipts: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-receipt")
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-receipt Basic Usage") {
     val result1 = modelsTest(analyzeReceipts, imageDf2, false)
-    resultAssert(result1, "Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n123-456-7890\n" +
-      "6/10/2019 13:59\nSales Associate", "Items,Locale,MerchantAddress,MerchantName,MerchantPhoneNumber," +
-      "ReceiptType,Subtotal,Tax,Total,TransactionDate,TransactionTime")
-
     val result2 = modelsTest(bytesAnalyzeReceipts, bytesDF2, true)
-    resultAssert(result2, "Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n123-456-7890\n" +
-      "6/10/2019 13:59\nSales Associate", "Items,Locale,MerchantAddress,MerchantName,MerchantPhoneNumber," +
-      "ReceiptType,Subtotal,Tax,Total,TransactionDate,TransactionTime")
+    for (result <- Seq(result1, result2)) {
+      resultAssert(result, "O\nContoso\nContoso\n123 Main Street\nRedmond, WA 98052\n123-456-7890\n" +
+        "6/10/2019 13:59\nSales Associate: Paul\n", "Items,Locale,MerchantAddress,MerchantName," +
+        "MerchantPhoneNumber,Subtotal,Total,TotalTax,TransactionDate,TransactionTime")
+    }
   }
 
-  lazy val analyzeDocument: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val analyzePrebuiltDocument: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-document")
     .setImageUrlCol("source")
 
-  lazy val bytesAnalyzeDocument: AnalyzeDocumentV3 = analyzeDocumentV3
+  lazy val bytesAnalyzePrebuiltDocument: AnalyzeDocument = analyzeDocument
     .setPrebuiltModelId("prebuilt-document")
     .setImageBytesCol("imageBytes")
 
-
   test("Prebuilt-document Basic Usage") {
-    val result1 = documentTest(analyzeDocument, imageDf2)
+    val result1 = documentTest(analyzePrebuiltDocument, imageDf2)
       .select("source", "result", "content", "entities", "keyValuePairs")
       .collect()
-    assert(result1.head.getString(2).startsWith("Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
-      "123-456-7890\n6/10/2019 13:59\nSales Associate"))
-    assert(result1.head.getSeq(3).mkString(",").equals("123 Main Street,123,Redmond,WA,98052,6/10/2019 " +
-      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104,40,$ 1203.39"))
-    assert(result1.head.getMap(4).toString().equals("Map(Sales Associate: -> Paul, Sub-Total -> $ 1098.99," +
-      " Tax -> 104.40, Total -> $ 1203.39)"))
-
-    val result2 = documentTest(bytesAnalyzeDocument, bytesDF2)
+    val result2 = documentTest(bytesAnalyzePrebuiltDocument, bytesDF2)
       .select("imageBytes", "result", "content", "entities", "keyValuePairs")
       .collect()
-    assert(result2.head.getString(2).startsWith("Contoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
-      "123-456-7890\n6/10/2019 13:59\nSales Associate"))
-    assert(result2.head.getSeq(3).mkString(",").equals("123 Main Street,123,Redmond,WA,98052,6/10/2019 " +
-      "13:59,1,6 256GB,8GB,999.00,1,99.99,$ 1098.99,104,40,$ 1203.39"))
-    assert(result2.head.getMap(4).toString().equals("Map(Sales Associate: -> Paul, Sub-Total -> $ 1098.99," +
-      " Tax -> 104.40, Total -> $ 1203.39)"))
+
+    for (result <- Seq(result1, result2)) {
+      assert(result.head.getString(2).startsWith("O\nContoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
+        "123-456-7890\n6/10/2019 13:59\nSales Associate: Paul\n"))
+      assert(result.head.getSeq(3).mkString(",").equals("8GB,999.00,1,99.99,- 1098.99,$ 104.40,1203.39,Contoso," +
+        "Contoso,123 Main Street,123,Redmond,WA,98052,6/10/2019 13:59,Paul,-\n 1,6,256GB,Intel"))
+      assert(result.head.getMap(4).toString().equals("Map(Tax -> $ 104.40, 1 Surface Pro 6 256GB /" +
+        " Intel Core i5 / 8GB RAM (Black) -> 999.00, 1 SurfacePen -> 99.99, Total -> 1203.39, " +
+        "Sub-Total -> 1098.99, Sales Associate: -> Paul)"))
+    }
   }
 
-  override def testObjects(): Seq[TestObject[AnalyzeDocumentV3]] =
+  override def testObjects(): Seq[TestObject[AnalyzeDocument]] =
     Seq(new TestObject(analyzeLayout, imageDf1))
 
-  override def reader: MLReadable[_] = AnalyzeDocumentV3
+  override def reader: MLReadable[_] = AnalyzeDocument
 }
