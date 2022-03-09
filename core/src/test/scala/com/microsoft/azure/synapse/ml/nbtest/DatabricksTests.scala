@@ -60,7 +60,9 @@ class DatabricksTests extends TestBase {
         run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-      assert(result.isSuccess)
+      if (!result.isSuccess){
+        throw result.failed.get
+      }
     }
   })
 
