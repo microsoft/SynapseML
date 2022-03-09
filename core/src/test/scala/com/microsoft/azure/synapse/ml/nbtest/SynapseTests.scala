@@ -39,7 +39,12 @@ class SynapseTests extends TestBase {
     "e2etstspark32i2",
     "e2etstspark32i3",
     "e2etstspark32i4",
-    "e2etstspark32i5")
+    "e2etstspark32i5",
+    "e2etstspark32i6",
+    "e2etstspark32i7",
+    "e2etstspark32i8",
+    "e2etstspark32i9",
+    "e2etstspark32i0")
 
   SynapseUtilities.listPythonJobFiles()
     .filterNot(_.contains(" "))
