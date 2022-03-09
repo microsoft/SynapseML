@@ -51,7 +51,7 @@ class SynapseTests extends TestBase {
         ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
         poolName +
         "/batches"
-      val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
+      val (livyBatch: LivyBatch, jobName: String) = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
       val path: Path = Paths.get(file)
       val fileName: String = path.getFileName.toString
 
@@ -65,7 +65,14 @@ class SynapseTests extends TestBase {
             livyBatchJob.monitor(),
             Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-          assert(result.isSuccess)
+          val jobUrl = "https://web-staging.azuresynapse.net/en-us/monitoring/sparkapplication/" +
+            jobName +
+            "?workspace=%2Fsubscriptions%2Fe342c2c0-f844-4b18-9208-52c8c234c30e" +
+            "%2FresourceGroups%2Fmarhamil-mmlspark" +
+            s"%2Fproviders%2FMicrosoft.Synapse%2Fworkspaces%2F${workspaceName}" +
+            s"&sparkPoolName=${poolName}&livyId=${livyBatch.id}"
+
+          assert(result.isSuccess, s"Job failed see ${jobUrl} for details")
         } catch {
           case t: Throwable =>
             println(s"Cancelling job ${livyBatchJob.livyBatch.id} for file $fileName")
