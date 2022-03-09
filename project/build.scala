@@ -73,7 +73,7 @@ object BuildUtils {
       "--destination-path", dest,
       "--account-name", accountName,
       "--account-key", Secrets.storageKey,
-      "--overwrite"
+      "--overwrite", "true"
     )
     runCmd(osPrefix ++ command)
   }
@@ -102,7 +102,7 @@ object BuildUtils {
       "--name", dest,
       "--account-name", accountName,
       "--account-key", Secrets.storageKey,
-      "--overwrite"
+      "--overwrite", "true"
     ) ++ extraArgs
     runCmd(osPrefix ++ command)
   }
