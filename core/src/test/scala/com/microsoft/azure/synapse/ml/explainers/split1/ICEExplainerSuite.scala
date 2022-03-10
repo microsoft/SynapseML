@@ -67,7 +67,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
   // For this example you should expect:
   //  outputFeat.show(false)
  //  +------------------------+---------------+
-//  |dependence              |featureNames   |
+//  |pdpBasedDependence      |featureNames   |
 //  +------------------------+---------------+
 //  |[0.1249879667776877]    |col1_dependence|
 //    |[0.1249879667776877]    |col3_dependence|

@@ -68,9 +68,30 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
+  // Output column names for PDP-feature-importance case (kind == `feature`)
+  val outputColFeatureNames = new Param[String] (
+    this,
+    "outputColFeatureNames",
+    "Output column name which corresponds to names of the features used in calculation" +
+      " of PDP-based-feature-importance option (kind == `feature`)"
+  )
+  def getOutputColFeatureNames: String = $(outputColFeatureNames)
+  def setOutputColFeatureNames(value: String): this.type = set(outputColFeatureNames, value)
+
+  val outputColDependenceName = new Param[String] (
+    this,
+    "outputColDependenceName",
+    "Output column name which corresponds to dependence values" +
+      " of PDP-based-feature-importance option (kind == `feature`)"
+  )
+  def getOutputColDependenceName: String = $(outputColDependenceName)
+  def setOutputColDependenceName(value: String): this.type = set(outputColDependenceName, value)
+
   setDefault(kind -> "individual",
     numericFeatures -> Seq.empty[ICENumericFeature],
-    categoricalFeatures -> Seq.empty[ICECategoricalFeature])
+    categoricalFeatures -> Seq.empty[ICECategoricalFeature],
+    outputColFeatureNames -> "featureNames",
+    outputColDependenceName -> "pdpBasedDependence")
 }
 
 /**
@@ -161,8 +182,6 @@ class ICETransformer(override val uid: String) extends Transformer
     transformSchema(ds.schema)
     val df = ds.toDF
     val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
-    val dependenceCol = DatasetExtensions.findUnusedColumnName("dependence", df)
-    val featureNamesCol = DatasetExtensions.findUnusedColumnName("featureNames", df)
     val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
     val dfWithId = df
       .withColumn(idCol, monotonically_increasing_id())
@@ -183,7 +202,7 @@ class ICETransformer(override val uid: String) extends Transformer
         (f, collectSplits(dfWithId, f))
     }.map {
       case (f, values) =>
-        calcDependence(sampled, idCol, targetClasses, f, values, dependenceCol, featureNamesCol)
+        calcDependence(sampled, idCol, targetClasses, f, values, getOutputColDependenceName, getOutputColFeatureNames)
     }
 
     // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
@@ -196,7 +215,7 @@ class ICETransformer(override val uid: String) extends Transformer
       case `averageKind` =>
         dependenceDfs.reduce(_ crossJoin _)
       case `featureKind` =>
-        dependenceDfs.reduce(_ union _).orderBy(desc(dependenceCol))
+        dependenceDfs.reduce(_ union _).orderBy(desc(getOutputColDependenceName))
     }
   }
 
