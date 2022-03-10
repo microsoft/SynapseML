@@ -39,14 +39,19 @@ class SynapseTests extends TestBase {
     "e2etstspark32i2",
     "e2etstspark32i3",
     "e2etstspark32i4",
-    "e2etstspark32i5",
-    "e2etstspark32i6",
-    "e2etstspark32i7",
-    "e2etstspark32i8",
-    "e2etstspark32i9",
-    "e2etstspark32i0")
+    "e2etstspark32i5"
+//    "e2etstspark32i6",
+//    "e2etstspark32i7",
+//    "e2etstspark32i8",
+//    "e2etstspark32i9",
+//    "e2etstspark32i0"
+)
 
-  SynapseUtilities.listPythonJobFiles()
+  test("ppruthitest") {
+    println("ppruthi: Success")
+  }
+
+/*  SynapseUtilities.listPythonJobFiles()
     .filterNot(_.contains(" "))
     .filterNot(_.contains("-"))
     .foreach(file => {
@@ -79,5 +84,5 @@ class SynapseTests extends TestBase {
             throw t
         }
       }
-    })
+    })*/
 }
