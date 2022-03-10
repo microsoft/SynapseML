@@ -148,17 +148,18 @@ Excluding certain packages from the library may be necessary due to current issu
 ```
 
 In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing SynapseML packages.
-Note that Azure Synapse is currently on spark 3.1, hence SynapseML 0.9.4 should be used instead of latest 0.9.5 release.
+Note that Azure Synapse is currently on spark 3.1, hence this custom version should be used on Spark 3.1 clusters.
 
 ```
 %%configure -f
 {
-    "name": "synapseml",
-    "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.4",
-        "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
-        "spark.yarn.user.classpath.first": "true"
-    }
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5-13-d1b51517-SNAPSHOT",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+      "spark.yarn.user.classpath.first": "true"
+  }
 }
 ```
 

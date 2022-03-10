@@ -57,6 +57,7 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
+        az upgrade -y
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
@@ -101,6 +102,7 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
+        az upgrade -y
         source activate synapseml
         sbt packagePython
         sbt publishBlob
@@ -143,6 +145,7 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
+        az upgrade -y
         source activate synapseml
         jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
         sbt packagePython
@@ -280,6 +283,7 @@ jobs:
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
+        az upgrade -y
         source activate synapseml
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
@@ -447,6 +451,8 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
+          az upgrade -y
           source activate synapseml
           sbt packagePython
           sbt publishBlob
