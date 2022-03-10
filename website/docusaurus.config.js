@@ -128,10 +128,6 @@ module.exports = {
       indexName: 'synapseML',
       contextualSearch: true,
     },
-    gtag: {
-      trackingID: 'G-RWPE0183E8',
-      anonymizeIP: true,
-    },
     announcementBar: {
       id: 'announcementBar-1', // Increment on change
       content: `⭐️ If you like SynapseML, consider giving it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/Microsoft/SynapseML">GitHub</a> ⭐`,
@@ -148,6 +144,10 @@ module.exports = {
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
+        },
+        gtag: {
+          trackingID: 'G-RWPE0183E8',
+          anonymizeIP: true,
         },
         blog: {
           feedOptions: {
