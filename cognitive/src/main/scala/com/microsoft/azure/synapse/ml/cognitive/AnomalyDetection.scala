@@ -135,7 +135,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, sensitivity),
       getValueOpt(row, customInterval),
       getValueOpt(row, period),
-      getValueOpt(row, imputeMode)
+      getValueOpt(row, imputeMode),
       getValueOpt(row, imputeFixedValue)
     ).toJson.compactPrint))
   }
