@@ -107,7 +107,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
     """.stripMargin.replace("\n", " ").replace("\r", " "),
     { _ => true },
     isRequired = false
-  ) 
+  )
 
   def setImputeFixedValue(v: Double): this.type = setScalarParam(imputeFixedValue, v)
 
