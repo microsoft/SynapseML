@@ -101,6 +101,18 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 
   def setImputeModeCol(v: String): this.type = setVectorParam(imputeMode, v)
 
+  val imputeFixedValue = new ServiceParam[Double](this, "imputeFixedValue",
+    """
+      |Optional argument, fixed value to use when imputeMode is set to "fixed"
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
+    { _ => true },
+    isRequired = false
+  ) 
+
+  def setImputeFixedValue(v: Double): this.type = setScalarParam(imputeFixedValue, v)
+
+  def setImputeFixedValueCol(v: String): this.type = setVectorParam(imputeFixedValue, v)
+  
   val series = new ServiceParam[Seq[TimeSeriesPoint]](this, "series",
     """
       |Time series data points. Points should be sorted by timestamp in ascending order
@@ -117,6 +129,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueAny(row, series).asInstanceOf[Seq[Any]].map {
         case tsp: TimeSeriesPoint => tsp
         case r: Row => TimeSeriesPoint(r.getString(0), r.getDouble(1))
+        // TODO imputeMode is string
       },
       getValue(row, granularity),
       getValueOpt(row, maxAnomalyRatio),
