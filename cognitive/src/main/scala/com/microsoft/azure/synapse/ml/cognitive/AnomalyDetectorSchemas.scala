@@ -17,7 +17,8 @@ case class ADRequest(series: Seq[TimeSeriesPoint],
                      sensitivity: Option[Int],
                      customInterval: Option[Int],
                      period: Option[Int],
-                     imputeMode: Option[String])
+                     imputeMode: Option[String],
+                     imputeFixedValue: Option[Double])
 
 object ADRequest extends SparkBindings[ADRequest]
 
