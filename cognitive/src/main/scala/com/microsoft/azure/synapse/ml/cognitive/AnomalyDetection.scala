@@ -112,7 +112,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
   def setImputeFixedValue(v: Double): this.type = setScalarParam(imputeFixedValue, v)
 
   def setImputeFixedValueCol(v: String): this.type = setVectorParam(imputeFixedValue, v)
-  
+
   val series = new ServiceParam[Seq[TimeSeriesPoint]](this, "series",
     """
       |Time series data points. Points should be sorted by timestamp in ascending order
@@ -137,6 +137,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, customInterval),
       getValueOpt(row, period),
       getValueOpt(row, imputeMode)
+      getValueOpt(row, imputeFixedValue)
     ).toJson.compactPrint))
   }
 }
