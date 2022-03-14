@@ -88,6 +88,19 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 
   def setPeriodCol(v: String): this.type = setVectorParam(period, v)
 
+  val imputeMode = new ServiceParam[String](this, "imputeMode",
+    """
+      |Optional argument, impute mode of a time series.
+      |Possible values: auto, previous, linear, fixed, zero, notFill
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
+    { _ => true },
+    isRequired = false
+  )
+
+  def setImputeMode(v: String): this.type = setScalarParam(imputeMode, v)
+
+  def setImputeModeCol(v: String): this.type = setVectorParam(imputeMode, v)
+
   val series = new ServiceParam[Seq[TimeSeriesPoint]](this, "series",
     """
       |Time series data points. Points should be sorted by timestamp in ascending order
@@ -109,7 +122,8 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, maxAnomalyRatio),
       getValueOpt(row, sensitivity),
       getValueOpt(row, customInterval),
-      getValueOpt(row, period)
+      getValueOpt(row, period),
+      getValueOpt(row, imputeMode)
     ).toJson.compactPrint))
   }
 }
