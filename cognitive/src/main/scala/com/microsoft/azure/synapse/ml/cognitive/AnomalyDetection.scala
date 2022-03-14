@@ -125,7 +125,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/last/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/last/detect"
 
   override def responseDataType: DataType = ADLastResponse.schema
 
@@ -142,7 +142,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
@@ -238,7 +238,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   }
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
