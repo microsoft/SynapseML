@@ -129,7 +129,6 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueAny(row, series).asInstanceOf[Seq[Any]].map {
         case tsp: TimeSeriesPoint => tsp
         case r: Row => TimeSeriesPoint(r.getString(0), r.getDouble(1))
-        // TODO imputeMode is string
       },
       getValue(row, granularity),
       getValueOpt(row, maxAnomalyRatio),
