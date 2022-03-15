@@ -68,5 +68,5 @@ object ADEntireResponse extends SparkBindings[ADEntireResponse]
 
 object AnomalyDetectorProtocol {
   implicit val TspEnc: RootJsonFormat[TimeSeriesPoint] = jsonFormat2(TimeSeriesPoint.apply)
-  implicit val AdreqEnc: RootJsonFormat[ADRequest] = jsonFormat6(ADRequest.apply)
+  implicit val AdreqEnc: RootJsonFormat[ADRequest] = jsonFormat8(ADRequest.apply)
 }
