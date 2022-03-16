@@ -23,7 +23,7 @@ import spray.json._
 import java.io.{File, InputStream}
 import java.util
 import scala.annotation.tailrec
-import scala.concurrent.{TimeoutException, blocking}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 import scala.io.Source
 import scala.language.postfixOps
 import scala.sys.process._
@@ -36,7 +36,21 @@ case class LivyBatch(id: Int,
 
 case class LivyBatchJob(livyBatch: LivyBatch,
                         sparkPool: String,
-                        livyUrl: String)
+                        livyUrl: String) {
+  def monitor(): Future[LivyBatch] = {
+    Future {
+      if(livyBatch.state != "success") {
+        SynapseUtilities.retry(
+          livyBatch.id,
+          livyUrl,
+          SynapseUtilities.TimeoutInMillis,
+          System.currentTimeMillis())
+      } else{
+        livyBatch
+      }
+    }(ExecutionContext.global)
+  }
+}
 
 case class Application(state: String,
                        name: String,
@@ -110,7 +124,7 @@ object SynapseUtilities extends HasHttpClient {
     .sorted
   }
 
-  def postMortem(batch: LivyBatch, livyUrl: String): LivyBatch = {
+  def postMortem(batch: LivyBatch): LivyBatch = {
     batch.log.foreach(println)
     write(batch)
     batch
@@ -177,11 +191,11 @@ object SynapseUtilities extends HasHttpClient {
         throw new TimeoutException(s"Job $id timed out.")
       }
       else if (batch.state == "dead") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Dead")
       }
       else if (batch.state == "error") {
-        postMortem(batch, livyUrl)
+        postMortem(batch)
         throw new RuntimeException(s"Error")
       }
       else {
@@ -194,7 +208,7 @@ object SynapseUtilities extends HasHttpClient {
     }
   }
 
-  def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): LivyBatch = {
+  def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): (LivyBatch, String) = {
     val convertedPyScript = new File(notebookPath)
     val abfssPath = uploadScript(convertedPyScript.getAbsolutePath, s"$Folder/${convertedPyScript.getName}")
     submitRun(livyUrl, abfssPath)
@@ -245,18 +259,18 @@ object SynapseUtilities extends HasHttpClient {
     println(response.getEntity.getContent)
   }
 
-  private def submitRun(livyUrl: String, path: String): LivyBatch = {
+  private def submitRun(livyUrl: String, path: String): (LivyBatch, String) = {
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
       "org.scalatest:scalatest_2.12," +
       "org.slf4j:slf4j-api"
-
+    val runName = path.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
          |{
          | "file" : "$path",
-         | "name" : "${path.split('/').last.replace(".py", "")}",
+         | "name" : "$runName",
          | "driverMemory" : "28g",
          | "driverCores" : 4,
          | "executorMemory" : "28g",
@@ -282,6 +296,6 @@ object SynapseUtilities extends HasHttpClient {
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode
     assert(status == 200)
-    batch
+    (batch, runName)
   }
 }

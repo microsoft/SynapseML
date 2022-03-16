@@ -428,9 +428,7 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
 
 trait CustomModelUtils extends TestBase {
 
-  // TODO: renew the SAS after 2022-07-01 since it will expire
-  lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets" //?sp=rl&st=2021" +
-  //"-06-30T04:29:50Z&se=2022-07-01T04:45:00Z&sv=2020-08-04&sr=c&sig=sdsOSpWptIoI3aSceGlGvQhjnOTJTAABghIajrOXJD8%3D"
+  lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets"
 
   lazy val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
     trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))

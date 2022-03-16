@@ -88,6 +88,31 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 
   def setPeriodCol(v: String): this.type = setVectorParam(period, v)
 
+  val imputeMode = new ServiceParam[String](this, "imputeMode",
+    """
+      |Optional argument, impute mode of a time series.
+      |Possible values: auto, previous, linear, fixed, zero, notFill
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
+    { _ => true },
+    isRequired = false
+  )
+
+  def setImputeMode(v: String): this.type = setScalarParam(imputeMode, v)
+
+  def setImputeModeCol(v: String): this.type = setVectorParam(imputeMode, v)
+
+  val imputeFixedValue = new ServiceParam[Double](this, "imputeFixedValue",
+    """
+      |Optional argument, fixed value to use when imputeMode is set to "fixed"
+    """.stripMargin.replace("\n", " ").replace("\r", " "),
+    { _ => true },
+    isRequired = false
+  )
+
+  def setImputeFixedValue(v: Double): this.type = setScalarParam(imputeFixedValue, v)
+
+  def setImputeFixedValueCol(v: String): this.type = setVectorParam(imputeFixedValue, v)
+
   val series = new ServiceParam[Seq[TimeSeriesPoint]](this, "series",
     """
       |Time series data points. Points should be sorted by timestamp in ascending order
@@ -109,7 +134,9 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
       getValueOpt(row, maxAnomalyRatio),
       getValueOpt(row, sensitivity),
       getValueOpt(row, customInterval),
-      getValueOpt(row, period)
+      getValueOpt(row, period),
+      getValueOpt(row, imputeMode),
+      getValueOpt(row, imputeFixedValue)
     ).toJson.compactPrint))
   }
 }
@@ -125,7 +152,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/last/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/last/detect"
 
   override def responseDataType: DataType = ADLastResponse.schema
 
@@ -142,7 +169,7 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
   def setSeriesCol(v: String): this.type = setVectorParam(series, v)
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 
@@ -238,7 +265,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
 
   }
 
-  def urlPath: String = "/anomalydetector/v1.0/timeseries/entire/detect"
+  def urlPath: String = "/anomalydetector/v1.1-preview.1/timeseries/entire/detect"
 
   override def responseDataType: DataType = ADEntireResponse.schema
 

@@ -16,7 +16,9 @@ case class ADRequest(series: Seq[TimeSeriesPoint],
                      maxAnomalyRatio: Option[Double],
                      sensitivity: Option[Int],
                      customInterval: Option[Int],
-                     period: Option[Int])
+                     period: Option[Int],
+                     imputeMode: Option[String],
+                     imputeFixedValue: Option[Double])
 
 object ADRequest extends SparkBindings[ADRequest]
 
@@ -27,7 +29,8 @@ case class ADLastResponse(isAnomaly: Boolean,
                           expectedValue: Double,
                           upperMargin: Double,
                           lowerMargin: Double,
-                          suggestedWindow: Int)
+                          suggestedWindow: Int,
+                          severity: Double)
 
 object ADLastResponse extends SparkBindings[ADLastResponse]
 
@@ -37,7 +40,8 @@ case class ADSingleResponse(isAnomaly: Boolean,
                             period: Int,
                             expectedValue: Double,
                             upperMargin: Double,
-                            lowerMargin: Double)
+                            lowerMargin: Double,
+                            severity: Double)
 
 object ADSingleResponse extends SparkBindings[ADSingleResponse]
 
@@ -47,13 +51,14 @@ case class ADEntireResponse(isAnomaly: Seq[Boolean],
                             period: Int,
                             expectedValues: Seq[Double],
                             upperMargins: Seq[Double],
-                            lowerMargins: Seq[Double]) {
+                            lowerMargins: Seq[Double],
+                            severity: Seq[Double]) {
 
   def explode: Seq[ADSingleResponse] = {
     isAnomaly.indices.map { i =>
       ADSingleResponse(
         isAnomaly(i), isPositiveAnomaly(i), isNegativeAnomaly(i),
-        period, expectedValues(i), upperMargins(i), lowerMargins(i)
+        period, expectedValues(i), upperMargins(i), lowerMargins(i), severity(i)
       )
     }
   }
@@ -63,5 +68,5 @@ object ADEntireResponse extends SparkBindings[ADEntireResponse]
 
 object AnomalyDetectorProtocol {
   implicit val TspEnc: RootJsonFormat[TimeSeriesPoint] = jsonFormat2(TimeSeriesPoint.apply)
-  implicit val AdreqEnc: RootJsonFormat[ADRequest] = jsonFormat6(ADRequest.apply)
+  implicit val AdreqEnc: RootJsonFormat[ADRequest] = jsonFormat8(ADRequest.apply)
 }

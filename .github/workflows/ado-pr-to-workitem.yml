@@ -1,0 +1,23 @@
+name: Sync Pull Request to Azure Boards
+
+on:
+  pull_request_target:
+    types: [opened, edited, closed]
+    branches:
+      - master
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: danhellem/github-actions-pr-to-work-item@master
+      env:
+        ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
+        github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'
+        ado_organization: '${{ secrets.ADO_ORGANIZATION }}'
+        ado_project: '${{ secrets.ADO_PROJECT }}'
+        ado_wit: 'Task'
+        ado_active_state: 'In Progress'
+        ado_close_state: 'Done'
+        ado_area_path: '${{ secrets.ADO_AREA_PATH }}'
+        debug: true

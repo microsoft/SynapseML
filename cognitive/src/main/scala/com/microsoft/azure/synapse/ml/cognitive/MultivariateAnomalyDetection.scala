@@ -115,7 +115,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
-  with ConcurrencyParams with ComplexParamsWritable with Wrappable
+  with ComplexParamsWritable with Wrappable
   with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
@@ -400,8 +400,14 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
       val responseDict = IOUtils.toString(response.entity.get.content, "UTF-8")
         .parseJson.asJsObject.fields
 
-      this.setDiagnosticsInfo(responseDict("modelInfo").asJsObject.fields
-        .get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
+      val modelInfoFields = responseDict("modelInfo").asJsObject.fields
+
+      if (modelInfoFields.get("status").get.asInstanceOf[JsString].value == "FAILED") {
+        val errors = modelInfoFields.get("errors").map(_.convertTo[Seq[DMAError]]).get.toJson.compactPrint
+        throw new RuntimeException(s"Caught errors during fitting: $errors")
+      }
+
+      this.setDiagnosticsInfo(modelInfoFields.get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
 
       val simpleDetectMultivariateAnomaly = new DetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
@@ -471,10 +477,18 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
       val response = handlingFunc(Client, request)
 
       val responseJson = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.asJsObject.fields("results").toString()
+        .parseJson.asJsObject.fields
+
+      val summary = responseJson.get("summary").map(_.convertTo[DMASummary]).get
+      if (summary.status == "FAILED") {
+        val errors = summary.errors.get.toJson.compactPrint
+        throw new RuntimeException(s"Caught errors during inference: $errors")
+      }
+
+      val results = responseJson.get("results").get.toString()
 
       val outputDF = df.sparkSession.read
-        .json(df.sparkSession.createDataset(Seq(responseJson))(Encoders.STRING))
+        .json(df.sparkSession.createDataset(Seq(results))(Encoders.STRING))
         .toDF()
         .sort(col("timestamp").asc)
         .withColumnRenamed("timestamp", "resultTimestamp")
