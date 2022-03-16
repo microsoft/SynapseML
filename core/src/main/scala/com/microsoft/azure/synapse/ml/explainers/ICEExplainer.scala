@@ -69,29 +69,29 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def setKind(value: String): this.type = set(kind, value)
 
   // Output column names for PDP-feature-importance case (kind == `feature`)
-  val outputColFeatureNames = new Param[String] (
+  val featureNameCol = new Param[String] (
     this,
-    "outputColFeatureNames",
+    "featureNameCol",
     "Output column name which corresponds to names of the features used in calculation" +
       " of PDP-based-feature-importance option (kind == `feature`)"
   )
-  def getOutputColFeatureNames: String = $(outputColFeatureNames)
-  def setOutputColFeatureNames(value: String): this.type = set(outputColFeatureNames, value)
+  def getFeatureNameCol: String = $(featureNameCol)
+  def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
 
-  val outputColDependenceName = new Param[String] (
+  val dependenceNameCol = new Param[String] (
     this,
-    "outputColDependenceName",
+    "dependenceNameCol",
     "Output column name which corresponds to dependence values" +
       " of PDP-based-feature-importance option (kind == `feature`)"
   )
-  def getOutputColDependenceName: String = $(outputColDependenceName)
-  def setOutputColDependenceName(value: String): this.type = set(outputColDependenceName, value)
+  def getDependenceNameCol: String = $(dependenceNameCol)
+  def setDependenceNameCol(value: String): this.type = set(dependenceNameCol, value)
 
   setDefault(kind -> "individual",
     numericFeatures -> Seq.empty[ICENumericFeature],
     categoricalFeatures -> Seq.empty[ICECategoricalFeature],
-    outputColFeatureNames -> "featureNames",
-    outputColDependenceName -> "pdpBasedDependence")
+    featureNameCol -> "featureNames",
+    dependenceNameCol -> "pdpBasedDependence")
 }
 
 /**
@@ -202,7 +202,7 @@ class ICETransformer(override val uid: String) extends Transformer
         (f, collectSplits(dfWithId, f))
     }.map {
       case (f, values) =>
-        calcDependence(sampled, idCol, targetClasses, f, values, getOutputColDependenceName, getOutputColFeatureNames)
+        calcDependence(sampled, idCol, targetClasses, f, values, getDependenceNameCol, getFeatureNameCol)
     }
 
     // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
@@ -215,7 +215,7 @@ class ICETransformer(override val uid: String) extends Transformer
       case `averageKind` =>
         dependenceDfs.reduce(_ crossJoin _)
       case `featureKind` =>
-        dependenceDfs.reduce(_ union _).orderBy(desc(getOutputColDependenceName))
+        dependenceDfs.reduce(_ union _).orderBy(desc(getDependenceNameCol))
     }
   }
 
