@@ -33,7 +33,7 @@ class SynapseTests extends TestBase {
     new File(f).renameTo(new File(newPath))
   })
 
-  val workspaceName = "mmlsparkppe"
+  val workspaceName = "ppruthi-synapse-playground-ws"// "mmlsparkppe"
   val sparkPools: Array[String] = Array(
     "e2etstspark32i1",
     "e2etstspark32i2",
@@ -51,14 +51,15 @@ class SynapseTests extends TestBase {
     println("ppruthi: Success")
   }
 
-/*  SynapseUtilities.listPythonJobFiles()
+    SynapseUtilities.listPythonJobFiles()
     .filterNot(_.contains(" "))
     .filterNot(_.contains("-"))
+      .filter(_.contains("CognitiveServicesCelebrityQuoteAnalysis"))
     .foreach(file => {
-      val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
+      val poolName = "aspoolsmall"// "e2etestLGpool" //SynapseUtilities.monitorPool(workspaceName, sparkPools)
       val livyUrl = "https://" +
         workspaceName +
-        ".dev.azuresynapse-dogfood.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
+        ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
         poolName +
         "/batches"
       val (livyBatch: LivyBatch, jobName: String) = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, file)
@@ -75,10 +76,10 @@ class SynapseTests extends TestBase {
             livyBatchJob.monitor(),
             Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-          val jobUrl = "https://web-staging.azuresynapse.net/en-us/monitoring/sparkapplication/" +
+          val jobUrl = "https://web.azuresynapse.net/en-us/monitoring/sparkapplication/" +
             jobName +
-            "?workspace=%2Fsubscriptions%2Fe342c2c0-f844-4b18-9208-52c8c234c30e" +
-            "%2FresourceGroups%2Fmarhamil-mmlspark" +
+            "?workspace=%2Fsubscriptions%2F89276ca5-5b22-4628-8262-3546635d04aa" + //e342c2c0-f844-4b18-9208-52c8c234c30e"
+            "%2FresourceGroups%2Fppruthi-synapse-playground-rg" +
             s"%2Fproviders%2FMicrosoft.Synapse%2Fworkspaces%2F${workspaceName}" +
             s"&sparkPoolName=${poolName}&livyId=${livyBatch.id}"
 
@@ -91,5 +92,6 @@ class SynapseTests extends TestBase {
             throw t
         }
       }
-    })*/
+    }
+    )
 }

@@ -66,8 +66,8 @@ object SynapseUtilities extends HasHttpClient {
 
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
-  val StorageAccount: String = "mmlsparkeuap"
-  val StorageContainer: String = "mmlsparkppefs"
+  val StorageAccount: String = "ppruthidatalakestorage" //"mmlsparkeuap"
+  val StorageContainer: String = "ppruthifsname" //"mmlsparkppefs"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
 
@@ -214,11 +214,12 @@ object SynapseUtilities extends HasHttpClient {
     submitRun(livyUrl, abfssPath)
   }
 
-  private def uploadScript(file: String, dest: String): String = {
+  def uploadScript(file: String, dest: String): String = {
+    val aKey = "DsM/aakGfCu5PLX3pc7NVlVyt5E77nab3m2qG+L2Yd2CfiLVbxKeRjF/juDuoE18P3BAOS2RmbNAEFmoha5Wlg=="
     exec(s"az storage fs file upload " +
       s" -s $file -p $dest -f $StorageContainer " +
       s" --overwrite true " +
-      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+      s" --account-name $StorageAccount --account-key $aKey")
     s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
 
@@ -259,7 +260,7 @@ object SynapseUtilities extends HasHttpClient {
     println(response.getEntity.getContent)
   }
 
-  private def submitRun(livyUrl: String, path: String): (LivyBatch, String) = {
+  def submitRun(livyUrl: String, path: String): (LivyBatch, String) = {
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
