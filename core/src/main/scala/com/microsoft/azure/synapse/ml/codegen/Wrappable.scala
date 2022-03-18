@@ -107,15 +107,8 @@ trait PythonWrappable extends BaseWrappable {
   protected lazy val pyParamsDefinitions: String = {
     thisStage.params.map { p =>
       val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-      p match {
-        case sp: ServiceParam[_] =>
-          // Helps when we call _transfer_params_to_java the underlying java_obj set service params correctly
-          s"""|${sp.name} = Param(Params._dummy(), "${sp.name}", "ServiceParam: ${escape(sp.doc)}"$typeConverterString)
-              |""".stripMargin
-        case _ =>
-          s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
-              |""".stripMargin
-      }
+      s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
+          |""".stripMargin
     }.mkString("\n")
   }
 
