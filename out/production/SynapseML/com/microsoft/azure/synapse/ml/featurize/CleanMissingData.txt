@@ -1,0 +1,20 @@
+Removes missing values from input dataset.
+
+The following modes are supported:
+
+- Mean   - replaces missings with the mean of fit column
+- Median - replaces missings with approximate median of fit column
+- Custom - replaces missings with custom value specified by user
+
+For mean and median modes, only numeric column types are supported,
+specifically:
+
+- int
+- long
+- float
+- double
+
+For custom mode, the types above are supported and additionally:
+
+- str
+- bool

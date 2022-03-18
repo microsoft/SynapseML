@@ -1,0 +1,10 @@
+Compute summary statistics for the dataset.
+
+Statistics to be computed:
+
+- counts
+- basic
+- sample
+- percentiles
+
+errorThreshold (default 0.0) is the error threshold for quantiles.

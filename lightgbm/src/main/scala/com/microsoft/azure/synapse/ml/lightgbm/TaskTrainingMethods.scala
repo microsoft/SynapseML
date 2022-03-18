@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.BaseAggregatedColumns
-import com.microsoft.azure.synapse.ml.lightgbm.params.TrainParams
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
@@ -16,7 +16,7 @@ object TaskTrainingMethods {
     * @param log The logger.
     * @return Whether the current task is enabled.
     */
-  def isWorkerEnabled(trainParams: TrainParams, log: Logger, sharedState: SharedState): Boolean = {
+  def isWorkerEnabled(trainParams: BaseTrainParams, log: Logger, sharedState: SharedState): Boolean = {
     if (trainParams.executionParams.useSingleDatasetMode) {
       // Find all workers in current JVM
       val mainExecutorWorker = sharedState.mainExecutorWorker

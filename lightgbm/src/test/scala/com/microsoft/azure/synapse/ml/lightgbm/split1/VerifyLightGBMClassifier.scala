@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetU
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.featurize.ValueIndexer
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
-import com.microsoft.azure.synapse.ml.lightgbm.params.{FObjTrait, TrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{FObjTrait, BaseTrainParams}
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
@@ -31,7 +31,7 @@ import scala.math.exp
 @SerialVersionUID(100L)
 class TrainDelegate extends LightGBMDelegate {
 
-  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: BaseTrainParams,
                                previousLearningRate: Double): Double = {
     if (curIters == 0) {
       previousLearningRate

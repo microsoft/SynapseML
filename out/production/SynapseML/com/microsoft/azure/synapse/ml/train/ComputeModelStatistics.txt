@@ -1,0 +1,19 @@
+``ComputeModelStatistics`` returns the specified statistics on all the
+models specified
+
+The possible metrics are:
+
+Binary Classifiers:
+
+- "AreaUnderROC"
+- "AUC"
+- "accuracy"
+- "recall"
+- "all"
+
+Regression Classifiers:
+
+- "mse"
+- "rmse"
+- "r2"
+- "all"

@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
-import com.microsoft.azure.synapse.ml.lightgbm.params.{ClassifierTrainParams, TrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{ClassifierTrainParams, BaseTrainParams}
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.{BarrierTaskContext, TaskContext}
@@ -22,12 +22,12 @@ case class ColumnParams(labelColumn: String, featuresColumn: String, weightColum
 
 private object TrainUtils extends Serializable {
 
-  def createBooster(trainParams: TrainParams, trainDatasetPtr: LightGBMDataset,
+  def createBooster(trainParams: BaseTrainParams, trainDatasetPtr: LightGBMDataset,
                     validDatasetPtr: Option[LightGBMDataset]): LightGBMBooster = {
     // Create the booster
     val parameters = trainParams.toString()
     val booster = new LightGBMBooster(trainDatasetPtr, parameters)
-    trainParams.modelString.foreach { modelStr =>
+    trainParams.generalParams.modelString.foreach { modelStr =>
       booster.mergeBooster(modelStr)
     }
     validDatasetPtr.foreach { lgbmdataset =>
@@ -37,7 +37,7 @@ private object TrainUtils extends Serializable {
   }
 
   def beforeTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                           trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
+                           trainParams: BaseTrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
     if (trainParams.delegate.isDefined) {
       trainParams.delegate.get.beforeTrainIteration(batchIndex, partitionId, curIters, log, trainParams, booster,
         hasValid)
@@ -45,7 +45,7 @@ private object TrainUtils extends Serializable {
   }
 
   def afterTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                          trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean,
+                          trainParams: BaseTrainParams, booster: LightGBMBooster, hasValid: Boolean,
                           isFinished: Boolean,
                           trainEvalResults: Option[Map[String, Double]],
                           validEvalResults: Option[Map[String, Double]]): Unit = {
@@ -55,7 +55,7 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+  def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: BaseTrainParams,
                       previousLearningRate: Double): Double = {
     trainParams.delegate match {
       case Some(delegate) => delegate.getLearningRate(batchIndex, partitionId, curIters, log, trainParams,
@@ -64,7 +64,7 @@ private object TrainUtils extends Serializable {
     }
   }
 
-  def updateOneIteration(trainParams: TrainParams,
+  def updateOneIteration(trainParams: BaseTrainParams,
                          booster: LightGBMBooster,
                          log: Logger,
                          iters: Int): Boolean = {
@@ -89,7 +89,7 @@ private object TrainUtils extends Serializable {
     isFinished
   }
 
-  def trainCore(batchIndex: Int, trainParams: TrainParams, booster: LightGBMBooster,
+  def trainCore(batchIndex: Int, trainParams: BaseTrainParams, booster: LightGBMBooster,
                 log: Logger, hasValid: Boolean): Option[Int] = {
     var isFinished = false
     var iters = 0
@@ -99,9 +99,9 @@ private object TrainUtils extends Serializable {
     val bestScores = new Array[Array[Double]](evalCounts)
     val bestIter = new Array[Int](evalCounts)
     val partitionId = TaskContext.getPartitionId
-    var learningRate: Double = trainParams.learningRate
+    var learningRate: Double = trainParams.generalParams.learningRate
     var bestIterResult: Option[Int] = None
-    while (!isFinished && iters < trainParams.numIterations) {
+    while (!isFinished && iters < trainParams.generalParams.numIterations) {
       beforeTrainIteration(batchIndex, partitionId, iters, log, trainParams, booster, hasValid)
       val newLearningRate = getLearningRate(batchIndex, partitionId, iters, log, trainParams,
         learningRate)
@@ -133,11 +133,12 @@ private object TrainUtils extends Serializable {
               (x: Double, y: Double, tol: Double) => x - y > tol
             else
               (x: Double, y: Double, tol: Double) => x - y < tol
-          if (bestScores(index) == null || cmp(evalScore, bestScore(index), trainParams.improvementTolerance)) {
+          if (bestScores(index) == null
+              || cmp(evalScore, bestScore(index), trainParams.generalParams.improvementTolerance)) {
             bestScore(index) = evalScore
             bestIter(index) = iters
             bestScores(index) = evalResults.map(_._2)
-          } else if (iters - bestIter(index) >= trainParams.earlyStoppingRound) {
+          } else if (iters - bestIter(index) >= trainParams.generalParams.earlyStoppingRound) {
             isFinished = true
             log.info("Early stopping, best iteration is " + bestIter(index))
             bestIterResult = Some(bestIter(index))
@@ -160,7 +161,7 @@ private object TrainUtils extends Serializable {
   }
 
   def beforeGenerateTrainDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
-                                 log: Logger, trainParams: TrainParams): Unit = {
+                                 log: Logger, trainParams: BaseTrainParams): Unit = {
     if(trainParams.delegate.isDefined) {
       trainParams.delegate.get.beforeGenerateTrainDataset(batchIndex, TaskContext.getPartitionId, columnParams,
         schema, log, trainParams)
@@ -168,7 +169,7 @@ private object TrainUtils extends Serializable {
   }
 
   def afterGenerateTrainDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
-                                 log: Logger, trainParams: TrainParams): Unit = {
+                                 log: Logger, trainParams: BaseTrainParams): Unit = {
     if(trainParams.delegate.isDefined) {
       trainParams.delegate.get.afterGenerateTrainDataset(batchIndex, TaskContext.getPartitionId, columnParams,
         schema, log, trainParams)
@@ -176,7 +177,7 @@ private object TrainUtils extends Serializable {
   }
 
   def beforeGenerateValidDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
-                                 log: Logger, trainParams: TrainParams): Unit = {
+                                 log: Logger, trainParams: BaseTrainParams): Unit = {
     if(trainParams.delegate.isDefined) {
       trainParams.delegate.get.beforeGenerateValidDataset(batchIndex, TaskContext.getPartitionId, columnParams,
         schema, log, trainParams)
@@ -184,7 +185,7 @@ private object TrainUtils extends Serializable {
   }
 
   def afterGenerateValidDataset(batchIndex: Int, columnParams: ColumnParams, schema: StructType,
-                                log: Logger, trainParams: TrainParams): Unit = {
+                                log: Logger, trainParams: BaseTrainParams): Unit = {
     if (trainParams.delegate.isDefined) {
       trainParams.delegate.get.afterGenerateValidDataset(batchIndex, TaskContext.getPartitionId, columnParams,
         schema, log, trainParams)

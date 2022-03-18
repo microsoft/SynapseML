@@ -1,0 +1,7 @@
+The ``EnsembleByKey`` first performs a grouping operation on a set of keys,
+and then averages the selected columns. It can handle scalar or vector columns,
+and the dimensions of the vector columns are automatically inferred by materializing
+the first row of the column. To avoid materialization you can provide the vector dimensions
+through the ``setVectorDims`` function, which takes a mapping from
+columns (String) to dimension (Int). You can also choose to squash or keep the original
+dataset with the ``collapseGroup`` parameter.

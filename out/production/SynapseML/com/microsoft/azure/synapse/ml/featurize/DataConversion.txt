@@ -1,0 +1,14 @@
+Converts the specified list of columns to the specified type.  The types
+are specified by the following strings:
+
+- "boolean"
+- "byte"
+- "short"
+- "integer"
+- "long"
+- "float"
+- "double"
+- "string"
+- "toCategorical" - make the column be a categorical column
+- "clearCategorical" - clear the categorical column
+- "date" - the default date format is: "yyyy-MM-dd HH:mm:ss"

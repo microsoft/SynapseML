@@ -1,0 +1,2 @@
+Takes a unary pipeline stage and a list of input/output column pairs and
+applies the pipeline stage to each column after a fit
