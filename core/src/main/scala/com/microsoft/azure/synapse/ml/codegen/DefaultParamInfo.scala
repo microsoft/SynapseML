@@ -75,7 +75,7 @@ object DefaultParamInfo extends Logging {
       case _: UntypedArrayParam => UntypedArrayInfo
       case sp: ServiceParam[_] => getServiceParamInfo(sp)
       case csp: CognitiveServiceStructParam[_] => getCognitiveServiceStructParamInfo(csp)
-      case cp: ComplexParam[_] => new ParamInfo[ComplexParam[_]]("object", cp.dotnetType)
+      case cp: ComplexParam[_] => new ParamInfo[ComplexParam[_]]("object")
       case p => {
         logWarning(s"unsupported type $p")
         UnknownInfo
