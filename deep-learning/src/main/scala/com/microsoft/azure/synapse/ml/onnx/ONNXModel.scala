@@ -48,7 +48,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
 
   def getModelPayload: Array[Byte] = $(modelPayload)
 
-  val softMaxDict: MapParam[String, String] = new MapParam[String, String](
+  val softMaxDict: StringStringMapParam = new StringStringMapParam(
     this,
     "softMaxDict",
     "A map between output dataframe columns, where the value column will be computed from taking " +
@@ -58,11 +58,13 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
 
   def setSoftMaxDict(value: Map[String, String]): this.type = set(softMaxDict, value)
 
+  def setSoftMaxDict(value: java.util.HashMap[String, String]): this.type = set(softMaxDict, value.asScala.toMap)
+
   def setSoftMaxDict(k: String, v: String): this.type = set(softMaxDict, Map(k -> v))
 
   def getSoftMaxDict: Map[String, String] = get(softMaxDict).getOrElse(Map.empty)
 
-  val argMaxDict: MapParam[String, String] = new MapParam[String, String](
+  val argMaxDict: StringStringMapParam = new StringStringMapParam(
     this,
     "argMaxDict",
     "A map between output dataframe columns, where the value column will be computed from taking " +
@@ -70,6 +72,8 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
   )
 
   def setArgMaxDict(value: Map[String, String]): this.type = set(argMaxDict, value)
+
+  def setArgMaxDict(value: java.util.HashMap[String, String]): this.type = set(softMaxDict, value.asScala.toMap)
 
   def setArgMaxDict(k: String, v: String): this.type = set(argMaxDict, Map(k -> v))
 

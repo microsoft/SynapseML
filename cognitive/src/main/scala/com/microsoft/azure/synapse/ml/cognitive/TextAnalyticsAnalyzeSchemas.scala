@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
+import scala.collection.JavaConverters._
 
 // Text Analytics /analyze endpoint schemas
 
@@ -11,7 +12,11 @@ case class TAAnalyzeAnalysisInput(documents: Seq[TADocument])
 
 object TAAnalyzeAnalysisInput extends SparkBindings[TAAnalyzeAnalysisInput]
 
-case class TAAnalyzeTask(parameters: Map[String, String])
+case class TAAnalyzeTask(parameters: Map[String, String]) {
+  def this(parameters: java.util.HashMap[String, String]) {
+    this(parameters.asScala.toMap)
+  }
+}
 
 object TAAnalyzeTask extends SparkBindings[TAAnalyzeTask]
 

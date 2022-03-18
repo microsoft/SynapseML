@@ -79,12 +79,40 @@ class ComplexParamsMixin(MLReadable):
                 # SPARK-14931: Only check set com.microsoft.azure.synapse.ml.core.serialize.params back to avoid default com.microsoft.azure.synapse.ml.core.serialize.params mismatch.
                 complex_param_class = sc._gateway.jvm.com.microsoft.azure.synapse.ml.core.serialize.ComplexParam._java_lang_class
                 is_complex_param = complex_param_class.isAssignableFrom(java_param.getClass())
+                service_param_class = sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                is_service_param = service_param_class.isAssignableFrom(java_param.getClass())
                 if self._java_obj.isSet(java_param):
                     if is_complex_param:
                         value = self._java_obj.getOrDefault(java_param)
+                    elif is_service_param:
+                        jvObj = self._java_obj.getOrDefault(java_param)
+                        if jvObj.isLeft():
+                            value = _java2py(sc, jvObj.value())
+                        else:
+                            value = None
                     else:
                         value = _java2py(sc, self._java_obj.getOrDefault(java_param))
                     self._set(**{param.name: value})
+
+    def _transfer_params_to_java(self):
+        """
+        Transforms the embedded params to the companion Java object.
+        """
+        pair_defaults = []
+        for param in self.params:
+            if self.isSet(param):
+                if param.doc.startswith("ServiceParam"):
+                    getattr(self._java_obj, "set{}".format(param.name[0].upper()+param.name[1:]))(self._paramMap[param])
+                else:
+                    pair = self._make_java_param_pair(param, self._paramMap[param])
+                    self._java_obj.set(pair)
+            if self.hasDefault(param):
+                pair = self._make_java_param_pair(param, self._defaultParamMap[param])
+                pair_defaults.append(pair)
+        if len(pair_defaults) > 0:
+            sc = SparkContext._active_spark_context
+            pair_defaults_seq = sc._jvm.PythonUtils.toSeq(pair_defaults)
+            self._java_obj.setDefault(pair_defaults_seq)
 
 @inherit_doc
 class JavaMMLReader(JavaMLReader):
