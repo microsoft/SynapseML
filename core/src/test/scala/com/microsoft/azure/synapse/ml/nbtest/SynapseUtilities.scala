@@ -37,7 +37,7 @@ case class LivyBatch(id: Int,
 case class LivyBatchJob(livyBatch: LivyBatch,
                         sparkPool: String,
                         livyUrl: String) {
-  def monitor(): Future[Any] = {
+  def monitor(): Future[LivyBatch] = {
     Future {
       if(livyBatch.state != "success") {
         SynapseUtilities.retry(
@@ -45,6 +45,8 @@ case class LivyBatchJob(livyBatch: LivyBatch,
           livyUrl,
           SynapseUtilities.TimeoutInMillis,
           System.currentTimeMillis())
+      } else{
+        livyBatch
       }
     }(ExecutionContext.global)
   }
@@ -206,7 +208,7 @@ object SynapseUtilities extends HasHttpClient {
     }
   }
 
-  def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): LivyBatch = {
+  def uploadAndSubmitNotebook(livyUrl: String, notebookPath: String): (LivyBatch, String) = {
     val convertedPyScript = new File(notebookPath)
     val abfssPath = uploadScript(convertedPyScript.getAbsolutePath, s"$Folder/${convertedPyScript.getName}")
     submitRun(livyUrl, abfssPath)
@@ -257,18 +259,18 @@ object SynapseUtilities extends HasHttpClient {
     println(response.getEntity.getContent)
   }
 
-  private def submitRun(livyUrl: String, path: String): LivyBatch = {
+  private def submitRun(livyUrl: String, path: String): (LivyBatch, String) = {
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
       "org.scalatest:scalatest_2.12," +
       "org.slf4j:slf4j-api"
-
+    val runName = path.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
          |{
          | "file" : "$path",
-         | "name" : "${path.split('/').last.replace(".py", "")}",
+         | "name" : "$runName",
          | "driverMemory" : "28g",
          | "driverCores" : 4,
          | "executorMemory" : "28g",
@@ -294,6 +296,6 @@ object SynapseUtilities extends HasHttpClient {
     val batch: LivyBatch = parse(content).extract[LivyBatch]
     val status: Int = response.getStatusLine.getStatusCode
     assert(status == 200)
-    batch
+    (batch, runName)
   }
 }

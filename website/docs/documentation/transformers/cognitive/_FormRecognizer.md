@@ -537,3 +537,72 @@ scala="com/microsoft/azure/synapse/ml/cognitive/ListCustomModels.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
 
 
+## Form Recognizer V3
+
+### AnalyzeDocument
+
+<Tabs
+defaultValue="py"
+values={[
+{label: `Python`, value: `py`},
+{label: `Scala`, value: `scala`},
+]}>
+<TabItem value="py">
+
+<!--pytest-codeblocks:cont-->
+
+```python
+from synapse.ml.cognitive import *
+
+cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
+imageDf = spark.createDataFrame([
+  ("https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg",)
+], ["source",])
+
+analyzeDocument = (AnalyzeDocument()
+            # For supported prebuilt models, please go to documentation page for details
+            .setPrebuiltModelId("prebuilt-layout")
+            .setSubscriptionKey(cognitiveKey)
+            .setLocation("eastus")
+            .setImageUrlCol("source")
+            .setOutputCol("result")
+            .setConcurrency(5))
+
+(analyzeDocument.transform(imageDf)
+        .withColumn("content", col("result.analyzeResult.content"))
+        .withColumn("cells", flatten(col("result.analyzeResult.tables.cells")))
+        .withColumn("cells", col("cells.content"))
+        .select("source", "result", "content", "cells")).show()
+```
+
+</TabItem>
+<TabItem value="scala">
+
+```scala
+import com.microsoft.azure.synapse.ml.cognitive._
+import spark.implicits._
+
+val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
+val imageDf = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
+  ).toDF("source")
+
+val analyzeDocument = (new AnalyzeDocument()
+                        .setPrebuiltModelId("prebuilt-layout")
+                        .setSubscriptionKey(cognitiveKey)
+                        .setLocation("eastus")
+                        .setImageUrlCol("source")
+                        .setOutputCol("result")
+                        .setConcurrency(5))
+
+analyzeDocument.transform(imageDf).show()
+```
+
+</TabItem>
+</Tabs>
+
+<DocTable className="AnalyzeDocument"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeDocument"
+scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeDocument.html"
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizerV3.scala" />
+

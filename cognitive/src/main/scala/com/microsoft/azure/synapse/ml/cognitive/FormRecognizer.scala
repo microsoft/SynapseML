@@ -47,6 +47,10 @@ trait HasPages extends HasServiceParams {
 
   def setPagesCol(v: String): this.type = setVectorParam(pages, v)
 
+  def getPages: String = getScalarParam(pages)
+
+  def getPagesCol: String = getVectorParam(pages)
+
 }
 
 trait HasTextDetails extends HasServiceParams {
@@ -57,6 +61,10 @@ trait HasTextDetails extends HasServiceParams {
 
   def setIncludeTextDetailsCol(v: String): this.type = setVectorParam(includeTextDetails, v)
 
+  def getIncludeTextDetails: Boolean = getScalarParam(includeTextDetails)
+
+  def getIncludeTextDetailsCol: String = getVectorParam(includeTextDetails)
+
 }
 
 trait HasModelID extends HasServiceParams {
@@ -65,6 +73,10 @@ trait HasModelID extends HasServiceParams {
   def setModelId(v: String): this.type = setScalarParam(modelId, v)
 
   def setModelIdCol(v: String): this.type = setVectorParam(modelId, v)
+
+  def getModelId: String = getScalarParam(modelId)
+
+  def getModelIdCol: String = getVectorParam(modelId)
 
 }
 
@@ -78,6 +90,10 @@ trait HasLocale extends HasServiceParams {
   def setLocale(v: String): this.type = setScalarParam(locale, v)
 
   def setLocaleCol(v: String): this.type = setVectorParam(locale, v)
+
+  def getLocale: String = getScalarParam(locale)
+
+  def getLocaleCol: String = getVectorParam(locale)
 
 }
 

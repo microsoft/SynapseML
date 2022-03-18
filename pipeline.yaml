@@ -2,7 +2,6 @@ resources:
 - repo: self
 
 trigger:
-  batch: true
   branches:
     include:
     - master
@@ -47,15 +46,9 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     #- template: templates/ivy_cache.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda info
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - bash: |
         set -e
         source activate synapseml
@@ -91,15 +84,9 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     #- template: templates/ivy_cache.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda info
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - bash: |
         set -e
         source activate synapseml
@@ -133,15 +120,9 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     # - template: templates/ivy_cache.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda info
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - bash: |
         set -e
         source activate synapseml
@@ -247,6 +228,7 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
+    - template: templates/update_cli.yml
     - bash: |
         echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Git Tag'
@@ -329,10 +311,9 @@ jobs:
         PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - task: AzureCLI@1
       displayName: 'Install Pip Package'
       timeoutInMinutes: 10
@@ -345,7 +326,7 @@ jobs:
           sbt installPipPackage
     - task: AzureCLI@1
       displayName: 'Test Python Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 40
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
@@ -365,19 +346,8 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-      condition: succeededOrFailed()
-    - bash: |
-        set -e
-        curl -s https://codecov.io/bash > .codecov
-        chmod +x .codecov
-        echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token)
-      displayName: Upload Coverage Report To Codecov.io
-      condition: succeededOrFailed()
+    - template: templates/codecov.yml
+
 
 - job: DotnetTests
   cancelTimeoutInMinutes: 0
@@ -462,10 +432,9 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     #- template: templates/ivy_cache_2.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - bash: curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
       displayName: Download spark
     - task: AzureCLI@1
@@ -491,19 +460,8 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-      condition: succeededOrFailed()
-    - bash: |
-        set -e
-        curl -s https://codecov.io/bash > .codecov
-        chmod +x .codecov
-        echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token)
-      displayName: Upload Coverage Report To Codecov.io
-      condition: succeededOrFailed()
+    - template: templates/codecov.yml
+
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
@@ -512,10 +470,9 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     #- template: templates/ivy_cache.yml
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - task: AzureCLI@1
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
@@ -523,6 +480,7 @@ jobs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: |
+          set -e
           source activate synapseml
           sbt packagePython
           sbt publishBlob
@@ -541,19 +499,8 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-      condition: succeededOrFailed()
-    - bash: |
-        set -e
-        curl -s https://codecov.io/bash > .codecov
-        chmod +x .codecov
-        echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token)
-      displayName: Upload Coverage Report To Codecov.io
-      condition: succeededOrFailed()
+    - template: templates/codecov.yml
+
 
 
 - job: WebsiteAutoDeployment
@@ -563,18 +510,13 @@ jobs:
   steps:
     - checkout: self
       persistCredentials: true
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
     - task: NodeTool@0
       inputs:
         versionSpec: '16.x'
       displayName: 'Install Node.js'
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: conda env create -f environment.yaml
-      displayName: Create Anaconda environment
     - task: AzureCLI@1
       displayName: 'Convert notebooks to markdowns'
       inputs:
@@ -721,16 +663,6 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
-    - task: AzureKeyVault@1
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        keyVaultName: mmlspark-keys
-      condition: succeededOrFailed()
-    - bash: |
-        set -e
-        curl -s https://codecov.io/bash > .codecov
-        chmod +x .codecov
-        echo "Starting Codecov Upload"
-        ./.codecov -t $(codecov-token)
-      displayName: Upload Coverage Report To Codecov.io
-      condition: succeededOrFailed()
+    - template: templates/kv.yml
+    - template: templates/codecov.yml
+
