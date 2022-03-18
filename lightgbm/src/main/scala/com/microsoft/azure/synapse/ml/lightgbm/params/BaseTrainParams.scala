@@ -51,7 +51,7 @@ abstract class BaseTrainParams extends Serializable {
   }
 }
 
-/** Defines the Booster parameters passed to the LightGBM library.
+/** Defines the general Booster parameters passed to the LightGBM library.
   */
 case class GeneralParams(parallelism: String,
                          topK: Option[Int],
@@ -84,6 +84,11 @@ case class GeneralParams(parallelism: String,
                          maxBinByFeature: Array[Int],
                          minDataPerBin: Option[Int],
                          minDataInLeaf: Option[Int],
+                         topRate: Option[Double],
+                         otherRate: Option[Double],
+                         monotoneConstraints: Array[Int],
+                         monotoneConstraintsMethod: Option[String],
+                         monotonePenalty: Option[Double],
                          featureNames: Array[String]) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
@@ -116,6 +121,11 @@ case class GeneralParams(parallelism: String,
       .appendParamValueIfNotThere("min_data_per_bin", minDataPerBin)
       .appendParamListIfNotThere("categorical_feature", categoricalFeatures)
       .appendParamListIfNotThere("max_bin_by_feature", maxBinByFeature)
+      .appendParamValueIfNotThere("top_rate", topRate)
+      .appendParamValueIfNotThere("other_rate", otherRate)
+      .appendParamListIfNotThere("monotone_constraints", monotoneConstraints)
+      .appendParamValueIfNotThere("monotone_constraints_method", monotoneConstraintsMethod)
+      .appendParamValueIfNotThere("monotone_penalty", monotonePenalty)
       .appendParamValueIfNotThere("learning_rate", Option(learningRate))
   }
 }

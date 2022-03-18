@@ -142,6 +142,35 @@ trait LightGBMLearnerParams extends Wrappable {
   setDefault(improvementTolerance -> 0.0)
   def getImprovementTolerance: Double = $(improvementTolerance)
   def setImprovementTolerance(value: Double): this.type = set(improvementTolerance, value)
+
+  val monotoneConstraints = new IntArrayParam(this, "monotoneConstraints",
+    "used for constraints of monotonic features. 1 means increasing, -1 means decreasing, 0 means non-constraint." +
+    " Specify all features in order.")
+  setDefault(monotoneConstraints -> Array.empty)
+  def getMonotoneConstraints: Array[Int] = $(monotoneConstraints)
+  def setMonotoneConstraints(value: Array[Int]): this.type = set(monotoneConstraints, value)
+
+  val monotoneConstraintsMethod = new Param[String](this, "monotoneConstraintsMethod",
+    "Monotone constraints method. basic, intermediate, or advanced.")
+  setDefault(monotoneConstraintsMethod -> "basic")
+  def getMonotoneConstraintsMethod: String = $(monotoneConstraintsMethod)
+  def setMonotoneConstraintsMethod(value: String): this.type = set(monotoneConstraintsMethod, value)
+
+  val monotonePenalty = new DoubleParam(this, "monotonePenalty",
+    "A penalization parameter X forbids any monotone splits on the first X (rounded down) level(s) of the tree.")
+  setDefault(monotonePenalty -> 0.0)
+  def getMonotonePenalty: Double = $(monotonePenalty)
+  def setMonotonePenalty(value: Double): this.type = set(monotonePenalty, value)
+
+  val topRate = new DoubleParam(this, "topRate", "The retain ratio of large gradient data. Only used in goss.")
+  setDefault(topRate -> 0.2)
+  def getTopRate: Double = $(topRate)
+  def setTopRate(value: Double): this.type = set(topRate, value)
+
+  val otherRate = new DoubleParam(this, "otherRate","The retain ratio of small gradient data. Only used in goss.")
+  setDefault(otherRate -> 0.1)
+  def getOtherRate: Double = $(otherRate)
+  def setOtherRate(value: Double): this.type = set(otherRate, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to histogram bin construction.

@@ -51,8 +51,6 @@ class LightGBMRanker(override val uid: String)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
   def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     RankerTrainParams(
       get(passThroughParams),
       getMaxPosition,

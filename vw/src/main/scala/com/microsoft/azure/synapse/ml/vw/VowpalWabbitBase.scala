@@ -7,7 +7,6 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, StopWatch, ParamsStringBuilder}
-import com.microsoft.azure.synapse.ml.core.utils.ParamsStringBuilder
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
 import org.apache.spark.ml.param._
@@ -73,7 +72,8 @@ trait VowpalWabbitBase extends Wrappable
   override protected lazy val pyInternalWrapper = true
 
   // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
-  // to generate all the parameters? (so far this is still an experimental feature as of 2.12)
+  // to generate all the parameters?
+  // (update: this is a removed feature as of 3.0, so would have to use newer macro mechanisms)
   val passThroughArgs = new Param[String](this, "args", "VW command line arguments passed")
   setDefault(passThroughArgs -> "")
   def getPassThroughArgs: String = $(passThroughArgs)
@@ -177,30 +177,29 @@ trait VowpalWabbitBase extends Wrappable
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
   }
 
-  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): StringBuilder = {
-    val args = new StringBuilder
-    args.append(vwArgs)
-      .append(" ").append(contextArgs)
-
-    // have to pass to get multi-pass to work
-    val noStdin = "--no_stdin"
-    if (args.indexOf(noStdin) == -1)
-      args.append(" ").append(noStdin)
+  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): String = {
+    val args = new ParamsStringBuilder("--", " ")
+      .append(vwArgs)
+      .append(contextArgs)
+      .appendParamFlagIfNotThere("no_stdin") // have to pass to get multi-pass to work
 
     // need to keep reference around to prevent GC and subsequent file delete
     if (getNumPasses > 1) {
       val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
       cacheFile.deleteOnExit()
 
-      args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes $getNumPasses")
+      args.append("-k")
+        .appendParamValueIfNotThere("cache_file", Option(cacheFile.getAbsolutePath))
+        .appendParamValueIfNotThere("passes", Option(getNumPasses))
     }
 
-    log.warn(s"VowpalWabbit args: $args")
+    val result = args.result
+    log.warn(s"VowpalWabbit args: $result)")
 
-    args
+    result
   }
 
-  // Seperate method to be overridable
+  // Separate method to be overridable
   protected def trainRow(schema: StructType,
                          inputRows: Iterator[Row],
                          ctx: TrainContext
@@ -294,8 +293,8 @@ trait VowpalWabbitBase extends Wrappable
           val learnTime = new StopWatch
           val multipassTime = new StopWatch
 
-          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
-          else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
+          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+          else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
             val trainContext = new TrainContext(vw)
 
             val result = StreamUtilities.using(vw.createExample()) { ex =>
@@ -348,7 +347,7 @@ trait VowpalWabbitBase extends Wrappable
           Seq(TrainingResult(model, stats)).iterator
         } catch {
           case e: java.lang.Exception =>
-            throw new Exception(s"VW failed with args: ${args.result}", e)
+            throw new Exception(s"VW failed with args: $args", e)
         }
       }
     }
@@ -378,7 +377,7 @@ trait VowpalWabbitBase extends Wrappable
                                          vwArgs: ParamsStringBuilder,
                                          numTasks: Int): Array[TrainingResult] = {
     // multiple partitions -> setup distributed coordination
-    val spanningTree = new ClusterSpanningTree(0, getPassThroughArgs.contains("--quiet"))
+    val spanningTree = new ClusterSpanningTree(0, vwArgs.result.contains("--quiet"))
 
     try {
       spanningTree.start()

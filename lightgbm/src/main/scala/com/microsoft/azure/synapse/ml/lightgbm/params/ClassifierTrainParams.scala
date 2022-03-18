@@ -20,8 +20,7 @@ case class ClassifierTrainParams(passThroughArgs: Option[String],
                                  executionParams: ExecutionParams,
                                  objectiveParams: ObjectiveParams,
                                  seedParams: SeedParams,
-                                 categoricalParams: CategoricalParams)
-  extends BaseTrainParams {
+                                 categoricalParams: CategoricalParams) extends BaseTrainParams {
   override def appendSpecializedParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
     val isBinary = objectiveParams.objective == LightGBMConstants.BinaryObjective

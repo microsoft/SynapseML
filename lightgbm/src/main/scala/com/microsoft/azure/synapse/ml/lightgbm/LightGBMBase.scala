@@ -249,8 +249,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return GeneralParams object containing parameters related to general LightGBM parameters.
     */
   protected def getGeneralParams(numTasks: Int,  dataset: Dataset[_], numTasksPerExec: Int): GeneralParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
     GeneralParams(
       getParallelism,
       get(topK),
@@ -271,8 +269,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       get(maxDepth),
       get(minSumHessianInLeaf),
       numTasks,
-      modelStr,
-      categoricalIndexes,
+      if (getModelString == null || getModelString.isEmpty) None else get(modelString),
+      getCategoricalIndexes(dataset.schema(getFeaturesCol)),
       getVerbosity,
       getBoostingType,
       get(lambdaL1),
@@ -283,6 +281,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       getMaxBinByFeature,
       get(minDataPerBin),
       get(minDataInLeaf),
+      get(topRate),
+      get(otherRate),
+      getMonotoneConstraints,
+      get(monotoneConstraintsMethod),
+      get(monotonePenalty),
       getSlotNames)
   }
 

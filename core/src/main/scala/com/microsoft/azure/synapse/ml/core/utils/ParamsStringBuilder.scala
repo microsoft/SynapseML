@@ -5,14 +5,28 @@ package com.microsoft.azure.synapse.ml.core.utils
 
 import org.apache.spark.ml.param._
 
-import java.security.InvalidParameterException
-
-/** Helper class converting individual typed parameters to a single long string for passing to native libraries.
+/** Helper class for converting individual typed parameters to a single long string for passing to native libraries.
   *
+  * Example:
+  * new ParamsStringBuilder(prefix = "--", delimiter = "=")
+  *   .append("--first_param=a")
+  *   .appendParamValueIfNotThere("first_param", Option("a2"))
+  *   .appendParamValueIfNotThere("second_param", Option("b"))
+  *   .appendParamValueIfNotThere("third_param", None)
+  *   .result
+  *
+  * result == "--first_param=a --second_param=b"
+  *
+  * This utility mimics a traditional StringBuilder, where you append parts and ask for the final result() at the end.
   * Each parameter appended is tracked and can be compared against the current string, to both avoid duplicates
   * and provide an override mechanism.  The first param added is considered the primary one to not be replaced.
   *
+  * Use 'append' to add an unchecked string directly to end of current string.
+  *
   * Use ParamsSet to create encapsulated subsets of params that can be incorporated into the parent ParamsStringBuilder.
+  *
+  * There is also integration with the SparkML Params system. Construct with a parent Params object and use the methods
+  * with Param arguments.
   *
   * @param parent Optional parent Params instance to validate each Param against.
   * @param prefix Optional prefix to put before parameter names (e.g. "--").  Defaults to none.
@@ -30,6 +44,11 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this(Option(parent), prefix, delimiter)
   }
 
+  /** Add a parameter name-value pair to the end of the current string.
+    * @param optionShort Short name of the parameter (only used to check against existing params).
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    * @param param The Param object with the value.  Note that if this is not set, nothing will be appended to string.
+    */
   def appendParamValueIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): ParamsStringBuilder = {
     if (getParamValue(param).isDefined &&
       // boost allows " " or "=" as separators
@@ -51,6 +70,10 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this
   }
 
+  /** Add a parameter name-value pair to the end of the current string.
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    * @param param The Option object with the value.  Note that if this is None, nothing will be appended to string.
+    */
   def appendParamValueIfNotThere[T](optionLong: String, param: Option[T]): ParamsStringBuilder = {
     if (param.isDefined &&
       // boost allow " " or "="
@@ -62,6 +85,9 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this
   }
 
+  /** Add a parameter name to the end of the current string. (i.e. a param that does not have a value)
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    */
   def appendParamFlagIfNotThere(name: String): ParamsStringBuilder = {
     if (s"$prefix$name".r.findAllIn(sb.result).isEmpty) {
       append(s"$prefix$name")
@@ -69,6 +95,10 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this
   }
 
+  /** Add a parameter name-list pair to the end of the current string. Values will be comma-delimited.
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    * @param values The Array of values.  Note that if the array is empty, nothing will be appended to string.
+    */
   def appendParamListIfNotThere[T](name: String, values: Array[T]): ParamsStringBuilder = {
     if (!values.isEmpty && s"$prefix$name".r.findAllIn(sb.result).isEmpty) {
       appendParamList(name, values)
@@ -80,14 +110,24 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     append(s"$prefix$name$delimiter${values.mkString(",")}")
   }
 
-  def appendParamGroup(paramSet: ParamGroup): ParamsStringBuilder = {
-    paramSet.appendParams(this)
+  /** Add a parameter group to the end of the current string.
+    * @param paramGroup The ParamGroup to add.
+    */
+  def appendParamGroup(paramGroup: ParamGroup): ParamsStringBuilder = {
+    paramGroup.appendParams(this)
   }
 
-  def appendParamGroup(paramSet: ParamGroup, condition: Boolean): ParamsStringBuilder = {
-    if (condition) paramSet.appendParams(this) else this
+  /** Add a parameter group to the end of the current string conditionally.
+    * @param paramGroup The ParamGroup to add.
+    * @param condition Whether to add the group or not.
+    */
+  def appendParamGroup(paramGroup: ParamGroup, condition: Boolean): ParamsStringBuilder = {
+    if (condition) paramGroup.appendParams(this) else this
   }
 
+  /** Direct append a string with no checking of existing params.
+    * @param str The string to add.
+    */
   def append(str: String): ParamsStringBuilder =
   {
     if (!str.isEmpty) {
@@ -116,7 +156,8 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
 }
 
 /** Derive from this to create an encapsulated subset of params that can be integrated
-  *  into a parent ParamsStringBuilder with appendParamsSet
+  *  into a parent ParamsStringBuilder with appendParamsSet,  Useful for encapsulating Params into
+  *  smaller subsets.
   */
 trait ParamGroup extends Serializable {
   override def toString: String = {

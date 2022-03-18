@@ -43,7 +43,7 @@ val vw = (new VowpalWabbitRegressor()
 
 val vwRegressor = (new VowpalWabbitRegressor()
   .setNumPasses(20)
-  .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
+  .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
 
 ```
 

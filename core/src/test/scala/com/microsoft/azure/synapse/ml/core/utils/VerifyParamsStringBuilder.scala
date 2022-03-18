@@ -3,9 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-import com.microsoft.azure.synapse.ml.core.test.base.{SparkSessionFactory, TestBase}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.ml.param._
-import org.slf4j.LoggerFactory
 
 class VerifyParamsStringBuilder extends TestBase {
   // Test LightGBM style arguments, e.g. "objective=classifier"
