@@ -98,6 +98,7 @@ class ComplexParamsMixin(MLReadable):
         """
         Transforms the embedded params to the companion Java object.
         """
+        sc = SparkContext._active_spark_context
         pair_defaults = []
         for param in self.params:
             if self.isSet(param):
