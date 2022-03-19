@@ -9,9 +9,13 @@ import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.apache.spark.ml.stat.Summarizer
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
+import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 
@@ -19,6 +23,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   val averageKind = "average"
   val individualKind = "individual"
+  val featureKind = "feature"
 
   val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
     this,
@@ -55,16 +60,38 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     "kind",
     "Whether to return the partial dependence plot (PDP) averaged across all the samples in the " +
       "dataset or individual feature importance (ICE) per sample. " +
-      "Allowed values are \"average\" for PDP and \"individual\" for ICE.",
-    ParamValidators.inArray(Array(averageKind, individualKind))
+      "Allowed values are \"average\" for PDP, \"individual\" for ICE and \"feature\" for PDP-based " +
+      "feature importance.",
+    ParamValidators.inArray(Array(averageKind, individualKind, featureKind))
   )
 
   def getKind: String = $(kind)
   def setKind(value: String): this.type = set(kind, value)
 
+  // Output column names for PDP-feature-importance case (kind == `feature`)
+  val featureNameCol = new Param[String] (
+    this,
+    "featureNameCol",
+    "Output column name which corresponds to names of the features used in calculation" +
+      " of PDP-based-feature-importance option (kind == `feature`)"
+  )
+  def getFeatureNameCol: String = $(featureNameCol)
+  def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
+
+  val dependenceNameCol = new Param[String] (
+    this,
+    "dependenceNameCol",
+    "Output column name which corresponds to dependence values" +
+      " of PDP-based-feature-importance option (kind == `feature`)"
+  )
+  def getDependenceNameCol: String = $(dependenceNameCol)
+  def setDependenceNameCol(value: String): this.type = set(dependenceNameCol, value)
+
   setDefault(kind -> "individual",
     numericFeatures -> Seq.empty[ICENumericFeature],
-    categoricalFeatures -> Seq.empty[ICECategoricalFeature])
+    categoricalFeatures -> Seq.empty[ICECategoricalFeature],
+    featureNameCol -> "featureNames",
+    dependenceNameCol -> "pdpBasedDependence")
 }
 
 /**
@@ -86,43 +113,70 @@ class ICETransformer(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("ICETransformer"))
 
   private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
-                             feature: String, values: Array[_], outputColName: String): DataFrame = {
+                             feature: ICEFeature, values: Array[_], dependenceCol: String,
+                             featureNamesCol: String): DataFrame = {
 
-    val dataType = df.schema(feature).dataType
+    val featureName = feature.getName
+    val outputColName = feature.getOutputColName
+    val dataType = df.schema(featureName).dataType
     val explodeFunc = explode(array(values.map(v => lit(v)): _*).cast(ArrayType(dataType)))
 
-    val predicted = getModel.transform(df.withColumn(feature, explodeFunc))
+    val predicted = getModel.transform(df.withColumn(featureName, explodeFunc))
     val targetCol = DatasetExtensions.findUnusedColumnName("target", predicted)
-    val dependenceCol = DatasetExtensions.findUnusedColumnName("feature__dependence", predicted)
+    val maxCol = DatasetExtensions.findUnusedColumnName("max_col", predicted)
+    val minCol = DatasetExtensions.findUnusedColumnName("min_col", predicted)
 
-    val explainTarget = extractTarget(predicted.schema, targetClassesColumn)
-    val result = predicted.withColumn(targetCol, explainTarget)
+    val explainTarget: Column = extractTarget(predicted.schema, targetClassesColumn)
+    val result: DataFrame = predicted.withColumn(targetCol, explainTarget)
+
+    val categoricalImpUdf = UDFUtils.oldUdf({
+      (max: Vector, min: Vector) => ((max.toBreeze - min.toBreeze) / 4.0).toSpark
+    }, SQLDataTypes.VectorType)
 
     getKind.toLowerCase match {
       case `averageKind` =>
         // PDP output schema: 1 row * 1 col (pdp for the given feature: feature_value -> explanations)
         result
-          .groupBy(feature)
+          .groupBy(featureName)
           .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
           .agg(
             map_from_arrays(
-              collect_list(feature),
+              collect_list(featureName),
               collect_list(dependenceCol)
             ).alias(outputColName)
           )
-
       case `individualKind` =>
         // ICE output schema: n rows * 2 cols (idCol + ice for the given feature: map(feature_value -> explanations))
         result
           .groupBy(idCol)
           .agg(
             map_from_arrays(
-              collect_list(feature),
+              collect_list(featureName),
               collect_list(targetCol)
             ).alias(outputColName)
           )
+      case `featureKind` =>
+        // Output schema: number_of_features rows * 2 cols (name of the feature + corresponding dependence)
+        val pdp = result.groupBy(featureName)
+        // compute the pdp for the current feature's values
+        .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
+        feature match {
+          case _: ICENumericFeature =>
+            pdp.agg(Summarizer.std(col(dependenceCol)).alias(outputColName))
+              .withColumn(featureNamesCol, lit(outputColName))
+              .withColumnRenamed(outputColName, dependenceCol)
+          case _: ICECategoricalFeature =>
+            pdp.agg(
+              // compute the (max - min) / 4 of the pdp values over unique feature values
+              Summarizer.max(col(dependenceCol)).alias(maxCol),
+              Summarizer.min(col(dependenceCol)).alias(minCol))
+              .withColumn(outputColName, categoricalImpUdf(col(maxCol), col(minCol))).select(outputColName)
+              .withColumn(featureNamesCol, lit(outputColName))
+              .withColumnRenamed(outputColName, dependenceCol)
+        }
     }
   }
+
 
   def transform(ds: Dataset[_]): DataFrame = {
     transformSchema(ds.schema)
@@ -141,14 +195,14 @@ class ICETransformer(override val uid: String) extends Transformer
 
     // Collect values from the input dataframe and create dependenceDF from them
     val features = categoricalFeatures ++ numericFeatures
-    val dependenceDfs= features.map {
+    val dependenceDfs: Seq[DataFrame] = features.map {
       case f: ICECategoricalFeature =>
         (f, collectCategoricalValues(dfWithId, f))
       case f: ICENumericFeature =>
         (f, collectSplits(dfWithId, f))
     }.map {
       case (f, values) =>
-        calcDependence(sampled, idCol, targetClasses, f.getName, values, f.getOutputColName)
+        calcDependence(sampled, idCol, targetClasses, f, values, getDependenceNameCol, getFeatureNameCol)
     }
 
     // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
@@ -160,6 +214,8 @@ class ICETransformer(override val uid: String) extends Transformer
           .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
       case `averageKind` =>
         dependenceDfs.reduce(_ crossJoin _)
+      case `featureKind` =>
+        dependenceDfs.reduce(_ union _).orderBy(desc(getDependenceNameCol))
     }
   }
 
