@@ -48,6 +48,8 @@ object TAJSONFormat {
 
 object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocumentV3]]
 
+object SentimentScoredDocumentV3 extends SparkBindings[SentimentScoredDocumentV3]
+
 case class SentimentScoredDocumentV3(id: String,
                                      sentiment: String,
                                      statistics: Option[DocumentStatistics],
@@ -57,9 +59,29 @@ case class SentimentScoredDocumentV3(id: String,
 
 case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
 
+case class BinarySentimentScoreV3(positive: Double, negative: Double)
+
+case class SentimentRelation(ref: String, relationType: String)
+
+case class SentimentTarget(confidenceScores: BinarySentimentScoreV3,
+                           length: Int,
+                           offset: Int,
+                           text: Option[String],
+                           sentiment: String,
+                           relations: Seq[SentimentRelation])
+
+case class SentimentAssessment(confidenceScores: BinarySentimentScoreV3,
+                               length: Int,
+                               offset: Int,
+                               text: Option[String],
+                               sentiment: String,
+                               isNegated: Boolean)
+
 case class Sentence(text: Option[String],
                     sentiment: String,
                     confidenceScores: SentimentScoreV3,
+                    targets: Option[Seq[SentimentTarget]],
+                    assessments: Option[Seq[SentimentAssessment]],
                     offset: Int,
                     length: Int)
 
@@ -81,9 +103,9 @@ case class DetectedLanguageV3(name: String, iso6391Name: String, confidenceScore
 object DetectEntitiesResponseV3 extends SparkBindings[TAResponse[DetectEntitiesScoreV3]]
 
 case class DetectEntitiesScoreV3(id: String,
-                               entities: Seq[EntityV3],
-                               warnings: Seq[TAWarning],
-                               statistics: Option[DocumentStatistics])
+                                 entities: Seq[EntityV3],
+                                 warnings: Seq[TAWarning],
+                                 statistics: Option[DocumentStatistics])
 
 case class EntityV3(name: String,
                     matches: Seq[MatchV3],
@@ -104,11 +126,11 @@ case class NERDocV3(id: String,
                     statistics: Option[DocumentStatistics])
 
 case class NEREntityV3(text: String,
-                     category: String,
-                     subcategory: Option[String] = None,
-                     offset: Integer,
-                     length: Integer,
-                     confidenceScore: Double)
+                       category: String,
+                       subcategory: Option[String] = None,
+                       offset: Integer,
+                       length: Integer,
+                       confidenceScore: Double)
 
 // NER Pii Schemas
 
@@ -136,9 +158,9 @@ case class KeyPhraseScoreV3(id: String,
                             warnings: Seq[TAWarning],
                             statistics: Option[DocumentStatistics])
 
-case class TAWarning(// Error code.
-                    code: String,
-                    // Warning message.
-                    message: String,
-                    // A JSON pointer reference indicating the target object.
-                    targetRef: Option[String] = None)
+case class TAWarning( // Error code.
+                      code: String,
+                      // Warning message.
+                      message: String,
+                      // A JSON pointer reference indicating the target object.
+                      targetRef: Option[String] = None)
