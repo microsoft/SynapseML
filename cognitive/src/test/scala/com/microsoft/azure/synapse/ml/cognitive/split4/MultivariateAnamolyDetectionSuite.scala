@@ -238,38 +238,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("Not enough data."))
   }
 
-  test("Expose correct error message for invalid Timestamp Format") {
-    val caught = intercept[RuntimeException] {
-      val smae = simpleMultiAnomalyEstimator
-        .setEndTime("FAKE_END_TIME")
-        .setSlidingWindow(200)
-        .setConnectionString(connectionString)
-      smae.fit(df)
-    }
-    assert(caught.getMessage.contains("InvalidTimestampFormat"))
-  }
-
-  test("Expose correct error message for invalid modelId") {
-    val caught = intercept[RuntimeException] {
-      val detectMultivariateAnomaly = new DetectMultivariateAnomaly()
-        .setModelId("FAKE_MODEL_ID")
-        .setConnectionString(connectionString)
-        .setSubscriptionKey(anomalyKey)
-        .setLocation("westus2")
-        .setContainerName(containerName)
-        .setIntermediateSaveDir(intermediateSaveDir)
-      detectMultivariateAnomaly
-        .setStartTime(startTime)
-        .setEndTime(endTime)
-        .setOutputCol("result")
-        .setTimestampCol(timestampColumn)
-        .setInputCols(inputColumns)
-        .transform(df)
-        .collect()
-    }
-    assert(caught.getMessage.contains("ModelNotExist"))
-  }
-
   override def testSerialization(): Unit = {
     println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
   }

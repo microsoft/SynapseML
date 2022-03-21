@@ -108,9 +108,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
           s"Querying for results did not complete within $maxTries tries")
       }
     } else {
-      val error = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.convertTo[DMAError].toJson.compactPrint
-      throw new RuntimeException(s"Caught error: $error")
+      response
     }
   }
 }
@@ -466,7 +464,6 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
 
   protected def prepareUrl: String = getUrl + s"${getModelId}/detect"
 
-  //noinspection ScalaStyle
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame] {
 
