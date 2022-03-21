@@ -6,6 +6,7 @@ package org.apache.spark.ml.param
 import spray.json._
 import spray.json.JsonFormat
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
@@ -48,15 +49,15 @@ object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
 }
 
-class ServiceParam[T](parent: Params,
-                      name: String,
-                      doc: String,
-                      isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
-                      val isRequired: Boolean = false,
-                      val isURLParam: Boolean = false,
-                      val toValueString: T => String = { x: T => x.toString }
-                     )
-                     (@transient implicit val dataFormat: JsonFormat[T])
+class ServiceParam[T: TypeTag](parent: Params,
+                               name: String,
+                               doc: String,
+                               isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
+                               val isRequired: Boolean = false,
+                               val isURLParam: Boolean = false,
+                               val toValueString: T => String = { x: T => x.toString }
+                              )
+                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
     with PythonWrappableParam[Either[T, String]] {
   type ValueType = T
@@ -75,4 +76,20 @@ class ServiceParam[T](parent: Params,
     }
   }
 
+  def getType: String = typeOf[T].toString
+
+}
+
+// Use this class if you want to extend JsonEncodableParam for Cognitive services param
+class CognitiveServiceStructParam[T: TypeTag](parent: Params,
+                                              name: String,
+                                              doc: String,
+                                              isValid: T => Boolean = (_: T) => true)
+                                             (@transient implicit val dataFormat: JsonFormat[T])
+  extends JsonEncodableParam[T](parent, name, doc, isValid)
+    with PythonWrappableParam[T] {
+
+  override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
+
+  def getType: String = typeOf[T].toString
 }

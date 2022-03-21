@@ -466,15 +466,17 @@ class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
 
 trait HasTextAndTranslationInput extends HasServiceParams {
 
-  val textAndTranslation = new ServiceParam[Seq[(String, String)]](
+  import TranslatorJsonProtocol._
+
+  val textAndTranslation = new ServiceParam[Seq[TextAndTranslation]](
     this, "textAndTranslation", " A string specifying the translated text" +
       " previously returned by the Dictionary lookup operation.")
 
-  def getTextAndTranslation: Seq[(String, String)] = getScalarParam(textAndTranslation)
+  def getTextAndTranslation: Seq[TextAndTranslation] = getScalarParam(textAndTranslation)
 
-  def setTextAndTranslation(v: Seq[(String, String)]): this.type = setScalarParam(textAndTranslation, v)
+  def setTextAndTranslation(v: Seq[TextAndTranslation]): this.type = setScalarParam(textAndTranslation, v)
 
-  def setTextAndTranslation(v: (String, String)): this.type = setScalarParam(textAndTranslation, Seq(v))
+  def setTextAndTranslation(v: TextAndTranslation): this.type = setScalarParam(textAndTranslation, Seq(v))
 
   def getTextAndTranslationCol: String = getVectorParam(textAndTranslation)
 
@@ -528,8 +530,8 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           post.setHeader("Content-Type", "application/json; charset=UTF-8")
 
           val json = textAndTranslations.head.getClass.getTypeName match {
-            case "scala.Tuple2" => textAndTranslations.map(
-              t => Map("Text" -> t._1, "Translation" -> t._2)).toJson.compactPrint
+            case "com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation" => textAndTranslations.map(
+              t => Map("Text" -> t.text, "Translation" -> t.translation)).toJson.compactPrint
             case _ => textAndTranslations.asInstanceOf[Seq[Row]].map(
               s => Map("Text" -> s.getString(0), "Translation" -> s.getString(1))).toJson.compactPrint
           }

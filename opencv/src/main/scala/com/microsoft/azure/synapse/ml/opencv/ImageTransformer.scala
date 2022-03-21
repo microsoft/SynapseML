@@ -429,6 +429,9 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
 
+  def setStages(value: java.util.ArrayList[java.util.HashMap[String, Any]]): this.type =
+    set(stages, value.asScala.toArray.map(_.asScala.toMap))
+
   val emptyStages: Array[Map[String, Any]] = Array[Map[String, Any]]()
 
   def getStages: Array[Map[String, Any]] = if (isDefined(stages)) $(stages) else emptyStages
