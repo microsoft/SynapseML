@@ -20,6 +20,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
+import org.apache.spark.injections.UDFUtils
+import scala.collection.JavaConverters._
 
 import scala.reflect.runtime.universe.TypeTag
 
@@ -38,7 +40,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 
   def this() = this(Identifiable.randomUID("JSONInputParser"))
 
-  val headers: MapParam[String, String] = new MapParam[String, String](
+  val headers: StringStringMapParam = new StringStringMapParam(
     this, "headers", "headers of the request")
 
   /** @group getParam */
@@ -46,6 +48,8 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 
   /** @group setParam */
   def setHeaders(value: Map[String, String]): this.type = set(headers, value)
+
+  def setHeaders(value: java.util.HashMap[String, String]): this.type = set(headers, value.asScala.toMap)
 
   val method: Param[String] = new Param[String](
     this, "method", "method to use for request, (PUT, POST, PATCH)")

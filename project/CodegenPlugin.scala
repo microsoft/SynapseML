@@ -34,12 +34,13 @@ object CodegenPlugin extends AutoPlugin {
 
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
+  val PyTestGenTag = Tags.Tag("pyTestGen")
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
-    val genPyPackageNamespace = settingKey[String]("genPyPackageNamespace")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
 
+    val genPackageNamespace = settingKey[String]("genPackageNamespace")
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
 
     val codegenJarName = settingKey[Option[String]]("codegenJarName")
@@ -62,6 +63,7 @@ object CodegenPlugin extends AutoPlugin {
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+    val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
@@ -87,7 +89,7 @@ object CodegenPlugin extends AutoPlugin {
       rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
-  } tag(RInstallTag)
+  } tag (RInstallTag)
 
   def testGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -96,7 +98,16 @@ object CodegenPlugin extends AutoPlugin {
     Def.task {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.TestGen $arg").value
     }
-  } tag(TestGenTag)
+  } tag (TestGenTag)
+
+  def pyTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
+    }
+  } tag (PyTestGenTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -109,7 +120,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        genPyPackageNamespace.value
+        genPackageNamespace.value
       ).toJson.compactPrint
     },
     testgenArgs := {
@@ -121,7 +132,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        genPyPackageNamespace.value
+        genPackageNamespace.value
       ).toJson.compactPrint
     },
     codegenJarName := {
@@ -147,6 +158,7 @@ object CodegenPlugin extends AutoPlugin {
       }
     }.value),
     testgen := testGenImpl.value,
+    pyTestgen := pyTestGenImpl.value,
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
@@ -175,11 +187,11 @@ object CodegenPlugin extends AutoPlugin {
     packagePython := {
       codegen.value
       createCondaEnvTask.value
-      val destPyDir = join(targetDir.value, "classes", genPyPackageNamespace.value)
+      val destPyDir = join(targetDir.value, "classes", genPackageNamespace.value)
       val packageDir = join(codegenDir.value, "package", "python").absolutePath
       val pythonSrcDir = join(codegenDir.value, "src", "python")
       if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPyPackageNamespace.value)
+      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPackageNamespace.value)
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
@@ -200,19 +212,19 @@ object CodegenPlugin extends AutoPlugin {
         version.value + "/" + fn, "pip")
     },
     mergePyCode := {
-      val srcDir = join(codegenDir.value, "src", "python", genPyPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPyPackageNamespace.value)
+      val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
+      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
       installPipPackage.value
-      testgen.value
+      pyTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       runCmd(
         activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          s"--cov=${genPyPackageNamespace.value}",
+          s"--cov=${genPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
           "--cov-report=xml",
           genTestPackageNamespace.value
@@ -229,7 +241,7 @@ object CodegenPlugin extends AutoPlugin {
     codegenDir := {
       join(targetDir.value, "generated")
     },
-    genPyPackageNamespace := {
+    genPackageNamespace := {
       "synapse"
     },
     genRPackageNamespace := {

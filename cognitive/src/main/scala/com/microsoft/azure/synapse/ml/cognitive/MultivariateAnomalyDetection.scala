@@ -116,7 +116,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
-  with HasSubscriptionKey with HasErrorCol with BasicLogging {
+  with HasErrorCol with BasicLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
@@ -371,7 +371,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   def getDisplayName: Option[String] = get(displayName)
 
-  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
     "diagnosticsInfo for training a multivariate anomaly detection model")
 
   def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
