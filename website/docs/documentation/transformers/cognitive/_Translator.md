@@ -379,7 +379,7 @@ translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = (spark.createDataFrame([
   ("fly", "volar")
 ], ["text", "translation"])
-    .withColumn("textAndTranslation", struct(col("text"), col("translation")))
+    .withColumn("textAndTranslation", struct(col("text"), col("translation"))))
 
 dictionaryExamples = (DictionaryExamples()
                   .setSubscriptionKey(translatorKey)
