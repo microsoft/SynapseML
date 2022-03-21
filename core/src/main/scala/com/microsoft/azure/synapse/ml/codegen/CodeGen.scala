@@ -75,7 +75,7 @@ object CodeGen {
           |Version: ${conf.rVersion}
           |Date: $today
           |Author: Microsoft Corporation
-          |Maintainer: SynapseML Team <mmlspark-support@microsoft.com>
+          |Maintainer: SynapseML Team <synapseml-support@microsoft.com>
           |URL: https://github.com/Microsoft/SynapseML
           |BugReports: https://github.com/Microsoft/SynapseML/issues
           |Depends:
@@ -157,7 +157,7 @@ object CodeGen {
          |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -173,7 +173,6 @@ object CodeGen {
          |
          |""".stripMargin)
   }
-
 
   def rGen(conf: CodegenConfig): Unit = {
     println(s"Generating R for ${conf.jarName}")

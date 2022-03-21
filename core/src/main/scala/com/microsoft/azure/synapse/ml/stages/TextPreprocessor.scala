@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
+import org.apache.spark.ml.param.{MapParam, Param, ParamMap, StringStringMapParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.udf
@@ -107,7 +107,7 @@ class TextPreprocessor(val uid: String) extends Transformer
     "upperCase"  -> Character.toUpperCase
   )
 
-  val map = new MapParam[String, String](this, "map", "Map of substring match to replacement")
+  val map = new StringStringMapParam(this, "map", "Map of substring match to replacement")
 
   /** @group getParam */
   def getMap: Map[String, String] = get(map).getOrElse(Map())

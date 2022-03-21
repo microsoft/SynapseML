@@ -306,7 +306,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
 
   import spark.implicits._
 
-  lazy val dictDf: DataFrame = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
+  lazy val dictDf: DataFrame = Seq(List(TextAndTranslation("fly", "volar"))).toDF("textAndTranslation")
 
   def dictionaryExamples: DictionaryExamples = new DictionaryExamples()
     .setSubscriptionKey(translatorKey)
@@ -333,7 +333,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
     assert(result1.head.getSeq(1).head.toString === "volar")
 
     val result2 = dictionaryExamplesTest(dictionaryExamples
-      .setTextAndTranslation(("fly", "volar")), emptyDf)
+      .setTextAndTranslation(TextAndTranslation("fly", "volar")), emptyDf)
       .collect()
 
     assert(result2.head.getSeq(0).head.toString === "fly")
