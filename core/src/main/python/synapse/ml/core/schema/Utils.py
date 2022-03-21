@@ -98,10 +98,20 @@ class ComplexParamsMixin(MLReadable):
         """
         Transforms the embedded params to the companion Java object.
         """
+<<<<<<< serena/dotnetCodegen
         pair_defaults = []
         for param in self.params:
             if self.isSet(param):
                 if param.doc.startswith("ServiceParam"):
+=======
+        sc = SparkContext._active_spark_context
+        pair_defaults = []
+        for param in self.params:
+            if self.isSet(param):
+                service_param_class = sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                is_service_param = service_param_class.isAssignableFrom(self._java_obj.getParam(param.name).getClass())
+                if is_service_param:
+>>>>>>> master
                     getattr(self._java_obj, "set{}".format(param.name[0].upper()+param.name[1:]))(self._paramMap[param])
                 else:
                     pair = self._make_java_param_pair(param, self._paramMap[param])

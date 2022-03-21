@@ -52,6 +52,7 @@ trait TestFuzzingUtil {
   val testFitting = false
 }
 
+<<<<<<< serena/dotnetCodegen
 trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
 
   def dotnetTestObjects(): Seq[TestObject[S]]
@@ -251,6 +252,28 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     }
   }
 
+=======
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
+
+  def pyTestObjects(): Seq[TestObject[S]]
+
+  def pyTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
+    conf.pyTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def savePyDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(pyTestDataDir(conf), s"$name.parquet").toString)
+  }
+
+  def savePyModel(conf: CodegenConfig, model: S, name: String): Unit = {
+    model match {
+      case writable: MLWritable =>
+        writable.write.overwrite().save(new File(pyTestDataDir(conf), s"$name.model").toString)
+      case _ =>
+        throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
+    }
+  }
+
+>>>>>>> master
   def savePyTestData(conf: CodegenConfig): Unit = {
     pyTestDataDir(conf).mkdirs()
     pyTestObjects().zipWithIndex.foreach { case (to, i) =>

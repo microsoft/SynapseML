@@ -17,7 +17,10 @@ class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
+<<<<<<< serena/dotnetCodegen
   override def dotnetType: String = "ScalaModel<M>"
 
   override def dotnetReturnType: String = "Model<object>"
+=======
+>>>>>>> master
 }
