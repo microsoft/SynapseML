@@ -34,6 +34,8 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
 
   def this() = this(Identifiable.randomUID("StratifiedRepartition"))
 
+  def setSeed(value: Long): this.type = set(seed, value)
+
   val mode = new Param[String](this, "mode",
     "Specify equal to repartition with replacement across all labels, specify " +
       "original to keep the ratios in the original dataset, or specify mixed to use a heuristic")

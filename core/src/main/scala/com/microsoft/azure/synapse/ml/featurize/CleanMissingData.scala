@@ -12,6 +12,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import scala.collection.JavaConverters._
 
 object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   val MeanOpt = "Mean"
@@ -157,6 +158,8 @@ class CleanMissingDataModel(val uid: String)
   def setColsToFill(v: Array[String]): this.type = set(colsToFill, v)
 
   def setFillValues(v: Array[Any]): this.type = set(fillValues, v)
+
+  def setFillValues(v: java.util.ArrayList[Any]): this.type = set(fillValues, v.asScala.toArray)
 
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 

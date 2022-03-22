@@ -108,7 +108,9 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
           s"Querying for results did not complete within $maxTries tries")
       }
     } else {
-      response
+      val error = IOUtils.toString(response.entity.get.content, "UTF-8")
+        .parseJson.convertTo[DMAError].toJson.compactPrint
+      throw new RuntimeException(s"Caught error: $error")
     }
   }
 }
@@ -116,7 +118,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
-  with HasSubscriptionKey with HasErrorCol with BasicLogging {
+  with HasErrorCol with BasicLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
@@ -371,7 +373,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   def getDisplayName: Option[String] = get(displayName)
 
-  val diagnosticsInfo = new Param[DiagnosticsInfo](this, "diagnosticsInfo",
+  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
     "diagnosticsInfo for training a multivariate anomaly detection model")
 
   def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
@@ -464,6 +466,7 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
 
   protected def prepareUrl: String = getUrl + s"${getModelId}/detect"
 
+  //noinspection ScalaStyle
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame] {
 

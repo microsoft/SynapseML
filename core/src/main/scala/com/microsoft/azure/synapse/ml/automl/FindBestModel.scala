@@ -13,6 +13,7 @@ import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerA
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
+import scala.collection.JavaConverters._
 
 object FindBestModel extends ComplexParamsReadable[FindBestModel] {
   val ModelNameCol = "model_name"
@@ -63,6 +64,8 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
+
+  def setModels(value: java.util.ArrayList[Transformer]): this.type = set(models, value.asScala.toArray)
 
   /** @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
