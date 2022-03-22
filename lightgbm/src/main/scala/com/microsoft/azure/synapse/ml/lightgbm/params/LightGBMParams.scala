@@ -395,27 +395,27 @@ trait LightGBMSeedParams extends Wrappable {
 /** Defines common parameters across all LightGBM learners related to categorical variable treatment.
   */
 trait LightGBMCategoricalParams extends Wrappable {
-  val minDataPerGroup = new IntParam(this, "min_data_per_group", "minimal number of data per categorical group")
+  val minDataPerGroup = new IntParam(this, "minDataPerGroup", "minimal number of data per categorical group")
   setDefault(minDataPerGroup -> 100)
   def getMinDataPerGroup: Int = $(minDataPerGroup)
   def setMinDataPerGroup(value: Int): this.type = set(minDataPerGroup, value)
 
   val maxCatThreshold = new IntParam(
     this,
-    "max_cat_threshold",
+    "maxCatThreshold",
     "limit number of split points considered for categorical features")
   setDefault(maxCatThreshold -> 32)
   def getMaxCatThreshold: Int = $(maxCatThreshold)
   def setMaxCatThreshold(value: Int): this.type = set(maxCatThreshold, value)
 
-  val catl2 = new DoubleParam(this, "cat_l2", "L2 regularization in categorical split")
+  val catl2 = new DoubleParam(this, "catl2", "L2 regularization in categorical split")
   setDefault(catl2 -> 10.0)
   def getCatl2: Double = $(catl2)
   def setCatl2(value: Double): this.type = set(catl2, value)
 
   val catSmooth = new DoubleParam(
     this,
-    "cat_smooth",
+    "catSmooth",
     "this can reduce the effect of noises in categorical features, especially for categories with few data")
   setDefault(catSmooth -> 10.0)
   def getCatSmooth: Double = $(catSmooth)
@@ -423,7 +423,7 @@ trait LightGBMCategoricalParams extends Wrappable {
 
   val maxCatToOneHot = new IntParam(
     this,
-    "max_cat_to_onehot",
+    "maxCatToOnehot",
     "when number of categories of one feature smaller than or equal to this, one-vs-other split algorithm will be used")
   setDefault(maxCatToOneHot -> 4)
   def getMaxCatToOneHot: Int = $(maxCatToOneHot)

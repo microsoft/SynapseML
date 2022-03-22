@@ -134,7 +134,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   protected override def appendExtraParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
     sb.appendParamFlagIfNotThere("cb_explore_adf")
-      .appendParamValueIfNotThere("epsilon", "episilon", epsilon)
+      .appendParamValueIfNotThere("epsilon", "epsilon", epsilon)
   }
 
   override def transformSchema(schema: StructType): StructType = {

@@ -192,7 +192,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
   test("Verify raises exception when used with incompatible args") {
     val df = CBDatasetHelper.getCBDataset(spark)
     assertThrows[NotImplementedError](
-      new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb --episilon 0.5").fit(df))
+      new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb --epsilon 0.5").fit(df))
     assertThrows[NotImplementedError](
       new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb_explore").fit(df))
     assertThrows[NotImplementedError](
