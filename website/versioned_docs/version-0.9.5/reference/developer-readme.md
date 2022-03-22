@@ -27,7 +27,7 @@ description: SynapseML Development Setup
 
 To use secrets in the build you must be part of the synapsemlkeyvault
  and azure subscription. If you are MSFT internal would like to be 
- added please reach out `mmlspark-support@microsoft.com`
+ added please reach out `synapseml-support@microsoft.com`
 
 # SBT Command Guide
 
