@@ -31,7 +31,11 @@ import scala.math.exp
 @SerialVersionUID(100L)
 class TrainDelegate extends LightGBMDelegate {
 
-  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: BaseTrainParams,
+  override def getLearningRate(batchIndex: Int,
+                               partitionId: Int,
+                               curIters: Int,
+                               log: Logger,
+                               trainParams: BaseTrainParams,
                                previousLearningRate: Double): Double = {
     if (curIters == 0) {
       previousLearningRate

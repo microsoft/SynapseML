@@ -1,1 +1,0 @@
-Evaluates and chooses the best model from a list of models.

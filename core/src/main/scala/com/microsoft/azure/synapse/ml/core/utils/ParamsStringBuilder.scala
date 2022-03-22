@@ -34,6 +34,8 @@ import org.apache.spark.ml.param._
   */
 class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: String) {
 
+  // A StringBuilder is a relatively inefficient way to implement this (e.g. HashTable would be better),
+  // but it is simple to interpret/maintain and not on a critical perf path.
   private val sb: StringBuilder = new StringBuilder()
 
   def this(prefix: String = "", delimiter: String = "=") = {
