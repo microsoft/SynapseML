@@ -212,7 +212,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
         .setConnectionString(connectionString)
       smae.fit(testDf)
     }
-    assert(caught.getMessage.contains("Not enough data."))
+    assert(caught.getMessage.contains("TrainFailed"))
   }
 
   test("Expose correct error message during inference") {
