@@ -363,7 +363,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       get(maxCatThreshold),
       get(catl2),
       get(catSmooth),
-      get(maxCatToOneHot))
+      get(maxCatToOnehot))
   }
 
   def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {

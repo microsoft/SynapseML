@@ -421,13 +421,13 @@ trait LightGBMCategoricalParams extends Wrappable {
   def getCatSmooth: Double = $(catSmooth)
   def setCatSmooth(value: Double): this.type = set(catSmooth, value)
 
-  val maxCatToOneHot = new IntParam(
+  val maxCatToOnehot = new IntParam(
     this,
     "maxCatToOnehot",
     "when number of categories of one feature smaller than or equal to this, one-vs-other split algorithm will be used")
-  setDefault(maxCatToOneHot -> 4)
-  def getMaxCatToOneHot: Int = $(maxCatToOneHot)
-  def setMaxCatToOneHot(value: Int): this.type = set(maxCatToOneHot, value)
+  setDefault(maxCatToOnehot -> 4)
+  def getMaxCatToOnehot: Int = $(maxCatToOnehot)
+  def setMaxCatToOnehot(value: Int): this.type = set(maxCatToOnehot, value)
 }
 
 /** Defines common parameters across all LightGBM learners.
