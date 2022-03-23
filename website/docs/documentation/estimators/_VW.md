@@ -27,7 +27,7 @@ vw = (VowpalWabbitRegressor()
 
 vwRegressor = (VowpalWabbitRegressor()
       .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
+      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
 ```
 
 </TabItem>
@@ -75,7 +75,7 @@ values={[
 from synapse.ml.vw import *
 
 cb = (VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")

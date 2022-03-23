@@ -91,7 +91,7 @@ cb = (VowpalWabbitContextualBandit()
 import com.microsoft.azure.synapse.ml.vw._
 
 val cb = (new VowpalWabbitContextualBandit()
-  .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+  .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
   .setLabelCol("cost")
   .setProbabilityCol("prob")
   .setChosenActionCol("chosen_action")

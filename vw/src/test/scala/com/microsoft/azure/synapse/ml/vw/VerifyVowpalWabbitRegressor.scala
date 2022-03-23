@@ -118,7 +118,7 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
       .setFeaturesCol("a")
       .setAdditionalFeatures(Array("b"))
       .setPredictionCol(predCol)
-      //.setArgs(s"-a") // don't pass -a (audit) when using interactions...
+      //.setPassThroughArgs(s"-a") // don't pass -a (audit) when using interactions...
       .setPassThroughArgs("--quiet")
       .setInteractions(Array("ab"))
       .fit(trainData)
