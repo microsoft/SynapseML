@@ -34,19 +34,16 @@ class LightGBMRanker(override val uid: String)
 
   val maxPosition = new IntParam(this, "maxPosition", "optimized NDCG at this position")
   setDefault(maxPosition -> 20)
-
   def getMaxPosition: Int = $(maxPosition)
   def setMaxPosition(value: Int): this.type = set(maxPosition, value)
 
   val labelGain = new DoubleArrayParam(this, "labelGain", "graded relevance for each label in NDCG")
   setDefault(labelGain -> Array.empty[Double])
-
   def getLabelGain: Array[Double] = $(labelGain)
   def setLabelGain(value: Array[Double]): this.type = set(labelGain, value)
 
   val evalAt = new IntArrayParam(this, "evalAt", "NDCG and MAP evaluation positions, separated by comma")
   setDefault(evalAt -> (1 to 5).toArray)
-
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 

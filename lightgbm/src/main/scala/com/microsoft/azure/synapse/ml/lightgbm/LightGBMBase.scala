@@ -455,7 +455,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                             schema: StructType,
                             sharedState: SharedState)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    if (trainParams.verbosity > 1) {
+    if (trainParams.generalParams.verbosity > 1) {
       log.info(s"LightGBM partition $getPartitionId running on executor $getExecutorId")
     }
     val useSingleDatasetMode = trainParams.executionParams.useSingleDatasetMode
