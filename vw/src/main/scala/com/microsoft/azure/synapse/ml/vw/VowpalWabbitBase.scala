@@ -74,14 +74,14 @@ trait VowpalWabbitBase extends Wrappable
   // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
   // to generate all the parameters?
   // (update: this is a removed feature as of 3.0, so would have to use newer macro mechanisms)
-  val passThroughArgs = new Param[String](this, "args", "VW command line arguments passed")
+  val passThroughArgs = new Param[String](this, "passThroughArgs", "VW command line arguments passed")
   setDefault(passThroughArgs -> "")
   def getPassThroughArgs: String = $(passThroughArgs)
   def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)
 
-  @deprecated("Please use 'getPassThroughArgs'.", since="1.0.0-RC3")
+  @deprecated("Please use 'getPassThroughArgs'.", since="0.9.6")
   def getArgs: String = $(passThroughArgs)
-  @deprecated("Please use 'setPassThroughArgs'.", since="1.0.0-RC3")
+  @deprecated("Please use 'setPassThroughArgs'.", since="0.9.6")
   def setArgs(value: String): this.type = set(passThroughArgs, value)
 
 

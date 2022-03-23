@@ -13,12 +13,12 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 /** Defines common LightGBM execution parameters.
   */
 trait LightGBMExecutionParams extends Wrappable {
-  val passThroughParams = new Param[String](this, "passThroughParams",
+  val passThroughArgs = new Param[String](this, "passThroughArgs",
     "Direct string to pass through to LightGBM library (appended with other explicitly set params). " +
       "Will override any parameters given with explicit setters. Can include multiple parameters in one string.")
-  setDefault(passThroughParams->"")
-  def getPassThroughParams: String = $(passThroughParams)
-  def setPassThroughParams(value: String): this.type = set(passThroughParams, value)
+  setDefault(passThroughArgs->"")
+  def getPassThroughArgs: String = $(passThroughArgs)
+  def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)
 
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
