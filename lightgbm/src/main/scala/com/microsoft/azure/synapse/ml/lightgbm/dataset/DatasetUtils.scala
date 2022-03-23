@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.ColumnParams
-import com.microsoft.azure.synapse.ml.lightgbm.swig.DoubleChunkedArray
 import com.microsoft.ml.lightgbm.{doubleChunkedArray, floatChunkedArray}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}

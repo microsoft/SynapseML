@@ -317,12 +317,71 @@ trait LightGBMObjectiveParams extends Wrappable {
   def setFObj(value: FObjTrait): this.type = set(fobj, value)
 }
 
+/** Defines common parameters related to seed and determinism
+  */
+trait LightGBMSeedParams extends Wrappable {
+  val seed = new IntParam(this, "seed", "Main seed, used to generate other seeds")
+
+  def getSeed: Int = $(seed)
+  def setSeed(value: Int): this.type = set(seed, value)
+
+  val deterministic = new BooleanParam(this, "deterministic", "Used only with cpu " +
+    "devide type. Setting this to true should ensure stable results when using the same data and the " +
+    "same parameters.  Note: setting this to true may slow down training.  To avoid potential instability " +
+    "due to numerical issues, please set force_col_wise=true or force_row_wise=true when setting " +
+    "deterministic=true")
+  setDefault(deterministic->false)
+
+  def getDeterministic: Boolean = $(deterministic)
+  def setDeterministic(value: Boolean): this.type = set(deterministic, value)
+
+  val baggingSeed = new IntParam(this, "baggingSeed", "Bagging seed")
+  setDefault(baggingSeed->3)
+
+  def getBaggingSeed: Int = $(baggingSeed)
+  def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
+
+  val featureFractionSeed = new IntParam(this, "featureFractionSeed", "Feature fraction seed")
+  setDefault(featureFractionSeed->2)
+
+  def getFeatureFractionSeed: Int = $(featureFractionSeed)
+  def setFeatureFractionSeed(value: Int): this.type = set(featureFractionSeed, value)
+
+  val extraSeed = new IntParam(this, "extraSeed", "Random seed for selecting threshold " +
+    "when extra_trees is true")
+  setDefault(extraSeed->6)
+
+  def getExtraSeed: Int = $(extraSeed)
+  def setExtraSeed(value: Int): this.type = set(extraSeed, value)
+
+  val dropSeed = new IntParam(this, "dropSeed", "Random seed to choose dropping models. " +
+    "Only used in dart.")
+  setDefault(dropSeed->4)
+
+  def getDropSeed: Int = $(dropSeed)
+  def setDropSeed(value: Int): this.type = set(dropSeed, value)
+
+  val dataRandomSeed = new IntParam(this, "dataRandomSeed", "Random seed for sampling " +
+    "data to construct histogram bins.")
+  setDefault(dataRandomSeed->1)
+
+  def getDataRandomSeed: Int = $(dataRandomSeed)
+  def setDataRandomSeed(value: Int): this.type = set(dataRandomSeed, value)
+
+  val objectiveSeed = new IntParam(this, "objectiveSeed", "Random seed for objectives, " +
+    "if random process is needed.  Currently used only for rank_xendcg objective.")
+  setDefault(objectiveSeed->5)
+
+  def getObjectiveSeed: Int = $(objectiveSeed)
+  def setObjectiveSeed(value: Int): this.type = set(objectiveSeed, value)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
 trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
   with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
   with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
-  with LightGBMDartParams with LightGBMPredictionParams with LightGBMObjectiveParams {
+  with LightGBMDartParams with LightGBMPredictionParams with LightGBMObjectiveParams with LightGBMSeedParams {
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
@@ -347,12 +406,6 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
 
   def getBaggingFreq: Int = $(baggingFreq)
   def setBaggingFreq(value: Int): this.type = set(baggingFreq, value)
-
-  val baggingSeed = new IntParam(this, "baggingSeed", "Bagging seed")
-  setDefault(baggingSeed->3)
-
-  def getBaggingSeed: Int = $(baggingSeed)
-  def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)

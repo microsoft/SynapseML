@@ -31,62 +31,88 @@ abstract class ChunkedArray[T]() {
   def add(value: T): Unit
 }
 
-class FloatChunkedArray(floatChunkedArray: floatChunkedArray) extends ChunkedArray[Float] {
+object floatChunkedArray {
+  def apply(size: Long): floatChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new floatChunkedArray(size)
+  }
+}
 
-  def this(size: Long) = this(new floatChunkedArray(size))
+class FloatChunkedArray(array: floatChunkedArray) extends ChunkedArray[Float] {
+  def this(size: Long) = this(floatChunkedArray(size))
 
-  def getChunksCount: Long = floatChunkedArray.get_chunks_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getLastChunkAddCount: Long = floatChunkedArray.get_last_chunk_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
 
-  def getAddCount: Long = floatChunkedArray.get_add_count()
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Float): Float =
-    floatChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Float): Unit = floatChunkedArray.add(value)
+  def add(value: Float): Unit = array.add(value)
 
-  def delete(): Unit = floatChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(floatSwigArray: FloatSwigArray): Unit = floatChunkedArray.coalesce_to(floatSwigArray.array)
+  def coalesceTo(floatSwigArray: FloatSwigArray): Unit = array.coalesce_to(floatSwigArray.array)
 }
 
-class DoubleChunkedArray(doubleChunkedArray: doubleChunkedArray) extends ChunkedArray[Double] {
-  def this(size: Long) = this(new doubleChunkedArray(size))
+object doubleChunkedArray {
+  def apply(size: Long): doubleChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new doubleChunkedArray(size)
+  }
+}
 
-  def getChunksCount: Long = doubleChunkedArray.get_chunks_count()
+class DoubleChunkedArray(array: doubleChunkedArray) extends ChunkedArray[Double] {
+  def this(size: Long) = this(doubleChunkedArray(size))
 
-  def getLastChunkAddCount: Long = doubleChunkedArray.get_last_chunk_add_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getAddCount: Long = doubleChunkedArray.get_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Double): Double =
-    doubleChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Double): Unit = doubleChunkedArray.add(value)
+  def add(value: Double): Unit = array.add(value)
 
-  def delete(): Unit = doubleChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(doubleSwigArray: DoubleSwigArray): Unit = doubleChunkedArray.coalesce_to(doubleSwigArray.array)
+  def coalesceTo(doubleSwigArray: DoubleSwigArray): Unit = array.coalesce_to(doubleSwigArray.array)
 }
 
-class IntChunkedArray(intChunkedArray: int32ChunkedArray) extends ChunkedArray[Int] {
-  def this(size: Long) = this(new int32ChunkedArray(size))
+object int32ChunkedArray {
+  def apply(size: Long): int32ChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new int32ChunkedArray(size)
+  }
+}
 
-  def getChunksCount: Long = intChunkedArray.get_chunks_count()
+class IntChunkedArray(array: int32ChunkedArray) extends ChunkedArray[Int] {
+  def this(size: Long) = this(int32ChunkedArray(size))
 
-  def getLastChunkAddCount: Long = intChunkedArray.get_last_chunk_add_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getAddCount: Long = intChunkedArray.get_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Int): Int =
-    intChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Int): Unit = intChunkedArray.add(value)
+  def add(value: Int): Unit = array.add(value)
 
-  def delete(): Unit = intChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(intSwigArray: IntSwigArray): Unit = intChunkedArray.coalesce_to(intSwigArray.array)
+  def coalesceTo(intSwigArray: IntSwigArray): Unit = array.coalesce_to(intSwigArray.array)
 }
 
 abstract class BaseSwigArray[T]() {
