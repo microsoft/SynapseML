@@ -287,6 +287,10 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(binaryEvaluator.evaluate(sdf1) < binaryEvaluator.evaluate(sdf2))
   }
 
+  def assertBinaryEquality(sdf1: DataFrame, sdf2: DataFrame): Unit = {
+    assert(Math.abs(binaryEvaluator.evaluate(sdf1) - binaryEvaluator.evaluate(sdf2)) < 1e-10)
+  }
+
   def assertMulticlassImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {
     assert(multiclassEvaluator.evaluate(sdf1) < multiclassEvaluator.evaluate(sdf2))
   }
@@ -353,6 +357,14 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val scoredDF1 = baseModel.setMinGainToSplit(99999).fit(pimaDF).transform(pimaDF)
     val scoredDF2 = baseModel.fit(pimaDF).transform(pimaDF)
     assertBinaryImprovement(scoredDF1, scoredDF2)
+  }
+
+  test("Verify LightGBM Classifier will give reproducible results when setting seed") {
+    val scoredDF1 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
+    (1 to 10).foreach { i =>
+      val scoredDF2 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
+      assertBinaryEquality(scoredDF1, scoredDF2);
+    }
   }
 
   test("Verify LightGBM Classifier with dart mode parameters") {
@@ -692,7 +704,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
         val fitModel = model.fit(df)
         val tdf = fitModel.transform(df)
-
         assertProbabilities(tdf, model)
 
         assertImportanceLengths(fitModel, df)
@@ -727,7 +738,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
         val fitModel = model.fit(df)
         val tdf = fitModel.transform(df)
-
         assertProbabilities(tdf, model)
 
         assertImportanceLengths(fitModel, df)
@@ -786,8 +796,6 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       assert(resultsFromFile === resultsOriginal)
     }
   }
-
   override def reader: MLReadable[_] = LightGBMClassifier
-
   override def modelReader: MLReadable[_] = LightGBMClassificationModel
 }

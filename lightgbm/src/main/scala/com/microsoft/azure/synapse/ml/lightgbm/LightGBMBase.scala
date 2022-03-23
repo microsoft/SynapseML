@@ -6,7 +6,8 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm.ConnectionState.Finished
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, handleConnection, sendDataToExecutors}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, getExecutorId,
+  getPartitionId, handleConnection, sendDataToExecutors}
 import com.microsoft.azure.synapse.ml.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.azure.synapse.ml.lightgbm.TrainUtils._
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
@@ -26,6 +27,7 @@ import org.apache.spark.sql.types._
 import java.net.{ServerSocket, Socket}
 import java.util.concurrent.Executors
 import scala.collection.immutable.HashSet
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -453,6 +455,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                             schema: StructType,
                             sharedState: SharedState)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
+    if (trainParams.verbosity > 1) {
+      log.info(s"LightGBM partition $getPartitionId running on executor $getExecutorId")
+    }
     val useSingleDatasetMode = trainParams.executionParams.useSingleDatasetMode
     val emptyPartition = !inputRows.hasNext
     val isEnabledWorker = if (!emptyPartition) isWorkerEnabled(trainParams, log, sharedState) else false
@@ -513,22 +518,27 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val f = Future {
       var emptyTaskCounter = 0
       val hostAndPorts = ListBuffer[(Socket, String)]()
+      val hostToMinPartition = mutable.Map[String, String]()
       if (getUseBarrierExecutionMode) {
         log.info(s"driver using barrier execution mode")
 
         def connectToWorkers: Boolean = handleConnection(driverServerSocket, log,
-          hostAndPorts) == Finished || connectToWorkers
+          hostAndPorts, hostToMinPartition) == Finished || connectToWorkers
 
         connectToWorkers
       } else {
         log.info(s"driver expecting $numTasks connections...")
         while (hostAndPorts.size + emptyTaskCounter < numTasks) {
-          val connectionResult = handleConnection(driverServerSocket, log, hostAndPorts)
+          val connectionResult = handleConnection(driverServerSocket, log, hostAndPorts, hostToMinPartition)
           if (connectionResult == ConnectionState.EmptyTask) emptyTaskCounter += 1
         }
       }
       // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
-      val allConnections = hostAndPorts.map(_._2).mkString(",")
+      val hostPortsList = hostAndPorts.map(_._2).sortBy(hostPort => {
+        val host = hostPort.split(":")(0)
+        Integer.parseInt(hostToMinPartition(host))
+      })
+      val allConnections = hostPortsList.mkString(",")
       log.info(s"driver writing back to all connections: $allConnections")
       // Send data back to all tasks and helper tasks on executors
       sendDataToExecutors(hostAndPorts, allConnections)
