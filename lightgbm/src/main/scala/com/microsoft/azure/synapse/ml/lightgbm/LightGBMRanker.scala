@@ -52,7 +52,7 @@ class LightGBMRanker(override val uid: String)
 
   def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
     RankerTrainParams(
-      get(passThroughParams),
+      get(passThroughArgs),
       getMaxPosition,
       getLabelGain,
       getEvalAt,

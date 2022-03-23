@@ -44,7 +44,7 @@ class LightGBMClassifier(override val uid: String)
      * so we infer the actual numClasses from the dataset here
      */
     ClassifierTrainParams(
-      get(passThroughParams),
+      get(passThroughArgs),
       getIsUnbalance,
       getNumClasses(dataset),
       getBoostFromAverage,

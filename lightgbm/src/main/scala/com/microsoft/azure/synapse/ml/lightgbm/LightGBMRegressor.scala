@@ -58,7 +58,7 @@ class LightGBMRegressor(override val uid: String)
 
   def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
     RegressorTrainParams(
-      get(passThroughParams),
+      get(passThroughArgs),
       getAlpha,
       getTweedieVariancePower,
       getBoostFromAverage,
