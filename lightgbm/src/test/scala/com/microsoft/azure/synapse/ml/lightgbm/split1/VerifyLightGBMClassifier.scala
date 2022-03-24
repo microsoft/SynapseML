@@ -30,7 +30,6 @@ import scala.math.exp
 
 @SerialVersionUID(100L)
 class TrainDelegate extends LightGBMDelegate {
-
   override def getLearningRate(batchIndex: Int,
                                partitionId: Int,
                                curIters: Int,
@@ -43,7 +42,6 @@ class TrainDelegate extends LightGBMDelegate {
       previousLearningRate * 0.05
     }
   }
-
 }
 
 // scalastyle:off magic.number
@@ -147,7 +145,6 @@ trait LightGBMTestUtils extends TestBase {
   val weightCol = "weight"
   val validationCol = "validation"
   val seed = 42L
-
 }
 
 // scalastyle:off magic.number
