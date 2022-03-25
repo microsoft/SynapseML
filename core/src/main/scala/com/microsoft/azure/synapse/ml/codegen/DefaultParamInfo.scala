@@ -104,7 +104,7 @@ object DefaultParamInfo extends Logging {
   def getCognitiveServiceStructParamInfo(dataType: CognitiveServiceStructParam[_]): ParamInfo[_] = {
     dataType.getType match {
       case "com.microsoft.azure.synapse.ml.cognitive.DiagnosticsInfo" => DiagnosticsInfo
-      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TAAnalyzeTask]" => TextAnalyzeTaskParamInfo
+      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" => TextAnalyzeTaskParamInfo
       case _ => throw new Exception(s"unsupported type $dataType, please add implementation")
     }
   }
