@@ -22,10 +22,14 @@ case class TAError(id: String, error: String)
 
 object TAError extends SparkBindings[TAError]
 
-case class TAResponse[T](statistics: Option[TAResponseStatistics],
-                         documents: Seq[T],
-                         errors: Option[Seq[TAError]],
-                         modelVersion: Option[String])
+trait HasDocId {
+  val id: String
+}
+
+case class TAResponse[T <: HasDocId](statistics: Option[TAResponseStatistics],
+                                     documents: Seq[T],
+                                     errors: Option[Seq[TAError]],
+                                     modelVersion: Option[String])
 
 case class TAResponseStatistics(documentsCount: Int,
                                 validDocumentsCount: Int,
@@ -38,11 +42,14 @@ object TAJSONFormat {
 
   implicit val DocumentFormat: RootJsonFormat[TADocument] = jsonFormat3(TADocument.apply)
   implicit val RequestFormat: RootJsonFormat[TARequest] = jsonFormat1(TARequest.apply)
-  implicit val AnalysisInputsFormat: RootJsonFormat[TAAnalyzeAnalysisInput] = jsonFormat1(TAAnalyzeAnalysisInput.apply)
-  implicit val AnalysisTaskFormat: RootJsonFormat[TAAnalyzeTask] = jsonFormat1(TAAnalyzeTask.apply)
-  implicit val AnalysisTasksFormat: RootJsonFormat[TAAnalyzeTasks] = jsonFormat5(TAAnalyzeTasks.apply)
-  implicit val AnalyzeRequestFormat: RootJsonFormat[TAAnalyzeRequest] = jsonFormat3(TAAnalyzeRequest.apply)
+  implicit val AnalysisInputsFormat: RootJsonFormat[TextAnalyzeInput] = jsonFormat1(TextAnalyzeInput.apply)
+  implicit val AnalysisTaskFormat: RootJsonFormat[TextAnalyzeTask] = jsonFormat1(TextAnalyzeTask.apply)
+  implicit val AnalysisTasksFormat: RootJsonFormat[TextAnalyzeTasks] = jsonFormat5(TextAnalyzeTasks.apply)
+  implicit val AnalyzeRequestFormat: RootJsonFormat[TextAnalyzeRequest] = jsonFormat3(TextAnalyzeRequest.apply)
 }
+
+
+
 
 // SentimentV3 Schemas
 
@@ -55,7 +62,7 @@ case class SentimentScoredDocumentV3(id: String,
                                      statistics: Option[DocumentStatistics],
                                      confidenceScores: SentimentScoreV3,
                                      sentences: Seq[Sentence],
-                                     warnings: Seq[TAWarning])
+                                     warnings: Seq[TAWarning]) extends HasDocId
 
 case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
 
@@ -94,7 +101,7 @@ object DetectLanguageResponseV3 extends SparkBindings[TAResponse[DocumentLanguag
 case class DocumentLanguageV3(id: String,
                               detectedLanguage: Option[DetectedLanguageV3],
                               warnings: Seq[TAWarning],
-                              statistics: Option[DocumentStatistics])
+                              statistics: Option[DocumentStatistics]) extends HasDocId
 
 case class DetectedLanguageV3(name: String, iso6391Name: String, confidenceScore: Double)
 
@@ -105,7 +112,7 @@ object DetectEntitiesResponseV3 extends SparkBindings[TAResponse[DetectEntitiesS
 case class DetectEntitiesScoreV3(id: String,
                                  entities: Seq[EntityV3],
                                  warnings: Seq[TAWarning],
-                                 statistics: Option[DocumentStatistics])
+                                 statistics: Option[DocumentStatistics]) extends HasDocId
 
 case class EntityV3(name: String,
                     matches: Seq[MatchV3],
@@ -120,10 +127,11 @@ case class MatchV3(confidenceScore: Double, text: String, offset: Int, length: I
 
 object NERResponseV3 extends SparkBindings[TAResponse[NERDocV3]]
 
+
 case class NERDocV3(id: String,
                     entities: Seq[NEREntityV3],
                     warnings: Seq[TAWarning],
-                    statistics: Option[DocumentStatistics])
+                    statistics: Option[DocumentStatistics]) extends HasDocId
 
 case class NEREntityV3(text: String,
                        category: String,
@@ -140,7 +148,7 @@ case class PIIDocV3(id: String,
                     entities: Seq[PIIEntityV3],
                     redactedText: String,
                     warnings: Seq[TAWarning],
-                    statistics: Option[DocumentStatistics])
+                    statistics: Option[DocumentStatistics]) extends HasDocId
 
 case class PIIEntityV3(text: String,
                        category: String,
@@ -156,7 +164,7 @@ object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
 case class KeyPhraseScoreV3(id: String,
                             keyPhrases: Seq[String],
                             warnings: Seq[TAWarning],
-                            statistics: Option[DocumentStatistics])
+                            statistics: Option[DocumentStatistics]) extends HasDocId
 
 case class TAWarning( // Error code.
                       code: String,
