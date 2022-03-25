@@ -23,19 +23,19 @@ object PyTestGen {
         ltc.makePyTestFile(conf)
       } catch {
         case _: NotImplementedError =>
-          println(s"ERROR: Could not generate test for ${ltc.testClassName} because of Complex Parameters")
+          println(s"ERROR: Could not generate Python test for ${ltc.testClassName} because of Complex Parameters")
       }
     }
   }
 
-  def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
+  def makePyInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = new File(new File(conf.pyTestDir,  "synapsemltest"), packageFolder)
     if (!dir.exists()){
       dir.mkdirs()
     }
     writeFile(new File(dir, "__init__.py"), "")
     dir.listFiles().filter(_.isDirectory).foreach(f =>
-      makeInitFiles(conf, packageFolder + "/" + f.getName)
+      makePyInitFiles(conf, packageFolder + "/" + f.getName)
     )
   }
 
@@ -80,6 +80,7 @@ object PyTestGen {
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
-    makeInitFiles(conf)
+
+    makePyInitFiles(conf)
   }
 }

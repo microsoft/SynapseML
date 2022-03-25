@@ -64,3 +64,9 @@ trait RWrappableParam[T] extends Param[T] {
   }
 
 }
+
+trait ExternalRWrappableParam[T] extends RWrappableParam[T] {
+
+  def rLoadLine(modelNum: Int): String
+
+}
