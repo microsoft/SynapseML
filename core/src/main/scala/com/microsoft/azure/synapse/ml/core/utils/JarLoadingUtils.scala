@@ -27,21 +27,6 @@ object JarLoadingUtils {
     }
   }
 
-  import java.io.BufferedReader
-  //import java.util.stream.Collectors
-  //import java.util.Collection
-
-  private def getClassFromName(className: String, packageName: String): Class[_] = {
-    try {
-      Class.forName(packageName + "." + className.substring(0, className.lastIndexOf('.')))
-    }
-    catch {
-      case e: ClassNotFoundException =>
-      null
-      // handle the exception
-    }
-  }
-
   private[ml] val AllClasses = {
     if (CachedAllClasses.isEmpty) CachedAllClasses = getAllClasses
     CachedAllClasses
