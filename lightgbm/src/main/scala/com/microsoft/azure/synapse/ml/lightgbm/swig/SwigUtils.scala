@@ -31,8 +31,8 @@ abstract class ChunkedArray[T]() {
   def add(value: T): Unit
 }
 
-object floatChunkedArray {
-  def apply(size: Long): floatChunkedArray = {
+object FloatChunkedArray {
+  private def apply(size: Long): floatChunkedArray = {
     if (size <= 0) {
       throw new IllegalArgumentException("Chunked array size must be greater than zero")
     }
@@ -41,7 +41,7 @@ object floatChunkedArray {
 }
 
 class FloatChunkedArray(array: floatChunkedArray) extends ChunkedArray[Float] {
-  def this(size: Long) = this(floatChunkedArray(size))
+  def this(size: Long) = this(FloatChunkedArray(size))
 
   def getChunksCount: Long = array.get_chunks_count()
 
@@ -59,8 +59,8 @@ class FloatChunkedArray(array: floatChunkedArray) extends ChunkedArray[Float] {
   def coalesceTo(floatSwigArray: FloatSwigArray): Unit = array.coalesce_to(floatSwigArray.array)
 }
 
-object doubleChunkedArray {
-  def apply(size: Long): doubleChunkedArray = {
+object DoubleChunkedArray {
+  private def apply(size: Long): doubleChunkedArray = {
     if (size <= 0) {
       throw new IllegalArgumentException("Chunked array size must be greater than zero")
     }
@@ -69,7 +69,7 @@ object doubleChunkedArray {
 }
 
 class DoubleChunkedArray(array: doubleChunkedArray) extends ChunkedArray[Double] {
-  def this(size: Long) = this(doubleChunkedArray(size))
+  def this(size: Long) = this(DoubleChunkedArray(size))
 
   def getChunksCount: Long = array.get_chunks_count()
 
@@ -87,8 +87,8 @@ class DoubleChunkedArray(array: doubleChunkedArray) extends ChunkedArray[Double]
   def coalesceTo(doubleSwigArray: DoubleSwigArray): Unit = array.coalesce_to(doubleSwigArray.array)
 }
 
-object int32ChunkedArray {
-  def apply(size: Long): int32ChunkedArray = {
+object IntChunkedArray {
+  private def apply(size: Long): int32ChunkedArray = {
     if (size <= 0) {
       throw new IllegalArgumentException("Chunked array size must be greater than zero")
     }
@@ -97,7 +97,7 @@ object int32ChunkedArray {
 }
 
 class IntChunkedArray(array: int32ChunkedArray) extends ChunkedArray[Int] {
-  def this(size: Long) = this(int32ChunkedArray(size))
+  def this(size: Long) = this(IntChunkedArray(size))
 
   def getChunksCount: Long = array.get_chunks_count()
 
