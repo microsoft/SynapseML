@@ -16,8 +16,6 @@ import scala.reflect.{ClassTag, classTag}
 /** Contains logic for loading classes. */
 object JarLoadingUtils {
 
-  private var CachedAllClasses: List[Class[_]] = List[Class[_]]()
-
   def className(filename: String): String = {
     if (filename.endsWith(".class")) {
       val classNameEnd = filename.length() - ".class".length()
@@ -27,10 +25,7 @@ object JarLoadingUtils {
     }
   }
 
-  private[ml] val AllClasses = {
-    if (CachedAllClasses.isEmpty) CachedAllClasses = getAllClasses
-    CachedAllClasses
-  }
+  private[ml] lazy val AllClasses: List[Class[_]] = getAllClasses
 
   private[ml] val WrappableClasses = {
     AllClasses.filter(classOf[Wrappable].isAssignableFrom(_))
@@ -100,17 +95,9 @@ object JarLoadingUtils {
 
     // ClassLoader does not expose a class list (except private vars), so scan the jar files directly
     val path = packageName.replace('.', '/')
-    val resources = classLoader.getResources(path).asIterator()
-    val dirs = new ListBuffer[File]
-    for (resource <- resources.asScala) {
-      dirs += new File(resource.getFile)
-    }
+    val dirs = classLoader.getResources(path).asScala.map(resource => new File(resource.getFile))
 
-    val classes = new ListBuffer[Class[_]]
-    for (directory <- dirs) {
-      classes ++= findClassesInDirectory(directory, packageName)
-    }
-    classes.toList
+    dirs.map(d => findClassesInDirectory(d, packageName)).flatten.toList
   }
 
   /**
@@ -122,20 +109,14 @@ object JarLoadingUtils {
     * @throws ClassNotFoundException
     */
   @throws[ClassNotFoundException]
-  private def findClassesInDirectory(directory: File, packageName: String): ListBuffer[Class[_]] = {
-    val classes = new ListBuffer[Class[_]]
-    if (directory.exists) {
-      val files = directory.listFiles
-      for (file <- files) {
-        if (file.isDirectory) {
-          assert(!file.getName.contains("."))
-          classes ++= findClassesInDirectory(file, packageName + "." + file.getName)
-        }
-        else if (file.getName.endsWith(".class")) {
-          classes += Class.forName(packageName + '.' + file.getName.substring(0, file.getName.length - 6))
-        }
+  private def findClassesInDirectory(directory: File, packageName: String): Seq[Class[_]] = {
+    directory.listFiles().map(file => {
+      file match {
+        case f if f.isDirectory => findClassesInDirectory(f, packageName + "." + file.getName)
+        case f if f.getName.endsWith(".class") =>
+          Seq[Class[_]](Class.forName(packageName + '.' + file.getName.substring(0, file.getName.length - 6)))
+        case _ => Seq[Class[_]]() // some other file, just ignore
       }
-    }
-    classes
+    }).flatten.toSeq
   }
 }
