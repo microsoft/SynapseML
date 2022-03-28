@@ -8,9 +8,8 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import java.lang.reflect.Modifier
 import org.sparkproject.guava.reflect.ClassPath
 
-import java.io.{File, InputStreamReader, IOException}
+import java.io.{File, IOException}
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 import scala.reflect.{ClassTag, classTag}
 
 /** Contains logic for loading classes. */
@@ -115,7 +114,7 @@ object JarLoadingUtils {
         case f if f.isDirectory => findClassesInDirectory(f, packageName + "." + file.getName)
         case f if f.getName.endsWith(".class") =>
           Seq[Class[_]](Class.forName(packageName + '.' + file.getName.substring(0, file.getName.length - 6)))
-        case _ => Seq[Class[_]]() // some other file, just ignore
+        case _ => Seq.empty // some other file, just ignore
       }
     }).flatten.toSeq
   }
