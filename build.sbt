@@ -225,7 +225,7 @@ publishBadges := {
       s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache"))
+      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
