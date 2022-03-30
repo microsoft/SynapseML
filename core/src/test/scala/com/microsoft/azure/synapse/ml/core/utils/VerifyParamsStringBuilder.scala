@@ -16,6 +16,8 @@ class VerifyParamsStringBuilder extends TestBase {
       .append("pass_through_flag")
       .append("-short_param=ok")
       .append("-short_param_with_space ok2")
+      .append("repeated_param=p1")
+      .append("rp=p2")
       .appendParamFlagIfNotThere("some_param_flag")
       .appendParamFlagIfNotThere("pass_through_flag") // should not add
       .appendParamListIfNotThere("some_param_list", Array[Int](3, 4, 5))
@@ -24,6 +26,9 @@ class VerifyParamsStringBuilder extends TestBase {
       .appendParamValueIfNotThere("null_param", None) // should not add
       .appendParamValueIfNotThere("some_param", Option(10))
       .appendParamValueIfNotThere("pass_through_param", Option("bad_val")) // should not add
+      .appendRepeatableParamIfNotThere("rp",
+        "repeated_param",
+        Array("p1", "p2", "p3")) // should not add p1 or p2
 
     val expectedStr: String = "pass_through_param=custom" +
       " pass_through_param_with_space custom2" +
@@ -31,9 +36,12 @@ class VerifyParamsStringBuilder extends TestBase {
       " pass_through_flag" +
       " -short_param=ok" +
       " -short_param_with_space ok2" +
+      " repeated_param=p1" +
+      " rp=p2" +
       " some_param_flag" +
       " some_param_list=3,4,5" +
-      " some_param=10"
+      " some_param=10" +
+      " repeated_param=p3"
 
     assert(psb.result == expectedStr)
   }
@@ -85,6 +93,7 @@ class VerifyParamsStringBuilder extends TestBase {
       .appendParamValueIfNotThere("string_array_value", "string_array_value", testParamsContainer.testStringArray)
       .appendParamValueIfNotThere("int_array_value", "int_array_value", testParamsContainer.testIntArray)
       .appendParamValueIfNotThere("double_array_value", "double_array_value", testParamsContainer.testDoubleArray)
+      .appendRepeatableParamIfNotThere("r", "repeated", testParamsContainer.testStringArray)
 
     val expectedStr: String = "--string_value some_string" +
       " --int_value 3" +
@@ -92,7 +101,10 @@ class VerifyParamsStringBuilder extends TestBase {
       " --double_value 3.0" +
       " --string_array_value one,two,three" +
       " --int_array_value 1,2,3" +
-      " --double_array_value 1.0,2.0,3.0"
+      " --double_array_value 1.0,2.0,3.0" +
+      " --repeated one" +
+      " --repeated two" +
+      " --repeated three"
 
     assert(psb.result == expectedStr)
   }
@@ -108,6 +120,7 @@ class VerifyParamsStringBuilder extends TestBase {
       .appendParamValueIfNotThere("string_array_value", "string_array_value", testParamsContainer.testStringArray)
       .appendParamValueIfNotThere("int_array_value", "int_array_value", testParamsContainer.testIntArray)
       .appendParamValueIfNotThere("double_array_value", "double_array_value", testParamsContainer.testDoubleArray)
+      .appendRepeatableParamIfNotThere("r", "repeated", testParamsContainer.testDoubleArray)
 
     val expectedStr: String = "" // Since no parameters were set, they should not have been appended to string
 
@@ -126,6 +139,13 @@ class VerifyParamsStringBuilder extends TestBase {
     assertThrows[IllegalArgumentException] {
       val psb = new ParamsStringBuilder(prefix = "--", delimiter = " ")
         .appendParamValueIfNotThere("string_value", "string_value", testParamsContainer.testString)
+    }
+
+    // Can only pass Array types to appendRepeatableParamIfNotThere
+    testParamsContainer.setString("val")
+    assertThrows[IllegalArgumentException] {
+      val psb = new ParamsStringBuilder(prefix = "--", delimiter = " ")
+        .appendRepeatableParamIfNotThere("s", "string_value", testParamsContainer.testString)
     }
   }
 

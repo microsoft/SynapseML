@@ -490,7 +490,7 @@ trait VowpalWabbitBase extends Wrappable
       .appendParamValueIfNotThere("l1", "l1", l1)
       .appendParamValueIfNotThere("l2", "l2", l2)
       .appendParamValueIfNotThere("ignore", "ignore", ignoreNamespaces)
-      .appendParamValueIfNotThere("q", "quadratic", interactions)
+      .appendRepeatableParamIfNotThere("q", "quadratic", interactions)
       .appendSubclassSpecificParams()
   }
 
