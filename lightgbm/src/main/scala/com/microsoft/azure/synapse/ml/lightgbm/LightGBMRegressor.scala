@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams, TrainParams}
+  LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams, BaseTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -47,33 +47,33 @@ class LightGBMRegressor(override val uid: String)
 
   val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
   setDefault(alpha -> 0.9)
-
   def getAlpha: Double = $(alpha)
   def setAlpha(value: Double): this.type = set(alpha, value)
 
   val tweedieVariancePower = new DoubleParam(this, "tweedieVariancePower",
     "control the variance of tweedie distribution, must be between 1 and 2")
   setDefault(tweedieVariancePower -> 1.5)
-
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RegressorTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), getAlpha, getTweedieVariancePower,
-      get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf),
-      numTasks, modelStr, getVerbosity, categoricalIndexes,
-      getBoostFromAverage, getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
-      get(metric), get(minGainToSplit), get(maxDeltaStep),
-      getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate,
-      getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams, getSeedParams)
+  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
+    RegressorTrainParams(
+      get(passThroughArgs),
+      getAlpha,
+      getTweedieVariancePower,
+      getBoostFromAverage,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, dataset, numTasksPerExec),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
     new LightGBMRegressionModel(uid)
       .setLightGBMBooster(lightGBMBooster)
       .setFeaturesCol(getFeaturesCol)

@@ -13,10 +13,16 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 /** Defines common LightGBM execution parameters.
   */
 trait LightGBMExecutionParams extends Wrappable {
+  val passThroughArgs = new Param[String](this, "passThroughArgs",
+    "Direct string to pass through to LightGBM library (appended with other explicitly set params). " +
+      "Will override any parameters given with explicit setters. Can include multiple parameters in one string.")
+  setDefault(passThroughArgs->"")
+  def getPassThroughArgs: String = $(passThroughArgs)
+  def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)
+
   val parallelism = new Param[String](this, "parallelism",
     "Tree learner parallelism, can be set to data_parallel or voting_parallel")
   setDefault(parallelism->"data_parallel")
-
   def getParallelism: String = $(parallelism)
   def setParallelism(value: String): this.type = set(parallelism, value)
 
@@ -25,36 +31,29 @@ trait LightGBMExecutionParams extends Wrappable {
       "set this to larger value for more accurate result, but it will slow down the training speed. " +
       "It should be greater than 0")
   setDefault(topK -> LightGBMConstants.DefaultTopK)
-
   def getTopK: Int = $(topK)
   def setTopK(value: Int): this.type = set(topK, value)
 
   val defaultListenPort = new IntParam(this, "defaultListenPort",
     "The default listen port on executors, used for testing")
-
+  setDefault(defaultListenPort -> LightGBMConstants.DefaultLocalListenPort)
   def getDefaultListenPort: Int = $(defaultListenPort)
   def setDefaultListenPort(value: Int): this.type = set(defaultListenPort, value)
 
-  setDefault(defaultListenPort -> LightGBMConstants.DefaultLocalListenPort)
-
   val driverListenPort = new IntParam(this, "driverListenPort",
     "The listen port on a driver. Default value is 0 (random)")
-
+  setDefault(driverListenPort -> LightGBMConstants.DefaultDriverListenPort)
   def getDriverListenPort: Int = $(driverListenPort)
   def setDriverListenPort(value: Int): this.type = set(driverListenPort, value)
 
-  setDefault(driverListenPort -> LightGBMConstants.DefaultDriverListenPort)
-
   val timeout = new DoubleParam(this, "timeout", "Timeout in seconds")
   setDefault(timeout -> 1200)
-
   def getTimeout: Double = $(timeout)
   def setTimeout(value: Double): this.type = set(timeout, value)
 
   val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
     "Barrier execution mode which uses a barrier stage, off by default.")
   setDefault(useBarrierExecutionMode -> false)
-
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
@@ -62,21 +61,18 @@ trait LightGBMExecutionParams extends Wrappable {
     "Use single dataset execution mode to create a single native dataset per executor (singleton) " +
       "to reduce memory and communication overhead. Note this is disabled when running spark in local mode.")
   setDefault(useSingleDatasetMode -> true)
-
   def getUseSingleDatasetMode: Boolean = $(useSingleDatasetMode)
   def setUseSingleDatasetMode(value: Boolean): this.type = set(useSingleDatasetMode, value)
 
   val numBatches = new IntParam(this, "numBatches",
     "If greater than 0, splits data into separate batches during training")
   setDefault(numBatches -> 0)
-
   def getNumBatches: Int = $(numBatches)
   def setNumBatches(value: Int): this.type = set(numBatches, value)
 
   val repartitionByGroupingColumn = new BooleanParam(this, "repartitionByGroupingColumn",
     "Repartition training data according to grouping column, on by default.")
   setDefault(repartitionByGroupingColumn -> true)
-
   def getRepartitionByGroupingColumn: Boolean = $(repartitionByGroupingColumn)
   def setRepartitionByGroupingColumn(value: Boolean): this.type = set(repartitionByGroupingColumn, value)
 
@@ -84,7 +80,6 @@ trait LightGBMExecutionParams extends Wrappable {
     "Advanced parameter to specify the number of tasks.  " +
       "SynapseML tries to guess this based on cluster configuration, but this parameter can be used to override.")
   setDefault(numTasks -> 0)
-
   def getNumTasks: Int = $(numTasks)
   def setNumTasks(value: Int): this.type = set(numTasks, value)
 
@@ -93,7 +88,6 @@ trait LightGBMExecutionParams extends Wrappable {
       "If set too high, memory may be wasted, but if set too low, performance may be reduced during data copy." +
       "If dataset size is known beforehand, set to the number of rows in the dataset.")
   setDefault(chunkSize -> 10000)
-
   def getChunkSize: Int = $(chunkSize)
   def setChunkSize(value: Int): this.type = set(chunkSize, value)
 
@@ -101,16 +95,38 @@ trait LightGBMExecutionParams extends Wrappable {
     "Advanced parameter to specify whether the native lightgbm matrix constructed should be sparse or dense.  " +
       "Values can be auto, sparse or dense. Default value is auto, which samples first ten rows to determine type.")
   setDefault(matrixType -> "auto")
-
   def getMatrixType: String = $(matrixType)
   def setMatrixType(value: String): this.type = set(matrixType, value)
 
   val numThreads = new IntParam(this, "numThreads",
     "Number of threads for LightGBM. For the best speed, set this to the number of real CPU cores.")
   setDefault(numThreads -> 0)
-
   def getNumThreads: Int = $(numThreads)
   def setNumThreads(value: Int): this.type = set(numThreads, value)
+}
+
+/** Defines common parameters across all LightGBM learners related to dataset handling.
+  */
+trait LightGBMDatasetParams extends Wrappable {
+  val isEnableSparse = new BooleanParam(this, "isEnableSparse", "Used to enable/disable sparse optimization")
+  setDefault(isEnableSparse -> true)
+  def getIsEnableSparse: Boolean = $(isEnableSparse)
+  def setIsEnableSparse(value: Boolean): this.type = set(isEnableSparse, value)
+
+  val useMissing = new BooleanParam(this,
+    "useMissing",
+    "Set this to false to disable the special handle of missing value")
+  setDefault(useMissing -> true)
+  def getUseMissing: Boolean = $(useMissing)
+  def setUseMissing(value: Boolean): this.type = set(useMissing, value)
+
+  val zeroAsMissing = new BooleanParam(this,
+    "zeroAsMissing",
+    "Set to true to treat all zero as missing values (including the unshown values in LibSVM / sparse matrices)." +
+    " Set to false to use na for representing missing values")
+  setDefault(zeroAsMissing -> false)
+  def getZeroAsMissing: Boolean = $(zeroAsMissing)
+  def setZeroAsMissing(value: Boolean): this.type = set(zeroAsMissing, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
@@ -118,16 +134,43 @@ trait LightGBMExecutionParams extends Wrappable {
 trait LightGBMLearnerParams extends Wrappable {
   val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
   setDefault(earlyStoppingRound -> 0)
-
   def getEarlyStoppingRound: Int = $(earlyStoppingRound)
   def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
 
   val improvementTolerance = new DoubleParam(this, "improvementTolerance",
     "Tolerance to consider improvement in metric")
   setDefault(improvementTolerance -> 0.0)
-
   def getImprovementTolerance: Double = $(improvementTolerance)
   def setImprovementTolerance(value: Double): this.type = set(improvementTolerance, value)
+
+  val monotoneConstraints = new IntArrayParam(this, "monotoneConstraints",
+    "used for constraints of monotonic features. 1 means increasing, -1 means decreasing, 0 means non-constraint." +
+    " Specify all features in order.")
+  setDefault(monotoneConstraints -> Array.empty)
+  def getMonotoneConstraints: Array[Int] = $(monotoneConstraints)
+  def setMonotoneConstraints(value: Array[Int]): this.type = set(monotoneConstraints, value)
+
+  val monotoneConstraintsMethod = new Param[String](this, "monotoneConstraintsMethod",
+    "Monotone constraints method. basic, intermediate, or advanced.")
+  setDefault(monotoneConstraintsMethod -> "basic")
+  def getMonotoneConstraintsMethod: String = $(monotoneConstraintsMethod)
+  def setMonotoneConstraintsMethod(value: String): this.type = set(monotoneConstraintsMethod, value)
+
+  val monotonePenalty = new DoubleParam(this, "monotonePenalty",
+    "A penalization parameter X forbids any monotone splits on the first X (rounded down) level(s) of the tree.")
+  setDefault(monotonePenalty -> 0.0)
+  def getMonotonePenalty: Double = $(monotonePenalty)
+  def setMonotonePenalty(value: Double): this.type = set(monotonePenalty, value)
+
+  val topRate = new DoubleParam(this, "topRate", "The retain ratio of large gradient data. Only used in goss.")
+  setDefault(topRate -> 0.2)
+  def getTopRate: Double = $(topRate)
+  def setTopRate(value: Double): this.type = set(topRate, value)
+
+  val otherRate = new DoubleParam(this, "otherRate","The retain ratio of small gradient data. Only used in goss.")
+  setDefault(otherRate -> 0.1)
+  def getOtherRate: Double = $(otherRate)
+  def setOtherRate(value: Double): this.type = set(otherRate, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to histogram bin construction.
@@ -135,13 +178,11 @@ trait LightGBMLearnerParams extends Wrappable {
 trait LightGBMBinParams extends Wrappable {
   val maxBin = new IntParam(this, "maxBin", "Max bin")
   setDefault(maxBin -> 255)
-
   def getMaxBin: Int = $(maxBin)
   def setMaxBin(value: Int): this.type = set(maxBin, value)
 
   val binSampleCount = new IntParam(this, "binSampleCount", "Number of samples considered at computing histogram bins")
   setDefault(binSampleCount -> 200000)
-
   def getBinSampleCount: Int = $(binSampleCount)
   def setBinSampleCount(value: Int): this.type = set(binSampleCount, value)
 }
@@ -152,35 +193,30 @@ trait LightGBMDartParams extends Wrappable {
   val dropRate = new DoubleParam(this, "dropRate",
     "Dropout rate: a fraction of previous trees to drop during the dropout")
   setDefault(dropRate -> 0.1)
-
   def getDropRate: Double = $(dropRate)
   def setDropRate(value: Double): this.type = set(dropRate, value)
 
   val maxDrop = new IntParam(this, "maxDrop",
     "Max number of dropped trees during one boosting iteration")
   setDefault(maxDrop -> 50)
-
   def getMaxDrop: Int = $(maxDrop)
   def setMaxDrop(value: Int): this.type = set(maxDrop, value)
 
   val skipDrop = new DoubleParam(this, "skipDrop",
     "Probability of skipping the dropout procedure during a boosting iteration")
   setDefault(skipDrop -> 0.5)
-
   def getSkipDrop: Double = $(skipDrop)
   def setSkipDrop(value: Double): this.type = set(skipDrop, value)
 
   val xgboostDartMode = new BooleanParam(this, "xgboostDartMode",
     "Set this to true to use xgboost dart mode")
   setDefault(xgboostDartMode -> false)
-
   def getXGBoostDartMode: Boolean = $(xgboostDartMode)
   def setXGBoostDartMode(value: Boolean): this.type = set(xgboostDartMode, value)
 
   val uniformDrop = new BooleanParam(this, "uniformDrop",
     "Set this to true to use uniform drop in dart mode")
   setDefault(uniformDrop -> false)
-
   def getUniformDrop: Boolean = $(uniformDrop)
   def setUniformDrop(value: Boolean): this.type = set(uniformDrop, value)
 }
@@ -190,27 +226,22 @@ trait LightGBMDartParams extends Wrappable {
 trait LightGBMSlotParams extends Wrappable {
   val slotNames = new StringArrayParam(this, "slotNames",
     "List of slot names in the features column")
-
+  setDefault(slotNames -> Array.empty)
   def getSlotNames: Array[String] = $(slotNames)
   def setSlotNames(value: Array[String]): this.type = set(slotNames, value)
 
-  setDefault(slotNames -> Array.empty)
-
   val categoricalSlotIndexes = new IntArrayParam(this, "categoricalSlotIndexes",
     "List of categorical column indexes, the slot index in the features column")
-
   def getCategoricalSlotIndexes: Array[Int] = $(categoricalSlotIndexes)
   def setCategoricalSlotIndexes(value: Array[Int]): this.type = set(categoricalSlotIndexes, value)
 
   setDefault(categoricalSlotIndexes -> Array.empty)
-
   val categoricalSlotNames = new StringArrayParam(this, "categoricalSlotNames",
     "List of categorical column slot names, the slot name in the features column")
-
+  setDefault(categoricalSlotNames -> Array.empty)
   def getCategoricalSlotNames: Array[String] = $(categoricalSlotNames)
   def setCategoricalSlotNames(value: Array[String]): this.type = set(categoricalSlotNames, value)
 
-  setDefault(categoricalSlotNames -> Array.empty)
 }
 
 /** Defines parameters for fraction across all LightGBM learners.
@@ -218,27 +249,28 @@ trait LightGBMSlotParams extends Wrappable {
 trait LightGBMFractionParams extends Wrappable {
   val baggingFraction = new DoubleParam(this, "baggingFraction", "Bagging fraction")
   setDefault(baggingFraction->1)
-
   def getBaggingFraction: Double = $(baggingFraction)
   def setBaggingFraction(value: Double): this.type = set(baggingFraction, value)
 
   val posBaggingFraction = new DoubleParam(this, "posBaggingFraction", "Positive Bagging fraction")
   setDefault(posBaggingFraction->1)
-
   def getPosBaggingFraction: Double = $(posBaggingFraction)
   def setPosBaggingFraction(value: Double): this.type = set(posBaggingFraction, value)
 
   val negBaggingFraction = new DoubleParam(this, "negBaggingFraction", "Negative Bagging fraction")
   setDefault(negBaggingFraction->1)
-
   def getNegBaggingFraction: Double = $(negBaggingFraction)
   def setNegBaggingFraction(value: Double): this.type = set(negBaggingFraction, value)
 
   val featureFraction = new DoubleParam(this, "featureFraction", "Feature fraction")
   setDefault(featureFraction->1)
-
   def getFeatureFraction: Double = $(featureFraction)
   def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
+
+  val featureFractionByNode = new DoubleParam(this, "featureFractionByNode", "Feature fraction by node")
+  setDefault(featureFraction->1)
+  def getFeatureFractionByNode: Double = $(featureFractionByNode)
+  def setFeatureFractionByNode(value: Double): this.type = set(featureFractionByNode, value)
 }
 
 /** Defines common prediction parameters across LightGBM Ranker, Classifier and Regressor
@@ -247,14 +279,12 @@ trait LightGBMPredictionParams extends Wrappable {
   val leafPredictionCol = new Param[String](this, "leafPredictionCol",
     "Predicted leaf indices's column name")
   setDefault(leafPredictionCol -> "")
-
   def getLeafPredictionCol: String = $(leafPredictionCol)
   def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
 
   val featuresShapCol = new Param[String](this, "featuresShapCol",
     "Output SHAP vector column name after prediction containing the feature contribution values")
   setDefault(featuresShapCol -> "")
-
   def getFeaturesShapCol: String = $(featuresShapCol)
   def setFeaturesShapCol(value: String): this.type = set(featuresShapCol, value)
 
@@ -262,7 +292,6 @@ trait LightGBMPredictionParams extends Wrappable {
     "control whether or not LightGBM raises an error " +
       "when you try to predict on data with a different number of features than the training data")
   setDefault(predictDisableShapeCheck -> false)
-
   def getPredictDisableShapeCheck: Boolean = $(predictDisableShapeCheck)
   def setPredictDisableShapeCheck(value: Boolean): this.type = set(predictDisableShapeCheck, value)
 }
@@ -272,7 +301,6 @@ trait LightGBMPredictionParams extends Wrappable {
 trait LightGBMModelParams extends Wrappable {
   val lightGBMBooster = new LightGBMBoosterParam(this, "lightGBMBooster",
     "The trained LightGBM booster")
-
   def getLightGBMBooster: LightGBMBooster = $(lightGBMBooster)
   def setLightGBMBooster(value: LightGBMBooster): this.type = set(lightGBMBooster, value)
 
@@ -285,7 +313,6 @@ trait LightGBMModelParams extends Wrappable {
   val startIteration = new IntParam(this, "startIteration",
     "Sets the start index of the iteration to predict. If <= 0, starts from the first iteration.")
   setDefault(startIteration -> LightGBMConstants.DefaultStartIteration)
-
   def getStartIteration: Int = $(startIteration)
   def setStartIteration(value: Int): this.type = set(startIteration, value)
 
@@ -293,7 +320,6 @@ trait LightGBMModelParams extends Wrappable {
     "Sets the total number of iterations used in the prediction." +
       "If <= 0, all iterations from ``start_iteration`` are used (no limits).")
   setDefault(numIterations -> LightGBMConstants.DefaultNumIterations)
-
   def getNumIterations: Int = $(numIterations)
   def setNumIterations(value: Int): this.type = set(numIterations, value)
 }
@@ -306,13 +332,11 @@ trait LightGBMObjectiveParams extends Wrappable {
       "regression_l2, regression_l1, huber, fair, poisson, quantile, mape, gamma or tweedie. " +
       "For classification applications, this can be: binary, multiclass, or multiclassova. ")
   setDefault(objective -> "regression")
-
   def getObjective: String = $(objective)
   def setObjective(value: String): this.type = set(objective, value)
 
   val fobj = new FObjParam(this, "fobj", "Customized objective function. " +
     "Should accept two parameters: preds, train_data, and return (grad, hess).")
-
   def getFObj: FObjTrait = $(fobj)
   def setFObj(value: FObjTrait): this.type = set(fobj, value)
 }
@@ -321,7 +345,6 @@ trait LightGBMObjectiveParams extends Wrappable {
   */
 trait LightGBMSeedParams extends Wrappable {
   val seed = new IntParam(this, "seed", "Main seed, used to generate other seeds")
-
   def getSeed: Int = $(seed)
   def setSeed(value: Int): this.type = set(seed, value)
 
@@ -331,111 +354,146 @@ trait LightGBMSeedParams extends Wrappable {
     "due to numerical issues, please set force_col_wise=true or force_row_wise=true when setting " +
     "deterministic=true")
   setDefault(deterministic->false)
-
   def getDeterministic: Boolean = $(deterministic)
   def setDeterministic(value: Boolean): this.type = set(deterministic, value)
 
   val baggingSeed = new IntParam(this, "baggingSeed", "Bagging seed")
   setDefault(baggingSeed->3)
-
   def getBaggingSeed: Int = $(baggingSeed)
   def setBaggingSeed(value: Int): this.type = set(baggingSeed, value)
 
   val featureFractionSeed = new IntParam(this, "featureFractionSeed", "Feature fraction seed")
   setDefault(featureFractionSeed->2)
-
   def getFeatureFractionSeed: Int = $(featureFractionSeed)
   def setFeatureFractionSeed(value: Int): this.type = set(featureFractionSeed, value)
 
   val extraSeed = new IntParam(this, "extraSeed", "Random seed for selecting threshold " +
     "when extra_trees is true")
   setDefault(extraSeed->6)
-
   def getExtraSeed: Int = $(extraSeed)
   def setExtraSeed(value: Int): this.type = set(extraSeed, value)
 
   val dropSeed = new IntParam(this, "dropSeed", "Random seed to choose dropping models. " +
     "Only used in dart.")
   setDefault(dropSeed->4)
-
   def getDropSeed: Int = $(dropSeed)
   def setDropSeed(value: Int): this.type = set(dropSeed, value)
 
   val dataRandomSeed = new IntParam(this, "dataRandomSeed", "Random seed for sampling " +
     "data to construct histogram bins.")
   setDefault(dataRandomSeed->1)
-
   def getDataRandomSeed: Int = $(dataRandomSeed)
   def setDataRandomSeed(value: Int): this.type = set(dataRandomSeed, value)
 
   val objectiveSeed = new IntParam(this, "objectiveSeed", "Random seed for objectives, " +
     "if random process is needed.  Currently used only for rank_xendcg objective.")
   setDefault(objectiveSeed->5)
-
   def getObjectiveSeed: Int = $(objectiveSeed)
   def setObjectiveSeed(value: Int): this.type = set(objectiveSeed, value)
 }
 
+/** Defines common parameters across all LightGBM learners related to categorical variable treatment.
+  */
+trait LightGBMCategoricalParams extends Wrappable {
+  val minDataPerGroup = new IntParam(this, "minDataPerGroup", "minimal number of data per categorical group")
+  setDefault(minDataPerGroup -> 100)
+  def getMinDataPerGroup: Int = $(minDataPerGroup)
+  def setMinDataPerGroup(value: Int): this.type = set(minDataPerGroup, value)
+
+  val maxCatThreshold = new IntParam(
+    this,
+    "maxCatThreshold",
+    "limit number of split points considered for categorical features")
+  setDefault(maxCatThreshold -> 32)
+  def getMaxCatThreshold: Int = $(maxCatThreshold)
+  def setMaxCatThreshold(value: Int): this.type = set(maxCatThreshold, value)
+
+  val catl2 = new DoubleParam(this, "catl2", "L2 regularization in categorical split")
+  setDefault(catl2 -> 10.0)
+  def getCatl2: Double = $(catl2)
+  def setCatl2(value: Double): this.type = set(catl2, value)
+
+  val catSmooth = new DoubleParam(
+    this,
+    "catSmooth",
+    "this can reduce the effect of noises in categorical features, especially for categories with few data")
+  setDefault(catSmooth -> 10.0)
+  def getCatSmooth: Double = $(catSmooth)
+  def setCatSmooth(value: Double): this.type = set(catSmooth, value)
+
+  val maxCatToOnehot = new IntParam(
+    this,
+    "maxCatToOnehot",
+    "when number of categories of one feature smaller than or equal to this, one-vs-other split algorithm will be used")
+  setDefault(maxCatToOnehot -> 4)
+  def getMaxCatToOnehot: Int = $(maxCatToOnehot)
+  def setMaxCatToOnehot(value: Int): this.type = set(maxCatToOnehot, value)
+}
+
 /** Defines common parameters across all LightGBM learners.
   */
-trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeightCol
-  with HasValidationIndicatorCol with HasInitScoreCol with LightGBMExecutionParams
-  with LightGBMSlotParams with LightGBMFractionParams with LightGBMBinParams with LightGBMLearnerParams
-  with LightGBMDartParams with LightGBMPredictionParams with LightGBMObjectiveParams with LightGBMSeedParams {
+trait LightGBMParams extends Wrappable
+  with DefaultParamsWritable
+  with HasWeightCol
+  with HasValidationIndicatorCol
+  with HasInitScoreCol
+  with LightGBMExecutionParams
+  with LightGBMSlotParams
+  with LightGBMFractionParams
+  with LightGBMBinParams
+  with LightGBMLearnerParams
+  with LightGBMDatasetParams
+  with LightGBMDartParams
+  with LightGBMPredictionParams
+  with LightGBMObjectiveParams
+  with LightGBMSeedParams
+  with LightGBMCategoricalParams {
+
   val numIterations = new IntParam(this, "numIterations",
     "Number of iterations, LightGBM constructs num_class * num_iterations trees")
   setDefault(numIterations->100)
-
   def getNumIterations: Int = $(numIterations)
   def setNumIterations(value: Int): this.type = set(numIterations, value)
 
   val learningRate = new DoubleParam(this, "learningRate", "Learning rate or shrinkage rate")
   setDefault(learningRate -> 0.1)
-
   def getLearningRate: Double = $(learningRate)
   def setLearningRate(value: Double): this.type = set(learningRate, value)
 
   val numLeaves = new IntParam(this, "numLeaves", "Number of leaves")
   setDefault(numLeaves -> 31)
-
   def getNumLeaves: Int = $(numLeaves)
   def setNumLeaves(value: Int): this.type = set(numLeaves, value)
 
   val baggingFreq = new IntParam(this, "baggingFreq", "Bagging frequency")
   setDefault(baggingFreq->0)
-
   def getBaggingFreq: Int = $(baggingFreq)
   def setBaggingFreq(value: Int): this.type = set(baggingFreq, value)
 
   val maxDepth = new IntParam(this, "maxDepth", "Max depth")
   setDefault(maxDepth-> -1)
-
   def getMaxDepth: Int = $(maxDepth)
   def setMaxDepth(value: Int): this.type = set(maxDepth, value)
 
   val minSumHessianInLeaf = new DoubleParam(this, "minSumHessianInLeaf", "Minimal sum hessian in one leaf")
   setDefault(minSumHessianInLeaf -> 1e-3)
-
   def getMinSumHessianInLeaf: Double = $(minSumHessianInLeaf)
   def setMinSumHessianInLeaf(value: Double): this.type = set(minSumHessianInLeaf, value)
 
   val modelString = new Param[String](this, "modelString", "LightGBM model to retrain")
   setDefault(modelString -> "")
-
   def getModelString: String = $(modelString)
   def setModelString(value: String): this.type = set(modelString, value)
 
   val verbosity = new IntParam(this, "verbosity",
     "Verbosity where lt 0 is Fatal, eq 0 is Error, eq 1 is Info, gt 1 is Debug")
   setDefault(verbosity -> -1)
-
   def getVerbosity: Int = $(verbosity)
   def setVerbosity(value: Int): this.type = set(verbosity, value)
 
   val boostFromAverage = new BooleanParam(this, "boostFromAverage",
     "Adjusts initial score to the mean of labels for faster convergence")
   setDefault(boostFromAverage -> true)
-
   def getBoostFromAverage: Boolean = $(boostFromAverage)
   def setBoostFromAverage(value: Boolean): this.type = set(boostFromAverage, value)
 
@@ -444,26 +502,22 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
       "gbdt, gbrt, rf (Random Forest), random_forest, dart (Dropouts meet Multiple " +
       "Additive Regression Trees), goss (Gradient-based One-Side Sampling). ")
   setDefault(boostingType -> "gbdt")
-
   def getBoostingType: String = $(boostingType)
   def setBoostingType(value: String): this.type = set(boostingType, value)
 
   val lambdaL1 = new DoubleParam(this, "lambdaL1", "L1 regularization")
   setDefault(lambdaL1 -> 0.0)
-
   def getLambdaL1: Double = $(lambdaL1)
   def setLambdaL1(value: Double): this.type = set(lambdaL1, value)
 
   val lambdaL2 = new DoubleParam(this, "lambdaL2", "L2 regularization")
   setDefault(lambdaL2 -> 0.0)
-
   def getLambdaL2: Double = $(lambdaL2)
   def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
 
   val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
     "Whether output metric result over training dataset.")
   setDefault(isProvideTrainingMetric -> false)
-
   def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
   def setIsProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
 
@@ -497,35 +551,36 @@ trait LightGBMParams extends Wrappable with DefaultParamsWritable with HasWeight
       "cross_entropy_lambda, intensity-weighted cross-entropy, aliases: xentlambda. " +
       "kullback_leibler, Kullback-Leibler divergence, aliases: kldiv. ")
   setDefault(metric -> "")
-
   def getMetric: String = $(metric)
   def setMetric(value: String): this.type = set(metric, value)
 
   val minGainToSplit = new DoubleParam(this, "minGainToSplit",
     "The minimal gain to perform split")
   setDefault(minGainToSplit -> 0.0)
-
   def getMinGainToSplit: Double = $(minGainToSplit)
   def setMinGainToSplit(value: Double): this.type = set(minGainToSplit, value)
 
   val maxDeltaStep = new DoubleParam(this, "maxDeltaStep",
     "Used to limit the max output of tree leaves")
   setDefault(maxDeltaStep -> 0.0)
-
   def getMaxDeltaStep: Double = $(maxDeltaStep)
   def setMaxDeltaStep(value: Double): this.type = set(maxDeltaStep, value)
 
   val maxBinByFeature = new IntArrayParam(this, "maxBinByFeature",
     "Max number of bins for each feature")
   setDefault(maxBinByFeature -> Array.empty)
-
   def getMaxBinByFeature: Array[Int] = $(maxBinByFeature)
   def setMaxBinByFeature(value: Array[Int]): this.type = set(maxBinByFeature, value)
+
+  val minDataPerBin = new IntParam(this, "minDataPerBin",
+    "Minimal number of data inside one bin")
+  setDefault(minDataPerBin -> 3)
+  def getMinDataPerBin: Int = $(minDataPerBin)
+  def setMinDataPerBin(value: Int): this.type = set(minDataPerBin, value)
 
   val minDataInLeaf = new IntParam(this, "minDataInLeaf",
     "Minimal number of data in one leaf. Can be used to deal with over-fitting.")
   setDefault(minDataInLeaf -> 20)
-
   def getMinDataInLeaf: Int = $(minDataInLeaf)
   def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
 

@@ -3,13 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.azure.synapse.ml.featurize.ValueIndexer
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
-import com.microsoft.azure.synapse.ml.lightgbm.params.{FObjTrait, TrainParams}
 import com.microsoft.azure.synapse.ml.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
+import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
 import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
 import org.apache.spark.TaskContext
@@ -18,133 +16,13 @@ import org.apache.spark.ml.feature.{LabeledPoint, StringIndexer, VectorAssembler
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
-import org.slf4j.Logger
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import scala.math.exp
-
-@SerialVersionUID(100L)
-class TrainDelegate extends LightGBMDelegate {
-
-  override def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
-                               previousLearningRate: Double): Double = {
-    if (curIters == 0) {
-      previousLearningRate
-    } else {
-      previousLearningRate * 0.05
-    }
-  }
-
-}
-
-// scalastyle:off magic.number
-trait LightGBMTestUtils extends TestBase {
-
-  /** Reads a CSV file given the file name and file location.
-    *
-    * @param fileLocation The full path to the csv file.
-    * @return A dataframe from read CSV file.
-    */
-  def readCSV(fileLocation: String): DataFrame = {
-    spark.read
-      .option("header", "true").option("inferSchema", "true")
-      .option("treatEmptyValuesAsNulls", "false")
-      .option("delimiter", if (fileLocation.endsWith(".csv")) "," else "\t")
-      .csv(fileLocation)
-  }
-
-  def loadBinary(name: String, originalLabelCol: String): DataFrame = {
-    val df = readCSV(DatasetUtils.binaryTrainFile(name).toString).repartition(numPartitions)
-      .withColumnRenamed(originalLabelCol, labelCol)
-    LightGBMUtils.getFeaturizer(df, labelCol, featuresCol).transform(df)
-  }
-
-  def loadRegression(name: String,
-                     originalLabelCol: String,
-                     columnsFilter: Option[Seq[String]] = None): DataFrame = {
-    lazy val df = readCSV(DatasetUtils.regressionTrainFile(name).toString).repartition(numPartitions)
-      .withColumnRenamed(originalLabelCol, labelCol)
-    lazy val df2 =
-      if (columnsFilter.isDefined) {
-        df.select(columnsFilter.get.map(col): _*)
-      } else {
-        df
-      }
-    LightGBMUtils.getFeaturizer(df2, labelCol, featuresCol).transform(df)
-  }
-
-  def loadMulticlass(name: String, originalLabelCol: String): DataFrame = {
-    val df = readCSV(DatasetUtils.multiclassTrainFile(name).toString).repartition(numPartitions)
-      .withColumnRenamed(originalLabelCol, labelCol)
-    val featurizedDF = LightGBMUtils.getFeaturizer(df, labelCol, featuresCol).transform(df)
-    val indexedDF = new ValueIndexer().setInputCol(labelCol).setOutputCol(labelCol)
-      .fit(featurizedDF).transform(featurizedDF)
-    indexedDF
-  }
-
-  def assertProbabilities(tdf: DataFrame, model: LightGBMClassifier): Unit = {
-    tdf.select(model.getRawPredictionCol, model.getProbabilityCol)
-      .collect()
-      .foreach(row => {
-        val probabilities = row.getAs[DenseVector](1).values
-        assert((probabilities.sum - 1.0).abs < 0.001)
-        assert(probabilities.forall(probability => probability >= 0 && probability <= 1))
-      })
-  }
-
-  def assertFitWithoutErrors(model: Estimator[_ <: Model[_]], df: DataFrame): Unit = {
-    assert(model.fit(df).transform(df).collect().length > 0)
-  }
-
-  def assertImportanceLengths(fitModel: Model[_] with LightGBMModelMethods, df: DataFrame): Unit = {
-    val splitLength = fitModel.getFeatureImportances("split").length
-    val gainLength = fitModel.getFeatureImportances("gain").length
-    val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
-    assert(splitLength == gainLength && splitLength == featuresLength)
-  }
-
-  def assertFeatureShapLengths(fitModel: Model[_] with LightGBMModelMethods, features: Vector, df: DataFrame): Unit = {
-    val shapLength = fitModel.getFeatureShaps(features).length
-    val featuresLength = df.select(featuresCol).first().getAs[Vector](featuresCol).size
-    assert(shapLength == featuresLength + 1)
-  }
-
-  def validateHeadRowShapValues(evaluatedDf: DataFrame, expectedShape: Int): Unit = {
-    val featuresShap: Array[Double] = evaluatedDf.select(featuresShapCol).rdd.map {
-      case Row(v: Vector) => v
-    }.first.toArray
-
-    assert(featuresShap.length == expectedShape)
-  }
-
-  lazy val numPartitions = 2
-  val startingPortIndex = 0
-  private var portIndex = startingPortIndex
-
-  def getAndIncrementPort(): Int = {
-    portIndex += numPartitions
-    LightGBMConstants.DefaultLocalListenPort + portIndex
-  }
-
-  val boostingTypes: Array[String] = Array("gbdt", "rf", "dart", "goss")
-  val featuresCol = "features"
-  val labelCol = "labels"
-  val rawPredCol = "rawPrediction"
-  val leafPredCol = "leafPrediction"
-  val featuresShapCol = "featuresShap"
-  val initScoreCol = "initScore"
-  val predCol = "prediction"
-  val probCol = "probability"
-  val weightCol = "weight"
-  val validationCol = "validation"
-  val seed = 42L
-
-}
 
 // scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module. */
@@ -508,6 +386,54 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .evaluate(model.transform(test))
     // Verify we get good result
     assert(metric > 0.7)
+  }
+
+  test("Verify LightGBM pass through parameters") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setPassThroughArgs("is_enable_sparse=false")
+
+    val model = untrainedModel.fit(train)
+
+    // Verify model contains correct parameter
+    assert(model.getModel.modelStr.get.contains("is_enable_sparse: 0"))
+  }
+
+  test("Verify LightGBM is_enable_sparse parameters") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setIsEnableSparse(false)
+
+    val model = untrainedModel.fit(train)
+
+    // Verify model contains correct parameter
+    assert(model.getModel.modelStr.get.contains("is_enable_sparse: 0"))
+  }
+
+  test("Verify LightGBM use_missing parameters") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setUseMissing(false)
+
+    val model = untrainedModel.fit(train)
+
+    // Verify model contains correct parameter
+    assert(model.getModel.modelStr.get.contains("use_missing: 0"))
+  }
+
+  test("Verify LightGBM zero_as_missing parameters") {
+    val Array(train, _) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel
+      .setCategoricalSlotNames(indexedBankTrainDF.columns.filter(_.startsWith("c_")))
+      .setZeroAsMissing(true)
+
+    val model = untrainedModel.fit(train)
+
+    // Verify model contains correct parameter
+    assert(model.getModel.modelStr.get.contains("zero_as_missing: 1"))
   }
 
   test("Verify LightGBM Classifier updating learning_rate on training by using LightGBMDelegate") {
