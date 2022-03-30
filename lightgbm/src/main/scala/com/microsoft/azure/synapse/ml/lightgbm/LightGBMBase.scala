@@ -6,8 +6,8 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm.ConnectionState.Finished
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, getExecutorId,
-  getPartitionId, handleConnection, sendDataToExecutors}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, getExecutorId, getPartitionId,
+  handleConnection, sendDataToExecutors}
 import com.microsoft.azure.synapse.ml.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.azure.synapse.ml.lightgbm.TrainUtils._
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
@@ -460,6 +460,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
     val useSingleDatasetMode = trainParams.executionParams.useSingleDatasetMode
     val emptyPartition = !inputRows.hasNext
+    // Note: the first valid worker with non-empty partitions sets the main executor worker, other workers read it
+    if (useSingleDatasetMode && !emptyPartition) sharedState.linkMainExecutorWorker()
     val isEnabledWorker = if (!emptyPartition) isWorkerEnabled(trainParams, log, sharedState) else false
     // Initialize the native library
     LightGBMUtils.initializeNativeLibrary()
@@ -469,12 +471,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions empty")
       List[LightGBMBooster]().toIterator
     } else {
-      if (isEnabledWorker) {
-        log.info(s"LightGBM task listening on: $localListenPort")
-        if (useSingleDatasetMode) sharedState.helperStartSignal.countDown()
-      } else {
-        sharedState.helperStartSignal.await()
-      }
+      updateHelperStartSignal(useSingleDatasetMode, sharedState, isEnabledWorker, localListenPort)
       val (aggregatedColumns, aggregatedValidationColumns) = prepareDatasets(
         inputRows, validationData, sharedState)
       // Return booster only from main worker to reduce network communication overhead
@@ -494,6 +491,24 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         // Finalize network when done
         if (isEnabledWorker) LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
       }
+    }
+  }
+
+  /** Prints the listening port and, in single dataset mode, forces helper tasks to wait for the main worker
+    * before continuing to prepare and merge the dataset.
+    *
+    * @param useSingleDatasetMode If true, indicates whether SingleDatasetMode is enabled.
+    * @param sharedState The shared state across spark tasks.
+    * @param isEnabledWorker Whether the current work is enabled to initialize the network ring of communication.
+    * @param localListenPort The local port for creating the network ring of communication.
+    */
+  private def updateHelperStartSignal(useSingleDatasetMode: Boolean, sharedState: SharedState,
+                                      isEnabledWorker: Boolean, localListenPort: Int) = {
+    if (isEnabledWorker) {
+      log.info(s"LightGBM task listening on: $localListenPort")
+      if (useSingleDatasetMode) sharedState.helperStartSignal.countDown()
+    } else {
+      sharedState.helperStartSignal.await()
     }
   }
 
