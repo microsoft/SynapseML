@@ -9,13 +9,14 @@ import com.azure.storage.common.StorageSharedKeyCredential
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
-import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.Client
+import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
+import org.apache.http.client.methods.{HttpDelete, HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
@@ -32,8 +33,76 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
 import java.util.zip.{ZipEntry, ZipOutputStream}
+import scala.collection.parallel.mutable
+import scala.collection.parallel.mutable.ParHashSet
 import scala.concurrent.blocking
 import scala.language.existentials
+
+
+object MADUtils {
+
+  private[ml] val CreatedModels: mutable.ParHashSet[String] = new ParHashSet[String]()
+
+  private[ml] def madSend(request: HttpRequestBase,
+              path: String,
+              key: String,
+              params: Map[String, String] = Map()): String = {
+
+    val paramString = if (params.isEmpty) {
+      ""
+    } else {
+      "?" + URLEncodingUtils.format(params)
+    }
+    request.setURI(new URI(path + paramString))
+
+    retry(List(100, 500, 1000), { () =>
+      request.addHeader("Ocp-Apim-Subscription-Key", key)
+      request.addHeader("Content-Type", "application/json")
+      using(Client.execute(request)) { response =>
+        if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
+          val bodyOpt = request match {
+            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
+            case _ => ""
+          }
+          if (response.getStatusLine.getStatusCode.toString.equals("429")) {
+            val retryTime = response.getHeaders("Retry-After").head.getValue.toInt * 1000
+            Thread.sleep(retryTime.toLong)
+          }
+          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
+            s"requestBody: $bodyOpt")
+        }
+        if (response.getStatusLine.getReasonPhrase == "No Content") {
+          ""
+        }
+        else if (response.getStatusLine.getReasonPhrase == "Created") {
+          response.getHeaders("Location").head.getValue
+        }
+        else {
+          IOUtils.toString(response.getEntity.getContent, "UTF-8")
+        }
+      }.get
+    })
+  }
+
+  private[ml] def madDelete(modelId: String, key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpDelete(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
+      "v1.1-preview/multivariate/models/" + modelId, key, params)
+  }
+
+  private[ml] def madListModels( key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpGet(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
+      "v1.1-preview/multivariate/models",key, params)
+  }
+
+  private[ml] def cleanUpAllModels(key: String): Unit = {
+    for (modelId <- CreatedModels) {
+      println(s"Deleting mvad model $modelId")
+      madDelete(modelId, key)
+    }
+    CreatedModels.clear()
+  }
+
+}
 
 trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   protected def prepareUrl: String
@@ -411,10 +480,13 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
       this.setDiagnosticsInfo(modelInfoFields.get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
 
+      val modelId = responseDict.get("modelId").map(_.convertTo[String]).get
+      MADUtils.CreatedModels += modelId
+
       val simpleDetectMultivariateAnomaly = new DetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
-        .setModelId(responseDict.get("modelId").map(_.convertTo[String]).get)
+        .setModelId(modelId)
         .setContainerName(getContainerName)
         .setIntermediateSaveDir(getIntermediateSaveDir)
 
