@@ -6,19 +6,12 @@ package com.microsoft.azure.synapse.ml.cognitive.split4
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpDelete, HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
-import org.scalactic.Equality
-import spray.json._
-
-import java.net.URI
+import spray.json.{DefaultJsonProtocol, _}
 
 case class MADListModelsResponse(models: Seq[MADModel],
                                  currentCount: Int,
@@ -43,61 +36,7 @@ trait StorageCredentials {
   lazy val storageSASToken: String = sys.env.getOrElse("STORAGE_SAS_TOKEN", Secrets.MADTestSASToken)
 }
 
-object MADUtils extends AnomalyKey with StorageCredentials {
-
-  import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
-
-  def madSend(request: HttpRequestBase, path: String,
-              params: Map[String, String] = Map()): String = {
-
-    val paramString = if (params.isEmpty) {
-      ""
-    } else {
-      "?" + URLEncodingUtils.format(params)
-    }
-    request.setURI(new URI(path + paramString))
-
-    retry(List(100, 500, 1000), { () =>
-      request.addHeader("Ocp-Apim-Subscription-Key", anomalyKey)
-      request.addHeader("Content-Type", "application/json")
-      using(Client.execute(request)) { response =>
-        if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
-          val bodyOpt = request match {
-            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
-            case _ => ""
-          }
-          if (response.getStatusLine.getStatusCode.toString.equals("429")) {
-            val retryTime = response.getHeaders("Retry-After").head.getValue.toInt * 1000
-            Thread.sleep(retryTime.toLong)
-          }
-          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
-            s"requestBody: $bodyOpt")
-        }
-        if (response.getStatusLine.getReasonPhrase == "No Content") {
-          ""
-        }
-        else if (response.getStatusLine.getReasonPhrase == "Created") {
-          response.getHeaders("Location").head.getValue
-        }
-        else {
-          IOUtils.toString(response.getEntity.getContent, "UTF-8")
-        }
-      }.get
-    })
-  }
-
-  def madDelete(path: String, params: Map[String, String] = Map()): String = {
-    madSend(new HttpDelete(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
-      "v1.1-preview/multivariate/models/" + path, params)
-  }
-
-  def madListModels(params: Map[String, String] = Map()): String = {
-    madSend(new HttpGet(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
-      "v1.1-preview/multivariate/models", params)
-  }
-}
-
-trait MADUtils extends TestBase with AnomalyKey {
+trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
 
   lazy val startTime: String = "2021-01-01T00:00:00Z"
   lazy val endTime: String = "2021-01-02T12:00:00Z"
@@ -112,11 +51,7 @@ trait MADUtils extends TestBase with AnomalyKey {
 }
 
 
-class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADUtils {
-
-  import MADUtils._
-
-  var modelIdList: Seq[String] = Seq()
+class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADTestUtils {
 
   def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -135,7 +70,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
       .setSlidingWindow(200)
       .setConnectionString(connectionString)
     val model = smae.fit(df)
-    modelIdList ++= Seq(model.getModelId)
     smae.cleanUpIntermediateData()
     val diagnosticsInfo = smae.getDiagnosticsInfo.get
     assert(diagnosticsInfo.variableStates.get.length.equals(3))
@@ -161,7 +95,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
       .setEndpoint("https://anomalydetectiontest.blob.core.windows.net/")
       .setSASToken(storageSASToken)
     val model = smae.fit(df)
-    modelIdList ++= Seq(model.getModelId)
     smae.cleanUpIntermediateData()
     val diagnosticsInfo = smae.getDiagnosticsInfo.get
     assert(diagnosticsInfo.variableStates.get.length.equals(3))
@@ -222,7 +155,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
         .setSlidingWindow(200)
         .setConnectionString(connectionString)
       val model = smae.fit(df)
-      modelIdList ++= Seq(model.getModelId)
       smae.cleanUpIntermediateData()
       val diagnosticsInfo = smae.getDiagnosticsInfo.get
       assert(diagnosticsInfo.variableStates.get.length.equals(3))
@@ -270,6 +202,24 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("ModelNotExist"))
   }
 
+  ignore("Clean up all models"){
+    var modelsLeft = true
+    while (modelsLeft){
+
+      val models = MADUtils.madListModels(anomalyKey)
+        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
+        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
+
+      modelsLeft = models.nonEmpty
+
+      models.foreach{modelId =>
+        println(s"Deleting $modelId")
+        MADUtils.madDelete(modelId, anomalyKey)
+      }
+    }
+
+  }
+
   override def testSerialization(): Unit = {
     println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
   }
@@ -279,9 +229,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
   }
 
   override def afterAll(): Unit = {
-    for (modelId <- modelIdList) {
-      madDelete(modelId)
-    }
+    MADUtils.cleanUpAllModels(anomalyKey)
     super.afterAll()
   }
 

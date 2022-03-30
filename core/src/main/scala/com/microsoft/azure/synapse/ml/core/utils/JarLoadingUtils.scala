@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import java.lang.reflect.Modifier
 import org.sparkproject.guava.reflect.ClassPath
 
+import java.io.{File, IOException}
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
@@ -23,19 +24,7 @@ object JarLoadingUtils {
     }
   }
 
-  private[ml] val AllClasses = {
-    ClassPath.from(getClass.getClassLoader)
-      .getResources.asScala.toList
-      .map(ri => className(ri.getResourceName))
-      .filter(_.startsWith("com.microsoft.azure.synapse"))
-      .flatMap { cn =>
-        try {
-          Some(Class.forName(cn))
-        } catch {
-          case _: Throwable => None: Option[Class[_]]
-        }
-      }
-  }
+  private[ml] lazy val AllClasses: List[Class[_]] = getAllClasses
 
   private[ml] val WrappableClasses = {
     AllClasses.filter(classOf[Wrappable].isAssignableFrom(_))
@@ -62,4 +51,71 @@ object JarLoadingUtils {
     },
     jarName)
 
+  /**
+    * Get all relevant classes from the ClassLoader.
+    *
+    * Note that the spark ClassPath utility only works for ClassLoaders derived from UrlClassLoader (which sbt uses).
+    * In IntelliJ, the ClassLoader is not a UrlClassLoader (standard App/Ext/Boot loaders), so in that case
+    * we use a different slower method.
+    *
+    * @return A list of classes in the main package and its modules
+    */
+  private def getAllClasses: List[Class[_]] = {
+    // ClassPath is more performant, so we try that first
+    val urlBasedClasses = ClassPath.from(getClass.getClassLoader)
+      .getResources.asScala.toList
+      .map(ri => className(ri.getResourceName))
+      .filter(_.startsWith("com.microsoft.azure.synapse"))
+      .flatMap { cn =>
+        try {
+          Some(Class.forName(cn))
+        } catch {
+          case _: Throwable => None: Option[Class[_]]
+        }
+      }
+
+    // If the list is empty, likely we are running in IntelliJ, so use a different slower method to list the classes
+    if (!urlBasedClasses.isEmpty) urlBasedClasses else getClassesFromPackage("com.microsoft.azure.synapse")
+  }
+
+  /**
+    * Scans all classes accessible from the context class loader which belong to the given package and subpackages.
+    *
+    * @param packageName The base package
+    * @return The classes
+    * @throws ClassNotFoundException
+    * @throws IOException
+    */
+  @throws[ClassNotFoundException]
+  @throws[IOException]
+  private def getClassesFromPackage(packageName: String): List[Class[_]] = {
+    val classLoader = Thread.currentThread.getContextClassLoader
+    assert(classLoader != null)
+
+    // ClassLoader does not expose a class list (except private vars), so scan the jar files directly
+    val path = packageName.replace('.', '/')
+    val dirs = classLoader.getResources(path).asScala.map(resource => new File(resource.getFile))
+
+    dirs.map(d => findClassesInDirectory(d, packageName)).flatten.toList
+  }
+
+  /**
+    * Recursive method used to find all classes in a given directory and subdirs.
+    *
+    * @param directory   The base directory
+    * @param packageName The package name for classes found inside the base directory
+    * @return The classes
+    * @throws ClassNotFoundException
+    */
+  @throws[ClassNotFoundException]
+  private def findClassesInDirectory(directory: File, packageName: String): Seq[Class[_]] = {
+    directory.listFiles().map(file => {
+      file match {
+        case f if f.isDirectory => findClassesInDirectory(f, packageName + "." + file.getName)
+        case f if f.getName.endsWith(".class") =>
+          Seq[Class[_]](Class.forName(packageName + '.' + file.getName.substring(0, file.getName.length - 6)))
+        case _ => Seq.empty // some other file, just ignore
+      }
+    }).flatten.toSeq
+  }
 }
