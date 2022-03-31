@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset._
-import com.microsoft.azure.synapse.ml.lightgbm.params.TrainParams
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
@@ -14,7 +14,7 @@ import java.util.concurrent.CountDownLatch
 
 class SharedDatasetState(columnParams: ColumnParams,
                          schema: StructType,
-                         trainParams: TrainParams,
+                         trainParams: BaseTrainParams,
                          sharedState: SharedState) {
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
@@ -82,7 +82,7 @@ class SharedDatasetState(columnParams: ColumnParams,
 
 class SharedState(columnParams: ColumnParams,
                   schema: StructType,
-                  trainParams: TrainParams) {
+                  trainParams: BaseTrainParams) {
   val mainExecutorWorker: Long = LightGBMUtils.getTaskId
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
   val chunkSize: Int = trainParams.executionParams.chunkSize
