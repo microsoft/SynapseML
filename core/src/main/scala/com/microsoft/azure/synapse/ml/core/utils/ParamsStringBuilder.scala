@@ -70,7 +70,7 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this
   }
 
-  /** Add a repeatable parameter name-value pair to the end of the current string (e.g. "-q aa -q bb").
+  /** Add a parameter name-value pair for each array element to the end of the current string (e.g. "-q aa -q bb").
     * @param optionShort Short name of the parameter (only used to check against existing params).
     * @param optionLong Long name of the parameter.  Will be used if it is not already set.
     * @param param The Param object with the value.  Note that if this is not set, nothing will be appended to string.
