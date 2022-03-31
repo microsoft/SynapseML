@@ -15,7 +15,7 @@ jobs:
           github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"
           ado_organization: "msdata"
           ado_project: "A365"
-          ado_area_path: "A365\Trident\DataScience\SynapseML\Community"
+          ado_area_path: "A365\\Trident\\DataScience\\SynapseML\\Community"
           ado_wit: "Task"
           ado_new_state: "To Do"
           ado_active_state: "In Progress"
