@@ -64,9 +64,30 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
           appendParamListIfNotThere(optionLong, getParamValue(param).get.asInstanceOf[Array[Double]])
         case _: StringArrayParam =>
           appendParamListIfNotThere(optionLong, getParamValue(param).get.asInstanceOf[Array[String]])
-          //for (q <- getParamValue(param).get)  TODO this is the old code for Array[String], but seems wrong
-          //  append(s"$prefix$optionLong$delimiter$q")
         case _ => append(s"$prefix$optionLong$delimiter${getParamValue(param).get}")
+      }
+    }
+    this
+  }
+
+  /** Add a parameter name-value pair for each array element to the end of the current string (e.g. "-q aa -q bb").
+    * @param optionShort Short name of the parameter (only used to check against existing params).
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    * @param param The Param object with the value.  Note that if this is not set, nothing will be appended to string.
+    */
+  def appendRepeatableParamIfNotThere[T](optionShort: String,
+                                          optionLong: String,
+                                          param: Param[T]): ParamsStringBuilder = {
+    if (getParamValue(param).isDefined)
+    {
+      param match {
+        case _: IntArrayParam =>
+          appendRepeatableParamIfNotThere(optionShort, optionLong, getParamValue(param).get.asInstanceOf[Array[Int]])
+        case _: DoubleArrayParam =>
+          appendRepeatableParamIfNotThere(optionShort, optionLong, getParamValue(param).get.asInstanceOf[Array[Double]])
+        case _: StringArrayParam =>
+          appendRepeatableParamIfNotThere(optionShort, optionLong, getParamValue(param).get.asInstanceOf[Array[String]])
+        case _ => throw new IllegalArgumentException("Repeatable param must be an array")
       }
     }
     this
@@ -104,6 +125,21 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
   def appendParamListIfNotThere[T](name: String, values: Array[T]): ParamsStringBuilder = {
     if (!values.isEmpty && s"$prefix$name".r.findAllIn(sb.result).isEmpty) {
       appendParamList(name, values)
+    }
+    this
+  }
+
+  /** Add a parameter that can be repeated, once for each element in the array (e.g. "-q aa -q bb")
+    * @param optionLong Long name of the parameter.  Will be used if it is not already set.
+    * @param values The Array of values.  Note that if the array is empty, nothing will be appended to string.
+    */
+  def appendRepeatableParamIfNotThere[T](optionShort: String,
+                                         optionLong: String,
+                                         values: Array[T]): ParamsStringBuilder = {
+    for (str <- values) {
+      val shortPair = s"$prefix$optionShort$delimiter$str"
+      val longPair = s"$prefix$optionLong$delimiter$str"
+      if (shortPair.r.findAllIn(sb.result).isEmpty && longPair.r.findAllIn(sb.result).isEmpty) append(longPair)
     }
     this
   }
