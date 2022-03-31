@@ -29,11 +29,12 @@ trait BasicLogging extends Logging {
 
   protected def logBase(methodName: String): Unit = {
     val message: String = BasicLogInfo(uid, getClass.toString, methodName, ver).toJson.compactPrint
-    logInfo(s"metrics/ $message")
+    logInfo(s"metrics/ $message".replaceAllLiterally("\"", ""))
   }
 
   protected def logErrorBase(methodName: String, e: Exception): Unit = {
-    val message: String = BasicLogInfo(uid, getClass.toString, methodName, ver).toJson.compactPrint
+    val message: String = BasicLogInfo(uid, getClass.toString, methodName, ver)
+      .toJson.compactPrint.replaceAllLiterally("\"", "")
     logError(message, e)
   }
 
