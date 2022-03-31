@@ -188,7 +188,7 @@ VM](docs/gpu-setup.md).
 
 ### Building from source
 
-SynapseML has recently transitioned to a new build infrastructure. 
+SynapseML has recently transitioned to a new build infrastructure.   
 For detailed developer docs please see the [Developer Readme](website/docs/reference/developer-readme.md)
 
 If you are an existing synapsemldeveloper, you will need to reconfigure your 
