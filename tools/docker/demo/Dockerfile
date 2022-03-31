@@ -8,8 +8,9 @@ RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget\
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
+    && conda install -c conda-forge pyspark=${SPARK_VERSION} \
     && conda update conda \
-    && apt-get install default-jre -y \
+    && apt-get install default-jre default-jdk -y \
     && apt-get -qq -y remove curl bzip2 \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
@@ -26,24 +27,24 @@ RUN tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
 
 ENV SPARK_HOME /opt/spark
 ENV PATH /opt/conda/bin:$PATH
-ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
 
 # Build-essentials
-RUN apt-get update \
-	&& apt-get install -y build-essential
+# RUN apt-get update \
+# 	&& apt-get install -y build-essential
 
 # Open-MPI installation (required to use spark on AML)
-ENV OPENMPI_VERSION 3.1.2
-RUN mkdir /tmp/openmpi && \
-    cd /tmp/openmpi && \
-    wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-${OPENMPI_VERSION}.tar.gz && \
-    tar zxf openmpi-${OPENMPI_VERSION}.tar.gz && \
-    cd openmpi-${OPENMPI_VERSION} && \
-    ./configure --enable-orterun-prefix-by-default && \
-    make -j $(nproc) all && \
-    make install && \
-    ldconfig && \
-    rm -rf /tmp/openmpi
+# ENV OPENMPI_VERSION 3.1.2
+# RUN mkdir /tmp/openmpi && \
+#     cd /tmp/openmpi && \
+#     wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-${OPENMPI_VERSION}.tar.gz && \
+#     tar zxf openmpi-${OPENMPI_VERSION}.tar.gz && \
+#     cd openmpi-${OPENMPI_VERSION} && \
+#     ./configure --enable-orterun-prefix-by-default && \
+#     make -j $(nproc) all && \
+#     make install && \
+#     ldconfig && \
+#     rm -rf /tmp/openmpi
 
 RUN conda install jupyter \
     && jupyter-notebook --generate-config \
@@ -56,12 +57,20 @@ RUN conda install jupyter \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
     && conda clean --all --yes
 
-COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup
+COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
 COPY notebooks notebooks
+
+# RUN conda install -c conda-forge pyspark=${SPARK_VERSION} \
+#     && conda update conda \
+#     && conda clean --all --yes
+#
+# RUN apt-get -qq update \
+#     && apt-get -qq -y install default-jdk \
+#     && apt-get -qq -y autoremove \
+#     && apt-get autoclean
 
 ARG MMLSPARK_VERSION
 ENV MMLSPARK_VERSION=${MMLSPARK_VERSION}
 EXPOSE 8888
 
 WORKDIR notebooks
-ENTRYPOINT jupyter notebook
