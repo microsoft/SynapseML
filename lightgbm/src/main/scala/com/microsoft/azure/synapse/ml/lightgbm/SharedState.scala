@@ -83,7 +83,6 @@ class SharedDatasetState(columnParams: ColumnParams,
 class SharedState(columnParams: ColumnParams,
                   schema: StructType,
                   trainParams: BaseTrainParams) {
-  val mainExecutorWorker: Long = LightGBMUtils.getTaskId
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val matrixType: String = trainParams.executionParams.matrixType
@@ -92,12 +91,23 @@ class SharedState(columnParams: ColumnParams,
   val validationDatasetState: SharedDatasetState = new SharedDatasetState(columnParams, schema, trainParams, this)
 
   @volatile var isSparse: Option[Boolean] = None
+  @volatile var mainExecutorWorker: Option[Long] = None
 
   def linkIsSparse(isSparse: Boolean): Unit = {
     if (this.isSparse.isEmpty) {
       this.synchronized {
         if (this.isSparse.isEmpty) {
           this.isSparse = Some(isSparse)
+        }
+      }
+    }
+  }
+
+  def linkMainExecutorWorker(): Unit = {
+    if (this.mainExecutorWorker.isEmpty) {
+      this.synchronized {
+        if (this.mainExecutorWorker.isEmpty) {
+          this.mainExecutorWorker = Some(LightGBMUtils.getTaskId)
         }
       }
     }
