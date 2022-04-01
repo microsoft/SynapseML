@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.automl
 
 import org.apache.spark.ml.param._
 
-import scala.collection.{JavaConverters, mutable}
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.util.Random
 
 abstract class RangeHyperParam[T](val min: T, val max: T, val seed: Long) extends Dist[T] {
@@ -77,7 +78,7 @@ object HyperParamUtils {
     * @return A RangeHyperParam matched to the given type for min and max values.
     */
   def getDiscreteHyperParam(values: java.util.ArrayList[_], seed: Long = 0): DiscreteHyperParam[_] = {
-    val valuesList = JavaConverters.asScalaBuffer(values).toList
+    val valuesList = values.asScala.toList
     new DiscreteHyperParam(valuesList, seed)
   }
 }
@@ -90,6 +91,12 @@ class DiscreteHyperParam[T](values: List[T], seed: Long = 0) extends Dist[T] {
     values(random.nextInt(values.length))
   }
 
+  /**
+   * Return the list of values as an java List for py4j side.
+   */
+  def getValues: java.util.List[T] = {
+    values.asJava
+  }
 }
 
 /** Specifies the search space for hyperparameters.
