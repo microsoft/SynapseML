@@ -1,16 +1,19 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
+
+ARG MMLSPARK_VERSION
 
 ENV SPARK_VERSION=3.2.1
 ENV HADOOP_VERSION=2.7
+ENV MMLSPARK_VERSION=${MMLSPARK_VERSION}
 
-RUN apt-get -qq update && apt-get -qq -y install curl bzip2 wget\
+RUN apt-get -qq update \
+    && apt-get -qq -y install curl bzip2 wget default-jre default-jdk \
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda install -c conda-forge pyspark=${SPARK_VERSION} \
     && conda update conda \
-    && apt-get install default-jre default-jdk -y \
     && apt-get -qq -y remove curl bzip2 \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
@@ -52,13 +55,12 @@ RUN conda install jupyter \
     && echo "c.NotebookApp.token = ''" >> ~/.jupyter/jupyter_notebook_config.py \
     && echo "c.NotebookApp.ip = '0.0.0.0'" >> ~/.jupyter/jupyter_notebook_config.py \
     && echo "c.NotebookApp.allow_root = True" >> ~/.jupyter/jupyter_notebook_config.py \
-    && apt-get -qq -y autoremove \
-    && apt-get autoclean \
-    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
     && conda clean --all --yes
 
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
 COPY notebooks notebooks
+COPY . src
+WORKDIR notebooks
 
 # RUN conda install -c conda-forge pyspark=${SPARK_VERSION} \
 #     && conda update conda \
@@ -69,8 +71,8 @@ COPY notebooks notebooks
 #     && apt-get -qq -y autoremove \
 #     && apt-get autoclean
 
-ARG MMLSPARK_VERSION
-ENV MMLSPARK_VERSION=${MMLSPARK_VERSION}
+# Jupyter Notebook UI
 EXPOSE 8888
 
-WORKDIR notebooks
+# Synapse UI
+EXPOSE 4040
