@@ -17,7 +17,7 @@ syanpseMLConf = pyspark.SparkConf().setAll([
     ("spark.hadoop.fs.wasb.impl", "org.apache.hadoop.fs.azure.NativeAzureFileSystem"),
     ("spark.hadoop.fs.wasbs.impl", "org.apache.hadoop.fs.azure.NativeAzureFileSystem$Secure"),
     ("spark.hadoop.fs.viewfs.overload.scheme.target.wasb.impl", "org.apache.hadoop.fs.azure.NativeAzureFileSystem"),
-    ("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:" + os.environ["MMLSPARK_VERSION"] + ",org.apache.hadoop:hadoop-azure:3.3.2,org.apache.hadoop:hadoop-common:3.3.2,com.microsoft.azure:azure-storage:7.0.1"),
+    ("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:" + os.environ["MMLSPARK_VERSION"] + ",org.apache.hadoop:hadoop-azure:2.7.0,org.apache.hadoop:hadoop-common:2.7.0,com.microsoft.azure:azure-storage:2.0.0"),
     ("spark.jars.repositories", "https://mmlspark.azureedge.net/maven,https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-azure,https://mvnrepository.com/artifact/com.microsoft.azure/azure-storage")
 ])
 
