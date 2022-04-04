@@ -57,22 +57,18 @@ RUN conda install jupyter \
     && echo "c.NotebookApp.allow_root = True" >> ~/.jupyter/jupyter_notebook_config.py \
     && conda clean --all --yes
 
+# Run the init script on jupyter startup to get runtime dependencies.
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
 COPY notebooks notebooks
 COPY . src
 WORKDIR notebooks
-
-# RUN conda install -c conda-forge pyspark=${SPARK_VERSION} \
-#     && conda update conda \
-#     && conda clean --all --yes
-#
-# RUN apt-get -qq update \
-#     && apt-get -qq -y install default-jdk \
-#     && apt-get -qq -y autoremove \
-#     && apt-get autoclean
 
 # Jupyter Notebook UI
 EXPOSE 8888
 
 # Synapse UI
 EXPOSE 4040
+
+# Conda create environment for jupyter
+# WORKDIR src
+# RUN conda env create -f=environment.yaml -n synapseml
