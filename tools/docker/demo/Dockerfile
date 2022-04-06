@@ -12,7 +12,7 @@ RUN apt-get -qq update \
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
-    && conda install -c conda-forge pyspark=${SPARK_VERSION} \
+    && conda install -c conda-forge \
     && conda update conda \
     && apt-get -qq -y remove curl bzip2 \
     && apt-get -qq -y autoremove \
@@ -57,11 +57,11 @@ RUN conda install jupyter \
     && echo "c.NotebookApp.allow_root = True" >> ~/.jupyter/jupyter_notebook_config.py \
     && conda clean --all --yes
 
-# Run the init script on jupyter startup to get runtime dependencies.
+# Copy the init script for jupyter startup.
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
 COPY notebooks notebooks
 COPY . src
-WORKDIR notebooks
+WORKDIR notebooks/features
 
 # Jupyter Notebook UI
 EXPOSE 8888
