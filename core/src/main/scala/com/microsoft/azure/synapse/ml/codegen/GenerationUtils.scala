@@ -49,4 +49,19 @@ object GenerationUtils {
     }
   }
 
+  def rRenderParam[T](pp: ParamPair[T]): String = {
+    rRenderParam(pp.param, pp.value)
+  }
+
+  def rRenderParam[T](p: Param[T], v: T): String = {
+    p match {
+      //case pwp: RWrappableParam[_] =>
+      //  pwp.rConstructorLine(v.asInstanceOf[pwp.InnerType])
+      case _: ComplexParam[_] =>
+        throw new NotImplementedError("No translation found for complex parameter")
+      case _ =>
+        s"""${p.name}=${RWrappableParam.rDefaultRender(v, p)}"""
+    }
+  }
+
 }

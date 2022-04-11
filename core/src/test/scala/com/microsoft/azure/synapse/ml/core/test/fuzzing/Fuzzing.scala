@@ -213,6 +213,13 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     Files.write(
       FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".py").toPath,
       testClass.getBytes(StandardCharsets.UTF_8))
+    if (classOf[TestBase].isAssignableFrom(this.getClass)) {
+      try {
+        afterAll()
+      } catch {
+        case _: AbstractMethodError => {}
+      }
+    }
   }
 
 }
@@ -222,7 +229,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
   def rTestObjects(): Seq[TestObject[S]]
 
   def rTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.pyTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+    conf.rTestDataDir, this.getClass.getName.split(".".toCharArray).last)
 
   def saveRDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
     df.write.mode("overwrite").parquet(new File(rTestDataDir(conf), s"$name.parquet").toString)
@@ -267,7 +274,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
          |$externalLoadingLines
          |
          |model = $stageName(
-         |${indent(paramMap.map(pyRenderParam(_)).mkString(",\n"), 1)}
+         |${indent(paramMap.map(rRenderParam(_)).mkString(",\n"), 1)}
          |)
          |
          |""".stripMargin
@@ -290,31 +297,34 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
-           |fdf = spark.read.parquet(join(test_data_dir, "fit-$num.parquet"))
-           |tdf = spark.read.parquet(join(test_data_dir, "trans-$num.parquet"))
-           |model.fit(fdf).transform(tdf).show()
+           |fdf <- spark_read_parquet(sc, path = paste(test_data_dir, "fit-$num.parquet", "/"))
+           |tdf <- spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", "/"))
+           |rdf <- copy_to(model.fit(fdf).transform(tdf))
+           |rdf %>% print(n = 20)
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
-           |tdf = spark.read.parquet(join(test_data_dir, "trans-$num.parquet"))
-           |model.transform(tdf).show()
+           |tdf <- spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", "/"))
+           |rdf <- copy_to(model.transform(tdf))
+           |rdf %>% print(n = 20)
            |""".stripMargin
       case _ => ""
     }
     val mlflowTest = stage match {
       case _: Model[_] =>
         s"""
-           |mlflow.spark.save_model(model, "mlflow-save-model-$num")
-           |mlflow.spark.log_model(model, "mlflow-log-model-$num")
-           |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
+           |mlflow_save_model(model, "mlflow-save-model-$num")
+           |mlflow_log_model(model, "mlflow-log-model-$num")
+           |mlflow_model = mlflow_load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
         case "cognitive" =>
           s"""
-             |pipeline_model = PipelineModel(stages=[model])
-             |mlflow.spark.save_model(pipeline_model, "mlflow-save-model-$num")
-             |mlflow.spark.log_model(pipeline_model, "mlflow-log-model-$num")
-             |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
+             |# TODO - does 'model' need to massaged for R?
+             |pipeline_model <- ml_pipeline(model)
+             |mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
+             |mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
+             |mlflow_model = mlflow_load_model("mlflow-save-model-$num")
              |""".stripMargin
         case _ => ""
       }
@@ -322,15 +332,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     }
 
     s"""
-       |def test_${stageName}_constructor_$num(self):
-       |${indent(rTestInstantiateModel(stage, num), 1)}
+       |test_${stageName}_constructor_$num <- function() {
+       |  ${indent(rTestInstantiateModel(stage, num), 1)}
        |
-       |    self.assert_correspondence(model, "py-constructor-model-$num.model", $num)
+       |    assert_correspondence(model, "r-constructor-model-$num.model", $num)
        |
-       |${indent(fittingTest, 1)}
+       |  ${indent(fittingTest, 1)}
        |
-       |${indent(mlflowTest, 1)}
-       |
+       |  ${indent(mlflowTest, 1)}
+       |}
        |""".stripMargin
   }
 
@@ -344,30 +354,31 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml")
     val testClass =
-      s"""import unittest
-         |from synapsemltest.spark import *
-         |from $importPathString import $stageName
-         |from os.path import join
-         |import json
-         |import mlflow
-         |from pyspark.ml import PipelineModel
+      s"""//import unittest
+         |//from synapsemltest.spark import *
+         |//from $importPathString import $stageName
+         |//from os.path import join
+         |//import json
+         |//import mlflow
+         |//from pyspark.ml import PipelineModel
          |
-         |test_data_dir = "${rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
+         |library(methods)
          |
+         |test_data_dir <- "${rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
-         |class $testClassName(unittest.TestCase):
-         |    def assert_correspondence(self, model, name, num):
-         |        model.write().overwrite().save(join(test_data_dir, name))
-         |        sc._jvm.com.microsoft.azure.synapse.ml.core.utils.ModelEquality.assertEqual(
-         |            "${stage.getClass.getName}",
-         |            str(join(test_data_dir, name)),
-         |            str(join(test_data_dir, "model-{}.model".format(num)))
-         |        )
+         |$testClassName <- setRefClass($testClassName,
+         |                              assert_correspondence = function(model, name, num) {
+         |                                model.write().overwrite().save(join(test_data_dir, name))
+         |                                sc._jvm.com.microsoft.azure.synapse.ml.core.utils.ModelEquality.assertEqual(
+         |                                  "${stage.getClass.getName}",
+         |                                  paste(test_data_dir, name, sep = "/"),
+         |                                  paste(test_data_dir, sprintf("model-%d.model", num)))
          |
          |${indent(generatedTests.mkString("\n\n"), 1)}
          |
-         |if __name__ == "__main__":
-         |    result = unittest.main()
+         |if (sys.nframe() == 0) {
+         |    result <- unittest.main() // TODO: FIXME
+         |}
          |
          |""".stripMargin
 
@@ -376,8 +387,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val testDir = FileUtilities.join((Seq(conf.rTestDir.toString) ++ testFolders.toSeq): _*)
     testDir.mkdirs()
     Files.write(
-      FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".py").toPath,
+      FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".R").toPath,
       testClass.getBytes(StandardCharsets.UTF_8))
+    if (classOf[TestBase].isAssignableFrom(this.getClass)) {
+      try {
+        afterAll()
+      } catch {
+        case _: AbstractMethodError => {}
+      }
+    }
   }
 
 }
@@ -491,11 +509,13 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 }
 
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] {
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] with RTestFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 
   def pyTestObjects(): Seq[TestObject[S]] = testObjects()
+
+  def rTestObjects(): Seq[TestObject[S]] = testObjects()
 
   def serializationTestObjects(): Seq[TestObject[S]] = testObjects()
 

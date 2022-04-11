@@ -7,13 +7,26 @@ import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
-trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T] with ParamEquality[T] {
+trait PipelineStageWrappable[T <: PipelineStage]
+  extends ExternalPythonWrappableParam[T] with ExternalRWrappableParam[T] with ParamEquality[T] {
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""
   }
 
+  override def rValue(v: T): String = {
+    s"""${name}Model"""
+  }
+
   override def pyLoadLine(modelNum: Int): String = {
+    s"""
+       |from pyspark.ml import Pipeline
+       |${name}Model = Pipeline.load(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model = ${name}Model.getStages()[0]
+       |""".stripMargin
+  }
+
+  override def rLoadLine(modelNum: Int): String = {
     s"""
        |from pyspark.ml import Pipeline
        |${name}Model = Pipeline.load(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))

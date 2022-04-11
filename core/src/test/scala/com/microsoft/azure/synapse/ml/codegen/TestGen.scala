@@ -4,14 +4,10 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.PyTestFuzzing
 
 import java.io.File
+import java.util.concurrent.locks.{Lock, ReentrantLock}
 import CodegenConfigProtocol._
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.codegen.RTestGen.{generateRPackageData, generateRTests}
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
-import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
 
@@ -20,6 +16,7 @@ object TestGen {
 
   import CodeGenUtils._
   import PyTestGen._
+  import RTestGen._
 
   private def copyOverrides(sourceDir: File, targetDir: File): Unit = {
     if (toDir(sourceDir).exists()) {
@@ -27,8 +24,19 @@ object TestGen {
     }
   }
 
+  def getListOfFiles(dir: File): Unit = {
+    if (dir.exists && dir.isDirectory) {
+      val files = dir.listFiles.filter(_.isFile).toList
+      files.foreach(f => println(s"f: ${f.getName}"))
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
+    println(s"tdd: ${conf.testDataDir}")
+    getListOfFiles(conf.testDataDir)
+    println(s"td: ${conf.testDir}")
+    getListOfFiles(conf.testDir)
     clean(conf.testDataDir)
     clean(conf.testDir)
     generatePythonTests(conf)

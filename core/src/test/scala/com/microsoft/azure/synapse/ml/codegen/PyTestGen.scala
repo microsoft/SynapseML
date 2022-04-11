@@ -20,6 +20,7 @@ object PyTestGen {
   def generatePythonTests(conf: CodegenConfig): Unit = {
     instantiateServices[PyTestFuzzing[_]](conf.jarName).foreach { ltc =>
       try {
+        println(s"gpt: ${ltc.testClassName}")
         ltc.makePyTestFile(conf)
       } catch {
         case _: NotImplementedError =>

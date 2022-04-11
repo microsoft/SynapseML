@@ -117,7 +117,8 @@ trait DataFrameEquality extends Serializable {
   */
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)
   extends ComplexParam[DataFrame](parent, name, doc, isValid)
-    with ExternalPythonWrappableParam[DataFrame] with ParamEquality[DataFrame] with DataFrameEquality {
+    with ExternalPythonWrappableParam[DataFrame] with ExternalRWrappableParam[DataFrame]
+    with ParamEquality[DataFrame] with DataFrameEquality {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
@@ -126,7 +127,15 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
     s"""${name}DF"""
   }
 
+  override def rValue(v: DataFrame): String = {
+    s"""${name}DF"""
+  }
+
   override def pyLoadLine(modelNum: Int): String = {
+    s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
+  }
+
+  override def rLoadLine(modelNum: Int): String = {
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
   }
 
