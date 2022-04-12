@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 
-ARG MMLSPARK_VERSION
+ARG MMLSPARK_VERSION=0.9.5
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV SPARK_VERSION=3.2.1
@@ -25,7 +25,8 @@ RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda update conda \
-    && conda install -y python=3 jupyter pyspark \
+    && conda install -y python=3 jupyter \
+    && conda install -c conda-forge pyspark=${SPARK_VERSION} \
     && conda clean --all --yes
 
 ENV PATH /opt/conda/bin:$PATH
