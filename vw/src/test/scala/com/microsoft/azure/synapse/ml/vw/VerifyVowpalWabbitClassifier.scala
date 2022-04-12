@@ -84,7 +84,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
-      .setArgs("-a")
+      .setPassThroughArgs("-a")
 
     val model = vw.fit(dataset.limit(10))
   }
@@ -93,7 +93,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
-        .setArgs("--link=logistic --quiet")
+        .setPassThroughArgs("--link=logistic --quiet")
         .setLabelConversion(false)
 
     val paramGrid = new ParamGridBuilder()
@@ -135,7 +135,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset = getAlaTrainDataFrame()
 
     val vw = new VowpalWabbitClassifier()
-      .setArgs("--passes 3")
+      .setPassThroughArgs("--passes 3")
       .setPowerT(0.3)
       .setNumPasses(3)
       .setUseBarrierExecutionMode(useBarrierMode)
@@ -167,7 +167,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     println(s"dataset partitions ${dataset.rdd.getNumPartitions}")
 
     val vw = new VowpalWabbitClassifier()
-      .setArgs("-b 15")
+      .setPassThroughArgs("-b 15")
       .setNumBits(22)
       .setLabelConversion(false)
 
@@ -181,7 +181,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val dataset = getAlaTrainDataFrame(3)
 
     val vw = new VowpalWabbitClassifier()
-      .setArgs("-b 4")
+      .setPassThroughArgs("-b 4")
       .setNumBits(22)
       .setLabelConversion(false)
 
@@ -225,7 +225,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val classifier1 = vw1.fit(dataset)
 
     val vw2 = new VowpalWabbitClassifier()
-        .setArgs("--link=logistic")
+        .setPassThroughArgs("--link=logistic")
         .setNumPasses(2)
         .setLabelConversion(false)
 
@@ -242,7 +242,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     val vw1 = new VowpalWabbitClassifier()
       .setNumPasses(3)
-      .setArgs("--loss_function=logistic --bfgs")
+      .setPassThroughArgs("--loss_function=logistic --bfgs")
       .setLabelConversion(false)
 
     val classifier1 = vw1.fit(dataset)
@@ -270,7 +270,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val datasetFeaturized = featurizer.transform(dataset)
 
     val vw1 = new VowpalWabbitClassifier()
-      .setArgs("--ngram f2 -a")
+      .setPassThroughArgs("--ngram f2 -a")
     val classifier1 = vw1.fit(datasetFeaturized)
 
     // 3 (words) + 2 (ngrams) + 1 (constant) = 6

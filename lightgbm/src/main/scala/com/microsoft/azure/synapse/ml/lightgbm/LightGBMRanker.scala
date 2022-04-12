@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams, TrainParams}
+  LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams, BaseTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -34,36 +34,37 @@ class LightGBMRanker(override val uid: String)
 
   val maxPosition = new IntParam(this, "maxPosition", "optimized NDCG at this position")
   setDefault(maxPosition -> 20)
-
   def getMaxPosition: Int = $(maxPosition)
   def setMaxPosition(value: Int): this.type = set(maxPosition, value)
 
   val labelGain = new DoubleArrayParam(this, "labelGain", "graded relevance for each label in NDCG")
   setDefault(labelGain -> Array.empty[Double])
-
   def getLabelGain: Array[Double] = $(labelGain)
   def setLabelGain(value: Array[Double]): this.type = set(labelGain, value)
 
   val evalAt = new IntArrayParam(this, "evalAt", "NDCG and MAP evaluation positions, separated by comma")
   setDefault(evalAt -> (1 to 5).toArray)
-
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RankerTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf), numTasks, modelStr,
-      getVerbosity, categoricalIndexes, getBoostingType, get(lambdaL1), get(lambdaL2), getMaxPosition, getLabelGain,
-      get(isProvideTrainingMetric), get(metric), getEvalAt, get(minGainToSplit), get(maxDeltaStep),
-      getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate, getDartParams,
-      getExecutionParams(numTasksPerExec), getObjectiveParams, getSeedParams)
+  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
+    RankerTrainParams(
+      get(passThroughArgs),
+      getMaxPosition,
+      getLabelGain,
+      getEvalAt,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, dataset, numTasksPerExec),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
     new LightGBMRankerModel(uid)
       .setLightGBMBooster(lightGBMBooster)
       .setFeaturesCol(getFeaturesCol)

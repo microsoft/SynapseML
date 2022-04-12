@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams, TrainParams}
+  ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams, BaseTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -36,28 +36,30 @@ class LightGBMClassifier(override val uid: String)
   val isUnbalance = new BooleanParam(this, "isUnbalance",
     "Set to true if training data is unbalanced in binary classification scenario")
   setDefault(isUnbalance -> false)
-
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  def getTrainParams(numTasks: Int,  dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
+  def getTrainParams(numTasks: Int,  dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here
      */
-    val actualNumClasses = getNumClasses(dataset)
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    ClassifierTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf), numTasks, modelStr,
-      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
-      getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
-      get(metric), get(minGainToSplit), get(maxDeltaStep), getMaxBinByFeature, get(minDataInLeaf), getSlotNames,
-      getDelegate, getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams, getSeedParams)
+    ClassifierTrainParams(
+      get(passThroughArgs),
+      getIsUnbalance,
+      getNumClasses(dataset),
+      getBoostFromAverage,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, dataset, numTasksPerExec),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
     val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
     val model = new LightGBMClassificationModel(uid)
       .setLightGBMBooster(lightGBMBooster)
@@ -84,7 +86,6 @@ class LightGBMClassifier(override val uid: String)
 trait HasActualNumClasses extends Params {
   val actualNumClasses = new IntParam(this, "actualNumClasses",
     "Inferred number of classes based on dataset metadata or, if there is no metadata, unique count")
-
   def getActualNumClasses: Int = $(actualNumClasses)
   def setActualNumClasses(value: Int): this.type = set(actualNumClasses, value)
 }

@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import com.microsoft.azure.synapse.ml.core.utils.ClusterUtil
+import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm.ConnectionState.Finished
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, getExecutorId,
-  getPartitionId, handleConnection, sendDataToExecutors}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils.{closeConnections, getExecutorId, getPartitionId,
+  handleConnection, sendDataToExecutors}
 import com.microsoft.azure.synapse.ml.lightgbm.TaskTrainingMethods.{isWorkerEnabled, prepareDatasets}
 import com.microsoft.azure.synapse.ml.lightgbm.TrainUtils._
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
@@ -21,6 +21,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql._
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
 import java.net.{ServerSocket, Socket}
@@ -245,6 +246,65 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   }
 
   /**
+    * Constructs the GeneralParams.
+    *
+    * @return GeneralParams object containing parameters related to general LightGBM parameters.
+    */
+  protected def getGeneralParams(numTasks: Int,  dataset: Dataset[_], numTasksPerExec: Int): GeneralParams = {
+    GeneralParams(
+      getParallelism,
+      get(topK),
+      getNumIterations,
+      getLearningRate,
+      get(numLeaves),
+      get(maxBin),
+      get(binSampleCount),
+      get(baggingFraction),
+      get(posBaggingFraction),
+      get(negBaggingFraction),
+      get(baggingFreq),
+      get(baggingSeed),
+      getEarlyStoppingRound,
+      getImprovementTolerance,
+      get(featureFraction),
+      get(featureFractionByNode),
+      get(maxDepth),
+      get(minSumHessianInLeaf),
+      numTasks,
+      if (getModelString == null || getModelString.isEmpty) None else get(modelString),
+      getCategoricalIndexes(dataset.schema(getFeaturesCol)),
+      getVerbosity,
+      getBoostingType,
+      get(lambdaL1),
+      get(lambdaL2),
+      get(metric),
+      get(minGainToSplit),
+      get(maxDeltaStep),
+      getMaxBinByFeature,
+      get(minDataPerBin),
+      get(minDataInLeaf),
+      get(topRate),
+      get(otherRate),
+      getMonotoneConstraints,
+      get(monotoneConstraintsMethod),
+      get(monotonePenalty),
+      getSlotNames)
+  }
+
+  /**
+    * Constructs the DatasetParams.
+    *
+    * @return DatasetParams object containing parameters related to LightGBM Dataset parameters.
+    */
+  protected def getDatasetParams(): DatasetParams = {
+    DatasetParams(
+      get(isEnableSparse),
+      get(useMissing),
+      get(zeroAsMissing)
+    )
+  }
+
+  /**
     * Constructs the ExecutionParams.
     *
     * @return ExecutionParams object containing parameters related to LightGBM execution.
@@ -281,20 +341,45 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @return SeedParams object containing the parameters related to LightGBM seeds and determinism.
     */
   protected def getSeedParams: SeedParams = {
-    SeedParams(get(seed), get(deterministic), get(baggingSeed), get(featureFractionSeed),
-      get(extraSeed), get(dropSeed), get(dataRandomSeed), get(objectiveSeed), getBoostingType, getObjective)
+    SeedParams(
+      get(seed),
+      get(deterministic),
+      get(baggingSeed),
+      get(featureFractionSeed),
+      get(extraSeed),
+      get(dropSeed),
+      get(dataRandomSeed),
+      get(objectiveSeed),
+      getBoostingType,
+      getObjective)
   }
 
-  def getDatasetParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
-    val seedParam = get(dataRandomSeed).orElse(get(seed))
-    val datasetParams = s"max_bin=$getMaxBin is_pre_partition=True " +
-      s"bin_construct_sample_cnt=$getBinSampleCount " +
-      s"min_data_in_leaf=$getMinDataInLeaf " +
-      s"num_threads=$numThreads " +
-      (if (categoricalIndexes.isEmpty) ""
-      else s"categorical_feature=${categoricalIndexes.mkString(",")} ") +
-      seedParam.map(dataRandomSeedOpt => s"data_random_seed=$dataRandomSeedOpt ").getOrElse("")
-    datasetParams
+  /**
+    * Constructs the CategoricalParams.
+    *
+    * @return CategoricalParams object containing the parameters related to LightGBM categorical features.
+    */
+  protected def getCategoricalParams: CategoricalParams = {
+    CategoricalParams(
+      get(minDataPerGroup),
+      get(maxCatThreshold),
+      get(catl2),
+      get(catSmooth),
+      get(maxCatToOnehot))
+  }
+
+  def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+    new ParamsStringBuilder(prefix = "", delimiter = "=")
+      .appendParamValueIfNotThere("is_pre_partition", Option("True"))
+      .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
+      .appendParamValueIfNotThere("bin_construct_sample_cnt", Option(getBinSampleCount))
+      .appendParamValueIfNotThere("min_data_in_leaf", Option(getMinDataInLeaf))
+      .appendParamValueIfNotThere("num_threads", Option(numThreads))
+      .appendParamListIfNotThere("categorical_feature", categoricalIndexes)
+      .appendParamValueIfNotThere("data_random_seed", get(dataRandomSeed).orElse(get(seed)))
+      .result
+
+    // TODO do we need to add any of the new Dataset parameters here? (e.g. is_enable_sparse)
   }
 
   private def generateDataset(ac: BaseAggregatedColumns,
@@ -316,13 +401,15 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
 
   private def translate(batchIndex: Int,
-                validationData: Option[BaseAggregatedColumns],
-                trainParams: TrainParams,
-                returnBooster: Boolean,
-                schema: StructType,
-                aggregatedColumns: BaseAggregatedColumns): Iterator[LightGBMBooster] = {
+                        validationData: Option[BaseAggregatedColumns],
+                        trainParams: BaseTrainParams,
+                        returnBooster: Boolean,
+                        schema: StructType,
+                        aggregatedColumns: BaseAggregatedColumns): Iterator[LightGBMBooster] = {
     val columnParams = getColumnParams
-    val datasetParams = getDatasetParams(trainParams.categoricalFeatures, trainParams.executionParams.numThreads)
+    val datasetParams = getDatasetCreationParams(
+      trainParams.generalParams.categoricalFeatures,
+      trainParams.executionParams.numThreads)
     beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
     val trainDataset = generateDataset(aggregatedColumns, None, schema, datasetParams)
     try {
@@ -361,18 +448,20 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   }
 
   private def trainLightGBM(batchIndex: Int,
-                    networkParams: NetworkParams,
-                    validationData: Option[Broadcast[Array[Row]]],
-                    trainParams: TrainParams,
-                    numTasksPerExec: Int,
-                    schema: StructType,
-                    sharedState: SharedState)
+                            networkParams: NetworkParams,
+                            validationData: Option[Broadcast[Array[Row]]],
+                            trainParams: BaseTrainParams,
+                            numTasksPerExec: Int,
+                            schema: StructType,
+                            sharedState: SharedState)
                    (inputRows: Iterator[Row]): Iterator[LightGBMBooster] = {
-    if (trainParams.verbosity > 1) {
+    if (trainParams.generalParams.verbosity > 1) {
       log.info(s"LightGBM partition $getPartitionId running on executor $getExecutorId")
     }
     val useSingleDatasetMode = trainParams.executionParams.useSingleDatasetMode
     val emptyPartition = !inputRows.hasNext
+    // Note: the first valid worker with non-empty partitions sets the main executor worker, other workers read it
+    if (useSingleDatasetMode && !emptyPartition) sharedState.linkMainExecutorWorker()
     val isEnabledWorker = if (!emptyPartition) isWorkerEnabled(trainParams, log, sharedState) else false
     // Initialize the native library
     LightGBMUtils.initializeNativeLibrary()
@@ -382,12 +471,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions empty")
       List[LightGBMBooster]().toIterator
     } else {
-      if (isEnabledWorker) {
-        log.info(s"LightGBM task listening on: $localListenPort")
-        if (useSingleDatasetMode) sharedState.helperStartSignal.countDown()
-      } else {
-        sharedState.helperStartSignal.await()
-      }
+      updateHelperStartSignal(useSingleDatasetMode, sharedState, isEnabledWorker, localListenPort)
       val (aggregatedColumns, aggregatedValidationColumns) = prepareDatasets(
         inputRows, validationData, sharedState)
       // Return booster only from main worker to reduce network communication overhead
@@ -407,6 +491,24 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         // Finalize network when done
         if (isEnabledWorker) LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
       }
+    }
+  }
+
+  /** Prints the listening port and, in single dataset mode, forces helper tasks to wait for the main worker
+    * before continuing to prepare and merge the dataset.
+    *
+    * @param useSingleDatasetMode If true, indicates whether SingleDatasetMode is enabled.
+    * @param sharedState The shared state across spark tasks.
+    * @param isEnabledWorker Whether the current work is enabled to initialize the network ring of communication.
+    * @param localListenPort The local port for creating the network ring of communication.
+    */
+  private def updateHelperStartSignal(useSingleDatasetMode: Boolean, sharedState: SharedState,
+                                      isEnabledWorker: Boolean, localListenPort: Int) = {
+    if (isEnabledWorker) {
+      log.info(s"LightGBM task listening on: $localListenPort")
+      if (useSingleDatasetMode) sharedState.helperStartSignal.countDown()
+    } else {
+      sharedState.helperStartSignal.await()
     }
   }
 
@@ -532,7 +634,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     *
     * @return trained model.
     */
-  protected def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
+  protected def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
 
   /** Gets the training parameters.
     *
@@ -541,7 +643,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param numTasksPerExec The number of tasks per executor.
     * @return train parameters.
     */
-  protected def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams
+  protected def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams
 
   protected def stringFromTrainedModel(model: TrainedModel): String
 

@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.core.utils.ParamsStringBuilder
 import com.microsoft.azure.synapse.ml.io.http.SharedVariable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
@@ -85,21 +86,15 @@ trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
   override protected lazy val pyInternalWrapper = true
 
   val sharedCol = new Param[String](this, "sharedCol", "Column name of shared features")
-
-  def getSharedCol: String = $(sharedCol)
-
-  def setSharedCol(value: String): this.type = set(sharedCol, value)
-
   setDefault(sharedCol -> "shared")
+  def getSharedCol: String = $(sharedCol)
+  def setSharedCol(value: String): this.type = set(sharedCol, value)
 
   val additionalSharedFeatures = new StringArrayParam(this, "additionalSharedFeatures",
     "Additional namespaces for the shared example")
-
-  def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
-
-  def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
-
   setDefault(additionalSharedFeatures -> Array.empty)
+  def getAdditionalSharedFeatures: Array[String] = $(additionalSharedFeatures)
+  def setAdditionalSharedFeatures(value: Array[String]): this.type = set(additionalSharedFeatures, value)
 }
 
 //noinspection ScalaStyle
@@ -116,26 +111,18 @@ class VowpalWabbitContextualBandit(override val uid: String)
 
   val probabilityCol = new Param[String](this, "probabilityCol",
     "Column name of probability of chosen action")
-
+  setDefault(probabilityCol -> "probability")
   def getProbabilityCol: String = $(probabilityCol)
-
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
 
-  setDefault(probabilityCol -> "probability")
-
   val chosenActionCol = new Param[String](this, "chosenActionCol", "Column name of chosen action")
-
-  def getChosenActionCol: String = $(chosenActionCol)
-
-  def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
-
   setDefault(chosenActionCol -> "chosenAction")
+  def getChosenActionCol: String = $(chosenActionCol)
+  def setChosenActionCol(value: String): this.type = set(chosenActionCol, value)
 
   val epsilon = new DoubleParam(this, "epsilon", "epsilon used for exploration")
   setDefault(epsilon -> 0.05)
-
   def getEpsilon: Double = $(epsilon)
-
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
   def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
@@ -144,9 +131,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
   protected override def getAdditionalColumns: Seq[String] =
     Seq(getChosenActionCol, getProbabilityCol, getSharedCol) ++ getAdditionalSharedFeatures
 
-  protected override def addExtraArgs(args: StringBuilder): Unit = {
-    args.appendParamIfNotThere("cb_explore_adf")
-    args.appendParamIfNotThere("epsilon", "epsilon", epsilon)
+  protected override def appendExtraParams(sb: ParamsStringBuilder): ParamsStringBuilder =
+  {
+    sb.appendParamFlagIfNotThere("cb_explore_adf")
+      .appendParamValueIfNotThere("epsilon", "epsilon", epsilon)
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -157,7 +145,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val probCol = getProbabilityCol
 
     // Validate args
-    val allArgs = getArgs
+    val allArgs = getPassThroughArgs
     if (allArgs.matches("^.*--(cb_explore|cb|cb_adf)( |$).*$"))
     {
       throw new NotImplementedError("VowpalWabbitContextualBandit is only compatible with contextual bandit problems" +
