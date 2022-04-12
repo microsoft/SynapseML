@@ -1,7 +1,7 @@
 # demo Dockerfile
 
 
-This dockerfile can be used to run notebooks on a local docker image. The image houses all dependencies required to experiment synapseml and all notebooks [here](/notebook/features)
+This dockerfile can be used to run notebooks on a local docker image. The image houses all dependencies required to experiment synapseml and all notebooks [here](../../../notebook/features)
 
 # Build the image
 To build the docker image, run the following command:
