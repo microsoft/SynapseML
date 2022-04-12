@@ -25,8 +25,7 @@ RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
     && conda update conda \
-    && conda install -y python=3 jupyter \
-    && conda install -c conda-forge pyspark=${SPARK_VERSION} \
+    && conda install -y python=3 jupyter pyspark \
     && conda clean --all --yes
 
 ENV PATH /opt/conda/bin:$PATH
