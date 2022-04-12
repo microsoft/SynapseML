@@ -17,4 +17,4 @@ spark = SparkSession.builder \
     .appName("SynapseML Docker App") \
     .config(conf=syanpseMLConf) \
     .getOrCreate()
-sc = spark.SparkContext
+sc = spark.sparkContext
