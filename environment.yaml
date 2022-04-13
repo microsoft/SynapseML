@@ -5,12 +5,11 @@ channels:
 dependencies:
   - python=3.8.8
   - pyspark=3.2.0
-  - requests
-  - pip
-  - r-base
-  - r-dplyr
+  - requests=2.26.0
+  - pip=21.3
+  - r-base=4.1.1
   - r-sparklyr=1.7.2
-  - r-devtools
+  - r-devtools=2.4.2
   - pip:
     - wheel
     - sphinx==4.2.0
