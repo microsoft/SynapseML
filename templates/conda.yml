@@ -1,6 +1,19 @@
 steps:
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
-  - bash: conda info
-  - bash: conda env create -f environment.yaml
+  - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+    displayName: Fix directory permissions
+  - task: Cache@2
+    displayName: Use cached Anaconda environment
+    inputs:
+      key: 'conda | "$(Agent.OS)" | environment.yaml'
+      restoreKeys: |
+        python | "$(Agent.OS)"
+        python
+      path: $(CONDA_CACHE_DIR)
+      cacheHitVar: CONDA_CACHE_RESTORED
+  - bash: |
+      conda env create -f environment.yaml  -v -v -v
     displayName: Create Anaconda environment
+    condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
+
