@@ -10,7 +10,7 @@ dependencies:
   - r-base
   - r-dplyr
   - r-sparklyr=1.7.2
-  - r-devtools
+  - r-devtools=2.4.2
   - pip:
     - wheel
     - sphinx==4.2.0
