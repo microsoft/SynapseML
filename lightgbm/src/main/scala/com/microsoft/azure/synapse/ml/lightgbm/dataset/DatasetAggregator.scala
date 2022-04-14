@@ -15,6 +15,7 @@ import org.apache.spark.sql.types.StructType
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.ListBuffer
+import scala.collection.concurrent.TrieMap
 
 private[lightgbm] object ChunkedArrayUtils {
   def copyChunkedArray[T: Numeric](chunkedArray: ChunkedArray[T],
@@ -193,6 +194,8 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     */
   protected val rowCount = new AtomicLong(0L)
   protected val initScoreCount = new AtomicLong(0L)
+  protected val pIdToRowCountOffset = new TrieMap[Long, Long]()
+  protected val pIdToInitScoreCountOffset = new TrieMap[Long, Long]()
 
   protected var numCols = 0
 
@@ -216,7 +219,10 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
 
   def incrementCount(chunkedCols: BaseChunkedColumns): Unit = {
     rowCount.addAndGet(chunkedCols.rowCount)
+    pIdToRowCountOffset.update(LightGBMUtils.getPartitionId, chunkedCols.rowCount)
     initScoreCount.addAndGet(chunkedCols.numInitScores)
+    pIdToInitScoreCountOffset.update(
+      LightGBMUtils.getPartitionId, chunkedCols.numInitScores)
   }
 
   def addRows(chunkedCols: BaseChunkedColumns): Unit = {
@@ -232,6 +238,18 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     initScores = chunkedCols.initScores.map(_ => new DoubleSwigArray(isc))
     initializeFeatures(chunkedCols, rc)
     groups = new Array[Any](rc.toInt)
+    updateConcurrentMapOffsets(pIdToRowCountOffset)
+    updateConcurrentMapOffsets(pIdToInitScoreCountOffset)
+  }
+
+  protected def updateConcurrentMapOffsets(concurrentIdToOffset: TrieMap[Long, Long],
+                                           initialValue: Long = 0L): Unit = {
+    val sortedKeys = concurrentIdToOffset.keys.toSeq.sorted
+    sortedKeys.foldRight(initialValue: Long)((key, offset) => {
+      val partitionRowCount = concurrentIdToOffset(key)
+      concurrentIdToOffset.update(key, offset)
+      partitionRowCount + offset
+    })
   }
 
 }
@@ -254,12 +272,6 @@ private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns 
 }
 
 private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
-  /**
-    * Variables for current thread to use in order to update common arrays in parallel
-    */
-  protected val threadRowStartIndex = new AtomicLong(0L)
-  protected val threadInitScoreStartIndex = new AtomicLong(0L)
-
   /** Adds the rows to the internal data structure.
     */
   override def addRows(chunkedCols: BaseChunkedColumns): Unit = {
@@ -289,10 +301,9 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
     var threadInitScoreStartIndex = 0L
     val featureIndexes =
       this.synchronized {
-        val labelsSize = chunkedCols.labels.getAddCount
-        threadRowStartIndex = this.threadRowStartIndex.getAndAdd(labelsSize.toInt)
-        val initScoreSize = chunkedCols.initScores.map(_.getAddCount)
-        initScoreSize.foreach(size => threadInitScoreStartIndex = this.threadInitScoreStartIndex.getAndAdd(size))
+        val partitionId = LightGBMUtils.getPartitionId
+        threadRowStartIndex = pIdToRowCountOffset.get(partitionId).get
+        threadInitScoreStartIndex = chunkedCols.initScores.map(_ => pIdToInitScoreCountOffset(partitionId)).getOrElse(0)
         updateThreadLocalIndices(chunkedCols, threadRowStartIndex)
       }
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.labels, labels, threadRowStartIndex, chunkSize)
@@ -393,6 +404,8 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     */
   protected var indexesCount = new AtomicLong(0L)
   protected var indptrCount = new AtomicLong(0L)
+  protected val pIdToIndexesCountOffset = new TrieMap[Long, Long]()
+  protected val pIdToIndptrCountOffset = new TrieMap[Long, Long]()
 
   def getNumColsFromChunkedArray(chunkedCols: BaseChunkedColumns): Int = {
     chunkedCols.asInstanceOf[SparseChunkedColumns].numCols
@@ -402,7 +415,9 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     super.incrementCount(chunkedCols)
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
     indexesCount.addAndGet(sparseChunkedCols.getNumIndexes)
+    pIdToIndexesCountOffset.update(LightGBMUtils.getPartitionId, sparseChunkedCols.getNumIndexes)
     indptrCount.addAndGet(sparseChunkedCols.getNumIndexPointers)
+    pIdToIndptrCountOffset.update(LightGBMUtils.getPartitionId, sparseChunkedCols.getNumIndexPointers)
   }
 
   protected def initializeFeatures(chunkedCols: BaseChunkedColumns, rowCount: Long): Unit = {
@@ -412,6 +427,8 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     values = new DoubleSwigArray(indexesCount)
     indexPointers = new IntSwigArray(indptrCount)
     indexPointers.setItem(0, 0)
+    updateConcurrentMapOffsets(pIdToIndexesCountOffset)
+    updateConcurrentMapOffsets(pIdToIndptrCountOffset, 1L)
   }
 
   def getIndexes: IntSwigArray = indexes
@@ -489,12 +506,6 @@ private[lightgbm] final class SparseAggregatedColumns(chunkSize: Int)
   */
 private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
   extends BaseSparseAggregatedColumns(chunkSize) with SyncAggregatedColumns {
-  /**
-    * Variables for current thread to use in order to update common arrays in parallel
-    */
-  protected val threadIndexesStartIndex = new AtomicLong(0L)
-  protected val threadIndptrStartIndex = new AtomicLong(1L)
-
   override protected def initializeRows(chunkedCols: BaseChunkedColumns): Unit = {
     // Add extra 0 for start of indptr in parallel case
     this.indptrCount.addAndGet(1L)
@@ -502,12 +513,9 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
   }
 
   protected def updateThreadLocalIndices(chunkedCols: BaseChunkedColumns, threadRowStartIndex: Long): List[Long] = {
-    val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
-    val indexesSize = sparseChunkedCols.indexes.getAddCount
-    val threadIndexesStartIndex = this.threadIndexesStartIndex.getAndAdd(indexesSize)
-
-    val indPtrSize = sparseChunkedCols.indexPointers.getAddCount
-    val threadIndPtrStartIndex = this.threadIndptrStartIndex.getAndAdd(indPtrSize)
+    val partitionId = LightGBMUtils.getPartitionId
+    val threadIndexesStartIndex = pIdToIndexesCountOffset.get(partitionId).get
+    val threadIndPtrStartIndex = pIdToIndptrCountOffset.get(partitionId).get
     List(threadIndexesStartIndex, threadIndPtrStartIndex)
   }
 

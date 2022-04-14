@@ -14,6 +14,7 @@ import org.slf4j.Logger
 
 import java.io._
 import java.net.{ServerSocket, Socket}
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /** Helper utilities for LightGBM learners */
@@ -82,10 +83,12 @@ object LightGBMUtils {
     * @param driverServerSocket The driver socket.
     * @param log The log4j logger.
     * @param hostAndPorts A list of host and ports of connected tasks.
+    * @param hostToMinPartition A list of host to the minimum partition id, used for determinism.
     * @return The connection status, can be finished for barrier mode, empty task or connected.
     */
   def handleConnection(driverServerSocket: ServerSocket, log: Logger,
-                       hostAndPorts: ListBuffer[(Socket, String)]): ConnectionState = {
+                       hostAndPorts: ListBuffer[(Socket, String)],
+                       hostToMinPartition: mutable.Map[String, String]): ConnectionState = {
     log.info("driver accepting a new connection...")
     val driverSocket = driverServerSocket.accept()
     val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
@@ -93,12 +96,28 @@ object LightGBMUtils {
     if (comm == LightGBMConstants.FinishedStatus) {
       log.info("driver received all tasks from barrier stage")
       Finished
-    } else if (comm == LightGBMConstants.IgnoreStatus) {
+    } else if (comm.startsWith(LightGBMConstants.IgnoreStatus)) {
       log.info("driver received ignore status from task")
+      val hostPartition = comm.split(":")
+      val host = hostPartition(1)
+      val partitionId = hostPartition(2)
+      updateHostToMinPartition(hostToMinPartition, host, partitionId)
       EmptyTask
     } else {
-      addSocketAndComm(hostAndPorts, log, comm, driverSocket)
+      val hostPortPartition = comm.split(":")
+      val host = hostPortPartition(0)
+      val port = hostPortPartition(1)
+      val partitionId = hostPortPartition(2)
+      updateHostToMinPartition(hostToMinPartition, host, partitionId)
+      addSocketAndComm(hostAndPorts, log, s"$host:$port", driverSocket)
       Connected
+    }
+  }
+
+  def updateHostToMinPartition(hostToMinPartition: mutable.Map[String, String],
+                               host: String, partitionId: String): Unit = {
+    if (!hostToMinPartition.contains(host) || hostToMinPartition(host) > partitionId) {
+      hostToMinPartition(host) = partitionId
     }
   }
 
@@ -114,6 +133,25 @@ object LightGBMUtils {
     val id = if (executorId == "driver") partId else executorId
     val idAsInt = id.toString.toInt
     idAsInt
+  }
+
+  /** Returns the partition ID for the spark Dataset.
+    *
+    * Used to make operations deterministic on same dataset.
+    *
+    * @return Returns the partition id.
+    */
+  def getPartitionId: Int = {
+    val ctx = TaskContext.get
+    ctx.partitionId
+  }
+
+  /** Returns the executor ID for the spark Dataset.
+    *
+    * @return Returns the executor id.
+    */
+  def getExecutorId: String = {
+    SparkEnv.get.executorId
   }
 
   /** Returns true if spark is run in local mode.

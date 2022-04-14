@@ -10,8 +10,9 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
 import scala.collection.mutable.WrappedArray
 
 trait TextEndpoint {
@@ -189,6 +190,7 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
     .setOutputCol("replies")
 
   test("Basic Usage") {
+
     val results = t.transform(df).select(
       col("replies").alias("scoredDocuments")
     ).collect().toList
@@ -197,6 +199,18 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
     assert(
       results(0).getSeq[Row](0).head.getString(0) == "positive" &&
         results(2).getSeq[Row](0).head.getString(0) == "negative")
+  }
+
+  test("Opinion Mining") {
+    val result = t.setOpinionMining(true)
+      .transform(df)
+      .select(explode(col("replies")))
+      .select(explode(col("col.sentences")))
+      .select(explode(col("col.targets")))
+      .select(explode(col("col.relations")))
+      .select(col("col.relationType"))
+      .collect().toList.head.getString(0)
+    assert(result === "assessment")
   }
 
   test("batch usage") {

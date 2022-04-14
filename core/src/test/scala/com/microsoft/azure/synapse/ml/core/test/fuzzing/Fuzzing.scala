@@ -12,10 +12,11 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameEquality, ExternalPythonWrappableParam, ParamPair}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
+import org.apache.commons.lang.StringUtils.capitalize
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -44,42 +45,45 @@ class TestObject[S <: PipelineStage](val stage: S,
 
 }
 
-trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
-
-  def pyTestObjects(): Seq[TestObject[S]]
+trait TestFuzzingUtil {
 
   val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
-  def testDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.testDataDir, this.getClass.getName.split(".".toCharArray).last)
+  val testFitting = false
+}
 
-  def saveDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
-    df.write.mode("overwrite").parquet(new File(testDataDir(conf), s"$name.parquet").toString)
+trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
+
+  def pyTestObjects(): Seq[TestObject[S]]
+
+  def pyTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
+    conf.pyTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def savePyDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(pyTestDataDir(conf), s"$name.parquet").toString)
   }
 
-  def saveModel(conf: CodegenConfig, model: S, name: String): Unit = {
+  def savePyModel(conf: CodegenConfig, model: S, name: String): Unit = {
     model match {
       case writable: MLWritable =>
-        writable.write.overwrite().save(new File(testDataDir(conf), s"$name.model").toString)
+        writable.write.overwrite().save(new File(pyTestDataDir(conf), s"$name.model").toString)
       case _ =>
         throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
     }
-
   }
 
-  val testFitting = false
-
-  def saveTestData(conf: CodegenConfig): Unit = {
-    testDataDir(conf).mkdirs()
+  def savePyTestData(conf: CodegenConfig): Unit = {
+    pyTestDataDir(conf).mkdirs()
     pyTestObjects().zipWithIndex.foreach { case (to, i) =>
-      saveModel(conf, to.stage, s"model-$i")
+      savePyModel(conf, to.stage, s"model-$i")
       if (testFitting) {
-        saveDataset(conf, to.fitDF, s"fit-$i")
-        saveDataset(conf, to.transDF, s"trans-$i")
-        to.validateDF.foreach(saveDataset(conf, _, s"val-$i"))
+        savePyDataset(conf, to.fitDF, s"fit-$i")
+        savePyDataset(conf, to.transDF, s"trans-$i")
+        to.validateDF.foreach(savePyDataset(conf, _, s"val-$i"))
       }
     }
   }
+
 
   def pyTestInstantiateModel(stage: S, num: Int): String = {
     val fullParamMap = stage.extractParamMap().toSeq
@@ -168,7 +172,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
   def makePyTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveTestData(conf)
+    savePyTestData(conf)
     val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
     val stage = pyTestObjects().head.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
@@ -183,7 +187,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |import mlflow
          |from pyspark.ml import PipelineModel
          |
-         |test_data_dir = "${testDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
+         |test_data_dir = "${pyTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
          |
          |class $testClassName(unittest.TestCase):

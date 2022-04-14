@@ -53,6 +53,30 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     .setKind("average")
   lazy val outputAvg: DataFrame = iceAvg.transform(data).cache()
 
+  lazy val iceFeat: ICETransformer = new ICETransformer()
+    .setModel(model)
+    .setTargetCol("probability")
+    .setCategoricalFeatures(Array(ICECategoricalFeature("col1", Some(100)), ICECategoricalFeature("col2"),
+     ICECategoricalFeature("col3")))
+    .setNumericFeatures(Array(ICENumericFeature("col4", Some(5))))
+    .setTargetClasses(Array(1))
+    .setKind("feature")
+  lazy val outputFeat: DataFrame = iceFeat.transform(data).cache()
+  // Output schema: number_of_features rows * 2 cols (name of the feature + corresponding dependence)
+  // Output is sorted by dependence in descending order
+  // For this example you should expect:
+  //  outputFeat.show(false)
+ //  +------------------------+---------------+
+//  |pdpBasedDependence      |featureNames   |
+//  +------------------------+---------------+
+//  |[0.1249879667776877]    |col1_dependence|
+//    |[0.1249879667776877]    |col3_dependence|
+//    |[7.096582491573019E-11] |col4_dependence|
+//    |[1.1503853425409716E-12]|col2_dependence|
+//    +------------------------+---------------+
+
+
+
   // Helper function which returns value from first row in a column specified by "colName".
   def getFirstValueFromOutput(output: DataFrame, colName: String): Map[_, Vector] = {
     output.select(colName).collect().map {
@@ -131,7 +155,6 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     map.put("name", "my_name")
     map.put("numTopValues", 100)
     val feature = ICECategoricalFeature.fromMap(map)
-    println(feature)
     assert(feature.name == map.get("name"))
     assert(feature.numTopValues.contains(map.get("numTopValues")))
     assert(feature.outputColName.isEmpty)
@@ -144,6 +167,11 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     val feature = ICECategoricalFeature.fromMap(map)
     ice.setCategoricalFeaturesPy(List(map).asJava)
     assert(ice.getCategoricalFeatures.head == feature)
+  }
+
+  test("For kind `feature` output has a number of rows equal to the number of passed features") {
+    val numFeatures = iceFeat.getCategoricalFeatures.size + iceFeat.getNumericFeatures.size
+    assert(outputFeat.select("featureNames").collect().length == numFeatures)
   }
 
   override def testObjects(): Seq[TestObject[ICETransformer]] = Seq(new TestObject(ice, data))

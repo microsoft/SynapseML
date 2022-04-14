@@ -115,20 +115,20 @@ class VowpalWabbitSpec(unittest.TestCase):
             self.assertTrue(os.stat(modelFile).st_size > 0)
 
     def test_save_model(self):
-        self.save_model(VowpalWabbitContextualBandit().setArgs(
-            "--cb_explore_adf --epsilon 0.2 --quiet").
-                        setUseBarrierExecutionMode(False))
+        self.save_model(VowpalWabbitContextualBandit()\
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
+            .setUseBarrierExecutionMode(False))
 
     def test_initial_model(self):
         featurized_data = self.get_data()
         estimator1 = VowpalWabbitContextualBandit()\
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
             .setUseBarrierExecutionMode(False)
 
         model1 = estimator1.fit(featurized_data)
 
         estimator2 = VowpalWabbitContextualBandit()\
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
             .setUseBarrierExecutionMode(False)
         estimator2.setInitialModel(model1)
 
@@ -137,7 +137,7 @@ class VowpalWabbitSpec(unittest.TestCase):
     def test_performance_statistics(self):
         featurized_data = self.get_data()
         estimator1 = VowpalWabbitContextualBandit()\
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")\
             .setUseBarrierExecutionMode(False)
         model1 = estimator1.fit(featurized_data)
 
@@ -148,7 +148,7 @@ class VowpalWabbitSpec(unittest.TestCase):
     def test_parallel_fit(self):
         featurized_data = self.get_data()
         estimator1 = VowpalWabbitContextualBandit() \
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
             .setParallelism(6) \
             .setUseBarrierExecutionMode(False)
 
@@ -164,7 +164,7 @@ class VowpalWabbitSpec(unittest.TestCase):
     def test_setAdditionalSharedFeatures(self):
         featurized_data = self.get_data_two_shared()
         estimator1 = VowpalWabbitContextualBandit() \
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
             .setAdditionalSharedFeatures(["shared2"]) \
             .setUseBarrierExecutionMode(False)
         model1 = estimator1.fit(featurized_data)
@@ -176,7 +176,7 @@ class VowpalWabbitSpec(unittest.TestCase):
     def test_model_prediction(self):
         featurized_data = self.get_data_two_shared()
         estimator1 = VowpalWabbitContextualBandit() \
-            .setArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
+            .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet") \
             .setAdditionalSharedFeatures(["shared2"]) \
             .setPredictionCol("output_prediction")\
             .setUseBarrierExecutionMode(False)

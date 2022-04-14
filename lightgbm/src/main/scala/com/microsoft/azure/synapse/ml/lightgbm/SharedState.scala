@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset._
-import com.microsoft.azure.synapse.ml.lightgbm.params.TrainParams
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
@@ -14,7 +14,7 @@ import java.util.concurrent.CountDownLatch
 
 class SharedDatasetState(columnParams: ColumnParams,
                          schema: StructType,
-                         trainParams: TrainParams,
+                         trainParams: BaseTrainParams,
                          sharedState: SharedState) {
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
@@ -82,8 +82,7 @@ class SharedDatasetState(columnParams: ColumnParams,
 
 class SharedState(columnParams: ColumnParams,
                   schema: StructType,
-                  trainParams: TrainParams) {
-  val mainExecutorWorker: Long = LightGBMUtils.getTaskId
+                  trainParams: BaseTrainParams) {
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val matrixType: String = trainParams.executionParams.matrixType
@@ -92,12 +91,23 @@ class SharedState(columnParams: ColumnParams,
   val validationDatasetState: SharedDatasetState = new SharedDatasetState(columnParams, schema, trainParams, this)
 
   @volatile var isSparse: Option[Boolean] = None
+  @volatile var mainExecutorWorker: Option[Long] = None
 
   def linkIsSparse(isSparse: Boolean): Unit = {
     if (this.isSparse.isEmpty) {
       this.synchronized {
         if (this.isSparse.isEmpty) {
           this.isSparse = Some(isSparse)
+        }
+      }
+    }
+  }
+
+  def linkMainExecutorWorker(): Unit = {
+    if (this.mainExecutorWorker.isEmpty) {
+      this.synchronized {
+        if (this.mainExecutorWorker.isEmpty) {
+          this.mainExecutorWorker = Some(LightGBMUtils.getTaskId)
         }
       }
     }

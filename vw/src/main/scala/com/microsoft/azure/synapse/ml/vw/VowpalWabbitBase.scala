@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, StopWatch}
+import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, StopWatch, ParamsStringBuilder}
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
 import org.apache.spark.ml.param._
@@ -55,9 +55,7 @@ case class TrainingResult(model: Option[Array[Byte]],
   */
 trait HasAdditionalFeatures extends Params {
   val additionalFeatures = new StringArrayParam(this, "additionalFeatures", "Additional feature columns")
-
   def getAdditionalFeatures: Array[String] = $(additionalFeatures)
-
   def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 }
 
@@ -75,21 +73,24 @@ trait VowpalWabbitBase extends Wrappable
 
   // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
   // to generate all the parameters?
-  val args = new Param[String](this, "args", "VW command line arguments passed")
-  setDefault(args -> "")
+  // (update: this is a removed feature as of 3.0, so would have to use newer macro mechanisms)
+  val passThroughArgs = new Param[String](this, "passThroughArgs", "VW command line arguments passed")
+  setDefault(passThroughArgs -> "")
+  def getPassThroughArgs: String = $(passThroughArgs)
+  def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)
 
-  def getArgs: String = $(args)
+  @deprecated("Please use 'getPassThroughArgs'.", since="0.9.6")
+  def getArgs: String = $(passThroughArgs)
+  @deprecated("Please use 'setPassThroughArgs'.", since="0.9.6")
+  def setArgs(value: String): this.type = set(passThroughArgs, value)
 
-  def setArgs(value: String): this.type = set(args, value)
 
   setDefault(additionalFeatures -> Array())
 
   // to support Grid search we need to replicate the parameters here...
   val numPasses = new IntParam(this, "numPasses", "Number of passes over the data")
   setDefault(numPasses -> 1)
-
   def getNumPasses: Int = $(numPasses)
-
   def setNumPasses(value: Int): this.type = set(numPasses, value)
 
   // Note on parameters: default values are set in the C++ codebase. To avoid replication
@@ -97,112 +98,56 @@ trait VowpalWabbitBase extends Wrappable
   // are only passed to the native side if they're set.
 
   val learningRate = new DoubleParam(this, "learningRate", "Learning rate")
-
   def getLearningRate: Double = $(learningRate)
-
   def setLearningRate(value: Double): this.type = set(learningRate, value)
 
   val powerT = new DoubleParam(this, "powerT", "t power value")
-
   def getPowerT: Double = $(powerT)
-
   def setPowerT(value: Double): this.type = set(powerT, value)
 
   val l1 = new DoubleParam(this, "l1", "l_1 lambda")
-
   def getL1: Double = $(l1)
-
   def setL1(value: Double): this.type = set(l1, value)
 
   val l2 = new DoubleParam(this, "l2", "l_2 lambda")
-
   def getL2: Double = $(l2)
-
   def setL2(value: Double): this.type = set(l2, value)
 
   val interactions = new StringArrayParam(this, "interactions", "Interaction terms as specified by -q")
-
   def getInteractions: Array[String] = $(interactions)
-
   def setInteractions(value: Array[String]): this.type = set(interactions, value)
 
   val ignoreNamespaces = new Param[String](this, "ignoreNamespaces", "Namespaces to be ignored (first letter only)")
-
   def getIgnoreNamespaces: String = $(ignoreNamespaces)
-
   def setIgnoreNamespaces(value: String): this.type = set(ignoreNamespaces, value)
 
   val initialModel = new ByteArrayParam(this, "initialModel", "Initial model to start from")
-
   def getInitialModel: Array[Byte] = $(initialModel)
-
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
   def labelCol: Param[String]
-
+  setDefault(labelCol -> "label")
   def getLabelCol: String
 
-  setDefault(labelCol -> "label")
-
   def featuresCol: Param[String]
-
-  def getFeaturesCol: String
-
   setDefault(featuresCol -> "features")
+  def getFeaturesCol: String
 
   val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
     "Use barrier execution mode, on by default.")
   setDefault(useBarrierExecutionMode -> true)
-
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
-
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
-
-  implicit class ParamStringBuilder(sb: StringBuilder) {
-    def appendParamIfNotThere[T](optionShort: String, optionLong: String, param: Param[T]): StringBuilder = {
-      if (get(param).isEmpty ||
-        // boost allow space or =
-        s"-$optionShort[ =]".r.findAllIn(sb.toString).hasNext ||
-        s"--$optionLong[ =]".r.findAllIn(sb.toString).hasNext) {
-        sb
-      }
-      else {
-        param match {
-          case _: StringArrayParam =>
-            for (q <- get(param).get)
-              sb.append(s" --$optionLong $q")
-          case _ => sb.append(s" --$optionLong ${get(param).get}")
-        }
-
-        sb
-      }
-    }
-
-    def appendParamIfNotThere[T](optionLong: String): StringBuilder = {
-      if (s"--${optionLong}".r.findAllIn(sb.toString).hasNext) {
-        sb
-      }
-      else {
-        sb.append(s" --$optionLong")
-
-        sb
-      }
-    }
-  }
 
   val hashSeed = new IntParam(this, "hashSeed", "Seed used for hashing")
   setDefault(hashSeed -> 0)
-
   def getHashSeed: Int = $(hashSeed)
-
   def setHashSeed(value: Int): this.type = set(hashSeed, value)
 
   val numBits = new IntParam(this, "numBits", "Number of bits used")
   setDefault(numBits -> 18)
-
   def getNumBits: Int = $(numBits)
-
   def setNumBits(value: Int): this.type = set(numBits, value)
 
   protected def getAdditionalColumns: Seq[String] = Seq.empty
@@ -232,30 +177,29 @@ trait VowpalWabbitBase extends Wrappable
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
   }
 
-  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): StringBuilder = {
-    val args = new StringBuilder
-    args.append(vwArgs)
-      .append(" ").append(contextArgs)
-
-    // have to pass to get multi-pass to work
-    val noStdin = "--no_stdin"
-    if (args.indexOf(noStdin) == -1)
-      args.append(" ").append(noStdin)
+  private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): String = {
+    val args = new ParamsStringBuilder("--", " ")
+      .append(vwArgs)
+      .append(contextArgs)
+      .appendParamFlagIfNotThere("no_stdin") // have to pass to get multi-pass to work
 
     // need to keep reference around to prevent GC and subsequent file delete
     if (getNumPasses > 1) {
       val cacheFile = java.io.File.createTempFile("vowpalwabbit", ".cache")
       cacheFile.deleteOnExit()
 
-      args.append(s" -k --cache_file=${cacheFile.getAbsolutePath} --passes $getNumPasses")
+      args.append("-k")
+        .appendParamValueIfNotThere("cache_file", Option(cacheFile.getAbsolutePath))
+        .appendParamValueIfNotThere("passes", Option(getNumPasses))
     }
 
-    log.warn(s"VowpalWabbit args: $args")
+    val result = args.result
+    log.warn(s"VowpalWabbit args: $result)")
 
-    args
+    result
   }
 
-  // Seperate method to be overridable
+  // Separate method to be overridable
   protected def trainRow(schema: StructType,
                          inputRows: Iterator[Row],
                          ctx: TrainContext
@@ -349,8 +293,8 @@ trait VowpalWabbitBase extends Wrappable
           val learnTime = new StopWatch
           val multipassTime = new StopWatch
 
-          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args.result)
-          else new VowpalWabbitNative(args.result, localInitialModel.get)) { vw =>
+          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+          else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
             val trainContext = new TrainContext(vw)
 
             val result = StreamUtilities.using(vw.createExample()) { ex =>
@@ -403,7 +347,7 @@ trait VowpalWabbitBase extends Wrappable
           Seq(TrainingResult(model, stats)).iterator
         } catch {
           case e: java.lang.Exception =>
-            throw new Exception(s"VW failed with args: ${args.result}", e)
+            throw new Exception(s"VW failed with args: $args", e)
         }
       }
     }
@@ -430,10 +374,10 @@ trait VowpalWabbitBase extends Wrappable
     * @return
     */
   protected def trainInternalDistributed(df: DataFrame,
-                                         vwArgs: StringBuilder,
+                                         vwArgs: ParamsStringBuilder,
                                          numTasks: Int): Array[TrainingResult] = {
     // multiple partitions -> setup distributed coordination
-    val spanningTree = new ClusterSpanningTree(0, getArgs.contains("--quiet"))
+    val spanningTree = new ClusterSpanningTree(0, vwArgs.result.contains("--quiet"))
 
     try {
       spanningTree.start()
@@ -450,8 +394,11 @@ trait VowpalWabbitBase extends Wrappable
       --node should be unique for each node and range from {0,total-1}.
       --holdout_off should be included for distributed training
       */
-      vwArgs.append(s" --holdout_off --span_server $driverHostAddress --span_server_port $port ")
-        .append(s"--unique_id $jobUniqueId --total $numTasks ")
+      vwArgs.appendParamFlagIfNotThere("holdout_off")
+        .appendParamValueIfNotThere("span_server", Option(driverHostAddress))
+        .appendParamValueIfNotThere("span_server_port", Option(port))
+        .appendParamValueIfNotThere("unique_id", Option(jobUniqueId))
+        .appendParamValueIfNotThere("total", Option(numTasks))
 
       trainInternal(df, vwArgs.result, s"--node ${TaskContext.get.partitionId}")
     } finally {
@@ -487,13 +434,6 @@ trait VowpalWabbitBase extends Wrappable
     model.setPerformanceStatistics(diagRdd)
   }
 
-  /** *
-    * Allow subclasses to add further arguments
-    *
-    * @param args argument builder to append to
-    */
-  protected def addExtraArgs(args: StringBuilder): Unit = {}
-
   /**
     * Main training loop
     *
@@ -525,20 +465,8 @@ trait VowpalWabbitBase extends Wrappable
     } else
       dfSubset
 
-    // add exposed parameters to the final command line args
-    val vwArgs = new StringBuilder()
-      .append(getArgs)
-      .appendParamIfNotThere("hash_seed", "hash_seed", hashSeed)
-      .appendParamIfNotThere("b", "bit_precision", numBits)
-      .appendParamIfNotThere("l", "learning_rate", learningRate)
-      .appendParamIfNotThere("power_t", "power_t", powerT)
-      .appendParamIfNotThere("l1", "l1", l1)
-      .appendParamIfNotThere("l2", "l2", l2)
-      .appendParamIfNotThere("ignore", "ignore", ignoreNamespaces)
-      .appendParamIfNotThere("q", "quadratic", interactions)
-
-    // Allows subclasses to add further specific args
-    addExtraArgs(vwArgs)
+    // get the final command line args
+    val vwArgs = getCommandLineArgs()
 
     // call training
     val trainingResults = if (numTasks == 1)
@@ -550,5 +478,32 @@ trait VowpalWabbitBase extends Wrappable
     applyTrainingResultsToModel(model, trainingResults, dataset)
 
     model
+  }
+
+  private def getCommandLineArgs(): ParamsStringBuilder = {
+    new ParamsStringBuilder(this, prefix = "--", delimiter = " ")
+      .append(getPassThroughArgs) // first so that pass through args override explicit setters (TODO reconsider)
+      .appendParamValueIfNotThere("hash_seed", "hash_seed", hashSeed)
+      .appendParamValueIfNotThere("b", "bit_precision", numBits)
+      .appendParamValueIfNotThere("l", "learning_rate", learningRate)
+      .appendParamValueIfNotThere("power_t", "power_t", powerT)
+      .appendParamValueIfNotThere("l1", "l1", l1)
+      .appendParamValueIfNotThere("l2", "l2", l2)
+      .appendParamValueIfNotThere("ignore", "ignore", ignoreNamespaces)
+      .appendRepeatableParamIfNotThere("q", "quadratic", interactions)
+      .appendSubclassSpecificParams()
+  }
+
+  /** Override to add parameters specific to subclass.
+    */
+  protected def appendExtraParams(sb: ParamsStringBuilder): ParamsStringBuilder =
+  {
+    sb
+  }
+
+  implicit class SpecificParamAppender(sb: ParamsStringBuilder) {
+    def appendSubclassSpecificParams(): ParamsStringBuilder = {
+      appendExtraParams(sb)
+    }
   }
 }

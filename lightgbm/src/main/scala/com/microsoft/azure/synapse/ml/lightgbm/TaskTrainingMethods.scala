@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.BaseAggregatedColumns
-import com.microsoft.azure.synapse.ml.lightgbm.params.TrainParams
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.Row
 import org.slf4j.Logger
@@ -14,16 +14,13 @@ object TaskTrainingMethods {
     * Otherwise, returns true for all tasks.
     * @param trainParams The training parameters.
     * @param log The logger.
+    * @param sharedState The shared state.
     * @return Whether the current task is enabled.
     */
-  def isWorkerEnabled(trainParams: TrainParams, log: Logger, sharedState: SharedState): Boolean = {
+  def isWorkerEnabled(trainParams: BaseTrainParams, log: Logger, sharedState: SharedState): Boolean = {
     if (trainParams.executionParams.useSingleDatasetMode) {
       // Find all workers in current JVM
-      val mainExecutorWorker = sharedState.mainExecutorWorker
-      val myTaskId = LightGBMUtils.getTaskId
-      val isMainWorker = mainExecutorWorker == myTaskId
-      log.info(s"Using singleDatasetMode.  " +
-        s"Is main worker: ${isMainWorker} for task id: ${myTaskId} and main task id: ${mainExecutorWorker}")
+      val isMainWorker = isCurrentTaskMainWorker(log, sharedState)
       sharedState.incrementArrayProcessedSignal(log)
       if (!isMainWorker) {
         sharedState.incrementDoneSignal(log)
@@ -32,6 +29,21 @@ object TaskTrainingMethods {
     } else {
       true
     }
+  }
+
+  /** Determines if the current task is the main worker in the current JVM.
+    *
+    * @param log The logger.
+    * @param sharedState The shared state.
+    * @return True if the current task in the main worker, false otherwise.
+    */
+  def isCurrentTaskMainWorker(log: Logger, sharedState: SharedState): Boolean = {
+    val mainExecutorWorker = sharedState.mainExecutorWorker.get
+    val myTaskId = LightGBMUtils.getTaskId
+    val isMainWorker = mainExecutorWorker == myTaskId
+    log.info(s"Using singleDatasetMode.  " +
+      s"Is main worker: ${isMainWorker} for task id: ${myTaskId} and main task id: ${mainExecutorWorker}")
+    isMainWorker
   }
 
   def prepareDatasets(inputRows: Iterator[Row],

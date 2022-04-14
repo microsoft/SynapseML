@@ -14,10 +14,10 @@ jobs:
       env:
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'
-        ado_organization: '${{ secrets.ADO_ORGANIZATION }}'
-        ado_project: '${{ secrets.ADO_PROJECT }}'
+        ado_organization: 'msdata'
+        ado_project: 'A365'
         ado_wit: 'Task'
         ado_active_state: 'In Progress'
         ado_close_state: 'Done'
-        ado_area_path: '${{ secrets.ADO_AREA_PATH }}'
+        ado_area_path: 'A365\\Trident\\DataScience\\SynapseML\\Community'
         debug: true

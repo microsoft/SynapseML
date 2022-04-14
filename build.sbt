@@ -149,7 +149,7 @@ packageSynapseML := {
          |    packages=find_namespace_packages(include=['synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -225,7 +225,7 @@ publishBadges := {
       s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache"))
+      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
@@ -296,7 +296,7 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.2",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
     ),
     name := "synapseml-cognitive"
   ): _*)
@@ -360,11 +360,11 @@ ThisBuild / scmInfo := Some(
 )
 ThisBuild / developers := List(
   Developer("mhamilton723", "Mark Hamilton",
-    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
+    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
   Developer("imatiach-msft", "Ilya Matiach",
-    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
+    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
   Developer("drdarshan", "Sudarshan Raghunathan",
-    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
+    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
 ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
