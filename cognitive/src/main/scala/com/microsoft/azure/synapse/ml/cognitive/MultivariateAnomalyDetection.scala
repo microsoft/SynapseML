@@ -44,9 +44,9 @@ object MADUtils {
   private[ml] val CreatedModels: mutable.ParHashSet[String] = new ParHashSet[String]()
 
   private[ml] def madSend(request: HttpRequestBase,
-              path: String,
-              key: String,
-              params: Map[String, String] = Map()): String = {
+                          path: String,
+                          key: String,
+                          params: Map[String, String] = Map()): String = {
 
     val paramString = if (params.isEmpty) {
       ""
@@ -68,7 +68,7 @@ object MADUtils {
             val retryTime = response.getHeaders("Retry-After").head.getValue.toInt * 1000
             Thread.sleep(retryTime.toLong)
           }
-          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI}" +
+          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI} " +
             s"requestBody: $bodyOpt")
         }
         if (response.getStatusLine.getReasonPhrase == "No Content") {
@@ -84,14 +84,19 @@ object MADUtils {
     })
   }
 
+  private[ml] def madGetModel(url: String, modelId: String,
+                              key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpGet(), url + modelId, key, params)
+  }
+
   private[ml] def madDelete(modelId: String, key: String, params: Map[String, String] = Map()): String = {
     madSend(new HttpDelete(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
       "v1.1-preview/multivariate/models/" + modelId, key, params)
   }
 
-  private[ml] def madListModels( key: String, params: Map[String, String] = Map()): String = {
+  private[ml] def madListModels(key: String, params: Map[String, String] = Map()): String = {
     madSend(new HttpGet(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
-      "v1.1-preview/multivariate/models",key, params)
+      "v1.1-preview/multivariate/models", key, params)
   }
 
   private[ml] def cleanUpAllModels(key: String): Unit = {
@@ -485,6 +490,62 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   protected def prepareUrl: String = getUrl
 
+  override protected def queryForResult(key: Option[String],
+                                        client: CloseableHttpClient,
+                                        location: URI): Option[HTTPResponseData] = {
+    val get = new HttpGet()
+    get.setURI(location)
+    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
+    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
+    get.releaseConnection()
+    Some(resp)
+  }
+
+  override protected def handlingFunc(client: CloseableHttpClient,
+                                      request: HTTPRequestData): HTTPResponseData = {
+    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
+    if (response.statusLine.statusCode == 201) {
+      val location = new URI(response.headers.filter(_.name == "Location").head.value)
+      val maxTries = getMaxPollingRetries
+      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
+      val it = (0 to maxTries).toIterator.flatMap { _ =>
+        val resp = queryForResult(key, client, location)
+        val fields = IOUtils.toString(resp.get.entity.get.content, "UTF-8").parseJson.asJsObject.fields
+        val status = if (fields.keySet.contains("modelInfo")) {
+          fields("modelInfo").asInstanceOf[JsObject].fields
+            .get("status").map(_.convertTo[String]).get.toLowerCase()
+        } else if (fields.keySet.contains("summary")) {
+          fields("summary").asInstanceOf[JsObject]
+            .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
+        } else {
+          "None"
+        }
+        status match {
+          case "ready" | "failed" => resp
+          // still retry first
+          case "created" | "running" => {
+            blocking {
+              Thread.sleep(getPollingDelay.toLong)
+            }
+            None
+          }
+          case s => throw new RuntimeException(s"Received unknown status code: $s")
+        }
+      }
+      if (it.hasNext) {
+        it.next()
+      } else {
+        // if no response after max retries, return the response containing modelId directly
+        queryForResult(key, client, location).get
+      }
+    } else {
+      val error = IOUtils.toString(response.entity.get.content, "UTF-8")
+        .parseJson.convertTo[DMAError].toJson.compactPrint
+      throw new RuntimeException(s"Caught error: $error")
+    }
+  }
+
   override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
     logFit({
 
@@ -569,6 +630,29 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
   //noinspection ScalaStyle
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame] {
+
+      // check model status first
+      try {
+        val responseDict = MADUtils.madGetModel(
+          this.getUrl, this.getModelId, this.getSubscriptionKey).parseJson.asJsObject.fields
+
+        val modelInfoFields = responseDict("modelInfo").asJsObject.fields
+        val modelStatus = modelInfoFields("status").asInstanceOf[JsString].value.toLowerCase
+        modelStatus match {
+          case "failed" => {
+            val errors = modelInfoFields.get("errors").map(_.convertTo[Seq[DMAError]]).get.toJson.compactPrint
+            throw new RuntimeException(s"Caught errors during fitting: $errors")
+          }
+          case "created" | "running" => {
+            throw new RuntimeException(s"model ${this.getModelId} is not ready yet")
+          }
+          case "ready" => println("model is ready for inference")
+        }
+      } catch {
+        case e: RuntimeException =>
+          throw new RuntimeException(s"Encounter error while fetching model ${this.getModelId}, " +
+            s"please double check the modelId is correct: ${e.getMessage}")
+      }
 
       val blobContainerClient = getBlobContainerClient
       val df = dataset.select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
