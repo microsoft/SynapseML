@@ -137,6 +137,26 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
       "or {storageName, storageKey, endpoint, sasToken, containerName} in order to access the blob container"))
   }
 
+  test("Throw errors if start/end time is not ISO8601 format") {
+    val caught = intercept[IllegalArgumentException] {
+      val smae = simpleMultiAnomalyEstimator
+        .setStartTime("2021-01-01 00:00:00")
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      smae.fit(df)
+    }
+    assert(caught.getMessage.contains("Start time should be ISO8601 format."))
+
+    val caught2 = intercept[IllegalArgumentException] {
+      val smae = simpleMultiAnomalyEstimator
+        .setEndTime("2021-01-01 00:00:00")
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      smae.fit(df)
+    }
+    assert(caught2.getMessage.contains("End time should be ISO8601 format."))
+  }
+
   test("Expose correct error message during fitting") {
     val caught = intercept[RuntimeException] {
       val testDf = df.limit(50)

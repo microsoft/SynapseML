@@ -192,14 +192,34 @@ trait MADBase extends HasOutputCol
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setStartTime(v: String): this.type = set(startTime, v)
+  def setStartTime(v: String): this.type = {
+    try {
+      val formattedValue = DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
+      set(startTime, formattedValue)
+    }
+    catch {
+      case e: java.time.format.DateTimeParseException =>
+        throw new IllegalArgumentException(
+          s"Start time should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
+    }
+  }
 
   def getStartTime: String = $(startTime)
 
   val endTime = new Param[String](this, "endTime", "A required field, end time of data" +
     " to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setEndTime(v: String): this.type = set(endTime, v)
+  def setEndTime(v: String): this.type = {
+    try {
+      val formattedValue = DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
+      set(endTime, formattedValue)
+    }
+    catch {
+      case e: java.time.format.DateTimeParseException =>
+        throw new IllegalArgumentException(
+          s"End time should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
+    }
+  }
 
   def getEndTime: String = $(endTime)
 
@@ -348,16 +368,24 @@ trait MADBase extends HasOutputCol
     pw.println("timestamp,value")
 
     for (row <- rows) {
-      // <timestamp>,<value>
-      // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
-      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
+      try {
+        // <timestamp>,<value>
+        // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
+        val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
 
-      pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
-      pw.write(',')
+        pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
+        pw.write(',')
 
-      // TODO: do we have to worry about locale?
-      // pw.format(Locale.US, "%f", row.get(featureIdx))
-      pw.println(row.get(featureIdx))
+        // TODO: do we have to worry about locale?
+        // pw.format(Locale.US, "%f", row.get(featureIdx))
+        pw.println(row.get(featureIdx))
+      }
+      catch {
+        case e: java.time.format.DateTimeParseException =>
+          throw new IllegalArgumentException(
+            s"Timestamp column should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
+      }
+
     }
     pw.flush()
   }
