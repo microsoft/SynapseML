@@ -185,7 +185,7 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      displayName: Minimal Image Build + Push
+      displayName: Minimal Image Build
       inputs:
         containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
@@ -195,7 +195,7 @@ jobs:
         tags: $(version)
         arguments: --build-arg MMLSPARK_VERSION=$(version)
     - task: Docker@2
-      displayName: Minimal Image Build + Push
+      displayName: Minimal Image Push
       inputs:
         containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
