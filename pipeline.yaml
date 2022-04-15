@@ -176,7 +176,7 @@ jobs:
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
         tags: $(version)
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
@@ -193,7 +193,7 @@ jobs:
         buildContext: "."
         Dockerfile: 'tools/docker/minimal/Dockerfile'
         tags: $(version)
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
       displayName: Minimal Image Build + Push
       inputs:
@@ -213,7 +213,7 @@ jobs:
         tags: |
           $(version)
           latest
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
