@@ -78,7 +78,6 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-<<<<<<< serena/dotnetCodegen
   override def dotnetValue(v: Either[T, String]): String = {
     v match {
       case Left(t) => DotnetWrappableParam.dotnetDefaultRender(t)
@@ -108,8 +107,6 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-=======
->>>>>>> master
   def getType: String = typeOf[T].toString
 
 }
@@ -121,7 +118,6 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
                                               isValid: T => Boolean = (_: T) => true)
                                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[T](parent, name, doc, isValid)
-<<<<<<< serena/dotnetCodegen
     with PythonWrappableParam[T] with DotnetWrappableParam[T] {
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
@@ -136,11 +132,5 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
     }
   }
 
-=======
-    with PythonWrappableParam[T] {
-
-  override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
-
->>>>>>> master
   def getType: String = typeOf[T].toString
 }

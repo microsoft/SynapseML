@@ -35,13 +35,7 @@ case class CodegenConfig(name: String,
   def pyPackageDir: File = new File(packageDir, "python")
 
   def pyTestDir: File = new File(testDir, "python")
-<<<<<<< serena/dotnetCodegen
-
   def pyTestDataDir: File = new File(testDataDir, "python")
-
-=======
-  def pyTestDataDir: File = new File(testDataDir, "python")
->>>>>>> master
   def pySrcOverrideDir: File = new File(topDir, "src/main/python")
 
   def pyTestOverrideDir: File = new File(topDir, "src/test/python")
@@ -109,9 +103,5 @@ case class CodegenConfig(name: String,
 }
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
-<<<<<<< serena/dotnetCodegen
   implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
-=======
-  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
->>>>>>> master
 }
