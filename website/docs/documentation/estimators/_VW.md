@@ -27,7 +27,7 @@ vw = (VowpalWabbitRegressor()
 
 vwRegressor = (VowpalWabbitRegressor()
       .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
+      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
 ```
 
 </TabItem>
@@ -37,13 +37,13 @@ vwRegressor = (VowpalWabbitRegressor()
 import com.microsoft.azure.synapse.ml.vw._
 
 val vw = (new VowpalWabbitRegressor()
-      .setLabelCol("Y1")
-      .setFeaturesCol("features")
-      .setPredictionCol("pred"))
+  .setLabelCol("Y1")
+  .setFeaturesCol("features")
+  .setPredictionCol("pred"))
 
 val vwRegressor = (new VowpalWabbitRegressor()
-      .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
+  .setNumPasses(20)
+  .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1"))
 
 ```
 
@@ -75,7 +75,7 @@ values={[
 from synapse.ml.vw import *
 
 cb = (VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
@@ -91,13 +91,13 @@ cb = (VowpalWabbitContextualBandit()
 import com.microsoft.azure.synapse.ml.vw._
 
 val cb = (new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
-      .setLabelCol("cost")
-      .setProbabilityCol("prob")
-      .setChosenActionCol("chosen_action")
-      .setSharedCol("shared_features")
-      .setFeaturesCol("action_features")
-      .setUseBarrierExecutionMode(false))
+  .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+  .setLabelCol("cost")
+  .setProbabilityCol("prob")
+  .setChosenActionCol("chosen_action")
+  .setSharedCol("shared_features")
+  .setFeaturesCol("action_features")
+  .setUseBarrierExecutionMode(false))
 
 ```
 

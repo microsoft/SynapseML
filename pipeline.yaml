@@ -25,6 +25,7 @@ pr:
 
 variables:
   runTests: True
+  CONDA_CACHE_DIR: /usr/share/miniconda/envs
 
 jobs:
 - job: Style
@@ -115,43 +116,43 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-- job: SynapseE2E
-  timeoutInMinutes: 120
-  cancelTimeoutInMinutes: 0
-  pool:
-    vmImage: ubuntu-18.04
-  steps:
-    # - template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
-    - bash: |
-        set -e
-        source activate synapseml
-        jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
-        sbt packagePython
-        sbt publishBlob
-      displayName: Publish Blob Artifacts
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-    - task: AzureCLI@1
-      displayName: 'E2E'
-      inputs:
-        azureSubscription:  'MMLSpark Build'
-        scriptLocation: inlineScript
-        inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"'
-      condition: and(succeeded(), eq(variables.runTests, 'True'))
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      inputs:
-        testResultsFiles: '**/test-reports/TEST-*.xml'
-        failTaskOnFailedTests: true
-      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+# - job: SynapseE2E
+#   timeoutInMinutes: 120
+#   cancelTimeoutInMinutes: 0
+#   pool:
+#     vmImage: ubuntu-18.04
+#   steps:
+#     # - template: templates/ivy_cache.yml
+#     - template: templates/update_cli.yml
+#     - template: templates/conda.yml
+#     - template: templates/kv.yml
+#     - bash: |
+#         set -e
+#         source activate synapseml
+#         jupyter nbconvert --to script ./notebooks/features/*/*.ipynb*
+#         sbt packagePython
+#         sbt publishBlob
+#       displayName: Publish Blob Artifacts
+#       env:
+#         STORAGE-KEY: $(storage-key)
+#         NEXUS-UN: $(nexus-un)
+#         NEXUS-PW: $(nexus-pw)
+#         PGP-PRIVATE: $(pgp-private)
+#         PGP-PUBLIC: $(pgp-public)
+#         PGP-PW: $(pgp-pw)
+#     - task: AzureCLI@1
+#       displayName: 'E2E'
+#       inputs:
+#         azureSubscription:  'MMLSpark Build'
+#         scriptLocation: inlineScript
+#         inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"'
+#       condition: and(succeeded(), eq(variables.runTests, 'True'))
+#     - task: PublishTestResults@2
+#       displayName: 'Publish Test Results'
+#       inputs:
+#         testResultsFiles: '**/test-reports/TEST-*.xml'
+#         failTaskOnFailedTests: true
+#       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
 - job: PublishDocker
   displayName: PublishDocker
@@ -253,10 +254,22 @@ jobs:
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       condition: startsWith(variables['tag'], 'v')
       displayName: Add conda to PATH
-    - bash: conda info
+    - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+      displayName: Fix directory permissions
       condition: startsWith(variables['tag'], 'v')
-    - bash: conda env create -f environment.yaml
+    - task: Cache@2
+      displayName: Use cached Anaconda environment
       condition: startsWith(variables['tag'], 'v')
+      inputs:
+        key: 'conda | "$(Agent.OS)" | environment.yaml'
+        restoreKeys: |
+          python | "$(Agent.OS)"
+          python
+        path: $(CONDA_CACHE_DIR)
+        cacheHitVar: CONDA_CACHE_RESTORED
+    - bash: |
+        conda env create -f environment.yaml -v -v -v
+      condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       condition: startsWith(variables['tag'], 'v')
@@ -293,6 +306,7 @@ jobs:
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
+  timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:

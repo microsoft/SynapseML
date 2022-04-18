@@ -71,6 +71,19 @@ object HandlingUtils extends SparkLogging {
 
   type HandlerFunc = (CloseableHttpClient, HTTPRequestData) => HTTPResponseData
 
+  private def keepTrying(client: CloseableHttpClient,
+                         request: HttpRequestBase,
+                         retriesLeft: Array[Int],
+                         e: Throwable): CloseableHttpResponse = {
+    if (retriesLeft.isEmpty) {
+      throw e
+    } else {
+      Thread.sleep(retriesLeft.head.toLong)
+      sendWithRetries(client, request, retriesLeft.tail)
+    }
+  }
+
+  //noinspection ScalaStyle
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
                                   retriesLeft: Array[Int]): CloseableHttpResponse = {
@@ -120,13 +133,8 @@ object HandlingUtils extends SparkLogging {
         }
       }
     } catch {
-      case e: javax.net.ssl.SSLException =>
-        if (retriesLeft.isEmpty) {
-          throw e
-        } else {
-          Thread.sleep(retriesLeft.head.toLong)
-          sendWithRetries(client, request, retriesLeft.tail)
-        }
+      case e: javax.net.ssl.SSLException => keepTrying(client, request, retriesLeft, e)
+      case e: java.net.SocketTimeoutException => keepTrying(client, request, retriesLeft, e)
     }
   }
 

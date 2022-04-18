@@ -65,7 +65,7 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
           .setFeaturesCol(featuresColumn)
           .setPredictionCol(predCol)
           .setNumPasses(3)
-          .setArgs(s" $arg --quiet")
+          .setPassThroughArgs(s" $arg --quiet")
           .fit(trainData)
         val scoredResult = model.transform(trainData).drop(featuresColumn)
 
@@ -118,8 +118,8 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
       .setFeaturesCol("a")
       .setAdditionalFeatures(Array("b"))
       .setPredictionCol(predCol)
-      //.setArgs(s"-a") // don't pass -a (audit) when using interactions...
-      .setArgs("--quiet")
+      //.setPassThroughArgs(s"-a") // don't pass -a (audit) when using interactions...
+      .setPassThroughArgs("--quiet")
       .setInteractions(Array("ab"))
       .fit(trainData)
     val scoredResult = model.transform(trainData).drop(featuresColumn)
@@ -140,12 +140,12 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
 
     val model1 = new VowpalWabbitRegressor()
       .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
+      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
       .fit(dataset)
 
     val model2 = new VowpalWabbitRegressor()
       .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs")
+      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs")
       .setInitialModel(model1.getModel)
       .fit(dataset)
   }

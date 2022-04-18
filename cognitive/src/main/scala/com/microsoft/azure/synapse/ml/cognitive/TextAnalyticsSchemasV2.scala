@@ -9,13 +9,13 @@ import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 
 object SentimentResponseV2 extends SparkBindings[TAResponse[SentimentScoreV2]]
 
-case class SentimentScoreV2(id: String, score: Float)
+case class SentimentScoreV2(id: String, score: Float) extends HasDocId
 
 // Detect Language Schemas
 
 object DetectLanguageResponseV2 extends SparkBindings[TAResponse[DetectLanguageScoreV2]]
 
-case class DetectLanguageScoreV2(id: String, detectedLanguages: Seq[DetectedLanguageV2])
+case class DetectLanguageScoreV2(id: String, detectedLanguages: Seq[DetectedLanguageV2]) extends HasDocId
 
 case class DetectedLanguageV2(name: String, iso6391Name: String, score: Double)
 
@@ -23,7 +23,7 @@ case class DetectedLanguageV2(name: String, iso6391Name: String, score: Double)
 
 object DetectEntitiesResponseV2 extends SparkBindings[TAResponse[DetectEntitiesScoreV2]]
 
-case class DetectEntitiesScoreV2(id: String, entities: Seq[EntityV2])
+case class DetectEntitiesScoreV2(id: String, entities: Seq[EntityV2]) extends HasDocId
 
 case class EntityV2(name: String,
                     matches: Seq[Match],
@@ -38,7 +38,7 @@ case class Match(text: String, offset: Int, length: Int)
 
 object LocalNERResponseV2 extends SparkBindings[TAResponse[LocalNERScoreV2]]
 
-case class LocalNERScoreV2(id: String, entities: Seq[LocalNEREntityV2])
+case class LocalNERScoreV2(id: String, entities: Seq[LocalNEREntityV2]) extends HasDocId
 
 case class LocalNEREntityV2(value: String,
                             startIndex: Int,
@@ -47,7 +47,7 @@ case class LocalNEREntityV2(value: String,
 
 object NERResponseV2 extends SparkBindings[TAResponse[NERDocV2]]
 
-case class NERDocV2(id: String, entities: Seq[NEREntityV2])
+case class NERDocV2(id: String, entities: Seq[NEREntityV2]) extends HasDocId
 
 case class NEREntityV2(name: String,
                        matches: Seq[NERMatchV2],
@@ -66,4 +66,4 @@ case class NERMatchV2(text: String,
 
 object KeyPhraseResponseV2 extends SparkBindings[TAResponse[KeyPhraseScoreV2]]
 
-case class KeyPhraseScoreV2(id: String, keyPhrases: Seq[String])
+case class KeyPhraseScoreV2(id: String, keyPhrases: Seq[String]) extends HasDocId
