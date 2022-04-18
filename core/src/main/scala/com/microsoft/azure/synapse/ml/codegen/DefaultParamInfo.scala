@@ -50,7 +50,8 @@ object DefaultParamInfo extends Logging {
   val SeqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
   val SeqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
   val SeqTextAndTranslationInfo = new ParamInfo[ServiceParam[_]]("object", "TextAndTranslation[]")
-  val DiagnosticsInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "DiagnosticsInfo")
+  // TODO: fix DiagnosticsInfo on dotnet side
+  val DiagnosticsInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "object")
   val TextAnalyzeTaskParamInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "TextAnalyzeTask[]")
 
   val UnknownInfo = new ParamInfo[Param[_]]("object", "object")
