@@ -14,7 +14,6 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -388,17 +387,17 @@ class EntityDetector(override val uid: String)
 class TextAnalyzeTaskParam(parent: Params,
                            name: String,
                            doc: String,
-                           isValid: Seq[TAAnalyzeTask] => Boolean = (_: Seq[TAAnalyzeTask]) => true)
-                          (@transient override implicit val dataFormat: JsonFormat[Seq[TAAnalyzeTask]])
-  extends CognitiveServiceStructParam[Seq[TAAnalyzeTask]](parent, name, doc, isValid) {
-  type ValueType = TAAnalyzeTask
+                           isValid: Seq[TextAnalyzeTask] => Boolean = (_: Seq[TextAnalyzeTask]) => true)
+                          (@transient override implicit val dataFormat: JsonFormat[Seq[TextAnalyzeTask]])
+  extends CognitiveServiceStructParam[Seq[TextAnalyzeTask]](parent, name, doc, isValid) {
+  type ValueType = TextAnalyzeTask
 
-  override def w(value: Seq[TAAnalyzeTask]): ParamPair[Seq[TAAnalyzeTask]] = super.w(value)
+  override def w(value: Seq[TextAnalyzeTask]): ParamPair[Seq[TextAnalyzeTask]] = super.w(value)
 
-  def w(value: java.util.ArrayList[util.HashMap[String, Any]]): ParamPair[Seq[TAAnalyzeTask]] =
+  def w(value: java.util.ArrayList[util.HashMap[String, Any]]): ParamPair[Seq[TextAnalyzeTask]] =
     super.w(value.asScala.toArray.map(hashMapToTAAnalyzeTask))
 
-  def hashMapToTAAnalyzeTask(value: util.HashMap[String, Any]): TAAnalyzeTask = {
+  def hashMapToTAAnalyzeTask(value: util.HashMap[String, Any]): TextAnalyzeTask = {
     if (!value.containsKey("parameters")) {
       throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
     }
@@ -407,7 +406,7 @@ class TextAnalyzeTaskParam(parent: Params,
     }
     val valParameters = value.get("parameters").asInstanceOf[util.HashMap[String, Any]]
     val parameters = valParameters.asScala.toMap.map { x => (x._1, x._2.toString) }
-    TAAnalyzeTask(parameters)
+    TextAnalyzeTask(parameters)
   }
 }
 
@@ -427,11 +426,11 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity recognition tasks to perform on submitted documents"
   )
 
-  def getEntityRecognitionTasks: Seq[TAAnalyzeTask] = $(entityRecognitionTasks)
+  def getEntityRecognitionTasks: Seq[TextAnalyzeTask] = $(entityRecognitionTasks)
 
-  def setEntityRecognitionTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
+  def setEntityRecognitionTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
 
-  setDefault(entityRecognitionTasks -> Seq[TAAnalyzeTask]())
+  setDefault(entityRecognitionTasks -> Seq[TextAnalyzeTask]())
 
   val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
     this,
@@ -439,11 +438,11 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity recognition pii tasks to perform on submitted documents"
   )
 
-  def getEntityRecognitionPiiTasks: Seq[TAAnalyzeTask] = $(entityRecognitionPiiTasks)
+  def getEntityRecognitionPiiTasks: Seq[TextAnalyzeTask] = $(entityRecognitionPiiTasks)
 
-  def setEntityRecognitionPiiTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
+  def setEntityRecognitionPiiTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
 
-  setDefault(entityRecognitionPiiTasks -> Seq[TAAnalyzeTask]())
+  setDefault(entityRecognitionPiiTasks -> Seq[TextAnalyzeTask]())
 
   val entityLinkingTasks = new TextAnalyzeTaskParam(
     this,
@@ -451,11 +450,11 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity linking tasks to perform on submitted documents"
   )
 
-  def getEntityLinkingTasks: Seq[TAAnalyzeTask] = $(entityLinkingTasks)
+  def getEntityLinkingTasks: Seq[TextAnalyzeTask] = $(entityLinkingTasks)
 
-  def setEntityLinkingTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityLinkingTasks, v)
+  def setEntityLinkingTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityLinkingTasks, v)
 
-  setDefault(entityLinkingTasks -> Seq[TAAnalyzeTask]())
+  setDefault(entityLinkingTasks -> Seq[TextAnalyzeTask]())
 
   val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
     this,
@@ -463,11 +462,11 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the key phrase extraction tasks to perform on submitted documents"
   )
 
-  def getKeyPhraseExtractionTasks: Seq[TAAnalyzeTask] = $(keyPhraseExtractionTasks)
+  def getKeyPhraseExtractionTasks: Seq[TextAnalyzeTask] = $(keyPhraseExtractionTasks)
 
-  def setKeyPhraseExtractionTasks(v: Seq[TAAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
+  def setKeyPhraseExtractionTasks(v: Seq[TextAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
 
-  setDefault(keyPhraseExtractionTasks -> Seq[TAAnalyzeTask]())
+  setDefault(keyPhraseExtractionTasks -> Seq[TextAnalyzeTask]())
 
   val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
     this,
@@ -475,13 +474,13 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the sentiment analysis tasks to perform on submitted documents"
   )
 
-  def getSentimentAnalysisTasks: Seq[TAAnalyzeTask] = $(sentimentAnalysisTasks)
+  def getSentimentAnalysisTasks: Seq[TextAnalyzeTask] = $(sentimentAnalysisTasks)
 
-  def setSentimentAnalysisTasks(v: Seq[TAAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
+  def setSentimentAnalysisTasks(v: Seq[TextAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
 
-  setDefault(sentimentAnalysisTasks -> Seq[TAAnalyzeTask]())
+  setDefault(sentimentAnalysisTasks -> Seq[TextAnalyzeTask]())
 
-  override protected def responseDataType: StructType = TAAnalyzeResponse.schema
+  override protected def responseDataType: StructType = TextAnalyzeResponse.schema
 
   def urlPath: String = "/text/analytics/v3.1/analyze"
 
@@ -490,21 +489,22 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   override protected def modifyPollingURI(originalURI: URI): URI = {
     // async API allows up to 25 results to be submitted in a batch, but defaults to 20 results per page
     // Add $top=25 to force the full batch in the response
-    val originalQuery = originalURI.getQuery()
-    val newQuery = originalQuery match{
+    val originalQuery = originalURI.getQuery
+    val newQuery = originalQuery match {
       case "" => "$top=25"
       case _ => "$top=25&" + originalQuery // The API picks up the first value of top so add as a prefix
     }
-    return new URI(
-      originalURI.getScheme(),
-      originalURI.getUserInfo(),
-      originalURI.getHost(),
-      originalURI.getPort(),
-      originalURI.getPath(),
+    new URI(
+      originalURI.getScheme,
+      originalURI.getUserInfo,
+      originalURI.getHost,
+      originalURI.getPort,
+      originalURI.getPath,
       newQuery,
-      originalURI.getFragment()
+      originalURI.getFragment
     )
   }
+
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -527,97 +527,78 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
           TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
         }
         val displayName = "SynapseML"
-        val analysisInput = TAAnalyzeAnalysisInput(documents)
-        val tasks = TAAnalyzeTasks(
+        val analysisInput = TextAnalyzeInput(documents)
+        val tasks = TextAnalyzeTasks(
           entityRecognitionTasks = getEntityRecognitionTasks,
           entityLinkingTasks = getEntityLinkingTasks,
           entityRecognitionPiiTasks = getEntityRecognitionPiiTasks,
           keyPhraseExtractionTasks = getKeyPhraseExtractionTasks,
           sentimentAnalysisTasks = getSentimentAnalysisTasks
         )
-        val json = TAAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
+        val json = TextAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
     }
   }
 
-  // TODO refactor to remove duplicate from TextAnalyticsBase
-  private def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int): Option[Seq[Row]] = {
-    val namedTaskRow = tasksRow
-      .getAs[Seq[GenericRowWithSchema]](taskName)
-    if (namedTaskRow == null) {
-      None
-    } else {
-      val rows = namedTaskRow.map(inputRow => {
-        val state = inputRow.getAs[String]("state")
-        if (state == "succeeded"){
-          val result = inputRow.getAs[GenericRowWithSchema]("results")
-          val documents = result.getAs[Seq[GenericRowWithSchema]]("documents")
-          val errors = result.getAs[Seq[GenericRowWithSchema]]("errors")
-          val doc = documents.find { d => d.getAs[String]("id").toInt == documentIndex }
-          val error = errors.find { e => e.getAs[String]("id").toInt == documentIndex }
-          val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
-          resultRow
-        } else {
-          // Task failed
-          val error = Seq(documentIndex, "Task failed")
-          val resultRow = Row.fromSeq(Seq(None, error))
-          resultRow
-        }
-      })
-      Some(rows)
-    }
+  private def getTaskRowsTyped[T <: HasDocId](namedTaskRow: Seq[TextAnalyzeAPIResults[T]],
+                                              documentIndex: Int): Seq[TextAnalyzeResult[T]] = {
+    namedTaskRow.map(inputRow => {
+      val state = inputRow.state
+      if (inputRow.results.isDefined && state.toLowerCase == "succeeded") {
+        val result = inputRow.results.get
+        val documents = result.documents
+        val errors = result.errors
+        val doc = documents.find { d => d.id.toInt == documentIndex }
+        val error = errors.find { e => e.id.toInt == documentIndex }
+        TextAnalyzeResult(doc, error) // result/errors per task, per document
+      } else {
+        // Task failed
+        val doc: Option[T] = None
+        TextAnalyzeResult(doc, Some(TAError(documentIndex.toString, s"Task failed with state $state")))
+      }
+    })
   }
 
   override protected def unpackBatchUDF: UserDefinedFunction = {
-    val innerResponseDataType = TAAnalyzeResults.schema
-
+    val innerResponseDataType = TextAnalyzeSimplifiedResponse.schema
+    val fromRow = TextAnalyzeResponse.makeFromRowConverter
+    val toRow = TextAnalyzeSimplifiedResponse.makeToRowConverter
     UDFUtils.oldUdf({ rowOpt: Row =>
       Option(rowOpt).map { row =>
-        val tasks = row.getAs[GenericRowWithSchema]("tasks")
+        val parsed = fromRow(row)
+        val allTasks = Seq(
+          parsed.tasks.entityRecognitionTasks,
+          parsed.tasks.entityLinkingTasks,
+          parsed.tasks.entityRecognitionPiiTasks,
+          parsed.tasks.keyPhraseExtractionTasks,
+          parsed.tasks.sentimentAnalysisTasks
+        )
 
-        // Determine the total number of documents (successful docs + errors)
-        // We need to handle the fact that entityRecognition might not have been specified
-        // - i.e. find the first task with results
-        val taskNames = Seq(
-          "entityRecognitionTasks",
-          "entityLinkingTasks",
-          "entityRecognitionPiiTasks",
-          "keyPhraseExtractionTasks",
-          "sentimentAnalysisTasks")
-        val succeededTasks = taskNames.map(name => tasks.getAs[Seq[GenericRowWithSchema]](name))
-          .filter(r => r != null)
+        val succeededTasks = allTasks
+          .flatten
           .flatten
           // only consider tasks that succeeded to handle 'partiallycompleted' requests
-          .filter(r => r.getAs[String]("state") == "succeeded")
+          .filter(_.state.toLowerCase == "succeeded")
+          .filter(_.results.isDefined)
 
-          if (succeededTasks.length == 0) {
-           Seq()
-          } else {
-            val succeededTask = succeededTasks.head
-            val results = succeededTask.getAs[GenericRowWithSchema]("results")
-            val docCount = results.getAs[Seq[GenericRowWithSchema]]("documents").size
-            val errorCount = results.getAs[Seq[GenericRowWithSchema]]("errors").size
-
-            val rows: Seq[Row] = (0 until (docCount + errorCount)).map(i => {
-              val entityRecognitionRows = getTaskRows(tasks, "entityRecognitionTasks", i)
-              val entityLinkingRows = getTaskRows(tasks, "entityLinkingTasks", i)
-              val entityRecognitionPiiRows = getTaskRows(tasks, "entityRecognitionPiiTasks", i)
-              val keyPhraseRows = getTaskRows(tasks, "keyPhraseExtractionTasks", i)
-              val sentimentAnalysisRows = getTaskRows(tasks, "sentimentAnalysisTasks", i)
-
-              val taaResult = Seq(
-                entityRecognitionRows,
-                entityLinkingRows,
-                entityRecognitionPiiRows,
-                keyPhraseRows,
-                sentimentAnalysisRows)
-              val resultRow = Row.fromSeq(taaResult)
-              resultRow
-            })
-            rows
-          }
+        if (succeededTasks.isEmpty) {
+          Seq()
+        } else {
+          val results = succeededTasks.head.results.get
+          val docCount = results.documents.size
+          val errorCount = results.errors.size
+          (0 until (docCount + errorCount)).map(i => {
+            toRow(TextAnalyzeSimplifiedResponse(
+              parsed.tasks.entityRecognitionTasks.map(t => getTaskRowsTyped(t, i)),
+              parsed.tasks.entityLinkingTasks.map(t => getTaskRowsTyped(t, i)),
+              parsed.tasks.entityRecognitionPiiTasks.map(t => getTaskRowsTyped(t, i)),
+              parsed.tasks.keyPhraseExtractionTasks.map(t => getTaskRowsTyped(t, i)),
+              parsed.tasks.sentimentAnalysisTasks.map(t => getTaskRowsTyped(t, i))
+            ))
+          })
+        }
       }
     }, ArrayType(innerResponseDataType)
     )

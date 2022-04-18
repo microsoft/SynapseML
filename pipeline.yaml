@@ -25,6 +25,7 @@ pr:
 
 variables:
   runTests: True
+  CONDA_CACHE_DIR: /usr/share/miniconda/envs
 
 jobs:
 - job: Style
@@ -270,10 +271,22 @@ jobs:
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       condition: startsWith(variables['tag'], 'v')
       displayName: Add conda to PATH
-    - bash: conda info
+    - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+      displayName: Fix directory permissions
       condition: startsWith(variables['tag'], 'v')
-    - bash: conda env create -f environment.yaml
+    - task: Cache@2
+      displayName: Use cached Anaconda environment
       condition: startsWith(variables['tag'], 'v')
+      inputs:
+        key: 'conda | "$(Agent.OS)" | environment.yaml'
+        restoreKeys: |
+          python | "$(Agent.OS)"
+          python
+        path: $(CONDA_CACHE_DIR)
+        cacheHitVar: CONDA_CACHE_RESTORED
+    - bash: |
+        conda env create -f environment.yaml -v -v -v
+      condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
       condition: startsWith(variables['tag'], 'v')
