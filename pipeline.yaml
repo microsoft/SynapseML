@@ -80,7 +80,6 @@ jobs:
         PGP-PW: $(pgp-pw)
 
 - job: DatabricksE2E
-  dependsOn: Publish
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -90,6 +89,19 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+    - bash: |
+        set -e
+        source activate synapseml
+        sbt packagePython
+        sbt publishBlob
+      displayName: Publish Blob Artifacts
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
     - task: AzureCLI@1
       displayName: 'E2E'
       inputs:

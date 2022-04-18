@@ -194,37 +194,28 @@ trait MADBase extends HasOutputCol
   with ComplexParamsWritable with Wrappable
   with HasErrorCol with BasicLogging {
 
-  val startTime = new Param[String](this, "startTime", "A required field, start time" +
-    " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
-
-  def setStartTime(v: String): this.type = {
+  private def convertTimeFormat(name: String, v: String): String = {
     try {
-      val formattedValue = DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
-      set(startTime, formattedValue)
+      DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
     }
     catch {
       case e: java.time.format.DateTimeParseException =>
         throw new IllegalArgumentException(
-          s"Start time should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
+          s"${name.capitalize} should be ISO8601 format. e.g. 2021-01-01T00:00:00Z, received: ${e.toString}")
     }
   }
+
+  val startTime = new Param[String](this, "startTime", "A required field, start time" +
+    " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
+
+  def setStartTime(v: String): this.type = set(startTime, convertTimeFormat(startTime.name, v))
 
   def getStartTime: String = $(startTime)
 
   val endTime = new Param[String](this, "endTime", "A required field, end time of data" +
     " to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setEndTime(v: String): this.type = {
-    try {
-      val formattedValue = DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
-      set(endTime, formattedValue)
-    }
-    catch {
-      case e: java.time.format.DateTimeParseException =>
-        throw new IllegalArgumentException(
-          s"End time should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
-    }
-  }
+  def setEndTime(v: String): this.type = set(endTime, convertTimeFormat(endTime.name, v))
 
   def getEndTime: String = $(endTime)
 
@@ -373,23 +364,16 @@ trait MADBase extends HasOutputCol
     pw.println("timestamp,value")
 
     for (row <- rows) {
-      try {
-        // <timestamp>,<value>
-        // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
-        val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
+      // <timestamp>,<value>
+      // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
+      val formattedTimestamp = convertTimeFormat("Timestamp column", row.getString(timestampColIdx))
 
-        pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
-        pw.write(',')
+      pw.print(formattedTimestamp)
+      pw.write(',')
 
-        // TODO: do we have to worry about locale?
-        // pw.format(Locale.US, "%f", row.get(featureIdx))
-        pw.println(row.get(featureIdx))
-      }
-      catch {
-        case e: java.time.format.DateTimeParseException =>
-          throw new IllegalArgumentException(
-            s"Timestamp column should be ISO8601 format. e.g. 2021-01-01T00:00:00Z: ${e.toString}")
-      }
+      // TODO: do we have to worry about locale?
+      // pw.format(Locale.US, "%f", row.get(featureIdx))
+      pw.println(row.get(featureIdx))
 
     }
     pw.flush()
@@ -597,7 +581,6 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)
       .add(getOutputCol, DMAResponse.schema)
-      .add("isAnomaly", BooleanType)
       .add("isAnomaly", BooleanType)
   }
 

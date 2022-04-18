@@ -145,7 +145,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
         .setConnectionString(connectionString)
       smae.fit(df)
     }
-    assert(caught.getMessage.contains("Start time should be ISO8601 format."))
+    assert(caught.getMessage.contains("StartTime should be ISO8601 format."))
 
     val caught2 = intercept[IllegalArgumentException] {
       val smae = simpleMultiAnomalyEstimator
@@ -154,7 +154,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
         .setConnectionString(connectionString)
       smae.fit(df)
     }
-    assert(caught2.getMessage.contains("End time should be ISO8601 format."))
+    assert(caught2.getMessage.contains("EndTime should be ISO8601 format."))
   }
 
   test("Expose correct error message during fitting") {
