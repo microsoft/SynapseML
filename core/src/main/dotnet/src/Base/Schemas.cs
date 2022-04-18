@@ -9,17 +9,17 @@ using System.Collections.Generic;
 namespace SynapseML.Dotnet.Utils
 {
 
-    public sealed class TAAnalyzeTask : IJvmObjectReferenceProvider
+    public sealed class TextAnalyzeTask : IJvmObjectReferenceProvider
     {
 
         public Dictionary<string, string> Parameters { get; init; }
 
-        public TAAnalyzeTask(Dictionary<string, string> parameters)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TAAnalyzeTask", parameters.ToJavaHashMap()))
+        public TextAnalyzeTask(Dictionary<string, string> parameters)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask", parameters.ToJavaHashMap()))
         {
         }
 
-        internal TAAnalyzeTask(JvmObjectReference jvmObject)
+        internal TextAnalyzeTask(JvmObjectReference jvmObject)
         {
             Reference = jvmObject;
             JvmObjectReference parameters = (JvmObjectReference)Reference.Invoke("parameters");

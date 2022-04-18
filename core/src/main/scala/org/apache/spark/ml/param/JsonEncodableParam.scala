@@ -126,8 +126,8 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   override def dotnetSetterLine(v: T): String = {
     typeOf[T].toString match {
-      case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TAAnalyzeTask]" =>
-        s"""Set${dotnetName(v).capitalize}(new TAAnalyzeTask[]{${dotnetValue(v)}})"""
+      case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" =>
+        s"""Set${dotnetName(v).capitalize}(new TextAnalyzeTask[]{${dotnetValue(v)}})"""
       case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
     }
   }

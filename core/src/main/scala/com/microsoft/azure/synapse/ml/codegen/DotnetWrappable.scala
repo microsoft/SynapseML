@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.collection.JavaConverters._
 
+// TODO: delete as moved this to dotnet/spark repo
 object DotnetHelper {
 
   def setPipelineStages(pipeline: Pipeline, value: java.util.ArrayList[_ <: PipelineStage]): Pipeline =
@@ -73,10 +74,10 @@ trait DotnetWrappable extends BaseWrappable {
 
   protected lazy val dotnetObjectBaseClass: String = {
     thisStage match {
-      case _: Estimator[_] => s"ScalaEstimator<${companionModelClassName.split(".".toCharArray).last}>"
-      case _: Model[_] => s"ScalaModel<$dotnetClassName>"
-      case _: Transformer => s"ScalaTransformer"
-      case _: Evaluator => s"ScalaEvaluator"
+      case _: Estimator[_] => s"JavaEstimator<${companionModelClassName.split(".".toCharArray).last}>"
+      case _: Model[_] => s"JavaModel<$dotnetClassName>"
+      case _: Transformer => s"JavaTransformer"
+      case _: Evaluator => s"JavaEvaluator"
     }
   }
 
@@ -96,13 +97,13 @@ trait DotnetWrappable extends BaseWrappable {
         |/// <param name="path">The path to save the object to</param>
         |public void Save(string path) => Reference.Invoke("save", path);
         |
-        |/// <returns>a <see cref=\"ScalaMLWriter\"/> instance for this ML instance.</returns>
-        |public ScalaMLWriter Write() =>
-        |    new ScalaMLWriter((JvmObjectReference)Reference.Invoke("write"));
+        |/// <returns>a <see cref=\"JavaMLWriter\"/> instance for this ML instance.</returns>
+        |public JavaMLWriter Write() =>
+        |    new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
         |
-        |/// <returns>an <see cref=\"ScalaMLReader\"/> instance for this ML instance.</returns>
-        |public ScalaMLReader<$dotnetClassName> Read() =>
-        |    new ScalaMLReader<$dotnetClassName>((JvmObjectReference)Reference.Invoke("read"));
+        |/// <returns>an <see cref=\"JavaMLReader\"/> instance for this ML instance.</returns>
+        |public JavaMLReader<$dotnetClassName> Read() =>
+        |    new JavaMLReader<$dotnetClassName>((JvmObjectReference)Reference.Invoke("read"));
         |""".stripMargin
   }
 
@@ -163,19 +164,19 @@ trait DotnetWrappable extends BaseWrappable {
             |""".stripMargin
       case _: EstimatorParam | _: ModelParam =>
         s"""|$docString
-            |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : ScalaModel<M> =>
+            |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : JavaModel<M> =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
             |""".stripMargin
       case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam | _: UntypedArrayParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToArrayList()));
+            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
             |""".stripMargin
       case _: ArrayMapParam =>
         s"""|$docString
             |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
             |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
-            |        (object)value.Select(_ => _.ToHashMap()).ToArray().ToArrayList()));
+            |        (object)value.Select(_ => _.ToJavaHashMap()).ToArray().ToJavaArrayList()));
             |""".stripMargin
       // TODO: Fix UDF & UDPyF confusion
       case _: UDFParam | _: UDPyFParam =>
@@ -212,11 +213,12 @@ trait DotnetWrappable extends BaseWrappable {
           |/// </returns>""".stripMargin
     p match {
       case sp: ServiceParam[_] =>
-        val dType = getServiceParamInfo(sp).dotnetType
+        val dType = getGeneralParamInfo(sp).dotnetType
         dType match {
           case "TimeSeriesPoint[]" |
                "TargetInput[]" |
-               "TextAndTranslation[]" =>
+               "TextAndTranslation[]" |
+               "TAAnalyzeTask[]" =>
             s"""
                |$docString
                |public $dType Get$capName()
@@ -261,7 +263,7 @@ trait DotnetWrappable extends BaseWrappable {
            |{
            |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
            |    JvmObjectReference hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |        "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "convertToJavaMap", jvmObject);
+           |        "org.apache.spark.api.dotnet.DotnetUtils", "convertToJavaMap", jvmObject);
            |    JvmObjectReference[] keySet = (JvmObjectReference[])(
            |        (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
            |    ${getParamInfo(p).dotnetType} result = new ${getParamInfo(p).dotnetType}();
@@ -291,7 +293,7 @@ trait DotnetWrappable extends BaseWrappable {
            |    for (int i = 0; i < result.Length; i++)
            |    {
            |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |            "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "mapScalaToJava", (object)jvmObjects[i]);
+           |            "org.apache.spark.api.dotnet.DotnetUtils", "mapScalaToJava", (object)jvmObjects[i]);
            |    }
            |    return result;
            |}
@@ -317,7 +319,7 @@ trait DotnetWrappable extends BaseWrappable {
            |        foreach (var k in keySet)
            |        {
            |            val = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper",
+           |                "org.apache.spark.api.dotnet.DotnetUtils",
            |                "mapScalaToJava", hashMap.Invoke("get", k));
            |            dic.Add((string)k.Invoke("toString"), val);
            |        }
@@ -444,7 +446,6 @@ trait DotnetWrappable extends BaseWrappable {
         |using Microsoft.Spark.Interop.Internal.Java.Util;
         |using Microsoft.Spark.Sql;
         |using Microsoft.Spark.Sql.Types;
-        |using SynapseML.Dotnet.Wrapper;
         |using SynapseML.Dotnet.Utils;
         |using Synapse.ML.LightGBM.Param;
         |$dotnetExtraEstimatorImports
@@ -454,7 +455,7 @@ trait DotnetWrappable extends BaseWrappable {
         |    /// <summary>
         |    /// <see cref=\"$dotnetClassName\"/> implements $dotnetClassName
         |    /// </summary>
-        |    public class $dotnetClassName : $dotnetObjectBaseClass, ScalaMLWritable, ScalaMLReadable<$dotnetClassName>
+        |    public class $dotnetClassName : $dotnetObjectBaseClass, IJavaMLWritable, IJavaMLReadable<$dotnetClassName>
         |    {
         |        private static readonly string $dotnetClassNameString = \"${thisStage.getClass.getName}\";
         |
