@@ -64,8 +64,8 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetType: String = "ScalaEstimator<M>"
+  override def dotnetType: String = "JavaEstimator<M>"
 
-  override def dotnetReturnType: String = "Estimator<object>"
+  override def dotnetReturnType: String = "IEstimator<object>"
 
 }

@@ -16,5 +16,5 @@ class TransformerParam(parent: Params, name: String, doc: String, isValid: Trans
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetType: String = "ScalaTransformer"
+  override def dotnetType: String = "JavaTransformer"
 }

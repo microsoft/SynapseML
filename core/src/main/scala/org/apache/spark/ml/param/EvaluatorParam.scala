@@ -15,6 +15,6 @@ class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluat
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-  override def dotnetType: String = "ScalaEvaluator"
+  override def dotnetType: String = "JavaEvaluator"
 
 }

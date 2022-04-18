@@ -1,12 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Spark.Interop;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
-using SynapseML.Dotnet.Wrapper;
 
 namespace Synapse.ML.LightGBM.Param
 {

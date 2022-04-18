@@ -193,7 +193,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using Microsoft.Spark.Sql;
          |using Microsoft.Spark.Sql.Types;
          |using SynapseML.Dotnet.Utils;
-         |using SynapseML.Dotnet.Wrapper;
+         |
          |using Xunit;
          |using SynapseMLtest.Utils;
          |using SynapseMLtest.Helper;

@@ -18,6 +18,6 @@ class TransformerArrayParam(parent: Params, name: String, doc: String, isValid: 
   /** Creates a param pair with the given value (for Java). */
   def w(value: java.util.List[Transformer]): ParamPair[Array[Transformer]] = w(value.asScala.toArray)
 
-  override def dotnetType: String = "ScalaTransformer[]"
+  override def dotnetType: String = "JavaTransformer[]"
 
 }
