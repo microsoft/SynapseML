@@ -376,9 +376,10 @@ values={[
 from synapse.ml.cognitive import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
-df = spark.createDataFrame([
-  ([("fly", "volar")],)
-], ["textAndTranslation",])
+df = (spark.createDataFrame([
+  ("fly", "volar")
+], ["text", "translation"])
+    .withColumn("textAndTranslation", array(struct(col("text"), col("translation")))))
 
 dictionaryExamples = (DictionaryExamples()
                   .setSubscriptionKey(translatorKey)
@@ -403,7 +404,7 @@ import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
-val df = Seq(List(("fly", "volar"))).toDF("textAndTranslation")
+val df = Seq(List(TextAndTranslation("fly", "volar"))).toDF("textAndTranslation")
 
 val dictionaryExamples = (new DictionaryExamples()
                         .setSubscriptionKey(translatorKey)

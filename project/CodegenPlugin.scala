@@ -35,16 +35,23 @@ object CodegenPlugin extends AutoPlugin {
 
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
+<<<<<<< serena/dotnetCodegen
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
   val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
   val TestDotnetTag = Tags.Tag("testDotnet")
+=======
+  val PyTestGenTag = Tags.Tag("pyTestGen")
+>>>>>>> master
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
 
+<<<<<<< serena/dotnetCodegen
     val dotnetVersion = settingKey[String]("Dotnet version")
+=======
+>>>>>>> master
     val genPackageNamespace = settingKey[String]("genPackageNamespace")
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
 
@@ -69,12 +76,15 @@ object CodegenPlugin extends AutoPlugin {
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
+<<<<<<< serena/dotnetCodegen
 
     val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
     val dotnetCodeGen = TaskKey[Unit]("dotnetCodegen", "Generate dotnet code")
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
+=======
+>>>>>>> master
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
@@ -120,6 +130,7 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
     }
   } tag (PyTestGenTag)
+<<<<<<< serena/dotnetCodegen
 
   def dotnetTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -153,6 +164,8 @@ object CodegenPlugin extends AutoPlugin {
       new File(codegenDir.value, "test/dotnet/")
     )
   } tag (TestDotnetTag)
+=======
+>>>>>>> master
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -165,7 +178,10 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
+<<<<<<< serena/dotnetCodegen
         dotnetVersion.value,
+=======
+>>>>>>> master
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -178,7 +194,10 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
+<<<<<<< serena/dotnetCodegen
         dotnetVersion.value,
+=======
+>>>>>>> master
         genPackageNamespace.value
       ).toJson.compactPrint
     },

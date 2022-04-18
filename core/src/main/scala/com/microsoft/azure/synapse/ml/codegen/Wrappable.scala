@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.collection.Iterator.iterate
 
+
 trait BaseWrappable extends Params {
 
   import com.microsoft.azure.synapse.ml.codegen.DefaultParamInfo._
