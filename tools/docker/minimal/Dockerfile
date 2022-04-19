@@ -1,21 +1,49 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
-ARG SPARK_VERSION=3.2.0
+ARG SYNAPSEML_VERSION=0.9.5
+ARG DEBIAN_FRONTEND=noninteractive
+
+ENV SPARK_VERSION=3.2.1
+ENV HADOOP_VERSION=2.7
+ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
+ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
+
+# Install required packages
 RUN apt-get -qq update \
-    && apt-get -qq upgrade \
-    && apt-get -qq -y install curl bzip2 \
-    && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
-    && bash /tmp/miniconda.sh -bfp /usr/local \
-    && rm -rf /tmp/miniconda.sh \
-    && conda install -y python=3 \
-    && conda update conda \
-    && apt-get install openjdk-8-jre -y \
-	&& conda install -c conda-forge pyspark=${SPARK_VERSION} \
-    && apt-get -qq -y remove curl bzip2 \
+    && apt-get -qq -y install \
+      curl \
+      bzip2 \
+      wget \
+      default-jre \
+      openmpi-bin \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
-    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
+    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
+
+# Install conda and required dependencies
+RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -bfp /usr/local \
+    && rm -rf /tmp/miniconda.sh \
+    && conda update conda \
+    && conda install -y python=3 jupyter pyspark \
     && conda clean --all --yes
 
 ENV PATH /opt/conda/bin:$PATH
-ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+
+# Download and install Spark
+RUN wget https://downloads.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+    && tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+    && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
+    && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+
+ENV SPARK_HOME /opt/spark
+ENV PYTHONPATH $SPARK_HOME/python/:$SPARK_HOME/python/lib/py4j*:$PYTHON_PATH
+ENV PATH $SPARK_HOME/bin/:$SPARK_HOME/python/:$PATH
+
+RUN apt-get remove --purge -y \
+        curl \
+        bzip2 \
+        wget \
+    && apt-get -qq -y autoremove \
+    && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
