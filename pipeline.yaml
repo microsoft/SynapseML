@@ -26,6 +26,7 @@ pr:
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
+  ComponentDetection.Timeout: 900
 
 jobs:
 - job: Style
