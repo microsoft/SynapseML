@@ -28,9 +28,8 @@ trait PipelineStageWrappable[T <: PipelineStage]
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |from pyspark.ml import Pipeline
-       |${name}Model = Pipeline.load(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
-       |${name}Model = ${name}Model.getStages()[0]
+       |${name}Model <- ml_load(sc, paste(test_data_dir, "model-$modelNum.model", "complexParams", "$name", sep = "/"))
+       |${name}Model <- ml_stages(${name}Model)[1]
        |""".stripMargin
   }
 

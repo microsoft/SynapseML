@@ -58,6 +58,7 @@ object CodegenPlugin extends AutoPlugin {
     val packageR = TaskKey[Unit]("packageR", "Generate roxygen docs and zip R package")
     val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
     val testR = TaskKey[Unit]("testR", "Run testthat on R tests")
+    val rTestgen = TaskKey[Unit]("rTestgen", "Generate python tests")
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -79,15 +80,16 @@ object CodegenPlugin extends AutoPlugin {
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
     packageR.value
     publishLocal.value
-    val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
+    val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
+    val rTestDir = join(codegenDir.value, "test", "R")
     rCmd(activateCondaEnv,
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (join(rSrcDir,"tests").exists()){
-      rCmd(activateCondaEnv,
-        Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
+    if (rTestDir.exists()){
+        rCmd(activateCondaEnv,
+        Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
     }
   } tag (RInstallTag)
 

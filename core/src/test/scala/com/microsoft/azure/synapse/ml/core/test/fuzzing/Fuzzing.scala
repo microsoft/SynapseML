@@ -16,7 +16,6 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
-import org.apache.commons.lang.StringUtils.capitalize
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -261,6 +260,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
     val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val rStageName = s"ml_${camelToSnake(stageName)}"
 
     def instantiateModel(paramMap: Seq[ParamPair[_]]) = {
       val externalLoadingLines = paramMap.flatMap { pp =>
@@ -273,7 +273,8 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
       s"""
          |$externalLoadingLines
          |
-         |model = $stageName(
+         |model <- $rStageName(
+         |${indent("sc", 1)},
          |${indent(paramMap.map(rRenderParam(_)).mkString(",\n"), 1)}
          |)
          |
@@ -299,14 +300,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         s"""
            |fdf <- spark_read_parquet(sc, path = paste(test_data_dir, "fit-$num.parquet", "/"))
            |tdf <- spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", "/"))
-           |rdf <- copy_to(model.fit(fdf).transform(tdf))
-           |rdf %>% print(n = 20)
+           |fit <- model.fit(fdf)
+           |transformed <- fit.transform(tdf)
+           |transformed.show()
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
            |tdf <- spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", "/"))
-           |rdf <- copy_to(model.transform(tdf))
-           |rdf %>% print(n = 20)
+           |transformed <- model.transform(tdf)
+           |transformed.show()
            |""".stripMargin
       case _ => ""
     }
@@ -315,7 +317,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         s"""
            |mlflow_save_model(model, "mlflow-save-model-$num")
            |mlflow_log_model(model, "mlflow-log-model-$num")
-           |mlflow_model = mlflow_load_model("mlflow-save-model-$num")
+           |mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
         case "cognitive" =>
@@ -332,15 +334,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     }
 
     s"""
-       |test_${stageName}_constructor_$num <- function() {
+       |test_that("${stageName}_constructor_${num}", {
        |  ${indent(rTestInstantiateModel(stage, num), 1)}
        |
-       |    assert_correspondence(model, "r-constructor-model-$num.model", $num)
+       |    assert_correspondence_${stageName}(model, "r-constructor-model-$num.model", $num)
        |
        |  ${indent(fittingTest, 1)}
        |
        |  ${indent(mlflowTest, 1)}
-       |}
+       |})
        |""".stripMargin
   }
 
@@ -353,42 +355,36 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val stageName = stage.getClass.getName.split(".".toCharArray).last
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml")
-    val testClass =
-      s"""//import unittest
-         |//from synapsemltest.spark import *
-         |//from $importPathString import $stageName
-         |//from os.path import join
-         |//import json
-         |//import mlflow
-         |//from pyspark.ml import PipelineModel
-         |
-         |library(methods)
+    val testContent =
+      s"""
+         |library(testthat)
+         |library(dplyr)
+         |library(sparklyr)
+         |library(${conf.name.replace('-','.')})
          |
          |test_data_dir <- "${rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |
-         |$testClassName <- setRefClass($testClassName,
-         |                              assert_correspondence = function(model, name, num) {
-         |                                model.write().overwrite().save(join(test_data_dir, name))
-         |                                sc._jvm.com.microsoft.azure.synapse.ml.core.utils.ModelEquality.assertEqual(
-         |                                  "${stage.getClass.getName}",
-         |                                  paste(test_data_dir, name, sep = "/"),
-         |                                  paste(test_data_dir, sprintf("model-%d.model", num)))
+         |assert_correspondence_${stageName} <-
+         |   function(model, name, num) {
+         |     w <- model.write(); o <- w.overwrite(); s <- o.save(join(test_data_dir, name))
+         |     sc._jvm.com.microsoft.azure.synapse.ml.core.utils.ModelEquality.assertEqual(
+         |       "${stage.getClass.getName}",
+         |       paste(test_data_dir, name, sep = "/"),
+         |       paste(test_data_dir, sprintf("model-%d.model", num)))
+         |   }
          |
-         |${indent(generatedTests.mkString("\n\n"), 1)}
-         |
-         |if (sys.nframe() == 0) {
-         |    result <- unittest.main() // TODO: FIXME
-         |}
+         |${generatedTests.mkString("\n\n")}
          |
          |""".stripMargin
 
-    val testFolders = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapsemltest").split(".".toCharArray)
-    val testDir = FileUtilities.join((Seq(conf.rTestDir.toString) ++ testFolders.toSeq): _*)
+    //val testFolders = importPath.mkString(".")
+    //  .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapsemltest").split(".".toCharArray)
+    //val testDir = FileUtilities.join((Seq(conf.rTestDir.toString) ++ lasttestFolders.toSeq): _*)
+    val testDir = FileUtilities.join(conf.rTestDir, importPath.last)
     testDir.mkdirs()
     Files.write(
       FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".R").toPath,
-      testClass.getBytes(StandardCharsets.UTF_8))
+      testContent.getBytes(StandardCharsets.UTF_8))
     if (classOf[TestBase].isAssignableFrom(this.getClass)) {
       try {
         afterAll()

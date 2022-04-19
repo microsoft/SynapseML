@@ -40,6 +40,7 @@ object BuildUtils {
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
+    println(s"------run {cmd}")
     assert(pb.start().waitFor() == 0)
   }
 
@@ -50,7 +51,7 @@ object BuildUtils {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
       Seq()
-      //TODO figure out why this doesent work
+      //TODO figure out why this doesn't work
       //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
     }
   }

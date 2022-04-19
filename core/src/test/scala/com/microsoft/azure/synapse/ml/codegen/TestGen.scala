@@ -33,10 +33,6 @@ object TestGen {
 
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
-    println(s"tdd: ${conf.testDataDir}")
-    getListOfFiles(conf.testDataDir)
-    println(s"td: ${conf.testDir}")
-    getListOfFiles(conf.testDir)
     clean(conf.testDataDir)
     clean(conf.testDir)
     generatePythonTests(conf)

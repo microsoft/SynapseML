@@ -136,7 +136,10 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   }
 
   override def rLoadLine(modelNum: Int): String = {
-    s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
+    s"""
+       |${name}Dir <- paste(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}", sep = "/")
+       |${name}DF <- copy_to(spark_read_parquet(${name}Dir)
+       """.stripMargin
   }
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
