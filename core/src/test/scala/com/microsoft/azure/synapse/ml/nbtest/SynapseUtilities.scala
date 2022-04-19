@@ -215,11 +215,10 @@ object SynapseUtilities extends HasHttpClient {
   }
 
   def uploadScript(file: String, dest: String): String = {
-    val aKey = "DsM/aakGfCu5PLX3pc7NVlVyt5E77nab3m2qG+L2Yd2CfiLVbxKeRjF/juDuoE18P3BAOS2RmbNAEFmoha5Wlg=="
     exec(s"az storage fs file upload " +
       s" -s $file -p $dest -f $StorageContainer " +
       s" --overwrite true " +
-      s" --account-name $StorageAccount --account-key $aKey")
+      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
     s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
   }
 
