@@ -54,9 +54,8 @@ class SynapseTests extends TestBase {
     SynapseUtilities.listPythonJobFiles()
     .filterNot(_.contains(" "))
     .filterNot(_.contains("-"))
-      .filter(_.contains("CognitiveServicesCelebrityQuoteAnalysis"))
     .foreach(file => {
-      val poolName = "aspoolsmall"// "e2etestLGpool" //SynapseUtilities.monitorPool(workspaceName, sparkPools)
+      val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools) //"aspoolsmall"// "e2etestLGpool" //
       val livyUrl = "https://" +
         workspaceName +
         ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
