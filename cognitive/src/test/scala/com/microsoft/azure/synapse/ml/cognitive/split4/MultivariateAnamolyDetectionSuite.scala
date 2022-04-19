@@ -137,6 +137,26 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
       "or {storageName, storageKey, endpoint, sasToken, containerName} in order to access the blob container"))
   }
 
+  test("Throw errors if start/end time is not ISO8601 format") {
+    val caught = intercept[IllegalArgumentException] {
+      val smae = simpleMultiAnomalyEstimator
+        .setStartTime("2021-01-01 00:00:00")
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      smae.fit(df)
+    }
+    assert(caught.getMessage.contains("StartTime should be ISO8601 format."))
+
+    val caught2 = intercept[IllegalArgumentException] {
+      val smae = simpleMultiAnomalyEstimator
+        .setEndTime("2021-01-01 00:00:00")
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      smae.fit(df)
+    }
+    assert(caught2.getMessage.contains("EndTime should be ISO8601 format."))
+  }
+
   test("Expose correct error message during fitting") {
     val caught = intercept[RuntimeException] {
       val testDf = df.limit(50)
@@ -170,17 +190,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("Not enough data."))
   }
 
-  test("Expose correct error message for invalid Timestamp Format") {
-    val caught = intercept[RuntimeException] {
-      val smae = simpleMultiAnomalyEstimator
-        .setEndTime("FAKE_END_TIME")
-        .setSlidingWindow(200)
-        .setConnectionString(connectionString)
-      smae.fit(df)
-    }
-    assert(caught.getMessage.contains("InvalidTimestampFormat"))
-  }
-
   test("Expose correct error message for invalid modelId") {
     val caught = intercept[RuntimeException] {
       val detectMultivariateAnomaly = new DetectMultivariateAnomaly()
@@ -199,7 +208,28 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
         .transform(df)
         .collect()
     }
-    assert(caught.getMessage.contains("ModelNotExist"))
+    assert(caught.getMessage.contains("Encounter error while fetching model"))
+  }
+
+  test("return modelId after retries and get model status before inference") {
+    val caught = intercept[RuntimeException] {
+      val smae = simpleMultiAnomalyEstimator
+        .setMaxPollingRetries(1)
+        .setSlidingWindow(200)
+        .setConnectionString(connectionString)
+      val model = smae.fit(df)
+      smae.cleanUpIntermediateData()
+
+      model.setStartTime(startTime)
+        .setEndTime(endTime)
+        .setOutputCol("result")
+        .setTimestampCol(timestampColumn)
+        .setInputCols(inputColumns)
+        .transform(df)
+        .collect()
+      model.cleanUpIntermediateData()
+    }
+    assert(caught.getMessage.contains("not ready yet"))
   }
 
   ignore("Clean up all models"){
