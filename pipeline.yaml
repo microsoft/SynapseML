@@ -306,7 +306,6 @@ jobs:
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
-  dependsOn: Publish
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')

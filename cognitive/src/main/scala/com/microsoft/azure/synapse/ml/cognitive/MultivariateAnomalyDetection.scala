@@ -143,23 +143,17 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
-    val fields = IOUtils.toString(resp.entity.get.content, "UTF-8").parseJson.asJsObject.fields
-    val status = if (fields.keySet.contains("modelInfo")) {
-      fields("modelInfo").asInstanceOf[JsObject].fields
-        .get("status").map(_.convertTo[String]).get.toLowerCase()
-    } else if (fields.keySet.contains("summary")) {
-      fields("summary").asInstanceOf[JsObject]
-        .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
-    } else {
-      "None"
-    }
-    status match {
-      case "ready" | "failed" => Some(resp)
-      case "created" | "running" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
+    Some(resp)
   }
 
+  //noinspection ScalaStyle
+  protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+                              location: URI, maxTries: Int): HTTPResponseData = {
+    throw new TimeoutException(
+      s"Querying for results did not complete within $maxTries tries")
+  }
+
+  //noinspection ScalaStyle
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
@@ -168,18 +162,28 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
       val maxTries = getMaxPollingRetries
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
+        val resp = queryForResult(key, client, location)
+        val fields = IOUtils.toString(resp.get.entity.get.content, "UTF-8").parseJson.asJsObject.fields
+        val status = fields match {
+          case f if f.contains("modelInfo") => f("modelInfo").convertTo[MAEModelInfo].status
+          case f if f.contains("summary") => f("summary").convertTo[DMASummary].status
+          case _ => "None"
+        }
+        status.toLowerCase() match {
+          case "ready" | "failed" => resp
+          case "created" | "running" => {
+            blocking {
+              Thread.sleep(getPollingDelay.toLong)
+            }
+            None
           }
-          None
-        })
+          case s => throw new RuntimeException(s"Received unknown status code: $s")
+        }
       }
       if (it.hasNext) {
         it.next()
       } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
+        timeoutResult(key, client, location, maxTries)
       }
     } else {
       val error = IOUtils.toString(response.entity.get.content, "UTF-8")
@@ -474,60 +478,11 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   protected def prepareUrl: String = getUrl
 
-  override protected def queryForResult(key: Option[String],
-                                        client: CloseableHttpClient,
-                                        location: URI): Option[HTTPResponseData] = {
-    val get = new HttpGet()
-    get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
-    get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
-    get.releaseConnection()
-    Some(resp)
-  }
-
-  override protected def handlingFunc(client: CloseableHttpClient,
-                                      request: HTTPRequestData): HTTPResponseData = {
-    val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
-    if (response.statusLine.statusCode == 201) {
-      val location = new URI(response.headers.filter(_.name == "Location").head.value)
-      val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
-      val it = (0 to maxTries).toIterator.flatMap { _ =>
-        val resp = queryForResult(key, client, location)
-        val fields = IOUtils.toString(resp.get.entity.get.content, "UTF-8").parseJson.asJsObject.fields
-        val status = if (fields.keySet.contains("modelInfo")) {
-          fields("modelInfo").asInstanceOf[JsObject].fields
-            .get("status").map(_.convertTo[String]).get.toLowerCase()
-        } else if (fields.keySet.contains("summary")) {
-          fields("summary").asInstanceOf[JsObject]
-            .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
-        } else {
-          "None"
-        }
-        status match {
-          case "ready" | "failed" => resp
-          // still retry first
-          case "created" | "running" => {
-            blocking {
-              Thread.sleep(getPollingDelay.toLong)
-            }
-            None
-          }
-          case s => throw new RuntimeException(s"Received unknown status code: $s")
-        }
-      }
-      if (it.hasNext) {
-        it.next()
-      } else {
-        // if no response after max retries, return the response containing modelId directly
-        queryForResult(key, client, location).get
-      }
-    } else {
-      val error = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.convertTo[DMAError].toJson.compactPrint
-      throw new RuntimeException(s"Caught error: $error")
-    }
+  //noinspection ScalaStyle
+  override protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+                                       location: URI, maxTries: Int): HTTPResponseData = {
+    // if no response after max retries, return the response containing modelId directly
+    queryForResult(key, client, location).get
   }
 
   override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
