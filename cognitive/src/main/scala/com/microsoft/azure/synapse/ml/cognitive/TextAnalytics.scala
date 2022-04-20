@@ -605,7 +605,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
           parsed.tasks.entityLinkingTasks,
           parsed.tasks.entityRecognitionPiiTasks,
           parsed.tasks.keyPhraseExtractionTasks,
-          parsed.tasks.sentimentAnalysisTasks,
+          parsed.tasks.sentimentAnalysisTasks
         )
 
         val succeededTasks = allTasks
@@ -627,7 +627,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
               parsed.tasks.entityLinkingTasks.map(t => getTaskRowsTyped(t, i)),
               parsed.tasks.entityRecognitionPiiTasks.map(t => getTaskRowsTyped(t, i)),
               parsed.tasks.keyPhraseExtractionTasks.map(t => getTaskRowsTyped(t, i)),
-              parsed.tasks.sentimentAnalysisTasks.map(t => getTaskRowsTyped(t, i)),
+              parsed.tasks.sentimentAnalysisTasks.map(t => getTaskRowsTyped(t, i))
             ))
           })
         }
