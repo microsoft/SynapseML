@@ -33,7 +33,7 @@ RUN git clone https://github.com/Microsoft/SynapseML.git s
 
 WORKDIR /__w/1/s
 
-RUN conda env create -f environment.yaml && conda clean --all --yes
+RUN conda env create -f environment.yml && conda clean --all --yes
 
 ENV SBT_OPTS="${SBT_OPTS} -Dsbt.io.jdktimestamps=true"
 RUN sbt setup

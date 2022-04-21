@@ -279,14 +279,14 @@ jobs:
       displayName: Use cached Anaconda environment
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        key: 'conda | "$(Agent.OS)" | environment.yaml'
+        key: 'conda | "$(Agent.OS)" | environment.yml'
         restoreKeys: |
           python | "$(Agent.OS)"
           python
         path: $(CONDA_CACHE_DIR)
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
-        conda env create -f environment.yaml -v -v -v
+        conda env create -f environment.yml -v -v -v
       condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1

@@ -29,7 +29,7 @@ description: SynapseML Development Setup
 9) Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
-    - Activate the `synapseml` conda environment by running `conda env create -f environment.yaml` from the `synapseml` directory.
+    - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
 
 > NOTE
 > 
@@ -67,7 +67,7 @@ Generates documentation for scala sources
 
 ### `createCondaEnv`
 
-Creates a conda environment `synapseml` from `environment.yaml` if it does not already exist. 
+Creates a conda environment `synapseml` from `environment.yml` if it does not already exist. 
 This env is used for python testing. **Activate this env before using python build commands.**
 
 ### `cleanCondaEnv`
