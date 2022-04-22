@@ -72,7 +72,8 @@ object BuildUtils {
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey)
+      "--account-key", Secrets.storageKey,
+      "--overwrite")
     runCmd(osPrefix ++ command)
   }
 

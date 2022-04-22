@@ -9,13 +9,14 @@ import com.azure.storage.common.StorageSharedKeyCredential
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
-import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.Client
+import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
+import org.apache.http.client.methods.{HttpDelete, HttpEntityEnclosingRequestBase, HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml._
@@ -32,8 +33,81 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
 import java.util.zip.{ZipEntry, ZipOutputStream}
+import scala.collection.parallel.mutable
+import scala.collection.parallel.mutable.ParHashSet
 import scala.concurrent.blocking
 import scala.language.existentials
+
+
+object MADUtils {
+
+  private[ml] val CreatedModels: mutable.ParHashSet[String] = new ParHashSet[String]()
+
+  private[ml] def madSend(request: HttpRequestBase,
+                          path: String,
+                          key: String,
+                          params: Map[String, String] = Map()): String = {
+
+    val paramString = if (params.isEmpty) {
+      ""
+    } else {
+      "?" + URLEncodingUtils.format(params)
+    }
+    request.setURI(new URI(path + paramString))
+
+    retry(List(100, 500, 1000), { () =>
+      request.addHeader("Ocp-Apim-Subscription-Key", key)
+      request.addHeader("Content-Type", "application/json")
+      using(Client.execute(request)) { response =>
+        if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
+          val bodyOpt = request match {
+            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
+            case _ => ""
+          }
+          if (response.getStatusLine.getStatusCode.toString.equals("429")) {
+            val retryTime = response.getHeaders("Retry-After").head.getValue.toInt * 1000
+            Thread.sleep(retryTime.toLong)
+          }
+          throw new RuntimeException(s"Failed: response: $response " + s"requestUrl: ${request.getURI} " +
+            s"requestBody: $bodyOpt")
+        }
+        if (response.getStatusLine.getReasonPhrase == "No Content") {
+          ""
+        }
+        else if (response.getStatusLine.getReasonPhrase == "Created") {
+          response.getHeaders("Location").head.getValue
+        }
+        else {
+          IOUtils.toString(response.getEntity.getContent, "UTF-8")
+        }
+      }.get
+    })
+  }
+
+  private[ml] def madGetModel(url: String, modelId: String,
+                              key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpGet(), url + modelId, key, params)
+  }
+
+  private[ml] def madDelete(modelId: String, key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpDelete(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
+      "v1.1-preview/multivariate/models/" + modelId, key, params)
+  }
+
+  private[ml] def madListModels(key: String, params: Map[String, String] = Map()): String = {
+    madSend(new HttpGet(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
+      "v1.1-preview/multivariate/models", key, params)
+  }
+
+  private[ml] def cleanUpAllModels(key: String): Unit = {
+    for (modelId <- CreatedModels) {
+      println(s"Deleting mvad model $modelId")
+      madDelete(modelId, key)
+    }
+    CreatedModels.clear()
+  }
+
+}
 
 trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   protected def prepareUrl: String
@@ -69,23 +143,17 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
-    val fields = IOUtils.toString(resp.entity.get.content, "UTF-8").parseJson.asJsObject.fields
-    val status = if (fields.keySet.contains("modelInfo")) {
-      fields("modelInfo").asInstanceOf[JsObject].fields
-        .get("status").map(_.convertTo[String]).get.toLowerCase()
-    } else if (fields.keySet.contains("summary")) {
-      fields("summary").asInstanceOf[JsObject]
-        .fields.get("status").map(_.convertTo[String]).get.toLowerCase()
-    } else {
-      "None"
-    }
-    status match {
-      case "ready" | "failed" => Some(resp)
-      case "created" | "running" => None
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
+    Some(resp)
   }
 
+  //noinspection ScalaStyle
+  protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+                              location: URI, maxTries: Int): HTTPResponseData = {
+    throw new TimeoutException(
+      s"Querying for results did not complete within $maxTries tries")
+  }
+
+  //noinspection ScalaStyle
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
@@ -94,18 +162,28 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
       val maxTries = getMaxPollingRetries
       val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(key, client, location).orElse({
-          blocking {
-            Thread.sleep(getPollingDelay.toLong)
+        val resp = queryForResult(key, client, location)
+        val fields = IOUtils.toString(resp.get.entity.get.content, "UTF-8").parseJson.asJsObject.fields
+        val status = fields match {
+          case f if f.contains("modelInfo") => f("modelInfo").convertTo[MAEModelInfo].status
+          case f if f.contains("summary") => f("summary").convertTo[DMASummary].status
+          case _ => "None"
+        }
+        status.toLowerCase() match {
+          case "ready" | "failed" => resp
+          case "created" | "running" => {
+            blocking {
+              Thread.sleep(getPollingDelay.toLong)
+            }
+            None
           }
-          None
-        })
+          case s => throw new RuntimeException(s"Received unknown status code: $s")
+        }
       }
       if (it.hasNext) {
         it.next()
       } else {
-        throw new TimeoutException(
-          s"Querying for results did not complete within $maxTries tries")
+        timeoutResult(key, client, location, maxTries)
       }
     } else {
       val error = IOUtils.toString(response.entity.get.content, "UTF-8")
@@ -120,17 +198,28 @@ trait MADBase extends HasOutputCol
   with ComplexParamsWritable with Wrappable
   with HasSubscriptionKey with HasErrorCol with BasicLogging {
 
+  private def convertTimeFormat(name: String, v: String): String = {
+    try {
+      DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
+    }
+    catch {
+      case e: java.time.format.DateTimeParseException =>
+        throw new IllegalArgumentException(
+          s"${name.capitalize} should be ISO8601 format. e.g. 2021-01-01T00:00:00Z, received: ${e.toString}")
+    }
+  }
+
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setStartTime(v: String): this.type = set(startTime, v)
+  def setStartTime(v: String): this.type = set(startTime, convertTimeFormat(startTime.name, v))
 
   def getStartTime: String = $(startTime)
 
   val endTime = new Param[String](this, "endTime", "A required field, end time of data" +
     " to be used for detection/generating multivariate anomaly detection model, should be date-time.")
 
-  def setEndTime(v: String): this.type = set(endTime, v)
+  def setEndTime(v: String): this.type = set(endTime, convertTimeFormat(endTime.name, v))
 
   def getEndTime: String = $(endTime)
 
@@ -281,14 +370,15 @@ trait MADBase extends HasOutputCol
     for (row <- rows) {
       // <timestamp>,<value>
       // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
-      val timestamp = DateTimeFormatter.ISO_INSTANT.parse(row.getString(timestampColIdx))
+      val formattedTimestamp = convertTimeFormat("Timestamp column", row.getString(timestampColIdx))
 
-      pw.print(DateTimeFormatter.ISO_INSTANT.format(timestamp))
+      pw.print(formattedTimestamp)
       pw.write(',')
 
       // TODO: do we have to worry about locale?
       // pw.format(Locale.US, "%f", row.get(featureIdx))
       pw.println(row.get(featureIdx))
+
     }
     pw.flush()
   }
@@ -388,6 +478,13 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   protected def prepareUrl: String = getUrl
 
+  //noinspection ScalaStyle
+  override protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+                                       location: URI, maxTries: Int): HTTPResponseData = {
+    // if no response after max retries, return the response containing modelId directly
+    queryForResult(key, client, location).get
+  }
+
   override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
     logFit({
 
@@ -411,10 +508,13 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
       this.setDiagnosticsInfo(modelInfoFields.get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
 
+      val modelId = responseDict.get("modelId").map(_.convertTo[String]).get
+      MADUtils.CreatedModels += modelId
+
       val simpleDetectMultivariateAnomaly = new DetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
-        .setModelId(responseDict.get("modelId").map(_.convertTo[String]).get)
+        .setModelId(modelId)
         .setContainerName(getContainerName)
         .setIntermediateSaveDir(getIntermediateSaveDir)
 
@@ -436,7 +536,6 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)
       .add(getOutputCol, DMAResponse.schema)
-      .add("isAnomaly", BooleanType)
       .add("isAnomaly", BooleanType)
   }
 
@@ -469,6 +568,29 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
   //noinspection ScalaStyle
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame] {
+
+      // check model status first
+      try {
+        val responseDict = MADUtils.madGetModel(
+          this.getUrl, this.getModelId, this.getSubscriptionKey).parseJson.asJsObject.fields
+
+        val modelInfoFields = responseDict("modelInfo").asJsObject.fields
+        val modelStatus = modelInfoFields("status").asInstanceOf[JsString].value.toLowerCase
+        modelStatus match {
+          case "failed" => {
+            val errors = modelInfoFields.get("errors").map(_.convertTo[Seq[DMAError]]).get.toJson.compactPrint
+            throw new RuntimeException(s"Caught errors during fitting: $errors")
+          }
+          case "created" | "running" => {
+            throw new RuntimeException(s"model ${this.getModelId} is not ready yet")
+          }
+          case "ready" => println("model is ready for inference")
+        }
+      } catch {
+        case e: RuntimeException =>
+          throw new RuntimeException(s"Encounter error while fetching model ${this.getModelId}, " +
+            s"please double check the modelId is correct: ${e.getMessage}")
+      }
 
       val blobContainerClient = getBlobContainerClient
       val df = dataset.select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
