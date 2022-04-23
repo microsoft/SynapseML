@@ -48,8 +48,8 @@ node_modules/
 .Rproj.user
 
 # Notebook Test Files
-/notebooks/*.py
-/notebooks/*.txt
+/notebooks/**/*.py
+/notebooks/**/*.txt
 
 # R output
 *.Rout
