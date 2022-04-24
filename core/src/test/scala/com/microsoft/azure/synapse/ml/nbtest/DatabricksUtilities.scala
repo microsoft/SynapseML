@@ -229,7 +229,7 @@ object DatabricksUtilities extends HasHttpClient {
     state == "RUNNING"
   }
 
-  def isLibrariesAllInstalled(clusterId: String): Boolean = {
+  def areLibrariesInstalled(clusterId: String): Boolean = {
     val clusterObj = databricksGet(s"libraries/cluster-status?cluster_id=$clusterId")
     val libraryStatuses = clusterObj.asInstanceOf[JsObject].fields("library_statuses")
       .asInstanceOf[JsArray].elements
