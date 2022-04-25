@@ -229,6 +229,17 @@ object DatabricksUtilities extends HasHttpClient {
     state == "RUNNING"
   }
 
+  def areLibrariesInstalled(clusterId: String): Boolean = {
+    val clusterObj = databricksGet(s"libraries/cluster-status?cluster_id=$clusterId")
+    val libraryStatuses = clusterObj.asInstanceOf[JsObject].fields("library_statuses")
+      .asInstanceOf[JsArray].elements
+    if (libraryStatuses.exists(_.select[String]("status") == "FAILED")) {
+      val error = libraryStatuses.filter(_.select[String]("status") == "FAILED").toJson.compactPrint
+      throw new RuntimeException(s"Library Installation Failure: $error")
+    }
+    libraryStatuses.forall(_.select[String]("status") == "INSTALLED")
+  }
+
   private def getRunStatuses(runId: Int): (String, Option[String]) = {
     val runObj = databricksGet(s"jobs/runs/get?run_id=$runId")
     val stateObj = runObj.select[JsObject]("state")
