@@ -170,25 +170,4 @@ object LightGBMUtils {
     val taskId = ctx.taskAttemptId()
     taskId
   }
-
-  def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
-    val leftoverChunk = numRows % chunkSize
-    val numChunks = if (leftoverChunk > 0) {
-      Math.floorDiv(numRows, chunkSize) + 1
-    }else{
-      Math.floorDiv(numRows, chunkSize)
-    }
-    val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
-    (0 until numChunks).foreach({ index: Int =>
-      if (index == numChunks - 1 && leftoverChunk > 0) {
-        lightgbmlib.intArray_setitem(numRowsForChunks, index, leftoverChunk)
-      } else {
-        lightgbmlib.intArray_setitem(numRowsForChunks, index, chunkSize)
-      }
-    })
-    numRowsForChunks
-  }
-
-
-
 }
