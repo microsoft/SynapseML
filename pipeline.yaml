@@ -204,23 +204,6 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      displayName: Developer Image Build
-      inputs:
-        containerRegistry: 'mmlspark-mcr-connection-1'
-        repository: 'public/mmlspark/build-developer'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/developer/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
-    - task: Docker@2
-      displayName: Developer Image Push
-      inputs:
-        containerRegistry: 'mmlspark-mcr-connection-1'
-        repository: 'public/mmlspark/build-developer'
-        command: 'push'
-        tags: $(version)
-    - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Build
       inputs:
