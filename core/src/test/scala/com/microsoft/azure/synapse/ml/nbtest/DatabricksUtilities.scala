@@ -55,7 +55,9 @@ object DatabricksUtilities extends HasHttpClient {
     Map("pypi" -> Map("package" -> "Pillow")),
     Map("pypi" -> Map("package" -> "onnxmltools")),
     Map("pypi" -> Map("package" -> "lightgbm")),
-    Map("pypi" -> Map("package" -> "mlflow"))
+    Map("pypi" -> Map("package" -> "mlflow")),
+    Map("pypi" -> Map("package" -> "interpret-community")),
+    Map("pypi" -> Map("package" -> "raiwidgets"))
   ).toJson.compactPrint
 
   // Execution Params
