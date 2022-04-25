@@ -243,6 +243,7 @@ jobs:
         tags: |
           $(version)
           latest
+    - task: ComponentGovernanceComponentDetection@0
 
 - job: Release
   cancelTimeoutInMinutes: 0
