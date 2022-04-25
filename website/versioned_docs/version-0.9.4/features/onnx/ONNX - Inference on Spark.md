@@ -77,7 +77,7 @@ def convertModel(lgbm_model: LGBMClassifier or Booster, input_size: int) -> byte
 
 booster_model_str = model.getLightGBMBooster().modelStr().get()
 booster = lgb.Booster(model_str=booster_model_str)
-model_payload_ml = convertModel(booster, len(df.columns) - 1)
+model_payload_ml = convertModel(booster, len(feature_cols))
 ```
 
 Load the ONNX payload into an `ONNXModel`, and inspect the model inputs and outputs.
