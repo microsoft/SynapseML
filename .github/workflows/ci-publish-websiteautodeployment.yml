@@ -46,7 +46,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:
         python-version: 3.8.8
-        environment-file: environment.yaml
+        environment-file: environment.yml
         activate-environment: synapseml
     - name: Convert notebooks to markdowns
       shell: bash -l {0}
