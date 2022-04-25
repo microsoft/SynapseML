@@ -20,12 +20,12 @@ import scala.collection.concurrent.TrieMap
 private[lightgbm] object ChunkedArrayUtils {
   def copyChunkedArray[T: Numeric](chunkedArray: ChunkedArray[T],
                                    mainArray: BaseSwigArray[T],
-                                   threadRowStartIndex: Long,
-                                   chunkSize: Long): Unit = {
+                                   threadRowStartIndex: Long): Unit = {
     val num = implicitly[Numeric[T]]
     val defaultVal = num.fromInt(-1)
     // Copy in parallel on each thread
     // First copy full chunks
+    val chunkSize = chunkedArray.getChunkSize
     val chunkCount = chunkedArray.getChunksCount - 1
     for (chunk <- 0L until chunkCount) {
       for (inChunkIdx <- 0L until chunkSize) {
@@ -306,16 +306,15 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
         threadInitScoreStartIndex = chunkedCols.initScores.map(_ => pIdToInitScoreCountOffset(partitionId)).getOrElse(0)
         updateThreadLocalIndices(chunkedCols, threadRowStartIndex)
       }
-    ChunkedArrayUtils.copyChunkedArray(chunkedCols.labels, labels, threadRowStartIndex, chunkSize)
+    ChunkedArrayUtils.copyChunkedArray(chunkedCols.labels, labels, threadRowStartIndex)
     chunkedCols.weights.foreach {
       weightChunkedArray =>
-        ChunkedArrayUtils.copyChunkedArray(weightChunkedArray, weights.get, threadRowStartIndex,
-          chunkSize)
+        ChunkedArrayUtils.copyChunkedArray(weightChunkedArray, weights.get, threadRowStartIndex)
     }
     chunkedCols.initScores.foreach {
       initScoreChunkedArray =>
         ChunkedArrayUtils.copyChunkedArray(initScoreChunkedArray, initScores.get,
-          threadInitScoreStartIndex, chunkSize)
+          threadInitScoreStartIndex)
     }
     parallelizeFeaturesCopy(chunkedCols, featureIndexes)
     chunkedCols.groups.copyToArray(groups, threadRowStartIndex.toInt)
@@ -388,7 +387,7 @@ private[lightgbm] final class DenseSyncAggregatedColumns(chunkSize: Int)
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit = {
     ChunkedArrayUtils.copyChunkedArray(chunkedCols.asInstanceOf[DenseChunkedColumns].features,
-      features, featureIndexes.head * numCols, chunkSize)
+      features, featureIndexes.head * numCols)
   }
 
 }
@@ -521,9 +520,9 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
 
   protected def parallelizeFeaturesCopy(chunkedCols: BaseChunkedColumns, featureIndexes: List[Long]): Unit = {
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexes, indexes, featureIndexes(0), chunkSize)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.values, values, featureIndexes(0), chunkSize)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexPointers, indexPointers, featureIndexes(1), chunkSize)
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexes, indexes, featureIndexes(0))
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.values, values, featureIndexes(0))
+    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexPointers, indexPointers, featureIndexes(1))
   }
 
 }
