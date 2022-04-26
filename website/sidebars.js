@@ -2,6 +2,7 @@ const { listExamplePaths } = require('./src/plugins/examples');
 
 let cs_pages = listExamplePaths("features", "cognitive_services");
 let gs_pages = listExamplePaths("features", "geospatial_services");
+let if_pages = listExamplePaths("features", "isolation_forest");
 let rai_pages = listExamplePaths("features", "responsible_ai");
 let onnx_pages = listExamplePaths("features", "onnx");
 let lgbm_pages = listExamplePaths("features", "lightgbm");
@@ -35,6 +36,11 @@ module.exports = {
           type: 'category',
           label: 'Cognitive Services',
           items: cs_pages,
+        },
+        {
+          type: 'category',
+          label: 'Isolation Forest',
+          items: if_pages,
         },
         {
           type: 'category',
