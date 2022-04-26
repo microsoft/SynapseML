@@ -24,6 +24,8 @@ abstract class ChunkedArray[T]() {
 
   def getLastChunkAddCount: Long
 
+  def getChunkSize: Long
+
   def getAddCount: Long
 
   def getItem(chunk: Long, inChunkIdx: Long, default: T): T
@@ -46,6 +48,8 @@ class FloatChunkedArray(array: floatChunkedArray) extends ChunkedArray[Float] {
   def getChunksCount: Long = array.get_chunks_count()
 
   def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getChunkSize: Long = array.get_chunk_size()
 
   def getAddCount: Long = array.get_add_count()
 
@@ -75,6 +79,8 @@ class DoubleChunkedArray(array: doubleChunkedArray) extends ChunkedArray[Double]
 
   def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
 
+  def getChunkSize: Long = array.get_chunk_size()
+
   def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Double): Double =
@@ -102,6 +108,8 @@ class IntChunkedArray(array: int32ChunkedArray) extends ChunkedArray[Int] {
   def getChunksCount: Long = array.get_chunks_count()
 
   def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getChunkSize: Long = array.get_chunk_size()
 
   def getAddCount: Long = array.get_add_count()
 

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+export OPENMPI_VERSION="3.1.2"
+export SPARK_VERSION="3.2.1"
+export HADOOP_VERSION="2.7"
+export MMLSPARK_VERSION="0.9.5"
+
+echo "Beginning Spark Session..."
+exec "$@"
