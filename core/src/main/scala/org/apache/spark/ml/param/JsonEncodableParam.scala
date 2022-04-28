@@ -62,6 +62,8 @@ class ServiceParam[T: TypeTag](parent: Params,
     with PythonWrappableParam[Either[T, String]] {
   type ValueType = T
 
+  val payloadName: String = name
+
   override def pyValue(v: Either[T, String]): String = {
     v match {
       case Left(t) => PythonWrappableParam.pyDefaultRender(t)

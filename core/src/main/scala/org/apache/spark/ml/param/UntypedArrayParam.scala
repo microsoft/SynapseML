@@ -8,7 +8,7 @@ import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat}
 import scala.collection.JavaConverters._
 import spray.json._
 
-object UntypedArrayParamJsonProtocol extends DefaultJsonProtocol {
+object AnyJsonFormat extends DefaultJsonProtocol {
   implicit def anyFormat: JsonFormat[Any] =
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
@@ -43,7 +43,7 @@ object UntypedArrayParamJsonProtocol extends DefaultJsonProtocol {
 @DeveloperApi
 class UntypedArrayParam(parent: Params, name: String, doc: String, isValid: Array[Any] => Boolean)
   extends Param[Array[Any]](parent, name, doc, isValid) {
-    import UntypedArrayParamJsonProtocol._
+    import AnyJsonFormat._
 
     def this(parent: Params, name: String, doc: String) =
       this(parent, name, doc, ParamValidators.alwaysTrue)
