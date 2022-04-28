@@ -14,7 +14,7 @@ import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost,
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.{ServiceParam, _}
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
@@ -154,20 +154,28 @@ object URLEncodingUtils {
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
+  protected def paramNameToPayloadName(p: Param[_]): String = p match {
+    case p: ServiceParam[_] => p.payloadName
+    case _ => p.name
+  }
+
+  protected def prepareUrlRoot: Row => String = {
+    _ => getUrl
+  }
+
   protected def prepareUrl: Row => String = {
     val urlParams: Array[ServiceParam[Any]] =
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
     { row: Row =>
-      val base = getUrl
       val appended = if (!urlParams.isEmpty) {
         "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+          getValueOpt(row, p).map(v => paramNameToPayloadName(p) -> p.toValueString(v))
         ).toMap)
       } else {
         ""
       }
-      base + appended
+      prepareUrlRoot(row) + appended
     }
   }
 
