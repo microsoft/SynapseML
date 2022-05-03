@@ -264,13 +264,15 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   }
 
   /** Saves the booster to string representation.
+    * @param saveAllIterations Whether to save all iterations, or up to the best one.
     * @return The serialized string representation of the Booster.
     */
-  def saveToString(): String = {
+  def saveToString(saveAllIterations: Boolean): String = {
       val bufferLength = LightGBMConstants.DefaultBufferLength
       val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
+      val lastIteration: Int = if (saveAllIterations) -1 else bestIteration
       lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterHandler.boosterPtr,
-        0, -1, 0, bufferLength, bufferOutLengthPtr)
+        0, lastIteration, 0, bufferLength, bufferOutLengthPtr)
   }
 
   /** Get the evaluation dataset column names from the native booster.

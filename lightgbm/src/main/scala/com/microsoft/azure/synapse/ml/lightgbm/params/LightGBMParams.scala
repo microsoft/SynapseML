@@ -455,6 +455,13 @@ trait LightGBMParams extends Wrappable
   def getNumIterations: Int = $(numIterations)
   def setNumIterations(value: Int): this.type = set(numIterations, value)
 
+  val saveAllIterations = new BooleanParam(this, "numIterations",
+    "If true, all iterations are included in the output model string." +
+      "If false, only iterations up to the 'bestIteration' are saved.")
+  setDefault(saveAllIterations -> true)
+  def getSaveAllIterations: Boolean = $(saveAllIterations)
+  def setSaveAllIterations(value: Boolean): this.type = set(saveAllIterations, value)
+
   val learningRate = new DoubleParam(this, "learningRate", "Learning rate or shrinkage rate")
   setDefault(learningRate -> 0.1)
   def getLearningRate: Double = $(learningRate)
