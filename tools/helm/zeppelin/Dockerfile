@@ -1,4 +1,4 @@
-FROM openjdk:8-jdk-slim-buster
+FROM mcr.microsoft.com/openjdk/jdk:11-mariner
 LABEL maintainer="Dalitso Banda dalitsohb@gmail.com"
 
 # Get Spark from US Apache mirror.
