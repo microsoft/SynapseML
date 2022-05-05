@@ -11,7 +11,7 @@ import DefaultJsonProtocol._
 
 object Secrets {
   private val KvName = "mmlspark-build-keys"
-  private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
+  private[ml] val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
@@ -53,7 +53,7 @@ object Secrets {
   lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
-  lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
+  lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")

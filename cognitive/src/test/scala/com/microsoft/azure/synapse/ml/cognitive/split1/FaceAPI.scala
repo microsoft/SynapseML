@@ -15,7 +15,7 @@ import java.net.URI
 
 object FaceUtils extends CognitiveKey {
 
-  import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
+  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   val BaseURL = "https://eastus.api.cognitive.microsoft.com/face/v1.0/"
 

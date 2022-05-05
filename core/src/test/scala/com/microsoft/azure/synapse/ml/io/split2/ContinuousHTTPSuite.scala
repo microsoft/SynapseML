@@ -47,7 +47,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server){
       Thread.sleep(10000)
-      val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest(client))
+      val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest())
       assertLatency(responsesWithLatencies, 5)
     }
   }
@@ -61,7 +61,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server){
       Thread.sleep(5000)
-      val responsesWithLatencies = (1 to 30).map(_ =>  sendFileRequest(client))
+      val responsesWithLatencies = (1 to 30).map(_ =>  sendFileRequest())
       assertLatency(responsesWithLatencies, 100)
     }
 
@@ -90,7 +90,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     using(server){
       Thread.sleep(5000)
       val futures = (1 to 10).map(_ =>
-        sendStringRequestAsync(client)
+        sendStringRequestAsync()
       )
       futures.foreach { f =>
         val resp = Await.result(f, requestDuration)
@@ -109,7 +109,7 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     using(server){
       Thread.sleep(10000)
       println(server.status)
-      val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest(client))
+      val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest())
       assertLatency(responsesWithLatencies, 5)
     }
   }

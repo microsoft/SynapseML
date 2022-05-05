@@ -12,7 +12,6 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 
-/** Tests to validate fuzzing of modules. */
 class DatabricksTests extends TestBase {
 
   val clusterId: String = createClusterInPool(ClusterName, PoolId)
