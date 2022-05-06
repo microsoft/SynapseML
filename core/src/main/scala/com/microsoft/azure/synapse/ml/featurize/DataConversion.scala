@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   * @param uid The id of the module
   */
 class DataConversion(override val uid: String) extends Transformer
-  with Wrappable with DefaultParamsWritable with DefaultParamsReadable[DataConversion] with BasicLogging {
+  with Wrappable with DefaultParamsWritable with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DataConversion"))
@@ -172,3 +172,5 @@ class DataConversion(override val uid: String) extends Transformer
   }
 
 }
+
+object DataConversion extends DefaultParamsReadable[DataConversion]
