@@ -32,7 +32,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
 | Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                |
 | Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/master?labpath=notebooks%2Ffeatures) |
 
-<details>
+<details> 
 <summary><strong><em>Table of Contents</em></strong></summary>
 
 -   [Features](#features)
