@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.featurize
 
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.schema.SparkSchema
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
@@ -222,6 +223,15 @@ class VerifyDataConversions extends TestBase {
       .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS").transform(res)
     assert(res.schema("Col0").dataType == TimestampType)
     assert(tsDF.except(res).count == 0)
+  }
+
+  test("Test symmetric i/o") {
+    spark
+    val path = FileUtilities.join(tmpDir.toString, "data_conversion.stage").toString
+    val stage = new DataConversion().setCols(Array("input")).setConvertTo("string")
+    stage.write.overwrite().save(path)
+    val loaded = stage.load(path)
+    assert(stage.uid == loaded.uid)
   }
 
   def generateRes(convTo: String, inDF: DataFrame): DataFrame = {
