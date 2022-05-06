@@ -27,8 +27,8 @@ case class AnalyzeResultV3(apiVersion: String,
 
 case class PageResultV3(pageNumber: Int,
                         angle: Double,
-                        width: Int,
-                        height: Int,
+                        width: Double,
+                        height: Double,
                         unit: String,
                         spans: Option[Seq[FormSpan]],
                         words: Option[Seq[FormWord]],
@@ -37,11 +37,11 @@ case class PageResultV3(pageNumber: Int,
 
 case class FormSpan(offset: Int, length: Int)
 
-case class FormWord(content: String, boundingBox: Option[Seq[Int]], confidence: Double, span: FormSpan)
+case class FormWord(content: String, boundingBox: Option[Seq[Double]], confidence: Double, span: FormSpan)
 
-case class FormSelectionMark(state: String, boundingBox: Option[Seq[Int]], confidence: Double, span: FormSpan)
+case class FormSelectionMark(state: String, boundingBox: Option[Seq[Double]], confidence: Double, span: FormSpan)
 
-case class FormLine(content: String, boundingBox: Option[Seq[Int]], spans: Option[Seq[FormSpan]])
+case class FormLine(content: String, boundingBox: Option[Seq[Double]], spans: Option[Seq[FormSpan]])
 
 case class TableResultV3(rowCount: Int,
                          columnCount: Int,
@@ -49,7 +49,7 @@ case class TableResultV3(rowCount: Int,
                          spans: Option[Seq[FormSpan]],
                          cells: Option[Seq[FormCell]])
 
-case class BoundingRegion(pageNumber: Int, boundingBox: Option[Seq[Int]])
+case class BoundingRegion(pageNumber: Int, boundingBox: Option[Seq[Double]])
 
 case class FormCell(kind: String,
                     rowIndex: Int,
