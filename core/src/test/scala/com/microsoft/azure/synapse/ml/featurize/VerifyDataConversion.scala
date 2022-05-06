@@ -52,7 +52,8 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   /*
    DataConversion for serialization
    */
-  lazy val dc: DataConversion = new DataConversion().setCols(Array("string")).setConvertTo("timestamp")
+    lazy val dc: DataConversion = new DataConversion().setCols(Array("Col0")).setConvertTo("date")
+    .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS")
 
   /*
   Test conversion of all numeric types to Boolean
@@ -239,7 +240,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
     result
   }
 
-  override def testObjects(): Seq[TestObject[DataConversion]] = Seq(new TestObject(dc, tsDF))
+  override def testObjects(): Seq[TestObject[DataConversion]] = Seq(new TestObject(dc, sDF))
 
   override def reader: MLReadable[_] = DataConversion
 
