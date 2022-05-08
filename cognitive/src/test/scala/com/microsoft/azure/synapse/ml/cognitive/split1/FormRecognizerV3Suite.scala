@@ -60,6 +60,17 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
+  test("basic usage with tables") {
+    val fromRow = AnalyzeDocumentResponse.makeFromRowConverter
+    analyzeDocument
+      .setPrebuiltModelId("prebuilt-layout")
+      .setImageUrlCol("source")
+      .transform(imageDf6)
+      .collect()
+      .map(r => fromRow(r.getAs[Row]("result")))
+      .foreach(r => assert(r.analyzeResult.pages.get.head.pageNumber >= 0))
+  }
+
   def analyzeDocument: AnalyzeDocument = new AnalyzeDocument()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
@@ -128,7 +139,7 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
       resultAssert(result, "WA WASHINGTON\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY\n" +
         "4d LIC#WDLABCD456DG 9CLASS\nDONORS\n1 TALBOT\n2 LIAM R.\n3 DOB 01/06/1958\n",
         "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber," +
-        "Endorsements,FirstName,LastName,Region,Restrictions,Sex")
+          "Endorsements,FirstName,LastName,Region,Restrictions,Sex")
     }
   }
 

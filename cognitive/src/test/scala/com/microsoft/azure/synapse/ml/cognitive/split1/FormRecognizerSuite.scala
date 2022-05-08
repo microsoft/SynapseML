@@ -130,6 +130,8 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
 
   lazy val bytesDF5: DataFrame = createTestDataframe(baseUrl, Seq("id1.jpg"), returnBytes = true)
 
+  lazy val imageDf6: DataFrame = createTestDataframe(baseUrl, Seq("tables1.pdf"), returnBytes = false)
+
   lazy val pdfDf1: DataFrame = createTestDataframe(baseUrl, Seq("layout2.pdf"), returnBytes = false)
 
   lazy val pdfDf2: DataFrame = createTestDataframe(baseUrl, Seq("invoice1.pdf", "invoice3.pdf"), returnBytes = false)
