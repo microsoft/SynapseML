@@ -265,7 +265,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   }
 
   /** Saves the booster to string representation.
-    * @param saveAllIterations Whether to save all iterations, or only up to the best one.
+    * @param upToIteration The zero-based index of the iteration to save as the last one (ignoring the rest).
     * @return The serialized string representation of the Booster.
     */
   def saveToString(upToIteration: Option[Int]): String = {

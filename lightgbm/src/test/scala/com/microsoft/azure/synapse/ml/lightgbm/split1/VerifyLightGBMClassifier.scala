@@ -354,7 +354,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
   }
 
-  test("Verify LightGBM Classifier model saved without extra iterations when early stopping") {
+  test("Verify LightGBM Classifier model handles iterations properly when early stopping") {
     val df = au3DF.orderBy(rand()).withColumn(validationCol, lit(false))
 
     val Array(train, validIntermediate, test) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
