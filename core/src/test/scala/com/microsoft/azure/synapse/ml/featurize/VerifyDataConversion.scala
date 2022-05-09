@@ -3,15 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.featurize
 
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.schema.SparkSchema
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.util.MLReadable
 
 import java.sql.Timestamp
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-class VerifyDataConversions extends TestBase {
+class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConversion] {
 
   import spark.implicits._
 
@@ -42,9 +45,15 @@ class VerifyDataConversions extends TestBase {
     f.parse("1993-08-06 15:32:00.789").getTime()).toDF("Col0")
 
   /*
-  Timestaps as strings dataframe
+  Timestamps as strings dataframe
    */
   lazy val sDF = Seq("1986-07-27 12:48:00.123", "1988-11-01 11:08:48.456", "1993-08-06 15:32:00.789").toDF("Col0")
+
+  /*
+   DataConversion for serialization
+   */
+    lazy val dc: DataConversion = new DataConversion().setCols(Array("Col0")).setConvertTo("date")
+    .setDateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS")
 
   /*
   Test conversion of all numeric types to Boolean
@@ -230,5 +239,9 @@ class VerifyDataConversions extends TestBase {
       .setConvertTo(convTo).transform(masterInDF)
     result
   }
+
+  override def testObjects(): Seq[TestObject[DataConversion]] = Seq(new TestObject(dc, sDF))
+
+  override def reader: MLReadable[_] = DataConversion
 
 }
