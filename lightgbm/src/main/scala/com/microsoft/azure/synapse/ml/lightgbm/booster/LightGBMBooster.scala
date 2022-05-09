@@ -44,6 +44,7 @@ protected object BoosterHandler {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
       "Booster LoadFromString")
+    lightgbmlib.delete_intp(numItersOut)
     lightgbmlib.voidpp_value(boosterOutPtr)
   }
 }
@@ -264,15 +265,15 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   }
 
   /** Saves the booster to string representation.
-    * @param saveAllIterations Whether to save all iterations, or up to the best one.
+    * @param saveAllIterations Whether to save all iterations, or only up to the best one.
     * @return The serialized string representation of the Booster.
     */
-  def saveToString(saveAllIterations: Boolean): String = {
+  def saveToString(upToIteration: Option[Int]): String = {
       val bufferLength = LightGBMConstants.DefaultBufferLength
       val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
-      val lastIteration: Int = if (saveAllIterations) -1 else bestIteration
+      val iterationCount = if (upToIteration.isEmpty) -1 else upToIteration.get + 1
       lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterHandler.boosterPtr,
-        0, lastIteration, 0, bufferLength, bufferOutLengthPtr)
+        0, iterationCount, 0, bufferLength, bufferOutLengthPtr)
   }
 
   /** Get the evaluation dataset column names from the native booster.
