@@ -268,7 +268,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     * @param upToIteration The zero-based index of the iteration to save as the last one (ignoring the rest).
     * @return The serialized string representation of the Booster.
     */
-  def saveToString(upToIteration: Option[Int]): String = {
+  def saveToString(upToIteration: Option[Int] = None): String = {
       val bufferLength = LightGBMConstants.DefaultBufferLength
       val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
       val iterationCount = if (upToIteration.isEmpty) -1 else upToIteration.get + 1
