@@ -26,6 +26,7 @@ pr:
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
+  ComponentDetection.Timeout: 900
 
 jobs:
 - job: Style
@@ -177,7 +178,7 @@ jobs:
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
         tags: $(version)
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
@@ -186,7 +187,7 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      displayName: Minimal Image Build + Push
+      displayName: Minimal Image Build
       inputs:
         containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
@@ -194,9 +195,9 @@ jobs:
         buildContext: "."
         Dockerfile: 'tools/docker/minimal/Dockerfile'
         tags: $(version)
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
-      displayName: Minimal Image Build + Push
+      displayName: Minimal Image Push
       inputs:
         containerRegistry: 'mmlspark-mcr-connection-1'
         repository: 'public/mmlspark/build-minimal'
@@ -214,7 +215,7 @@ jobs:
         tags: |
           $(version)
           latest
-        arguments: --build-arg MMLSPARK_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
       condition: startsWith(variables['gittag'], 'v')
       displayName: Release Image Push
@@ -225,6 +226,7 @@ jobs:
         tags: |
           $(version)
           latest
+    - task: ComponentGovernanceComponentDetection@0
 
 - job: Release
   cancelTimeoutInMinutes: 0
@@ -261,14 +263,14 @@ jobs:
       displayName: Use cached Anaconda environment
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        key: 'conda | "$(Agent.OS)" | environment.yaml'
+        key: 'conda | "$(Agent.OS)" | environment.yml'
         restoreKeys: |
           python | "$(Agent.OS)"
           python
         path: $(CONDA_CACHE_DIR)
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
-        conda env create -f environment.yaml -v -v -v
+        conda env create -f environment.yml -v -v -v
       condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1

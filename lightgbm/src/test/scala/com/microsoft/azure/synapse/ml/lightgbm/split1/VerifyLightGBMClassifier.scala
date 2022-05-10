@@ -491,6 +491,18 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assert(!evaluatedDf2.columns.contains(featuresShapCol))
   }
 
+  test("Verify Binary LightGBM Classifier chunk size parameter") {
+    val Array(train, test) = pimaDF.repartition(4).randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel.setUseSingleDatasetMode(true)
+    val scoredDF1 = untrainedModel.setChunkSize(1000).setSeed(1).setDeterministic(true).fit(train).transform(test)
+    val chunkSizes = Array(10, 100, 1000, 10000)
+    chunkSizes.foreach { chunkSize =>
+      val model = untrainedModel.setChunkSize(chunkSize).setSeed(1).setDeterministic(true).fit(train)
+      val scoredDF2 = model.transform(test)
+      assertBinaryEquality(scoredDF1, scoredDF2);
+    }
+  }
+
   test("Verify Multiclass LightGBM Classifier local feature importance SHAP values") {
     val Array(train, test) = breastTissueDF.select(labelCol, featuresCol).randomSplit(Array(0.8, 0.2), seed)
 

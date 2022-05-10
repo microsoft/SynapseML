@@ -313,7 +313,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val execNumThreads =
       if (getUseSingleDatasetMode) get(numThreads).getOrElse(numTasksPerExec - 1)
       else getNumThreads
-
     ExecutionParams(getChunkSize, getMatrixType, execNumThreads, getUseSingleDatasetMode)
   }
 

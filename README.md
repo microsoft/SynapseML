@@ -2,13 +2,6 @@
 
 # Synapse Machine Learning
 
-[![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
-
-[![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744)
-
-[![Version](https://img.shields.io/badge/version-0.9.5-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt) 
-
-
 SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
 SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of 
 machine learning, analytics, and model deployment workflows. 
@@ -30,6 +23,14 @@ SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
 See the API documentation [for
 Scala](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) and [for
 PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
+
+| Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Build   | [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML)                                                                                                                                    |
+| Version | [![Version](https://img.shields.io/badge/version-0.9.5-blue)](https://github.com/Microsoft/SynapseML/releases) [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)                                                                                                                                      |
+| Docs    | [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744) |
+| Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                |
+| Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/master?labpath=notebooks%2Ffeatures) |
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>

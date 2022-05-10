@@ -1,0 +1,3 @@
+default-jre
+default-jdk
+openmpi-bin

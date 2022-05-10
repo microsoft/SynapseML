@@ -25,7 +25,7 @@ class DatabricksTests extends TestBase {
   println("Installing libraries")
   installLibraries(clusterId)
   tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
-    assert(isClusterActive(clusterId))
+    assert(areLibrariesInstalled(clusterId))
   }
   println(s"Creating folder $Folder")
   workspaceMkDir(Folder)

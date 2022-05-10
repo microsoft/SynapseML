@@ -18,7 +18,7 @@ import spray.json._
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
-  with HasImageInput with HasSetLocation with HasSetLinkedService {
+  with HasImageInput with HasSetLocation with HasSetLinkedService with HasModelVersion {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
@@ -306,21 +306,8 @@ class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid
 
   def urlPath: String = "formrecognizer/v2.1/custom/models"
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-    // This semicolon is needed to avoid argument confusion
-    { row: Row =>
-      val base = getUrl + s"/${getValue(row, modelId)}"
-      val appended = if (!urlParams.isEmpty) {
-        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
+  override protected def prepareUrlRoot: Row => String = { row =>
+    getUrl + s"/${getValue(row, modelId)}"
   }
 
   override protected def prepareMethod(): HttpRequestBase = new HttpGet()
@@ -347,21 +334,8 @@ class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(ui
 
   def urlPath: String = "formrecognizer/v2.1/custom/models"
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-    // This semicolon is needed to avoid argument confusion
-    { row: Row =>
-      val base = getUrl + s"/${getValue(row, modelId)}/analyze"
-      val appended = if (!urlParams.isEmpty) {
-        "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
+  override protected def prepareUrlRoot: Row => String = {row =>
+    getUrl + s"/${getValue(row, modelId)}/analyze"
   }
 
   override protected def responseDataType: DataType = AnalyzeResponse.schema
