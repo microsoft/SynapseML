@@ -61,21 +61,21 @@ trait DotnetWrappableParam[T] extends Param[T] {
   val name: String
 
   // Used for generating set values for dotnet tests
-  def dotnetValue(v: T): String
+  def dotnetTestValue(v: T): String
 
   def dotnetName(v: T): String = {
     name
   }
 
   // Used for generating dotnet tests setters
-  def dotnetSetterLine(v: T): String =
-    s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+  def dotnetTestSetterLine(v: T): String =
+    s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
 
 }
 
 trait ExternalDotnetWrappableParam[T] extends DotnetWrappableParam[T] {
 
-  // Use this if the param is loaded instread of constructed directly
+  // Use this in tests if the param is loaded instead of constructed directly
   def dotnetLoadLine(modelNum: Int): String
 
 }

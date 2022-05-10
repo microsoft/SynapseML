@@ -16,4 +16,24 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
 
   override def dotnetType: String = "ParamMap[]"
 
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName($dotnetType value)
+        |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
+        |""".stripMargin
+  }
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
+        |    var result = new ParamMap[jvmObjects.Length];
+        |    for (int i=0; i < jvmObjects.Length; i++)
+        |    {
+        |        result[i] = new ParamMap(jvmObjects[i]);
+        |    }
+        |    return result;
+        |}
+        |""".stripMargin
+  }
+
 }

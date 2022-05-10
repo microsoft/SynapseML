@@ -17,4 +17,20 @@ class PipelineStageParam(parent: Params, name: String, doc: String, isValid: Pip
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
   override def dotnetType: String = "JavaPipelineStage"
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    Dictionary<string, Type> classMapping = JvmObjectUtils.ConstructJavaClassMapping(
+        |                typeof($dotnetReturnType),
+        |                "s_className");
+        |    JvmObjectUtils.TryConstructInstanceFromJvmObject(
+        |                jvmObject,
+        |                classMapping,
+        |                out $dotnetReturnType instance);
+        |    return instance;
+        |}
+        |""".stripMargin
+  }
 }

@@ -78,7 +78,7 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-  override def dotnetValue(v: Either[T, String]): String = {
+  override def dotnetTestValue(v: Either[T, String]): String = {
     v match {
       case Left(t) => DotnetWrappableParam.dotnetDefaultRender(t)
       case Right(n) => s""""$n""""
@@ -93,17 +93,17 @@ class ServiceParam[T: TypeTag](parent: Params,
   }
 
   //noinspection ScalaStyle
-  override def dotnetSetterLine(v: Either[T, String]): String = {
+  override def dotnetTestSetterLine(v: Either[T, String]): String = {
     v match {
       case Left(_) => typeOf[T] match {
         case t if t =:= typeOf[Array[String]] | t =:= typeOf[Seq[String]] =>
-          s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetValue(v)})"""
-        case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetValue(v)})"""
-        case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+          s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetTestValue(v)})"""
+        case _ => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
       }
-      case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+      case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
     }
   }
 
@@ -122,13 +122,13 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
 
-  override def dotnetValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
+  override def dotnetTestValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
 
-  override def dotnetSetterLine(v: T): String = {
+  override def dotnetTestSetterLine(v: T): String = {
     typeOf[T].toString match {
       case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" =>
-        s"""Set${dotnetName(v).capitalize}(new TextAnalyzeTask[]{${dotnetValue(v)}})"""
-      case _ => s"""Set${dotnetName(v).capitalize}(${dotnetValue(v)})"""
+        s"""Set${dotnetName(v).capitalize}(new TextAnalyzeTask[]{${dotnetTestValue(v)}})"""
+      case _ => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
     }
   }
 

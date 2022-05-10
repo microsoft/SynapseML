@@ -24,18 +24,49 @@ class TypedIntArrayParam(parent: Params,
                          name: String,
                          doc: String,
                          isValid: Seq[Int] => Boolean = ParamValidators.alwaysTrue)
-  extends JsonEncodableParam[Seq[Int]](parent, name, doc, isValid) {
+  extends JsonEncodableParam[Seq[Int]](parent, name, doc, isValid) with WrappableParam[Seq[Int]] {
   type ValueType = Int
 
   def w(v: java.util.ArrayList[Int]): ParamPair[Seq[Int]] = w(v.asScala)
+
+  def dotnetType: String = "int[]"
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    return ($dotnetReturnType)jvmObject.Invoke(\"array\");
+        |}
+        |""".stripMargin
+  }
+
+  def dotnetTestValue(v: Seq[Int]): String =
+    s""".Set${this.name.capitalize}(new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+
 }
 
 class TypedDoubleArrayParam(parent: Params,
                             name: String,
                             doc: String,
                             isValid: Seq[Double] => Boolean = ParamValidators.alwaysTrue)
-  extends JsonEncodableParam[Seq[Double]](parent, name, doc, isValid) {
+  extends JsonEncodableParam[Seq[Double]](parent, name, doc, isValid) with WrappableParam[Seq[Double]] {
   type ValueType = Double
 
   def w(v: java.util.ArrayList[Double]): ParamPair[Seq[Double]] = w(v.asScala)
+
+  def dotnetType: String = "double[]"
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    return ($dotnetReturnType)jvmObject.Invoke(\"array\");
+        |}
+        |""".stripMargin
+  }
+
+  def dotnetTestValue(v: Seq[Double]): String =
+    s""".Set${this.name.capitalize}(new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
 }

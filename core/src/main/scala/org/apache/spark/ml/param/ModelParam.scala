@@ -20,4 +20,28 @@ class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: 
   override def dotnetType: String = "JavaModel<M>"
 
   override def dotnetReturnType: String = "IModel<object>"
+
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName<M>($dotnetType value) where M : JavaModel<M> =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
+        |""".stripMargin
+  }
+
+  override def dotnetGetter(capName: String): String = {
+    val parentClassType = "JavaPipelineStage"
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    Dictionary<string, Type> classMapping = JvmObjectUtils.ConstructJavaClassMapping(
+        |                typeof($parentClassType),
+        |                "s_className");
+        |    JvmObjectUtils.TryConstructInstanceFromJvmObject(
+        |                jvmObject,
+        |                classMapping,
+        |                out $dotnetReturnType instance);
+        |    return instance;
+        |}
+        |""".stripMargin
+  }
+
 }

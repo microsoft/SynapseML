@@ -12,22 +12,22 @@ namespace Synapse.ML.LightGBM.Param
     /// </summary>
     public class LightGBMBooster : IJvmObjectReferenceProvider
     {
-        private static readonly string s_LightGBMBoosterClassName = "com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster";
+        private static readonly string s_className = "com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster";
 
 #nullable enable
         public LightGBMBooster(LightGBMDataset? trainDataset = null, string? parameters = null, string? modelStr = null)
-            : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, trainDataset, parameters, modelStr))
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, trainDataset, parameters, modelStr))
         {
         }
 #nullable disable
 
         public LightGBMBooster(LightGBMDataset trainDataset, string parameters)
-            : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, trainDataset, parameters))
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, trainDataset, parameters))
         {
         }
 
         public LightGBMBooster(string model)
-            : this(SparkEnvironment.JvmBridge.CallConstructor(s_LightGBMBoosterClassName, model))
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, model))
         {
         }
 

@@ -24,7 +24,7 @@ namespace SynapseML.Dotnet.Utils
             Reference = jvmObject;
             JvmObjectReference parameters = (JvmObjectReference)Reference.Invoke("parameters");
             JvmObjectReference hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-                "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "convertToJavaMap", parameters);
+                "org.apache.spark.api.dotnet.DotnetUtils", "convertToJavaMap", parameters);
             JvmObjectReference[] keySet = (JvmObjectReference[])(
                 (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
             var dict = new Dictionary<string, string>();

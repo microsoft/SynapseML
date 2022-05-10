@@ -131,7 +131,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
   }
 
-  override def dotnetValue(v: DataFrame): String = {
+  override def dotnetTestValue(v: DataFrame): String = {
     s"""${name}DF"""
   }
 

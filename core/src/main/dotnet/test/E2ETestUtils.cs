@@ -13,8 +13,6 @@ using System.Text;
 using Microsoft.Spark.Interop.Ipc;
 using Microsoft.Spark.Sql;
 using Microsoft.Spark.Services;
-using Microsoft.Spark.ML.Feature;
-using Microsoft.Spark.ML.Feature.Param;
 using Xunit;
 
 namespace SynapseMLtest.Utils
@@ -360,41 +358,6 @@ namespace SynapseMLtest.Utils
         // This class has no code, and is never created. Its purpose is simply
         // to be the place to apply [CollectionDefinition] and all the
         // ICollectionFixture<> interfaces.
-    }
-
-    public class FeatureBaseTests<T>
-    {
-        private readonly SparkSession _spark;
-
-        protected FeatureBaseTests(SparkFixture fixture)
-        {
-            _spark = fixture.Spark;
-        }
-
-        /// <summary>
-        /// Tests the common functionality across all ML.Feature classes.
-        /// </summary>
-        /// <param name="testObject">The object that implemented FeatureBase</param>
-        /// <param name="paramName">The name of a parameter that can be set on this object</param>
-        /// <param name="paramValue">A parameter value that can be set on this object</param>
-        public void TestFeatureBase(
-            FeatureBase<T> testObject,
-            string paramName,
-            object paramValue)
-        {
-            Assert.NotEmpty(testObject.ExplainParams());
-
-            Param param = testObject.GetParam(paramName);
-            Assert.NotEmpty(param.Doc);
-            Assert.NotEmpty(param.Name);
-            Assert.Equal(param.Parent, testObject.Uid());
-
-            Assert.NotEmpty(testObject.ExplainParam(param));
-            testObject.Set(param, paramValue);
-            Assert.IsAssignableFrom<Identifiable>(testObject.Clear(param));
-
-            Assert.IsType<string>(testObject.Uid());
-        }
     }
 
 }

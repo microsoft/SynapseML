@@ -8,11 +8,28 @@ import org.apache.spark.sql.types.DataType
 
 /** Param for DataType */
 class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType => Boolean)
-    extends ComplexParam[DataType](parent, name, doc, isValid) {
+  extends ComplexParam[DataType](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
   override def dotnetType: String = "DataType"
+
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName($dotnetType value) =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
+        |    DataType.FromJson(Reference.Jvm, value.Json)));
+        |""".stripMargin
+  }
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    var json = (string)jvmObject.Invoke(\"json\");
+        |    return DataType.ParseDataType(json);
+        |}
+        |""".stripMargin
+  }
 
 }

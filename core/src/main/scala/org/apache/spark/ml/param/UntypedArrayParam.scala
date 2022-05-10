@@ -42,23 +42,51 @@ object UntypedArrayParamJsonProtocol extends DefaultJsonProtocol {
   */
 @DeveloperApi
 class UntypedArrayParam(parent: Params, name: String, doc: String, isValid: Array[Any] => Boolean)
-  extends Param[Array[Any]](parent, name, doc, isValid) {
-    import UntypedArrayParamJsonProtocol._
+  extends Param[Array[Any]](parent, name, doc, isValid) with WrappableParam[Array[Any]] {
 
-    def this(parent: Params, name: String, doc: String) =
-      this(parent, name, doc, ParamValidators.alwaysTrue)
+  import UntypedArrayParamJsonProtocol._
 
-    def w(value: java.util.ArrayList[_]): ParamPair[Array[Any]] =
-      w(value.asScala.toArray.asInstanceOf[Array[Any]])
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, ParamValidators.alwaysTrue)
 
-    def w(value: java.util.List[_]): ParamPair[Array[Any]] =
-      w(value.asScala.toArray.asInstanceOf[Array[Any]])
+  def w(value: java.util.ArrayList[_]): ParamPair[Array[Any]] =
+    w(value.asScala.toArray.asInstanceOf[Array[Any]])
 
-    override def jsonEncode(value: Array[Any]): String = {
-      value.toJson.compactPrint
-    }
+  def w(value: java.util.List[_]): ParamPair[Array[Any]] =
+    w(value.asScala.toArray.asInstanceOf[Array[Any]])
 
-    override def jsonDecode(json: String): Array[Any] = {
-      json.parseJson.convertTo[Array[Any]]
-    }
+  override def jsonEncode(value: Array[Any]): String = {
+    value.toJson.compactPrint
   }
+
+  override def jsonDecode(json: String): Array[Any] = {
+    json.parseJson.convertTo[Array[Any]]
+  }
+
+  def dotnetType: String = "object[]"
+
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName($dotnetType value)
+        |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
+        |""".stripMargin
+  }
+
+  override def dotnetGetter(capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
+        |    var result = new object[jvmObjects.Length];
+        |    for (int i = 0; i < result.Length; i++)
+        |    {
+        |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
+        |            "org.apache.spark.api.dotnet.DotnetUtils", "mapScalaToJava", (object)jvmObjects[i]);
+        |    }
+        |    return result;
+        |}
+        |""".stripMargin
+  }
+
+  def dotnetTestValue(v: Array[Any]): String =
+    s""".Set${this.name.capitalize}(new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+}

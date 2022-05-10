@@ -23,22 +23,22 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
        |""".stripMargin
   }
 
-  override def dotnetValue(v: T): String = {
+  override def dotnetTestValue(v: T): String = {
     s"""${name}Model"""
   }
 
-//  // TODO: add this back once we support all underlyingTypes & fix assemblies access for Pipeline.GetStages
-//  override def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
-//    val underlyingType = Pipeline.load(
-//      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
-//      .getStages.head.getClass.getTypeName.split(".".toCharArray).last
-//
-//    s"""
-//       |var ${name}Load = Pipeline.Load(
-//       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-//       |var ${name}Model = ($underlyingType)${name}Load.GetStages()[0];
-//       |""".stripMargin
-//  }
+  //  // TODO: add this back once we support all underlyingTypes & fix assemblies access for Pipeline.GetStages
+  //  override def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
+  //    val underlyingType = Pipeline.load(
+  //      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
+  //      .getStages.head.getClass.getTypeName.split(".".toCharArray).last
+  //
+  //    s"""
+  //       |var ${name}Load = Pipeline.Load(
+  //       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
+  //       |var ${name}Model = ($underlyingType)${name}Load.GetStages()[0];
+  //       |""".stripMargin
+  //  }
 
   override def dotnetLoadLine(modelNum: Int): String =
     throw new NotImplementedError("No translation found for complex parameter")
@@ -67,5 +67,28 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
   override def dotnetType: String = "JavaEstimator<M>"
 
   override def dotnetReturnType: String = "IEstimator<object>"
+
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName<M>($dotnetType value) where M : JavaModel<M> =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
+        |""".stripMargin
+  }
+
+  override def dotnetGetter(capName: String): String = {
+    val parentClassType = "JavaPipelineStage"
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    Dictionary<string, Type> classMapping = JvmObjectUtils.ConstructJavaClassMapping(
+        |                typeof($parentClassType),
+        |                "s_className");
+        |    JvmObjectUtils.TryConstructInstanceFromJvmObject(
+        |                jvmObject,
+        |                classMapping,
+        |                out $dotnetReturnType instance);
+        |    return instance;
+        |}
+        |""".stripMargin
+  }
 
 }

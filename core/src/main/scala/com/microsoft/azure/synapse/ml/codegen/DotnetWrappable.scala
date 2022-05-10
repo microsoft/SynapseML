@@ -64,11 +64,7 @@ trait DotnetWrappable extends BaseWrappable {
     }
   }
 
-  protected def unCapitalize(name: String): String = {
-    Character.toLowerCase(name.charAt(0)) + name.substring(1)
-  }
-
-  protected lazy val dotnetClassNameString: String = s"s_${unCapitalize(dotnetClassName)}ClassName"
+  protected lazy val dotnetClassNameString: String = "s_className"
 
   protected lazy val dotnetClassWrapperName: String = "WrapAs" + dotnetClassName
 
@@ -101,7 +97,10 @@ trait DotnetWrappable extends BaseWrappable {
         |public JavaMLWriter Write() =>
         |    new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
         |
-        |/// <returns>an <see cref=\"JavaMLReader\"/> instance for this ML instance.</returns>
+        |/// <summary>
+        |/// Get the corresponding JavaMLReader instance.
+        |/// </summary>
+        |/// <returns>an <see cref=\"JavaMLReader&lt;$dotnetClassName&gt;\"/> instance for this ML instance.</returns>
         |public JavaMLReader<$dotnetClassName> Read() =>
         |    new JavaMLReader<$dotnetClassName>((JvmObjectReference)Reference.Invoke("read"));
         |""".stripMargin
@@ -144,51 +143,10 @@ trait DotnetWrappable extends BaseWrappable {
             |public $dotnetClassName Set${capName}Col(string value) =>
             |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
             |""".stripMargin
-      case _: DataTypeParam =>
+      // TODO: Fix UDF & UDPyF confusion; ParamSpaceParam, BallTreeParam, ConditionalBallTreeParam type
+      case wp: WrappableParam[_] =>
         s"""|$docString
-            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
-            |    DataType.FromJson(Reference.Jvm, value.Json)));
-            |""".stripMargin
-      case _: StringStringMapParam | _: StringIntMapParam =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |{
-            |    var hashMap = new HashMap(SparkEnvironment.JvmBridge);
-            |    foreach (var item in value)
-            |    {
-            |        hashMap.Put(item.Key, item.Value);
-            |    }
-            |    return $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)hashMap));
-            |}
-            |""".stripMargin
-      case _: EstimatorParam | _: ModelParam =>
-        s"""|$docString
-            |public $dotnetClassName Set${capName}<M>(${getParamInfo(p).dotnetType} value) where M : JavaModel<M> =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
-            |""".stripMargin
-      case _: ArrayParamMapParam | _: TransformerArrayParam | _: EstimatorArrayParam | _: UntypedArrayParam =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
-            |""".stripMargin
-      case _: ArrayMapParam =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(${getParamInfo(p).dotnetType} value)
-            |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
-            |        (object)value.Select(_ => _.ToJavaHashMap()).ToArray().ToJavaArrayList()));
-            |""".stripMargin
-      // TODO: Fix UDF & UDPyF confusion
-      case _: UDFParam | _: UDPyFParam =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(object value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
-            |""".stripMargin
-      // TODO: Fix these objects
-      case _: ParamSpaceParam | _: BallTreeParam | _: ConditionalBallTreeParam =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(object value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", value));
+            |${wp.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)}
             |""".stripMargin
       case _ =>
         s"""|$docString
@@ -223,8 +181,8 @@ trait DotnetWrappable extends BaseWrappable {
                |$docString
                |public $dType Get$capName()
                |{
-               |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-               |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
+               |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+               |    var jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
                |    $dType result =
                |        new ${dType.substring(0, dType.length - 2)}[jvmObjects.Length];
                |    for (int i = 0; i < result.Length; i++)
@@ -241,151 +199,10 @@ trait DotnetWrappable extends BaseWrappable {
                |    ($dType)Reference.Invoke(\"get$capName\");
                |""".stripMargin
         }
-      case _: DataTypeParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-           |    string json = (string)jvmObject.Invoke(\"json\");
-           |    return DataType.ParseDataType(json);
-           |}
-           |""".stripMargin
-      case _: StringStringMapParam | _: StringIntMapParam =>
-        val valType = p match {
-          case _: StringStringMapParam => "string"
-          case _: StringIntMapParam => "int"
-          case _ => throw new Exception(s"unsupported value type $p")
-        }
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-           |    JvmObjectReference hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |        "org.apache.spark.api.dotnet.DotnetUtils", "convertToJavaMap", jvmObject);
-           |    JvmObjectReference[] keySet = (JvmObjectReference[])(
-           |        (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
-           |    ${getParamInfo(p).dotnetType} result = new ${getParamInfo(p).dotnetType}();
-           |    foreach (var k in keySet)
-           |    {
-           |        result.Add((string)k.Invoke("toString"), ($valType)hashMap.Invoke("get", k));
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-           |    return (${getParamInfo(p).dotnetType})jvmObject.Invoke(\"array\");
-           |}
-           |""".stripMargin
-      case _: UntypedArrayParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    object[] result = new object[jvmObjects.Length];
-           |    for (int i = 0; i < result.Length; i++)
-           |    {
-           |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |            "org.apache.spark.api.dotnet.DotnetUtils", "mapScalaToJava", (object)jvmObjects[i]);
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case _: ArrayMapParam =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName()
-           |{
-           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    Dictionary<string, object>[] result = new Dictionary<string, object>[jvmObjects.Length];
-           |    JvmObjectReference hashMap;
-           |    JvmObjectReference[] keySet;
-           |    Dictionary<string, object> dic;
-           |    object val;
-           |    for (int i = 0; i < result.Length; i++)
-           |    {
-           |        hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |            "com.microsoft.azure.synapse.ml.codegen.DotnetHelper", "convertToJavaMap", jvmObjects[i]);
-           |        keySet = (JvmObjectReference[])(
-           |            (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
-           |        dic = new Dictionary<string, object>();
-           |        foreach (var k in keySet)
-           |        {
-           |            val = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-           |                "org.apache.spark.api.dotnet.DotnetUtils",
-           |                "mapScalaToJava", hashMap.Invoke("get", k));
-           |            dic.Add((string)k.Invoke("toString"), val);
-           |        }
-           |        result[i] = dic;
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case _: EstimatorParam | _: ModelParam | _: TransformerParam | _: EvaluatorParam | _: PipelineStageParam =>
-        s"""
-           |$docString
-           |public ${p.asInstanceOf[WrappableParam[_]].dotnetReturnType} Get$capName()
-           |{
-           |    JvmObjectReference jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-           |    var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObject);
-           |    Type type = Type.GetType(constructorClass);
-           |    MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |    return (${p.asInstanceOf[WrappableParam[_]].dotnetReturnType})method.Invoke(
-           |        null, new object[] {jvmObject});
-           |}
-           |""".stripMargin
-      case _: ArrayParamMapParam =>
-        s"""
-           |$docString
-           |public ParamMap[] Get$capName()
-           |{
-           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    ParamMap[] result = new ParamMap[jvmObjects.Length];
-           |    for (int i=0; i < jvmObjects.Length; i++)
-           |    {
-           |        result[i] = new ParamMap(jvmObjects[i]);
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case _: TransformerArrayParam | _: EstimatorArrayParam =>
-        val dType = getParamInfo(p).dotnetType.substring(0, getParamInfo(p).dotnetType.length - 2)
-        s"""
-           |$docString
-           |public $dType[] Get$capName()
-           |{
-           |    JvmObjectReference[] jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-           |    $dType[] result = new $dType[jvmObjects.Length];
-           |    for (int i=0; i < jvmObjects.Length; i++)
-           |    {
-           |        var (constructorClass, methodName) = Helper.GetUnderlyingType(jvmObjects[i]);
-           |        Type type = Type.GetType(constructorClass);
-           |        MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-           |        result[i] = ($dType)method.Invoke(null, new object[] {jvmObjects[i]});
-           |    }
-           |    return result;
-           |}
-           |""".stripMargin
-      case cp: ComplexParam[_] =>
-        if (cp.dotnetType == "object") {
-          s"""
-             |$docString
-             |public object Get$capName() => Reference.Invoke(\"get$capName\");
-             |""".stripMargin
-        } else {
-          s"""
-             |$docString
-             |public ${cp.dotnetType} Get$capName() =>
-             |    new ${cp.dotnetType}((JvmObjectReference)Reference.Invoke(\"get$capName\"));
-             |""".stripMargin
-        }
+      case wp: WrappableParam[_] =>
+        s"""|$docString
+            |${wp.dotnetGetter(capName)}
+            |""".stripMargin
       case _ =>
         s"""
            |$docString
