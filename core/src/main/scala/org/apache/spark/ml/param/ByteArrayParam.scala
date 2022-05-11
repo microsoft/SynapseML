@@ -15,7 +15,7 @@ class ByteArrayParam(parent: Params, name: String, doc: String, isValid: Array[B
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
   override def dotnetTestValue(v: Array[Byte]): String =
-    s""".Set${this.name.capitalize}(new byte[]
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+    s"""new byte[]
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 
 }

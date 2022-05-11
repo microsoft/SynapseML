@@ -41,8 +41,8 @@ class TypedIntArrayParam(parent: Params,
   }
 
   def dotnetTestValue(v: Seq[Int]): String =
-    s""".Set${this.name.capitalize}(new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+    s"""new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 
 }
 
@@ -67,6 +67,6 @@ class TypedDoubleArrayParam(parent: Params,
   }
 
   def dotnetTestValue(v: Seq[Double]): String =
-    s""".Set${this.name.capitalize}(new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+    s"""new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 }

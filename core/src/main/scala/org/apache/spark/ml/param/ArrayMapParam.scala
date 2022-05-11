@@ -106,7 +106,7 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
   }
 
   def dotnetTestValue(v: Array[Map[String, Any]]): String =
-    s""".Set${this.name.capitalize}(new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+    s"""new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 
 }

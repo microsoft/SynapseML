@@ -221,7 +221,7 @@ namespace SynapseMLtest.Utils
                 .Config("spark.sql.shuffle.partitions", "3")
                 .Config("spark.ui.enabled", true)
                 .Config("spark.ui.showConsoleProgress", true)
-                .AppName("SelectColumns Test")
+                .AppName("SynapseML dotnet E2E Test")
                 .GetOrCreate();
 
             Spark.SparkContext.SetLogLevel(DefaultLogLevel);
@@ -267,7 +267,7 @@ namespace SynapseMLtest.Utils
             bool addSynapseMLRepo = true;
             if (addSynapseMLRepo)
             {
-                return "--repositories  https://mmlspark.blob.core.windows.net/maven/";
+                return "--repositories  https://mmlspark.azureedge.net/maven";
             }
             return "";
         }
@@ -352,12 +352,12 @@ namespace SynapseMLtest.Utils
         }
     }
 
-    [CollectionDefinition("Spark E2E Tests")]
-    public class SparkCollection : ICollectionFixture<SparkFixture>
-    {
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
-    }
+    // [CollectionDefinition("Spark E2E Tests")]
+    // public class SparkCollection : ICollectionFixture<SparkFixture>
+    // {
+    //     // This class has no code, and is never created. Its purpose is simply
+    //     // to be the place to apply [CollectionDefinition] and all the
+    //     // ICollectionFixture<> interfaces.
+    // }
 
 }

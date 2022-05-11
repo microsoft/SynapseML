@@ -45,8 +45,6 @@ class UntypedArrayParam(parent: Params, name: String, doc: String, isValid: Arra
   extends Param[Array[Any]](parent, name, doc, isValid) with WrappableParam[Array[Any]] {
     import AnyJsonFormat._
 
-  import UntypedArrayParamJsonProtocol._
-
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
@@ -88,6 +86,6 @@ class UntypedArrayParam(parent: Params, name: String, doc: String, isValid: Arra
   }
 
   def dotnetTestValue(v: Array[Any]): String =
-    s""".Set${this.name.capitalize}(new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)})""".stripMargin
+    s"""new $dotnetType
+       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 }
