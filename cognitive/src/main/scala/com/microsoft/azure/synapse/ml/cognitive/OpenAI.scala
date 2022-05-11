@@ -34,7 +34,7 @@ trait HasSetServiceName extends Wrappable with HasURL {
 
 trait HasPrompt extends HasServiceParams {
   val prompt: ServiceParam[String] = new ServiceParam[String](
-    this, "prompt", "The text to complete", isRequired = true)
+    this, "prompt", "The text to complete", isRequired = false)
 
   def getPrompt: String = getScalarParam(prompt)
 
@@ -43,6 +43,45 @@ trait HasPrompt extends HasServiceParams {
   def getPromptCol: String = getVectorParam(prompt)
 
   def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
+}
+
+trait HasBulkPrompts extends HasServiceParams {
+  val bulkPrompts: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
+    this, "bulkPrompts", "Sequence of prompts to complete", isRequired = false)
+
+  def getBulkPrompts: Seq[String] = getScalarParam(bulkPrompts)
+
+  def setBulkPrompts(v: Seq[String]): this.type = setScalarParam(bulkPrompts, v)
+
+  def getBulkPromptsCol: String = getVectorParam(bulkPrompts)
+
+  def setBulkPromptsCol(v: String): this.type = setVectorParam(bulkPrompts, v)
+}
+
+trait HasIndexPrompt extends HasServiceParams {
+  val indexPrompt: ServiceParam[Seq[Int]] = new ServiceParam[Seq[Int]](
+    this, "indexes", "Sequence of indexes to complete", isRequired = false)
+
+  def getIndexPrompt: Seq[Int] = getScalarParam(indexPrompt)
+
+  def setIndexPrompt(v: Seq[Int]): this.type = setScalarParam(indexPrompt, v)
+
+  def getIndexPromptCol: String = getVectorParam(indexPrompt)
+
+  def setIndexPromptCol(v: String): this.type = setVectorParam(indexPrompt, v)
+}
+
+trait HasBulkIndexPrompts extends HasServiceParams {
+  val bulkIndexPrompts: ServiceParam[Seq[Seq[Int]]] = new ServiceParam[Seq[Seq[Int]]](
+    this, "bulkIndexes", "Sequence of index sequences to complete", isRequired = false)
+
+  def getBulkIndexPrompts: Seq[Seq[Int]] = getScalarParam(bulkIndexPrompts)
+
+  def setBulkIndexPrompts(v: Seq[Seq[Int]]): this.type = setScalarParam(bulkIndexPrompts, v)
+
+  def getBulkIndexPromptsCol: String = getVectorParam(bulkIndexPrompts)
+
+  def setBulkIndexPromptsCol(v: String): this.type = setVectorParam(bulkIndexPrompts, v)
 }
 
 trait HasAPIVersion extends HasServiceParams {
@@ -93,7 +132,8 @@ trait HasMaxTokens extends HasServiceParams {
 }
 
 trait HasOpenAIParams extends HasServiceParams
-  with HasSetServiceName with HasPrompt with HasAPIVersion with HasDeploymentName with HasMaxTokens {
+  with HasSetServiceName with HasPrompt with HasBulkPrompts with HasIndexPrompt with HasBulkIndexPrompts
+  with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
     this, "temperature",
@@ -299,14 +339,55 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
         getValueOpt(r, logProbs).map(v => ("logprobs", v))
       ).flatten).toMap
 
-      getValueOpt(r, prompt).map { prompt =>
-        val fullPayload = optionalParams.updated("prompt", prompt)
-        new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
-      }
+      getValueOpt(r, prompt)
+        .map(prompt => getBasicStringEntity(prompt, optionalParams))
+        .orElse(getValueOpt(r, bulkPrompts)
+          .map(bulkPrompts => getArrayStringEntity(bulkPrompts, optionalParams)))
+        .orElse(getValueOpt(r, indexPrompt)
+          .map(indexPrompt => getIndexStringEntity(indexPrompt, optionalParams)))
+        .orElse(getValueOpt(r, bulkIndexPrompts)
+          .map(bulkIndexPrompts => getIndexArrayStringEntity(bulkIndexPrompts, optionalParams)))
+        .orElse(throw new IllegalArgumentException(
+          "Payload needs to contain String, Seq[String], Seq[Int] or Seq[Seq[Int]]. This code should not run"))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def responseDataType: DataType = CompletionResponse.schema
+
+  def getBasicStringEntity(prompt: String, optionalParams: Map[String, Any]): StringEntity = {
+    val fullPayload = optionalParams.updated("prompt", prompt)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  def getArrayStringEntity(prompt: Seq[String], optionalParams: Map[String, Any]): StringEntity = {
+    val promptString = formatQuotedArray(prompt)
+    val fullPayload = optionalParams.updated("prompt", promptString)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  def getIndexStringEntity(prompt: Seq[Int], optionalParams: Map[String, Any]): StringEntity = {
+    val promptString = formatUnquotedArray(prompt)
+    val fullPayload = optionalParams.updated("prompt", promptString)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  def getIndexArrayStringEntity(prompt: Seq[Seq[Int]], optionalParams: Map[String, Any]): StringEntity = {
+    val pf = new PartialFunction[Seq[Int], String] {
+      def isDefinedAt(a: Seq[Int]) = a != None
+      def apply(a: Seq[Int]) = formatUnquotedArray(a)
+    }
+
+    val promptString = String.format("[%s]", prompt.collect(pf).mkString(","))
+    val fullPayload = optionalParams.updated("prompt", promptString)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  def formatQuotedArray(collection: Seq[_]): String = {
+    String.format(s"""["%s"]""", collection.mkString(s"""",""""))
+  }
+  def formatUnquotedArray(collection: Seq[_]): String = {
+    String.format("[%s]", collection.mkString(","))
+  }
 
 }
