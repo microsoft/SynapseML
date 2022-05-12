@@ -34,20 +34,19 @@ trait HasPrebuiltModelID extends HasServiceParams {
   def getPrebuiltModelIdCol: String = getVectorParam(prebuiltModelId)
 }
 
-object AnalyzeDocument extends ComplexParamsReadable[AnalyzeDocument] {
-  // Different versions might have different results so make sure tests pass before updating
-  val DefaultAPIVersion = "2022-01-30-preview"
-}
+object AnalyzeDocument extends ComplexParamsReadable[AnalyzeDocument]
 
 class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
-  with HasPrebuiltModelID with HasPages with HasLocale
+  with HasPrebuiltModelID with HasPages with HasLocale with HasAPIVersion
   with HasImageInput with HasSetLocation with BasicLogging {
   logClass()
 
+  setDefault(apiVersion -> Left("2022-01-30-preview"))
+
   def this() = this(Identifiable.randomUID("AnalyzeDocument"))
 
-  def urlPath: String = "formrecognizer/documentModels/"
+  def urlPath: String = "formrecognizer/documentModels"
 
   val stringIndexType = new ServiceParam[String](this, "stringIndexType", "Method used to " +
     "compute string offset and length.", {
@@ -75,21 +74,8 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
         "Payload needs to contain image bytes or url. This code should not run"))
   }
 
-  override protected def prepareUrl: Row => String = {
-    val urlParams: Array[ServiceParam[Any]] =
-      getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
-    // This semicolon is needed to avoid argument confusion
-    { row: Row =>
-      val base = getUrl + s"${getValue(row, prebuiltModelId)}:analyze?api-version=${AnalyzeDocument.DefaultAPIVersion}"
-      val appended = if (!urlParams.isEmpty) {
-        "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
-        ).toMap)
-      } else {
-        ""
-      }
-      base + appended
-    }
+  override protected def prepareUrlRoot: Row => String = { row =>
+    getUrl + s"/${getValue(row, prebuiltModelId)}:analyze"
   }
 
 }

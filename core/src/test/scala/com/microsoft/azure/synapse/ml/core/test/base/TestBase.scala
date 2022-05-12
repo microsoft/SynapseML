@@ -62,11 +62,11 @@ trait LinuxOnly extends TestBase {
 
 trait Flaky extends TestBase {
 
-  val retyMillis: Array[Int] = Array(0, 1000, 5000)
+  val retryMillis: Array[Int] = Array(0, 1000, 5000)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*) {
-      tryWithRetries(retyMillis)(testFun _)
+      tryWithRetries(retryMillis)(testFun _)
     }
   }
 
@@ -76,11 +76,11 @@ trait TimeLimitedFlaky extends TestBase with TimeLimits {
 
   val timeoutInSeconds: Int = 5 * 60
 
-  val retyMillis: Array[Int] = Array(0, 100, 100)
+  val retryMillis: Array[Int] = Array(0, 100, 100)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*) {
-      tryWithRetries(retyMillis) {
+      tryWithRetries(retryMillis) {
         failAfter(Span(timeoutInSeconds, Seconds)) {
           println("Executing time-limited flaky function")
           testFun _

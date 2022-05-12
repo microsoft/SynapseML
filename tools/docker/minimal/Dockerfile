@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:20.04
 
 ARG SYNAPSEML_VERSION=0.9.5
 ARG DEBIAN_FRONTEND=noninteractive

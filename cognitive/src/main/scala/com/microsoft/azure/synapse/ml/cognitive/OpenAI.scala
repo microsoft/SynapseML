@@ -21,8 +21,8 @@ import scala.language.existentials
 trait HasSetServiceName extends Wrappable with HasURL {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
-      |def setDeploymentName(self, value):
-      |    self._java_obj = self._java_obj.setDeploymentName(value)
+      |def setServiceName(self, value):
+      |    self._java_obj = self._java_obj.setServiceName(value)
       |    return self
       |""".stripMargin
   }

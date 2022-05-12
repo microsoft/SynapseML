@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM openjdk:17-ea-22-jdk-oracle
+FROM mcr.microsoft.com/openjdk/jdk:11-mariner
 
 ARG spark_jars=jars
 ARG img_path=kubernetes/dockerfiles

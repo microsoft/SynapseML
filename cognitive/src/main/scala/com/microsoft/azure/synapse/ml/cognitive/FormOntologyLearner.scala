@@ -46,7 +46,10 @@ class FormOntologyLearner(override val uid: String) extends Estimator[FormOntolo
   def this() = this(Identifiable.randomUID("FormOntologyLearner"))
 
   private[ml] def extractOntology(fromRow: Row => AnalyzeResponse)(r: Row): StructType = {
-    val fieldResults = fromRow(r.getStruct(0)).analyzeResult.documentResults.get.head.fields
+    val fieldResults = fromRow(r.getStruct(0)).analyzeResult.documentResults
+      .getOrElse(throw new IllegalArgumentException("A row does not have a `analyzeResult.documentResults` field," +
+        " please filter these out before using the FormOntologyLearner"))
+      .head.fields
     new StructType(fieldResults
       .mapValues(_.toFieldResultRecursive.toSimplifiedDataType)
       .map({ case (name, dt) => StructField(name, dt) }).toArray)
