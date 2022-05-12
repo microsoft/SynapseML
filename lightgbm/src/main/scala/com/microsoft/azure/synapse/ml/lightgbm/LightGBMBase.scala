@@ -426,7 +426,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
         try {
           val bestIterResult = trainCore(batchIndex, trainParams, booster, log, validDatasetOpt.isDefined)
           if (returnBooster) {
-            val model = booster.saveToString()
+            val model = booster.saveToString(bestIterResult)
             val modelBooster = new LightGBMBooster(model)
             // Set best iteration on booster if hit early stopping criteria in trainCore
             bestIterResult.foreach(modelBooster.setBestIteration)
