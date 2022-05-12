@@ -40,7 +40,6 @@ object BuildUtils {
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
-    println(s"------run {cmd}")
     assert(pb.start().waitFor() == 0)
   }
 

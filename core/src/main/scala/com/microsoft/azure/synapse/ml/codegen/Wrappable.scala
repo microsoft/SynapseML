@@ -410,6 +410,8 @@ trait RWrappable extends BaseWrappable {
       p match {
         case p: ServiceParam[_] =>
           s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
+        case p: ComplexParam[_]  =>
+          s"""invoke("set${p.name.capitalize}", spark_jobj($value[[1]]))"""
         case p =>
           s"""invoke("set${p.name.capitalize}", $value)"""
       }
@@ -417,11 +419,12 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rExtraInitLines: String = {
+    // TODO: figure out when it might be appropriate to set only.model as TRUE
     this match {
       case _: Estimator[_] =>
         "unfit.model=FALSE,\nonly.model=FALSE,\n"
       case _ =>
-        "only.model=FALSE,\n"
+        "unfit.model=FALSE,\nonly.model=TRUE,\n"
     }
   }
 
@@ -444,6 +447,7 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rClass(): String = {
+    val pipe = if (thisStage.params.isEmpty) "" else " %>%"
     s"""
        |$copyrightLines
        |
@@ -463,13 +467,13 @@ trait RWrappable extends BaseWrappable {
        |    }
        |    scala_class <- "${thisStage.getClass.getName}"
        |    mod <- invoke_new(sc, scala_class, uid = uid)
-       |    mod_parameterized <- mod %>%
+       |    mod_parameterized <- mod ${pipe}
        |${indent(rSetterLines, 2)}
        |${indent(rExtraBodyLines, 1)}
        |    if (only.model)
        |        return(sparklyr:::new_ml_transformer(transformer, class=scala_transformer_class))
        |    transformed <- invoke(transformer, "transform", df)
-       |    sdf_register(transformed)
+       |    spark_dataframe(sdf_register(transformed))
        |}
        |""".stripMargin
 

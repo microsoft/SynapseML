@@ -89,7 +89,7 @@ object CodegenPlugin extends AutoPlugin {
     val testRunner = join("tools", "tests", "run_r_tests.R")
     if (rTestDir.exists()){
         rCmd(activateCondaEnv,
-        Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
+          Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
     }
   } tag (RInstallTag)
 

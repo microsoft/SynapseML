@@ -7,6 +7,8 @@ import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 
+import java.io.File
+
 trait PipelineStageWrappable[T <: PipelineStage]
   extends ExternalPythonWrappableParam[T] with ExternalRWrappableParam[T] with ParamEquality[T] {
 
@@ -28,7 +30,8 @@ trait PipelineStageWrappable[T <: PipelineStage]
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}Model <- ml_load(sc, paste(test_data_dir, "model-$modelNum.model", "complexParams", "$name", sep = "/"))
+       |${name}Model <- ml_load(sc, paste(test_data_dir, "model-$modelNum.model",
+       |                       "complexParams", "$name", sep = "${File.separator}"))
        |${name}Model <- ml_stages(${name}Model)[1]
        |""".stripMargin
   }

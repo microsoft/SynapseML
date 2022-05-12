@@ -7,10 +7,22 @@ import spray.json._
 import java.lang.{StringBuilder => JStringBuilder}
 
 trait RPrinter extends CompactPrinter {
+
   override protected def printArray(elements: Seq[JsValue], sb: JStringBuilder): Unit = {
     sb.append("c(")
     printSeq(elements, sb.append(','))(print(_, sb))
     sb.append(")")
+  }
+
+  override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
+    sb.append("c(")
+    printSeq(members, sb.append(',')) { m =>
+      printString(m._1, sb)
+      sb.append('=')
+      print(m._2, sb)
+    }
+
+    sb.append(')')
   }
 
   override protected def printLeaf(x: JsValue, sb: JStringBuilder): Unit = {

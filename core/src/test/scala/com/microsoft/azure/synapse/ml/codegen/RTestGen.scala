@@ -49,7 +49,8 @@ object RTestGen {
       .format(new java.util.Date())
 
     conf.rTestDir.mkdirs()
-    val projectDir = conf.rTestDir.getParentFile.getParentFile
+    val testsDir = conf.rTestDir.getParentFile
+    val projectDir = testsDir.getParentFile
     writeFile(new File(projectDir, "DESCRIPTION"),
       s"""|Package: ${conf.name.replace("-", ".")}
           |Title: Access to SynapseML via R
@@ -61,7 +62,7 @@ object RTestGen {
           |URL: https://github.com/Microsoft/SynapseML
           |BugReports: https://github.com/Microsoft/SynapseML/issues
           |Depends:
-          |    R (>= 2.12.0)
+          |    R (>= 3.5.0)
           |Imports:
           |    sparklyr
           |License: MIT
@@ -71,24 +72,6 @@ object RTestGen {
           |""".stripMargin)
 
     val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
-    writeFile(new File(conf.rTestDir, "package_register.R"),
-      s"""|#' @import sparklyr
-          |spark_dependencies <- function(spark_version, scala_version, ...) {
-          |    spark_dependency(
-          |        jars = c(),
-          |        packages = c(
-          |           "com.microsoft.azure:${conf.name}_${scalaVersion}:${conf.version}"
-          |        ),
-          |        repositories = c("https://mmlspark.azureedge.net/maven")
-          |    )
-          |}
-          |
-          |#' @import sparklyr
-          |.onLoad <- function(libname, pkgname) {
-          |    sparklyr::register_extension(pkgname)
-          |}
-          |""".stripMargin)
-
     writeFile(new File(projectDir, "synapsemltest.Rproj"),
       """
         |Version: 1.0
@@ -112,34 +95,36 @@ object RTestGen {
         |""".stripMargin)
 
     val synapseVersion = BuildInfo.version
-    writeFile(join(conf.rTestDir, "spark.R"),
+    writeFile(join(conf.rTestDir, "setup.R"),
       s"""
-         |# Copyright (C) Microsoft Corporation. All rights reserved.
-         |# Licensed under the MIT License. See LICENSE in project root for information.
-         |
          |library(sparklyr)
-         |library(dplyr)
+         |
+         |options(sparklyr.log.console = TRUE)
+         |options(sparklyr.verbose = TRUE)
+         |jarName <- "${conf.name}_${scalaVersion}-${synapseVersion}.jar"
+         |jarPath <- paste("${conf.targetDir}", jarName, sep = "${File.separator}")
+         |install.packages(jarPath)
          |
          |conf <- spark_config()
-         |conf$$sparklyr.defaultPackages="com.microsoft.azure:synapseml_${scalaVersion}:${synapseVersion}"
          |conf$$`sparklyr.shell.conf` <- c(
          |  "spark.app.name=RSparkTests",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
          |
-         |sc <- spark_connect(master = "local", config = conf)
-         |connection_is_open(sc)
+         |sc <- spark_connect(
+         |  master = "local",
+         |  version = "3.2.0",
+         |  packages = c("com.microsoft.azure:${conf.name}_${scalaVersion}:${synapseVersion}"),
+         |  config = conf)
          |
          |""".stripMargin)
 
     val library = conf.name.replaceAll("-", ".")
-    writeFile(join(conf.rTestDir, "testthat.R"),
+    writeFile(join(testsDir, "testthat.R"),
       s"""
          |library(testthat)
          |library($library)
-         |
-         |test_check("$library")
          |
          |""".stripMargin)
   }

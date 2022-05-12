@@ -11,6 +11,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
 import org.scalactic.{Equality, TolerantNumerics}
 
+import java.io.File
 import scala.reflect.ClassTag
 
 
@@ -137,8 +138,9 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}Dir <- paste(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}", sep = "/")
-       |${name}DF <- copy_to(spark_read_parquet(${name}Dir)
+       |${name}Dir <- paste(test_data_dir, "model-${modelNum}.model",
+       |                    "complexParams", "${name}", sep = "${File.separator}")
+       |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
        """.stripMargin
   }
 
