@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 trait OpenAIAPIKey {
@@ -20,10 +20,10 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   import spark.implicits._
 
-  lazy val promptCompletion: OpenAICompletion = newCompletion("prompt")
-  lazy val bulkPromptsCompletion: OpenAICompletion = newCompletion("bulkPrompts")
-  lazy val indexesCompletion: OpenAICompletion = newCompletion("indexes")
-  lazy val bulkIndexesCompletion: OpenAICompletion = newCompletion("bulkIndexes")
+  lazy val promptCompletion: OpenAICompletion = newCompletion.setPromptCol("prompt")
+  lazy val bulkPromptCompletion: OpenAICompletion = newCompletion.setBulkPromptCol("bulkPrompt")
+  lazy val indexCompletion: OpenAICompletion = newCompletion.setIndexPromptCol("index")
+  lazy val bulkIndexCompletion: OpenAICompletion = newCompletion.setBulkIndexPromptCol("bulkIndex")
 
   lazy val promptDF: DataFrame = Seq(
     "Once upon a time",
@@ -31,63 +31,54 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     "SynapseML is "
   ).toDF("prompt")
 
-  lazy val bulkPromptsDF: DataFrame = Seq(
+  lazy val bulkPromptDF: DataFrame = Seq(
     Seq(
       "Now is the time",
       "Knock, knock",
       "Ask not")
-  ).toDF("bulkPrompts")
+  ).toDF("bulkPrompt")
 
-  lazy val indexesDF: DataFrame = Seq(
+  lazy val indexDF: DataFrame = Seq(
     Seq(1212, 318, 247, 1332)
-  ).toDF("indexes")
+  ).toDF("index")
 
-  lazy val bulkIndexesDF: DataFrame = Seq(
+  lazy val bulkIndexDF: DataFrame = Seq(
     Seq(
       Seq(1212, 318, 257, 1332),
       Seq(1334, 259, 320, 1214))
-  ).toDF("bulkIndexes")
+  ).toDF("bulkIndex")
 
   test("Basic Usage") {
-    val fromRow = CompletionResponse.makeFromRowConverter
-    val transformed = promptCompletion.transform(promptDF)
-    transformed.show(truncate=false)
-    transformed.collect().map(r =>
-      assert(fromRow(r.getAs[Row]("out")).choices.head.text.length > 10))
+    testCompletion(promptCompletion, promptDF, 10)
   }
 
-  test("Bulk Prompts") {
-    val fromRow = CompletionResponse.makeFromRowConverter
-    val transformed = bulkPromptsCompletion.transform(bulkPromptsDF)
-    transformed.show(truncate=false)
-    transformed.collect().map(r =>
-      assert(fromRow(r.getAs[Row]("out")).choices.head.text.length > 20))
+  test("Bulk Prompt") {
+    testCompletion(bulkPromptCompletion, bulkPromptDF, 20)
   }
 
   test("Indexes") {
-    val fromRow = CompletionResponse.makeFromRowConverter
-    val transformed = indexesCompletion.transform(indexesDF)
-    transformed.show(truncate=false)
-    transformed.collect().map(r =>
-      assert(fromRow(r.getAs[Row]("out")).choices.head.text.length > 10))
+    testCompletion(indexCompletion, indexDF, 10)
   }
 
   test("Bulk Indexes") {
-    val fromRow = CompletionResponse.makeFromRowConverter
-    val transformed = bulkIndexesCompletion.transform(bulkIndexesDF)
-    transformed.show(truncate=false)
-    transformed.collect().map(r =>
-      assert(fromRow(r.getAs[Row]("out")).choices.head.text.length > 20))
+    testCompletion(bulkIndexCompletion, bulkIndexDF, 20)
   }
 
-  def newCompletion(prompt: String): OpenAICompletion = {
+  def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int): Unit = {
+    val fromRow = CompletionResponse.makeFromRowConverter
+    val transformed = completion.transform(df)
+    //transformed.show(truncate=false) // uncomment for debugging
+    transformed.collect().map(r =>
+      assert(fromRow(r.getAs[Row]("out")).choices.head.text.length > requiredLength))
+  }
+
+  def newCompletion(): OpenAICompletion = {
     new OpenAICompletion()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName("text-davinci-001")
       .setServiceName(openAIServiceName)
       .setMaxTokens(20)
       .setLogProbs(5)
-      .setPromptCol(prompt)
       .setOutputCol("out")
   }
 
@@ -97,9 +88,9 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   override def testObjects(): Seq[TestObject[OpenAICompletion]] = Seq(
     new TestObject(promptCompletion, promptDF),
-    new TestObject(bulkPromptsCompletion, bulkPromptsDF),
-    new TestObject(indexesCompletion, indexesDF),
-    new TestObject(bulkIndexesCompletion, bulkIndexesDF))
+    new TestObject(bulkPromptCompletion, bulkPromptDF),
+    new TestObject(indexCompletion, indexDF),
+    new TestObject(bulkIndexCompletion, bulkIndexDF))
 
   override def reader: MLReadable[_] = OpenAICompletion
 
