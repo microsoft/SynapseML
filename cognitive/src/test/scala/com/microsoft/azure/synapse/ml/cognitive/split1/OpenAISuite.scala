@@ -56,11 +56,11 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     testCompletion(bulkPromptCompletion, bulkPromptDF, 20)
   }
 
-  test("Indexes") {
+  test("Index") {
     testCompletion(indexCompletion, indexDF, 10)
   }
 
-  test("Bulk Indexes") {
+  test("Bulk Index") {
     testCompletion(bulkIndexCompletion, bulkIndexDF, 20)
   }
 

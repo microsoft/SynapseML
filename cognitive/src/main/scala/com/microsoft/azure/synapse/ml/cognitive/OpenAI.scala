@@ -356,33 +356,28 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
   override def responseDataType: DataType = CompletionResponse.schema
 
-  def getStringEntity(prompt: String, optionalParams: Map[String, Any]): StringEntity = {
+  private[this] def getStringEntity(prompt: String, optionalParams: Map[String, Any]): StringEntity = {
     val fullPayload = optionalParams.updated("prompt", prompt)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  def getArrayStringEntity(prompt: Seq[String], optionalParams: Map[String, Any]): StringEntity = {
+  private[this] def getArrayStringEntity(prompt: Seq[String], optionalParams: Map[String, Any]): StringEntity = {
     getStringEntity(formatQuotedArray(prompt), optionalParams)
   }
 
-  def getIndexStringEntity(prompt: Seq[Int], optionalParams: Map[String, Any]): StringEntity = {
+  private[this] def getIndexStringEntity(prompt: Seq[Int], optionalParams: Map[String, Any]): StringEntity = {
     getStringEntity(formatUnquotedArray(prompt), optionalParams)
   }
 
-  def getIndexArrayStringEntity(prompt: Seq[Seq[Int]], optionalParams: Map[String, Any]): StringEntity = {
-    val pf = new PartialFunction[Seq[Int], String] {
-      def isDefinedAt(a: Seq[Int]) = a != None
-      def apply(a: Seq[Int]) = formatUnquotedArray(a)
-    }
-
-    getStringEntity(String.format("[%s]", prompt.collect(pf).mkString(",")), optionalParams)
+  private[this] def getIndexArrayStringEntity(prompt: Seq[Seq[Int]], optionalParams: Map[String, Any]): StringEntity = {
+    getStringEntity(String.format("[%s]", prompt.map(a => formatUnquotedArray(a)).mkString(",")), optionalParams)
   }
 
-  def formatQuotedArray(collection: Seq[_]): String = {
+  private[this] def formatQuotedArray(collection: Seq[_]): String = {
     String.format(s"""["%s"]""", collection.mkString(s"""",""""))
   }
 
-  def formatUnquotedArray(collection: Seq[_]): String = {
+  private[this] def formatUnquotedArray(collection: Seq[_]): String = {
     String.format("[%s]", collection.mkString(","))
   }
 
