@@ -109,7 +109,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
       .select("chosen_action", "cost", "prob", "shared_features", "action_features")
 
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
@@ -137,7 +137,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
 
   test("Verify columns are correct data type") {
     val cbWithIncorrectActionCol = new VowpalWabbitContextualBandit()
-      .setArgs("--quiet")
+      .setPassThroughArgs("--quiet")
       .setEpsilon(0.2)
       .setLabelCol("cost")
       .setProbabilityCol("prob")
@@ -162,7 +162,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
       .setInputCols(Array("action1_features"))
       .setOutputCol("action_features")
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
@@ -192,12 +192,12 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
   test("Verify raises exception when used with incompatible args") {
     val df = CBDatasetHelper.getCBDataset(spark)
     assertThrows[NotImplementedError](
-      new VowpalWabbitContextualBandit().setArgs("--quiet --cb --episilon 0.5").fit(df))
+      new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb --epsilon 0.5").fit(df))
     assertThrows[NotImplementedError](
-      new VowpalWabbitContextualBandit().setArgs("--quiet --cb_explore").fit(df))
+      new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb_explore").fit(df))
     assertThrows[NotImplementedError](
-      new VowpalWabbitContextualBandit().setArgs("--quiet --cb_adf").fit(df))
-    new VowpalWabbitContextualBandit().setArgs("--quiet --cb_explore_adf").fit(df)
+      new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb_adf").fit(df))
+    new VowpalWabbitContextualBandit().setPassThroughArgs("--quiet --cb_explore_adf").fit(df)
   }
 
   test("Verify can use paralellized fit") {
@@ -206,7 +206,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
       .cache()
 
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--quiet")
+      .setPassThroughArgs("--quiet")
       .setParallelismForParamListFit(4)
       .setUseBarrierExecutionMode(false)
 
@@ -271,7 +271,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
     val transformedDf = model.transform(df)
 
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
@@ -337,7 +337,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
     val transformedDf = model.transform(df)
 
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--cb_explore_adf --epsilon 0.2 --quiet")
+      .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
       .setLabelCol("cost")
       .setProbabilityCol("prob")
       .setChosenActionCol("chosen_action")
@@ -367,7 +367,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
   override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {
     val trainData = CBDatasetHelper.getCBDataset(spark)
     val cb = new VowpalWabbitContextualBandit()
-      .setArgs("--quiet")
+      .setPassThroughArgs("--quiet")
     Seq(new TestObject(
       cb,
       trainData))
