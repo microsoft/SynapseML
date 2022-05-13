@@ -122,6 +122,7 @@ module.exports = {
       items: [
         'mlflow/introduction',
         'mlflow/examples',
+        'mlflow/autologging'
       ],
     },
     {
