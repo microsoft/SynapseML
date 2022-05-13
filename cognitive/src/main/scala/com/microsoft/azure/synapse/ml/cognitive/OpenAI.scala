@@ -348,7 +348,7 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
         .orElse(getValueOpt(r, batchIndexPrompt)
           .map(batchIndexPrompt => getIndexArrayStringEntity(batchIndexPrompt, optionalParams)))
         .orElse(throw new IllegalArgumentException(
-          "The prompt field should be set with a String, Seq[String], Seq[Int] or Seq[Seq[Int]]"))
+          "Please set one of prompt, batchPrompt, indexPrompt or batchIndexPrompt."))
 
   }
 
