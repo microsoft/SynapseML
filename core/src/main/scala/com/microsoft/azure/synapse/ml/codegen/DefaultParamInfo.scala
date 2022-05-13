@@ -38,6 +38,7 @@ object DefaultParamInfo extends Logging {
   val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
     "as.array")
   val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list")
+  val IntArrayArrayInfo = new ParamInfo[IntArrayArrayParam]("object" )
   val DoubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object")
   val StringStringMapInfo = new ParamInfo[StringStringMapParam]("dict")
   val StringIntMapInfo = new ParamInfo[StringIntMapParam]("dict")
@@ -66,6 +67,7 @@ object DefaultParamInfo extends Logging {
       case _: DoubleArrayParam => DoubleArrayInfo
       case _: IntArrayParam => IntArrayInfo
       case _: ByteArrayParam => ByteArrayInfo
+      case _: IntArrayArrayParam => IntArrayArrayInfo
       case _: DoubleArrayArrayParam => DoubleArrayArrayInfo
       case _: StringStringMapParam => StringStringMapInfo
       case _: StringIntMapParam => StringIntMapInfo
@@ -93,6 +95,8 @@ object DefaultParamInfo extends Logging {
       case "Seq[String]" => StringArrayInfo
       case "Seq[Double]" => DoubleArrayInfo
       case "Array[Byte]" => ByteArrayInfo
+      case "Seq[Int]" => IntArrayInfo
+      case "Seq[Seq[Int]]" => IntArrayArrayInfo
       case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => SeqTimeSeriesPointInfo
       case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => SeqTargetInputInfo
       case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => SeqTextAndTranslationInfo
