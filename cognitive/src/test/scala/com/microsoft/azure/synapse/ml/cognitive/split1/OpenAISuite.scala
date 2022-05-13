@@ -21,9 +21,9 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   import spark.implicits._
 
   lazy val promptCompletion: OpenAICompletion = newCompletion.setPromptCol("prompt")
-  lazy val bulkPromptCompletion: OpenAICompletion = newCompletion.setBulkPromptCol("bulkPrompt")
-  lazy val indexCompletion: OpenAICompletion = newCompletion.setIndexPromptCol("index")
-  lazy val bulkIndexCompletion: OpenAICompletion = newCompletion.setBulkIndexPromptCol("bulkIndex")
+  lazy val batchPromptCompletion: OpenAICompletion = newCompletion.setBatchPromptCol("batchPrompt")
+  lazy val indexPromptCompletion: OpenAICompletion = newCompletion.setIndexPromptCol("indexPrompt")
+  lazy val batchIndexPromptCompletion: OpenAICompletion = newCompletion.setBatchIndexPromptCol("batchIndexPrompt")
 
   lazy val promptDF: DataFrame = Seq(
     "Once upon a time",
@@ -31,37 +31,37 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     "SynapseML is "
   ).toDF("prompt")
 
-  lazy val bulkPromptDF: DataFrame = Seq(
+  lazy val batchPromptDF: DataFrame = Seq(
     Seq(
       "Now is the time",
       "Knock, knock",
       "Ask not")
-  ).toDF("bulkPrompt")
+  ).toDF("batchPrompt")
 
-  lazy val indexDF: DataFrame = Seq(
+  lazy val indexPromptDF: DataFrame = Seq(
     Seq(1212, 318, 247, 1332)
-  ).toDF("index")
+  ).toDF("indexPrompt")
 
-  lazy val bulkIndexDF: DataFrame = Seq(
+  lazy val batchIndexPromptDF: DataFrame = Seq(
     Seq(
       Seq(1212, 318, 257, 1332),
       Seq(1334, 259, 320, 1214))
-  ).toDF("bulkIndex")
+  ).toDF("batchIndexPrompt")
 
   test("Basic Usage") {
     testCompletion(promptCompletion, promptDF, 10)
   }
 
-  test("Bulk Prompt") {
-    testCompletion(bulkPromptCompletion, bulkPromptDF, 20)
+  test("Batch Prompt") {
+    testCompletion(batchPromptCompletion, batchPromptDF, 20)
   }
 
-  test("Index") {
-    testCompletion(indexCompletion, indexDF, 10)
+  test("Index Prompt") {
+    testCompletion(indexPromptCompletion, indexPromptDF, 10)
   }
 
-  test("Bulk Index") {
-    testCompletion(bulkIndexCompletion, bulkIndexDF, 20)
+  test("Batch Index Prompt") {
+    testCompletion(batchIndexPromptCompletion, batchIndexPromptDF, 20)
   }
 
   def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int): Unit = {
@@ -87,10 +87,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   }
 
   override def testObjects(): Seq[TestObject[OpenAICompletion]] = Seq(
-    new TestObject(promptCompletion, promptDF),
-    new TestObject(bulkPromptCompletion, bulkPromptDF),
-    new TestObject(indexCompletion, indexDF),
-    new TestObject(bulkIndexCompletion, bulkIndexDF))
+    new TestObject(promptCompletion, promptDF))
 
   override def reader: MLReadable[_] = OpenAICompletion
 

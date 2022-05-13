@@ -45,22 +45,22 @@ trait HasPrompt extends HasServiceParams {
   def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
 }
 
-trait HasBulkPrompt extends HasServiceParams {
-  val bulkPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
-    this, "bulkPrompt", "Sequence of prompts to complete", isRequired = false)
+trait HasBatchPrompt extends HasServiceParams {
+  val batchPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
+    this, "batchPrompt", "Sequence of prompts to complete", isRequired = false)
 
-  def getBulkPrompt: Seq[String] = getScalarParam(bulkPrompt)
+  def getBatchPrompt: Seq[String] = getScalarParam(batchPrompt)
 
-  def setBulkPrompt(v: Seq[String]): this.type = setScalarParam(bulkPrompt, v)
+  def setBatchPrompt(v: Seq[String]): this.type = setScalarParam(batchPrompt, v)
 
-  def getBulkPromptCol: String = getVectorParam(bulkPrompt)
+  def getBatchPromptCol: String = getVectorParam(batchPrompt)
 
-  def setBulkPromptCol(v: String): this.type = setVectorParam(bulkPrompt, v)
+  def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
 }
 
 trait HasIndexPrompt extends HasServiceParams {
   val indexPrompt: ServiceParam[Seq[Int]] = new ServiceParam[Seq[Int]](
-    this, "index", "Sequence of indexes to complete", isRequired = false)
+    this, "indexPrompt", "Sequence of indexes to complete", isRequired = false)
 
   def getIndexPrompt: Seq[Int] = getScalarParam(indexPrompt)
 
@@ -71,17 +71,17 @@ trait HasIndexPrompt extends HasServiceParams {
   def setIndexPromptCol(v: String): this.type = setVectorParam(indexPrompt, v)
 }
 
-trait HasBulkIndexPrompt extends HasServiceParams {
-  val bulkIndexPrompt: ServiceParam[Seq[Seq[Int]]] = new ServiceParam[Seq[Seq[Int]]](
-    this, "bulkIndex", "Sequence of index sequences to complete", isRequired = false)
+trait HasBatchIndexPrompt extends HasServiceParams {
+  val batchIndexPrompt: ServiceParam[Seq[Seq[Int]]] = new ServiceParam[Seq[Seq[Int]]](
+    this, "batchIndexPrompt", "Sequence of index sequences to complete", isRequired = false)
 
-  def getBulkIndexPrompt: Seq[Seq[Int]] = getScalarParam(bulkIndexPrompt)
+  def getBatchIndexPrompt: Seq[Seq[Int]] = getScalarParam(batchIndexPrompt)
 
-  def setBulkIndexPrompt(v: Seq[Seq[Int]]): this.type = setScalarParam(bulkIndexPrompt, v)
+  def setBatchIndexPrompt(v: Seq[Seq[Int]]): this.type = setScalarParam(batchIndexPrompt, v)
 
-  def getBulkIndexPromptCol: String = getVectorParam(bulkIndexPrompt)
+  def getBatchIndexPromptCol: String = getVectorParam(batchIndexPrompt)
 
-  def setBulkIndexPromptCol(v: String): this.type = setVectorParam(bulkIndexPrompt, v)
+  def setBatchIndexPromptCol(v: String): this.type = setVectorParam(batchIndexPrompt, v)
 }
 
 trait HasAPIVersion extends HasServiceParams {
@@ -132,7 +132,7 @@ trait HasMaxTokens extends HasServiceParams {
 }
 
 trait HasOpenAIParams extends HasServiceParams
-  with HasSetServiceName with HasPrompt with HasBulkPrompt with HasIndexPrompt with HasBulkIndexPrompt
+  with HasSetServiceName with HasPrompt with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
   with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
@@ -341,14 +341,14 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
       getValueOpt(r, prompt)
         .map(prompt => getStringEntity(prompt, optionalParams))
-        .orElse(getValueOpt(r, bulkPrompt)
-          .map(bulkPrompt => getArrayStringEntity(bulkPrompt, optionalParams)))
+        .orElse(getValueOpt(r, batchPrompt)
+          .map(batchPrompt => getArrayStringEntity(batchPrompt, optionalParams)))
         .orElse(getValueOpt(r, indexPrompt)
           .map(indexPrompt => getIndexStringEntity(indexPrompt, optionalParams)))
-        .orElse(getValueOpt(r, bulkIndexPrompt)
-          .map(bulkIndexPrompt => getIndexArrayStringEntity(bulkIndexPrompt, optionalParams)))
+        .orElse(getValueOpt(r, batchIndexPrompt)
+          .map(batchIndexPrompt => getIndexArrayStringEntity(batchIndexPrompt, optionalParams)))
         .orElse(throw new IllegalArgumentException(
-          "Payload needs to contain String, Seq[String], Seq[Int] or Seq[Seq[Int]]. This code should not run"))
+          "The prompt field should be set with a String, Seq[String], Seq[Int] or Seq[Seq[Int]]"))
 
   }
 
