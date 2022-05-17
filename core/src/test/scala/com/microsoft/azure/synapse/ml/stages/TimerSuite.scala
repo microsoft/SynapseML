@@ -60,8 +60,8 @@ class TimerSuite extends EstimatorFuzzing[Timer] {
 
     println("Transforming")
     println(model.stages(0).params.foreach(println(_)))
-    model.stages(0).asInstanceOf[TimerModel].setDisable(true)
-    model.stages(2).asInstanceOf[TimerModel].setDisable(true)
+    model.stages(0).asInstanceOf[TimerModel].setDisableMaterialization(true)
+    model.stages(2).asInstanceOf[TimerModel].setDisableMaterialization(true)
 
     println("here")
     println(model.stages(0).getParam("disableMaterialization"))

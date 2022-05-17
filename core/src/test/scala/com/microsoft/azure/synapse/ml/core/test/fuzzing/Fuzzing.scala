@@ -84,7 +84,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     }
   }
 
-  def dotnetTestInstantiateModel(stage: S, num: Int): String = {
+  def dotnetTestInstantiateModel(stage: S, num: Int, testDataDir: String): String = {
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
     val fullStageName = stage.getClass.getName
@@ -95,6 +95,10 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     def instantiateModel(paramMap: Seq[ParamPair[_]]): String = {
       val externalLoadlingLines = paramMap.flatMap { pp =>
         pp.param match {
+          case pp: PipelineStageWrappable[_] =>
+            Some(pp.dotnetLoadLine(num, testDataDir))
+          case ep: EvaluatorParam =>
+            Some(ep.dotnetLoadLine(num, testDataDir))
           case ep: ExternalDotnetWrappableParam[_] =>
             Some(ep.dotnetLoadLine(num))
           case _ => None
@@ -119,7 +123,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   }
 
 
-  def makeDotnetTests(testObject: TestObject[S], num: Int): String = {
+  def makeDotnetTests(testObject: TestObject[S], num: Int, testDataDir: String): String = {
     val stage = testObject.stage
     val stageName = stage.getClass.getName.split(".".toCharArray).last
     val fullStageName = stage.getClass.getName
@@ -152,7 +156,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
        |            "assertEqual", "${stage.getClass.getName}", Path.Combine(TestDataDir, name),
        |            Path.Combine(TestDataDir, String.Format("model-{0}.model", num)));
        |    }
-       |${indent(dotnetTestInstantiateModel(stage, num), 1)}
+       |${indent(dotnetTestInstantiateModel(stage, num, testDataDir), 1)}
        |
        |    AssertCorrespondence(model, "dotnet-constructor-model-$num.model", $num);
        |
@@ -167,7 +171,8 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     spark
     saveDotnetTestData(conf)
     val testDataDirString = dotnetTestDataDir(conf).toString
-    val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) => makeDotnetTests(to, i) }
+    val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) =>
+      makeDotnetTests(to, i, testDataDirString) }
     val stage = dotnetTestObjects().head.stage
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".")
@@ -188,8 +193,11 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using System.Collections.Generic;
          |using Microsoft.Spark.Interop.Ipc;
          |using Microsoft.Spark.ML;
+         |using Microsoft.Spark.ML.Classification;
          |using Microsoft.Spark.ML.Feature;
          |using Microsoft.Spark.ML.Feature.Param;
+         |using Microsoft.Spark.ML.Recommendation;
+         |using Microsoft.Spark.ML.Regression;
          |using Microsoft.Spark.Sql;
          |using Microsoft.Spark.Sql.Types;
          |using SynapseML.Dotnet.Utils;

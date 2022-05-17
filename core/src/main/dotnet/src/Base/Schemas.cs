@@ -248,5 +248,62 @@ namespace SynapseML.Dotnet.Utils
         public JvmObjectReference Reference { get; init; }
 
     }
+
+    public sealed class ICECategoricalFeature : IJvmObjectReferenceProvider
+    {
+        public string Name { get; init; }
+        public int? NumTopValues { get; init; }
+        public string? OutputColName { get; init; }
+
+        public ICECategoricalFeature(string name, int? numTopValues = null, string? outputColName = null)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature", name, numTopValues, outputColName))
+        {
+        }
+
+        internal ICECategoricalFeature(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+            this.Name = (string)Reference.Invoke("name");
+            this.NumTopValues = (int)Reference.Invoke("numTopValues");
+            this.OutputColName = (string)Reference.Invoke("outputColName");
+        }
+
+        public JvmObjectReference Reference { get; init; }
+
+        public bool Validate() => (bool)Reference.Invoke("validate");
+
+        public int GetNumTopValue() => (int)Reference.Invoke("getNumTopValue");
+    }
+
+    public sealed class ICENumericFeature : IJvmObjectReferenceProvider
+    {
+        public string Name { get; init; }
+        public int? NumSplits { get; init; }
+        public double? RangeMin { get; init; }
+        public double? RangeMax { get; init; }
+        public string? OutputColName { get; init; }
+
+        public ICENumericFeature(string name, int? numTopValues = null, double? RangeMin = null, double? RangeMax = null, string? outputColName = null)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.explainers.ICENumericFeature", name, numTopValues, outputColName))
+        {
+        }
+
+        internal ICENumericFeature(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+            this.Name = (string)Reference.Invoke("name");
+            this.NumSplits = (int)Reference.Invoke("numSplits");
+            this.RangeMin = (double)Reference.Invoke("rangeMin");
+            this.RangeMax = (double)Reference.Invoke("rangeMax");
+            this.OutputColName = (string)Reference.Invoke("outputColName");
+        }
+
+        public JvmObjectReference Reference { get; init; }
+
+        public bool Validate() => (bool)Reference.Invoke("validate");
+
+        public int GetNumSplits() => (int)Reference.Invoke("getNumSplits");
+    }
+
 #nullable disable
 }

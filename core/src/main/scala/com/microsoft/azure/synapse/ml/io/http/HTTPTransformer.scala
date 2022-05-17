@@ -13,6 +13,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -29,6 +30,8 @@ trait HasHandler extends Params {
   def setHandler(v: HandlerFunc): HasHandler.this.type = {
     set(handler, UDFUtils.oldUdf(v, StringType))
   }
+
+  def setHandler(v: UserDefinedFunction): HasHandler.this.type = set(handler, v)
 
   setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
 

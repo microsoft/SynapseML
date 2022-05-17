@@ -3,20 +3,38 @@
 
 package org.apache.spark.ml.param
 
+import com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature
 import spray.json.JsonFormat
 import spray.json.DefaultJsonProtocol._
+
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
 
 
-class TypedArrayParam[T](parent: Params,
+class TypedArrayParam[T: TypeTag](parent: Params,
                          name: String,
                          doc: String,
                          isValid: Seq[T] => Boolean = ParamValidators.alwaysTrue)
                         (@transient implicit val dataFormat: JsonFormat[T])
-  extends JsonEncodableParam[Seq[T]](parent, name, doc, isValid) {
+  extends JsonEncodableParam[Seq[T]](parent, name, doc, isValid) with DotnetWrappableParam[Seq[T]] {
   type ValueType = T
 
   def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala)
+
+  // TODO: Implement render for this
+  override def dotnetTestValue(v: Seq[T]): String = {
+    throw new NotImplementedError(s"No translation found for this TypedArrayParame: $v")
+  }
+
+  override def dotnetTestSetterLine(v: Seq[T]): String = {
+    typeOf[T].toString match {
+      case t if t == "Seq[com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature]" =>
+        s"""Set${dotnetName(v).capitalize}(new ICECategoricalFeature[]{${dotnetTestValue(v)}})"""
+      case t if t == "Seq[com.microsoft.azure.synapse.ml.explainers.ICENumericFeature]" =>
+        s"""Set${dotnetName(v).capitalize}(new ICENumericFeature[]{${dotnetTestValue(v)}})"""
+      case _ => throw new NotImplementedError(s"No translation found for this TypedArrayParame: $v")
+    }
+  }
 
 }
 

@@ -57,9 +57,6 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   def setTrainRatio(value: Double): this.type = set(trainRatio, value)
 
   /** @group setParam */
-  def setSeed(value: Long): this.type = set(seed, value)
-
-  /** @group setParam */
   def setMinRatingsU(value: Int): this.type = set(minRatingsU, value)
 
   /** @group setParam */

@@ -27,21 +27,20 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
     s"""${name}Model"""
   }
 
-  //  // TODO: add this back once we support all underlyingTypes & fix assemblies access for Pipeline.GetStages
-  //  override def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
-  //    val underlyingType = Pipeline.load(
-  //      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
-  //      .getStages.head.getClass.getTypeName.split(".".toCharArray).last
-  //
-  //    s"""
-  //       |var ${name}Load = Pipeline.Load(
-  //       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-  //       |var ${name}Model = ($underlyingType)${name}Load.GetStages()[0];
-  //       |""".stripMargin
-  //  }
-
   override def dotnetLoadLine(modelNum: Int): String =
-    throw new NotImplementedError("No translation found for complex parameter")
+    throw new NotImplementedError("Implement dotnetLoadLine(modelNum: Int, testDataDir: String) method instead")
+
+  def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
+    val underlyingType = Pipeline.load(
+      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
+      .getStages.head.getClass.getTypeName.split(".".toCharArray).last
+
+    s"""
+       |var ${name}Loaded = Pipeline.Load(
+       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
+       |var ${name}Model = ($underlyingType)${name}Loaded.GetStages()[0];
+       |""".stripMargin
+  }
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {

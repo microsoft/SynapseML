@@ -4,11 +4,11 @@
 package org.apache.spark.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.types.{DataType, StructType}
 
 /** Param for DataType */
 class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType => Boolean)
-  extends ComplexParam[DataType](parent, name, doc, isValid) {
+  extends ComplexParam[DataType](parent, name, doc, isValid) with DotnetWrappableParam[DataType] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
@@ -31,5 +31,14 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
         |}
         |""".stripMargin
   }
+
+  override def dotnetTestValue(v: DataType): String =
+    v.asInstanceOf[StructType].fields.map(
+      x => s"""new StructField("${x.name}", new ${x.dataType}())""".stripMargin).mkString(",")
+
+  override def dotnetTestSetterLine(v: DataType): String =
+    s"""Set${dotnetName(v).capitalize}(
+       |    new StructType(new List<StructField>
+       |    {${dotnetTestValue(v)}}))""".stripMargin
 
 }
