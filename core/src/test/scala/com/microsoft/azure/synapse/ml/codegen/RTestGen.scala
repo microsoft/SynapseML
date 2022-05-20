@@ -101,9 +101,6 @@ object RTestGen {
          |
          |options(sparklyr.log.console = TRUE)
          |options(sparklyr.verbose = TRUE)
-         |jarName <- "${conf.name}_${scalaVersion}-${synapseVersion}.jar"
-         |jarPath <- paste("${conf.targetDir}", jarName, sep = "${File.separator}")
-         |install.packages(jarPath)
          |
          |conf <- spark_config()
          |conf$$`sparklyr.shell.conf` <- c(

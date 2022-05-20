@@ -32,7 +32,9 @@ trait TimerParams extends Wrappable {
 
   def getDisableMaterialization: Boolean = $(disableMaterialization)
 
-  def setDisable(v: Boolean): this.type = set(disableMaterialization, v)
+  def setDisableMaterialization(v: Boolean): this.type = set(disableMaterialization, v)
+
+  def setDisable(v: Boolean): this.type = setDisableMaterialization(v) // for back-compat
 
   protected def formatTime(t: Long, isTransform: Boolean, count: Option[Long], stage: PipelineStage): String = {
     val time = {

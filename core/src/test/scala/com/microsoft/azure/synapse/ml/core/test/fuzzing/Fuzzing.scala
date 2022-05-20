@@ -261,7 +261,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
 
     val stageName = stage.getClass.getName.split(".".toCharArray).last
-    val rStageName = s"ml_${camelToSnake(stageName)}"
+    val rStageName = s"ml_${getStageName(stage)}"
 
     def instantiateModel(paramMap: Seq[ParamPair[_]]) = {
       val externalLoadingLines = paramMap.flatMap { pp =>
@@ -272,20 +272,26 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         }
       }.mkString("\n")
 
-      val modelFirstArg = /*stage match {
-        case _: Estimator[_] => {*/
-          s"""spark_dataframe(spark_read_parquet(sc, path = paste(test_data_dir, "fit-$num.parquet", sep="/")))"""
-        /*}
-        case _ => "sc"
-      }*/
+      val firstArg =
+      //s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
+        stage match {
+          case _: Estimator[_] => "sc"
+          case _ => s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
+        }
+
+      val lastLine = //",only.model=TRUE)"
+        stage match {
+          case _: Estimator[_] => ",unfit.model=TRUE)"
+          case _ => ",only.model=TRUE)"
+        }
 
       s"""
          |$externalLoadingLines
          |
          |model <- $rStageName(
-         |${indent(modelFirstArg, 1)}${if (paramMap.isEmpty) "" else ","}\n
-         |${if (paramMap.isEmpty) "" else indent(paramMap.map(rRenderParam(_)).mkString(",\n"), 1)}
-         |${indent(")", 1)}
+         |${indent(firstArg, 1)}
+         |${if (paramMap.isEmpty) "" else indent(paramMap.map("," + rRenderParam(_)).mkString("\n"), 1)}
+         |${indent(lastLine, 1)}
          |""".stripMargin
     }
 
@@ -299,22 +305,31 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
   }
 
 
+  def getStageName(stage: S): String = {
+    val suffix = "" /*stage match {
+      case _: Estimator[_] => "_model"
+      case _ => ""
+    }*/
+    camelToSnake(stage.getClass.getName.split(".".toCharArray).last) + suffix
+  }
+
+
   //noinspection ScalaStyle
   def makeRTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
-    val stageName = camelToSnake(stage.getClass.getName.split(".".toCharArray).last)
+    val stageName = getStageName(stage)
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
-           |fdf <- spark_dataframe(spark_read_parquet(sc, path = paste(test_data_dir, "fit-$num.parquet", sep="/")))
-           |tdf <- spark_dataframe(spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", sep="/")))
+           |fdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))
+           |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
            |fit <- model.fit(fdf)
            |transformed <- fit.transform(tdf)
            |transformed.show()
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
-           |tdf <- spark_dataframe(spark_read_parquet(sc, path = paste(test_data_dir, "trans-$num.parquet", sep="/")))
+           |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
            |transformed <- model.transform(tdf)
            |transformed.show()
            |""".stripMargin
@@ -350,7 +365,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
        |  ${indent(fittingTest, 1)}
        |
        |  ${indent(mlflowTest, 1)}
-       |  ${indent("expect_equal(0, 0)", 1)}
+       |  ${indent("expect_equal(7-8+1, 5+6-11) # temp; otherwise test is skipped", 1)}
        |})
        |""".stripMargin
   }
@@ -361,7 +376,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     saveRTestData(conf)
     val generatedTests = rTestObjects().zipWithIndex.map { case (to, i) => makeRTests(to, i) }
     val stage = rTestObjects().head.stage
-    val stageName = camelToSnake(stage.getClass.getName.split(".".toCharArray).last)
+    val stageName = getStageName(stage)
     // stage may be in a different jar than the one specified in conf
     val stageJar = stage.getClass.getProtectionDomain().getCodeSource().getLocation().toString.split("/").last
     val stageProject = stageJar.replaceFirst("^synapseml-([^_]+)_.*", "$1")
@@ -369,6 +384,11 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val srcFile = FileUtilities.join(stageSrcDir, s"ml_${stageName}.R")
     val srcPath = srcFile.toString.replaceAllLiterally("\\", "\\\\")
     val testDir = rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")
+    /*val referenceFormat = stage match {
+      case _: Estimator[_] => "trans-%d.parquet"
+      //case _: Transformer => "trans"
+      case _ => "model-%d.model"
+    }*/
     val testContent =
       s"""
          |library(testthat)
@@ -376,17 +396,22 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
          |library(sparklyr)
          |
          |source("${srcPath}")
-         |test_data_dir <- "file://${testDir}"
+         |test_data_dir <- "${testDir}"
          |
          |assert_correspondence_${stageName} <- function(model, name, num) {
-         |   ml_save(model, path=paste(test_data_dir, name, sep="/"), overwrite=TRUE)
+         |   modelDirectory <- file.path(test_data_dir, name)
+         |   # Passing overwrite=TRUE to ml_save causes it to call a non-existent method named overwrite.
+         |   # Additionally, the method 'unlink' called with recursive=TRUE reports success even when it fails, so...
+         |   cmd <- if (.Platform$$OS.type == "windows") "rd /s /q %s" else "rm -rf %s"
+         |   system(sprintf(cmd, modelDirectory))
+         |   ml_save(model, modelDirectory, overwrite=FALSE)
          |   invoke_static(
          |     sc,
          |     "com.microsoft.azure.synapse.ml.core.utils.ModelEquality",
          |     "assertEqual",
          |     "${stage.getClass.getName}",
-         |     paste(test_data_dir, name, sep = "/"),
-         |     paste(test_data_dir, sprintf("model-%d.model", num), sep = "/"))
+         |     file.path(test_data_dir, name),
+         |     file.path(test_data_dir, sprintf("model-%d.model", num)))
          |   }
          |
          |${generatedTests.mkString("\n\n")}

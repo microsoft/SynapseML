@@ -419,13 +419,7 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rExtraInitLines: String = {
-    // TODO: figure out when it might be appropriate to set only.model as TRUE
-    this match {
-      case _: Estimator[_] =>
-        "unfit.model=FALSE,\nonly.model=FALSE,\n"
-      case _ =>
-        "unfit.model=FALSE,\nonly.model=TRUE,\n"
-    }
+    "unfit.model=FALSE,\nonly.model=FALSE,\n"
   }
 
   protected def rExtraBodyLines: String = {
@@ -459,8 +453,8 @@ trait RWrappable extends BaseWrappable {
        |    uid=random_string("${rFuncName}"),
        |    ...)
        |{
-       |    if (unfit.model) {
-       |        sc <- x
+       |   if (unfit.model) {
+       |       sc <- x
        |    } else {
        |        df <- spark_dataframe(x)
        |        sc <- spark_connection(df)
@@ -473,7 +467,8 @@ trait RWrappable extends BaseWrappable {
        |    if (only.model)
        |        return(sparklyr:::new_ml_transformer(transformer, class=scala_transformer_class))
        |    transformed <- invoke(transformer, "transform", df)
-       |    spark_dataframe(sdf_register(transformed))
+       |    sdf_register(transformed)
+       |    #spark_dataframe(sdf_register(transformed))
        |}
        |""".stripMargin
 
