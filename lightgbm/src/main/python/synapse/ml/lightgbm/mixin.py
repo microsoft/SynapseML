@@ -13,6 +13,12 @@ class LightGBMModelMixin:
         """
         self._java_obj.saveNativeModel(filename, overwrite)
 
+    def getNativeModel(self):
+        """
+        Get the native model serialized representation as a string.
+        """
+        return self._java_obj.getNativeModel()
+
     def getFeatureImportances(self, importance_type="split"):
         """
         Get the feature importances as a list.  The importance_type can be "split" or "gain".

@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import com.microsoft.azure.synapse.ml.lightgbm.params.LightGBMModelParams
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.sql.SparkSession
 
 /** Contains common LightGBM model methods across all LightGBM learner types.
   */
@@ -89,6 +90,22 @@ trait LightGBMModelMethods extends LightGBMModelParams with Logging {
     */
   def getBoosterNumClasses(): Int = {
     getLightGBMBooster.numClasses
+  }
+
+  /** Saves the native model serialized representation to file.
+    * @param session The spark session
+    * @param filename The name of the file to save the model to
+    * @param overwrite Whether to overwrite if the file already exists
+    */
+  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
+    val session = SparkSession.builder().getOrCreate()
+    getModel.saveNativeModel(session, filename, overwrite)
+  }
+
+  /** Gets the native model serialized representation as a string.
+    */
+  def getNativeModel(): String = {
+    getModel.getNativeModel()
   }
 
   /**
