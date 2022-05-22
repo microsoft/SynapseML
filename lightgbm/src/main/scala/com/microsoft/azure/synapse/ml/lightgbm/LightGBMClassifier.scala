@@ -183,11 +183,6 @@ class LightGBMClassificationModel(override val uid: String)
       udf(predict _).apply(col(getFeaturesCol))
     }
   }
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMClassificationModel extends ComplexParamsReadable[LightGBMClassificationModel] {
