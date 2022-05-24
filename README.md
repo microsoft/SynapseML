@@ -82,7 +82,7 @@ First select the correct platform that you are installing SynapseML into:
 
 ### Synapse Analytics 
 
-In Azure Synapse notebooks please place the followinbg in the first cell of your notebook.
+In Azure Synapse notebooks please place the following in the first cell of your notebook.
 
 For Spark 3.2 Pools:
 
