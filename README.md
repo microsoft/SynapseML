@@ -114,6 +114,8 @@ For Spark 3.1 Pools:
 }
 ```
 
+To install at the pool level instead of the notebook level [add the spark properties listed above to the pool configuration](https://techcommunity.microsoft.com/t5/azure-synapse-analytics-blog/how-to-set-spark-pyspark-custom-configs-in-synapse-workspace/ba-p/2114434).
+
 ### Databricks
 
 To install SynapseML on the [Databricks
