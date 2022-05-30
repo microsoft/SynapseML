@@ -159,11 +159,21 @@ trait VowpalWabbitBase extends Wrappable
         log.warn(s"Casting column '${schema.fields(idx).name}' to float. Loss of precision.")
         (row: Row) => row.getDouble(idx).toFloat
       case _: FloatType => (row: Row) => row.getFloat(idx)
+      case _: ShortType => (row: Row) => row.getShort(idx).toFloat
       case _: IntegerType => (row: Row) => row.getInt(idx).toFloat
       case _: LongType => (row: Row) => row.getLong(idx).toFloat
     }
   }
 
+  protected def getAsInt(schema: StructType, idx: Int): Row => Int = {
+    schema.fields(idx).dataType match {
+      case _: DoubleType => (row: Row) => row.getDouble(idx).toInt
+      case _: FloatType => (row: Row) => row.getFloat(idx).toInt
+      case _: ShortType => (row: Row) => row.getShort(idx).toInt
+      case _: IntegerType => (row: Row) => row.getInt(idx).toInt
+      case _: LongType => (row: Row) => row.getLong(idx).toInt
+    }
+  }
   protected def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample) => Unit = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
 
