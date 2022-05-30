@@ -29,7 +29,7 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
 
   def this() = this(Identifiable.randomUID("VowpalWabbitMulticlassClassifier"))
 
-  val numClasses = new Param[Int](this, "numClasses", "Number of classes. Passed via --oaa")
+  val numClasses = new IntParam(this, "numClasses", "Number of classes. Passed via --oaa")
 
   def getNumClasses: Int = $(numClasses)
   def setNumClasses(value: Int): this.type = set(numClasses, value)
@@ -63,16 +63,8 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
         .setProbabilityCol(getProbabilityCol)
         .setRawPredictionCol(getRawPredictionCol)
 
-      val inputLabelCol = dataset.withDerivativeCol("label")
-
-      dataset.show()
-
-      // indexing correction (0 to n-1 --> 1 to n)
-      val finalDataset = dataset
-//        .withColumnRenamed(getLabelCol, inputLabelCol)
-//        .withColumn(getLabelCol, col(inputLabelCol) + 1)
-
-      trainInternal(finalDataset, model)
+      trainInternal(dataset, model)
+        .setNumClasses(getNumClasses)
     })
   }
 
@@ -91,7 +83,7 @@ class VowpalWabbitMulticlassClassificationModel(override val uid: String)
 
   def numClasses: Int = getNumClasses
 
-  val numClassesParam = new Param[Int](this, "numClasses", "Number of classes")
+  val numClassesParam = new IntParam(this, "numClasses", "Number of classes")
 
   def getNumClasses: Int = $(numClassesParam)
 
@@ -112,10 +104,12 @@ class VowpalWabbitMulticlassClassificationModel(override val uid: String)
       // scalars or multiclass
       val outputsProbs = vw.getOutputPredictionType.equals("prediction_type_t::scalars")
 
+      // prediction column must be double for evaluator to work
       val predictUDF = if (outputsProbs)
         udf { (namespaces: Row) => predictProbs(featureColIndices, namespaces) }
-      else
-        udf { (namespaces: Row) => predictClass(featureColIndices, namespaces) }
+      else {
+        udf { (namespaces: Row) => predictClass(featureColIndices, namespaces).toDouble }
+      }
 
       // add prediction column
       val datasetWithRaw = dataset.withColumn(
@@ -124,7 +118,7 @@ class VowpalWabbitMulticlassClassificationModel(override val uid: String)
 
       if (outputsProbs) {
         // find prediction based on highest prob
-        val argMaxUDF = udf { (probs: Vector) => probs.argmax }
+        val argMaxUDF = udf { (probs: Vector) => probs.argmax.toDouble }
 
         datasetWithRaw
           .withColumn($(probabilityCol), col($(rawPredictionCol)))
