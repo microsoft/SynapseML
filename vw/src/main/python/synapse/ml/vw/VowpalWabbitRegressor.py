@@ -7,7 +7,6 @@ from pyspark.ml.common import inherit_doc
 
 @inherit_doc
 class VowpalWabbitRegressor(_VowpalWabbitRegressor):
-
     def setInitialModel(self, model):
         """
         Initialize the estimator with a previously trained model.

@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 import pyspark
@@ -18,9 +18,12 @@ BinaryFileFields = ["path", "bytes"]
 Names of Binary File Schema field names.
 """
 
-BinaryFileSchema = StructType([
-    StructField(BinaryFileFields[0], StringType(),  True),
-    StructField(BinaryFileFields[1], BinaryType(), True) ])
+BinaryFileSchema = StructType(
+    [
+        StructField(BinaryFileFields[0], StringType(), True),
+        StructField(BinaryFileFields[1], BinaryType(), True),
+    ]
+)
 """
 Schema for Binary Files.
 
@@ -29,7 +32,10 @@ Schema records consist of BinaryFileFields name, Type, and ??
   bytes
 """
 
-def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip = True, seed=0):
+
+def readBinaryFiles(
+    self, path, recursive=False, sampleRatio=1.0, inspectZip=True, seed=0
+):
     """
     Reads the directory of binary files from the local or remote (WASB) source
     This function is attached to SparkSession class.
@@ -50,12 +56,16 @@ def readBinaryFiles(self, path, recursive = False, sampleRatio = 1.0, inspectZip
     reader = ctx._jvm.com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
-    jresult = reader.read(path, recursive, jsession, float(sampleRatio), inspectZip, seed)
+    jresult = reader.read(
+        path, recursive, jsession, float(sampleRatio), inspectZip, seed
+    )
     return DataFrame(jresult, sql_ctx)
 
-setattr(sql.SparkSession, 'readBinaryFiles', classmethod(readBinaryFiles))
 
-def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True, seed=0):
+setattr(sql.SparkSession, "readBinaryFiles", classmethod(readBinaryFiles))
+
+
+def streamBinaryFiles(self, path, sampleRatio=1.0, inspectZip=True, seed=0):
     """
     Streams the directory of binary files from the local or remote (WASB) source
     This function is attached to SparkSession class.
@@ -78,7 +88,9 @@ def streamBinaryFiles(self, path, sampleRatio = 1.0, inspectZip = True, seed=0):
     jresult = reader.stream(path, jsession, float(sampleRatio), inspectZip, seed)
     return DataFrame(jresult, sql_ctx)
 
-setattr(sql.SparkSession, 'streamBinaryFiles', classmethod(streamBinaryFiles))
+
+setattr(sql.SparkSession, "streamBinaryFiles", classmethod(streamBinaryFiles))
+
 
 def isBinaryFile(df, column):
     """

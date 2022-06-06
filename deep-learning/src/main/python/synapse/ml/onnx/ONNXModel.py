@@ -80,7 +80,9 @@ class TensorInfo(ValueInfo):
         return str(self)
 
     def __str__(self):
-        return "TensorInfo(shape={}, type={})".format("[" + ",".join(map(str, self.shape)) + "]", self.type)
+        return "TensorInfo(shape={}, type={})".format(
+            "[" + ",".join(map(str, self.shape)) + "]", self.type
+        )
 
     @classmethod
     def from_java(cls, java_tensor_info: JavaObject) -> "TensorInfo":
@@ -99,8 +101,19 @@ class MapInfo(ValueInfo):
         return str(self)
 
     def __str__(self) -> str:
-        initial = "MapInfo(size=UNKNOWN" if self.size == -1 else "MapInfo(size=" + str(self.size)
-        return initial + ",keyType=" + self.key_type + ",valueType=" + self.value_type + ")"
+        initial = (
+            "MapInfo(size=UNKNOWN"
+            if self.size == -1
+            else "MapInfo(size=" + str(self.size)
+        )
+        return (
+            initial
+            + ",keyType="
+            + self.key_type
+            + ",valueType="
+            + self.value_type
+            + ")"
+        )
 
     @classmethod
     def from_java(cls, java_map_info: JavaObject) -> "MapInfo":
@@ -114,7 +127,9 @@ class MapInfo(ValueInfo):
 
 
 class SequenceInfo(ValueInfo):
-    def __init__(self, length: int, sequence_of_maps: bool, map_info: MapInfo, sequence_type: str):
+    def __init__(
+        self, length: int, sequence_of_maps: bool, map_info: MapInfo, sequence_type: str
+    ):
         self.length = length
         self.sequence_of_maps = sequence_of_maps
         self.map_info = map_info
@@ -124,7 +139,9 @@ class SequenceInfo(ValueInfo):
         return str(self)
 
     def __str__(self) -> str:
-        initial = "SequenceInfo(length=" + ("UNKNOWN" if self.length == -1 else str(self.length))
+        initial = "SequenceInfo(length=" + (
+            "UNKNOWN" if self.length == -1 else str(self.length)
+        )
         if self.sequence_of_maps:
             initial += ",type=" + str(self.map_info) + ")"
         else:
@@ -135,6 +152,10 @@ class SequenceInfo(ValueInfo):
     def from_java(cls, java_sequence_info: JavaObject) -> "SequenceInfo":
         length = java_gateway.get_field(java_sequence_info, "length")
         sequence_of_maps = java_gateway.get_field(java_sequence_info, "sequenceOfMaps")
-        map_info = MapInfo.from_java(java_gateway.get_field(java_sequence_info, "mapInfo"))
-        sequence_type = java_gateway.get_field(java_sequence_info, "sequenceType").toString()
+        map_info = MapInfo.from_java(
+            java_gateway.get_field(java_sequence_info, "mapInfo")
+        )
+        sequence_type = java_gateway.get_field(
+            java_sequence_info, "sequenceType"
+        ).toString()
         return cls(length, sequence_of_maps, map_info, sequence_type)

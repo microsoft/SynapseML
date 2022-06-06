@@ -95,8 +95,10 @@ class GridSpace(object):
 
             values = hyperparam.get().getValues()
             hyperparamBuilder.addGrid(javaParam, self.jvm.PythonUtils.toList(values))
-            
-        self.gridSpace = self.jvm.com.microsoft.azure.synapse.ml.automl.GridSpace(hyperparamBuilder.build())
+
+        self.gridSpace = self.jvm.com.microsoft.azure.synapse.ml.automl.GridSpace(
+            hyperparamBuilder.build()
+        )
 
     def space(self):
         return self.gridSpace
@@ -110,11 +112,15 @@ class RandomSpace(object):
     def __init__(self, paramDistributions):
         ctx = SparkContext.getOrCreate()
         self.jvm = ctx.getOrCreate()._jvm
-        hyperparamBuilder = self.jvm.com.microsoft.azure.synapse.ml.automl.HyperparamBuilder()
+        hyperparamBuilder = (
+            self.jvm.com.microsoft.azure.synapse.ml.automl.HyperparamBuilder()
+        )
         for k, (est, hyperparam) in paramDistributions:
             javaParam = est._java_obj.getParam(k.name)
             hyperparamBuilder.addHyperparam(javaParam, hyperparam.get())
-        self.paramSpace = self.jvm.com.microsoft.azure.synapse.ml.automl.RandomSpace(hyperparamBuilder.build())
+        self.paramSpace = self.jvm.com.microsoft.azure.synapse.ml.automl.RandomSpace(
+            hyperparamBuilder.build()
+        )
 
     def space(self):
         return self.paramSpace

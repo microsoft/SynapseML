@@ -11,19 +11,23 @@ from pyspark.sql.types import *
 
 
 class SimpleHTTPTransformerSmokeTest(unittest.TestCase):
-
     def test_simple(self):
-        df = spark.createDataFrame([("foo",) for x in range(20)], ["data"]) \
-            .withColumn("inputs", struct("data"))
+        df = spark.createDataFrame([("foo",) for x in range(20)], ["data"]).withColumn(
+            "inputs", struct("data")
+        )
 
-        response_schema = StructType().add("status", StringType()).add("message", StringType())
+        response_schema = (
+            StructType().add("status", StringType()).add("message", StringType())
+        )
 
-        client = SimpleHTTPTransformer() \
-            .setInputCol("inputs") \
-            .setInputParser(JSONInputParser()) \
-            .setOutputParser(JSONOutputParser().setDataType(response_schema)) \
-            .setOutputCol("results") \
+        client = (
+            SimpleHTTPTransformer()
+            .setInputCol("inputs")
+            .setInputParser(JSONInputParser())
+            .setOutputParser(JSONOutputParser().setDataType(response_schema))
+            .setOutputCol("results")
             .setUrl("https://dog.ceo/api/breeds/image/random")
+        )
 
         responses = client.transform(df)
         responses.select("results").show(truncate=False)

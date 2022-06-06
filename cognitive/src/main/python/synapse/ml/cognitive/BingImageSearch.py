@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.cognitive._BingImageSearch import _BingImageSearch
@@ -11,9 +11,9 @@ from synapse.ml.stages import Lambda
 from pyspark.ml.common import inherit_doc
 from pyspark.sql import SparkSession
 
+
 @inherit_doc
 class BingImageSearch(_BingImageSearch):
-
     def setQuery(self, value):
         self._java_obj = self._java_obj.setQuery(value)
         return self
@@ -32,10 +32,16 @@ class BingImageSearch(_BingImageSearch):
 
     @staticmethod
     def getUrlTransformer(imageCol, urlCol):
-        bis = SparkSession.builder.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.cognitive.BingImageSearch
-        return Lambda._from_java(bis.getUrlTransformer(imageCol,urlCol))
+        bis = (
+            SparkSession.builder.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.cognitive.BingImageSearch
+        )
+        return Lambda._from_java(bis.getUrlTransformer(imageCol, urlCol))
 
     @staticmethod
     def downloadFromUrls(pathCol, bytesCol, concurrency, timeout):
-        bis = SparkSession.builder.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.cognitive.BingImageSearch
-        return Lambda._from_java(bis.downloadFromUrls(pathCol, bytesCol, concurrency, timeout))
+        bis = (
+            SparkSession.builder.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.cognitive.BingImageSearch
+        )
+        return Lambda._from_java(
+            bis.downloadFromUrls(pathCol, bytesCol, concurrency, timeout)
+        )

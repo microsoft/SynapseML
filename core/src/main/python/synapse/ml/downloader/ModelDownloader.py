@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from pyspark.ml.param.shared import *
@@ -28,7 +28,18 @@ class ModelSchema:
         layerNames (array): the names of nodes that represent layers in the network
     """
 
-    def __init__(self, name, dataset, modelType, uri, hash, size, inputNode, numLayers, layerNames):
+    def __init__(
+        self,
+        name,
+        dataset,
+        modelType,
+        uri,
+        hash,
+        size,
+        inputNode,
+        numLayers,
+        layerNames,
+    ):
         self.name = name
         self.dataset = dataset
         self.modelType = modelType
@@ -43,22 +54,38 @@ class ModelSchema:
         return self.__repr__()
 
     def __repr__(self):
-        return "ModelSchema<name: {}, dataset: {}, loc: {}>".format(self.name, self.dataset, self.uri)
+        return "ModelSchema<name: {}, dataset: {}, loc: {}>".format(
+            self.name, self.dataset, self.uri
+        )
 
     def toJava(self, sparkSession):
         ctx = sparkSession.sparkContext
         uri = ctx._jvm.java.net.URI(self.uri)
         return ctx._jvm.com.microsoft.azure.synapse.ml.downloader.ModelSchema(
-            self.name, self.dataset, self.modelType,
-            uri, self.hash, self.size, self.inputNode,
-            self.numLayers, self.layerNames)
+            self.name,
+            self.dataset,
+            self.modelType,
+            uri,
+            self.hash,
+            self.size,
+            self.inputNode,
+            self.numLayers,
+            self.layerNames,
+        )
 
     @staticmethod
     def fromJava(jobj):
-        return ModelSchema(jobj.name(), jobj.dataset(),
-                           jobj.modelType(), jobj.uri().toString(),
-                           jobj.hash(), jobj.size(), jobj.inputNode(),
-                           jobj.numLayers(), list(jobj.layerNames()))
+        return ModelSchema(
+            jobj.name(),
+            jobj.dataset(),
+            jobj.modelType(),
+            jobj.uri().toString(),
+            jobj.hash(),
+            jobj.size(),
+            jobj.inputNode(),
+            jobj.numLayers(),
+            list(jobj.layerNames()),
+        )
 
 
 class ModelDownloader:
@@ -78,8 +105,11 @@ class ModelDownloader:
 
         self._sparkSession = sparkSession
         self._ctx = sparkSession.sparkContext
-        self._model_downloader = self._ctx._jvm.com.microsoft.azure.synapse.ml.downloader.ModelDownloader(
-            sparkSession._jsparkSession, localPath, serverURL)
+        self._model_downloader = (
+            self._ctx._jvm.com.microsoft.azure.synapse.ml.downloader.ModelDownloader(
+                sparkSession._jsparkSession, localPath, serverURL
+            )
+        )
 
     def _wrap(self, iter):
         return (ModelSchema.fromJava(s) for s in iter)

@@ -6,6 +6,7 @@ from pyspark.ml.common import inherit_doc
 from pyspark import SparkContext, SQLContext
 from pyspark.sql import DataFrame
 
+
 @inherit_doc
 class VowpalWabbitRegressionModel(_VowpalWabbitRegressionModel):
     def saveNativeModel(self, filename):
