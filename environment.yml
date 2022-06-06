@@ -24,3 +24,4 @@ dependencies:
     - twine
     - jupyter
     - mlflow
+    - black==22.3.0
