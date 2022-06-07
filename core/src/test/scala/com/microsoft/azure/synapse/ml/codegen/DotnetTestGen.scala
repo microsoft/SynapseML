@@ -83,6 +83,7 @@ object DotnetTestGen {
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
+         |    <AssemblyName>SynapseML.$curProject.Test</AssemblyName>
          |  </PropertyGroup>
          |
          |  <ItemGroup>
@@ -95,7 +96,7 @@ object DotnetTestGen {
          |      <PrivateAssets>all</PrivateAssets>
          |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
          |    </PackageReference>
-         |    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
+         |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |

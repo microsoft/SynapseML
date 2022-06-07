@@ -10,10 +10,11 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
-object Lambda extends ComplexParamsReadable[Lambda] {
+object Lambda extends ComplexParamsReadable[Lambda] with Serializable {
   def apply(f: Dataset[_] => DataFrame): Lambda = {
     new Lambda().setTransform(f)
   }
@@ -30,6 +31,8 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
     set(transformFunc, UDFUtils.oldUdf(f, StringType))
   }
 
+  def setTransform(f: UserDefinedFunction): this.type = set(transformFunc, f)
+
   def getTransform: Dataset[_] => DataFrame = {
     UDFUtils.unpackUdf($(transformFunc))._1.asInstanceOf[Dataset[_] => DataFrame]
   }
@@ -39,6 +42,8 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
   def setTransformSchema(f: StructType => StructType): this.type = {
     set(transformSchemaFunc, UDFUtils.oldUdf(f, StringType))
   }
+
+  def setTransformSchema(f: UserDefinedFunction): this.type = set(transformSchemaFunc, f)
 
   def getTransformSchema: StructType => StructType = {
     UDFUtils.unpackUdf($(transformSchemaFunc))._1.asInstanceOf[StructType => StructType]

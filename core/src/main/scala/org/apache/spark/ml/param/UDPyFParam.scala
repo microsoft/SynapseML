@@ -15,6 +15,6 @@ class UDPyFParam(parent: Params, name: String, doc: String, isValid: UserDefined
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, ParamValidators.alwaysTrue)
 
-//  override def dotnetType: String = "UserDefinedPythonFunction"
+  // TODO: fix setter invoke method name
 
 }

@@ -32,13 +32,26 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
         |""".stripMargin
   }
 
-  override def dotnetTestValue(v: DataType): String =
-    v.asInstanceOf[StructType].fields.map(
-      x => s"""new StructField("${x.name}", new ${x.dataType}())""".stripMargin).mkString(",")
+  override def dotnetTestValue(v: DataType): String = {
+    v match {
+      case st: StructType =>
+        st.fields.map(
+          x => s"""new StructField("${x.name}", new ${x.dataType}())""".stripMargin).mkString(",")
+      case _ =>
+        s"""new $v()""".stripMargin
+    }
+  }
 
-  override def dotnetTestSetterLine(v: DataType): String =
-    s"""Set${dotnetName(v).capitalize}(
-       |    new StructType(new List<StructField>
-       |    {${dotnetTestValue(v)}}))""".stripMargin
+  override def dotnetTestSetterLine(v: DataType): String = {
+    v match {
+      case _: StructType =>
+        s"""Set${dotnetName(v).capitalize}(
+           |    new StructType(new List<StructField>
+           |    {${dotnetTestValue(v)}}))""".stripMargin
+      case _ =>
+        s"""Set${dotnetName(v).capitalize}(
+           |    ${dotnetTestValue(v)})""".stripMargin
+    }
+  }
 
 }

@@ -36,7 +36,8 @@ object ModelEquality {
       p1 match {
         case pe1: ParamEquality[_] =>
           pe1.assertEquality(v1, v2)
-        case _ if Set("outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs in them
+        case _ if Set("inputCol", "outputCol",
+          "errorCol", "featuresCol")(paramName) => // These usually have UIDs in them
           assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length, s"$v1 != $v2")
         case _ if Set("defaultListenPort")(paramName) => // Randomly assigned ports in LightGBM
           assert(v1.asInstanceOf[Int] > 0 && v1.asInstanceOf[Int] > 0)

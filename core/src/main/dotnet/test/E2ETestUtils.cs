@@ -238,7 +238,9 @@ namespace SynapseMLtest.Utils
                 .Append(packagesOption)
                 .Append(GetAvroPackage())
                 .Append(",")
-                .Append(GetSynapseMLPackage());
+                .Append(GetSynapseMLPackage())
+                .Append(",")
+                .Append(GetSynapseMLTestPackage());
             if (splits.Length > 1)
             {
                 newArgs.Append(",").Append(splits[1]);
@@ -261,6 +263,8 @@ namespace SynapseMLtest.Utils
         }
 
         public string GetSynapseMLPackage() => Helper.GetSynapseMLPackage();
+
+        public string GetSynapseMLTestPackage() => Helper.GetSynapseMLTestPackage();
 
         public string AddSynapseMLRepo()
         {
@@ -316,7 +320,7 @@ namespace SynapseMLtest.Utils
             string curDir = AppDomain.CurrentDomain.BaseDirectory;
             string jarPrefix = GetJarPrefix();
             string jarDir = curDir;
-            string assemblyVersion = "2.1.0";
+            string assemblyVersion = "2.1.1";
             string scalaVersion = (SparkSettings.Version.Major == 3) ? "2.12" : "2.11";
             string jar = Path.Combine(jarDir, $"{jarPrefix}_{scalaVersion}-{assemblyVersion}.jar");
 

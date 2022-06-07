@@ -37,6 +37,18 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
     }
   }
 
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    val invokeMethod = capName match {
+      case s if s == "UdfScala" => "setUDF"
+      case s if s == "TransformFunc" => "setTransform"
+      case s if s == "TransformSchemaFunc" => "setTransformSchema"
+      case _ => s"set$capName"
+    }
+    s"""|public $dotnetClassName Set$capName($dotnetType value) =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"$invokeMethod\", (object)value));
+        |""".stripMargin
+  }
+
   override def dotnetTestValue(v: UserDefinedFunction): String = {
     s"""${name}Param"""
   }

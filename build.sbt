@@ -115,6 +115,10 @@ genDotnetTestHelper := {
        |        {
        |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
        |        }
+       |        public static string GetSynapseMLTestPackage()
+       |        {
+       |            return "com.microsoft.azure:synapseml_2.12:${version.value}-tests";
+       |        }
        |    }
        |
        |}
@@ -251,7 +255,8 @@ publishBadges := {
       s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
+      s"badges/$filename", "icons",
+      extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")

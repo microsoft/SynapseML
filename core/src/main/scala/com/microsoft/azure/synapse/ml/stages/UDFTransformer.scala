@@ -17,7 +17,7 @@ import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType
 import org.apache.spark.sql.{Column, DataFrame, Dataset}
 import org.apache.spark.sql.functions.col
 
-object UDFTransformer extends ComplexParamsReadable[UDFTransformer]
+object UDFTransformer extends ComplexParamsReadable[UDFTransformer] with Serializable
 
 /** <code>UDFTransformer</code> takes as input input column, output column, and a UserDefinedFunction
   * returns a dataframe comprised of the original columns with the output column as the result of the

@@ -52,12 +52,16 @@ object DotnetCodegen {
          |  </PropertyGroup>
          |
          |  <ItemGroup>
-         |    <PackageReference Include="Microsoft.Spark" Version="2.1.0" />
+         |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |
          |  <ItemGroup>
          |    <ProjectReference Include="$dotnetBasePath" PrivateAssets="All" />
+         |  </ItemGroup>
+         |
+         |  <ItemGroup>
+         |    <InternalsVisibleTo Include="SynapseML.$packageName.Test" />
          |  </ItemGroup>
          |
          |  <PropertyGroup>

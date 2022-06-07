@@ -91,7 +91,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 
 }
 
-object CustomInputParser extends ComplexParamsReadable[CustomInputParser]
+object CustomInputParser extends ComplexParamsReadable[CustomInputParser] with Serializable
 
 class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexParamsWritable with BasicLogging {
   logClass()
@@ -230,7 +230,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
 
 }
 
-object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser]
+object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser] with Serializable
 
 class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with BasicLogging {
   logClass()

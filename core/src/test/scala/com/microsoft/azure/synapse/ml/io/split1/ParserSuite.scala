@@ -4,9 +4,12 @@
 package com.microsoft.azure.synapse.ml.io.split1
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.utils.ModelEquality
 import com.microsoft.azure.synapse.ml.io.http._
 import org.apache.http.client.methods.HttpPost
+import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.param.UDFParam
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{StringType, StructType}
@@ -67,14 +70,35 @@ class StringOutputParserSuite extends TransformerFuzzing[StringOutputParser] wit
 }
 
 class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with ParserUtils {
-  override def testObjects(): Seq[TestObject[CustomInputParser]] = makeTestObject(
-    new CustomInputParser().setInputCol("data").setOutputCol("out")
-      .setUDF({ x: Int => new HttpPost(s"http://$x") }), spark)
+  override def testObjects(): Seq[TestObject[CustomInputParser]] = {
+    val udfTest = UDFUtils.oldUdf(
+      { x: Int => new HTTPRequestData(new HttpPost(s"http://$x")) }, HTTPSchema.Request)
+    makeTestObject(
+      new CustomInputParser().setInputCol("data").setOutputCol("out")
+        .setUDF(udfTest), spark)
+  }
 
   override def reader: MLReadable[_] = CustomInputParser
 }
 
 class CustomOutputParserSuite extends TransformerFuzzing[CustomOutputParser] with ParserUtils {
+
+  test("random") {
+    val udfScala = UDFParam.loadForTest(spark,
+      "D:\\repos\\SynapseML\\core\\target\\scala-2.12\\generated\\test-data\\" +
+        "dotnet\\CustomOutputParserSuite\\model-0.model\\complexParams\\udfScala")
+
+    print("hello")
+  }
+
+  test("random2") {
+    val udfScala = UDFParam.loadForTest(spark,
+      "D:\\repos\\SynapseML\\core\\target\\scala-2.12\\generated\\test-data\\" +
+        "dotnet\\CustomInputParserSuite\\model-0.model\\complexParams\\udfScala")
+
+    print("hello")
+  }
+
   override def testObjects(): Seq[TestObject[CustomOutputParser]] = makeTestObject(
     new CustomOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setUDF({ x: HTTPResponseData => x.locale }), spark)

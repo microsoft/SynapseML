@@ -3,6 +3,13 @@
 
 package org.apache.spark.ml.param
 
+import com.microsoft.azure.synapse.ml.codegen.{CodegenConfig, Wrappable}
+import org.apache.spark.ml.PipelineStage
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
+import org.apache.spark.ml.recommendation.{ALS, ALSModel}
+import org.apache.spark.ml.regression.LinearRegression
+
 // Wrapper for codegen system
 trait WrappableParam[T] extends DotnetWrappableParam[T] {
 
@@ -28,3 +35,41 @@ trait WrappableParam[T] extends DotnetWrappableParam[T] {
   }
 
 }
+
+//object WrappableExtensions {
+//  implicit def toWrappable(in: PipelineStage): WrappablePipelineStage = new WrappablePipelineStage(in)
+//
+//  implicit def fromWrappable(in: WrappablePipelineStage): PipelineStage = in.stage
+//}
+//
+//class WrappablePipelineStage(val stage: PipelineStage) extends Wrappable {
+//
+//  override protected val thisStage: Params = stage
+//
+//  override def copy(extra: ParamMap): Params = stage.copy(extra)
+//
+//  override val uid: String = stage.uid
+//}
+//
+//object DotnetTest extends App {
+//
+//  import WrappableExtensions._
+//
+//  val Config = CodegenConfig(
+//    rVersion = "1.0.0",
+//    name = "mmlspark-cognitive",
+//    packageName = "mmlspark",
+//    pythonizedVersion = "1.0.0.dev1",
+//    version = "1.0.0-rc3-154-20479925-SNAPSHOT",
+//    dotnetVersion = "",
+//    jarName = None,
+//    topDir = "D:\\repos\\SynapseML\\dotnetClasses",
+//    targetDir = "D:\\repos\\SynapseML\\dotnetClasses\\")
+//
+////  new LinearRegression().makeDotnetFile(Config)
+////  new LogisticRegression().makeDotnetFile(Config)
+////  new StringIndexer().makeDotnetFile(Config)
+////  new StringIndexerModel(Array("test")).makeDotnetFile(Config)
+//  new ALS().makeDotnetFile(Config)
+//
+//}
