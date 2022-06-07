@@ -745,9 +745,13 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val modelPath = targetDir.toString + "/" + outputFileName
       FileUtils.deleteDirectory(new File(modelPath))
       fitModel.saveNativeModel(modelPath, overwrite = true)
+      val retrievedModelStr = fitModel.getNativeModel()
       assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = fitModel.getModel.modelStr.get
+      // Assert model string is equal when retrieved from booster and getNativeModel API
+      assert(retrievedModelStr == oldModelString)
+
       // Verify model string contains some feature
       colsToVerify.foreach(col => oldModelString.contains(col))
 

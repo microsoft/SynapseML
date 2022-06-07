@@ -32,24 +32,16 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
 | Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                |
 | Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/master?labpath=notebooks%2Ffeatures) |
 
-<details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
 -   [Features](#features)
 -   [Documentation](#documentation-and-examples)
 -   [Setup and installation](#setup-and-installation)
-    -   [Docker](#docker)
-    -   [GPU VM Setup](#gpu-vm-setup)
-    -   [Spark package](#spark-package)
-    -   [Python](#python)
-    -   [Databricks cloud](#databricks-cloud)
-    -   [SBT](#sbt)
-    -   [Building from source](#building-from-source)
--   [Blogs and Publications](#blogs-and-publications)
+-   [Publications](#papers)
+-   [Learn More](#learn-more)
 -   [Contributing & feedback](#contributing--feedback)
 -   [Other relevant projects](#other-relevant-projects)
 
-</details>
 
 ## Features
 
@@ -74,45 +66,55 @@ For quickstarts, documentation, demos, and examples please see our [website](htt
 
 ## Setup and installation
 
-### Python
+First select the correct platform that you are installing SynapseML into:
+<!--ts-->
+   * [Synapse Analytics](#synapse-analytics)
+   * [Databricks](#databricks)
+   * [Python Standalone](#python-standalone)
+   * [Spark Submit](#spark-submit)
+   * [SBT](#sbt)
+   * [Apachy Livy and HDInsight](#apache-livy-and-hdinsight)
+   * [Docker](#docker)
+   * [R (Beta)](#r-beta)
+   * [Building from Source](#building-from-source)
+<!--te-->
 
-To try out SynapseML on a Python (or Conda) installation you can get Spark
-installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
-the above example, or from python:
 
-```python
-import pyspark
-spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5") \
-            .getOrCreate()
-import synapse.ml
-```
+### Synapse Analytics 
 
-### SBT
+In Azure Synapse notebooks please place the following in the first cell of your notebook.
 
-If you are building a Spark application in Scala, add the following lines to
-your `build.sbt`:
-
-```scala
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.9.5"
+For Spark 3.2 Pools:
 
 ```
-
-### Spark package
-
-SynapseML can be conveniently installed on existing Spark clusters via the
-`--packages` option, examples:
-
-```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+      "spark.yarn.user.classpath.first": "true"
+  }
+}
 ```
 
-This can be used in other Spark contexts too. For example, you can use SynapseML
-in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
-`.aztk/spark-defaults.conf`
-file](https://github.com/Azure/aztk/wiki/PySpark-on-Azure-with-AZTK#optional-set-up-mmlspark).
+For Spark 3.1 Pools:
+
+```
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5-13-d1b51517-SNAPSHOT",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
+      "spark.yarn.user.classpath.first": "true"
+  }
+}
+```
+
+To install at the pool level instead of the notebook level [add the spark properties listed above to the pool configuration](https://techcommunity.microsoft.com/t5/azure-synapse-analytics-blog/how-to-set-spark-pyspark-custom-configs-in-synapse-workspace/ba-p/2114434).
 
 ### Databricks
 
@@ -131,6 +133,40 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 `https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.9.5.dbc`
 
+### Python Standalone
+
+To try out SynapseML on a Python (or Conda) installation you can get Spark
+installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
+the above example, or from python:
+
+```python
+import pyspark
+spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5") \
+            .getOrCreate()
+import synapse.ml
+```
+
+### Spark Submit
+
+SynapseML can be conveniently installed on existing Spark clusters via the
+`--packages` option, examples:
+
+```bash
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.9.5
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.9.5
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.9.5 MyApp.jar
+```
+
+### SBT
+
+If you are building a Spark application in Scala, add the following lines to
+your `build.sbt`:
+
+```scala
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.9.5"
+```
+
 ### Apache Livy and HDInsight
 
 To install SynapseML from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
@@ -148,21 +184,6 @@ Excluding certain packages from the library may be necessary due to current issu
 }
 ```
 
-In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to override the existing SynapseML packages.
-Note that Azure Synapse is currently on spark 3.1, hence this custom version should be used on Spark 3.1 clusters.
-
-```
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5-13-d1b51517-SNAPSHOT",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
-      "spark.yarn.user.classpath.first": "true"
-  }
-}
-```
 
 ### Docker
 
@@ -179,13 +200,11 @@ notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 > To read the EULA for using the docker image, run \\
 > `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
 
-### GPU VM Setup
+### R (Beta)
 
-SynapseML can be used to train deep learning models on GPU nodes from a Spark
-application.  See the instructions for [setting up an Azure GPU
-VM](docs/gpu-setup.md).
-
-
+To try out SynapseML using the R autogenerated wrappers [see our
+instructions](website/docs/reference/R-setup.md).  Note: This feature is still under development
+and some necessary custom wrappers may be missing.
 
 ### Building from source
 
@@ -196,12 +215,6 @@ If you are an existing synapsemldeveloper, you will need to reconfigure your
 development setup. We now support platform independent development and 
 better integrate with intellij and SBT.
  If you encounter issues please reach out to our support email!
-
-### R (Beta)
-
-To try out SynapseML using the R autogenerated wrappers [see our
-instructions](website/docs/reference/R-setup.md).  Note: This feature is still under development
-and some necessary custom wrappers may be missing.
 
 ## Papers
 
