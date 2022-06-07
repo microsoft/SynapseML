@@ -49,7 +49,6 @@ jobs:
     - bash: |
         black --check .
       displayName: 'Python Style Check'
-      failOnStderr: True
 
 - job: Publish
   cancelTimeoutInMinutes: 0
