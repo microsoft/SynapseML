@@ -34,7 +34,7 @@ namespace Microsoft.Spark.ML.Regression
         // /// </summary>
         // /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
         // public LinearRegressionModel(string uid, Vector coefficients, double intercept, double scale)
-        //     : base(s_className, uid, coefficients, intercept, scale)
+        //     : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, uid, coefficients, intercept, scale))
         // {
         // }
 

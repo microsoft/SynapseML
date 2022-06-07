@@ -36,7 +36,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <param name="userFactors">a DataFrame that stores user factors in two columns: id and features.</param>
         /// <param name="itemFactors">a DataFrame that stores item factors in two columns: id and features.</param>
         public ALSModel(string uid, int rank, DataFrame userFactors, DataFrame itemFactors)
-            : base(s_className, uid, rank, userFactors, itemFactors)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, uid, rank, userFactors, itemFactors))
         {
         }
 

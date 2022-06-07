@@ -33,7 +33,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </summary>
         /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
         /// <param name="labelsArray">Array of ordered list of labels, corresponding to indices to be assigned for each input column.</param>
-        public StringIndexerModel(string uid, string[][] labelsArray) : base(s_className, uid, labelsArray)
+        public StringIndexerModel(string uid, string[][] labelsArray)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, uid, labelsArray))
         {
         }
 
@@ -43,7 +44,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </summary>
         /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
         /// <param name="labels">Array of ordered list of labels, corresponding to indices to be assigned for each input column.</param>
-        public StringIndexerModel(string uid, string[] labels) : base(s_className, uid, labels)
+        public StringIndexerModel(string uid, string[] labels)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, uid, labels))
         {
         }
 
@@ -51,14 +53,16 @@ namespace Microsoft.Spark.ML.Feature
         /// <summary>
         /// Creates a <see cref="StringIndexerModel"/> without any parameters.
         /// </summary>
-        public StringIndexerModel(string[][] labelsArray) : base(s_className, labelsArray)
+        public StringIndexerModel(string[][] labelsArray)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, labelsArray))
         {
         }
 
         /// <summary>
         /// Creates a <see cref="StringIndexerModel"/> without any parameters.
         /// </summary>
-        public StringIndexerModel(string[] labels) : base(s_className, labels)
+        public StringIndexerModel(string[] labels)
+            : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, labels))
         {
         }
 

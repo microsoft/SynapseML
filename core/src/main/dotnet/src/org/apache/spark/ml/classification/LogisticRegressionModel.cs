@@ -34,7 +34,7 @@ namespace Microsoft.Spark.ML.Classification
         // /// </summary>
         // /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
         // public LogisticRegressionModel(string uid, Matrix coefficientMatrix, Vector interceptVector, int numClasses, bool isMultinomial)
-        //     : base(s_className, uid)
+        //     : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, uid))
         // {
         // }
 
