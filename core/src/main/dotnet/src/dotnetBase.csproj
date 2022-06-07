@@ -28,7 +28,6 @@
     <InternalsVisibleTo Include="SynapseML.Lightgbm.Test" />
     <InternalsVisibleTo Include="SynapseML.Opencv.Test" />
     <InternalsVisibleTo Include="SynapseML.Vw.Test" />
-    <InternalsVisibleTo Include="DotnetClasses" />
   </ItemGroup>
 
   <PropertyGroup>

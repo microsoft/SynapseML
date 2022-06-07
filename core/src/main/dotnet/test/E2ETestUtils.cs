@@ -238,9 +238,7 @@ namespace SynapseMLtest.Utils
                 .Append(packagesOption)
                 .Append(GetAvroPackage())
                 .Append(",")
-                .Append(GetSynapseMLPackage())
-                .Append(",")
-                .Append(GetSynapseMLTestPackage());
+                .Append(GetSynapseMLPackage());
             if (splits.Length > 1)
             {
                 newArgs.Append(",").Append(splits[1]);
@@ -263,8 +261,6 @@ namespace SynapseMLtest.Utils
         }
 
         public string GetSynapseMLPackage() => Helper.GetSynapseMLPackage();
-
-        public string GetSynapseMLTestPackage() => Helper.GetSynapseMLTestPackage();
 
         public string AddSynapseMLRepo()
         {
