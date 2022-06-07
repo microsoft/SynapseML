@@ -36,11 +36,20 @@ jobs:
     vmImage: ubuntu-18.04
   steps:
     - task: AzureCLI@1
-      displayName: 'Style Check'
+      displayName: 'Scala Style Check'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt scalastyle test:scalastyle'
+    - task: UsePythonVersion@00
+      inputs:
+        versionSpec: '3.8'
+    - script: pip install -r requirements.txt
+      displayName: 'Install requirements'
+    - bash: |
+        black --check .
+      displayName: 'Python Style Check'
+      failOnStderr: True
 
 - job: Publish
   cancelTimeoutInMinutes: 0
