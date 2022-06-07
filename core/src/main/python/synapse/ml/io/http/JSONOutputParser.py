@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.io.http._JSONOutputParser import _JSONOutputParser
@@ -15,9 +15,10 @@ from pyspark.sql.types import StructType
 
 @inherit_doc
 class JSONOutputParser(_JSONOutputParser):
-
     def setDataType(self, value):
-        jdt = SparkContext.getOrCreate()._jvm.org.apache.spark.sql.types.DataType.fromJson(value.json())
+        jdt = SparkContext.getOrCreate()._jvm.org.apache.spark.sql.types.DataType.fromJson(
+            value.json()
+        )
         self._java_obj = self._java_obj.setDataType(jdt)
         return self
 

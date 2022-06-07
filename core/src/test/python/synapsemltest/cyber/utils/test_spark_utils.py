@@ -8,27 +8,31 @@ from pyspark.sql.types import StructType, StructField, StringType
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import Param, Params
 
-from synapse.ml.cyber.utils.spark_utils import DataFrameUtils, ExplainBuilder, HasSetInputCol, HasSetOutputCol
+from synapse.ml.cyber.utils.spark_utils import (
+    DataFrameUtils,
+    ExplainBuilder,
+    HasSetInputCol,
+    HasSetOutputCol,
+)
 from synapsemltest.spark import *
 
 
 class TestDataFrameUtils(unittest.TestCase):
     def create_sample_dataframe(self):
         dataframe = sc.createDataFrame(
-            [
-                ("OrgA", "Alice"),
-                ("OrgB", "Joe"),
-                ("OrgA", "Joe"),
-                ("OrgA", "Bob")
-            ],
-            ["tenant", "user"]
+            [("OrgA", "Alice"), ("OrgB", "Joe"), ("OrgA", "Joe"), ("OrgA", "Bob")],
+            ["tenant", "user"],
         )
         return dataframe
 
-    def create_string_type_dataframe(self, field_names: List[str], data: List[Tuple[str]]) -> DataFrame:
+    def create_string_type_dataframe(
+        self, field_names: List[str], data: List[Tuple[str]]
+    ) -> DataFrame:
         return sc.createDataFrame(
             data,
-            StructType([StructField(name, StringType(), nullable=True) for name in field_names])
+            StructType(
+                [StructField(name, StringType(), nullable=True) for name in field_names]
+            ),
         )
 
     def test_get_spark(self):
@@ -42,12 +46,14 @@ class TestDataFrameUtils(unittest.TestCase):
 
     def test_zip_with_index_sort_by_column_within_partitions(self):
         dataframe = self.create_sample_dataframe()
-        result = DataFrameUtils.zip_with_index(df=dataframe, partition_col="tenant", order_by_col="user")
+        result = DataFrameUtils.zip_with_index(
+            df=dataframe, partition_col="tenant", order_by_col="user"
+        )
         expected = [
             ("OrgA", "Alice", 0),
             ("OrgA", "Bob", 1),
             ("OrgA", "Joe", 2),
-            ("OrgB", "Joe", 0)
+            ("OrgB", "Joe", 0),
         ]
         assert result.collect() == expected
 
@@ -58,7 +64,7 @@ class TestDataFrameUtils(unittest.TestCase):
             ("OrgA", "Alice", 0),
             ("OrgA", "Bob", 1),
             ("OrgB", "Joe", 2),
-            ("OrgA", "Joe", 3)
+            ("OrgA", "Joe", 3),
         ]
         assert result.collect() == expected
 
@@ -66,22 +72,20 @@ class TestDataFrameUtils(unittest.TestCase):
 class TestExplainBuilder(unittest.TestCase):
     class ExplainableObj(Transformer, HasSetInputCol, HasSetOutputCol):
         partitionKey = Param(
-            Params._dummy(),
-            "partitionKey",
-            "The name of the column to partition by."
+            Params._dummy(), "partitionKey", "The name of the column to partition by."
         )
 
         secondPartitionKey = Param(
             Params._dummy(),
             "secondPartitionKey",
-            "The name of the column to partition by."
+            "The name of the column to partition by.",
         )
 
         def __init__(self):
             super().__init__()
-            ExplainBuilder.build(self, inputCol='input', partitionKey=1)
+            ExplainBuilder.build(self, inputCol="input", partitionKey=1)
             self.setSecondPartitionKey(2)
-            self.setOutputCol('output')
+            self.setOutputCol("output")
 
         def _transform(self, dataset):
             pass
@@ -95,11 +99,11 @@ class TestExplainBuilder(unittest.TestCase):
         assert oo.getSecondPartitionKey() == 2
         assert oo.second_partition_key == 2
 
-        assert oo.getInputCol() == 'input'
-        assert oo.input_col == 'input'
+        assert oo.getInputCol() == "input"
+        assert oo.input_col == "input"
 
-        assert oo.getOutputCol() == 'output'
-        assert oo.output_col == 'output'
+        assert oo.getOutputCol() == "output"
+        assert oo.output_col == "output"
 
     def test_explain_with_modify(self):
         oo = TestExplainBuilder.ExplainableObj()

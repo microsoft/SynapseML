@@ -2,7 +2,8 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import sys
-if sys.version >= '3':
+
+if sys.version >= "3":
     basestring = str
 
 from pyspark.ml.param.shared import *
@@ -17,8 +18,11 @@ from pyspark.sql.functions import UserDefinedFunction
 from pyspark.ml.common import inherit_doc
 from synapse.ml.core.schema.Utils import *
 
+
 @inherit_doc
-class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTransformer):
+class UDFTransformer(
+    ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTransformer
+):
     """
     Args:
 
@@ -31,11 +35,23 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
     @keyword_only
     def __init__(self, inputCol=None, inputCols=None, outputCol=None, udf=None):
         super(UDFTransformer, self).__init__()
-        self._java_obj = self._new_java_obj("com.microsoft.azure.synapse.ml.stages.UDFTransformer")
-        self.inputCol = Param(self, "inputCol", "inputCol: The name of the input column (default: )")
-        self.inputCols = Param(self, "inputCols", "inputCols: The names of the input columns (default: )")
-        self.outputCol = Param(self, "outputCol", "outputCol: The name of the output column")
-        self.udf = Param(self, "udf", "udf: User Defined Python Function to be applied to the DF input col")
+        self._java_obj = self._new_java_obj(
+            "com.microsoft.azure.synapse.ml.stages.UDFTransformer"
+        )
+        self.inputCol = Param(
+            self, "inputCol", "inputCol: The name of the input column (default: )"
+        )
+        self.inputCols = Param(
+            self, "inputCols", "inputCols: The names of the input columns (default: )"
+        )
+        self.outputCol = Param(
+            self, "outputCol", "outputCol: The name of the output column"
+        )
+        self.udf = Param(
+            self,
+            "udf",
+            "udf: User Defined Python Function to be applied to the DF input col",
+        )
         if udf != None:
             self.setUDF(udf)
             self._udf = udf
@@ -57,7 +73,6 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
         self._set(inputCol=value)
         return self
 
-
     def getInputCol(self):
         """
 
@@ -66,7 +81,6 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
             str: The name of the input column (default: )
         """
         return self.getOrDefault(self.inputCol)
-
 
     def setInputCols(self, value):
         """
@@ -99,7 +113,6 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
         self._set(outputCol=value)
         return self
 
-
     def getOutputCol(self):
         """
 
@@ -110,9 +123,11 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
         return self.getOrDefault(self.outputCol)
 
     def setUDF(self, udf):
-        name = getattr(udf,"_name",  getattr(udf, "__name__", None))
+        name = getattr(udf, "_name", getattr(udf, "__name__", None))
         name = name if name else udf.__class__.__name__
-        userDefinedFunction = UserDefinedFunction(udf.func, returnType = udf.returnType, name = name)
+        userDefinedFunction = UserDefinedFunction(
+            udf.func, returnType=udf.returnType, name=name
+        )
         self._java_obj = self._java_obj.setUDF(userDefinedFunction._judf)
         self._udf = udf
         return self
@@ -122,16 +137,16 @@ class UDFTransformer(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTra
 
     @classmethod
     def read(cls):
-        """ Returns an MLReader instance for this class. """
+        """Returns an MLReader instance for this class."""
         return JavaMMLReader(cls)
 
     @staticmethod
     def getJavaPackage():
-        """ Returns package name String. """
+        """Returns package name String."""
         return "com.microsoft.azure.synapse.ml.stages.UDFTransformer"
 
     @staticmethod
     def _from_java(java_stage):
-        module_name=_UDFTransformer.__module__
-        module_name=module_name.rsplit(".", 1)[0] + ".UDFTransformer"
+        module_name = _UDFTransformer.__module__
+        module_name = module_name.rsplit(".", 1)[0] + ".UDFTransformer"
         return from_java(java_stage, module_name)

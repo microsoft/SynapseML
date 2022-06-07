@@ -11,18 +11,24 @@ def add_header_to_markdown(folder, md):
         content = re.sub(r"style=\"[\S ]*?\"", "", content)
         content = re.sub(r"<style[\S \n.]*?</style>", "", content)
         f.seek(0, 0)
-        f.write("---\ntitle: {}\nhide_title: true\nstatus: stable\n---\n".format(name) + content)
+        f.write(
+            "---\ntitle: {}\nhide_title: true\nstatus: stable\n---\n".format(name)
+            + content
+        )
         f.close()
 
 
 def convert_notebook_to_markdown(file_path, outputdir):
     print("Converting {} into markdown".format(file_path))
-    convert_cmd = 'jupyter nbconvert --output-dir="{}" --to markdown "{}"'.format(outputdir, file_path)
+    convert_cmd = 'jupyter nbconvert --output-dir="{}" --to markdown "{}"'.format(
+        outputdir, file_path
+    )
     os.system(convert_cmd)
     print()
 
+
 def convert_allnotebooks_in_folder(folder, outputdir):
-    
+
     cur_folders = [folder]
     output_dirs = [outputdir]
     while cur_folders:
@@ -35,13 +41,16 @@ def convert_allnotebooks_in_folder(folder, outputdir):
             else:
                 if not os.path.exists(cur_output_dir):
                     os.mkdir(cur_output_dir)
-                
+
                 md = file.replace(".ipynb", ".md")
                 if os.path.exists(os.path.join(cur_output_dir, md)):
                     os.remove(os.path.join(cur_output_dir, md))
-                
-                convert_notebook_to_markdown(os.path.join(cur_dir, file), cur_output_dir)
+
+                convert_notebook_to_markdown(
+                    os.path.join(cur_dir, file), cur_output_dir
+                )
                 add_header_to_markdown(cur_output_dir, md)
+
 
 def main():
     cur_path = os.getcwd()
