@@ -100,9 +100,12 @@ class ServiceParam[T: TypeTag](parent: Params,
       case Left(_) => typeOf[T] match {
         case t if t =:= typeOf[Array[String]] | t =:= typeOf[Seq[String]] =>
           s"""Set${dotnetName(v).capitalize}(new string[] ${dotnetTestValue(v)})"""
-        case t if t =:= typeOf[Array[Double]] => s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetTestValue(v)})"""
-        case t if t =:= typeOf[Array[Int]] => s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetTestValue(v)})"""
-        case t if t =:= typeOf[Array[Byte]] => s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Double]] =>
+          s"""Set${dotnetName(v).capitalize}(new double[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Int]] =>
+          s"""Set${dotnetName(v).capitalize}(new int[] ${dotnetTestValue(v)})"""
+        case t if t =:= typeOf[Array[Byte]] =>
+          s"""Set${dotnetName(v).capitalize}(new byte[] ${dotnetTestValue(v)})"""
         case _ => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
       }
       case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
