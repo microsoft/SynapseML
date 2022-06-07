@@ -54,7 +54,7 @@ class DeepVisionClassifier(LightningEstimator):
     @keyword_only
     def __init__(
         self,
-        backbone="resnet50",
+        backbone,
         num_layers_to_fine_tune=0,
         num_classes=None,
         num_proc=None,
@@ -96,32 +96,24 @@ class DeepVisionClassifier(LightningEstimator):
         # diff from horovod
         optimizer_name="adam",
         loss_name="cross_entropy",
+        pretrained=True,
+        feature_extracting=True,
+        dropout_aux=0.7,
     ):
         super(DeepVisionClassifier, self).__init__()
         self._setDefault(
-            backbone="resnet50",
             num_layers_to_fine_tune=0,
             optimizer_name="adam",
             loss_name="cross_entropy",
             pretrained=True,
+            feature_extracting=True,
+            dropout_aux=0.7,
         )
 
         # override those keyword args
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
-        # backbone,
-        #     num_layers_to_train,
-        #     num_classes,
-        #     input_shapes,
-        #     optimizer_name,
-        #     loss_name,
-        #     label_cols,
-        #     feature_cols,
-        #     loss_weights=[],
-        #     pretrained=True,
-        #     feature_extracting=True,
-        #     dropout_aux=0.7,
         self.model = LitDeepVisionModel(
             backbone=self.getBackbone(),
             num_layers_to_train=self.getNumLayersToFineTune(),

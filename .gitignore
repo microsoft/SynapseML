@@ -61,3 +61,6 @@ null/
 
 # pytorch_lightning logs
 **/lightning_logs/*
+
+# pytest
+.pytest_cache/
