@@ -284,18 +284,6 @@ object CodegenPlugin extends AutoPlugin {
       )
     },
     dotnetCodeGen := dotnetCodeGenImpl.value,
-    packageDotnet := {
-      dotnetCodeGen.value
-      val destDotnetDir = join(targetDir.value, "classes", genPackageNamespace.value)
-      val packageDir = join(codegenDir.value, "package", "dotnet").absolutePath
-      val dotnetSrcDir = join(codegenDir.value, "src", "dotnet")
-      if (destDotnetDir.exists()) FileUtils.forceDelete(destDotnetDir)
-      val sourceDotnetDir = join(dotnetSrcDir.getAbsolutePath, genPackageNamespace.value)
-      FileUtils.copyDirectory(sourceDotnetDir, destDotnetDir)
-      runCmd(
-        Seq("dotnet", "pack", packageDir),
-        dotnetSrcDir)
-    },
     dotnetTestGen := dotnetTestGenImpl.value,
     testDotnet := testDotnetImpl.value,
     targetDir := {

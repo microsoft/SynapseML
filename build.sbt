@@ -115,10 +115,6 @@ genDotnetTestHelper := {
        |        {
        |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
        |        }
-       |        public static string GetSynapseMLTestPackage()
-       |        {
-       |            return "com.microsoft.azure:synapseml_2.12:${version.value}-tests";
-       |        }
        |    }
        |
        |}
