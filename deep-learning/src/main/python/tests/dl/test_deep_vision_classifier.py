@@ -70,6 +70,7 @@ def generate_data(spark, train_folder, test_folder):
 
     return train_df, test_df
 
+
 class CallbackBackend(object):
     def run(self, fn, args=(), kwargs={}, env={}):
         return [fn(*args, **kwargs)] * self.num_processes()
