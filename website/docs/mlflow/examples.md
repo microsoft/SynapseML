@@ -15,10 +15,10 @@ Install SynapseML based on the [installation guidance](../getting_started/instal
 
 ## API Reference
 
-[mlflow.spark.save_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model)
-[mlflow.spark.log_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.log_model)
-[mlflow.spark.load_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.load_model)
-[mlflow.log_metric](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.log_metric)
+* [mlflow.spark.save_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model)
+* [mlflow.spark.log_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.log_model)
+* [mlflow.spark.load_model](https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.load_model)
+* [mlflow.log_metric](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.log_metric)
 
 ## LightGBMClassificationModel
 

@@ -132,11 +132,6 @@ class LightGBMRegressionModel(override val uid: String)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {

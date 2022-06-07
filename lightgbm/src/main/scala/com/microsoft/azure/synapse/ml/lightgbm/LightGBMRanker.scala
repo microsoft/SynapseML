@@ -163,11 +163,6 @@ class LightGBMRankerModel(override val uid: String)
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
 
   override def numFeatures: Int = getModel.numFeatures
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {

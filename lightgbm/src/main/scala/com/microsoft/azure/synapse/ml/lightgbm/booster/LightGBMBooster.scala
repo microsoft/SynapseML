@@ -465,6 +465,12 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     dataset.coalesce(1).write.mode(mode).text(filename)
   }
 
+  /** Gets the native model serialized representation as a string.
+    */
+  def getNativeModel(): String = {
+    modelStr.get
+  }
+
   /** Dumps the native model pointer to file.
     * @param session The spark session
     * @param filename The name of the file to save the model to
