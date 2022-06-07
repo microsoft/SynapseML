@@ -195,7 +195,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </param>
         /// <returns> New LinearRegression object </returns>
         public LinearRegression SetWeightCol(string value) =>
-            WrapAsLinearRegression(Reference.Invoke("setWeightCol", (object)value));
+            WrapAsLinearRegression(Reference.Invoke("setWeightCol", (object)value));
+
         
         /// <summary>
         /// Gets aggregationDepth value for <see cref="aggregationDepth"/>
@@ -344,13 +345,15 @@ namespace Microsoft.Spark.ML.Regression
         /// weightCol: weight column name. If this is not set or empty, we treat all instance weights as 1.0
         /// </returns>
         public string GetWeightCol() =>
-            (string)Reference.Invoke("getWeightCol");
+            (string)Reference.Invoke("getWeightCol");
+
         /// <summary>Fits a model to the input data.</summary>
         /// <param name="dataset">The <see cref="DataFrame"/> to fit the model to.</param>
         /// <returns><see cref="LinearRegressionModel"/></returns>
         override public LinearRegressionModel Fit(DataFrame dataset) =>
             new LinearRegressionModel(
-                (JvmObjectReference)Reference.Invoke("fit", dataset));
+                (JvmObjectReference)Reference.Invoke("fit", dataset));
+
         /// <summary>
         /// Loads the <see cref="LinearRegression"/> that was previously saved using Save(string).
         /// </summary>
@@ -375,9 +378,11 @@ namespace Microsoft.Spark.ML.Regression
         /// </summary>
         /// <returns>an <see cref="JavaMLReader&lt;LinearRegression&gt;"/> instance for this ML instance.</returns>
         public JavaMLReader<LinearRegression> Read() =>
-            new JavaMLReader<LinearRegression>((JvmObjectReference)Reference.Invoke("read"));
+            new JavaMLReader<LinearRegression>((JvmObjectReference)Reference.Invoke("read"));
+
         private static LinearRegression WrapAsLinearRegression(object obj) =>
-            new LinearRegression((JvmObjectReference)obj);
+            new LinearRegression((JvmObjectReference)obj);
+
         
     }
 }

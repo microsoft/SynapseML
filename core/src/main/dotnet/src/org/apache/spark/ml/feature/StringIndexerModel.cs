@@ -28,9 +28,12 @@ namespace Microsoft.Spark.ML.Feature
         private static readonly string s_className = "org.apache.spark.ml.feature.StringIndexerModel";
 
         /// <summary>
-        /// Creates a <see cref="StringIndexerModel"/> without any parameters.
+        /// Creates a <see cref="StringIndexerModel"/> with a UID that is used to give the
+        /// <see cref="StringIndexerModel"/> a unique ID.
         /// </summary>
-        public StringIndexerModel() : base(s_className)
+        /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
+        /// <param name="labelsArray">Array of ordered list of labels, corresponding to indices to be assigned for each input column.</param>
+        public StringIndexerModel(string uid, string[][] labelsArray) : base(s_className, uid, labelsArray)
         {
         }
 
@@ -39,7 +42,23 @@ namespace Microsoft.Spark.ML.Feature
         /// <see cref="StringIndexerModel"/> a unique ID.
         /// </summary>
         /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
-        public StringIndexerModel(string uid) : base(s_className, uid)
+        /// <param name="labels">Array of ordered list of labels, corresponding to indices to be assigned for each input column.</param>
+        public StringIndexerModel(string uid, string[] labels) : base(s_className, uid, labels)
+        {
+        }
+
+
+        /// <summary>
+        /// Creates a <see cref="StringIndexerModel"/> without any parameters.
+        /// </summary>
+        public StringIndexerModel(string[][] labelsArray) : base(s_className, labelsArray)
+        {
+        }
+
+        /// <summary>
+        /// Creates a <see cref="StringIndexerModel"/> without any parameters.
+        /// </summary>
+        public StringIndexerModel(string[] labels) : base(s_className, labels)
         {
         }
 
@@ -105,7 +124,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </param>
         /// <returns> New StringIndexerModel object </returns>
         public StringIndexerModel SetStringOrderType(string value) =>
-            WrapAsStringIndexerModel(Reference.Invoke("setStringOrderType", (object)value));
+            WrapAsStringIndexerModel(Reference.Invoke("setStringOrderType", (object)value));
+
         
         /// <summary>
         /// Gets handleInvalid value for <see cref="handleInvalid"/>
@@ -164,7 +184,8 @@ namespace Microsoft.Spark.ML.Feature
         /// stringOrderType: How to order labels of string column. The first label after ordering is assigned an index of 0. Supported options: frequencyDesc, frequencyAsc, alphabetDesc, alphabetAsc.
         /// </returns>
         public string GetStringOrderType() =>
-            (string)Reference.Invoke("getStringOrderType");
+            (string)Reference.Invoke("getStringOrderType");
+
         
         /// <summary>
         /// Loads the <see cref="StringIndexerModel"/> that was previously saved using Save(string).
@@ -190,9 +211,11 @@ namespace Microsoft.Spark.ML.Feature
         /// </summary>
         /// <returns>an <see cref="JavaMLReader&lt;StringIndexerModel&gt;"/> instance for this ML instance.</returns>
         public JavaMLReader<StringIndexerModel> Read() =>
-            new JavaMLReader<StringIndexerModel>((JvmObjectReference)Reference.Invoke("read"));
+            new JavaMLReader<StringIndexerModel>((JvmObjectReference)Reference.Invoke("read"));
+
         private static StringIndexerModel WrapAsStringIndexerModel(object obj) =>
-            new StringIndexerModel((JvmObjectReference)obj);
+            new StringIndexerModel((JvmObjectReference)obj);
+
         
     }
 }

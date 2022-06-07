@@ -28,18 +28,15 @@ namespace Microsoft.Spark.ML.Recommendation
         private static readonly string s_className = "org.apache.spark.ml.recommendation.ALSModel";
 
         /// <summary>
-        /// Creates a <see cref="ALSModel"/> without any parameters.
-        /// </summary>
-        public ALSModel() : base(s_className)
-        {
-        }
-
-        /// <summary>
         /// Creates a <see cref="ALSModel"/> with a UID that is used to give the
         /// <see cref="ALSModel"/> a unique ID.
         /// </summary>
         /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
-        public ALSModel(string uid) : base(s_className, uid)
+        /// <param name="rank">rank of the matrix factorization model.</param>
+        /// <param name="userFactors">a DataFrame that stores user factors in two columns: id and features.</param>
+        /// <param name="itemFactors">a DataFrame that stores item factors in two columns: id and features.</param>
+        public ALSModel(string uid, int rank, DataFrame userFactors, DataFrame itemFactors)
+            : base(s_className, uid, rank, userFactors, itemFactors)
         {
         }
 
@@ -48,124 +45,104 @@ namespace Microsoft.Spark.ML.Recommendation
         }
 
         /// <summary>
-        /// Sets handleInvalid value for <see cref="handleInvalid"/>
+        /// Sets blockSize value for <see cref="blockSize"/>
         /// </summary>
-        /// <param name="handleInvalid">
-        /// How to handle invalid data (unseen labels or NULL values). Options are 'skip' (filter out rows with invalid data), error (throw an error), or 'keep' (put invalid data in a special additional bucket, at index numLabels).
+        /// <param name="blockSize">
+        /// block size for stacking input data in matrices. Data is stacked within partitions. If block size is more than remaining data in a partition then it is adjusted to the size of this data.
         /// </param>
         /// <returns> New ALSModel object </returns>
-        public ALSModel SetHandleInvalid(string value) =>
-            WrapAsALSModel(Reference.Invoke("setHandleInvalid", (object)value));
+        public ALSModel SetBlockSize(int value) =>
+            WrapAsALSModel(Reference.Invoke("setBlockSize", (object)value));
         
         /// <summary>
-        /// Sets inputCol value for <see cref="inputCol"/>
+        /// Sets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
-        /// <param name="inputCol">
-        /// input column name
+        /// <param name="coldStartStrategy">
+        /// strategy for dealing with unknown or new users/items at prediction time. This may be useful in cross-validation or production scenarios, for handling user/item ids the model has not seen in the training data. Supported values: nan,drop.
         /// </param>
         /// <returns> New ALSModel object </returns>
-        public ALSModel SetInputCol(string value) =>
-            WrapAsALSModel(Reference.Invoke("setInputCol", (object)value));
+        public ALSModel SetColdStartStrategy(string value) =>
+            WrapAsALSModel(Reference.Invoke("setColdStartStrategy", (object)value));
         
         /// <summary>
-        /// Sets inputCols value for <see cref="inputCols"/>
+        /// Sets itemCol value for <see cref="itemCol"/>
         /// </summary>
-        /// <param name="inputCols">
-        /// input column names
+        /// <param name="itemCol">
+        /// column name for item ids. Ids must be within the integer value range.
         /// </param>
         /// <returns> New ALSModel object </returns>
-        public ALSModel SetInputCols(string[] value) =>
-            WrapAsALSModel(Reference.Invoke("setInputCols", (object)value));
+        public ALSModel SetItemCol(string value) =>
+            WrapAsALSModel(Reference.Invoke("setItemCol", (object)value));
         
         /// <summary>
-        /// Sets outputCol value for <see cref="outputCol"/>
+        /// Sets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
-        /// <param name="outputCol">
-        /// output column name
+        /// <param name="predictionCol">
+        /// prediction column name
         /// </param>
         /// <returns> New ALSModel object </returns>
-        public ALSModel SetOutputCol(string value) =>
-            WrapAsALSModel(Reference.Invoke("setOutputCol", (object)value));
+        public ALSModel SetPredictionCol(string value) =>
+            WrapAsALSModel(Reference.Invoke("setPredictionCol", (object)value));
         
         /// <summary>
-        /// Sets outputCols value for <see cref="outputCols"/>
+        /// Sets userCol value for <see cref="userCol"/>
         /// </summary>
-        /// <param name="outputCols">
-        /// output column names
+        /// <param name="userCol">
+        /// column name for user ids. Ids must be within the integer value range.
         /// </param>
         /// <returns> New ALSModel object </returns>
-        public ALSModel SetOutputCols(string[] value) =>
-            WrapAsALSModel(Reference.Invoke("setOutputCols", (object)value));
-        
-        /// <summary>
-        /// Sets stringOrderType value for <see cref="stringOrderType"/>
-        /// </summary>
-        /// <param name="stringOrderType">
-        /// How to order labels of string column. The first label after ordering is assigned an index of 0. Supported options: frequencyDesc, frequencyAsc, alphabetDesc, alphabetAsc.
-        /// </param>
-        /// <returns> New ALSModel object </returns>
-        public ALSModel SetStringOrderType(string value) =>
-            WrapAsALSModel(Reference.Invoke("setStringOrderType", (object)value));
+        public ALSModel SetUserCol(string value) =>
+            WrapAsALSModel(Reference.Invoke("setUserCol", (object)value));
 
         
         /// <summary>
-        /// Gets handleInvalid value for <see cref="handleInvalid"/>
+        /// Gets blockSize value for <see cref="blockSize"/>
         /// </summary>
         /// <returns>
-        /// handleInvalid: How to handle invalid data (unseen labels or NULL values). Options are 'skip' (filter out rows with invalid data), error (throw an error), or 'keep' (put invalid data in a special additional bucket, at index numLabels).
+        /// blockSize: block size for stacking input data in matrices. Data is stacked within partitions. If block size is more than remaining data in a partition then it is adjusted to the size of this data.
         /// </returns>
-        public string GetHandleInvalid() =>
-            (string)Reference.Invoke("getHandleInvalid");
+        public int GetBlockSize() =>
+            (int)Reference.Invoke("getBlockSize");
         
         
         /// <summary>
-        /// Gets inputCol value for <see cref="inputCol"/>
+        /// Gets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
         /// <returns>
-        /// inputCol: input column name
+        /// coldStartStrategy: strategy for dealing with unknown or new users/items at prediction time. This may be useful in cross-validation or production scenarios, for handling user/item ids the model has not seen in the training data. Supported values: nan,drop.
         /// </returns>
-        public string GetInputCol() =>
-            (string)Reference.Invoke("getInputCol");
+        public string GetColdStartStrategy() =>
+            (string)Reference.Invoke("getColdStartStrategy");
         
         
         /// <summary>
-        /// Gets inputCols value for <see cref="inputCols"/>
+        /// Gets itemCol value for <see cref="itemCol"/>
         /// </summary>
         /// <returns>
-        /// inputCols: input column names
+        /// itemCol: column name for item ids. Ids must be within the integer value range.
         /// </returns>
-        public string[] GetInputCols() =>
-            (string[])Reference.Invoke("getInputCols");
+        public string GetItemCol() =>
+            (string)Reference.Invoke("getItemCol");
         
         
         /// <summary>
-        /// Gets outputCol value for <see cref="outputCol"/>
+        /// Gets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
         /// <returns>
-        /// outputCol: output column name
+        /// predictionCol: prediction column name
         /// </returns>
-        public string GetOutputCol() =>
-            (string)Reference.Invoke("getOutputCol");
+        public string GetPredictionCol() =>
+            (string)Reference.Invoke("getPredictionCol");
         
         
         /// <summary>
-        /// Gets outputCols value for <see cref="outputCols"/>
+        /// Gets userCol value for <see cref="userCol"/>
         /// </summary>
         /// <returns>
-        /// outputCols: output column names
+        /// userCol: column name for user ids. Ids must be within the integer value range.
         /// </returns>
-        public string[] GetOutputCols() =>
-            (string[])Reference.Invoke("getOutputCols");
-        
-        
-        /// <summary>
-        /// Gets stringOrderType value for <see cref="stringOrderType"/>
-        /// </summary>
-        /// <returns>
-        /// stringOrderType: How to order labels of string column. The first label after ordering is assigned an index of 0. Supported options: frequencyDesc, frequencyAsc, alphabetDesc, alphabetAsc.
-        /// </returns>
-        public string GetStringOrderType() =>
-            (string)Reference.Invoke("getStringOrderType");
+        public string GetUserCol() =>
+            (string)Reference.Invoke("getUserCol");
 
         
         /// <summary>

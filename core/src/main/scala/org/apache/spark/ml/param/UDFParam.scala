@@ -39,9 +39,9 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
 
   override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
     val invokeMethod = capName match {
-      case s if s == "UdfScala" => "setUDF"
-      case s if s == "TransformFunc" => "setTransform"
-      case s if s == "TransformSchemaFunc" => "setTransformSchema"
+      case "UdfScala" => "setUDF"
+      case "TransformFunc" => "setTransform"
+      case "TransformSchemaFunc" => "setTransformSchema"
       case _ => s"set$capName"
     }
     s"""|public $dotnetClassName Set$capName($dotnetType value) =>
@@ -50,15 +50,24 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
   }
 
   override def dotnetTestValue(v: UserDefinedFunction): String = {
-    s"""${name}Param"""
+    name match {
+      case "handler" =>s"""${name}Param"""
+      case _ => super.dotnetTestValue(v)
+    }
   }
 
   override def dotnetLoadLine(modelNum: Int): String = {
-    s"""var ${name}Param = _jvm.CallStaticJavaMethod(
-       |    "org.apache.spark.ml.param.UDFParam",
-       |    "loadForTest",
-       |    _spark,
-       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
+    name match {
+      case "handler" =>
+        s"""var ${name}Param = _jvm.CallStaticJavaMethod(
+           |    "org.apache.spark.ml.param.UDFParam",
+           |    "loadForTest",
+           |    _spark,
+           |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
+      // TODO: FIX OTHER UDFParams
+      case _ => ""
+    }
+
   }
 
 }

@@ -27,145 +27,320 @@ namespace Microsoft.Spark.ML.Regression
     {
         private static readonly string s_className = "org.apache.spark.ml.regression.LinearRegressionModel";
 
-        /// <summary>
-        /// Creates a <see cref="LinearRegressionModel"/> without any parameters.
-        /// </summary>
-        public LinearRegressionModel() : base(s_className)
-        {
-        }
-
-        /// <summary>
-        /// Creates a <see cref="LinearRegressionModel"/> with a UID that is used to give the
-        /// <see cref="LinearRegressionModel"/> a unique ID.
-        /// </summary>
-        /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
-        public LinearRegressionModel(string uid) : base(s_className, uid)
-        {
-        }
+        // TODO: support this after constructing Vector class in .NET
+        // /// <summary>
+        // /// Creates a <see cref="LinearRegressionModel"/> with a UID that is used to give the
+        // /// <see cref="LinearRegressionModel"/> a unique ID.
+        // /// </summary>
+        // /// <param name="uid">An immutable unique ID for the object and its derivatives.</param>
+        // public LinearRegressionModel(string uid, Vector coefficients, double intercept, double scale)
+        //     : base(s_className, uid, coefficients, intercept, scale)
+        // {
+        // }
 
         internal LinearRegressionModel(JvmObjectReference jvmObject) : base(jvmObject)
         {
         }
 
         /// <summary>
-        /// Sets handleInvalid value for <see cref="handleInvalid"/>
+        /// Sets aggregationDepth value for <see cref="aggregationDepth"/>
         /// </summary>
-        /// <param name="handleInvalid">
-        /// How to handle invalid data (unseen labels or NULL values). Options are 'skip' (filter out rows with invalid data), error (throw an error), or 'keep' (put invalid data in a special additional bucket, at index numLabels).
+        /// <param name="aggregationDepth">
+        /// suggested depth for treeAggregate (>= 2)
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetHandleInvalid(string value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setHandleInvalid", (object)value));
+        public LinearRegressionModel SetAggregationDepth(int value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setAggregationDepth", (object)value));
         
         /// <summary>
-        /// Sets inputCol value for <see cref="inputCol"/>
+        /// Sets elasticNetParam value for <see cref="elasticNetParam"/>
         /// </summary>
-        /// <param name="inputCol">
-        /// input column name
+        /// <param name="elasticNetParam">
+        /// the ElasticNet mixing parameter, in range [0, 1]. For alpha = 0, the penalty is an L2 penalty. For alpha = 1, it is an L1 penalty
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetInputCol(string value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setInputCol", (object)value));
+        public LinearRegressionModel SetElasticNetParam(double value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setElasticNetParam", (object)value));
         
         /// <summary>
-        /// Sets inputCols value for <see cref="inputCols"/>
+        /// Sets epsilon value for <see cref="epsilon"/>
         /// </summary>
-        /// <param name="inputCols">
-        /// input column names
+        /// <param name="epsilon">
+        /// The shape parameter to control the amount of robustness. Must be > 1.0.
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetInputCols(string[] value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setInputCols", (object)value));
+        public LinearRegressionModel SetEpsilon(double value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setEpsilon", (object)value));
         
         /// <summary>
-        /// Sets outputCol value for <see cref="outputCol"/>
+        /// Sets featuresCol value for <see cref="featuresCol"/>
         /// </summary>
-        /// <param name="outputCol">
-        /// output column name
+        /// <param name="featuresCol">
+        /// features column name
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetOutputCol(string value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setOutputCol", (object)value));
+        public LinearRegressionModel SetFeaturesCol(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setFeaturesCol", (object)value));
         
         /// <summary>
-        /// Sets outputCols value for <see cref="outputCols"/>
+        /// Sets fitIntercept value for <see cref="fitIntercept"/>
         /// </summary>
-        /// <param name="outputCols">
-        /// output column names
+        /// <param name="fitIntercept">
+        /// whether to fit an intercept term
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetOutputCols(string[] value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setOutputCols", (object)value));
+        public LinearRegressionModel SetFitIntercept(bool value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setFitIntercept", (object)value));
         
         /// <summary>
-        /// Sets stringOrderType value for <see cref="stringOrderType"/>
+        /// Sets labelCol value for <see cref="labelCol"/>
         /// </summary>
-        /// <param name="stringOrderType">
-        /// How to order labels of string column. The first label after ordering is assigned an index of 0. Supported options: frequencyDesc, frequencyAsc, alphabetDesc, alphabetAsc.
+        /// <param name="labelCol">
+        /// label column name
         /// </param>
         /// <returns> New LinearRegressionModel object </returns>
-        public LinearRegressionModel SetStringOrderType(string value) =>
-            WrapAsLinearRegressionModel(Reference.Invoke("setStringOrderType", (object)value));
+        public LinearRegressionModel SetLabelCol(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setLabelCol", (object)value));
+        
+        /// <summary>
+        /// Sets loss value for <see cref="loss"/>
+        /// </summary>
+        /// <param name="loss">
+        /// The loss function to be optimized. Supported options: squaredError, huber. (Default squaredError)
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetLoss(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setLoss", (object)value));
+        
+        /// <summary>
+        /// Sets maxBlockSizeInMB value for <see cref="maxBlockSizeInMB"/>
+        /// </summary>
+        /// <param name="maxBlockSizeInMB">
+        /// Maximum memory in MB for stacking input data into blocks. Data is stacked within partitions. If more than remaining data size in a partition then it is adjusted to the data size. Default 0.0 represents choosing optimal value, depends on specific algorithm. Must be >= 0.
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetMaxBlockSizeInMB(double value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setMaxBlockSizeInMB", (object)value));
+        
+        /// <summary>
+        /// Sets maxIter value for <see cref="maxIter"/>
+        /// </summary>
+        /// <param name="maxIter">
+        /// maximum number of iterations (>= 0)
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetMaxIter(int value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setMaxIter", (object)value));
+        
+        /// <summary>
+        /// Sets predictionCol value for <see cref="predictionCol"/>
+        /// </summary>
+        /// <param name="predictionCol">
+        /// prediction column name
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetPredictionCol(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setPredictionCol", (object)value));
+        
+        /// <summary>
+        /// Sets regParam value for <see cref="regParam"/>
+        /// </summary>
+        /// <param name="regParam">
+        /// regularization parameter (>= 0)
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetRegParam(double value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setRegParam", (object)value));
+        
+        /// <summary>
+        /// Sets solver value for <see cref="solver"/>
+        /// </summary>
+        /// <param name="solver">
+        /// The solver algorithm for optimization. Supported options: auto, normal, l-bfgs. (Default auto)
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetSolver(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setSolver", (object)value));
+        
+        /// <summary>
+        /// Sets standardization value for <see cref="standardization"/>
+        /// </summary>
+        /// <param name="standardization">
+        /// whether to standardize the training features before fitting the model
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetStandardization(bool value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setStandardization", (object)value));
+        
+        /// <summary>
+        /// Sets tol value for <see cref="tol"/>
+        /// </summary>
+        /// <param name="tol">
+        /// the convergence tolerance for iterative algorithms (>= 0)
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetTol(double value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setTol", (object)value));
+        
+        /// <summary>
+        /// Sets weightCol value for <see cref="weightCol"/>
+        /// </summary>
+        /// <param name="weightCol">
+        /// weight column name. If this is not set or empty, we treat all instance weights as 1.0
+        /// </param>
+        /// <returns> New LinearRegressionModel object </returns>
+        public LinearRegressionModel SetWeightCol(string value) =>
+            WrapAsLinearRegressionModel(Reference.Invoke("setWeightCol", (object)value));
 
         
         /// <summary>
-        /// Gets handleInvalid value for <see cref="handleInvalid"/>
+        /// Gets aggregationDepth value for <see cref="aggregationDepth"/>
         /// </summary>
         /// <returns>
-        /// handleInvalid: How to handle invalid data (unseen labels or NULL values). Options are 'skip' (filter out rows with invalid data), error (throw an error), or 'keep' (put invalid data in a special additional bucket, at index numLabels).
+        /// aggregationDepth: suggested depth for treeAggregate (>= 2)
         /// </returns>
-        public string GetHandleInvalid() =>
-            (string)Reference.Invoke("getHandleInvalid");
+        public int GetAggregationDepth() =>
+            (int)Reference.Invoke("getAggregationDepth");
         
         
         /// <summary>
-        /// Gets inputCol value for <see cref="inputCol"/>
+        /// Gets elasticNetParam value for <see cref="elasticNetParam"/>
         /// </summary>
         /// <returns>
-        /// inputCol: input column name
+        /// elasticNetParam: the ElasticNet mixing parameter, in range [0, 1]. For alpha = 0, the penalty is an L2 penalty. For alpha = 1, it is an L1 penalty
         /// </returns>
-        public string GetInputCol() =>
-            (string)Reference.Invoke("getInputCol");
+        public double GetElasticNetParam() =>
+            (double)Reference.Invoke("getElasticNetParam");
         
         
         /// <summary>
-        /// Gets inputCols value for <see cref="inputCols"/>
+        /// Gets epsilon value for <see cref="epsilon"/>
         /// </summary>
         /// <returns>
-        /// inputCols: input column names
+        /// epsilon: The shape parameter to control the amount of robustness. Must be > 1.0.
         /// </returns>
-        public string[] GetInputCols() =>
-            (string[])Reference.Invoke("getInputCols");
+        public double GetEpsilon() =>
+            (double)Reference.Invoke("getEpsilon");
         
         
         /// <summary>
-        /// Gets outputCol value for <see cref="outputCol"/>
+        /// Gets featuresCol value for <see cref="featuresCol"/>
         /// </summary>
         /// <returns>
-        /// outputCol: output column name
+        /// featuresCol: features column name
         /// </returns>
-        public string GetOutputCol() =>
-            (string)Reference.Invoke("getOutputCol");
+        public string GetFeaturesCol() =>
+            (string)Reference.Invoke("getFeaturesCol");
         
         
         /// <summary>
-        /// Gets outputCols value for <see cref="outputCols"/>
+        /// Gets fitIntercept value for <see cref="fitIntercept"/>
         /// </summary>
         /// <returns>
-        /// outputCols: output column names
+        /// fitIntercept: whether to fit an intercept term
         /// </returns>
-        public string[] GetOutputCols() =>
-            (string[])Reference.Invoke("getOutputCols");
+        public bool GetFitIntercept() =>
+            (bool)Reference.Invoke("getFitIntercept");
         
         
         /// <summary>
-        /// Gets stringOrderType value for <see cref="stringOrderType"/>
+        /// Gets labelCol value for <see cref="labelCol"/>
         /// </summary>
         /// <returns>
-        /// stringOrderType: How to order labels of string column. The first label after ordering is assigned an index of 0. Supported options: frequencyDesc, frequencyAsc, alphabetDesc, alphabetAsc.
+        /// labelCol: label column name
         /// </returns>
-        public string GetStringOrderType() =>
-            (string)Reference.Invoke("getStringOrderType");
+        public string GetLabelCol() =>
+            (string)Reference.Invoke("getLabelCol");
+        
+        
+        /// <summary>
+        /// Gets loss value for <see cref="loss"/>
+        /// </summary>
+        /// <returns>
+        /// loss: The loss function to be optimized. Supported options: squaredError, huber. (Default squaredError)
+        /// </returns>
+        public string GetLoss() =>
+            (string)Reference.Invoke("getLoss");
+        
+        
+        /// <summary>
+        /// Gets maxBlockSizeInMB value for <see cref="maxBlockSizeInMB"/>
+        /// </summary>
+        /// <returns>
+        /// maxBlockSizeInMB: Maximum memory in MB for stacking input data into blocks. Data is stacked within partitions. If more than remaining data size in a partition then it is adjusted to the data size. Default 0.0 represents choosing optimal value, depends on specific algorithm. Must be >= 0.
+        /// </returns>
+        public double GetMaxBlockSizeInMB() =>
+            (double)Reference.Invoke("getMaxBlockSizeInMB");
+        
+        
+        /// <summary>
+        /// Gets maxIter value for <see cref="maxIter"/>
+        /// </summary>
+        /// <returns>
+        /// maxIter: maximum number of iterations (>= 0)
+        /// </returns>
+        public int GetMaxIter() =>
+            (int)Reference.Invoke("getMaxIter");
+        
+        
+        /// <summary>
+        /// Gets predictionCol value for <see cref="predictionCol"/>
+        /// </summary>
+        /// <returns>
+        /// predictionCol: prediction column name
+        /// </returns>
+        public string GetPredictionCol() =>
+            (string)Reference.Invoke("getPredictionCol");
+        
+        
+        /// <summary>
+        /// Gets regParam value for <see cref="regParam"/>
+        /// </summary>
+        /// <returns>
+        /// regParam: regularization parameter (>= 0)
+        /// </returns>
+        public double GetRegParam() =>
+            (double)Reference.Invoke("getRegParam");
+        
+        
+        /// <summary>
+        /// Gets solver value for <see cref="solver"/>
+        /// </summary>
+        /// <returns>
+        /// solver: The solver algorithm for optimization. Supported options: auto, normal, l-bfgs. (Default auto)
+        /// </returns>
+        public string GetSolver() =>
+            (string)Reference.Invoke("getSolver");
+        
+        
+        /// <summary>
+        /// Gets standardization value for <see cref="standardization"/>
+        /// </summary>
+        /// <returns>
+        /// standardization: whether to standardize the training features before fitting the model
+        /// </returns>
+        public bool GetStandardization() =>
+            (bool)Reference.Invoke("getStandardization");
+        
+        
+        /// <summary>
+        /// Gets tol value for <see cref="tol"/>
+        /// </summary>
+        /// <returns>
+        /// tol: the convergence tolerance for iterative algorithms (>= 0)
+        /// </returns>
+        public double GetTol() =>
+            (double)Reference.Invoke("getTol");
+        
+        
+        /// <summary>
+        /// Gets weightCol value for <see cref="weightCol"/>
+        /// </summary>
+        /// <returns>
+        /// weightCol: weight column name. If this is not set or empty, we treat all instance weights as 1.0
+        /// </returns>
+        public string GetWeightCol() =>
+            (string)Reference.Invoke("getWeightCol");
 
         
         /// <summary>

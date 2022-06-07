@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.param.WrappableParam
+import org.apache.zookeeper.KeeperException.UnimplementedException
 import org.scalactic.TripleEquals._
 
 /** Param for ByteArray.  Needed as spark has explicit params for many different
@@ -44,6 +45,14 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
     }
   }
 
-  override def dotnetTestValue(v: SerializableFunction): String = s"""${name}Param"""
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    name match {
+      case "model" =>
+        s"""|public $dotnetClassName SetModelLocation(string value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke("setModelLocation", value));
+            |""".stripMargin
+      case _ => super.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)
+    }
+  }
 
 }

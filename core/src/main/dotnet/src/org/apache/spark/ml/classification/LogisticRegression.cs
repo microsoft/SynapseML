@@ -255,7 +255,8 @@ namespace Microsoft.Spark.ML.Classification
         /// </param>
         /// <returns> New LogisticRegression object </returns>
         public LogisticRegression SetWeightCol(string value) =>
-            WrapAsLogisticRegression(Reference.Invoke("setWeightCol", (object)value));
+            WrapAsLogisticRegression(Reference.Invoke("setWeightCol", (object)value));
+
         
         /// <summary>
         /// Gets aggregationDepth value for <see cref="aggregationDepth"/>
@@ -464,13 +465,15 @@ namespace Microsoft.Spark.ML.Classification
         /// weightCol: weight column name. If this is not set or empty, we treat all instance weights as 1.0
         /// </returns>
         public string GetWeightCol() =>
-            (string)Reference.Invoke("getWeightCol");
+            (string)Reference.Invoke("getWeightCol");
+
         /// <summary>Fits a model to the input data.</summary>
         /// <param name="dataset">The <see cref="DataFrame"/> to fit the model to.</param>
         /// <returns><see cref="LogisticRegressionModel"/></returns>
         override public LogisticRegressionModel Fit(DataFrame dataset) =>
             new LogisticRegressionModel(
-                (JvmObjectReference)Reference.Invoke("fit", dataset));
+                (JvmObjectReference)Reference.Invoke("fit", dataset));
+
         /// <summary>
         /// Loads the <see cref="LogisticRegression"/> that was previously saved using Save(string).
         /// </summary>
@@ -495,9 +498,11 @@ namespace Microsoft.Spark.ML.Classification
         /// </summary>
         /// <returns>an <see cref="JavaMLReader&lt;LogisticRegression&gt;"/> instance for this ML instance.</returns>
         public JavaMLReader<LogisticRegression> Read() =>
-            new JavaMLReader<LogisticRegression>((JvmObjectReference)Reference.Invoke("read"));
+            new JavaMLReader<LogisticRegression>((JvmObjectReference)Reference.Invoke("read"));
+
         private static LogisticRegression WrapAsLogisticRegression(object obj) =>
-            new LogisticRegression((JvmObjectReference)obj);
+            new LogisticRegression((JvmObjectReference)obj);
+
         
     }
 }

@@ -225,7 +225,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </param>
         /// <returns> New ALS object </returns>
         public ALS SetUserCol(string value) =>
-            WrapAsALS(Reference.Invoke("setUserCol", (object)value));
+            WrapAsALS(Reference.Invoke("setUserCol", (object)value));
+
         
         /// <summary>
         /// Gets alpha value for <see cref="alpha"/>
@@ -404,13 +405,15 @@ namespace Microsoft.Spark.ML.Recommendation
         /// userCol: column name for user ids. Ids must be within the integer value range.
         /// </returns>
         public string GetUserCol() =>
-            (string)Reference.Invoke("getUserCol");
+            (string)Reference.Invoke("getUserCol");
+
         /// <summary>Fits a model to the input data.</summary>
         /// <param name="dataset">The <see cref="DataFrame"/> to fit the model to.</param>
         /// <returns><see cref="ALSModel"/></returns>
         override public ALSModel Fit(DataFrame dataset) =>
             new ALSModel(
-                (JvmObjectReference)Reference.Invoke("fit", dataset));
+                (JvmObjectReference)Reference.Invoke("fit", dataset));
+
         /// <summary>
         /// Loads the <see cref="ALS"/> that was previously saved using Save(string).
         /// </summary>
@@ -435,9 +438,11 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </summary>
         /// <returns>an <see cref="JavaMLReader&lt;ALS&gt;"/> instance for this ML instance.</returns>
         public JavaMLReader<ALS> Read() =>
-            new JavaMLReader<ALS>((JvmObjectReference)Reference.Invoke("read"));
+            new JavaMLReader<ALS>((JvmObjectReference)Reference.Invoke("read"));
+
         private static ALS WrapAsALS(object obj) =>
-            new ALS((JvmObjectReference)obj);
+            new ALS((JvmObjectReference)obj);
+
         
     }
 }

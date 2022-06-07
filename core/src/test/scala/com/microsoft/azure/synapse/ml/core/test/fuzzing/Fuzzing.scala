@@ -179,6 +179,13 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Synapse.ML")
       .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
       .split(".".toCharArray).map(capitalize).mkString(".")
+    val externalLoaderImports = conf.name match {
+      case "synapseml-deep-learning" =>
+        s"""using Synapse.ML.Cntk;
+           |using Synapse.ML.Stages;
+           |""".stripMargin
+      case _ => ""
+    }
     val namespaceString = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.azure.synapse.ml", "SynapseMLtest")
       .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
@@ -206,6 +213,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
          |using SynapseMLtest.Utils;
          |using SynapseMLtest.Helper;
          |using $importPathString;
+         |$externalLoaderImports
          |
          |namespace $namespaceString
          |{

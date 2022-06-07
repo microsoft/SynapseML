@@ -71,9 +71,9 @@ object DotnetTestGen {
     val dotnetTestBasePath = join(conf.dotnetSrcDir, "helper", "test", "dotnetTestBase.csproj").toString
       .replaceAllLiterally(curName, "core")
     val curPath = conf.dotnetSrcDir.getAbsolutePath
-    val corePath = curPath.replace(curProject, "core")
+    val corePath = curPath.replace(curName, "core")
     val referenceCore = conf.name match {
-      case "synapseml-opencv" =>
+      case "synapseml-opencv" | "synapseml-deep-learning" =>
         s"""<ProjectReference Include="$corePath\\synapse\\ml\\CoreProjectSetup.csproj" />"""
       case _ => ""
     }
