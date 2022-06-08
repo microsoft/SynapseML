@@ -3,6 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
+
 import java.io.File
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
@@ -62,19 +64,15 @@ object DotnetTestGen {
     }
     val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
     val curProject = curName match {
-      case "deep-learning" => "deepLearning"
+      case "deep-learning" => "DeepLearning"
       case s => s
     }
-    // TODO: upload dotnetTestBase to blob and reference it
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "src", "dotnetBase.csproj").toString
-      .replaceAllLiterally(curName, "core")
+    // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     val dotnetTestBasePath = join(conf.dotnetSrcDir, "helper", "test", "dotnetTestBase.csproj").toString
       .replaceAllLiterally(curName, "core")
-    val curPath = conf.dotnetSrcDir.getAbsolutePath
-    val corePath = curPath.replace(curName, "core")
     val referenceCore = conf.name match {
       case "synapseml-opencv" | "synapseml-deep-learning" =>
-        s"""<ProjectReference Include="$corePath\\synapse\\ml\\CoreProjectSetup.csproj" />"""
+        s"""<PackageReference Include="SynapseML.Core" Version="${BuildInfo.version}" />"""
       case _ => ""
     }
     writeFile(new File(dir, "TestProjectSetup.csproj"),
@@ -97,18 +95,18 @@ object DotnetTestGen {
          |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
          |    </PackageReference>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
+         |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
+         |    <PackageReference Include="SynapseML.$curProject" Version="${BuildInfo.version}" />
+         |    $referenceCore
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <ProjectReference Include="$curPath\\synapse\\ml\\${curProject.capitalize}ProjectSetup.csproj" />
-         |    <ProjectReference Include="$dotnetBasePath" PrivateAssets="All" />
          |    <ProjectReference Include="$dotnetTestBasePath" PrivateAssets="All" />
-         |    $referenceCore
          |  </ItemGroup>
          |
          |  <PropertyGroup>
-         |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+         |    <InternalsAssemblyNames>Microsoft.Spark;SynapseML.DotnetBase;SynapseML.$curProject</InternalsAssemblyNames>
          |  </PropertyGroup>
          |
          |  <PropertyGroup>

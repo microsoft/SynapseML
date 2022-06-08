@@ -98,7 +98,7 @@ object CodegenPlugin extends AutoPlugin {
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (join(rSrcDir,"tests").exists()){
+    if (join(rSrcDir, "tests").exists()) {
       rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
@@ -286,6 +286,27 @@ object CodegenPlugin extends AutoPlugin {
     dotnetCodeGen := dotnetCodeGenImpl.value,
     dotnetTestGen := dotnetTestGenImpl.value,
     testDotnet := testDotnetImpl.value,
+    packageDotnet := {
+      dotnetCodeGen.value
+      val destDotnetDir = join(targetDir.value, "classes", genPackageNamespace.value)
+      val dotnetSrcDir = join(codegenDir.value, "src", "dotnet")
+      if (destDotnetDir.exists()) FileUtils.forceDelete(destDotnetDir)
+      val sourceDotnetDir = join(dotnetSrcDir.getAbsolutePath, genPackageNamespace.value)
+      FileUtils.copyDirectory(sourceDotnetDir, destDotnetDir)
+      val packageDir = join(codegenDir.value, "package", "dotnet").absolutePath
+      runCmd(
+        Seq("dotnet", "pack", "--output", packageDir),
+        join(dotnetSrcDir, "synapse", "ml"))
+    },
+    publishDotnet := {
+      packageDotnet.value
+      val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
+      val packagePath = join(codegenDir.value, "package", "dotnet",
+        s"SynapseML.$dotnetPackageName.${version}.nupkg").absolutePath
+      runCmd(
+        Seq("sleet", "push", packagePath, "--source", "SynapseMLNuget")
+      )
+    },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },

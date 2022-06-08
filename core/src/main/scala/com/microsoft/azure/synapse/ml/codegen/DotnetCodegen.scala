@@ -32,12 +32,10 @@ object DotnetCodegen {
     }
     val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
     val packageName = curName match {
-      case "deep-learning" => "deepLearning"
+      case "deep-learning" => "DeepLearning"
       case s => s.capitalize
     }
-    // TODO: upload dotnetBase to blob and reference it
-    val dotnetBasePath = join(conf.dotnetSrcDir, "helper", "src", "dotnetBase.csproj").toString
-      .replaceAllLiterally(curName, "core")
+    // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${packageName}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
@@ -53,11 +51,8 @@ object DotnetCodegen {
          |
          |  <ItemGroup>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
+         |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
-         |  </ItemGroup>
-         |
-         |  <ItemGroup>
-         |    <ProjectReference Include="$dotnetBasePath" PrivateAssets="All" />
          |  </ItemGroup>
          |
          |  <ItemGroup>
@@ -65,7 +60,7 @@ object DotnetCodegen {
          |  </ItemGroup>
          |
          |  <PropertyGroup>
-         |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+         |    <InternalsAssemblyNames>Microsoft.Spark;SynapseML.DotnetBase</InternalsAssemblyNames>
          |  </PropertyGroup>
          |
          |  <PropertyGroup>
