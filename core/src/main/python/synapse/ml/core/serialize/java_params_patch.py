@@ -42,7 +42,9 @@ def _mml_from_java(java_stage):
     elif hasattr(py_type, "_from_java"):
         py_stage = py_type._from_java(java_stage)
     else:
-        raise NotImplementedError("This Java stage cannot be loaded into Python currently: %r" % stage_name)
+        raise NotImplementedError(
+            "This Java stage cannot be loaded into Python currently: %r" % stage_name
+        )
     return py_stage
 
 
@@ -50,7 +52,7 @@ JavaParams._from_java = _mml_from_java
 
 
 def _mml_py2java(sc, obj):
-    """ Convert Python object into Java """
+    """Convert Python object into Java"""
     if isinstance(obj, JavaParams):
         obj._transfer_params_to_java()
         obj = obj._java_obj

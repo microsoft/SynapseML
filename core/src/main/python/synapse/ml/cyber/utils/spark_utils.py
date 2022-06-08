@@ -8,11 +8,11 @@ __all__ = ["DataFrameUtils", "ExplainBuilder"]
 
 
 class DataFrameUtils:
-    """ Extension methods over Spark DataFrame """
+    """Extension methods over Spark DataFrame"""
 
     @staticmethod
     def get_spark_session(df: DataFrame) -> SparkSession:
-        """ get the associated Spark session
+        """get the associated Spark session
 
         Parameters
         ----------
@@ -24,7 +24,7 @@ class DataFrameUtils:
 
     @staticmethod
     def make_empty(df: DataFrame) -> DataFrame:
-        """ make an empty dataframe with the same schema
+        """make an empty dataframe with the same schema
 
         Parameters
         ----------
@@ -39,12 +39,13 @@ class DataFrameUtils:
     # noinspection PyDefaultArgument
     @staticmethod
     def zip_with_index(
-            df: DataFrame,
-            start_index: int = 0,
-            col_name: str = 'rowId',
-            partition_col: Union[List[str], str] = [],
-            order_by_col: Union[List[str], str] = []) -> DataFrame:
-        """ add an index to the given dataframe
+        df: DataFrame,
+        start_index: int = 0,
+        col_name: str = "rowId",
+        partition_col: Union[List[str], str] = [],
+        order_by_col: Union[List[str], str] = [],
+    ) -> DataFrame:
+        """add an index to the given dataframe
 
         Parameters
         ----------
@@ -71,8 +72,12 @@ class DataFrameUtils:
             raise ValueError("order_by_col cannot be None")
 
         # coalese input columns to arrays from singular strings
-        partition_col = partition_col if isinstance(partition_col, list) else [partition_col]
-        order_by_col = order_by_col if isinstance(order_by_col, list) else [order_by_col]
+        partition_col = (
+            partition_col if isinstance(partition_col, list) else [partition_col]
+        )
+        order_by_col = (
+            order_by_col if isinstance(order_by_col, list) else [order_by_col]
+        )
 
         if len(partition_col) > 0:
             partition_columns = [f.col(cn) for cn in partition_col]
@@ -82,25 +87,33 @@ class DataFrameUtils:
                 order_by_columns = [f.col(cn) for cn in order_by_col]
                 window = window.orderBy(*order_by_columns)
 
-            return df.withColumn(col_name, f.row_number().over(window) - 1 + start_index)
+            return df.withColumn(
+                col_name, f.row_number().over(window) - 1 + start_index
+            )
         else:
             if len(order_by_col) > 0:
                 order_by_columns = [f.col(cn) for cn in order_by_col]
                 df = df.orderBy(*order_by_columns)
 
-            output_schema = t.StructType(df.schema.fields + [t.StructField(col_name, t.LongType(), True)])
-            return df.rdd.zipWithIndex().map(lambda line: (list(line[0]) + [line[1] + start_index])).toDF(output_schema)
+            output_schema = t.StructType(
+                df.schema.fields + [t.StructField(col_name, t.LongType(), True)]
+            )
+            return (
+                df.rdd.zipWithIndex()
+                .map(lambda line: (list(line[0]) + [line[1] + start_index]))
+                .toDF(output_schema)
+            )
 
 
 def to_camel_case(prefix: str, varname: str) -> str:
-    parts = varname.split('_')
-    first = parts[0][0:1].upper() + parts[0][1:] if prefix != '' else parts[0]
+    parts = varname.split("_")
+    first = parts[0][0:1].upper() + parts[0][1:] if prefix != "" else parts[0]
     residual = [pp[0:1].upper() + pp[1:] for pp in parts[1:]]
-    return prefix + ''.join([first] + residual)
+    return prefix + "".join([first] + residual)
 
 
 def from_camel_case(cc: str) -> str:
-    return ''.join([str(c) if not c.isupper() else '_' + c.lower() for c in cc])
+    return "".join([str(c) if not c.isupper() else "_" + c.lower() for c in cc])
 
 
 def make_get_param(param_name: str):
@@ -121,7 +134,11 @@ def make_set_param(param_name: str):
 class ExplainBuilder:
     @staticmethod
     def get_methods(the_explainable):
-        return [method_name for method_name in dir(the_explainable) if callable(getattr(the_explainable, method_name))]
+        return [
+            method_name
+            for method_name in dir(the_explainable)
+            if callable(getattr(the_explainable, method_name))
+        ]
 
     @staticmethod
     def get_method(the_explainable, the_method_name):
@@ -133,7 +150,8 @@ class ExplainBuilder:
     @staticmethod
     def copy_params(from_explainable: Any, to_explainable: Any):
         param_map = {
-            varname: vv for varname, vv in from_explainable.__dict__.items()
+            varname: vv
+            for varname, vv in from_explainable.__dict__.items()
             if isinstance(varname, str) and isinstance(vv, Param)
         }
 
@@ -144,37 +162,55 @@ class ExplainBuilder:
     def build(explainable: Any, **kwargs):
         # copy to avoid changing while iterating
         param_map = {
-            varname: vv for varname, vv in explainable.__dict__.items()
+            varname: vv
+            for varname, vv in explainable.__dict__.items()
             if isinstance(varname, str) and isinstance(vv, Param)
         }
 
         for varname, vv in param_map.items():
             param_name = from_camel_case(vv.name)
-            assert param_name != vv.name, f"must use a camelCase name so that it is different from camel_case"
+            assert (
+                param_name != vv.name
+            ), f"must use a camelCase name so that it is different from camel_case"
 
             add_getter_and_setter = True
 
-            if isinstance(explainable, HasInputCol) and vv.name == 'inputCol':
+            if isinstance(explainable, HasInputCol) and vv.name == "inputCol":
                 add_getter_and_setter = False
-            elif isinstance(explainable, HasOutputCol) and vv.name == 'outputCol':
+            elif isinstance(explainable, HasOutputCol) and vv.name == "outputCol":
                 add_getter_and_setter = False
 
-            assert param_name == from_camel_case(varname), (param_name, varname, from_camel_case(varname))
+            assert param_name == from_camel_case(varname), (
+                param_name,
+                varname,
+                from_camel_case(varname),
+            )
 
             getter = make_get_param(varname)
             setter = make_set_param(varname)
 
             if add_getter_and_setter:
-                setattr(explainable.__class__, to_camel_case('get', param_name), getter)
-                setattr(explainable.__class__, to_camel_case('set', param_name), setter)
+                setattr(explainable.__class__, to_camel_case("get", param_name), getter)
+                setattr(explainable.__class__, to_camel_case("set", param_name), setter)
             else:
-                assert ExplainBuilder.get_method(explainable, to_camel_case('get', param_name)) is not None, 'no_getter'
-                assert ExplainBuilder.get_method(explainable, to_camel_case('set', param_name)) is not None, 'no_setter'
+                assert (
+                    ExplainBuilder.get_method(
+                        explainable, to_camel_case("get", param_name)
+                    )
+                    is not None
+                ), "no_getter"
+                assert (
+                    ExplainBuilder.get_method(
+                        explainable, to_camel_case("set", param_name)
+                    )
+                    is not None
+                ), "no_setter"
 
             setattr(explainable.__class__, f"{param_name}", property(getter, setter))
 
         # noinspection PyProtectedMember
         explainable._set(**kwargs)
+
 
 class HasSetInputCol(HasInputCol):
     def setInputCol(self, value):
@@ -182,6 +218,7 @@ class HasSetInputCol(HasInputCol):
         Sets the value of :py:attr:`inputCol`.
         """
         return self.set(self.inputCol, value)
+
 
 class HasSetOutputCol(HasOutputCol):
     def setOutputCol(self, value):

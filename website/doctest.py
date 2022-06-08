@@ -31,7 +31,9 @@ import synapse.ml
 ```
 -->
 
-<!--pytest-codeblocks:cont-->""".format(version)
+<!--pytest-codeblocks:cont-->""".format(
+        version
+    )
     with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
         f.truncate(0)
@@ -42,7 +44,7 @@ import synapse.ml
 
 
 def iterate_over_documentation(folder, version):
-    
+
     cur_folders = [folder]
     while cur_folders:
         cur_dir = cur_folders.pop(0)
@@ -53,12 +55,18 @@ def iterate_over_documentation(folder, version):
                 if file.startswith("_"):
                     add_python_helper_to_markdown(cur_dir, file, version)
 
+
 def main(version):
     cur_path = os.getcwd()
     folder = os.path.join(cur_path, "website", "docs", "documentation")
     iterate_over_documentation(folder, version)
     os.chdir(folder)
-    os.system("pytest --codeblocks --junit-xml={}".format(os.path.join(cur_path, "target", "website-test-result.xml")))
+    os.system(
+        "pytest --codeblocks --junit-xml={}".format(
+            os.path.join(cur_path, "target", "website-test-result.xml")
+        )
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main(str(sys.argv[1]))

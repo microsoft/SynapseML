@@ -1,8 +1,12 @@
 import unittest
 import xmlrunner
 
-all_test_cases = unittest.defaultTestLoader.discover('target/scala-2.11/generated/test/python/synapseml','*.py')
-test_runner=xmlrunner.XMLTestRunner(output="target/scala-2.11/generated/test_results/python")
+all_test_cases = unittest.defaultTestLoader.discover(
+    "target/scala-2.11/generated/test/python/synapseml", "*.py"
+)
+test_runner = xmlrunner.XMLTestRunner(
+    output="target/scala-2.11/generated/test_results/python"
+)
 
 # Loop the found test cases and add them into test suite.
 test_suite = unittest.TestSuite()

@@ -1,0 +1,5 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+# Required to auto-format python code
+black==22.3.0
