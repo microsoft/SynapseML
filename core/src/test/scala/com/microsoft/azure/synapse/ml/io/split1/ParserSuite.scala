@@ -83,22 +83,6 @@ class CustomInputParserSuite extends TransformerFuzzing[CustomInputParser] with 
 
 class CustomOutputParserSuite extends TransformerFuzzing[CustomOutputParser] with ParserUtils {
 
-  test("random") {
-    val udfScala = UDFParam.loadForTest(spark,
-      "D:\\repos\\SynapseML\\core\\target\\scala-2.12\\generated\\test-data\\" +
-        "dotnet\\CustomOutputParserSuite\\model-0.model\\complexParams\\udfScala")
-
-    print("hello")
-  }
-
-  test("random2") {
-    val udfScala = UDFParam.loadForTest(spark,
-      "D:\\repos\\SynapseML\\core\\target\\scala-2.12\\generated\\test-data\\" +
-        "dotnet\\CustomInputParserSuite\\model-0.model\\complexParams\\udfScala")
-
-    print("hello")
-  }
-
   override def testObjects(): Seq[TestObject[CustomOutputParser]] = makeTestObject(
     new CustomOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setUDF({ x: HTTPResponseData => x.locale }), spark)
