@@ -68,13 +68,12 @@ object DotnetTestGen {
       case s => s
     }
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
-    val dotnetTestBasePath = join(conf.dotnetSrcDir, "helper", "test", "dotnetTestBase.csproj").toString
-      .replaceAllLiterally(curName, "core")
     val referenceCore = conf.name match {
       case "synapseml-opencv" | "synapseml-deep-learning" =>
         s"""<PackageReference Include="SynapseML.Core" Version="${BuildInfo.version}" />"""
       case _ => ""
     }
+    // scalastyle:off line.size.limit
     writeFile(new File(dir, "TestProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
@@ -112,6 +111,7 @@ object DotnetTestGen {
          |
          |</Project>
          |""".stripMargin)
+    // scalastyle:on line.size.limit
   }
 
   def main(args: Array[String]): Unit = {
