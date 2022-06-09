@@ -125,6 +125,30 @@ genDotnetTestHelper := {
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
 }
 
+// scalastyle:off line.size.limit
+val genSleetConfig = TaskKey[Unit]("genSleetConfig",
+  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
+genSleetConfig := {
+  val fileContent =
+    s"""{
+       |  "username": "",
+       |  "useremail": "",
+       |  "sources": [
+       |    {
+       |      "name": "SynapseMLNuget",
+       |      "type": "azure",
+       |      "container": "nuget",
+       |      "path": "https://mmlspark.blob.core.windows.net/nuget",
+       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
+       |    }
+       |  ]
+       |}""".stripMargin
+  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
+  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
+  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+}
+// scalastyle:on line.size.limit
+
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {
   val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
