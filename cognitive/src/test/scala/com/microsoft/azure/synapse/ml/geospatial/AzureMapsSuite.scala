@@ -7,18 +7,16 @@ import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive.URLEncodingUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.io.http.HeaderValues
-import com.microsoft.azure.synapse.ml.io.split2.HasHttpClient
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.Fmts
+import com.microsoft.azure.synapse.ml.geospatial.AzureMapsJsonProtocol._
+import com.microsoft.azure.synapse.ml.io.http.{HeaderValues, RESTHelpers}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
-import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
-import org.json4s.jackson.JsonMethods.parse
 import org.scalactic.Equality
+import spray.json._
 
 import java.net.URI
 
@@ -142,8 +140,7 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
   override def reader: MLReadable[_] = ReverseAddressGeocoder
 }
 
-class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] with AzureMapsKey
-  with HasHttpClient {
+class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] with AzureMapsKey {
 
   import spark.implicits._
 
@@ -186,16 +183,14 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
     .setErrorCol("errors")
 
   override def afterAll(): Unit = {
-    val queryParams =  URLEncodingUtils.format(Map("api-version" -> "1.0",
+    val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0",
       "subscription-key" -> azureMapsKey))
     tryWithRetries() { () =>
       val deleteRequest = new HttpDelete(new URI("https://us.atlas.microsoft.com/mapData/"
         + udid + "?" + queryParams))
       deleteRequest.setHeader("User-Agent",
         s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-      val longRunningResultResponse = client.execute(deleteRequest)
-      val resultStatusCode = longRunningResultResponse.getStatusLine.getStatusCode
-      assert(resultStatusCode === 204)
+      RESTHelpers.safeSend(deleteRequest, expectedCodes = Set(204))
     }
   }
 
@@ -203,36 +198,31 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
     super.beforeAll()
 
     // Setup a polygon to use
-    val testPolygon = """
-      |{ "type": "FeatureCollection", "features": [
-      |    {
-      |      "type": "Feature",
-      |      "properties": { "geometryId": "test_geometry_id" },
-      |      "geometry": {"type": "Polygon", "coordinates": [[[-122.14290618896484,47.67856488312544],
-      |      [-122.03956604003906,47.67856488312544],[-122.03956604003906,47.7483271435476],
-      |      [-122.14290618896484,47.7483271435476],[-122.14290618896484,47.67856488312544]]]} } ] }
-      |""".stripMargin
-    val queryParams =  URLEncodingUtils.format(Map("api-version" -> "1.0", "subscription-key" -> azureMapsKey))
+    val testPolygon =
+      """
+        |{ "type": "FeatureCollection", "features": [
+        |    {
+        |      "type": "Feature",
+        |      "properties": { "geometryId": "test_geometry_id" },
+        |      "geometry": {"type": "Polygon", "coordinates": [[[-122.14290618896484,47.67856488312544],
+        |      [-122.03956604003906,47.67856488312544],[-122.03956604003906,47.7483271435476],
+        |      [-122.14290618896484,47.7483271435476],[-122.14290618896484,47.67856488312544]]]} } ] }
+        |""".stripMargin
+    val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0", "subscription-key" -> azureMapsKey))
     val createRequest = new HttpPost(new URI("https://us.atlas.microsoft.com/mapData/upload?" + queryParams +
       "&dataFormat=geojson"))
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setEntity(new StringEntity(testPolygon))
-    val response = client.execute(createRequest)
-    assert(response.getStatusLine.getStatusCode === 202)
-    val locationUrl =  response.getFirstHeader("location").getValue
-    assert(locationUrl != null )
-    response.close()
+    val response = RESTHelpers.safeSend(createRequest, expectedCodes = Set(202))
+    val locationUrl = response.getFirstHeader("location").getValue
+    assert(locationUrl != null)
 
     tryWithRetries(Array(3000, 5000, 10000, 20000, 30000)) { () =>
       val getLongRunningResult = new HttpGet(new URI(locationUrl + "&" + queryParams))
-      val longRunningResultResponse = client.execute(getLongRunningResult)
-      val statusCode = longRunningResultResponse.getStatusLine.getStatusCode
-      val parsedResponse = parse(IOUtils.toString(longRunningResultResponse.getEntity.getContent, "utf-8"))
-        .extract[LongRunningOperationResult]
-      val resourceLocation = parsedResponse.resourceLocation.mkString
-      longRunningResultResponse.close()
-      assert(statusCode === 201)
-      udid = resourceLocation.split(Array('/','?', '&'))(5)
+      val resourceLocation = RESTHelpers.sendAndParseJson(getLongRunningResult, expectedCodes = Set(201))
+        .convertTo[LongRunningOperationResult]
+        .resourceLocation.mkString
+      udid = resourceLocation.split(Array('/', '?', '&'))(5)
     }
   }
 

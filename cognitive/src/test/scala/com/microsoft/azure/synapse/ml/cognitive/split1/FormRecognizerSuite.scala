@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive.split1
 
 import com.microsoft.azure.synapse.ml.cognitive.FormsFlatteners._
-import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.retry
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
@@ -36,7 +36,7 @@ case class SourceFilter(prefix: String, includeSubFolders: Boolean)
 
 object FormRecognizerUtils extends CognitiveKey {
 
-  import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
+  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   val PollingDelay = 1000
 

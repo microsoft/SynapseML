@@ -3,17 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
-import com.microsoft.azure.synapse.ml.io.split2.HasHttpClient
-
-import java.io.{File, FileInputStream}
-import java.time.LocalDateTime
-import java.util.concurrent.TimeoutException
-import SprayImplicits._
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
+import com.microsoft.azure.synapse.ml.nbtest.SprayImplicits._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -21,10 +16,13 @@ import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
+import java.io.{File, FileInputStream}
+import java.time.LocalDateTime
+import java.util.concurrent.TimeoutException
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 //noinspection ScalaStyle
-object DatabricksUtilities extends HasHttpClient {
+object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
@@ -69,47 +67,18 @@ object DatabricksUtilities extends HasHttpClient {
 
   val NonParallelizableNotebooks: Seq[File] = Nil
 
-  def retry[T](backoffList: List[Int], f: () => T): T = {
-    try {
-      f()
-    } catch {
-      case t: Throwable =>
-        val waitTime = backoffList.headOption.getOrElse(throw t)
-        println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        blocking {
-          Thread.sleep(waitTime.toLong)
-        }
-        retry(backoffList.tail, f)
-    }
-  }
-
   def databricksGet(path: String): JsValue = {
-    retry(List(100, 500, 1000), { () =>
-      val request = new HttpGet(BaseURL + path)
-      request.addHeader("Authorization", AuthValue)
-      using(client.execute(request)) { response =>
-        if (response.getStatusLine.getStatusCode != 200) {
-          throw new RuntimeException(s"Failed: response: $response")
-        }
-        IOUtils.toString(response.getEntity.getContent, "UTF-8").parseJson
-      }.get
-    })
+    val request = new HttpGet(BaseURL + path)
+    request.addHeader("Authorization", AuthValue)
+    RESTHelpers.sendAndParseJson(request)
   }
 
   //TODO convert all this to typed code
-  def databricksPost(path: String, body: String, retries: List[Int] = List(100, 500, 1000)): JsValue = {
-    retry(retries, { () =>
-      val request = new HttpPost(BaseURL + path)
-      request.addHeader("Authorization", AuthValue)
-      request.setEntity(new StringEntity(body))
-      using(client.execute(request)) { response =>
-        if (response.getStatusLine.getStatusCode != 200) {
-          val entity = IOUtils.toString(response.getEntity.getContent, "UTF-8")
-          throw new RuntimeException(s"Failed:\n entity:$entity \n response: $response")
-        }
-        IOUtils.toString(response.getEntity.getContent, "UTF-8").parseJson
-      }.get
-    })
+  def databricksPost(path: String, body: String): JsValue = {
+    val request = new HttpPost(BaseURL + path)
+    request.addHeader("Authorization", AuthValue)
+    request.setEntity(new StringEntity(body))
+    RESTHelpers.sendAndParseJson(request)
   }
 
   def getClusterIdByName(name: String): String = {

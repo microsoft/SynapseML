@@ -15,7 +15,7 @@ import spray.json._
 
 object SpeechAPI {
 
-  import RESTHelpers._
+  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   def getSpeakerProfile(data: File, key: String): String = {
     retry(List(100, 500, 1000), { () =>
