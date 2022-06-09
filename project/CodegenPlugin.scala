@@ -141,7 +141,6 @@ object CodegenPlugin extends AutoPlugin {
   } tag (DotnetCodeGenTag)
 
   def testDotnetImpl: Def.Initialize[Task[Unit]] = Def.task {
-    dotnetCodeGen.value
     dotnetTestGen.value
     val mainTargetDir = join(baseDirectory.value.getParent, "target")
     runCmd(
