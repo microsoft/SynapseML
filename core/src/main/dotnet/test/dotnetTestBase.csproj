@@ -4,6 +4,9 @@
     <TargetFramework>net5.0</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <AssemblyName>SynapseML.DotnetE2ETest</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <Description>SynapseML .NET Test Base</Description>
+    <Version>0.9.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +22,12 @@
     <InternalsVisibleTo Include="SynapseML.Lightgbm" />
     <InternalsVisibleTo Include="SynapseML.Opencv" />
     <InternalsVisibleTo Include="SynapseML.Vw" />
+    <InternalsVisibleTo Include="SynapseML.Cognitive.Test" />
+    <InternalsVisibleTo Include="SynapseML.Core.Test" />
+    <InternalsVisibleTo Include="SynapseML.DeepLearning.Test" />
+    <InternalsVisibleTo Include="SynapseML.Lightgbm.Test" />
+    <InternalsVisibleTo Include="SynapseML.Opencv.Test" />
+    <InternalsVisibleTo Include="SynapseML.Vw.Test" />
   </ItemGroup>
 
   <PropertyGroup>

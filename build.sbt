@@ -99,9 +99,9 @@ genBuildInfo := {
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
 }
 
-val genDotnetTestHelper = TaskKey[Unit]("genDotnetTestHelper",
-  "generate dotnet test helper file with current library version")
-genDotnetTestHelper := {
+val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
+  "generate dotnet test helper file with current library version and publish E2E test base")
+publishDotnetTestBase := {
   val fileContent =
     s"""// Licensed to the .NET Foundation under one or more agreements.
        |// The .NET Foundation licenses this file to you under the MIT license.
@@ -119,10 +119,19 @@ genDotnetTestHelper := {
        |
        |}
        |""".stripMargin
-  val dotnetHelperFile = join(baseDirectory.value, "core",
-    "src", "main", "dotnet", "test", "SynapseMLVersion.cs")
+  val dotnetTestBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "test")
+  val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
   if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
+  runCmd(
+    Seq("dotnet", "pack", "--output", join(dotnetTestBaseDir, "target").getAbsolutePath),
+    dotnetTestBaseDir
+  )
+  val packagePath = join(dotnetTestBaseDir, "target", s"SynapseML.DotnetE2ETest.0.9.1.nupkg").getAbsolutePath
+  runCmd(
+    Seq("sleet", "push", packagePath, "--config", join(rootGenDir.value, "sleet.json").getAbsolutePath,
+      "--source", "SynapseMLNuget", "--force")
+  )
 }
 
 // scalastyle:off line.size.limit

@@ -96,17 +96,14 @@ object DotnetTestGen {
          |    </PackageReference>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
+         |    <PackageReference Include="SynapseML.DotnetE2ETest" Version="0.9.1" />
          |    <PackageReference Include="SynapseML.$curProject" Version="${BuildInfo.version}" />
          |    $referenceCore
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
          |
-         |  <ItemGroup>
-         |    <ProjectReference Include="$dotnetTestBasePath" PrivateAssets="All" />
-         |  </ItemGroup>
-         |
          |  <PropertyGroup>
-         |    <InternalsAssemblyNames>Microsoft.Spark;SynapseML.DotnetBase;SynapseML.$curProject</InternalsAssemblyNames>
+         |    <InternalsAssemblyNames>Microsoft.Spark;SynapseML.DotnetBase;SynapseML.DotnetE2ETest;SynapseML.$curProject</InternalsAssemblyNames>
          |  </PropertyGroup>
          |
          |  <PropertyGroup>
