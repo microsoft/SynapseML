@@ -30,22 +30,18 @@ object DotnetCodegen {
     if (!conf.dotnetSrcDir.exists()) {
       conf.dotnetSrcDir.mkdir()
     }
-    val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
-    val packageName = curName match {
-      case "deep-learning" => "DeepLearning"
-      case s => s.capitalize
-    }
+    val curProject = conf.name.split("-").drop(1).map(s => s.capitalize).mkString("")
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
-    writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${packageName}ProjectSetup.csproj"),
+    writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${curProject}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
          |    <TargetFramework>net5.0</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
-         |    <AssemblyName>SynapseML.$packageName</AssemblyName>
+         |    <AssemblyName>SynapseML.$curProject</AssemblyName>
          |    <IsPackable>true</IsPackable>
          |
-         |    <Description>.NET for SynapseML.$packageName</Description>
+         |    <Description>.NET for SynapseML.$curProject</Description>
          |    <Version>${BuildInfo.version}</Version>
          |  </PropertyGroup>
          |
@@ -56,7 +52,7 @@ object DotnetCodegen {
          |  </ItemGroup>
          |
          |  <ItemGroup>
-         |    <InternalsVisibleTo Include="SynapseML.$packageName.Test" />
+         |    <InternalsVisibleTo Include="SynapseML.$curProject.Test" />
          |  </ItemGroup>
          |
          |  <PropertyGroup>

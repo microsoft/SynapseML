@@ -31,8 +31,8 @@ object DotnetTestGen {
   }
 
   def generateDotnetHelperFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "SynapseMLtest")
-    if (!dir.exists()){
+    val dir = new File(conf.dotnetTestDir, "SynapseMLtest")
+    if (!dir.exists()) {
       dir.mkdirs()
     }
     writeFile(new File(dir, "SparkFixtureHelper.cs"),
@@ -58,15 +58,11 @@ object DotnetTestGen {
 
   // noinspection ScalaStyle
   def generateDotnetTestProjFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir,  "SynapseMLtest")
-    if (!dir.exists()){
+    val dir = new File(conf.dotnetTestDir, "SynapseMLtest")
+    if (!dir.exists()) {
       dir.mkdirs()
     }
-    val curName = conf.name.split("-".toCharArray).drop(1).mkString("-")
-    val curProject = curName match {
-      case "deep-learning" => "DeepLearning"
-      case s => s
-    }
+    val curProject = conf.name.split("-").drop(1).map(s => s.capitalize).mkString("")
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     val referenceCore = conf.name match {
       case "synapseml-opencv" | "synapseml-deep-learning" =>

@@ -408,6 +408,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y dotnet-sdk-5.0
       displayName: Install .NET SDK
+    - baseh: |
+        dotnet nuget add source https://mmlspark.blob.core.windows.net/nuget/index.json -n SynapseMLFeed
+      displayName: Update Nuget Config to include SynapseML Feed
     - bash: |
         sudo apt-get install openjdk-8-jre
       displayName: Install Java
