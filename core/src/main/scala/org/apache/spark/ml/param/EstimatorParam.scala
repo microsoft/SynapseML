@@ -31,8 +31,7 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
     throw new NotImplementedError("Implement dotnetLoadLine(modelNum: Int, testDataDir: String) method instead")
 
   def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
-    val underlyingType = Pipeline.load(
-      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
+    val underlyingType = Pipeline.load(s"$testDataDir/model-$modelNum.model/complexParams/$name")
       .getStages.head.getClass.getTypeName.split(".".toCharArray).last
 
     s"""

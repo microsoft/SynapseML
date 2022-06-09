@@ -428,6 +428,9 @@ jobs:
         export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.1.1
         echo "##vso[task.setvariable variable=DOTNET_WORKER_DIR]$DOTNET_WORKER_DIR"
       displayName: Install .NET for Apache Spark
+    - bash: |
+        dotnet tool install -g sleet
+      displayName: Install Sleet
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
