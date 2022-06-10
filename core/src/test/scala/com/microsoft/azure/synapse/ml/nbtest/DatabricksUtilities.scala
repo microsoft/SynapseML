@@ -51,7 +51,7 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
     Map("pypi" -> Map("package" -> "Pillow")),
-    Map("pypi" -> Map("package" -> "onnxmltools")),
+    Map("pypi" -> Map("package" -> "onnxmltools==1.7.0")),
     Map("pypi" -> Map("package" -> "lightgbm")),
     Map("pypi" -> Map("package" -> "mlflow"))
   ).toJson.compactPrint
