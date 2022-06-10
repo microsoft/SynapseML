@@ -214,7 +214,8 @@ object CodegenPlugin extends AutoPlugin {
       }
     },
     dotnetVersion := {
-      version.value
+      val versionArray = version.value.split("-".toCharArray)
+      versionArray.head + "-rc" + versionArray.drop(1).mkString("")
     },
     packageR := {
       createCondaEnvTask.value
@@ -302,7 +303,7 @@ object CodegenPlugin extends AutoPlugin {
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
       val shortVersion = version.value.split("-".toCharArray).head
       val packagePath = join(codegenDir.value, "package", "dotnet",
-        s"SynapseML.$dotnetPackageName.$shortVersion.nupkg").absolutePath
+        s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
       val sleetConfigFile = join(mergePyCodeDir.value, "sleet.json").getAbsolutePath
       runCmd(
         Seq("sleet", "push", packagePath, "--config", sleetConfigFile, "--source", "SynapseMLNuget", "--force")

@@ -31,7 +31,6 @@ object DotnetCodegen {
       conf.dotnetSrcDir.mkdir()
     }
     val curProject = conf.name.split("-").drop(1).map(s => s.capitalize).mkString("")
-    val shortVersion = BuildInfo.version.split("-".toCharArray).head
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${curProject}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
@@ -43,7 +42,7 @@ object DotnetCodegen {
          |    <IsPackable>true</IsPackable>
          |
          |    <Description>.NET for SynapseML.$curProject</Description>
-         |    <Version>$shortVersion</Version>
+         |    <Version>${conf.dotnetVersion}</Version>
          |  </PropertyGroup>
          |
          |  <ItemGroup>
