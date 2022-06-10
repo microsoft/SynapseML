@@ -63,10 +63,11 @@ object DotnetTestGen {
       dir.mkdirs()
     }
     val curProject = conf.name.split("-").drop(1).map(s => s.capitalize).mkString("")
+    val shortVersion = BuildInfo.version.split("-".toCharArray).head
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     val referenceCore = conf.name match {
       case "synapseml-opencv" | "synapseml-deep-learning" =>
-        s"""<PackageReference Include="SynapseML.Core" Version="${BuildInfo.version}" />"""
+        s"""<PackageReference Include="SynapseML.Core" Version="$shortVersion" />"""
       case _ => ""
     }
     // scalastyle:off line.size.limit
@@ -92,7 +93,7 @@ object DotnetTestGen {
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
          |    <PackageReference Include="SynapseML.DotnetE2ETest" Version="0.9.1" />
-         |    <PackageReference Include="SynapseML.$curProject" Version="${BuildInfo.version}" />
+         |    <PackageReference Include="SynapseML.$curProject" Version="$shortVersion" />
          |    $referenceCore
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |  </ItemGroup>
