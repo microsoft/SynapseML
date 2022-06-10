@@ -146,8 +146,8 @@ genSleetConfig := {
        |    {
        |      "name": "SynapseMLNuget",
        |      "type": "azure",
-       |      "container": "nuget",
-       |      "path": "https://mmlspark.blob.core.windows.net/nuget",
+       |      "container": "synapsemlnuget",
+       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
        |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
        |    }
        |  ]
