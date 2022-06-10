@@ -410,6 +410,7 @@ jobs:
       displayName: Install .NET SDK
     - bash: |
         dotnet nuget add source https://mmlspark.blob.core.windows.net/nuget/index.json -n SynapseMLFeed
+        dotnet nuget remove source nuget.org
       displayName: Update Nuget Config to include SynapseML Feed
     - bash: |
         sudo apt-get install openjdk-8-jre
