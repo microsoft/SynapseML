@@ -59,7 +59,7 @@ class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluat
   def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
     val underlyingType = EvaluatorParam.loadForTest(
       SparkSession.builder().getOrCreate(),
-      testDataDir + s"\\model-$modelNum.model\\complexParams\\$name")
+       s"$testDataDir/model-$modelNum.model/complexParams/$name")
       .getClass.getTypeName.split(".".toCharArray).last
 
     s"""var ${name}ParamLoaded = (JvmObjectReference)_jvm.CallStaticJavaMethod(
