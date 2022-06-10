@@ -382,6 +382,20 @@ jobs:
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-18.04
+  strategy:
+    matrix:
+      core:
+        PACKAGE: "core"
+      deep-learning:
+        PACKAGE: "deepLearning"
+      lightgbm:
+        PACKAGE: "lightgbm"
+      opencv:
+        PACKAGE: "opencv"
+      vw:
+        PACKAGE: "vw"
+      cognitive:
+        PACKAGE: "cognitive"
   steps:
     - bash: |
         wget https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
@@ -430,9 +444,9 @@ jobs:
           sbt genSleetConfig
           sbt publishDotnetTestBase
           sbt publishLocal
-          sbt publishDotnet
+          sbt "project $(PACKAGE)" publishDotnet
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testDotnet) || (sbt coverage testDotnet) || (sbt coverage testDotnet)
+          (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
