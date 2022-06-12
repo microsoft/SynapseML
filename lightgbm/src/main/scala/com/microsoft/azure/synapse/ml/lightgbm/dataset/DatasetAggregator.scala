@@ -116,7 +116,7 @@ private[lightgbm] abstract class BaseChunkedColumns(rowsIter: PeekingIterator[Ro
 
   def release(): Unit = {
     // Clear memory
-    labels.delete()
+    if (labels != null) labels.delete()
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
@@ -157,9 +157,9 @@ private[lightgbm] final class SparseChunkedColumns(rowsIter: PeekingIterator[Row
   override def release(): Unit = {
     // Clear memory
     super.release()
-    indexes.delete()
-    values.delete()
-    indexPointers.delete()
+    if (indexes != null) indexes.delete()
+    if (values != null) values.delete()
+    if (indexPointers != null) indexPointers.delete()
   }
 }
 
@@ -178,7 +178,7 @@ private[lightgbm] final class DenseChunkedColumns(rowsIter: PeekingIterator[Row]
   override def release(): Unit = {
     // Clear memory
     super.release()
-    features.delete()
+    if (features != null) features.delete()
   }
 
 }
@@ -210,7 +210,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
   def getGroups: Array[Any] = groups
 
   def cleanup(): Unit = {
-    labels.delete()
+    if (labels != null) labels.delete()
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
