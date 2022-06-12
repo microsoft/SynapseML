@@ -410,12 +410,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       trainParams.generalParams.categoricalFeatures,
       trainParams.executionParams.numThreads)
     beforeGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
+    log.info(s"DEBUG Generation training set")
     val trainDataset = generateDataset(aggregatedColumns, None, schema, datasetParams)
     try {
       afterGenerateTrainDataset(batchIndex, columnParams, schema, log, trainParams)
 
       val validDatasetOpt = validationData.map { vd =>
         beforeGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
+        log.info(s"DEBUG Generation validation set, ${vd.getRowCount}")
         val out = generateDataset(vd, Some(trainDataset), schema, datasetParams)
         afterGenerateValidDataset(batchIndex, columnParams, schema, log, trainParams)
         out
@@ -480,6 +482,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
           // If worker enabled, initialize the network ring of communication
           networkInit(nodes, localListenPort, log, LightGBMConstants.NetworkRetries, LightGBMConstants.InitialDelay)
           if (useSingleDatasetMode) sharedState.doneSignal.await()
+          log.info(s"DEBUG hasValidation data: ${validationData.isDefined}")
           translate(batchIndex, aggregatedValidationColumns, trainParams, returnBooster, schema, aggregatedColumns)
         } else {
           log.info("Helper task finished processing rows")

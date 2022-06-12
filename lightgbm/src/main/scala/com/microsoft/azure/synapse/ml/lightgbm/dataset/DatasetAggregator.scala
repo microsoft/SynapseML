@@ -437,12 +437,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   def getIndexPointers: IntSwigArray = indexPointers
 
   override def cleanup(): Unit = {
-    labels.delete()
+    if (labels != null) labels.delete()
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
-    values.delete()
-    indexes.delete()
-    indexPointers.delete()
+    if (values != null) values.delete()
+    if (indexes != null) indexes.delete()
+    if (indexPointers != null) indexPointers.delete()
   }
 
   private def indexPointerArrayIncrement(indptrArray: SWIGTYPE_p_int): Unit = {
