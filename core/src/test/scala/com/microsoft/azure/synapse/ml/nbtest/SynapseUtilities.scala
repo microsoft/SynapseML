@@ -123,7 +123,7 @@ object SynapseUtilities {
   lazy val ArmToken: String = getAccessToken("https://management.azure.com/")
 
   val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
-  val Folder = s"build_${BuildInfo.version}/scripts"
+  val Folder = s"build_0.9.5-113-3519038c-SNAPSHOT/scripts" //s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse"
@@ -197,6 +197,10 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
+    val packages: String = Seq(
+      "com.microsoft.azure:synapseml_2.12:0.9.5-113-3519038c-SNAPSHOT",
+      //"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
+      "org.apache.spark:spark-avro_2.12:3.2.0").mkString(",")
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -210,7 +214,7 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}",
+         |         "spark.jars.packages" : "$packages",
          |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
@@ -238,13 +242,21 @@ object SynapseUtilities {
                                       poolLocation: String,
                                       poolNodeSize: String,
                                       createdAtTime: String): String = {
+    var foobar: String = "notfound"
+    if (sys.env.getOrElse("ppruthienv", "asdf") != "asdf")
+      foobar = "found"
+    val buildId: String = sys.env.getOrElse("Build.BuildId", "unknown")
+    val buildNumber: String = sys.env.getOrElse("Build.BuildNumber", "unknown")
     s"""
        |{
        |  "name": "$bigDataPoolName",
        |  "location": "$poolLocation",
        |  "tags": {
        |    "createdBy": "SynapseE2E Tests",
-       |    "createdAt": "$createdAtTime"
+       |    "createdAt": "$createdAtTime",
+       |    "buildId": "$buildId",
+       |    "buildNumber": "$buildNumber",
+       |    "foobar": "$foobar"
        |  },
        |  "properties": {
        |    "autoPause": {

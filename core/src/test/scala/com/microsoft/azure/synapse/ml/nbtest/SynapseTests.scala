@@ -46,7 +46,6 @@ class SynapseTests extends TestBase {
 
   val resourcesDirectory = new File(getClass.getResource("/").toURI)
   val notebooksDir = new File(resourcesDirectory, "generated-notebooks")
-  println(s"Notebooks dir: $notebooksDir")
   FileUtils.deleteDirectory(notebooksDir)
   assert(notebooksDir.mkdirs())
 
@@ -103,23 +102,25 @@ class SynapseTests extends TestBase {
 
   runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), notebooksDir)
 
+//  println(notebo oksDir)
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(notebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
-    .filterNot(_.getAbsolutePath.contains("CyberML"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
-    .filterNot(_.getAbsolutePath.contains("IsolationForest"))
-    .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearning"))
-    .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
+//    .filter(_.getAbsolutePath.contains("HyperParameterTuning"))
+//    .filter(_.getAbsolutePath.contains("CyberML"))
+//    .filter(_.getAbsolutePath.contains("VowpalWabbitOverview"))
+    .filter(_.getAbsolutePath.contains("IsolationForest"))
+//    .filter(_.getAbsolutePath.contains("DeepLearning"))
+//    .filter(_.getAbsolutePath.contains("BiLSTM"))
+//    .filter(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
     .sortBy(_.getAbsolutePath)
-
-  selectedPythonFiles.foreach(println)
-  assert(selectedPythonFiles.length > 1)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 
-  println("SynapseTests E2E Test Suite starting...")
+  assert(expectedPoolCount >= 1)
+  println(s"SynapseTests E2E Test Suite starting on ${expectedPoolCount} notebook(s)...")
+  selectedPythonFiles.foreach(println)
+
+  // Cleanup old stray spark pools lying around due to ungraceful test shutdown
   tryDeleteOldSparkPools()
 
   println(s"Creating $expectedPoolCount Spark Pools...")
@@ -155,6 +156,7 @@ class SynapseTests extends TestBase {
       failures.foreach(failure =>
         println(failure.failed.get.getMessage))
     }
+    //FileUtils.deleteDirectory(notebooksDir)
     super.afterAll()
   }
 }
