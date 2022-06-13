@@ -16,7 +16,7 @@ import org.scalactic.Equality
 
 trait OpenAIAPIKey {
   lazy val openAIAPIKey: String = sys.env.getOrElse("OPENAI_API_KEY", Secrets.OpenAIApiKey)
-  lazy val openAIServiceName: String = "bugbashtest6"
+  lazy val openAIServiceName: String = "m3test11"
 }
 
 class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with OpenAIAPIKey with Flaky {
@@ -40,9 +40,8 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   test("Basic Usage") {
     val fromRow = CompletionResponse.makeFromRowConverter
-//    completion.transform(df).collect().map(r =>
-//      fromRow(r.getAs[Row]("out")).choices.head.text.length > 10)
-    completion.transform(df).show(truncate=false)
+    completion.transform(df).collect().map(r =>
+      fromRow(r.getAs[Row]("out")).choices.head.text.length > 10)
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
