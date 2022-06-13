@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
-import com.microsoft.azure.synapse.ml.lightgbm.params.{ClassifierTrainParams, BaseTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, ClassifierTrainParams}
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.{BarrierTaskContext, TaskContext}

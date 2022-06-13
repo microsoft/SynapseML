@@ -4,19 +4,19 @@
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfig
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import org.apache.commons.io.FileUtils
+import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
-import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
-import org.apache.commons.lang.StringUtils.capitalize
+
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations

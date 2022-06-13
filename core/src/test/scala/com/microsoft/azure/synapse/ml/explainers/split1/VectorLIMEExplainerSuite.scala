@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers.split1
 
-import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, *}
+import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}

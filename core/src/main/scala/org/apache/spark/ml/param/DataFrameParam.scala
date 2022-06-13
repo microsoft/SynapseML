@@ -11,8 +11,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
 import org.scalactic.{Equality, TolerantNumerics}
 
-import scala.reflect.ClassTag
-
 
 trait DataFrameEquality extends Serializable {
   val epsilon = 1e-4

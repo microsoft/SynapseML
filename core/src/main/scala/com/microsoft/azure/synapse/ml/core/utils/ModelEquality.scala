@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.TripleEquals._

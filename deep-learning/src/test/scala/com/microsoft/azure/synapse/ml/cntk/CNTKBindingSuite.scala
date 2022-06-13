@@ -3,14 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
-import java.io._
 import com.microsoft.CNTK.CNTKExtensions._
 import com.microsoft.CNTK.{SerializableFunction => CNTKFunction, _}
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import com.microsoft.azure.synapse.ml.core.test.base.LinuxOnly
 import com.microsoft.azure.synapse.ml.image.ImageTestUtils
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import org.apache.commons.io.IOUtils
 
+import java.io._
 import scala.collection.JavaConverters._
 
 class CNTKBindingSuite extends LinuxOnly with ImageTestUtils {

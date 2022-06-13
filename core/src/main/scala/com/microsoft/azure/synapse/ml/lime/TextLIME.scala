@@ -5,8 +5,8 @@ package com.microsoft.azure.synapse.ml.lime
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.feature.Tokenizer
 import org.apache.spark.ml.linalg.DenseVector

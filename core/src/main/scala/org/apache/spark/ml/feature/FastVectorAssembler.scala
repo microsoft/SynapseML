@@ -3,7 +3,6 @@
 
 package org.apache.spark.ml.feature
 
-import scala.collection.mutable
 import org.apache.spark.SparkException
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.attribute.{Attribute, AttributeGroup}
@@ -11,9 +10,11 @@ import org.apache.spark.ml.linalg.{Vector, VectorUDT, Vectors}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
+import scala.collection.mutable
 
 /** A fast vector assembler.  The columns given must be ordered such that categorical columns come first
   * (otherwise spark learners will give categorical attributes to the wrong index).

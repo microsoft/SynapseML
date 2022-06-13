@@ -3,10 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.logging
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.internal.Logging
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
-
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 
 case class BasicLogInfo(
                        uid: String,
@@ -19,7 +18,7 @@ object LogJsonProtocol extends DefaultJsonProtocol {
   implicit val LogFormat: RootJsonFormat[BasicLogInfo] = jsonFormat4(BasicLogInfo)
 }
 
-import LogJsonProtocol._
+import com.microsoft.azure.synapse.ml.logging.LogJsonProtocol._
 import spray.json._
 
 trait BasicLogging extends Logging {

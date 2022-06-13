@@ -3,9 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature
-import spray.json.JsonFormat
 import spray.json.DefaultJsonProtocol._
+import spray.json.JsonFormat
 
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._

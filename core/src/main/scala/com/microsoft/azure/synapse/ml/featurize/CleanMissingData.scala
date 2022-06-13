@@ -12,6 +12,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+
 import scala.collection.JavaConverters._
 
 object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {

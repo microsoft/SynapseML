@@ -8,14 +8,14 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasInputCols,
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset}
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
+import org.apache.spark.sql.{Column, DataFrame, Dataset}
 
 object UDFTransformer extends ComplexParamsReadable[UDFTransformer] with Serializable
 

@@ -4,12 +4,10 @@
 package com.microsoft.azure.synapse.ml.io.split1
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.core.utils.ModelEquality
 import com.microsoft.azure.synapse.ml.io.http._
 import org.apache.http.client.methods.HttpPost
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
-import org.apache.spark.ml.param.UDFParam
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{StringType, StructType}

@@ -19,10 +19,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
-import org.apache.spark.injections.UDFUtils
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe.TypeTag
 
 abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol with Wrappable {

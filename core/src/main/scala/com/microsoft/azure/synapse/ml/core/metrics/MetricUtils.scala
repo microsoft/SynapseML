@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.core.metrics
 
-import com.microsoft.azure.synapse.ml.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants.MMLTag
+import com.microsoft.azure.synapse.ml.core.schema.{SchemaConstants, SparkSchema}
 import org.apache.spark.sql.types.injections.MetadataUtilities
 import org.apache.spark.sql.types.{Metadata, StructField, StructType}
 

@@ -3,16 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import java.io.File
-import CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
+import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
-import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
-import org.apache.spark.ml.{Estimator, Model, PipelineStage}
+import org.apache.spark.ml.{Estimator, Model}
 import spray.json._
+
+import java.io.File
 
 object CodeGenUtils {
   def clean(dir: File): Unit = if (dir.exists()) FileUtils.forceDelete(dir)

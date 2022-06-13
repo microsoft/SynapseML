@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.cntk
 
 import com.microsoft.CNTK.{DoubleVector, DoubleVectorVector, FloatVector, FloatVectorVector}
-import org.apache.spark.ml.linalg.{Vector=>SVector, Vectors}
+import org.apache.spark.ml.linalg.{Vectors, Vector => SVector}
 
 import scala.language.implicitConversions
 

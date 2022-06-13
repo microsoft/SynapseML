@@ -9,12 +9,12 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.scalatest.Assertion
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
   import spark.implicits._

@@ -4,9 +4,9 @@
 package org.apache.spark.ml.param
 
 import org.apache.spark.annotation.DeveloperApi
-import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat}
+import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat, _}
+
 import scala.collection.JavaConverters._
-import spray.json._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
   implicit def anyFormat: JsonFormat[Any] =

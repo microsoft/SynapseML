@@ -4,9 +4,9 @@
 package org.apache.spark.ml
 
 import org.apache.spark.ml.image.ImageSchema
+import org.apache.spark.ml.param.shared.HasParallelism
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
-import org.apache.spark.ml.param.shared.HasParallelism
 import org.apache.spark.util.ThreadUtils
 
 import scala.concurrent.duration.Duration

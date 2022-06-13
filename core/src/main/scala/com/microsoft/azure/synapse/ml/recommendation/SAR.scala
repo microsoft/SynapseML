@@ -3,9 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.recommendation
 
-import java.text.SimpleDateFormat
-import java.util.{Calendar, Date}
-import breeze.linalg.{CSCMatrix => BSM, DenseMatrix => BDM, Matrix => BM}
+import breeze.linalg.{CSCMatrix => BSM}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.Estimator
@@ -18,6 +16,8 @@ import org.apache.spark.sql.functions.{col, collect_list, sum, udf, _}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
+import java.text.SimpleDateFormat
+import java.util.{Calendar, Date}
 import scala.language.existentials
 
 /**

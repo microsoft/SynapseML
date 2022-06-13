@@ -5,8 +5,7 @@ package org.apache.spark.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
-import org.apache.spark.ml.{Estimator, Model, PipelineStage}
-import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage}
 
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T]
   with ParamEquality[T] with ExternalDotnetWrappableParam[T] {

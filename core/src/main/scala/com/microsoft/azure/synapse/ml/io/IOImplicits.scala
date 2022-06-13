@@ -11,9 +11,9 @@ import org.apache.spark.ml.source.image.PatchedImageFileFormat
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.execution.streaming.continuous._
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.functions._
 
 import scala.language.implicitConversions
 

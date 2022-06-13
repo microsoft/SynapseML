@@ -7,8 +7,6 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.CategoricalMap
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-
-import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.attribute.NominalAttribute
@@ -18,10 +16,11 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
+import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
+import scala.collection.JavaConverters._
 import scala.math.Ordering
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
-import scala.collection.JavaConverters._
 
 object ValueIndexer extends DefaultParamsReadable[ValueIndexer] {
   def validateAndTransformSchema(schema: StructType, outputCol: String): StructType = {

@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml
 
-import org.apache.spark.ml.param.{MapParam, Param, Params, StringStringMapParam}
-import spray.json.DefaultJsonProtocol._
+import org.apache.spark.ml.param.{Params, StringStringMapParam}
+
 import scala.collection.JavaConverters._
 
 trait HasFeedFetchDicts extends Params {

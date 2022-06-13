@@ -6,13 +6,12 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{MapParam, Param, ParamMap, StringStringMapParam}
+import org.apache.spark.ml.param.{Param, ParamMap, StringStringMapParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
-import spray.json.DefaultJsonProtocol._
 
 class Trie(map: Map[Char, Trie] = Map.empty,
            textValue: Seq[Char] = Seq.empty,

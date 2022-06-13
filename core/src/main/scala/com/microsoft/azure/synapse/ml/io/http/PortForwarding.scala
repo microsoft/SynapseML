@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
-import java.io.File
-import java.net.URI
-
 import com.jcraft.jsch.{JSch, Session}
 import org.apache.commons.io.IOUtils
+
+import java.io.File
+import java.net.URI
 
 object PortForwarding {
 

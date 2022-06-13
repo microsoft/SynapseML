@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import java.util.concurrent.{BlockingQueue, CountDownLatch, LinkedBlockingQueue}
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.{HTTPResponseData, HeaderValues}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}

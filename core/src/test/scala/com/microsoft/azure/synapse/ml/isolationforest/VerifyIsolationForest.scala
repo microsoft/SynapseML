@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.isolationforest
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable

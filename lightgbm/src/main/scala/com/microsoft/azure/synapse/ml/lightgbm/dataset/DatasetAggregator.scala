@@ -14,8 +14,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 
 import java.util.concurrent.atomic.AtomicLong
-import scala.collection.mutable.ListBuffer
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable.ListBuffer
 
 private[lightgbm] object ChunkedArrayUtils {
   def copyChunkedArray[T: Numeric](chunkedArray: ChunkedArray[T],

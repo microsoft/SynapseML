@@ -4,13 +4,13 @@
 package com.microsoft.azure.synapse.ml.io.split2
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-
-import java.io.File
 import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.string_to_response
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.sql.execution.streaming.{HTTPSinkProvider, HTTPSourceProvider}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StringType
+
+import java.io.File
 
 class HTTPSuite extends TestBase with HTTPTestUtils {
 

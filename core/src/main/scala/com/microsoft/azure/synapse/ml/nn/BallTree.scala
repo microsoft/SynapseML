@@ -3,10 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.nn
 
-import java.io._
 import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+
+import java.io._
 import scala.collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],

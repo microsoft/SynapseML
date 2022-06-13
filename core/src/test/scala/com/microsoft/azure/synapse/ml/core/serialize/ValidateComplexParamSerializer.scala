@@ -4,14 +4,14 @@
 package com.microsoft.azure.synapse.ml.core.serialize
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-
-import java.io.File
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{ByteArrayParam, Param, ParamMap, Params}
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
+
+import java.io.File
 
 class TestEstimatorBase(val uid: String) extends Transformer {
   def this() = this(Identifiable.randomUID("TestEstimatorBase"))

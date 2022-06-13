@@ -12,6 +12,7 @@ import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
 import scala.collection.mutable.WrappedArray
 
 trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {

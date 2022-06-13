@@ -4,6 +4,7 @@
 package org.apache.spark.ml.param
 
 import spray.json._
+
 import java.lang.{StringBuilder => JStringBuilder}
 
 trait PythonPrinter extends CompactPrinter {

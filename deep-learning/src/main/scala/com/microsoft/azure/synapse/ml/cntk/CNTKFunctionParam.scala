@@ -3,15 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
-import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 import com.microsoft.CNTK.SerializableFunction
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.param.Params
-import org.apache.spark.ml.param.WrappableParam
-import org.apache.zookeeper.KeeperException.UnimplementedException
-import org.scalactic.TripleEquals._
+
+import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 
 /** Param for ByteArray.  Needed as spark has explicit params for many different
   * types but not ByteArray.

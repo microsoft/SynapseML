@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.core.ml
 
-import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.ml.feature.{HashingTF, Tokenizer}
 import org.apache.spark.ml.linalg.SparseVector
 

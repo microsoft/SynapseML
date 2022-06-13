@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import java.io.InputStream
-
 import com.microsoft.cognitiveservices.speech.audio.PullAudioInputStreamCallback
+
+import java.io.InputStream
 
 /**
   * Code adapted from https://github.com/Azure-Samples/cognitive-services-speech-sdk

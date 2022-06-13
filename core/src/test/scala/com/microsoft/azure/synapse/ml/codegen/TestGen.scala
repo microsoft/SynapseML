@@ -3,14 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
+import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.PyTestFuzzing
-
-import java.io.File
-import CodegenConfigProtocol._
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
-import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
 

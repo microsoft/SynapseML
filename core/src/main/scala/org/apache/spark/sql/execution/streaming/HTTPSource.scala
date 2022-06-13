@@ -4,11 +4,7 @@
 package org.apache.spark.sql.execution.streaming
 
 import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData}
-
-import java.net.{InetAddress, InetSocketAddress}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-
-import javax.annotation.concurrent.GuardedBy
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
@@ -19,6 +15,8 @@ import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
+import java.net.{InetAddress, InetSocketAddress}
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 

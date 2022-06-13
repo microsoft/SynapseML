@@ -8,8 +8,8 @@ import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam, TransformerParam}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object Timer extends ComplexParamsReadable[Timer]
 

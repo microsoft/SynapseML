@@ -4,16 +4,14 @@
 package com.microsoft.azure.synapse.ml.geospatial
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.cognitive.{
-  CognitiveServicesBaseNoHandler, HasInternalJsonOutputParser, HasServiceParams, HasSubscriptionKey, URLEncodingUtils
-}
+import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.io.http.{CustomInputParser, HTTPInputParser, HasURL, HeaderValues}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
-import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DataType, StructType}

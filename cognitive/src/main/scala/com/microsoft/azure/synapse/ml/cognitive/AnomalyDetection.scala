@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.microsoft.azure.synapse.ml.cognitive.AnomalyDetectorProtocol._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import AnomalyDetectorProtocol._
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable

@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import org.apache.spark.ml.util.Identifiable
 import spray.json.{DefaultJsonProtocol, _}
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 

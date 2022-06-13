@@ -3,16 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-
-import java.io.File
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{DotnetTestFuzzing, PyTestFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.DotnetTestFuzzing
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
+
+import java.io.File
 
 
 object DotnetTestGen {

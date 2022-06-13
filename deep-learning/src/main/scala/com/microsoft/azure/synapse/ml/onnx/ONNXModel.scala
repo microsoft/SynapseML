@@ -28,7 +28,6 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.{SparkContext, TaskContext}
-import spray.json.DefaultJsonProtocol._
 
 import java.nio._
 import java.util

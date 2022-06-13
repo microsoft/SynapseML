@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.nn
 
-import java.io.Serializable
-
 import breeze.linalg.DenseVector
+
+import java.io.Serializable
 
 private[ml] case class InnerNode(override val ball: Ball,
                                  leftChild: Node,

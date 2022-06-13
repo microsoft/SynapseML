@@ -8,8 +8,7 @@ import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{safeSend, sendAndParseJson}
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.{
-  ResourceGroupName, SubscriptionId, SynapseToken, WorkspaceName, livyUrl}
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
 import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
@@ -20,7 +19,7 @@ import java.io.File
 import java.util.Calendar
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.postfixOps
 import scala.sys.process._
 

@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import java.io.File
-
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+
+import java.io.File
 
 
 case class CodegenConfig(name: String,

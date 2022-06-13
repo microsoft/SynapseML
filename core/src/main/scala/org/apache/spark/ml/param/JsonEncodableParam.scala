@@ -3,8 +3,8 @@
 
 package org.apache.spark.ml.param
 
-import spray.json._
-import spray.json.JsonFormat
+import spray.json.{JsonFormat, _}
+
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
 
@@ -43,7 +43,7 @@ class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: 
 }
 
 
-import ServiceParamJsonProtocol._
+import org.apache.spark.ml.param.ServiceParamJsonProtocol._
 
 object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq

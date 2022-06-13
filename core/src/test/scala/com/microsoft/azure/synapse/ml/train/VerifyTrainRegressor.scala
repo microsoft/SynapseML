@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.train
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.ml.regression.{LinearRegression, RandomForestRegressor}
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.ml.{Estimator, PipelineStage}

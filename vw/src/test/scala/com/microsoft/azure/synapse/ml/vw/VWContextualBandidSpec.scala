@@ -3,10 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.tuning.ParamGridBuilder

@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.opencv
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.image.{UnrollBinaryImage, UnrollImage}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.DataFrameEquality

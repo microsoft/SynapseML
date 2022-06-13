@@ -14,7 +14,6 @@ import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
 
 object MultiNGram extends DefaultParamsReadable[MultiNGram]
 

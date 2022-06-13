@@ -3,8 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.swig
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_double, SWIGTYPE_p_float, SWIGTYPE_p_int, doubleChunkedArray,
-  floatChunkedArray, int32ChunkedArray, lightgbmlib}
+import com.microsoft.ml.lightgbm._
 
 object SwigUtils extends Serializable {
   /** Converts a Java float array to a native C++ array using SWIG.

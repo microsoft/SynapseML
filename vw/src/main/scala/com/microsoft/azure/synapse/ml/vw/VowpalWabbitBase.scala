@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, StopWatch, ParamsStringBuilder}
+import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, ParamsStringBuilder, StopWatch}
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
 import org.apache.spark.ml.param._

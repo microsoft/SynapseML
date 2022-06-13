@@ -5,8 +5,8 @@ package com.microsoft.azure.synapse.ml.explainers
 
 import breeze.linalg.{BitVector, axpy, norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
-import org.apache.spark.ml.linalg.Vector
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+import org.apache.spark.ml.linalg.Vector
 
 private[explainers] trait LIMESampler[TObservation] extends Sampler[TObservation, Vector] {
   def sample: (TObservation, Vector, Double) = {
