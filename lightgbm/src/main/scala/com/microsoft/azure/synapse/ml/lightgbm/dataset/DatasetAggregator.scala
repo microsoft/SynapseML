@@ -163,7 +163,7 @@ private[lightgbm] abstract class BaseChunkedColumns(rowsIter: PeekingIterator[Ro
 
   def release(): Unit = {
     // Clear memory
-    labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
@@ -204,9 +204,9 @@ private[lightgbm] final class SparseChunkedColumns(rowsIter: PeekingIterator[Row
   override def release(): Unit = {
     // Clear memory
     super.release()
-    indexes.delete()
-    values.delete()
-    indexPointers.delete()
+    Option(indexes).foreach(_.delete())
+    Option(values).foreach(_.delete())
+    Option(indexPointers).foreach(_.delete())
   }
 }
 
@@ -225,7 +225,7 @@ private[lightgbm] final class DenseChunkedColumns(rowsIter: PeekingIterator[Row]
   override def release(): Unit = {
     // Clear memory
     super.release()
-    features.delete()
+    Option(features).foreach(_.delete())
   }
 
 }
@@ -258,7 +258,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
   def getGroups: Array[Any] = groups
 
   def cleanup(): Unit = {
-    labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
@@ -501,12 +501,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   def getIndexPointers: IntSwigArray = indexPointers
 
   override def cleanup(): Unit = {
-    labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
-    values.delete()
-    indexes.delete()
-    indexPointers.delete()
+    Option(values).foreach(_.delete())
+    Option(indexes).foreach(_.delete())
+    Option(indexPointers).foreach(_.delete())
   }
 
   private def indexPointerArrayIncrement(indptrArray: SWIGTYPE_p_int): Unit = {
