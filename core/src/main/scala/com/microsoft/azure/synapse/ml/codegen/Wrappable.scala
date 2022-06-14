@@ -157,6 +157,7 @@ trait PythonWrappable extends BaseWrappable {
           |    ${p.name}: ${p.doc}
           |"\""
           |""".stripMargin
+    // scalastyle:off line.size.limit
     p match {
       case _: ServiceParam[_] =>
         s"""|def set$capName(self, value):
@@ -178,6 +179,7 @@ trait PythonWrappable extends BaseWrappable {
             |    return self
             |""".stripMargin
     }
+    // scalastyle:on line.size.limit
   }
 
   protected def pyParamsSetters: String =
