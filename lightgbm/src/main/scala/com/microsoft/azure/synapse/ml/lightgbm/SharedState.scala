@@ -52,8 +52,7 @@ class SharedDatasetState(columnParams: ColumnParams,
     val mergeRowsIntoDataset: Boolean =
       if (!isForValidation) true
       else !useSingleDataset || sharedState.mainExecutorWorker.get == LightGBMUtils.getTaskId
-    if (mergeRowsIntoDataset)
-    {
+    if (mergeRowsIntoDataset) {
       aggregatedColumns.incrementCount(ts)
     }
     if (useSingleDataset) {

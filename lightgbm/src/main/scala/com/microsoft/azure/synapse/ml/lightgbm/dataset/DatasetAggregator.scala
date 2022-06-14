@@ -116,7 +116,7 @@ private[lightgbm] abstract class BaseChunkedColumns(rowsIter: PeekingIterator[Ro
 
   def release(): Unit = {
     // Clear memory
-    if (labels != null) labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
@@ -157,9 +157,9 @@ private[lightgbm] final class SparseChunkedColumns(rowsIter: PeekingIterator[Row
   override def release(): Unit = {
     // Clear memory
     super.release()
-    if (indexes != null) indexes.delete()
-    if (values != null) values.delete()
-    if (indexPointers != null) indexPointers.delete()
+    Option(indexes).foreach(_.delete())
+    Option(values).foreach(_.delete())
+    Option(indexPointers).foreach(_.delete())
   }
 }
 
@@ -178,7 +178,7 @@ private[lightgbm] final class DenseChunkedColumns(rowsIter: PeekingIterator[Row]
   override def release(): Unit = {
     // Clear memory
     super.release()
-    if (features != null) features.delete()
+    Option(features).foreach(_.delete())
   }
 
 }
@@ -210,7 +210,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
   def getGroups: Array[Any] = groups
 
   def cleanup(): Unit = {
-    if (labels != null) labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
   }
@@ -437,12 +437,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   def getIndexPointers: IntSwigArray = indexPointers
 
   override def cleanup(): Unit = {
-    if (labels != null) labels.delete()
+    Option(labels).foreach(_.delete())
     weights.foreach(_.delete())
     initScores.foreach(_.delete())
-    if (values != null) values.delete()
-    if (indexes != null) indexes.delete()
-    if (indexPointers != null) indexPointers.delete()
+    Option(values).foreach(_.delete())
+    Option(indexes).foreach(_.delete())
+    Option(indexPointers).foreach(_.delete())
   }
 
   private def indexPointerArrayIncrement(indptrArray: SWIGTYPE_p_int): Unit = {
