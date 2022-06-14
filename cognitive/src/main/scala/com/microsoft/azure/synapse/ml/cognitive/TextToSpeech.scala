@@ -6,11 +6,11 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.{HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.cognitiveservices.speech.{SpeechConfig, SpeechSynthesisCancellationDetails,
-  SpeechSynthesisOutputFormat, SpeechSynthesizer}
+import com.microsoft.azure.synapse.ml.param.ServiceParam
+import com.microsoft.cognitiveservices.speech.{SpeechConfig, SpeechSynthesisCancellationDetails, SpeechSynthesisOutputFormat, SpeechSynthesizer}
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
-import org.apache.spark.ml.param.{Param, ParamMap, ServiceParam}
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder

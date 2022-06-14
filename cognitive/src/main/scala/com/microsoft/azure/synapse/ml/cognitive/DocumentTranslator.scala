@@ -8,12 +8,12 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.{HTTPResponseData, HeaderValues}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.DataType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}

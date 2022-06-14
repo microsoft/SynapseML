@@ -14,6 +14,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{ByteArrayParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils

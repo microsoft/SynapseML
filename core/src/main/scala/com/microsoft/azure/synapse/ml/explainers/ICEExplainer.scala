@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.explainers
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+import com.microsoft.azure.synapse.ml.param.TypedArrayParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}

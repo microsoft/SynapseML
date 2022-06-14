@@ -8,13 +8,14 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param.{ServiceParam, _}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._

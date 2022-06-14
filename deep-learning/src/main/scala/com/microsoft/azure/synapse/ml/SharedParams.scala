@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml
 
-import org.apache.spark.ml.param.{Params, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import org.apache.spark.ml.param.Params
 
 import scala.collection.JavaConverters._
 

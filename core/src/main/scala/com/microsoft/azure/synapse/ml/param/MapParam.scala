@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
+import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -15,7 +16,7 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
     with WrappableParam[Map[K, V]] {
 
   def this(parent: Params, name: String, doc: String)(implicit fk: JsonFormat[K], fv: JsonFormat[V]) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Map[K, V]) => true)
 
   /** Creates a param pair with the given value (for Java). */
   def w(value: java.util.HashMap[K, V]): ParamPair[Map[K, V]] = {
@@ -30,9 +31,11 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
     json.parseJson.convertTo[Map[K, V]]
   }
 
-  def dotnetType: String = "Dictionary<object, object>"
+  private[ml] def dotnetType: String = "Dictionary<object, object>"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName($dotnetType value) =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaHashMap()));
         |""".stripMargin
@@ -40,7 +43,7 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
 
   protected def valuesType = "object"
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     s"""|public $dotnetReturnType Get$capName()
         |{
         |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
@@ -58,7 +61,7 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
         |""".stripMargin
   }
 
-  def dotnetTestValue(v: Map[K, V]): String =
+  private[ml] def dotnetTestValue(v: Map[K, V]): String =
     s"""new $dotnetType
        |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 
@@ -68,9 +71,9 @@ class StringStringMapParam(parent: Params, name: String, doc: String, isValid: M
   extends MapParam[String, String](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Map[String, String]) => true)
 
-  override def dotnetType: String = "Dictionary<string, string>"
+  override private[ml] def dotnetType: String = "Dictionary<string, string>"
 
   override protected def valuesType = "string"
 
@@ -80,9 +83,9 @@ class StringIntMapParam(parent: Params, name: String, doc: String, isValid: Map[
   extends MapParam[String, Int](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Map[String, Int]) => true)
 
-  override def dotnetType: String = "Dictionary<string, int>"
+  override private[ml] def dotnetType: String = "Dictionary<string, int>"
 
   override protected def valuesType = "int"
 

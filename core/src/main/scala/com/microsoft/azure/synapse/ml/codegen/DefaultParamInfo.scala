@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param._
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.param._
 

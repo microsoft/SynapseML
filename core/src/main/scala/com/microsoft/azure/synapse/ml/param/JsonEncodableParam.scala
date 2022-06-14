@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
+import org.apache.spark.ml.param.{Param, Params}
 import spray.json.{JsonFormat, _}
 
 import scala.collection.JavaConverters._
@@ -30,7 +31,7 @@ class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: 
   extends Param[T](parent, name, doc, isValid) {
 
   def this(parent: Params, name: String, doc: String)(implicit format: JsonFormat[T]) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: T) => true)
 
   override def jsonEncode(value: T): String = {
     value.toJson.compactPrint
@@ -43,7 +44,7 @@ class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: 
 }
 
 
-import org.apache.spark.ml.param.ServiceParamJsonProtocol._
+import com.microsoft.azure.synapse.ml.param.ServiceParamJsonProtocol._
 
 object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
@@ -52,7 +53,7 @@ object ServiceParam {
 class ServiceParam[T: TypeTag](parent: Params,
                                name: String,
                                doc: String,
-                               isValid: Either[T, String] => Boolean = ParamValidators.alwaysTrue,
+                               isValid: Either[T, String] => Boolean = (_: Either[T, String]) => true,
                                val isRequired: Boolean = false,
                                val isURLParam: Boolean = false,
                                val toValueString: T => String = { x: T => x.toString }
@@ -80,14 +81,14 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-  override def dotnetTestValue(v: Either[T, String]): String = {
+  override private[ml] def dotnetTestValue(v: Either[T, String]): String = {
     v match {
       case Left(t) => DotnetWrappableParam.dotnetDefaultRender(t)
       case Right(n) => s""""$n""""
     }
   }
 
-  override def dotnetName(v: Either[T, String]): String = {
+  override private[ml] def dotnetName(v: Either[T, String]): String = {
     v match {
       case Left(_) => name
       case Right(_) => name + "Col"
@@ -95,7 +96,7 @@ class ServiceParam[T: TypeTag](parent: Params,
   }
 
   //noinspection ScalaStyle
-  override def dotnetTestSetterLine(v: Either[T, String]): String = {
+  override private[ml] def dotnetTestSetterLine(v: Either[T, String]): String = {
     v match {
       case Left(_) => typeOf[T] match {
         case t if t =:= typeOf[Array[String]] | t =:= typeOf[Seq[String]] =>
@@ -127,9 +128,9 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
 
-  override def dotnetTestValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
+  override private[ml] def dotnetTestValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
 
-  override def dotnetTestSetterLine(v: T): String = {
+  override private[ml] def dotnetTestSetterLine(v: T): String = {
     typeOf[T].toString match {
       case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" =>
         s"""Set${dotnetName(v).capitalize}(new TextAnalyzeTask[]{${dotnetTestValue(v)}})"""

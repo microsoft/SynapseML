@@ -5,8 +5,7 @@ package com.microsoft.azure.synapse.ml.automl
 
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants
-import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor,
-  TrainedClassifierModel, TrainedRegressorModel}
+import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.injections.RegressionUtils
 import org.apache.spark.ml.classification.{ClassificationModel, Classifier}
 import org.apache.spark.ml.param.ParamMap

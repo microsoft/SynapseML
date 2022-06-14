@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
+import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage}
 
 trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T]
@@ -22,14 +23,14 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
        |""".stripMargin
   }
 
-  override def dotnetTestValue(v: T): String = {
+  override private[ml] def dotnetTestValue(v: T): String = {
     s"""${name}Model"""
   }
 
-  override def dotnetLoadLine(modelNum: Int): String =
+  override private[ml] def dotnetLoadLine(modelNum: Int): String =
     throw new NotImplementedError("Implement dotnetLoadLine(modelNum: Int, testDataDir: String) method instead")
 
-  def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
+  private[ml] def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
     val underlyingType = Pipeline.load(s"$testDataDir/model-$modelNum.model/complexParams/$name")
       .getStages.head.getClass.getTypeName.split(".".toCharArray).last
 
@@ -59,19 +60,21 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
     with PipelineStageWrappable[Estimator[_ <: Model[_]]] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Estimator[_ <: Model[_]]) => true)
 
-  override def dotnetType: String = "JavaEstimator<M>"
+  override private[ml] def dotnetType: String = "JavaEstimator<M>"
 
-  override def dotnetReturnType: String = "IEstimator<object>"
+  override private[ml] def dotnetReturnType: String = "IEstimator<object>"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName<M>($dotnetType value) where M : JavaModel<M> =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
         |""".stripMargin
   }
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     val parentClassType = "JavaPipelineStage"
     s"""|public $dotnetReturnType Get$capName()
         |{

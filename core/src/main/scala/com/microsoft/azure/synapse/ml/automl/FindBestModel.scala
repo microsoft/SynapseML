@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._

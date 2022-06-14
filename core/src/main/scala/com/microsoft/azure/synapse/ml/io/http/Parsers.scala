@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.injections.UDFUtils

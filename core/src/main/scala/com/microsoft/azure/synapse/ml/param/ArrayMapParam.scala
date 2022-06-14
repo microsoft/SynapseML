@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
+import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.{DefaultJsonProtocol, _}
 
 import scala.collection.JavaConverters._
@@ -48,7 +49,7 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
     this(parent.uid, name, doc, isValid)
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Array[Map[String, Any]]) => true)
 
   /** Creates a param pair with the given value (for Java). */
   override def w(value: Array[Map[String, Any]]): ParamPair[Array[Map[String, Any]]] = super.w(value)
@@ -66,16 +67,18 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
     jsonValue.convertTo[Seq[Map[String, Any]]].toArray
   }
 
-  def dotnetType: String = "Dictionary<string, object>[]"
+  private[ml] def dotnetType: String = "Dictionary<string, object>[]"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName($dotnetType value)
         |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
         |        (object)value.Select(_ => _.ToJavaHashMap()).ToArray().ToJavaArrayList()));
         |""".stripMargin
   }
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     s"""|public $dotnetReturnType Get$capName()
         |{
         |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
@@ -105,7 +108,7 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
         |""".stripMargin
   }
 
-  def dotnetTestValue(v: Array[Map[String, Any]]): String =
+  private[ml] def dotnetTestValue(v: Array[Map[String, Any]]): String =
     s"""new $dotnetType
        |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 

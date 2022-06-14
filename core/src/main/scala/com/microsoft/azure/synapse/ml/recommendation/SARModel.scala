@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{DataFrameParam, ParamMap}
+import com.microsoft.azure.synapse.ml.param.DataFrameParam
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{BaseRecommendationModel, Constants}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Model}

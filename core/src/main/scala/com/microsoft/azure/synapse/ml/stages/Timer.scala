@@ -5,8 +5,9 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{PipelineStageParam, TransformerParam}
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam, TransformerParam}
+import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}

@@ -3,9 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.core.serialize
 
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, WrappableParam}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.Serializer
-import org.apache.spark.ml.param.{DotnetWrappableParam, Param, Params, WrappableParam}
+import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.SparkSession
 
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
@@ -31,9 +32,9 @@ abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: Strin
     throw new NotImplementedError("The parameter is a ComplexParam and cannot be JSON decoded.")
   }
 
-  override def dotnetType: String = "object"
+  override private[ml] def dotnetType: String = "object"
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     dotnetType match {
       case "object" =>
         s"""public object Get$capName() => Reference.Invoke(\"get$capName\");""".stripMargin
@@ -44,7 +45,7 @@ abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: Strin
     }
   }
 
-  def dotnetTestValue(v: T): String =
+  private[ml] def dotnetTestValue(v: T): String =
     throw new NotImplementedError("No translation found for complex parameter")
 
 }

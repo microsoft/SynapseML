@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.spark.ml.Model
+import org.apache.spark.ml.param.Params
 
 /** Param for Transformer.
   * Needed as spark has explicit com.microsoft.azure.synapse.ml.core.serialize.params for many different
@@ -15,19 +16,21 @@ class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: 
     with PipelineStageWrappable[Model[_ <: Model[_]]] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Model[_ <: Model[_]]) => true)
 
-  override def dotnetType: String = "JavaModel<M>"
+  override private[ml] def dotnetType: String = "JavaModel<M>"
 
-  override def dotnetReturnType: String = "IModel<object>"
+  override private[ml] def dotnetReturnType: String = "IModel<object>"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName<M>($dotnetType value) where M : JavaModel<M> =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
         |""".stripMargin
   }
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     val parentClassType = "JavaPipelineStage"
     s"""|public $dotnetReturnType Get$capName()
         |{

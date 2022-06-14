@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param._
 import org.apache.commons.lang.StringEscapeUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -161,7 +162,7 @@ trait PythonWrappable extends BaseWrappable {
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
             |    if isinstance(value, list):
-            |        value = SparkContext._active_spark_context._jvm.org.apache.spark.ml.param.ServiceParam.toSeq(value)
+            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
             |    self._java_obj = self._java_obj.set$capName(value)
             |    return self
             |

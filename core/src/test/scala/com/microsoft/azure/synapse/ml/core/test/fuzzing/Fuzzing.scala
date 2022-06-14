@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.CodegenConfig
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.param._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._

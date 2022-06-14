@@ -404,9 +404,7 @@ jobs:
       displayName: Add Microsoft package signing key and repository
     - bash: |
         sudo apt-get update
-        sudo apt-get install -y apt-transport-https
-        sudo apt-get update
-        sudo apt-get install -y dotnet-sdk-5.0
+        sudo apt-get install -y apt-transport-https dotnet-sdk-5.0
       displayName: Install .NET SDK
     - bash: |
         dotnet nuget add source https://mmlspark.blob.core.windows.net/synapsemlnuget/index.json -n SynapseMLFeed

@@ -90,7 +90,7 @@ class ComplexParamsMixin(MLReadable):
                     java_param.getClass()
                 )
                 service_param_class = (
-                    sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                    sc._gateway.jvm.com.microsoft.azure.synapse.ml.param.ServiceParam._java_lang_class
                 )
                 is_service_param = service_param_class.isAssignableFrom(
                     java_param.getClass()
@@ -117,7 +117,7 @@ class ComplexParamsMixin(MLReadable):
         for param in self.params:
             if self.isSet(param):
                 service_param_class = (
-                    sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                    sc._gateway.jvm.com.microsoft.azure.synapse.ml.param.ServiceParam._java_lang_class
                 )
                 is_service_param = service_param_class.isAssignableFrom(
                     self._java_obj.getParam(param.name).getClass()

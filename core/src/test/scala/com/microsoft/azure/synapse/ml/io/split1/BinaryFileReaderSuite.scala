@@ -11,10 +11,10 @@ import com.microsoft.azure.synapse.ml.core.schema.BinaryFileSchema.isBinaryFile
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.binary.Binary.implicits._
 import com.microsoft.azure.synapse.ml.io.binary.{BinaryFileFormat, BinaryFileReader}
+import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StringType
 

@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.isolationforest
 
-import com.linkedin.relevance.isolationforest.{IsolationForestParams, IsolationForest => IsolationForestSource,
-  IsolationForestModel => IsolationForestModelSource}
+import com.linkedin.relevance.isolationforest.{IsolationForestParams, IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{ParamMap, TransformerParam}
+import com.microsoft.azure.synapse.ml.param.TransformerParam
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.types.StructType

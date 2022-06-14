@@ -5,8 +5,8 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema

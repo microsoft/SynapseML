@@ -6,7 +6,8 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileFormat
-import org.apache.spark.ml.param.{ByteArrayParam, DataFrameParam, Param}
+import com.microsoft.azure.synapse.ml.param.{ByteArrayParam, DataFrameParam}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}

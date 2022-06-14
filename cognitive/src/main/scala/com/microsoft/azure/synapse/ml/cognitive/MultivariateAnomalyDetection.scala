@@ -15,6 +15,7 @@ import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, se
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}

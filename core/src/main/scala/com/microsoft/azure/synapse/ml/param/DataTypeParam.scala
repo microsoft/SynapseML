@@ -1,9 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import org.apache.spark.ml.param.Params
 import org.apache.spark.sql.types.{DataType, StructType}
 
 /** Param for DataType */
@@ -11,18 +12,20 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
   extends ComplexParam[DataType](parent, name, doc, isValid) with DotnetWrappableParam[DataType] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: DataType) => true)
 
-  override def dotnetType: String = "DataType"
+  override private[ml] def dotnetType: String = "DataType"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName($dotnetType value) =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
         |    DataType.FromJson(Reference.Jvm, value.Json)));
         |""".stripMargin
   }
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     s"""|public $dotnetReturnType Get$capName()
         |{
         |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
@@ -32,7 +35,7 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
         |""".stripMargin
   }
 
-  override def dotnetTestValue(v: DataType): String = {
+  override private[ml] def dotnetTestValue(v: DataType): String = {
     v match {
       case st: StructType =>
         st.fields.map(
@@ -42,7 +45,7 @@ class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType
     }
   }
 
-  override def dotnetTestSetterLine(v: DataType): String = {
+  override private[ml] def dotnetTestSetterLine(v: DataType): String = {
     v match {
       case _: StructType =>
         s"""Set${dotnetName(v).capitalize}(

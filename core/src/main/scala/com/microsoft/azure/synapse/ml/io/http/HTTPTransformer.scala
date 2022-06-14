@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.UDFParam
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._

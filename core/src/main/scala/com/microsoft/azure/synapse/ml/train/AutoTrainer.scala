@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasLabelCol}
-import org.apache.spark.ml.param.{EstimatorParam, IntParam}
+import com.microsoft.azure.synapse.ml.param.EstimatorParam
+import org.apache.spark.ml.param.IntParam
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 
 /** Defines common inheritance and parameters across trainers.

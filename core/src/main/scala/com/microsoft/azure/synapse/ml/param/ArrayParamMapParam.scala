@@ -1,12 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.Serializer
+import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.sql.SparkSession
 
 import scala.reflect.runtime.universe.typeTag
@@ -19,7 +20,7 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
     with ExternalDotnetWrappableParam[Array[ParamMap]]  {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: Array[ParamMap]) => true)
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
@@ -32,15 +33,17 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
     }
   }
 
-  override def dotnetType: String = "ParamMap[]"
+  override private[ml] def dotnetType: String = "ParamMap[]"
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     s"""|public $dotnetClassName Set$capName($dotnetType value)
         |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
         |""".stripMargin
   }
 
-  override def dotnetGetter(capName: String): String = {
+  override private[ml] def dotnetGetter(capName: String): String = {
     s"""|public $dotnetReturnType Get$capName()
         |{
         |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
@@ -54,13 +57,13 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
         |""".stripMargin
   }
 
-  override def dotnetTestValue(v: Array[ParamMap]): String = {
+  override private[ml] def dotnetTestValue(v: Array[ParamMap]): String = {
     s"""${name}Param"""
   }
 
-  override def dotnetLoadLine(modelNum: Int): String = {
+  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
     s"""var ${name}ParamLoaded = (JvmObjectReference[])_jvm.CallStaticJavaMethod(
-       |    "org.apache.spark.ml.param.ArrayParamMapParam",
+       |    "com.microsoft.azure.synapse.ml.param.ArrayParamMapParam",
        |    "loadForTest",
        |    _spark,
        |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));

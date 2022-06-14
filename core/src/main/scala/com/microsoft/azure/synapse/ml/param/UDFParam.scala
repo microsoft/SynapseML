@@ -1,13 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.hadoop.fs.Path
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Serializer
+import org.apache.spark.ml.param.Params
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.scalactic.TripleEquals._
@@ -22,7 +23,7 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
     with ParamEquality[UserDefinedFunction] with ExternalDotnetWrappableParam[UserDefinedFunction] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: UserDefinedFunction) => true)
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
@@ -36,7 +37,9 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
     }
   }
 
-  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
     val invokeMethod = capName match {
       case "UdfScala" => "setUDF"
       case "TransformFunc" => "setTransform"
@@ -48,18 +51,18 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
         |""".stripMargin
   }
 
-  override def dotnetTestValue(v: UserDefinedFunction): String = {
+  override private[ml] def dotnetTestValue(v: UserDefinedFunction): String = {
     name match {
       case "handler" =>s"""${name}Param"""
       case _ => super.dotnetTestValue(v)
     }
   }
 
-  override def dotnetLoadLine(modelNum: Int): String = {
+  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
     name match {
       case "handler" =>
         s"""var ${name}Param = _jvm.CallStaticJavaMethod(
-           |    "org.apache.spark.ml.param.UDFParam",
+           |    "com.microsoft.azure.synapse.ml.param.UDFParam",
            |    "loadForTest",
            |    _spark,
            |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin

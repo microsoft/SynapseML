@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{ModelParam, TypedDoubleArrayParam}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._

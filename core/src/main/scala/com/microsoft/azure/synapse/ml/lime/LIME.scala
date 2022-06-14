@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml._

@@ -1,11 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.param.Params
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
@@ -119,7 +120,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
     with ExternalDotnetWrappableParam[DataFrame] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, ParamValidators.alwaysTrue)
+    this(parent, name, doc, (_: DataFrame) => true)
 
   override def pyValue(v: DataFrame): String = {
     s"""${name}DF"""
@@ -129,16 +130,16 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
   }
 
-  override def dotnetTestValue(v: DataFrame): String = {
+  override private[ml] def dotnetTestValue(v: DataFrame): String = {
     s"""${name}DF"""
   }
 
-  override def dotnetLoadLine(modelNum: Int): String = {
+  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
     s"""var ${name}DF = _spark.Read().Parquet(
        |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
   }
 
-  override def dotnetType: String = "DataFrame"
+  override private[ml] def dotnetType: String = "DataFrame"
 
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {

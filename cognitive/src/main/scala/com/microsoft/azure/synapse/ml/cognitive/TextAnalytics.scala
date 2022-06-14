@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{CognitiveServiceStructParam, DotnetWrappableParam, ServiceParam}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}

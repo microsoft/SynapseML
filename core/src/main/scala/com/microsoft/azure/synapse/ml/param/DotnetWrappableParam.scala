@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package org.apache.spark.ml.param
+package com.microsoft.azure.synapse.ml.param
 
+import org.apache.spark.ml.param.Param
 import spray.json._
 
 import java.lang.{StringBuilder => JStringBuilder}
@@ -59,17 +60,17 @@ object DotnetWrappableParam {
 
 trait DotnetWrappableParam[T] extends Param[T] {
 
-  val name: String
+  private[ml] val name: String
 
   // Used for generating set values for dotnet tests
-  def dotnetTestValue(v: T): String
+  private[ml] def dotnetTestValue(v: T): String
 
-  def dotnetName(v: T): String = {
+  private[ml] def dotnetName(v: T): String = {
     name
   }
 
   // Used for generating dotnet tests setters
-  def dotnetTestSetterLine(v: T): String =
+  private[ml] def dotnetTestSetterLine(v: T): String =
     s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
 
 }
@@ -77,6 +78,6 @@ trait DotnetWrappableParam[T] extends Param[T] {
 trait ExternalDotnetWrappableParam[T] extends DotnetWrappableParam[T] {
 
   // Use this in tests if the param is loaded instead of constructed directly
-  def dotnetLoadLine(modelNum: Int): String
+  private[ml] def dotnetLoadLine(modelNum: Int): String
 
 }

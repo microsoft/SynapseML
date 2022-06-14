@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.StringIntMapParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param._

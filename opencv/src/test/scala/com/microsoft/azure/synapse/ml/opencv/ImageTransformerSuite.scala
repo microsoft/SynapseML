@@ -8,9 +8,9 @@ import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.image.{UnrollBinaryImage, UnrollImage}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
+import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}

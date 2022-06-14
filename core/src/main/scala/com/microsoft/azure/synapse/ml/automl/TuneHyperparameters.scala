@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
 import com.microsoft.azure.synapse.ml.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi

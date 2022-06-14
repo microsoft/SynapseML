@@ -7,8 +7,9 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{UDFParam, UDPyFParam}
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction

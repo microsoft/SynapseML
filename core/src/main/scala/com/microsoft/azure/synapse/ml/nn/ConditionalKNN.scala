@@ -6,10 +6,11 @@ package com.microsoft.azure.synapse.ml.nn
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.core.contracts.HasLabelCol
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ConditionalBallTreeParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.param.{ConditionalBallTreeParam, Param, ParamMap}
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.functions.col
