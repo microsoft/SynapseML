@@ -99,9 +99,34 @@ genBuildInfo := {
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
 }
 
+// scalastyle:off line.size.limit
+val genSleetConfig = TaskKey[Unit]("genSleetConfig",
+  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
+genSleetConfig := {
+  val fileContent =
+    s"""{
+       |  "username": "",
+       |  "useremail": "",
+       |  "sources": [
+       |    {
+       |      "name": "SynapseMLNuget",
+       |      "type": "azure",
+       |      "container": "synapsemlnuget",
+       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
+       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
+       |    }
+       |  ]
+       |}""".stripMargin
+  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
+  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
+  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+}
+// scalastyle:on line.size.limit
+
 val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
   "generate dotnet test helper file with current library version and publish E2E test base")
 publishDotnetTestBase := {
+  genSleetConfig.value
   val fileContent =
     s"""// Licensed to the .NET Foundation under one or more agreements.
        |// The .NET Foundation licenses this file to you under the MIT license.
@@ -133,30 +158,6 @@ publishDotnetTestBase := {
       "--source", "SynapseMLNuget", "--force")
   )
 }
-
-// scalastyle:off line.size.limit
-val genSleetConfig = TaskKey[Unit]("genSleetConfig",
-  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
-genSleetConfig := {
-  val fileContent =
-    s"""{
-       |  "username": "",
-       |  "useremail": "",
-       |  "sources": [
-       |    {
-       |      "name": "SynapseMLNuget",
-       |      "type": "azure",
-       |      "container": "synapsemlnuget",
-       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
-       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
-       |    }
-       |  ]
-       |}""".stripMargin
-  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
-  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
-  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
-}
-// scalastyle:on line.size.limit
 
 val rootGenDir = SettingKey[File]("rootGenDir")
 rootGenDir := {

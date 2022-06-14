@@ -397,38 +397,9 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    - bash: |
-        wget https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-        sudo dpkg -i packages-microsoft-prod.deb
-        rm packages-microsoft-prod.deb
-      displayName: Add Microsoft package signing key and repository
-    - bash: |
-        sudo apt-get update
-        sudo apt-get install -y apt-transport-https dotnet-sdk-5.0
-      displayName: Install .NET SDK
-    - bash: |
-        dotnet nuget add source https://mmlspark.blob.core.windows.net/synapsemlnuget/index.json -n SynapseMLFeed
-      displayName: Update Nuget Config to include SynapseML Feed
-    - bash: |
-        sudo apt-get install openjdk-8-jre
-      displayName: Install Java
-    - bash: |
-        curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
-        mkdir ~/bin
-        tar -xzvf spark-3.2.0-bin-hadoop3.2.tgz -C ~/bin
-        export SPARK_HOME=~/bin/spark-3.2.0-bin-hadoop3.2/
-        echo "##vso[task.setvariable variable=SPARK_HOME]$SPARK_HOME"
-        echo "##vso[task.setvariable variable=PATH]$SPARK_HOME/bin:$PATH"
-      displayName: Install Apache Spark
-    - bash: |
-        wget https://github.com/dotnet/spark/releases/download/v2.1.1/Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.1.1.tar.gz
-        tar -xvf Microsoft.Spark.Worker.netcoreapp3.1.linux-x64-2.1.1.tar.gz -C ~/bin/
-        export DOTNET_WORKER_DIR=~/bin/Microsoft.Spark.Worker-2.1.1
-        echo "##vso[task.setvariable variable=DOTNET_WORKER_DIR]$DOTNET_WORKER_DIR"
-      displayName: Install .NET for Apache Spark
-    - bash: |
-        dotnet tool install -g sleet
-      displayName: Install Sleet
+    - task: ShellScript@2
+      inputs:
+        scriptPath: dotnetSetup.sh
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
@@ -439,7 +410,6 @@ jobs:
         inlineScript: |
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-          sbt genSleetConfig
           sbt publishDotnetTestBase
           sbt publishLocal
           sbt "project $(PACKAGE)" publishDotnet
