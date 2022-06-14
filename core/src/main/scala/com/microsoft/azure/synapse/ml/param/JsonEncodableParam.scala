@@ -61,7 +61,7 @@ class ServiceParam[T: TypeTag](parent: Params,
                               (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
     with PythonWrappableParam[Either[T, String]]
-    with DotnetWrappableParam[Either[T, String]] {
+    with WrappableParam[Either[T, String]] {
 
   type ValueType = T
 
@@ -113,7 +113,57 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-  def getType: String = typeOf[T].toString
+  //noinspection ScalaStyle
+  private[ml] def dotnetType: String = typeOf[T].toString match {
+    case "String" => "string"
+    case "Boolean" => "bool"
+    case "Double" => "double"
+    case "Int" => "int"
+    case "Seq[String]" => "string[]"
+    case "Seq[Double]" => "double[]"
+    case "Array[Byte]" => "byte[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => "TimeSeriesPoint[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => "TargetInput[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => "TextAndTranslation[]"
+    case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
+  }
+
+  override private[ml] def dotnetSetter(dotnetClassName: String,
+                                        capName: String,
+                                        dotnetClassWrapperName: String): String = {
+    s"""|public $dotnetClassName Set$capName($dotnetType value) =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
+        |
+        |public $dotnetClassName Set${capName}Col(string value) =>
+        |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
+        |""".stripMargin
+  }
+
+  override private[ml] def dotnetGetter(capName: String): String = {
+    dotnetType match {
+      case "TimeSeriesPoint[]" |
+           "TargetInput[]" |
+           "TextAndTranslation[]" |
+           "TAAnalyzeTask[]" =>
+        s"""|public $dotnetType Get$capName()
+            |{
+            |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+            |    var jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
+            |    $dotnetType result =
+            |        new ${dotnetType.substring(0, dotnetType.length - 2)}[jvmObjects.Length];
+            |    for (int i = 0; i < result.Length; i++)
+            |    {
+            |        result[i] = new ${dotnetType.substring(0, dotnetType.length - 2)}(jvmObjects[i]);
+            |    }
+            |    return result;
+            |}
+            |""".stripMargin
+      case _ =>
+        s"""|public $dotnetType Get$capName() =>
+            |    ($dotnetType)Reference.Invoke(\"get$capName\");
+            |""".stripMargin
+    }
+  }
 
 }
 
@@ -124,7 +174,7 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
                                               isValid: T => Boolean = (_: T) => true)
                                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[T](parent, name, doc, isValid)
-    with PythonWrappableParam[T] with DotnetWrappableParam[T] {
+    with PythonWrappableParam[T] with WrappableParam[T] {
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
 
@@ -138,5 +188,10 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
     }
   }
 
-  def getType: String = typeOf[T].toString
+  private[ml] def dotnetType: String = typeOf[T].toString match {
+    // TODO: fix DiagnosticsInfo on dotnet side
+    case "com.microsoft.azure.synapse.ml.cognitive.DiagnosticsInfo" => "object"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" => "TextAnalyzeTask[]"
+    case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
+  }
 }

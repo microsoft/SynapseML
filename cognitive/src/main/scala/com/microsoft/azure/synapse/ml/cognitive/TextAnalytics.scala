@@ -410,7 +410,7 @@ class TextAnalyzeTaskParam(parent: Params,
     TextAnalyzeTask(parameters)
   }
 
-  override def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
+  override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
     v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
       s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
 }

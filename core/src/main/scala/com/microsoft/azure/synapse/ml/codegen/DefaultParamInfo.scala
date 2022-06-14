@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.param._
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.param._
@@ -48,13 +47,6 @@ object DefaultParamInfo extends Logging {
   val TypedDoubleArrayInfo = new ParamInfo[TypedDoubleArrayParam]("object", "double[]")
   val UntypedArrayInfo = new ParamInfo[UntypedArrayParam]("object", "object[]")
 
-  val SeqTimeSeriesPointInfo = new ParamInfo[ServiceParam[_]]("object", "TimeSeriesPoint[]")
-  val SeqTargetInputInfo = new ParamInfo[ServiceParam[_]]("object", "TargetInput[]")
-  val SeqTextAndTranslationInfo = new ParamInfo[ServiceParam[_]]("object", "TextAndTranslation[]")
-  // TODO: fix DiagnosticsInfo on dotnet side
-  val DiagnosticsInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "object")
-  val TextAnalyzeTaskParamInfo = new ParamInfo[CognitiveServiceStructParam[_]]("object", "TextAnalyzeTask[]")
-
   val UnknownInfo = new ParamInfo[Param[_]]("object", "object")
 
   //noinspection ScalaStyle
@@ -76,39 +68,10 @@ object DefaultParamInfo extends Logging {
       case _: TypedIntArrayParam => TypedIntArrayInfo
       case _: TypedDoubleArrayParam => TypedDoubleArrayInfo
       case _: UntypedArrayParam => UntypedArrayInfo
-      case sp: ServiceParam[_] => getServiceParamInfo(sp)
-      case csp: CognitiveServiceStructParam[_] => getCognitiveServiceStructParamInfo(csp)
-      case cp: ComplexParam[_] => new ParamInfo[ComplexParam[_]]("object", cp.dotnetType)
       case p => {
         logWarning(s"unsupported type $p")
         UnknownInfo
       }
-    }
-  }
-
-  //noinspection ScalaStyle
-  def getServiceParamInfo(dataType: ServiceParam[_]): ParamInfo[_] = {
-    dataType.getType match {
-      case "String" => StringInfo
-      case "Boolean" => BooleanInfo
-      case "Double" => DoubleInfo
-      case "Int" => IntInfo
-      case "Seq[String]" => StringArrayInfo
-      case "Seq[Double]" => DoubleArrayInfo
-      case "Array[Byte]" => ByteArrayInfo
-      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => SeqTimeSeriesPointInfo
-      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => SeqTargetInputInfo
-      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => SeqTextAndTranslationInfo
-      case _ => throw new Exception(s"unsupported type $dataType")
-    }
-  }
-
-  //noinspection ScalaStyle
-  def getCognitiveServiceStructParamInfo(dataType: CognitiveServiceStructParam[_]): ParamInfo[_] = {
-    dataType.getType match {
-      case "com.microsoft.azure.synapse.ml.cognitive.DiagnosticsInfo" => DiagnosticsInfo
-      case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" => TextAnalyzeTaskParamInfo
-      case _ => throw new Exception(s"unsupported type $dataType, please add implementation")
     }
   }
 

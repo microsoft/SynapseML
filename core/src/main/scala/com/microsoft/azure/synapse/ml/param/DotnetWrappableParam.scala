@@ -58,6 +58,7 @@ object DotnetWrappableParam {
 
 }
 
+// Wrapper for testgen system
 trait DotnetWrappableParam[T] extends Param[T] {
 
   private[ml] val name: String

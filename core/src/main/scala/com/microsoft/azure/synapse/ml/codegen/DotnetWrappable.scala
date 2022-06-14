@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
-import com.microsoft.azure.synapse.ml.param.{ServiceParam, WrappableParam}
+import com.microsoft.azure.synapse.ml.param.WrappableParam
 import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
@@ -40,7 +40,6 @@ object DotnetHelper {
 
 trait DotnetWrappable extends BaseWrappable {
 
-  import DefaultParamInfo._
   import GenerationUtils._
 
   protected lazy val dotnetCopyrightLines: String =
@@ -128,14 +127,6 @@ trait DotnetWrappable extends BaseWrappable {
           |/// </param>
           |/// <returns> New $dotnetClassName object </returns>""".stripMargin
     p match {
-      case sp: ServiceParam[_] =>
-        s"""|$docString
-            |public $dotnetClassName Set$capName(${getServiceParamInfo(sp).dotnetType} value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
-            |
-            |public $dotnetClassName Set${capName}Col(string value) =>
-            |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
-            |""".stripMargin
       // TODO: Fix UDF & UDPyF confusion; ParamSpaceParam, BallTreeParam, ConditionalBallTreeParam type
       case wp: WrappableParam[_] =>
         s"""|$docString
@@ -163,45 +154,15 @@ trait DotnetWrappable extends BaseWrappable {
           |/// ${p.name}: ${p.doc}
           |/// </returns>""".stripMargin
     p match {
-      case sp: ServiceParam[_] =>
-        val dType = getGeneralParamInfo(sp).dotnetType
-        dType match {
-          case "TimeSeriesPoint[]" |
-               "TargetInput[]" |
-               "TextAndTranslation[]" |
-               "TAAnalyzeTask[]" =>
-            s"""
-               |$docString
-               |public $dType Get$capName()
-               |{
-               |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-               |    var jvmObjects = (JvmObjectReference[])jvmObject.Invoke("array");
-               |    $dType result =
-               |        new ${dType.substring(0, dType.length - 2)}[jvmObjects.Length];
-               |    for (int i = 0; i < result.Length; i++)
-               |    {
-               |        result[i] = new ${dType.substring(0, dType.length - 2)}(jvmObjects[i]);
-               |    }
-               |    return result;
-               |}
-               |""".stripMargin
-          case _ =>
-            s"""
-               |$docString
-               |public $dType Get$capName() =>
-               |    ($dType)Reference.Invoke(\"get$capName\");
-               |""".stripMargin
-        }
       case wp: WrappableParam[_] =>
         s"""|$docString
             |${wp.dotnetGetter(capName)}
             |""".stripMargin
       case _ =>
-        s"""
-           |$docString
-           |public ${getParamInfo(p).dotnetType} Get$capName() =>
-           |    (${getParamInfo(p).dotnetType})Reference.Invoke(\"get$capName\");
-           |""".stripMargin
+        s"""|$docString
+            |public ${getParamInfo(p).dotnetType} Get$capName() =>
+            |    (${getParamInfo(p).dotnetType})Reference.Invoke(\"get$capName\");
+            |""".stripMargin
     }
   }
 
