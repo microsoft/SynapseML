@@ -12,7 +12,6 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
-import org.slf4j.Logger
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
@@ -286,6 +285,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     * LightGBM expects initial scores to be column-based, but the chunks load them as rows.
     * We need to to transpose the values before sending.
     * @param chunkedCols Source ChunkedColumns to add from
+    * @param startIndex Start index of insertion
     */
   def addInitialScores(chunkedCols: BaseChunkedColumns, startIndex: Long): Unit = {
     // Optimize for single class, which does not need transposing
