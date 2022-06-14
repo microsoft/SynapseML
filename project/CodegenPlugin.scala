@@ -301,7 +301,6 @@ object CodegenPlugin extends AutoPlugin {
     publishDotnet := {
       packageDotnet.value
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
-      val shortVersion = version.value.split("-".toCharArray).head
       val packagePath = join(codegenDir.value, "package", "dotnet",
         s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
       val sleetConfigFile = join(mergePyCodeDir.value, "sleet.json").getAbsolutePath
