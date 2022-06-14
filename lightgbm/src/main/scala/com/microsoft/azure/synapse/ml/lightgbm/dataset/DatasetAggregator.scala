@@ -12,8 +12,10 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
+import org.slf4j.Logger
 
 import java.util.concurrent.atomic.AtomicLong
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.collection.concurrent.TrieMap
 
@@ -48,35 +50,41 @@ private[lightgbm] object ChunkedArrayUtils {
                                                startIndex: Long): Unit = {
     val num = implicitly[Numeric[T]]
     val defaultVal = num.fromInt(-1)
-    // Copy in parallel on each thread
-    // First transpose full chunks
-    val chunkSize = chunkedArray.getChunkSize
-    val chunkCount = chunkedArray.getChunksCount - 1
-    var sourceIndex = 0
-    for (chunk <- 0L until chunkCount) {
-      for (inChunkIdx <- 0L until chunkSize) {
-        val sourceRow = sourceIndex / numCols
-        val col = sourceIndex % numCols
-        val targetIndex = startIndex + sourceRow + col * numTargetRows
-        val value = chunkedArray.getItem(chunk, inChunkIdx, defaultVal)
-        mainArray.setItem(targetIndex, value)
-        sourceIndex += 1
-      }
-    }
 
-    // Next transpose filled values from last chunk only
-    val lastChunkCount = chunkedArray.getLastChunkAddCount
-    for (lastChunkIdx <- 0L until lastChunkCount) {
+    @tailrec
+    def copyChunk(chunk: Int, chunkSize: Long, inChunkIdx: Long, sourceIndex: Long): Long = {
       val sourceRow = sourceIndex / numCols
       val col = sourceIndex % numCols
       val targetIndex = startIndex + sourceRow + col * numTargetRows
-      val value = chunkedArray.getItem(chunkCount, lastChunkIdx, defaultVal)
+      val value = chunkedArray.getItem(chunk, inChunkIdx, defaultVal)
       mainArray.setItem(targetIndex, value)
-      sourceIndex += 1
+      val newSourceIndex = sourceIndex + 1
+      val newInChunkIndex = inChunkIdx + 1
+      if (newInChunkIndex < chunkSize) copyChunk(chunk, chunkSize, newInChunkIndex, newSourceIndex)
+      else newSourceIndex
     }
 
+    @tailrec
+    def copyChunkSet(maxChunk: Int, chunkSize: Long, chunk: Int, sourceIndex: Long): Long = {
+      val currentSourceIndex = copyChunk(chunk, chunkSize, 0, sourceIndex)
+      val newChunk = chunk + 1
+      if (newChunk < maxChunk) copyChunkSet(maxChunk, chunkSize, newChunk, currentSourceIndex)
+      else currentSourceIndex
+    }
+
+    val fullChunkSize = chunkedArray.getChunkSize
+    val allChunkCount = chunkedArray.getChunksCount.toInt
+    val fullChunkCount = allChunkCount - 1
+    val lastChunkSize = chunkedArray.getLastChunkAddCount
+
+    // First transpose full chunks
+    val intermediateSourceIndex = if (allChunkCount == 1) 0
+      else copyChunkSet(fullChunkCount, fullChunkSize, 0, 0)
+    // Next transpose filled values from last chunk only
+    val finalSourceIndex = copyChunkSet(allChunkCount, lastChunkSize, fullChunkCount, intermediateSourceIndex)
+
     // We should have no remainder left over
-    if ((sourceIndex % numCols) != 0) {
+    if ((finalSourceIndex % numCols) != 0) {
       throw new Exception(s"transpose did not have whole number of columns. numCols: $numCols")
     }
   }
@@ -279,17 +287,19 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     * We need to to transpose the values before sending.
     * @param chunkedCols Source ChunkedColumns to add from
     */
-  def addInitialScores(chunkedCols: BaseChunkedColumns): Unit = {
-      // Optimize for single class, which does not need transposing
+  def addInitialScores(chunkedCols: BaseChunkedColumns, startIndex: Long): Unit = {
+    // Optimize for single class, which does not need transposing
     chunkedCols.initScores.foreach(chunkedArray => if (getRowCount == getInitScoreCount)
       chunkedArray.coalesceTo(initScores.get)
-    else
+    else {
+      log.info(s"DEBUG: cols: ${getInitScoreCount/getRowCount} rows: $getRowCount, startIndex: $startIndex")
       ChunkedArrayUtils.insertTransposedChunkedArray(
         chunkedArray,
         getInitScoreCount/getRowCount,
         initScores.get,
         getRowCount,
-        startIndex = 0))
+        startIndex)
+    })
   }
 
   protected def initializeRows(chunkedCols: BaseChunkedColumns): Unit = {
@@ -327,7 +337,7 @@ private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns 
     // Coalesce to main arrays passed to dataset create
     chunkedCols.labels.coalesceTo(labels)
     chunkedCols.weights.foreach(_.coalesceTo(weights.get))
-    addInitialScores(chunkedCols)
+    addInitialScores(chunkedCols, 0)
     this.addFeatures(chunkedCols)
     chunkedCols.groups.copyToArray(groups)
   }
@@ -371,7 +381,7 @@ private[lightgbm] trait SyncAggregatedColumns extends BaseAggregatedColumns {
       weightChunkedArray =>
         ChunkedArrayUtils.copyChunkedArray(weightChunkedArray, weights.get, threadRowStartIndex)
     }
-    addInitialScores(chunkedCols)
+    addInitialScores(chunkedCols, threadRowStartIndex)
     parallelizeFeaturesCopy(chunkedCols, featureIndexes)
     chunkedCols.groups.copyToArray(groups, threadRowStartIndex.toInt)
     // rewrite array reference for volatile arrays, see: https://www.javamex.com/tutorials/volatile_arrays.shtml
