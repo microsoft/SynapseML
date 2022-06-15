@@ -197,7 +197,7 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
-    val packages: String = "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
+    val packages: String = s"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
