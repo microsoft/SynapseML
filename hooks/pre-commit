@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# If any command fails, exit immediately with that command's exit status
+set -eo pipefail
+
 get_installed_version() {
   echo $(pip freeze | grep "$1==" | sed -e "s/$1==//g")
 }
@@ -30,3 +33,6 @@ if [ ! -z "$diff" ]; then
   echo "Running black..."
   black --check $diff
 fi
+
+echo "Running scalastyle.."
+sbt scalastyle test:scalastyle

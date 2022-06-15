@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.lightgbm._
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, LightGBMDataset}
 import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
 import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
@@ -185,11 +185,12 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
-  ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
-    val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
+  test("Verify LightGBM Multiclass Classifier with vector initial score") {
+    val multiClassModel = baseModel.setObjective(multiclassObject).setSeed(4).setDeterministic(true)
+    val scoredDF1 = multiClassModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
       .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
-    val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
+    val scoredDF2 = multiClassModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertMulticlassImprovement(scoredDF1, scoredDF2)
   }
