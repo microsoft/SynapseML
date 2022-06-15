@@ -35,7 +35,4 @@ if [ ! -z "$diff" ]; then
 fi
 
 echo "Running scalastyle.."
-sbt scalastyle
-
-echo "Running test:scalastyle.."
-sbt test:scalastyle
+sbt scalastyle test:scalastyle
