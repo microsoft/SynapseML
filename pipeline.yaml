@@ -40,6 +40,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
     - task: UsePythonVersion@00
       inputs:
@@ -116,6 +117,7 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
@@ -153,6 +155,7 @@ jobs:
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           AdoBuildId=$(Build.BuildId) AdoBuildNumber=$(Build.BuildNumber) sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
@@ -174,6 +177,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
@@ -347,6 +351,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
@@ -357,6 +362,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
@@ -371,6 +377,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -395,6 +402,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
@@ -410,6 +418,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -431,6 +440,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           set -e
           source activate synapseml
@@ -449,6 +459,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -474,6 +485,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           sbt convertNotebooks
@@ -584,6 +596,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
@@ -593,6 +606,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
@@ -613,6 +627,7 @@ jobs:
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/kv.yml
