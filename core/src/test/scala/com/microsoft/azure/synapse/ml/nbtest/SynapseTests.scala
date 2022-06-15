@@ -102,16 +102,14 @@ class SynapseTests extends TestBase {
 
   runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), notebooksDir)
 
-//  println(notebo oksDir)
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(notebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-//    .filter(_.getAbsolutePath.contains("HyperParameterTuning"))
-//    .filter(_.getAbsolutePath.contains("CyberML"))
-//    .filter(_.getAbsolutePath.contains("VowpalWabbitOverview"))
-    .filter(_.getAbsolutePath.contains("IsolationForest"))
-//    .filter(_.getAbsolutePath.contains("DeepLearning"))
-//    .filter(_.getAbsolutePath.contains("BiLSTM"))
-//    .filter(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
+    .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
+    .filterNot(_.getAbsolutePath.contains("CyberML"))
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
+    .filterNot(_.getAbsolutePath.contains("IsolationForest"))
+    .filterNot(_.getAbsolutePath.contains("DeepLearning"))
+    .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
@@ -156,7 +154,7 @@ class SynapseTests extends TestBase {
       failures.foreach(failure =>
         println(failure.failed.get.getMessage))
     }
-    //FileUtils.deleteDirectory(notebooksDir)
+    FileUtils.deleteDirectory(notebooksDir)
     super.afterAll()
   }
 }
