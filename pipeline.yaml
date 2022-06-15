@@ -155,7 +155,7 @@ jobs:
         scriptLocation: inlineScript
         inlineScript: |
           source activate synapseml
-          AdoBuildId=$(Build.BuildId) AdoBuildNumber=$(Build.BuildId) sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+          AdoBuildId=$(Build.BuildId) AdoBuildNumber=$(Build.BuildNumber) sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
