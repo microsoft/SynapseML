@@ -123,7 +123,7 @@ object SynapseUtilities {
   lazy val ArmToken: String = getAccessToken("https://management.azure.com/")
 
   val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
-  val Folder = s"build_0.9.5-113-3519038c-SNAPSHOT/scripts" //s"build_${BuildInfo.version}/scripts"
+  val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse"
@@ -187,7 +187,7 @@ object SynapseUtilities {
     val dest = s"$Folder/${notebook.getName}"
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
-      s" --overwrite true " +
+      " --overwrite true " +
       s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
@@ -197,10 +197,7 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
-    val packages: String = Seq(
-      "com.microsoft.azure:synapseml_2.12:0.9.5-113-3519038c-SNAPSHOT",
-      //"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
-      "org.apache.spark:spark-avro_2.12:3.2.0").mkString(",")
+    val packages: String = "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -242,11 +239,8 @@ object SynapseUtilities {
                                       poolLocation: String,
                                       poolNodeSize: String,
                                       createdAtTime: String): String = {
-    var foobar: String = "notfound"
-    if (sys.env.getOrElse("ppruthienv", "asdf") != "asdf")
-      foobar = "found"
-    val buildId: String = sys.env.getOrElse("Build.BuildId", "unknown")
-    val buildNumber: String = sys.env.getOrElse("Build.BuildNumber", "unknown")
+    val buildId: String = sys.env.getOrElse("AdoBuildId", "unknown")
+    val buildNumber: String = sys.env.getOrElse("AdoBuildNumber", "unknown")
     s"""
        |{
        |  "name": "$bigDataPoolName",
@@ -256,7 +250,6 @@ object SynapseUtilities {
        |    "createdAt": "$createdAtTime",
        |    "buildId": "$buildId",
        |    "buildNumber": "$buildNumber",
-       |    "foobar": "$foobar"
        |  },
        |  "properties": {
        |    "autoPause": {
