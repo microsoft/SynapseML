@@ -20,9 +20,6 @@ echo "##vso[task.setvariable variable=DOTNET_WORKER_DIR]$DOTNET_WORKER_DIR"
 # Install Sleet
 dotnet tool install -g sleet
 
-# install Java-8
-sudo apt-get install openjdk-8-jre
-
 # Install Apache Spark-3.2
 curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
 mkdir ~/bin

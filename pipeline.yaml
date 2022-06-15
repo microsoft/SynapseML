@@ -399,7 +399,7 @@ jobs:
   steps:
     - task: ShellScript@2
       inputs:
-        scriptPath: dotnetSetup.sh
+        scriptPath: tools/dotnet/dotnetSetup.sh
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30

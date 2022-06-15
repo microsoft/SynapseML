@@ -34,21 +34,8 @@ class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluat
 
   override private[ml] def dotnetType: String = "JavaEvaluator"
 
-  override private[ml] def dotnetGetter(capName: String): String = {
-    s"""|public $dotnetReturnType Get$capName()
-        |{
-        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-        |    Dictionary<string, Type> classMapping = JvmObjectUtils.ConstructJavaClassMapping(
-        |                typeof($dotnetReturnType),
-        |                "s_className");
-        |    JvmObjectUtils.TryConstructInstanceFromJvmObject(
-        |                jvmObject,
-        |                classMapping,
-        |                out $dotnetReturnType instance);
-        |    return instance;
-        |}
-        |""".stripMargin
-  }
+  override private[ml] def dotnetGetter(capName: String): String =
+    dotnetGetterHelper(dotnetReturnType, dotnetReturnType, capName)
 
   override private[ml] def dotnetTestValue(v: Evaluator): String = {
     s"""${name}Param"""

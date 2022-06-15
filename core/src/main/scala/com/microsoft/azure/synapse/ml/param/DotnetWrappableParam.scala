@@ -81,4 +81,23 @@ trait ExternalDotnetWrappableParam[T] extends DotnetWrappableParam[T] {
   // Use this in tests if the param is loaded instead of constructed directly
   private[ml] def dotnetLoadLine(modelNum: Int): String
 
+  // Used for PipelineStage Params & EvaluatorParam
+  private[ml] def dotnetGetterHelper(dotnetReturnType: String,
+                                     parentClassType: String,
+                                     capName: String): String = {
+    s"""|public $dotnetReturnType Get$capName()
+        |{
+        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+        |    Dictionary<string, Type> classMapping = JvmObjectUtils.ConstructJavaClassMapping(
+        |                typeof($parentClassType),
+        |                "s_className");
+        |    JvmObjectUtils.TryConstructInstanceFromJvmObject(
+        |                jvmObject,
+        |                classMapping,
+        |                out $dotnetReturnType instance);
+        |    return instance;
+        |}
+        |""".stripMargin
+  }
+
 }
