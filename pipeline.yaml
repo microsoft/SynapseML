@@ -48,7 +48,7 @@ jobs:
     - script: pip install -r requirements.txt
       displayName: 'Install requirements'
     - bash: |
-        black --check .
+        black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
 - job: Publish
