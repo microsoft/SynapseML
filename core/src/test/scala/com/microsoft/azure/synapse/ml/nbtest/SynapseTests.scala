@@ -154,7 +154,6 @@ class SynapseTests extends TestBase {
       failures.foreach(failure =>
         println(failure.failed.get.getMessage))
     }
-    FileUtils.deleteDirectory(notebooksDir)
     super.afterAll()
   }
 }
