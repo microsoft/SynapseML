@@ -294,6 +294,7 @@ object SynapseUtilities {
     sparkPools.foreach(sparkPool => {
       val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")
       if (sparkPool.tags.contains("createdAt") && sparkPool.tags.contains("createdBy")) {
+        assert(name.stripPrefix(ClusterPrefix).length == dayAgoTsInMillis.toString.length)
         val creationTime = name.stripPrefix(ClusterPrefix).toLong
         if (creationTime <= dayAgoTsInMillis) {
           try {
