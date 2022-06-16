@@ -4,3 +4,4 @@
 # Required to auto-format python code
 black==22.3.0
 black[jupyter]==22.3.0
+pre-commit==2.19.0
