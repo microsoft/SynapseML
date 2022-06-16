@@ -187,7 +187,7 @@ object SynapseUtilities {
     val dest = s"$Folder/${notebook.getName}"
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
-      s" --overwrite true " +
+      " --overwrite true " +
       s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
@@ -197,6 +197,7 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
+    val packages: String = s"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -210,7 +211,7 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "com.microsoft.azure:synapseml_2.12:${BuildInfo.version}",
+         |         "spark.jars.packages" : "$packages",
          |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
@@ -238,13 +239,17 @@ object SynapseUtilities {
                                       poolLocation: String,
                                       poolNodeSize: String,
                                       createdAtTime: String): String = {
+    val buildId: String = sys.env.getOrElse("AdoBuildId", "unknown")
+    val buildNumber: String = sys.env.getOrElse("AdoBuildNumber", "unknown")
     s"""
        |{
        |  "name": "$bigDataPoolName",
        |  "location": "$poolLocation",
        |  "tags": {
        |    "createdBy": "SynapseE2E Tests",
-       |    "createdAt": "$createdAtTime"
+       |    "createdAt": "$createdAtTime",
+       |    "buildId": "$buildId",
+       |    "buildNumber": "$buildNumber",
        |  },
        |  "properties": {
        |    "autoPause": {
@@ -289,6 +294,7 @@ object SynapseUtilities {
     sparkPools.foreach(sparkPool => {
       val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")
       if (sparkPool.tags.contains("createdAt") && sparkPool.tags.contains("createdBy")) {
+        assert(name.stripPrefix(ClusterPrefix).length == dayAgoTsInMillis.toString.length)
         val creationTime = name.stripPrefix(ClusterPrefix).toLong
         if (creationTime <= dayAgoTsInMillis) {
           try {
