@@ -25,7 +25,7 @@ train, test = data.randomSplit([0.75, 0.25], seed=123)
 train.limit(10).toPandas()
 ```
 
-Next, we define a pipeline that includes feature engineering and training of a VW classifier. We use a featurizer provided by VW that hashes the feature names. 
+Next, we define a pipeline that includes feature engineering and training of a VW classifier. We use a featurizer provided by VW that hashes the feature names.
 Note that VW expects classification labels being -1 or 1. Thus, the income category is mapped to this space before feeding training data into the pipeline.
 
 
@@ -76,8 +76,8 @@ Finally, we evaluate the model performance using `ComputeModelStatistics` functi
 
 ```python
 from synapse.ml.train import ComputeModelStatistics
-metrics = ComputeModelStatistics(evaluationMetric="classification", 
-                                 labelCol="label", 
+metrics = ComputeModelStatistics(evaluationMetric="classification",
+                                 labelCol="label",
                                  scoredLabelsCol="prediction").transform(prediction)
 metrics.toPandas()
 ```

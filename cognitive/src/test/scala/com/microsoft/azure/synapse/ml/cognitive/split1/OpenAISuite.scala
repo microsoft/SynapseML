@@ -54,5 +54,3 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   override def reader: MLReadable[_] = OpenAICompletion
 
 }
-
-

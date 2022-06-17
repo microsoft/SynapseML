@@ -109,4 +109,3 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   def copy(extra: ParamMap): UDFTransformer = defaultCopy(extra)
 
 }
-

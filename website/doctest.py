@@ -5,7 +5,7 @@ import sys
 
 
 def add_python_helper_to_markdown(folder, md, version):
-    replacement = """<!-- 
+    replacement = """<!--
 ```python
 import pyspark
 import os

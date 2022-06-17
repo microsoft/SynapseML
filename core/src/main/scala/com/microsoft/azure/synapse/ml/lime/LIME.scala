@@ -329,5 +329,3 @@ class ImageLIME(val uid: String) extends Transformer with LIMEBase
   }
 
 }
-
-

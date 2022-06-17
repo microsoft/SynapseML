@@ -164,4 +164,3 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
 
   override def responseDataType: DataType = TranslationStatusResponse.schema
 }
-

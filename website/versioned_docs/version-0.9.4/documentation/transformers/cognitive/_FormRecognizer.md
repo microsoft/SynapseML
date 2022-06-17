@@ -536,5 +536,3 @@ display(listCustomModels.transform(emptyDf))
 py="synapse.ml.cognitive.html#module-mmlspark.cognitive.ListCustomModels"
 scala="com/microsoft/azure/synapse/ml/cognitive/ListCustomModels.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizer.scala" />
-
-

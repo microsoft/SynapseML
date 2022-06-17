@@ -13,7 +13,7 @@ To enable autologging for SynapseML:
 For example:
 * In Synapse `wasb://<containername>@<accountname>.blob.core.windows.net/PATH_TO_YOUR/log_model_allowlist.txt`
 * In Databricks `/dbfs/FileStore/PATH_TO_YOUR/log_model_allowlist.txt`.
-2. Set spark configuration `spark.mlflow.pysparkml.autolog.logModelAllowlistFile` to the path of your `log_model_allowlist.txt` file. 
+2. Set spark configuration `spark.mlflow.pysparkml.autolog.logModelAllowlistFile` to the path of your `log_model_allowlist.txt` file.
 3. Call `mlflow.pyspark.ml.autolog()` before your training code to enable autologging for all supported models.
 
 Note:

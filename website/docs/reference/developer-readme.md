@@ -21,7 +21,7 @@ description: SynapseML Development Setup
 6) Go to the directory where you cloed the repo (e.g., `SynapseML`) with `cd SynapseML`
 6) Run sbt to compile and grab datasets
     - `sbt setup`
-7) [Install IntelliJ](https://www.jetbrains.com/idea/download)    
+7) [Install IntelliJ](https://www.jetbrains.com/idea/download)
 8) Configure IntelliJ
     - Install [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala) during initialization
     - **OPEN** the synapseml directory from IntelliJ
@@ -32,7 +32,7 @@ description: SynapseML Development Setup
     - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
 
 > NOTE
-> 
+>
 > If you will be regularly contributing to the SynapseML repo, you'll want to keep your fork synced with the
 > upstream repository. Please read [this GitHub doc](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
 > to know more and learn techniques about how to do it.
@@ -40,7 +40,7 @@ description: SynapseML Development Setup
 # Publishing and Using Build Secrets
 
 To use secrets in the build you must be part of the synapsemlkeyvault
- and azure subscription. If you are MSFT internal would like to be 
+ and azure subscription. If you are MSFT internal would like to be
  added please reach out `synapseml-support@microsoft.com`
 
 # SBT Command Guide
@@ -67,7 +67,7 @@ Generates documentation for scala sources
 
 ### `createCondaEnv`
 
-Creates a conda environment `synapseml` from `environment.yml` if it does not already exist. 
+Creates a conda environment `synapseml` from `environment.yml` if it does not already exist.
 This env is used for python testing. **Activate this env before using python build commands.**
 
 ### `cleanCondaEnv`
