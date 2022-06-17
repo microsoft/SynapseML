@@ -35,11 +35,12 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
     - task: UsePythonVersion@00
       inputs:
@@ -47,7 +48,7 @@ jobs:
     - script: pip install -r requirements.txt
       displayName: 'Install requirements'
     - bash: |
-        black --check .
+        black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
 - job: Publish
@@ -111,11 +112,12 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
@@ -148,14 +150,15 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
         azureSubscription:  'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+          AdoBuildId=$(Build.BuildId) AdoBuildNumber=$(Build.BuildNumber) sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -169,11 +172,12 @@ jobs:
   pool:
     vmImage: ubuntu-18.04
   steps:
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Get Docker Tag + Version'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
@@ -341,22 +345,24 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Install Pip Package'
       timeoutInMinutes: 10
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt installPipPackage
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
@@ -366,11 +372,12 @@ jobs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -443,12 +450,13 @@ jobs:
     - template: templates/kv.yml
     - bash: curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
       displayName: Download spark
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Test R Code'
       timeoutInMinutes: 30
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
@@ -459,11 +467,12 @@ jobs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -479,12 +488,13 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           set -e
           source activate synapseml
@@ -498,11 +508,12 @@ jobs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
@@ -523,11 +534,12 @@ jobs:
       inputs:
         versionSpec: '16.x'
       displayName: 'Install Node.js'
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Convert notebooks to markdowns'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           source activate synapseml
           sbt convertNotebooks
@@ -633,20 +645,22 @@ jobs:
         PACKAGE: "vw"
   steps:
     #- template: templates/ivy_cache.yml
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Setup repo'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Unit Test'
       timeoutInMinutes: 90
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: |
           (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
@@ -662,11 +676,12 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
+        scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/kv.yml
