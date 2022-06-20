@@ -214,8 +214,12 @@ object CodegenPlugin extends AutoPlugin {
       }
     },
     dotnetVersion := {
-      val versionArray = version.value.split("-".toCharArray)
-      versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
+      if (version.value.contains("-")) {
+        val versionArray = version.value.split("-".toCharArray)
+        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
+      } else {
+       version.value
+      }
     },
     packageR := {
       createCondaEnvTask.value
