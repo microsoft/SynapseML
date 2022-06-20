@@ -93,7 +93,7 @@ def test_mobilenet_v2(
     )
     ctx = CallbackBackend()
 
-    epochs = 10
+    epochs = 5
     callbacks = [
         MyDummyCallback(epochs),
         ModelCheckpoint(dirpath="target/mobilenet_v2/"),

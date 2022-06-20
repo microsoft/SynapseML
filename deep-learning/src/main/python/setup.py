@@ -8,3 +8,9 @@ spark_require_list = [
     "pyarrow>=0.15.0",
     "fsspec>=2021.07.0",
 ]  ## TO BE VERIFY
+dl_require_list = [
+    "torch>=1.11.0",
+    "torchvision>=0.12.0",
+    "pytorch_lightning>=1.5.0,<1.5.10",
+    "horovod>=0.24.3",
+]
