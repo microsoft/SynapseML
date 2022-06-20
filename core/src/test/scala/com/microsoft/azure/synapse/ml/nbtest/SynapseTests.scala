@@ -46,7 +46,6 @@ class SynapseTests extends TestBase {
 
   val resourcesDirectory = new File(getClass.getResource("/").toURI)
   val notebooksDir = new File(resourcesDirectory, "generated-notebooks")
-  println(s"Notebooks dir: $notebooksDir")
   FileUtils.deleteDirectory(notebooksDir)
   assert(notebooksDir.mkdirs())
 
@@ -109,17 +108,17 @@ class SynapseTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("CyberML"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
-    .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
     .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
     .sortBy(_.getAbsolutePath)
 
-  selectedPythonFiles.foreach(println)
-  assert(selectedPythonFiles.length > 1)
-
   val expectedPoolCount: Int = selectedPythonFiles.length
 
-  println("SynapseTests E2E Test Suite starting...")
+  assert(expectedPoolCount >= 1)
+  println(s"SynapseTests E2E Test Suite starting on ${expectedPoolCount} notebook(s)...")
+  selectedPythonFiles.foreach(println)
+
+  // Cleanup old stray spark pools lying around due to ungraceful test shutdown
   tryDeleteOldSparkPools()
 
   println(s"Creating $expectedPoolCount Spark Pools...")
