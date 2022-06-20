@@ -8,7 +8,10 @@ from synapsemltest.spark import *
 
 class ExplainTester:
     def check_explain(
-        self, explainable: Any, params: List[str], type_count_checker: Callable
+        self,
+        explainable: Any,
+        params: List[str],
+        type_count_checker: Callable,
     ):
         explained = explainable.explainParams()
 
@@ -22,7 +25,7 @@ class ExplainTester:
             else:
                 parts = name.split("_")
                 return prefix + "".join(
-                    [parts[i][0:1].upper() + parts[i][1:] for i in range(len(parts))]
+                    [parts[i][0:1].upper() + parts[i][1:] for i in range(len(parts))],
                 )
 
         values = []
@@ -48,7 +51,7 @@ class ExplainTester:
                     for vv in arr
                     if (tt is not None and isinstance(vv, tt))
                     or (tt is None and vv is None)
-                ]
+                ],
             )
 
         assert type_count_checker(count_instance(values, str), str)

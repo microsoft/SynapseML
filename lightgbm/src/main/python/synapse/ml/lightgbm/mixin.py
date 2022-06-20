@@ -38,12 +38,14 @@ class LightGBMModelMixin:
             sparse_values = [float(v) for v in vector.values]
             return list(
                 self._java_obj.getSparseFeatureShaps(
-                    vector.size, sparse_indices, sparse_values
-                )
+                    vector.size,
+                    sparse_indices,
+                    sparse_values,
+                ),
             )
         else:
             raise TypeError(
-                "Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type"
+                "Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type",
             )
 
     def getBoosterBestIteration(self):

@@ -56,7 +56,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetAlpha(double value) =>
             WrapAsALS(Reference.Invoke("setAlpha", (object)value));
-        
+
         /// <summary>
         /// Sets blockSize value for <see cref="blockSize"/>
         /// </summary>
@@ -66,7 +66,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetBlockSize(int value) =>
             WrapAsALS(Reference.Invoke("setBlockSize", (object)value));
-        
+
         /// <summary>
         /// Sets checkpointInterval value for <see cref="checkpointInterval"/>
         /// </summary>
@@ -76,7 +76,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetCheckpointInterval(int value) =>
             WrapAsALS(Reference.Invoke("setCheckpointInterval", (object)value));
-        
+
         /// <summary>
         /// Sets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
@@ -86,7 +86,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetColdStartStrategy(string value) =>
             WrapAsALS(Reference.Invoke("setColdStartStrategy", (object)value));
-        
+
         /// <summary>
         /// Sets finalStorageLevel value for <see cref="finalStorageLevel"/>
         /// </summary>
@@ -96,7 +96,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetFinalStorageLevel(string value) =>
             WrapAsALS(Reference.Invoke("setFinalStorageLevel", (object)value));
-        
+
         /// <summary>
         /// Sets implicitPrefs value for <see cref="implicitPrefs"/>
         /// </summary>
@@ -106,7 +106,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetImplicitPrefs(bool value) =>
             WrapAsALS(Reference.Invoke("setImplicitPrefs", (object)value));
-        
+
         /// <summary>
         /// Sets intermediateStorageLevel value for <see cref="intermediateStorageLevel"/>
         /// </summary>
@@ -116,7 +116,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetIntermediateStorageLevel(string value) =>
             WrapAsALS(Reference.Invoke("setIntermediateStorageLevel", (object)value));
-        
+
         /// <summary>
         /// Sets itemCol value for <see cref="itemCol"/>
         /// </summary>
@@ -126,7 +126,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetItemCol(string value) =>
             WrapAsALS(Reference.Invoke("setItemCol", (object)value));
-        
+
         /// <summary>
         /// Sets maxIter value for <see cref="maxIter"/>
         /// </summary>
@@ -136,7 +136,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetMaxIter(int value) =>
             WrapAsALS(Reference.Invoke("setMaxIter", (object)value));
-        
+
         /// <summary>
         /// Sets nonnegative value for <see cref="nonnegative"/>
         /// </summary>
@@ -146,7 +146,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetNonnegative(bool value) =>
             WrapAsALS(Reference.Invoke("setNonnegative", (object)value));
-        
+
         /// <summary>
         /// Sets numItemBlocks value for <see cref="numItemBlocks"/>
         /// </summary>
@@ -156,7 +156,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetNumItemBlocks(int value) =>
             WrapAsALS(Reference.Invoke("setNumItemBlocks", (object)value));
-        
+
         /// <summary>
         /// Sets numUserBlocks value for <see cref="numUserBlocks"/>
         /// </summary>
@@ -166,7 +166,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetNumUserBlocks(int value) =>
             WrapAsALS(Reference.Invoke("setNumUserBlocks", (object)value));
-        
+
         /// <summary>
         /// Sets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -176,7 +176,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetPredictionCol(string value) =>
             WrapAsALS(Reference.Invoke("setPredictionCol", (object)value));
-        
+
         /// <summary>
         /// Sets rank value for <see cref="rank"/>
         /// </summary>
@@ -186,7 +186,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetRank(int value) =>
             WrapAsALS(Reference.Invoke("setRank", (object)value));
-        
+
         /// <summary>
         /// Sets ratingCol value for <see cref="ratingCol"/>
         /// </summary>
@@ -196,7 +196,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetRatingCol(string value) =>
             WrapAsALS(Reference.Invoke("setRatingCol", (object)value));
-        
+
         /// <summary>
         /// Sets regParam value for <see cref="regParam"/>
         /// </summary>
@@ -206,7 +206,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetRegParam(double value) =>
             WrapAsALS(Reference.Invoke("setRegParam", (object)value));
-        
+
         /// <summary>
         /// Sets seed value for <see cref="seed"/>
         /// </summary>
@@ -216,7 +216,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALS object </returns>
         public ALS SetSeed(long value) =>
             WrapAsALS(Reference.Invoke("setSeed", (object)value));
-        
+
         /// <summary>
         /// Sets userCol value for <see cref="userCol"/>
         /// </summary>
@@ -227,7 +227,7 @@ namespace Microsoft.Spark.ML.Recommendation
         public ALS SetUserCol(string value) =>
             WrapAsALS(Reference.Invoke("setUserCol", (object)value));
 
-        
+
         /// <summary>
         /// Gets alpha value for <see cref="alpha"/>
         /// </summary>
@@ -236,8 +236,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public double GetAlpha() =>
             (double)Reference.Invoke("getAlpha");
-        
-        
+
+
         /// <summary>
         /// Gets blockSize value for <see cref="blockSize"/>
         /// </summary>
@@ -246,8 +246,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetBlockSize() =>
             (int)Reference.Invoke("getBlockSize");
-        
-        
+
+
         /// <summary>
         /// Gets checkpointInterval value for <see cref="checkpointInterval"/>
         /// </summary>
@@ -256,8 +256,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetCheckpointInterval() =>
             (int)Reference.Invoke("getCheckpointInterval");
-        
-        
+
+
         /// <summary>
         /// Gets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
@@ -266,8 +266,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetColdStartStrategy() =>
             (string)Reference.Invoke("getColdStartStrategy");
-        
-        
+
+
         /// <summary>
         /// Gets finalStorageLevel value for <see cref="finalStorageLevel"/>
         /// </summary>
@@ -276,8 +276,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetFinalStorageLevel() =>
             (string)Reference.Invoke("getFinalStorageLevel");
-        
-        
+
+
         /// <summary>
         /// Gets implicitPrefs value for <see cref="implicitPrefs"/>
         /// </summary>
@@ -286,8 +286,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public bool GetImplicitPrefs() =>
             (bool)Reference.Invoke("getImplicitPrefs");
-        
-        
+
+
         /// <summary>
         /// Gets intermediateStorageLevel value for <see cref="intermediateStorageLevel"/>
         /// </summary>
@@ -296,8 +296,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetIntermediateStorageLevel() =>
             (string)Reference.Invoke("getIntermediateStorageLevel");
-        
-        
+
+
         /// <summary>
         /// Gets itemCol value for <see cref="itemCol"/>
         /// </summary>
@@ -306,8 +306,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetItemCol() =>
             (string)Reference.Invoke("getItemCol");
-        
-        
+
+
         /// <summary>
         /// Gets maxIter value for <see cref="maxIter"/>
         /// </summary>
@@ -316,8 +316,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetMaxIter() =>
             (int)Reference.Invoke("getMaxIter");
-        
-        
+
+
         /// <summary>
         /// Gets nonnegative value for <see cref="nonnegative"/>
         /// </summary>
@@ -326,8 +326,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public bool GetNonnegative() =>
             (bool)Reference.Invoke("getNonnegative");
-        
-        
+
+
         /// <summary>
         /// Gets numItemBlocks value for <see cref="numItemBlocks"/>
         /// </summary>
@@ -336,8 +336,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetNumItemBlocks() =>
             (int)Reference.Invoke("getNumItemBlocks");
-        
-        
+
+
         /// <summary>
         /// Gets numUserBlocks value for <see cref="numUserBlocks"/>
         /// </summary>
@@ -346,8 +346,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetNumUserBlocks() =>
             (int)Reference.Invoke("getNumUserBlocks");
-        
-        
+
+
         /// <summary>
         /// Gets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -356,8 +356,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetPredictionCol() =>
             (string)Reference.Invoke("getPredictionCol");
-        
-        
+
+
         /// <summary>
         /// Gets rank value for <see cref="rank"/>
         /// </summary>
@@ -366,8 +366,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetRank() =>
             (int)Reference.Invoke("getRank");
-        
-        
+
+
         /// <summary>
         /// Gets ratingCol value for <see cref="ratingCol"/>
         /// </summary>
@@ -376,8 +376,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetRatingCol() =>
             (string)Reference.Invoke("getRatingCol");
-        
-        
+
+
         /// <summary>
         /// Gets regParam value for <see cref="regParam"/>
         /// </summary>
@@ -386,8 +386,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public double GetRegParam() =>
             (double)Reference.Invoke("getRegParam");
-        
-        
+
+
         /// <summary>
         /// Gets seed value for <see cref="seed"/>
         /// </summary>
@@ -396,8 +396,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public long GetSeed() =>
             (long)Reference.Invoke("getSeed");
-        
-        
+
+
         /// <summary>
         /// Gets userCol value for <see cref="userCol"/>
         /// </summary>
@@ -421,18 +421,18 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns>New <see cref="ALS"/> object, loaded from path.</returns>
         public static ALS Load(string path) => WrapAsALS(
             SparkEnvironment.JvmBridge.CallStaticJavaMethod(s_className, "load", path));
-        
+
         /// <summary>
         /// Saves the object so that it can be loaded later using Load. Note that these objects
         /// can be shared with Scala by Loading or Saving in Scala.
         /// </summary>
         /// <param name="path">The path to save the object to</param>
         public void Save(string path) => Reference.Invoke("save", path);
-        
+
         /// <returns>a <see cref="JavaMLWriter"/> instance for this ML instance.</returns>
         public JavaMLWriter Write() =>
             new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
-        
+
         /// <summary>
         /// Get the corresponding JavaMLReader instance.
         /// </summary>
@@ -443,8 +443,6 @@ namespace Microsoft.Spark.ML.Recommendation
         private static ALS WrapAsALS(object obj) =>
             new ALS((JvmObjectReference)obj);
 
-        
+
     }
 }
-
-        

@@ -53,7 +53,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALSModel object </returns>
         public ALSModel SetBlockSize(int value) =>
             WrapAsALSModel(Reference.Invoke("setBlockSize", (object)value));
-        
+
         /// <summary>
         /// Sets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
@@ -63,7 +63,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALSModel object </returns>
         public ALSModel SetColdStartStrategy(string value) =>
             WrapAsALSModel(Reference.Invoke("setColdStartStrategy", (object)value));
-        
+
         /// <summary>
         /// Sets itemCol value for <see cref="itemCol"/>
         /// </summary>
@@ -73,7 +73,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALSModel object </returns>
         public ALSModel SetItemCol(string value) =>
             WrapAsALSModel(Reference.Invoke("setItemCol", (object)value));
-        
+
         /// <summary>
         /// Sets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -83,7 +83,7 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns> New ALSModel object </returns>
         public ALSModel SetPredictionCol(string value) =>
             WrapAsALSModel(Reference.Invoke("setPredictionCol", (object)value));
-        
+
         /// <summary>
         /// Sets userCol value for <see cref="userCol"/>
         /// </summary>
@@ -94,7 +94,7 @@ namespace Microsoft.Spark.ML.Recommendation
         public ALSModel SetUserCol(string value) =>
             WrapAsALSModel(Reference.Invoke("setUserCol", (object)value));
 
-        
+
         /// <summary>
         /// Gets blockSize value for <see cref="blockSize"/>
         /// </summary>
@@ -103,8 +103,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public int GetBlockSize() =>
             (int)Reference.Invoke("getBlockSize");
-        
-        
+
+
         /// <summary>
         /// Gets coldStartStrategy value for <see cref="coldStartStrategy"/>
         /// </summary>
@@ -113,8 +113,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetColdStartStrategy() =>
             (string)Reference.Invoke("getColdStartStrategy");
-        
-        
+
+
         /// <summary>
         /// Gets itemCol value for <see cref="itemCol"/>
         /// </summary>
@@ -123,8 +123,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetItemCol() =>
             (string)Reference.Invoke("getItemCol");
-        
-        
+
+
         /// <summary>
         /// Gets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -133,8 +133,8 @@ namespace Microsoft.Spark.ML.Recommendation
         /// </returns>
         public string GetPredictionCol() =>
             (string)Reference.Invoke("getPredictionCol");
-        
-        
+
+
         /// <summary>
         /// Gets userCol value for <see cref="userCol"/>
         /// </summary>
@@ -144,7 +144,7 @@ namespace Microsoft.Spark.ML.Recommendation
         public string GetUserCol() =>
             (string)Reference.Invoke("getUserCol");
 
-        
+
         /// <summary>
         /// Loads the <see cref="ALSModel"/> that was previously saved using Save(string).
         /// </summary>
@@ -152,18 +152,18 @@ namespace Microsoft.Spark.ML.Recommendation
         /// <returns>New <see cref="ALSModel"/> object, loaded from path.</returns>
         public static ALSModel Load(string path) => WrapAsALSModel(
             SparkEnvironment.JvmBridge.CallStaticJavaMethod(s_className, "load", path));
-        
+
         /// <summary>
         /// Saves the object so that it can be loaded later using Load. Note that these objects
         /// can be shared with Scala by Loading or Saving in Scala.
         /// </summary>
         /// <param name="path">The path to save the object to</param>
         public void Save(string path) => Reference.Invoke("save", path);
-        
+
         /// <returns>a <see cref="JavaMLWriter"/> instance for this ML instance.</returns>
         public JavaMLWriter Write() =>
             new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
-        
+
         /// <summary>
         /// Get the corresponding JavaMLReader instance.
         /// </summary>
@@ -174,8 +174,6 @@ namespace Microsoft.Spark.ML.Recommendation
         private static ALSModel WrapAsALSModel(object obj) =>
             new ALSModel((JvmObjectReference)obj);
 
-        
+
     }
 }
-
-        

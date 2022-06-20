@@ -5,31 +5,31 @@ status: stable
 ---
 <img width="200" src="https://mmlspark.blob.core.windows.net/graphics/emails/vw-blue-dark-orange.svg" />
 
-# VowalWabbit 
+# VowalWabbit
 
 [VowpalWabbit](https://github.com/VowpalWabbit/vowpal_wabbit) (VW) is a machine learning system which
 pushes the frontier of machine learning with techniques such as online, hashing, allreduce,
-reductions, learning2search, active, and interactive learning. 
-VowpalWabbit is a popular choice in ad-tech due to it's speed and cost efficacy. 
-Furthermore it includes many advances in the area of reinforcement learning (e.g. contextual bandits). 
+reductions, learning2search, active, and interactive learning.
+VowpalWabbit is a popular choice in ad-tech due to it's speed and cost efficacy.
+Furthermore it includes many advances in the area of reinforcement learning (e.g. contextual bandits).
 
 ### Advantages of VowpalWabbit
 
 -  **Composability**: VowpalWabbit models can be incorporated into existing
     SparkML Pipelines, and used for batch, streaming, and serving workloads.
--  **Small footprint**: VowpalWabbit memory consumption is rather small and can be controlled through '-b 18' or setNumBits method.   
+-  **Small footprint**: VowpalWabbit memory consumption is rather small and can be controlled through '-b 18' or setNumBits method.
     This determines the size of the model (e.g. 2^18 * some_constant).
 -  **Feature Interactions**: Feature interactions (e.g. quadratic, cubic,... terms) are created on-the-fly within the most inner
     learning loop in VW.
-    Interactions can be specified by using the -q parameter and passing the first character of the namespaces that should be _interacted_. 
-    The VW namespace concept is mapped to Spark using columns. The column name is used as namespace name, thus one sparse or dense Spark ML vector corresponds to the features of a single namespace. 
+    Interactions can be specified by using the -q parameter and passing the first character of the namespaces that should be _interacted_.
+    The VW namespace concept is mapped to Spark using columns. The column name is used as namespace name, thus one sparse or dense Spark ML vector corresponds to the features of a single namespace.
     To allow passing of multiple namespaces the VW estimator (classifier or regression) expose an additional property called _additionalFeatures_. Users can pass an array of column names.
 -  **Simple deployment**: all native dependencies are packaged into a single jars (including boost and zlib).
 -  **VowpalWabbit command line arguments**: users can pass VW command line arguments to control the learning process.
--  **VowpalWabbit binary models** Users can supply an inital VowpalWabbit model to start the training which can be produced outside of 
+-  **VowpalWabbit binary models** Users can supply an inital VowpalWabbit model to start the training which can be produced outside of
     VW on Spark by invoking _setInitialModel_ and pass the model as a byte array. Similarly users can access the binary model by invoking
     _getModel_ on the trained model object.
--  **Java-based hashing** VWs version of murmur-hash was re-implemented in Java (praise to [JackDoe](https://github.com/jackdoe)) 
+-  **Java-based hashing** VWs version of murmur-hash was re-implemented in Java (praise to [JackDoe](https://github.com/jackdoe))
     providing a major performance improvement compared to passing input strings through JNI and hashing in C++.
 -  **Cross language** VowpalWabbit on Spark is available on Spark, PySpark, and SparklyR.
 
@@ -196,8 +196,8 @@ Finally, we evaluate the model performance using ComputeModelStatistics function
 
 ```python
 from synapse.ml.train import ComputeModelStatistics
-metrics = ComputeModelStatistics(evaluationMetric="classification", 
-                                 labelCol="label", 
+metrics = ComputeModelStatistics(evaluationMetric="classification",
+                                 labelCol="label",
                                  scoredLabelsCol="prediction").transform(prediction)
 display(metrics)
 ```
@@ -208,9 +208,9 @@ In this example, we show how to build regression model with VW using Boston's ho
 
 #### Read dataset
 
-We use [*Boston house price* dataset](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_boston.html) 
-. 
-The data was collected in 1978 from Boston area and consists of 506 entries with 14 features including the value of homes. 
+We use [*Boston house price* dataset](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_boston.html)
+.
+The data was collected in 1978 from Boston area and consists of 506 entries with 14 features including the value of homes.
 We use `sklearn.datasets` module to download it easily, then split the set into training and testing by 75/25.
 
 
@@ -419,8 +419,8 @@ Note: Actions are all five TAction_x_topic columns.
 
 
 ```python
-from pyspark.sql.functions import col 
-from pyspark.sql.types import IntegerType, DoubleType 
+from pyspark.sql.functions import col
+from pyspark.sql.types import IntegerType, DoubleType
 data = data.withColumn('GUser_id', col('c.GUser.id'))\
   .withColumn('GUser_major', col('c.GUser.major'))\
   .withColumn('GUser_hobby', col('c.GUser.hobby'))\
@@ -435,7 +435,7 @@ data = data.withColumn('GUser_id', col('c.GUser.id'))\
   .withColumn('probability', col('_label_probability'))\
   .select('GUser_id', 'GUser_major', 'GUser_hobby', 'GUser_favorite_character', 'TAction_0_topic', 'TAction_1_topic', 'TAction_2_topic', 'TAction_3_topic', 'TAction_4_topic', 'chosenAction', 'label', 'probability')
 
-print("Schema: ") 
+print("Schema: ")
 data.printSchema()
 ```
 

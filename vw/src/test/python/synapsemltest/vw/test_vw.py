@@ -16,7 +16,7 @@ class VowpalWabbitSpec(unittest.TestCase):
     def get_data(self):
         # create sample data
         schema = StructType(
-            [StructField("label", DoubleType()), StructField("text", StringType())]
+            [StructField("label", DoubleType()), StructField("text", StringType())],
         )
 
         data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame(

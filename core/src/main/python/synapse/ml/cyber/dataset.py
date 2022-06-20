@@ -37,7 +37,10 @@ class DataFactory:
         self.rand = random.Random(42)
 
     def to_pdf(
-        self, users: List[str], resources: List[str], likelihoods: List[float]
+        self,
+        users: List[str],
+        resources: List[str],
+        likelihoods: List[float],
     ) -> pd.DataFrame:
         return pd.DataFrame(
             data={
@@ -46,7 +49,7 @@ class DataFactory:
                 AccessAnomalyConfig.default_likelihood_col: [
                     float(s) for s in likelihoods
                 ],
-            }
+            },
         )
 
     def tups2pdf(self, tup_arr: List[Tuple[str, str, float]]) -> pd.DataFrame:
@@ -129,11 +132,12 @@ class DataFactory:
             + self.edges_between(self.eng_users, self.join_resources, 1.0, True)
             + self.edges_between(self.hr_users, self.hr_resources, ratio, True)
             + self.edges_between(self.fin_users, self.fin_resources, ratio, True)
-            + self.edges_between(self.eng_users, self.eng_resources, ratio, True)
+            + self.edges_between(self.eng_users, self.eng_resources, ratio, True),
         )
 
     def create_clustered_intra_test_data(
-        self, train: Optional[pd.DataFrame] = None
+        self,
+        train: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         not_set = (
             set(
@@ -143,7 +147,7 @@ class DataFactory:
                         row[AccessAnomalyConfig.default_res_col],
                     )
                     for _, row in train.iterrows()
-                ]
+                ],
             )
             if train is not None
             else None
@@ -154,14 +158,26 @@ class DataFactory:
             + self.edges_between(self.fin_users, self.join_resources, 1.0, True)
             + self.edges_between(self.eng_users, self.join_resources, 1.0, True)
             + self.edges_between(
-                self.hr_users, self.hr_resources, 0.025, False, not_set
+                self.hr_users,
+                self.hr_resources,
+                0.025,
+                False,
+                not_set,
             )
             + self.edges_between(
-                self.fin_users, self.fin_resources, 0.05, False, not_set
+                self.fin_users,
+                self.fin_resources,
+                0.05,
+                False,
+                not_set,
             )
             + self.edges_between(
-                self.eng_users, self.eng_resources, 0.035, False, not_set
-            )
+                self.eng_users,
+                self.eng_resources,
+                0.035,
+                False,
+                not_set,
+            ),
         )
 
     def create_clustered_inter_test_data(self) -> pd.DataFrame:
@@ -174,7 +190,7 @@ class DataFactory:
             + self.edges_between(self.fin_users, self.hr_resources, 0.05, False)
             + self.edges_between(self.fin_users, self.eng_resources, 0.05, False)
             + self.edges_between(self.eng_users, self.fin_resources, 0.035, False)
-            + self.edges_between(self.eng_users, self.hr_resources, 0.035, False)
+            + self.edges_between(self.eng_users, self.hr_resources, 0.035, False),
         )
 
     def create_fixed_training_data(self) -> pd.DataFrame:

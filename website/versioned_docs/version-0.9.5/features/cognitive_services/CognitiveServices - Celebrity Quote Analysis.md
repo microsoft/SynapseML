@@ -77,7 +77,7 @@ This stage performs OCR on the images to recognize the quotes.
 
 
 ```python
-from synapse.ml.stages import UDFTransformer 
+from synapse.ml.stages import UDFTransformer
 
 recognizeText = RecognizeText()\
   .setSubscriptionKey(VISION_API_KEY)\

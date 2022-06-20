@@ -45,7 +45,7 @@ namespace Synapse.ML.Automl
                 typeof(DistObject),
                 "s_className");
             for (int i = 0; i < jvmObjects.Length; i++)
-            {   
+            {
                 Param param = new Param((JvmObjectReference)jvmObjects[i].Invoke("_1"));
                 JvmObjectReference distObject = (JvmObjectReference)jvmObjects[i].Invoke("_2");
                 if (JvmObjectUtils.TryConstructInstanceFromJvmObject(
@@ -197,7 +197,7 @@ namespace Synapse.ML.Automl
 
         public override T GetNext() =>
             (T)Reference.Invoke("getNext");
-        
+
         public override ParamPair<T> GetParamPair(Param param) =>
             new ParamPair<T>((JvmObjectReference)Reference.Invoke("getParamPair", param));
 

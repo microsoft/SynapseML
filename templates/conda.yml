@@ -16,4 +16,3 @@ steps:
       conda env create -f environment.yml  -v -v -v
     displayName: Create Anaconda environment
     condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
-

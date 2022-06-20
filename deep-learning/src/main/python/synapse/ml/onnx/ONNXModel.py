@@ -81,7 +81,8 @@ class TensorInfo(ValueInfo):
 
     def __str__(self):
         return "TensorInfo(shape={}, type={})".format(
-            "[" + ",".join(map(str, self.shape)) + "]", self.type
+            "[" + ",".join(map(str, self.shape)) + "]",
+            self.type,
         )
 
     @classmethod
@@ -128,7 +129,11 @@ class MapInfo(ValueInfo):
 
 class SequenceInfo(ValueInfo):
     def __init__(
-        self, length: int, sequence_of_maps: bool, map_info: MapInfo, sequence_type: str
+        self,
+        length: int,
+        sequence_of_maps: bool,
+        map_info: MapInfo,
+        sequence_type: str,
     ):
         self.length = length
         self.sequence_of_maps = sequence_of_maps
@@ -153,9 +158,10 @@ class SequenceInfo(ValueInfo):
         length = java_gateway.get_field(java_sequence_info, "length")
         sequence_of_maps = java_gateway.get_field(java_sequence_info, "sequenceOfMaps")
         map_info = MapInfo.from_java(
-            java_gateway.get_field(java_sequence_info, "mapInfo")
+            java_gateway.get_field(java_sequence_info, "mapInfo"),
         )
         sequence_type = java_gateway.get_field(
-            java_sequence_info, "sequenceType"
+            java_sequence_info,
+            "sequenceType",
         ).toString()
         return cls(length, sequence_of_maps, map_info, sequence_type)

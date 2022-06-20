@@ -34,7 +34,7 @@ syanpseMLConf = pyspark.SparkConf().setAll(
             "spark.jars.repositories",
             "https://mmlspark.azureedge.net/maven,https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-azure,https://mvnrepository.com/artifact/com.microsoft.azure/azure-storage",
         ),
-    ]
+    ],
 )
 
 spark = (

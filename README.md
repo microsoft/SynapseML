@@ -3,8 +3,8 @@
 # Synapse Machine Learning
 
 SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
-SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of 
-machine learning, analytics, and model deployment workflows. 
+SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of
+machine learning, analytics, and model deployment workflows.
 SynapseML adds many deep learning and data science tools to the Spark ecosystem,
 including seamless integration of Spark Machine Learning pipelines with the [Open Neural Network Exchange
 (ONNX)](https://onnx.ai),
@@ -14,8 +14,8 @@ including seamless integration of Spark Machine Learning pipelines with the [Ope
 [OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
 for a variety of datasources.
 
-SynapseML also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users 
-can embed **any** web service into their SparkML models. 
+SynapseML also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users
+can embed **any** web service into their SparkML models.
 For production grade deployment, the Spark Serving project enables high throughput,
 sub-millisecond latency web services, backed by your Spark cluster.
 
@@ -58,7 +58,7 @@ PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
 | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
 |:---:|:---:|:---:|
 |  [**Isolation Forest on Spark**](https://microsoft.github.io/SynapseML/docs/documentation/estimators/estimators_core/#isolationforest)  | [**CyberML**](https://github.com/microsoft/SynapseML/blob/master/notebooks/features/other/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | [**Conditional KNN**](https://microsoft.github.io/SynapseML/docs/features/other/ConditionalKNN%20-%20Exploring%20Art%20Across%20Cultures/)  |
-|  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries | 
+|  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries |
 
 ## Documentation and Examples
 
@@ -80,7 +80,7 @@ First select the correct platform that you are installing SynapseML into:
 <!--te-->
 
 
-### Synapse Analytics 
+### Synapse Analytics
 
 In Azure Synapse notebooks please place the following in the first cell of your notebook.
 
@@ -123,7 +123,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.5` 
+For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.9.5`
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
@@ -208,11 +208,11 @@ and some necessary custom wrappers may be missing.
 
 ### Building from source
 
-SynapseML has recently transitioned to a new build infrastructure. 
+SynapseML has recently transitioned to a new build infrastructure.
 For detailed developer docs please see the [Developer Readme](website/docs/reference/developer-readme.md)
 
-If you are an existing synapsemldeveloper, you will need to reconfigure your 
-development setup. We now support platform independent development and 
+If you are an existing synapsemldeveloper, you will need to reconfigure your
+development setup. We now support platform independent development and
 better integrate with intellij and SBT.
  If you encounter issues please reach out to our support email!
 

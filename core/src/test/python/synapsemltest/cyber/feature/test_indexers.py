@@ -18,7 +18,7 @@ class TestIndexers(unittest.TestCase):
                 t.StructField("res", t.StringType(), nullable=True),
                 t.StructField("expected_uid", t.IntegerType(), nullable=True),
                 t.StructField("expected_rid", t.IntegerType(), nullable=True),
-            ]
+            ],
         )
 
         return sc.createDataFrame(
@@ -49,7 +49,7 @@ class TestIndexers(unittest.TestCase):
             [
                 indexers.IdIndexer("user", "tenant", "actual_uid", True),
                 indexers.IdIndexer("res", "tenant", "actual_rid", True),
-            ]
+            ],
         )
 
         df = self.create_sample_dataframe()
@@ -69,7 +69,7 @@ class TestIndexers(unittest.TestCase):
             [
                 indexers.IdIndexer("user", "tenant", "actual_uid", True),
                 indexers.IdIndexer("res", "tenant", "actual_rid", True),
-            ]
+            ],
         )
 
         df = self.create_sample_dataframe()
@@ -80,7 +80,7 @@ class TestIndexers(unittest.TestCase):
         assert new_df.filter(f.col("actual_rid") <= 0).count() == 0
 
         orig_df = model.undo_transform(
-            new_df.select("tenant", "actual_uid", "actual_rid")
+            new_df.select("tenant", "actual_uid", "actual_rid"),
         )
 
         assert (
@@ -107,7 +107,7 @@ class TestIndexers(unittest.TestCase):
             [
                 indexers.IdIndexer("user", "tenant", "actual_uid", False),
                 indexers.IdIndexer("res", "tenant", "actual_rid", False),
-            ]
+            ],
         )
 
         df = self.create_sample_dataframe()
@@ -157,7 +157,9 @@ class TestIdIndexerExplain(ExplainTester):
 
         params = ["inputCol", "partitionKey", "outputCol", "resetPerPartition"]
         self.check_explain(
-            indexers.IdIndexer("input", "tenant", "output", True), params, counts
+            indexers.IdIndexer("input", "tenant", "output", True),
+            params,
+            counts,
         )
 
 

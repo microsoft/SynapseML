@@ -84,7 +84,7 @@ jobs:
         (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.${PACKAGE}.**") ||
         (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.${PACKAGE}.**")
       env:
-        PACKAGE: ${{ matrix.package.name }} 
+        PACKAGE: ${{ matrix.package.name }}
         FFMPEG: ${{ matrix.package.ffmpeg }}
         FLAKY: ${{ matrix.package.flaky }}
     - name: Publish Test Results
@@ -113,4 +113,3 @@ jobs:
         chmod +x .codecov
         echo "Starting Codecov Upload"
         ./.codecov -t ${{ steps.GetKeyVaultSecrets.outputs.codecov-token }}
-

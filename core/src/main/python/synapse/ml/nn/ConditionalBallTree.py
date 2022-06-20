@@ -19,7 +19,10 @@ class ConditionalBallTree(object):
         """
         if java_obj is None:
             self._jconditional_balltree = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.nn.ConditionalBallTree.apply(
-                keys, values, labels, leafSize
+                keys,
+                values,
+                labels,
+                leafSize,
             )
         else:
             self._jconditional_balltree = java_obj
@@ -35,7 +38,9 @@ class ConditionalBallTree(object):
         return [
             (bm.index(), bm.distance())
             for bm in self._jconditional_balltree.findMaximumInnerProducts(
-                queryPoint, conditioner, k
+                queryPoint,
+                conditioner,
+                k,
             )
         ]
 
@@ -45,6 +50,6 @@ class ConditionalBallTree(object):
     @staticmethod
     def load(filename):
         java_obj = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.nn.ConditionalBallTree.load(
-            filename
+            filename,
         )
         return ConditionalBallTree(None, None, None, None, java_obj=java_obj)

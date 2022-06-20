@@ -32,14 +32,20 @@ def _make_dot():
         if (v is not None) and (u is not None):
             vv = (
                 np.pad(
-                    np.array(v), (0, len(u) - len(v)), "constant", constant_values=1.0
+                    np.array(v),
+                    (0, len(u) - len(v)),
+                    "constant",
+                    constant_values=1.0,
                 )
                 if len(v) < len(u)
                 else np.array(v)
             )
             uu = (
                 np.pad(
-                    np.array(u), (0, len(v) - len(u)), "constant", constant_values=1.0
+                    np.array(u),
+                    (0, len(v) - len(u)),
+                    "constant",
+                    constant_values=1.0,
                 )
                 if len(u) < len(v)
                 else np.array(u)
@@ -113,7 +119,7 @@ class _UserResourceFeatureVectorMapping:
         self.res_feature_vector_mapping_df = res_feature_vector_mapping_df
 
         assert self.history_access_df is None or set(
-            self.history_access_df.schema.fieldNames()
+            self.history_access_df.schema.fieldNames(),
         ) == {tenant_col, user_col, res_col}, self.history_access_df.schema.fieldNames()
 
     def replace_mappings(
@@ -269,12 +275,16 @@ class AccessAnomalyModel(Transformer):
                 t.StructField("has_user2component_mappings_df", t.BooleanType(), False),
                 t.StructField("has_res2component_mappings_df", t.BooleanType(), False),
                 t.StructField(
-                    "has_user_feature_vector_mapping_df", t.BooleanType(), False
+                    "has_user_feature_vector_mapping_df",
+                    t.BooleanType(),
+                    False,
                 ),
                 t.StructField(
-                    "has_res_feature_vector_mapping_df", t.BooleanType(), False
+                    "has_res_feature_vector_mapping_df",
+                    t.BooleanType(),
+                    False,
                 ),
-            ]
+            ],
         )
 
     def save(self, path: str, path_suffix: str = "", output_format: str = "parquet"):
@@ -309,30 +319,30 @@ class AccessAnomalyModel(Transformer):
                     is not None,
                     self.user_res_feature_vector_mapping.res_feature_vector_mapping_df
                     is not None,
-                )
+                ),
             ],
             AccessAnomalyModel._metadata_schema(),
         )
 
         metadata_df.write.format(output_format).save(
-            os.path.join(path, "metadata_df", path_suffix)
+            os.path.join(path, "metadata_df", path_suffix),
         )
 
         if self.user_res_feature_vector_mapping.history_access_df is not None:
             self.user_res_feature_vector_mapping.history_access_df.write.format(
-                output_format
+                output_format,
             ).save(os.path.join(path, "history_access_df", path_suffix))
 
         if self.user_res_feature_vector_mapping.user2component_mappings_df is not None:
             self.user_res_feature_vector_mapping.user2component_mappings_df.write.format(
-                output_format
+                output_format,
             ).save(
-                os.path.join(path, "user2component_mappings_df", path_suffix)
+                os.path.join(path, "user2component_mappings_df", path_suffix),
             )
 
         if self.user_res_feature_vector_mapping.res2component_mappings_df is not None:
             self.user_res_feature_vector_mapping.res2component_mappings_df.write.format(
-                output_format
+                output_format,
             ).save(os.path.join(path, "res2component_mappings_df", path_suffix))
 
         if (
@@ -340,9 +350,9 @@ class AccessAnomalyModel(Transformer):
             is not None
         ):
             self.user_res_feature_vector_mapping.user_feature_vector_mapping_df.write.format(
-                output_format
+                output_format,
             ).save(
-                os.path.join(path, "user_feature_vector_mapping_df", path_suffix)
+                os.path.join(path, "user_feature_vector_mapping_df", path_suffix),
             )
 
         if (
@@ -350,17 +360,19 @@ class AccessAnomalyModel(Transformer):
             is not None
         ):
             self.user_res_feature_vector_mapping.res_feature_vector_mapping_df.write.format(
-                output_format
+                output_format,
             ).save(
-                os.path.join(path, "res_feature_vector_mapping_df", path_suffix)
+                os.path.join(path, "res_feature_vector_mapping_df", path_suffix),
             )
 
     @staticmethod
     def load(
-        spark: SQLContext, path: str, output_format: str = "parquet"
+        spark: SQLContext,
+        path: str,
+        output_format: str = "parquet",
     ) -> "AccessAnomalyModel":
         metadata_df = spark.read.format(output_format).load(
-            os.path.join(path, "metadata_df")
+            os.path.join(path, "metadata_df"),
         )
         assert metadata_df.count() == 1
 
@@ -385,7 +397,7 @@ class AccessAnomalyModel(Transformer):
 
         history_access_df = (
             spark.read.format(output_format).load(
-                os.path.join(path, "history_access_df")
+                os.path.join(path, "history_access_df"),
             )
             if has_history_access_df
             else None
@@ -393,7 +405,7 @@ class AccessAnomalyModel(Transformer):
 
         user2component_mappings_df = (
             spark.read.format(output_format).load(
-                os.path.join(path, "user2component_mappings_df")
+                os.path.join(path, "user2component_mappings_df"),
             )
             if has_user2component_mappings_df
             else None
@@ -401,7 +413,7 @@ class AccessAnomalyModel(Transformer):
 
         res2component_mappings_df = (
             spark.read.format(output_format).load(
-                os.path.join(path, "res2component_mappings_df")
+                os.path.join(path, "res2component_mappings_df"),
             )
             if has_res2component_mappings_df
             else None
@@ -409,7 +421,7 @@ class AccessAnomalyModel(Transformer):
 
         user_feature_vector_mapping_df = (
             spark.read.format(output_format).load(
-                os.path.join(path, "user_feature_vector_mapping_df")
+                os.path.join(path, "user_feature_vector_mapping_df"),
             )
             if has_user_feature_vector_mapping_df
             else None
@@ -417,7 +429,7 @@ class AccessAnomalyModel(Transformer):
 
         res_feature_vector_mapping_df = (
             spark.read.format(output_format).load(
-                os.path.join(path, "res_feature_vector_mapping_df")
+                os.path.join(path, "res_feature_vector_mapping_df"),
             )
             if has_res_feature_vector_mapping_df
             else None
@@ -516,7 +528,11 @@ class AccessAnomalyModel(Transformer):
             .join(res_mapping_df, [tenant_col, res_col], how="left")
             .withColumn(output_col, value_calc())
             .drop(
-                user_vec_col, res_vec_col, "user_component", "res_component", seen_token
+                user_vec_col,
+                res_vec_col,
+                "user_component",
+                "res_component",
+                seen_token,
             )
         )
 
@@ -550,7 +566,8 @@ class ConnectedComponents:
             .cache()
         )
         user2index = spark_utils.DataFrameUtils.zip_with_index(
-            users, col_name="user_component"
+            users,
+            col_name="user_component",
         )
         user2components = user2index
         res2components = None
@@ -862,7 +879,10 @@ class AccessAnomaly(Estimator):
             comp_df = None
 
         scaled_df = self._get_scaled_df(indexed_df).select(
-            tenant_col, indexed_user_col, indexed_res_col, scaled_likelihood_col
+            tenant_col,
+            indexed_user_col,
+            indexed_res_col,
+            scaled_likelihood_col,
         )
 
         return scaled_df.union(comp_df) if comp_df is not None else scaled_df
@@ -887,7 +907,8 @@ class AccessAnomaly(Estimator):
 
         res_mapping_df = (
             spark_model.itemFactors.select(
-                f.col("id").alias(indexed_res_col), f.col("features").alias(res_vec_col)
+                f.col("id").alias(indexed_res_col),
+                f.col("features").alias(res_vec_col),
             )
             .join(df.select(indexed_res_col, tenant_col).distinct(), indexed_res_col)
             .select(tenant_col, indexed_res_col, res_vec_col)
@@ -896,7 +917,8 @@ class AccessAnomaly(Estimator):
         return user_mapping_df, res_mapping_df
 
     def create_spark_model_vectors_df(
-        self, df: DataFrame
+        self,
+        df: DataFrame,
     ) -> _UserResourceFeatureVectorMapping:
         tenant_col = self.tenant_col
         indexed_user_col = self.indexed_user_col
@@ -990,7 +1012,7 @@ class AccessAnomaly(Estimator):
                     output_col=self.indexed_res_col,
                     reset_per_partition=self.separate_tenants,
                 ),
-            ]
+            ],
         )
 
         the_indexer_model = the_indexer.fit(df)
@@ -1000,10 +1022,11 @@ class AccessAnomaly(Estimator):
         enriched_df = self._enrich_and_normalize(indexed_df).cache()
 
         user_res_feature_vector_mapping_df = self.create_spark_model_vectors_df(
-            enriched_df
+            enriched_df,
         )
         user_res_norm_cf_df_model = ModelNormalizeTransformer(
-            enriched_df, self.rank_param
+            enriched_df,
+            self.rank_param,
         ).transform(user_res_feature_vector_mapping_df)
 
         # convert user and resource indices back to names
@@ -1019,10 +1042,10 @@ class AccessAnomaly(Estimator):
 
         # do the actual index to name mapping (using undo_transform)
         final_user_mapping_df = user_index_model.undo_transform(
-            norm_user_mapping_df
+            norm_user_mapping_df,
         ).drop(indexed_user_col)
         final_res_mapping_df = res_index_model.undo_transform(norm_res_mapping_df).drop(
-            indexed_res_col
+            indexed_res_col,
         )
 
         tenant_col, user_col, res_col = self.tenant_col, self.user_col, self.res_col
@@ -1035,7 +1058,9 @@ class AccessAnomaly(Estimator):
         )
 
         user2component_mappings_df, res2component_mappings_df = ConnectedComponents(
-            tenant_col, user_col, res_col
+            tenant_col,
+            user_col,
+            res_col,
         ).transform(access_df)
 
         return AccessAnomalyModel(
@@ -1112,7 +1137,8 @@ class ModelNormalizeTransformer:
         return append_bias
 
     def transform(
-        self, user_res_cf_df_model: _UserResourceFeatureVectorMapping
+        self,
+        user_res_cf_df_model: _UserResourceFeatureVectorMapping,
     ) -> _UserResourceFeatureVectorMapping:
         likelihood_col_token = "__likelihood__"
 
@@ -1140,28 +1166,39 @@ class ModelNormalizeTransformer:
                 res_col,
                 res_vec_col,
                 dot(f.col(user_vec_col), f.col(res_vec_col)).alias(
-                    likelihood_col_token
+                    likelihood_col_token,
                 ),
             )
         )
 
         scaler_model = scalers.StandardScalarScaler(
-            likelihood_col_token, tenant_col, user_vec_col
+            likelihood_col_token,
+            tenant_col,
+            user_vec_col,
         ).fit(fixed_df)
 
         per_group_stats: DataFrame = scaler_model.per_group_stats
         assert isinstance(per_group_stats, DataFrame)
 
         append2user_bias = self._make_append_bias(
-            user_col, res_col, user_col, user_col, self.rank
+            user_col,
+            res_col,
+            user_col,
+            user_col,
+            self.rank,
         )
         append2res_bias = self._make_append_bias(
-            user_col, res_col, res_col, user_col, self.rank
+            user_col,
+            res_col,
+            res_col,
+            user_col,
+            self.rank,
         )
 
         fixed_user_mapping_df = (
             user_res_cf_df_model.user_feature_vector_mapping_df.join(
-                per_group_stats, tenant_col
+                per_group_stats,
+                tenant_col,
             ).select(
                 tenant_col,
                 user_col,
@@ -1178,7 +1215,8 @@ class ModelNormalizeTransformer:
         )
 
         fixed_res_mapping_df = user_res_cf_df_model.res_feature_vector_mapping_df.join(
-            per_group_stats, tenant_col
+            per_group_stats,
+            tenant_col,
         ).select(
             tenant_col,
             res_col,
@@ -1186,5 +1224,6 @@ class ModelNormalizeTransformer:
         )
 
         return user_res_cf_df_model.replace_mappings(
-            fixed_user_mapping_df, fixed_res_mapping_df
+            fixed_user_mapping_df,
+            fixed_res_mapping_df,
         )
