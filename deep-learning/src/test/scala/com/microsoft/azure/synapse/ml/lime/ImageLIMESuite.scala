@@ -8,11 +8,11 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
 import com.microsoft.azure.synapse.ml.io.split1.FileReaderUtils
+import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import com.microsoft.azure.synapse.ml.stages.udfs.get_value_udf
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.col

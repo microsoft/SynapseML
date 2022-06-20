@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.downloader
 
-import java.io.InputStream
-import java.net.URI
 import org.apache.commons.codec.digest.DigestUtils
 import spray.json._
 
+import java.io.InputStream
+import java.net.URI
 import scala.collection.JavaConverters._
 
 private[ml] object NamingConventions {

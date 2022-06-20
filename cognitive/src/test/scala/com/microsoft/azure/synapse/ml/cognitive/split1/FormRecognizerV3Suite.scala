@@ -6,8 +6,8 @@ package com.microsoft.azure.synapse.ml.cognitive.split1
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 import scala.collection.immutable.HashMap

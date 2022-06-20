@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-import java.net.InetAddress
-
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.injections.BlockManagerUtils
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.slf4j.Logger
+
+import java.net.InetAddress
 
 object ClusterUtil {
   /** Get number of tasks from dummy dataset for 1 executor.

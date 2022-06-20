@@ -3,19 +3,15 @@
 
 package org.apache.spark.ml
 
-import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
-
-import java.io.{InputStream, ObjectOutputStream, OutputStream}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
+import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql._
-import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods.{compact, render}
 
+import java.io.{InputStream, ObjectOutputStream, OutputStream}
 import scala.language.existentials
-import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 abstract class Serializer[O] {

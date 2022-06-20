@@ -3,18 +3,10 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import java.io.{BufferedReader, InputStreamReader}
-import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
-import java.util
-import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
-import java.util.{Optional, UUID}
 import com.jcraft.jsch.Session
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.io.http.{
-  HTTPRequestData, HTTPResponseData, HTTPSchema, PortForwarding, StatusLineData}
+import com.microsoft.azure.synapse.ml.io.http._
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-
-import javax.annotation.concurrent.GuardedBy
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
@@ -24,8 +16,8 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.catalog.{SupportsRead, Table, TableCapability}
-import org.apache.spark.sql.connector.read.streaming._
 import org.apache.spark.sql.connector.read._
+import org.apache.spark.sql.connector.read.streaming._
 import org.apache.spark.sql.execution.streaming.HTTPServerUtils
 import org.apache.spark.sql.internal.connector.SimpleTableProvider
 import org.apache.spark.sql.sources.DataSourceRegister
@@ -36,6 +28,12 @@ import org.apache.spark.{SparkContext, TaskContext}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
+import java.io.{BufferedReader, InputStreamReader}
+import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
+import java.util
+import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.{Optional, UUID}
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

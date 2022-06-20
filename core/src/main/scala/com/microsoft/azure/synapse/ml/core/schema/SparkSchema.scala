@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.schema
 
-import SchemaConstants._
+import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants._
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 

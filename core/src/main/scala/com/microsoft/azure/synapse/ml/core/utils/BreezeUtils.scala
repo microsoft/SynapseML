@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, SparseVector => BSV, Vector => BV}
 import org.apache.spark.ml.linalg.{Matrices, Matrix, Vector, Vectors}
-import breeze.linalg.{DenseVector => BDV, DenseMatrix => BDM, SparseVector => BSV, Vector => BV}
 
 object BreezeUtils {
   implicit class SparkVectorCanConvertToBreeze(sv: Vector) {

@@ -3,13 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
-import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 import com.microsoft.CNTK.SerializableFunction
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.ParamEquality
 import org.apache.spark.ml.param.Params
-import org.scalactic.TripleEquals._
+
+import java.io.{ByteArrayOutputStream, ObjectOutputStream}
 
 /** Param for ByteArray.  Needed as spark has explicit params for many different
   * types but not ByteArray.
@@ -42,4 +42,15 @@ class CNTKFunctionParam(parent: Params, name: String, doc: String,
         throw new AssertionError("Values did not have DataFrame type")
     }
   }
+
+  override def dotnetSetter(dotnetClassName: String, capName: String, dotnetClassWrapperName: String): String = {
+    name match {
+      case "model" =>
+        s"""|public $dotnetClassName SetModelLocation(string value) =>
+            |    $dotnetClassWrapperName(Reference.Invoke("setModelLocation", value));
+            |""".stripMargin
+      case _ => super.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)
+    }
+  }
+
 }

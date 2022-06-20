@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.params.{FObjTrait, BaseTrainParams}
 import com.microsoft.azure.synapse.ml.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.slf4j.Logger
 
 @SerialVersionUID(100L)

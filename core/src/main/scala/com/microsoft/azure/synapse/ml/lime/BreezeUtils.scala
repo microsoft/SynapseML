@@ -3,11 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import breeze.generic.UFunc
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.regression.{LassoResult, LeastSquaresRegressionResult, leastSquaresDestructive}
-import org.apache.spark.ml.regression.LinearRegression
-import org.apache.spark.ml.linalg._
 import spire.implicits.cfor
 
 /*

@@ -3,31 +3,32 @@
 
 package com.microsoft.azure.synapse.ml.automl
 
-import java.util.concurrent._
-import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
 import com.microsoft.azure.synapse.ml.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.util._
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification.ClassificationModel
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
+import org.apache.spark.ml.util._
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
 import java.lang.reflect.Method
+import java.util.concurrent._
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.reflect.internal.util.ScalaClassLoader
 import scala.util.control.NonFatal
-import scala.collection.JavaConverters._
 
 /** Tunes model hyperparameters
   *
