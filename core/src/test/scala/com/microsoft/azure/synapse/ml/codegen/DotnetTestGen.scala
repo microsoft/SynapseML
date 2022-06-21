@@ -73,7 +73,7 @@ object DotnetTestGen {
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
-         |    <TargetFramework>net5.0</TargetFramework>
+         |    <TargetFramework>netstandard2.1</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
          |    <AssemblyName>SynapseML.$curProject.Test</AssemblyName>
          |  </PropertyGroup>
