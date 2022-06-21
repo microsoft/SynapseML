@@ -99,6 +99,12 @@ genBuildInfo := {
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
 }
 
+val rootGenDir = SettingKey[File]("rootGenDir")
+rootGenDir := {
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
+  join(targetDir, "generated")
+}
+
 // scalastyle:off line.size.limit
 val genSleetConfig = TaskKey[Unit]("genSleetConfig",
   "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
@@ -148,21 +154,9 @@ publishDotnetTestBase := {
   val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
   if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
-  runCmd(
-    Seq("dotnet", "pack", "--output", join(dotnetTestBaseDir, "target").getAbsolutePath),
-    dotnetTestBaseDir
-  )
+  packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir, "target", s"SynapseML.DotnetE2ETest.0.9.1.nupkg").getAbsolutePath
-  runCmd(
-    Seq("sleet", "push", packagePath, "--config", join(rootGenDir.value, "sleet.json").getAbsolutePath,
-      "--source", "SynapseMLNuget", "--force")
-  )
-}
-
-val rootGenDir = SettingKey[File]("rootGenDir")
-rootGenDir := {
-  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
-  join(targetDir, "generated")
+  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
 }
 
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {

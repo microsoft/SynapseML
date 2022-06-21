@@ -298,19 +298,14 @@ object CodegenPlugin extends AutoPlugin {
       val sourceDotnetDir = join(dotnetSrcDir.getAbsolutePath, genPackageNamespace.value)
       FileUtils.copyDirectory(sourceDotnetDir, destDotnetDir)
       val packageDir = join(codegenDir.value, "package", "dotnet").absolutePath
-      runCmd(
-        Seq("dotnet", "pack", "--output", packageDir),
-        join(dotnetSrcDir, "synapse", "ml"))
+      packDotnetAssemblyCmd(packageDir, join(dotnetSrcDir, "synapse", "ml"))
     },
     publishDotnet := {
       packageDotnet.value
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
       val packagePath = join(codegenDir.value, "package", "dotnet",
         s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
-      val sleetConfigFile = join(mergePyCodeDir.value, "sleet.json").getAbsolutePath
-      runCmd(
-        Seq("sleet", "push", packagePath, "--config", sleetConfigFile, "--source", "SynapseMLNuget", "--force")
-      )
+      publishDotnetAssemblyCmd(packagePath, mergePyCodeDir.value)
     },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
