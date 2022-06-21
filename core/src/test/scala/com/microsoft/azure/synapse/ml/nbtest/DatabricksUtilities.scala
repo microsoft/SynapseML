@@ -28,6 +28,7 @@ object DatabricksUtilities {
   val Region = "eastus"
   val PoolName = "synapseml-build-10.1"
   val AdbRuntime = "10.1.x-scala2.12"
+  val AdbGpuRuntime = "10.2.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -37,6 +38,7 @@ object DatabricksUtilities {
   val BaseURL = s"https://$Region.azuredatabricks.net/api/2.0/"
   lazy val PoolId: String = getPoolIdByName(PoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
+  lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
@@ -56,14 +58,26 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "mlflow"))
   ).toJson.compactPrint
 
+  val DLLibraries: String = List(
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
+    Map("pypi" -> Map("package" -> "torchvision==0.12.0")),
+    Map("pypi" -> Map("package" -> "transformers==4.19.0"))
+  ).toJson.compactPrint
+
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
     FileUtilities.join(
-      BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile)
+      BuildInfo.baseDirectory.getParent, "notebooks", "features").getCanonicalFile)
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
+
+  val DeeplearningNotebooks: Seq[File] = FileUtilities.recursiveListFiles(
+    FileUtilities.join(
+      BuildInfo.baseDirectory.getParent, "notebooks", "deepLearning"
+    ).getCanonicalFile).filterNot(_.isDirectory)
 
   val NonParallelizableNotebooks: Seq[File] = Nil
 
@@ -123,12 +137,12 @@ object DatabricksUtilities {
     ()
   }
 
-  def createClusterInPool(clusterName: String, poolId: String): String = {
+  def createClusterInPool(clusterName: String, sparkVersion: String, poolId: String): String = {
     val body =
       s"""
          |{
          |  "cluster_name": "$clusterName",
-         |  "spark_version": "$AdbRuntime",
+         |  "spark_version": "$sparkVersion",
          |  "num_workers": $NumWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
@@ -140,12 +154,12 @@ object DatabricksUtilities {
     databricksPost("clusters/create", body).select[String]("cluster_id")
   }
 
-  def installLibraries(clusterId: String): Unit = {
+  def installLibraries(clusterId: String, libraries: String): Unit = {
     databricksPost("libraries/install",
       s"""
          |{
          | "cluster_id": "$clusterId",
-         | "libraries": $Libraries
+         | "libraries": $libraries
          |}
       """.stripMargin)
     ()

@@ -10,11 +10,10 @@ import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.language.existentials
 
-class DatabricksTests extends TestBase {
+class DeepLearningTests extends TestBase {
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, PoolId)
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, PoolId)
   val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
 
   println("Checking if cluster is active")
@@ -22,7 +21,7 @@ class DatabricksTests extends TestBase {
     assert(isClusterActive(clusterId))
   }
   println("Installing libraries")
-  installLibraries(clusterId, Libraries)
+  installLibraries(clusterId, DLLibraries)
   tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
     assert(areLibrariesInstalled(clusterId))
   }
@@ -30,7 +29,7 @@ class DatabricksTests extends TestBase {
   workspaceMkDir(Folder)
 
   println(s"Submitting jobs")
-  val parNotebookRuns: Seq[DatabricksNotebookRun] = ParallelizableNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
+  val parNotebookRuns: Seq[DatabricksNotebookRun] = DeeplearningNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
   parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
 
   println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
@@ -45,23 +44,7 @@ class DatabricksTests extends TestBase {
         run.monitor(logLevel = 0),
         Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
-      if (!result.isSuccess){
-        throw result.failed.get
-      }
-    }
-  })
-
-  println(s"Submitting nonparallelizable job...")
-  NonParallelizableNotebooks.toIterator.foreach(notebook => {
-    val run: DatabricksNotebookRun = uploadAndSubmitNotebook(clusterId, notebook)
-    jobIdsToCancel.append(run.runId)
-
-    test(run.notebookName) {
-      val result = Await.ready(
-        run.monitor(logLevel = 0),
-        Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-
-      if (!result.isSuccess){
+      if (!result.isSuccess) {
         throw result.failed.get
       }
     }
@@ -77,8 +60,4 @@ class DatabricksTests extends TestBase {
     super.afterAll()
   }
 
-  ignore("list running jobs for convenience") {
-    val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
-    println(obj)
-  }
 }
