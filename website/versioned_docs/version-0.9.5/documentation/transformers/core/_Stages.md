@@ -1019,8 +1019,3 @@ unicodeNormalize.transform(df).show()
 py="synapse.ml.stages.html#module-synapse.ml.stages.UnicodeNormalize"
 scala="com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/UnicodeNormalize.scala" />
-
-
-
-
-

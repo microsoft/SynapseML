@@ -26,12 +26,17 @@ class TestDataFrameUtils(unittest.TestCase):
         return dataframe
 
     def create_string_type_dataframe(
-        self, field_names: List[str], data: List[Tuple[str]]
+        self,
+        field_names: List[str],
+        data: List[Tuple[str]],
     ) -> DataFrame:
         return sc.createDataFrame(
             data,
             StructType(
-                [StructField(name, StringType(), nullable=True) for name in field_names]
+                [
+                    StructField(name, StringType(), nullable=True)
+                    for name in field_names
+                ],
             ),
         )
 
@@ -47,7 +52,9 @@ class TestDataFrameUtils(unittest.TestCase):
     def test_zip_with_index_sort_by_column_within_partitions(self):
         dataframe = self.create_sample_dataframe()
         result = DataFrameUtils.zip_with_index(
-            df=dataframe, partition_col="tenant", order_by_col="user"
+            df=dataframe,
+            partition_col="tenant",
+            order_by_col="user",
         )
         expected = [
             ("OrgA", "Alice", 0),
@@ -72,7 +79,9 @@ class TestDataFrameUtils(unittest.TestCase):
 class TestExplainBuilder(unittest.TestCase):
     class ExplainableObj(Transformer, HasSetInputCol, HasSetOutputCol):
         partitionKey = Param(
-            Params._dummy(), "partitionKey", "The name of the column to partition by."
+            Params._dummy(),
+            "partitionKey",
+            "The name of the column to partition by.",
         )
 
         secondPartitionKey = Param(

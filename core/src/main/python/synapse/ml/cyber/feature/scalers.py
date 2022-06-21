@@ -42,7 +42,10 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutp
 
         super().__init__()
         ExplainBuilder.build(
-            self, inputCol=input_col, partitionKey=partition_key, outputCol=output_col
+            self,
+            inputCol=input_col,
+            partitionKey=partition_key,
+            outputCol=output_col,
         )
         self._per_group_stats = per_group_stats
         self._use_pandas = use_pandas
@@ -65,10 +68,12 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutp
 
     def is_partitioned(self) -> bool:
         if self.partition_key is not None or isinstance(
-            self.per_group_stats, DataFrame
+            self.per_group_stats,
+            DataFrame,
         ):
             assert self.partition_key is not None and isinstance(
-                self.per_group_stats, DataFrame
+                self.per_group_stats,
+                DataFrame,
             )
             res = True
         elif self.partition_key is None or isinstance(self.per_group_stats, Dict):
@@ -76,7 +81,7 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutp
             res = False
         else:
             assert False, "unsupported type for per_group_stats: {0}".format(
-                type(self.per_group_stats)
+                type(self.per_group_stats),
             )
 
         return res
@@ -105,7 +110,10 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutp
 
 
 class PerPartitionScalarScalerEstimator(
-    ABC, Estimator, HasSetInputCol, HasSetOutputCol
+    ABC,
+    Estimator,
+    HasSetInputCol,
+    HasSetOutputCol,
 ):
     partitionKey = Param(
         Params._dummy(),
@@ -123,7 +131,10 @@ class PerPartitionScalarScalerEstimator(
 
         super().__init__()
         ExplainBuilder.build(
-            self, inputCol=input_col, partitionKey=partition_key, outputCol=output_col
+            self,
+            inputCol=input_col,
+            partitionKey=partition_key,
+            outputCol=output_col,
         )
         self._use_pandas = use_pandas
 
@@ -137,7 +148,8 @@ class PerPartitionScalarScalerEstimator(
 
     @abstractmethod
     def _create_model(
-        self, per_group_stats: Union[DataFrame, Dict[str, float]]
+        self,
+        per_group_stats: Union[DataFrame, Dict[str, float]],
     ) -> PerPartitionScalarScalerModel:
         raise NotImplementedError()
 
@@ -183,7 +195,11 @@ class StandardScalarScalerModel(PerPartitionScalarScalerModel):
     ):
 
         super().__init__(
-            input_col, partition_key, output_col, per_group_stats, use_pandas
+            input_col,
+            partition_key,
+            output_col,
+            per_group_stats,
+            use_pandas,
         )
         self.coefficient_factor = coefficient_factor
 
@@ -247,7 +263,8 @@ class StandardScalarScaler(PerPartitionScalarScalerEstimator):
         ]
 
     def _create_model(
-        self, per_group_stats: Union[DataFrame, Dict[str, float]]
+        self,
+        per_group_stats: Union[DataFrame, Dict[str, float]],
     ) -> PerPartitionScalarScalerModel:
         return StandardScalarScalerModel(
             self.input_col,
@@ -277,7 +294,11 @@ class LinearScalarScalerModel(PerPartitionScalarScalerModel):
     ):
 
         super().__init__(
-            input_col, partition_key, output_col, per_group_stats, use_pandas
+            input_col,
+            partition_key,
+            output_col,
+            per_group_stats,
+            use_pandas,
         )
         self.min_required_value = min_required_value
         self.max_required_value = max_required_value
@@ -287,12 +308,13 @@ class LinearScalarScalerModel(PerPartitionScalarScalerModel):
 
         def actual_delta():
             return f.col(LinearScalarScalerConfig.max_actual_value_token) - f.col(
-                LinearScalarScalerConfig.min_actual_value_token
+                LinearScalarScalerConfig.min_actual_value_token,
             )
 
         def a():
             return f.when(
-                actual_delta() != f.lit(0), f.lit(req_delta) / actual_delta()
+                actual_delta() != f.lit(0),
+                f.lit(req_delta) / actual_delta(),
             ).otherwise(f.lit(0.0))
 
         def b():
@@ -301,7 +323,7 @@ class LinearScalarScalerModel(PerPartitionScalarScalerModel):
                 self.max_required_value
                 - a() * f.col(LinearScalarScalerConfig.max_actual_value_token),
             ).otherwise(
-                f.lit((self.min_required_value + self.max_required_value) / 2.0)
+                f.lit((self.min_required_value + self.max_required_value) / 2.0),
             )
 
         def norm(x):
@@ -370,15 +392,16 @@ class LinearScalarScaler(PerPartitionScalarScalerEstimator):
 
         return [
             f.min(f.col(input_col)).alias(
-                LinearScalarScalerConfig.min_actual_value_token
+                LinearScalarScalerConfig.min_actual_value_token,
             ),
             f.max(f.col(input_col)).alias(
-                LinearScalarScalerConfig.max_actual_value_token
+                LinearScalarScalerConfig.max_actual_value_token,
             ),
         ]
 
     def _create_model(
-        self, per_group_stats: Union[DataFrame, Dict[str, float]]
+        self,
+        per_group_stats: Union[DataFrame, Dict[str, float]],
     ) -> PerPartitionScalarScalerModel:
         return LinearScalarScalerModel(
             self.input_col,

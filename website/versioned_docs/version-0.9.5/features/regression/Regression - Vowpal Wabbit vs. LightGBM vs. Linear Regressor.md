@@ -5,10 +5,10 @@ status: stable
 ---
 # Vowpal Wabbit and LightGBM for a Regression Problem
 
-This notebook shows how to build simple regression models by using 
-[Vowpal Wabbit (VW)](https://github.com/VowpalWabbit/vowpal_wabbit) and 
+This notebook shows how to build simple regression models by using
+[Vowpal Wabbit (VW)](https://github.com/VowpalWabbit/vowpal_wabbit) and
 [LightGBM](https://github.com/microsoft/LightGBM) with SynapseML.
- We also compare the results with 
+ We also compare the results with
  [Spark MLlib Linear Regression](https://spark.apache.org/docs/latest/ml-classification-regression.html#linear-regression).
 
 
@@ -33,9 +33,9 @@ from sklearn.datasets import load_boston
 ```
 
 ## Prepare Dataset
-We use [*Boston house price* dataset](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_boston.html) 
-. 
-The data was collected in 1978 from Boston area and consists of 506 entries with 14 features including the value of homes. 
+We use [*Boston house price* dataset](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_boston.html)
+.
+The data was collected in 1978 from Boston area and consists of 506 entries with 14 features including the value of homes.
 We use `sklearn.datasets` module to download it easily, then split the set into training and testing by 75/25.
 
 

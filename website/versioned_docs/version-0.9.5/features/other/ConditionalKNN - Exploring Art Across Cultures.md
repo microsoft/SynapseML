@@ -40,8 +40,8 @@ if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
 Our dataset comes from a table containing artwork information from both the Met and Rijks museums. The schema is as follows:
 
 - **id**: A unique identifier for a piece of art
-  - Sample Met id: *388395* 
-  - Sample Rijks id: *SK-A-2344* 
+  - Sample Met id: *388395*
+  - Sample Rijks id: *SK-A-2344*
 - **Title**: Art piece title, as written in the museum's database
 - **Artist**: Art piece artist, as written in the museum's database
 - **Thumbnail_Url**: Location of a JPEG thumbnail of the art piece
@@ -121,7 +121,7 @@ culture_cknn = (ConditionalKNN()
 
 #### Define matching and visualizing methods
 
-After the intial dataset and category setup, we prepare methods that will query and visualize the conditional kNN's results. 
+After the intial dataset and category setup, we prepare methods that will query and visualize the conditional kNN's results.
 
 `addMatches()` will create a Dataframe with a handful of matches per category.
 

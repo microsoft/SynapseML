@@ -39,4 +39,3 @@ class VectorZipper(override val uid: String) extends Transformer
     })
   }
 }
-

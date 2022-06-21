@@ -17,9 +17,10 @@ for repo in repos:
     tags = json.loads(
         os.popen(
             "az acr repository show-tags -n {} --repository {} --orderby time_desc".format(
-                acr, repo
-            )
-        ).read()
+                acr,
+                repo,
+            ),
+        ).read(),
     )
 
     for tag in tqdm(tags):
@@ -27,7 +28,9 @@ for repo in repos:
         image = repo + ":" + tag
 
         backup_exists = BlobClient.from_connection_string(
-            conn_string, container_name=container, blob_name=target_blob
+            conn_string,
+            container_name=container,
+            blob_name=target_blob,
         ).exists()
         if not backup_exists:
             subprocess.run(
@@ -51,18 +54,23 @@ for repo in repos:
                     target_blob,
                     "-a",
                     image,
-                ]
+                ],
             )
             print("Transferred {}".format(target_blob))
         else:
             print("Skipped existing {}".format(image))
 
         backup_exists = BlobClient.from_connection_string(
-            conn_string, container_name=container, blob_name=target_blob
+            conn_string,
+            container_name=container,
+            blob_name=target_blob,
         ).exists()
         if backup_exists:
             print("Deleting {}".format(image))
             result = os.system(
-                "az acr repository delete --name {} --image {} --yes".format(acr, image)
+                "az acr repository delete --name {} --image {} --yes".format(
+                    acr,
+                    image,
+                ),
             )
             assert result == 0

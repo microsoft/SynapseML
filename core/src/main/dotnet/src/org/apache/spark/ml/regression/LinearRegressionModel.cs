@@ -51,7 +51,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetAggregationDepth(int value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setAggregationDepth", (object)value));
-        
+
         /// <summary>
         /// Sets elasticNetParam value for <see cref="elasticNetParam"/>
         /// </summary>
@@ -61,7 +61,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetElasticNetParam(double value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setElasticNetParam", (object)value));
-        
+
         /// <summary>
         /// Sets epsilon value for <see cref="epsilon"/>
         /// </summary>
@@ -71,7 +71,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetEpsilon(double value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setEpsilon", (object)value));
-        
+
         /// <summary>
         /// Sets featuresCol value for <see cref="featuresCol"/>
         /// </summary>
@@ -81,7 +81,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetFeaturesCol(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setFeaturesCol", (object)value));
-        
+
         /// <summary>
         /// Sets fitIntercept value for <see cref="fitIntercept"/>
         /// </summary>
@@ -91,7 +91,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetFitIntercept(bool value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setFitIntercept", (object)value));
-        
+
         /// <summary>
         /// Sets labelCol value for <see cref="labelCol"/>
         /// </summary>
@@ -101,7 +101,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetLabelCol(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setLabelCol", (object)value));
-        
+
         /// <summary>
         /// Sets loss value for <see cref="loss"/>
         /// </summary>
@@ -111,7 +111,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetLoss(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setLoss", (object)value));
-        
+
         /// <summary>
         /// Sets maxBlockSizeInMB value for <see cref="maxBlockSizeInMB"/>
         /// </summary>
@@ -121,7 +121,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetMaxBlockSizeInMB(double value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setMaxBlockSizeInMB", (object)value));
-        
+
         /// <summary>
         /// Sets maxIter value for <see cref="maxIter"/>
         /// </summary>
@@ -131,7 +131,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetMaxIter(int value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setMaxIter", (object)value));
-        
+
         /// <summary>
         /// Sets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -141,7 +141,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetPredictionCol(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setPredictionCol", (object)value));
-        
+
         /// <summary>
         /// Sets regParam value for <see cref="regParam"/>
         /// </summary>
@@ -151,7 +151,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetRegParam(double value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setRegParam", (object)value));
-        
+
         /// <summary>
         /// Sets solver value for <see cref="solver"/>
         /// </summary>
@@ -161,7 +161,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetSolver(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setSolver", (object)value));
-        
+
         /// <summary>
         /// Sets standardization value for <see cref="standardization"/>
         /// </summary>
@@ -171,7 +171,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetStandardization(bool value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setStandardization", (object)value));
-        
+
         /// <summary>
         /// Sets tol value for <see cref="tol"/>
         /// </summary>
@@ -181,7 +181,7 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns> New LinearRegressionModel object </returns>
         public LinearRegressionModel SetTol(double value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setTol", (object)value));
-        
+
         /// <summary>
         /// Sets weightCol value for <see cref="weightCol"/>
         /// </summary>
@@ -192,7 +192,7 @@ namespace Microsoft.Spark.ML.Regression
         public LinearRegressionModel SetWeightCol(string value) =>
             WrapAsLinearRegressionModel(Reference.Invoke("setWeightCol", (object)value));
 
-        
+
         /// <summary>
         /// Gets aggregationDepth value for <see cref="aggregationDepth"/>
         /// </summary>
@@ -201,8 +201,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public int GetAggregationDepth() =>
             (int)Reference.Invoke("getAggregationDepth");
-        
-        
+
+
         /// <summary>
         /// Gets elasticNetParam value for <see cref="elasticNetParam"/>
         /// </summary>
@@ -211,8 +211,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public double GetElasticNetParam() =>
             (double)Reference.Invoke("getElasticNetParam");
-        
-        
+
+
         /// <summary>
         /// Gets epsilon value for <see cref="epsilon"/>
         /// </summary>
@@ -221,8 +221,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public double GetEpsilon() =>
             (double)Reference.Invoke("getEpsilon");
-        
-        
+
+
         /// <summary>
         /// Gets featuresCol value for <see cref="featuresCol"/>
         /// </summary>
@@ -231,8 +231,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public string GetFeaturesCol() =>
             (string)Reference.Invoke("getFeaturesCol");
-        
-        
+
+
         /// <summary>
         /// Gets fitIntercept value for <see cref="fitIntercept"/>
         /// </summary>
@@ -241,8 +241,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public bool GetFitIntercept() =>
             (bool)Reference.Invoke("getFitIntercept");
-        
-        
+
+
         /// <summary>
         /// Gets labelCol value for <see cref="labelCol"/>
         /// </summary>
@@ -251,8 +251,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public string GetLabelCol() =>
             (string)Reference.Invoke("getLabelCol");
-        
-        
+
+
         /// <summary>
         /// Gets loss value for <see cref="loss"/>
         /// </summary>
@@ -261,8 +261,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public string GetLoss() =>
             (string)Reference.Invoke("getLoss");
-        
-        
+
+
         /// <summary>
         /// Gets maxBlockSizeInMB value for <see cref="maxBlockSizeInMB"/>
         /// </summary>
@@ -271,8 +271,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public double GetMaxBlockSizeInMB() =>
             (double)Reference.Invoke("getMaxBlockSizeInMB");
-        
-        
+
+
         /// <summary>
         /// Gets maxIter value for <see cref="maxIter"/>
         /// </summary>
@@ -281,8 +281,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public int GetMaxIter() =>
             (int)Reference.Invoke("getMaxIter");
-        
-        
+
+
         /// <summary>
         /// Gets predictionCol value for <see cref="predictionCol"/>
         /// </summary>
@@ -291,8 +291,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public string GetPredictionCol() =>
             (string)Reference.Invoke("getPredictionCol");
-        
-        
+
+
         /// <summary>
         /// Gets regParam value for <see cref="regParam"/>
         /// </summary>
@@ -301,8 +301,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public double GetRegParam() =>
             (double)Reference.Invoke("getRegParam");
-        
-        
+
+
         /// <summary>
         /// Gets solver value for <see cref="solver"/>
         /// </summary>
@@ -311,8 +311,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public string GetSolver() =>
             (string)Reference.Invoke("getSolver");
-        
-        
+
+
         /// <summary>
         /// Gets standardization value for <see cref="standardization"/>
         /// </summary>
@@ -321,8 +321,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public bool GetStandardization() =>
             (bool)Reference.Invoke("getStandardization");
-        
-        
+
+
         /// <summary>
         /// Gets tol value for <see cref="tol"/>
         /// </summary>
@@ -331,8 +331,8 @@ namespace Microsoft.Spark.ML.Regression
         /// </returns>
         public double GetTol() =>
             (double)Reference.Invoke("getTol");
-        
-        
+
+
         /// <summary>
         /// Gets weightCol value for <see cref="weightCol"/>
         /// </summary>
@@ -342,7 +342,7 @@ namespace Microsoft.Spark.ML.Regression
         public string GetWeightCol() =>
             (string)Reference.Invoke("getWeightCol");
 
-        
+
         /// <summary>
         /// Loads the <see cref="LinearRegressionModel"/> that was previously saved using Save(string).
         /// </summary>
@@ -350,18 +350,18 @@ namespace Microsoft.Spark.ML.Regression
         /// <returns>New <see cref="LinearRegressionModel"/> object, loaded from path.</returns>
         public static LinearRegressionModel Load(string path) => WrapAsLinearRegressionModel(
             SparkEnvironment.JvmBridge.CallStaticJavaMethod(s_className, "load", path));
-        
+
         /// <summary>
         /// Saves the object so that it can be loaded later using Load. Note that these objects
         /// can be shared with Scala by Loading or Saving in Scala.
         /// </summary>
         /// <param name="path">The path to save the object to</param>
         public void Save(string path) => Reference.Invoke("save", path);
-        
+
         /// <returns>a <see cref="JavaMLWriter"/> instance for this ML instance.</returns>
         public JavaMLWriter Write() =>
             new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
-        
+
         /// <summary>
         /// Get the corresponding JavaMLReader instance.
         /// </summary>
@@ -372,8 +372,6 @@ namespace Microsoft.Spark.ML.Regression
         private static LinearRegressionModel WrapAsLinearRegressionModel(object obj) =>
             new LinearRegressionModel((JvmObjectReference)obj);
 
-        
+
     }
 }
-
-        

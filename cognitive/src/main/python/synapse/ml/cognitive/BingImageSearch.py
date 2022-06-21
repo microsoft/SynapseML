@@ -43,5 +43,5 @@ class BingImageSearch(_BingImageSearch):
             SparkSession.builder.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.cognitive.BingImageSearch
         )
         return Lambda._from_java(
-            bis.downloadFromUrls(pathCol, bytesCol, concurrency, timeout)
+            bis.downloadFromUrls(pathCol, bytesCol, concurrency, timeout),
         )

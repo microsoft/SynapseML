@@ -16,7 +16,7 @@ class TestScalers(unittest.TestCase):
                 t.StructField("tenant", t.StringType(), nullable=True),
                 t.StructField("name", t.StringType(), nullable=True),
                 t.StructField("score", t.FloatType(), nullable=True),
-            ]
+            ],
         )
 
         return sc.createDataFrame(
@@ -43,7 +43,7 @@ class TestScalers(unittest.TestCase):
             0
             == new_df.filter(
                 f.col("name").cast(t.IntegerType())
-                != f.col("new_score").cast(t.IntegerType())
+                != f.col("new_score").cast(t.IntegerType()),
             ).count()
         )
 
@@ -127,7 +127,9 @@ class TestStandardScalarScalerExplain(ExplainTester):
 
         params = ["inputCol", "partitionKey", "outputCol", "coefficientFactor"]
         self.check_explain(
-            StandardScalarScaler("input", "tenant", "output"), params, counts
+            StandardScalarScaler("input", "tenant", "output"),
+            params,
+            counts,
         )
 
 
@@ -146,7 +148,9 @@ class TestLinearScalarScalerExplain(ExplainTester):
             "maxRequiredValue",
         ]
         self.check_explain(
-            LinearScalarScaler("input", "tenant", "output"), params, counts
+            LinearScalarScaler("input", "tenant", "output"),
+            params,
+            counts,
         )
 
 

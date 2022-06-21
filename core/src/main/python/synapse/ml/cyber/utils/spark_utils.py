@@ -88,7 +88,8 @@ class DataFrameUtils:
                 window = window.orderBy(*order_by_columns)
 
             return df.withColumn(
-                col_name, f.row_number().over(window) - 1 + start_index
+                col_name,
+                f.row_number().over(window) - 1 + start_index,
             )
         else:
             if len(order_by_col) > 0:
@@ -96,7 +97,7 @@ class DataFrameUtils:
                 df = df.orderBy(*order_by_columns)
 
             output_schema = t.StructType(
-                df.schema.fields + [t.StructField(col_name, t.LongType(), True)]
+                df.schema.fields + [t.StructField(col_name, t.LongType(), True)],
             )
             return (
                 df.rdd.zipWithIndex()
@@ -195,13 +196,15 @@ class ExplainBuilder:
             else:
                 assert (
                     ExplainBuilder.get_method(
-                        explainable, to_camel_case("get", param_name)
+                        explainable,
+                        to_camel_case("get", param_name),
                     )
                     is not None
                 ), "no_getter"
                 assert (
                     ExplainBuilder.get_method(
-                        explainable, to_camel_case("set", param_name)
+                        explainable,
+                        to_camel_case("set", param_name),
                     )
                     is not None
                 ), "no_setter"

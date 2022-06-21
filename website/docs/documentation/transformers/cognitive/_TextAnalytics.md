@@ -408,5 +408,3 @@ sentiment.transform(df).show()
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.TextSentiment"
 scala="com/microsoft/azure/synapse/ml/cognitive/TextSentiment.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/TextAnalytics.scala" />
-
-

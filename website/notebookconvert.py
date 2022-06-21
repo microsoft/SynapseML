@@ -13,7 +13,7 @@ def add_header_to_markdown(folder, md):
         f.seek(0, 0)
         f.write(
             "---\ntitle: {}\nhide_title: true\nstatus: stable\n---\n".format(name)
-            + content
+            + content,
         )
         f.close()
 
@@ -21,7 +21,8 @@ def add_header_to_markdown(folder, md):
 def convert_notebook_to_markdown(file_path, outputdir):
     print("Converting {} into markdown".format(file_path))
     convert_cmd = 'jupyter nbconvert --output-dir="{}" --to markdown "{}"'.format(
-        outputdir, file_path
+        outputdir,
+        file_path,
     )
     os.system(convert_cmd)
     print()
@@ -47,7 +48,8 @@ def convert_allnotebooks_in_folder(folder, outputdir):
                     os.remove(os.path.join(cur_output_dir, md))
 
                 convert_notebook_to_markdown(
-                    os.path.join(cur_dir, file), cur_output_dir
+                    os.path.join(cur_dir, file),
+                    cur_output_dir,
                 )
                 add_header_to_markdown(cur_output_dir, md)
 

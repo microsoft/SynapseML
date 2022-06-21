@@ -472,4 +472,3 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
 
   override def reader: MLReadable[_] = ConversationTranscription
 }
-

@@ -176,5 +176,3 @@ val unroll = (new UnrollBinaryImage()
 py="synapse.ml.image.html#module-synapse.ml.image.UnrollBinaryImage"
 scala="com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/image/UnrollBinaryImage.scala" />
-
-

@@ -102,7 +102,7 @@ namespace Synapse.ML.LightGBM.Param
             (bool)Reference.Invoke("updateOneIterationCustom", gradient, hessian);
 
         /// <summary>
-        /// Sets the start index of the iteration to predict. 
+        /// Sets the start index of the iteration to predict.
         /// If <= 0, starts from the first iteration.
         /// </summary>
         /// <param name="startIteration">The start index of the iteration to predict.</param>

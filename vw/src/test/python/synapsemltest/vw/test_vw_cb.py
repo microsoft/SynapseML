@@ -38,7 +38,7 @@ class VowpalWabbitSpec(unittest.TestCase):
                 StructField("chosenAction", IntegerType()),
                 StructField("label", DoubleType()),
                 StructField("probability", DoubleType()),
-            ]
+            ],
         )
 
         data = spark.createDataFrame(
@@ -53,16 +53,20 @@ class VowpalWabbitSpec(unittest.TestCase):
 
         # featurize data
         shared_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["shared_text"], outputCol="shared"
+            inputCols=["shared_text"],
+            outputCol="shared",
         )
         action_one_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["action1"], outputCol="action1_features"
+            inputCols=["action1"],
+            outputCol="action1_features",
         )
         action_two_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["action2_feat1", "action2_feat2"], outputCol="action2_features"
+            inputCols=["action2_feat1", "action2_feat2"],
+            outputCol="action2_features",
         )
         action_merger = VectorZipper(
-            inputCols=["action1_features", "action2_features"], outputCol="features"
+            inputCols=["action1_features", "action2_features"],
+            outputCol="features",
         )
         pipeline = Pipeline(
             stages=[
@@ -70,7 +74,7 @@ class VowpalWabbitSpec(unittest.TestCase):
                 action_one_featurizer,
                 action_two_featurizer,
                 action_merger,
-            ]
+            ],
         )
         tranformation_pipeline = pipeline.fit(data)
 
@@ -88,7 +92,7 @@ class VowpalWabbitSpec(unittest.TestCase):
                 StructField("chosenAction", IntegerType()),
                 StructField("label", DoubleType()),
                 StructField("probability", DoubleType()),
-            ]
+            ],
         )
 
         data = spark.createDataFrame(
@@ -139,19 +143,24 @@ class VowpalWabbitSpec(unittest.TestCase):
 
         # featurize data
         shared_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["shared_text"], outputCol="shared"
+            inputCols=["shared_text"],
+            outputCol="shared",
         )
         shared_featurizer2 = VowpalWabbitFeaturizer(
-            inputCols=["shared_text2"], outputCol="shared2"
+            inputCols=["shared_text2"],
+            outputCol="shared2",
         )
         action_one_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["action1"], outputCol="action1_features"
+            inputCols=["action1"],
+            outputCol="action1_features",
         )
         action_two_featurizer = VowpalWabbitFeaturizer(
-            inputCols=["action2_feat1", "action2_feat2"], outputCol="action2_features"
+            inputCols=["action2_feat1", "action2_feat2"],
+            outputCol="action2_features",
         )
         action_merger = VectorZipper(
-            inputCols=["action1_features", "action2_features"], outputCol="features"
+            inputCols=["action1_features", "action2_features"],
+            outputCol="features",
         )
         pipeline = Pipeline(
             stages=[
@@ -160,7 +169,7 @@ class VowpalWabbitSpec(unittest.TestCase):
                 action_one_featurizer,
                 action_two_featurizer,
                 action_merger,
-            ]
+            ],
         )
         tranformation_pipeline = pipeline.fit(data)
         return tranformation_pipeline.transform(data)
@@ -180,7 +189,7 @@ class VowpalWabbitSpec(unittest.TestCase):
         self.save_model(
             VowpalWabbitContextualBandit()
             .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
-            .setUseBarrierExecutionMode(False)
+            .setUseBarrierExecutionMode(False),
         )
 
     def test_initial_model(self):

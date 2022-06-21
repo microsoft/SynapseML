@@ -31,9 +31,9 @@ from synapse.ml.core.spark import FluentAPI
 from pyspark.sql.functions import lit
 
 def bingPhotoSearch(name, queries, pages):
-  offsets = [offset*10 for offset in range(0, pages)] 
+  offsets = [offset*10 for offset in range(0, pages)]
   parameters = [(query, offset) for offset in offsets for query in queries]
-  
+
   return spark.createDataFrame(parameters, ("queries","offsets")) \
     .mlTransform(
       BingImageSearch()                             # Apply Bing Image Search
@@ -57,14 +57,14 @@ def displayDF(df, n=5, image_cols = set(["urls"])):
   rows = df.take(n)
   cols = df.columns
   header = "".join(["<th>" + c  + "</th>" for c in cols])
-  
+
   style = """
 <!DOCTYPE html>
 <html>
 <head>
 
 </head>"""
-  
+
   table = []
   for row in rows:
     table.append("<tr>")
@@ -76,12 +76,12 @@ def displayDF(df, n=5, image_cols = set(["urls"])):
       table.append("<td>{}</td>".format(rep))
     table.append("</tr>")
   tableHTML = "".join(table)
-  
+
   body = """
 <body>
 <table>
   <tr>
-    {} 
+    {}
   </tr>
   {}
 </table>
@@ -118,7 +118,7 @@ randomLinks = randomWords \
   .mlTransform(BingImageSearch.getUrlTransformer("images", "urls")) \
   .withColumn("label", lit("other")) \
   .limit(400)
-  
+
 displayDF(randomLinks)
 ```
 

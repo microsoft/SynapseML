@@ -38,4 +38,3 @@ object ParamInjections {
     }
   }
 }
-

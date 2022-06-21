@@ -22,7 +22,7 @@ BinaryFileSchema = StructType(
     [
         StructField(BinaryFileFields[0], StringType(), True),
         StructField(BinaryFileFields[1], BinaryType(), True),
-    ]
+    ],
 )
 """
 Schema for Binary Files.
@@ -34,7 +34,12 @@ Schema records consist of BinaryFileFields name, Type, and ??
 
 
 def readBinaryFiles(
-    self, path, recursive=False, sampleRatio=1.0, inspectZip=True, seed=0
+    self,
+    path,
+    recursive=False,
+    sampleRatio=1.0,
+    inspectZip=True,
+    seed=0,
 ):
     """
     Reads the directory of binary files from the local or remote (WASB) source
@@ -57,7 +62,12 @@ def readBinaryFiles(
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     jsession = sql_ctx.sparkSession._jsparkSession
     jresult = reader.read(
-        path, recursive, jsession, float(sampleRatio), inspectZip, seed
+        path,
+        recursive,
+        jsession,
+        float(sampleRatio),
+        inspectZip,
+        seed,
     )
     return DataFrame(jresult, sql_ctx)
 

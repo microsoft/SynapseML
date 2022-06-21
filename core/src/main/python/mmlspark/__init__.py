@@ -2,7 +2,7 @@ import sys
 import warnings
 
 warnings.warn(
-    "The mmlspark namespace has been deprecated. Please change import statements to import from synapse.ml"
+    "The mmlspark namespace has been deprecated. Please change import statements to import from synapse.ml",
 )
 import synapse.ml
 
