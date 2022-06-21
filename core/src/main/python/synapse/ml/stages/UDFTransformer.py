@@ -21,7 +21,10 @@ from synapse.ml.core.schema.Utils import *
 
 @inherit_doc
 class UDFTransformer(
-    ComplexParamsMixin, JavaMLReadable, JavaMLWritable, JavaTransformer
+    ComplexParamsMixin,
+    JavaMLReadable,
+    JavaMLWritable,
+    JavaTransformer,
 ):
     """
     Args:
@@ -36,16 +39,22 @@ class UDFTransformer(
     def __init__(self, inputCol=None, inputCols=None, outputCol=None, udf=None):
         super(UDFTransformer, self).__init__()
         self._java_obj = self._new_java_obj(
-            "com.microsoft.azure.synapse.ml.stages.UDFTransformer"
+            "com.microsoft.azure.synapse.ml.stages.UDFTransformer",
         )
         self.inputCol = Param(
-            self, "inputCol", "inputCol: The name of the input column (default: )"
+            self,
+            "inputCol",
+            "inputCol: The name of the input column (default: )",
         )
         self.inputCols = Param(
-            self, "inputCols", "inputCols: The names of the input columns (default: )"
+            self,
+            "inputCols",
+            "inputCols: The names of the input columns (default: )",
         )
         self.outputCol = Param(
-            self, "outputCol", "outputCol: The name of the output column"
+            self,
+            "outputCol",
+            "outputCol: The name of the output column",
         )
         self.udf = Param(
             self,
@@ -126,7 +135,9 @@ class UDFTransformer(
         name = getattr(udf, "_name", getattr(udf, "__name__", None))
         name = name if name else udf.__class__.__name__
         userDefinedFunction = UserDefinedFunction(
-            udf.func, returnType=udf.returnType, name=name
+            udf.func,
+            returnType=udf.returnType,
+            name=name,
         )
         self._java_obj = self._java_obj.setUDF(userDefinedFunction._judf)
         self._udf = udf

@@ -407,5 +407,3 @@ verify.transform(faceIdDF2).show()
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.VerifyFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/VerifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
-
-

@@ -23,11 +23,18 @@ class IdIndexerModel(Transformer, HasSetInputCol, HasSetOutputCol):
     )
 
     def __init__(
-        self, input_col: str, partition_key: str, output_col: str, vocab_df: DataFrame
+        self,
+        input_col: str,
+        partition_key: str,
+        output_col: str,
+        vocab_df: DataFrame,
     ):
         super().__init__()
         ExplainBuilder.build(
-            self, inputCol=input_col, partitionKey=partition_key, outputCol=output_col
+            self,
+            inputCol=input_col,
+            partitionKey=partition_key,
+            outputCol=output_col,
         )
         self._vocab_df = vocab_df
 
@@ -49,7 +56,7 @@ class IdIndexerModel(Transformer, HasSetInputCol, HasSetOutputCol):
             .withColumn(
                 output_col,
                 f.when(f.col(output_col).isNotNull(), f.col(output_col)).otherwise(
-                    f.lit(0)
+                    f.lit(0),
                 ),
             )
             .drop(input_col)
@@ -102,7 +109,9 @@ class IdIndexer(Estimator, HasSetInputCol, HasSetOutputCol):
             )
             if self.getResetPerPartition()
             else DataFrameUtils.zip_with_index(
-                df=the_df, start_index=1, col_name=self.getOutputCol()
+                df=the_df,
+                start_index=1,
+                col_name=self.getOutputCol(),
             )
         )
 

@@ -340,4 +340,3 @@ class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(ui
 
   override protected def responseDataType: DataType = AnalyzeResponse.schema
 }
-

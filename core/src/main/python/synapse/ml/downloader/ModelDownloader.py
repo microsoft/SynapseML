@@ -55,7 +55,9 @@ class ModelSchema:
 
     def __repr__(self):
         return "ModelSchema<name: {}, dataset: {}, loc: {}>".format(
-            self.name, self.dataset, self.uri
+            self.name,
+            self.dataset,
+            self.uri,
         )
 
     def toJava(self, sparkSession):
@@ -107,7 +109,9 @@ class ModelDownloader:
         self._ctx = sparkSession.sparkContext
         self._model_downloader = (
             self._ctx._jvm.com.microsoft.azure.synapse.ml.downloader.ModelDownloader(
-                sparkSession._jsparkSession, localPath, serverURL
+                sparkSession._jsparkSession,
+                localPath,
+                serverURL,
             )
         )
 

@@ -157,7 +157,7 @@ plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 for i in range(len(races)):
   for j in range(len(races)):
     text = ax.text(j, i, race_dp_array[i, j], ha="center", va="center", color="k")
-    
+
 ax.set_title("Demographic Parity of Races in Adult Dataset")
 fig.tight_layout()
 plt.show()
@@ -328,21 +328,21 @@ It lets us know that our dataset is leaning towards maximum inequality, and we s
 
 Throughout the course of this sample notebook, we have:
 1. Chosen "Race" and "Sex" as columns of interest in the Adult Census Income dataset.
-2. Done preliminary analysis on our dataset. 
+2. Done preliminary analysis on our dataset.
 3. Ran the 3 groups of measures that compose our **Data Balance Analysis**:
   * **Feature Balance Measures**
     * Calculated Feature Balance Measures to see that the highest Demographic Parity is in "Sex": Males see >50k income much more than Females.
     * Visualized Demographic Parity of Races to see that Asian-Pac-Islander sees >50k income much more than Other, in addition to other race combinations.
-  * **Distribution Balance Measures** 
+  * **Distribution Balance Measures**
     * Calculated Distribution Balance Measures to see that "Sex" is much closer to a perfectly balanced distribution than "Race".
     * Visualized various distribution balance measures to compare their values for "Race" and "Sex".
   * **Aggregate Balance Measures**
     * Calculated Aggregate Balance Measures to see that we need to forego 77.79% of data points to have a perfectly balanced dataset. We identified that our dataset is leaning towards maximum inequality, and we should take actionable steps to:
     * Upsample data points where the feature value is barely observed.
     * Downsample data points where the feature value is observed much more than others.
-    
+
 **In conclusion:**
-* These measures provide an indicator of disparity on the data, allowing for users to explore potential mitigations before proceeding to train. 
+* These measures provide an indicator of disparity on the data, allowing for users to explore potential mitigations before proceeding to train.
 * Users can use these measures to set thresholds on their level of "tolerance" for data representation.
-* Production pipelines can use these measures as baseline for models that require frequent retraining on new data. 
+* Production pipelines can use these measures as baseline for models that require frequent retraining on new data.
 * These measures can also be saved as key metadata for the model/service built and added as part of model cards or transparency notes helping drive overall accountability for the ML service built and its performance across different demographics or sensitive attributes.

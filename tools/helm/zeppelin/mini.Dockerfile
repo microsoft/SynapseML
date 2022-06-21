@@ -128,4 +128,3 @@ ENTRYPOINT [ "/sbin/tini", "--" ]
 
 WORKDIR ${Z_HOME}
 CMD ["sh", "-c", "echo '\nspark.driver.host' $(hostname -i) >> /opt/spark/conf/spark-defaults.conf && bin/zeppelin.sh"]
-

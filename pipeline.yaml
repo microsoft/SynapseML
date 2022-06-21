@@ -686,4 +686,3 @@ jobs:
       condition: succeededOrFailed()
     - template: templates/kv.yml
     - template: templates/codecov.yml
-

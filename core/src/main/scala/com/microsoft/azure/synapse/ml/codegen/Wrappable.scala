@@ -496,4 +496,3 @@ trait RWrappable extends BaseWrappable {
 }
 
 trait Wrappable extends PythonWrappable with RWrappable with DotnetWrappable
-

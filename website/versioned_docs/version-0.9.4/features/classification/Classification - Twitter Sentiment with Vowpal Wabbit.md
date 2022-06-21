@@ -55,7 +55,7 @@ We use [Sentiment140](http://help.sentiment140.com/for-students/?source=post_pag
 ```python
 def download_data(url, data_folder=DATA_FOLDER, filename="downloaded_data.zip"):
     """Download and extract data from url"""
-    
+
     data_dir = "./" + DATA_FOLDER
     if not os.path.exists(data_dir): os.makedirs(data_dir)
     downloaded_filepath = os.path.join(data_dir, filename)
@@ -66,7 +66,7 @@ def download_data(url, data_folder=DATA_FOLDER, filename="downloaded_data.zip"):
     zipfile.extractall(data_dir)
     zipfile.close()
     print("Finished data downloading and extraction.")
-    
+
 download_data(DATA_URL)
 ```
 
@@ -74,7 +74,7 @@ Let's read the training data into a Spark DataFrame.
 
 
 ```python
-df_train = pd.read_csv(os.path.join(".", DATA_FOLDER, TRAIN_FILENAME), 
+df_train = pd.read_csv(os.path.join(".", DATA_FOLDER, TRAIN_FILENAME),
                        header=None, names=COL_NAMES, encoding=ENCODING)
 df_train = spark.createDataFrame(df_train, verifySchema=False)
 ```
@@ -97,7 +97,7 @@ df_train.limit(10).toPandas()
 print("Number of training samples: ", df_train.count())
 ```
 
-Before training the model, we randomly permute the data to mix negative and positive samples. This is helpful for properly training online learning algorithms like VW. To speed up model training, we use a subset of the data to train the model. If training with the full training set, typically you will see better performance of the model on the test set. 
+Before training the model, we randomly permute the data to mix negative and positive samples. This is helpful for properly training online learning algorithms like VW. To speed up model training, we use a subset of the data to train the model. If training with the full training set, typically you will see better performance of the model on the test set.
 
 
 ```python
@@ -122,9 +122,9 @@ count_vectorizer = CountVectorizer(inputCol="words",
 
 # Define VW classification model
 args = "--loss_function=logistic --quiet --holdout_off"
-vw_model = VowpalWabbitClassifier(featuresCol="features", 
-                                  labelCol="label", 
-                                  args=args, 
+vw_model = VowpalWabbitClassifier(featuresCol="features",
+                                  labelCol="label",
+                                  args=args,
                                   numPasses=10)
 
 # Create a pipeline
@@ -144,7 +144,7 @@ After training the model, we evaluate the performance of the model using the tes
 
 
 ```python
-df_test = pd.read_csv(os.path.join(".", DATA_FOLDER, TEST_FILENAME), 
+df_test = pd.read_csv(os.path.join(".", DATA_FOLDER, TEST_FILENAME),
                        header=None, names=COL_NAMES, encoding=ENCODING)
 df_test = spark.createDataFrame(df_test, verifySchema=False)
 ```
@@ -170,8 +170,8 @@ predictions.limit(10).toPandas()
 
 ```python
 # Compute model performance metrics
-metrics = ComputeModelStatistics(evaluationMetric="classification", 
-                                 labelCol="label", 
+metrics = ComputeModelStatistics(evaluationMetric="classification",
+                                 labelCol="label",
                                  scoredLabelsCol="prediction").transform(predictions)
 metrics.toPandas()
 ```
@@ -206,6 +206,6 @@ plt.plot(x_val, y_val)
 plt.show()
 ```
 
-You should see an ROC curve like the following after the above cell is executed. 
+You should see an ROC curve like the following after the above cell is executed.
 
 <img src="https://user-images.githubusercontent.com/20047467/69376052-9b0a3380-0c77-11ea-9266-11aa44350cbe.png" width="400" height="320" />

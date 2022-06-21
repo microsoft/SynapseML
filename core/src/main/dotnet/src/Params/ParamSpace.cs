@@ -38,7 +38,7 @@ namespace Synapse.ML.Automl
         /// <summary>
         /// Creates a new instance of a <see cref="RandomSpace"/>
         /// </summary>
-        public RandomSpace((Param, DistObject)[] value) 
+        public RandomSpace((Param, DistObject)[] value)
             : this(SparkEnvironment.JvmBridge.CallConstructor(s_className, value))
         {
         }
@@ -53,5 +53,5 @@ namespace Synapse.ML.Automl
         override public IEnumerable<ParamMap> ParamMaps() =>
             (IEnumerable<ParamMap>)Reference.Invoke("paramMaps");
     }
-    
+
 }

@@ -17,7 +17,7 @@ from pyspark.sql.types import StructType
 class JSONOutputParser(_JSONOutputParser):
     def setDataType(self, value):
         jdt = SparkContext.getOrCreate()._jvm.org.apache.spark.sql.types.DataType.fromJson(
-            value.json()
+            value.json(),
         )
         self._java_obj = self._java_obj.setDataType(jdt)
         return self

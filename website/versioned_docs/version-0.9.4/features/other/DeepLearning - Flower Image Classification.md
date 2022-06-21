@@ -45,7 +45,7 @@ it = ImageTransformer()\
 ur = UnrollImage()\
     .setInputCol("scaled")\
     .setOutputCol("features")
-    
+
 dc1 = DropColumns().setCols(["scaled", "image"])
 
 lr1 = LogisticRegression().setMaxIter(8).setFeaturesCol("features").setLabelCol("labels")
@@ -63,14 +63,14 @@ resnet = ImageFeaturizer()\
     .setModelLocation(model.uri)\
     .setLayerNames(model.layerNames)\
     .setCutOutputLayers(1)
-    
+
 dc3 = DropColumns().setCols(["image"])
-    
+
 lr2 = LogisticRegression().setMaxIter(8).setFeaturesCol("features").setLabelCol("labels")
 
 dc4 = DropColumns().setCols(["features"])
 
-deepModel = Pipeline(stages=[resnet, dc3, lr2, dc4])    
+deepModel = Pipeline(stages=[resnet, dc3, lr2, dc4])
 ```
 
 ![Resnet 18](https://i.imgur.com/Mb4Dyou.png)

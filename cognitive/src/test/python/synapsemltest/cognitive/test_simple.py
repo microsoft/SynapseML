@@ -13,7 +13,8 @@ from pyspark.sql.types import *
 class SimpleHTTPTransformerSmokeTest(unittest.TestCase):
     def test_simple(self):
         df = spark.createDataFrame([("foo",) for x in range(20)], ["data"]).withColumn(
-            "inputs", struct("data")
+            "inputs",
+            struct("data"),
         )
 
         response_schema = (

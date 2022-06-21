@@ -39,7 +39,7 @@ def rotate_color_channel(bgr_image_array, height, width, nChannels):
   B, G, R, *_ = np.asarray(bgr_image_array).reshape(height, width, nChannels).T
   rgb_image_array = np.array((R, G, B)).T
   return rgb_image_array
-    
+
 def plot_superpixels(image_rgb_array, sp_clusters, weights, green_threshold=99):
     superpixels = sp_clusters
     green_value = np.percentile(weights, green_threshold)
