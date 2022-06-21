@@ -3,17 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils._
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._

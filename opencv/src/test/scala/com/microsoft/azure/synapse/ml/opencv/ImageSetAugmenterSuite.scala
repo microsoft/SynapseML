@@ -3,10 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.opencv
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.test.base.LinuxOnly
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 

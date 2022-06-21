@@ -5,11 +5,12 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{PipelineStageParam, TransformerParam}
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{BooleanParam, ParamMap, PipelineStageParam, TransformerParam}
+import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object Timer extends ComplexParamsReadable[Timer]
 
@@ -32,7 +33,7 @@ trait TimerParams extends Wrappable {
 
   def getDisableMaterialization: Boolean = $(disableMaterialization)
 
-  def setDisable(v: Boolean): this.type = set(disableMaterialization, v)
+  def setDisableMaterialization(v: Boolean): this.type = set(disableMaterialization, v)
 
   protected def formatTime(t: Long, isTransform: Boolean, count: Option[Long], stage: PipelineStage): String = {
     val time = {

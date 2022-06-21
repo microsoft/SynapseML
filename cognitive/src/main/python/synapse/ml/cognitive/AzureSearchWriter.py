@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 import pyspark
@@ -12,16 +12,20 @@ from pyspark import sql
 from pyspark.ml.param.shared import *
 from pyspark.sql import DataFrame
 
+
 def streamToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter
     return writer.stream(df._jdf, options)
 
-setattr(pyspark.sql.DataFrame, 'streamToAzureSearch', streamToAzureSearch)
+
+setattr(pyspark.sql.DataFrame, "streamToAzureSearch", streamToAzureSearch)
+
 
 def writeToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter
     writer.write(df._jdf, options)
 
-setattr(pyspark.sql.DataFrame, 'writeToAzureSearch', writeToAzureSearch)
+
+setattr(pyspark.sql.DataFrame, "writeToAzureSearch", writeToAzureSearch)

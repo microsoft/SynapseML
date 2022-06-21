@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{ModelParam, TypedDoubleArrayParam}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
@@ -15,13 +16,11 @@ import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
-import spray.json.DefaultJsonProtocol._
-import scala.collection.JavaConverters._
-
-import scala.annotation.tailrec
 
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
@@ -55,9 +54,6 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
 
   /** @group setParam */
   def setTrainRatio(value: Double): this.type = set(trainRatio, value)
-
-  /** @group setParam */
-  def setSeed(value: Long): this.type = set(seed, value)
 
   /** @group setParam */
   def setMinRatingsU(value: Int): this.type = set(minRatingsU, value)

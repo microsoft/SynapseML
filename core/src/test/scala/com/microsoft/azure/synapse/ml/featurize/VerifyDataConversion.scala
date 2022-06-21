@@ -3,16 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.featurize
 
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.schema.SparkSchema
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-
-import java.sql.Timestamp
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+
+import java.sql.Timestamp
 
 class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConversion] {
 

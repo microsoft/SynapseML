@@ -3,17 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.image
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.IOImplicits.dfrToDfre
+import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.io.File
 import java.net.URL
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import com.microsoft.azure.synapse.ml.io.IOImplicits.dfrToDfre
-import org.apache.commons.io.FileUtils
-import org.apache.spark.sql.functions.col
 
 trait ImageTestUtils extends TestBase {
 

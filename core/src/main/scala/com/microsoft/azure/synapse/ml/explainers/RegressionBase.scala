@@ -3,8 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import breeze.linalg._
-import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, Matrix => BM, Vector => BV}
+import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, Matrix => BM, Vector => BV, _}
 import breeze.numerics.sqrt
 import breeze.storage.Zero
 

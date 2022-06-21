@@ -5,12 +5,13 @@ import sys
 from pyspark import SQLContext
 from pyspark import SparkContext
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.automl._TuneHyperparametersModel import _TuneHyperparametersModel
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc
+
 
 @inherit_doc
 class TuneHyperparametersModel(_TuneHyperparametersModel):

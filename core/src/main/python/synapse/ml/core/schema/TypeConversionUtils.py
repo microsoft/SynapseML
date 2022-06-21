@@ -3,6 +3,7 @@
 
 from py4j.protocol import Py4JError
 
+
 def generateTypeConverter(name, cache, typeConverter):
     """
     Type converter
@@ -17,6 +18,7 @@ def generateTypeConverter(name, cache, typeConverter):
     """
     return lambda value: typeConverter(name, value, cache)
 
+
 def complexTypeConverter(name, value, cache):
     """
     Type conversion for complex types
@@ -29,10 +31,10 @@ def complexTypeConverter(name, value, cache):
     Returns:
         _java_obj:
     """
-    cache[name]=value
+    cache[name] = value
     try:
         if isinstance(value, list):
-            java_value=[]
+            java_value = []
             for v in value:
                 if hasattr(v, "_transfer_params_to_java"):
                     v._transfer_params_to_java()

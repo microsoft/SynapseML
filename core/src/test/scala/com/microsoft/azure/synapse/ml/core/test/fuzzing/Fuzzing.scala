@@ -4,19 +4,20 @@
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfig
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import com.microsoft.azure.synapse.ml.param._
 import org.apache.commons.io.FileUtils
+import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
-import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
-import org.apache.commons.lang.StringUtils.capitalize
+
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 /**
   * Class for holding test information, call by name to avoid uneccesary computations in test generations
@@ -50,6 +51,201 @@ trait TestFuzzingUtil {
   val testClassName: String = this.getClass.getName.split(".".toCharArray).last
 
   val testFitting = false
+}
+
+trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
+
+  def dotnetTestObjects(): Seq[TestObject[S]]
+
+  def dotnetTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
+    conf.dotnetTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+
+  def saveDotnetDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
+    df.write.mode("overwrite").parquet(new File(dotnetTestDataDir(conf), s"$name.parquet").toString)
+  }
+
+  def saveDotnetModel(conf: CodegenConfig, model: S, name: String): Unit = {
+    model match {
+      case writable: MLWritable =>
+        writable.write.overwrite().save(new File(dotnetTestDataDir(conf), s"$name.model").toString)
+      case _ =>
+        throw new IllegalArgumentException(s"${model.getClass.getName} is not writable")
+    }
+  }
+
+  def saveDotnetTestData(conf: CodegenConfig): Unit = {
+    dotnetTestDataDir(conf).mkdirs()
+    dotnetTestObjects().zipWithIndex.foreach { case (to, i) =>
+      saveDotnetModel(conf, to.stage, s"model-$i")
+      if (testFitting) {
+        saveDotnetDataset(conf, to.fitDF, s"fit-$i")
+        saveDotnetDataset(conf, to.transDF, s"trans-$i")
+        to.validateDF.foreach(saveDotnetDataset(conf, _, s"val-$i"))
+      }
+    }
+  }
+
+  def dotnetTestInstantiateModel(stage: S, num: Int, testDataDir: String): String = {
+    val fullParamMap = stage.extractParamMap().toSeq
+    val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
+    val fullStageName = stage.getClass.getName
+      .replace("com.microsoft.azure.synapse.ml", "Synapse.ML")
+      .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
+      .split(".".toCharArray).map(capitalize).mkString(".")
+
+    def instantiateModel(paramMap: Seq[ParamPair[_]]): String = {
+      val externalLoadlingLines = paramMap.flatMap { pp =>
+        pp.param match {
+          case pp: PipelineStageWrappable[_] =>
+            Some(pp.dotnetLoadLine(num, testDataDir))
+          case ep: EvaluatorParam =>
+            Some(ep.dotnetLoadLine(num, testDataDir))
+          case ep: ExternalDotnetWrappableParam[_] =>
+            Some(ep.dotnetLoadLine(num))
+          case _ => None
+        }
+      }.mkString("\n")
+      s"""
+         |$externalLoadlingLines
+         |
+         |var model = new $fullStageName()
+         |${indent(paramMap.map(dotnetRenderParam(_)).mkString("\n"), 1)};
+         |
+         |""".stripMargin
+    }
+
+    try {
+      instantiateModel(fullParamMap)
+    } catch {
+      case _: NotImplementedError =>
+        println(s"could not generate full test for $fullStageName, resorting to partial test")
+        instantiateModel(partialParamMap)
+    }
+  }
+
+
+  def makeDotnetTests(testObject: TestObject[S], num: Int, testDataDir: String): String = {
+    val stage = testObject.stage
+    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val fullStageName = stage.getClass.getName
+      .replace("com.microsoft.azure.synapse.ml", "Synapse.ML")
+      .replace("org.apache.spark.ml", "Microsoft.Spark.ML")
+      .split(".".toCharArray).map(capitalize).mkString(".")
+    val fittingTest = stage match {
+      case _: Estimator[_] if testFitting =>
+        s"""
+           |var fdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "fit-$num.parquet"));
+           |var tdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |model.Fit(fdf).Transform(tdf).Show();
+           |""".stripMargin
+      case _: Transformer if testFitting =>
+        s"""
+           |var tdf = _spark.Read().Parquet(Path.Combine(TestDataDir, "trans-$num.parquet"));
+           |model.Transform(tdf).Show();
+           |""".stripMargin
+      case _ => ""
+    }
+
+    s"""
+       |[Fact]
+       |public void Test${stageName}Constructor$num()
+       |{
+       |    void AssertCorrespondence($fullStageName model, string name, int num)
+       |    {
+       |        model.Write().Overwrite().Save(Path.Combine(TestDataDir, name));
+       |        _jvm.CallStaticJavaMethod("com.microsoft.azure.synapse.ml.core.utils.ModelEquality",
+       |            "assertEqual", "${stage.getClass.getName}", Path.Combine(TestDataDir, name),
+       |            Path.Combine(TestDataDir, String.Format("model-{0}.model", num)));
+       |    }
+       |${indent(dotnetTestInstantiateModel(stage, num, testDataDir), 1)}
+       |
+       |    AssertCorrespondence(model, "dotnet-constructor-model-$num.model", $num);
+       |
+       |${indent(fittingTest, 1)}
+       |}
+       |
+       |""".stripMargin
+  }
+
+  //noinspection ScalaStyle
+  def makeDotnetTestFile(conf: CodegenConfig): Unit = {
+    spark
+    saveDotnetTestData(conf)
+    val testDataDirString = dotnetTestDataDir(conf).toString
+    val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) =>
+      makeDotnetTests(to, i, testDataDirString) }
+    val stage = dotnetTestObjects().head.stage
+    val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
+    val importPathString = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Synapse.ML")
+      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
+      .split(".".toCharArray).map(capitalize).mkString(".")
+    val externalLoaderImports = conf.name match {
+      case "synapseml-deep-learning" =>
+        s"""using Synapse.ML.Cntk;
+           |using Synapse.ML.Stages;
+           |""".stripMargin
+      case _ => ""
+    }
+    val namespaceString = importPath.mkString(".")
+      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "SynapseMLtest")
+      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
+      .split(".".toCharArray).map(capitalize).mkString(".")
+    val testClass =
+      s"""
+         |// Copyright (C) Microsoft Corporation. All rights reserved.
+         |// Licensed under the MIT License. See LICENSE in project root for information.
+         |
+         |using System;
+         |using System.IO;
+         |using System.Collections.Generic;
+         |using Microsoft.Spark.Interop.Ipc;
+         |using Microsoft.Spark.ML;
+         |using Microsoft.Spark.ML.Classification;
+         |using Microsoft.Spark.ML.Feature;
+         |using Microsoft.Spark.ML.Feature.Param;
+         |using Microsoft.Spark.ML.Recommendation;
+         |using Microsoft.Spark.ML.Regression;
+         |using Microsoft.Spark.Sql;
+         |using Microsoft.Spark.Sql.Types;
+         |using SynapseML.Dotnet.Utils;
+         |
+         |using Xunit;
+         |using SynapseMLtest.Utils;
+         |using SynapseMLtest.Helper;
+         |using $importPathString;
+         |$externalLoaderImports
+         |
+         |namespace $namespaceString
+         |{
+         |
+         |    [Collection("SynapseML Tests")]
+         |    public class $testClassName
+         |    {
+         |        public const string TestDataDir = "${testDataDirString.replaceAllLiterally("\\", "\\\\")}";
+         |        private readonly SparkSession _spark;
+         |        private readonly IJvmBridge _jvm;
+         |        public $testClassName(SparkFixture fixture)
+         |        {
+         |            _spark = fixture.Spark;
+         |            _jvm = fixture.Jvm;
+         |        }
+         |
+         |${indent(generatedTests.mkString("\n\n"), 2)}
+         |    }
+         |
+         |}
+         |
+         |""".stripMargin
+
+    val testFolders = namespaceString.split(".".toCharArray)
+    val testDir = FileUtilities.join((Seq(conf.dotnetTestDir.toString) ++ testFolders.toSeq): _*)
+    testDir.mkdirs()
+    Files.write(
+      FileUtilities.join(testDir, "Test" + testClassName.capitalize + ".cs").toPath,
+      testClass.getBytes(StandardCharsets.UTF_8))
+  }
+
 }
 
 trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
@@ -326,11 +522,13 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 }
 
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] {
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 
   def pyTestObjects(): Seq[TestObject[S]] = testObjects()
+
+  def dotnetTestObjects(): Seq[TestObject[S]] = testObjects()
 
   def serializationTestObjects(): Seq[TestObject[S]] = testObjects()
 

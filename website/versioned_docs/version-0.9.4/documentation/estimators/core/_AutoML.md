@@ -210,4 +210,3 @@ display(tuneHyperparameters.fit(dataset))
 py="synapse.ml.automl.html#module-synapse.ml.automl.TuneHyperparameters"
 scala="com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.scala" />
-

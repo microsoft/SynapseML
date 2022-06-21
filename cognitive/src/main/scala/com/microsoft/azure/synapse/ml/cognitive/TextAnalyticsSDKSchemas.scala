@@ -348,4 +348,3 @@ object SDKConverters {
       .toSeq.map(tup => new TAResponseSDK[U](tup._3, tup._1, tup._2))
   }
 }
-

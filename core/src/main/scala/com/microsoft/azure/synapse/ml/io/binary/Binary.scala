@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.io.binary
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import scala.language.implicitConversions
 
 /** Implicit conversion allows sparkSession.readImages(...) syntax

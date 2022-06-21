@@ -5,9 +5,10 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.attribute.NominalAttribute
 import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
-import org.apache.spark.ml.param.{Param, ParamMap, Params, TransformerParam}
+import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.expressions.UserDefinedFunction

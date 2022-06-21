@@ -3,8 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import java.io.File
-
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, RequestBuilder}
@@ -12,10 +10,12 @@ import org.apache.http.entity.mime.content.FileBody
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
 import spray.json._
 
+import java.io.File
+
 
 object SpeechAPI {
 
-  import RESTHelpers._
+  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   def getSpeakerProfile(data: File, key: String): String = {
     retry(List(100, 500, 1000), { () =>

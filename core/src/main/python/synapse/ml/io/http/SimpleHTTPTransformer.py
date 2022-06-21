@@ -3,14 +3,14 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.io.http._SimpleHTTPTransformer import _SimpleHTTPTransformer
 from pyspark.ml.common import inherit_doc
 
+
 @inherit_doc
 class SimpleHTTPTransformer(_SimpleHTTPTransformer):
-
     def setUrl(self, value):
         return self.setInputParser(self.getInputParser().setUrl(value))

@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.DataType

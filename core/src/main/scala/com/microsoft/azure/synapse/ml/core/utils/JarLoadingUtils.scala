@@ -4,11 +4,10 @@
 package com.microsoft.azure.synapse.ml.core.utils
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-
-import java.lang.reflect.Modifier
 import org.sparkproject.guava.reflect.ClassPath
 
 import java.io.{File, IOException}
+import java.lang.reflect.Modifier
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 

@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
+
 import scala.collection.JavaConverters._
 
 // Text Analytics /analyze endpoint schemas

@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.io.http
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.TransformerParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, FlattenBatch, HasMiniBatcher, Lambda}
 import org.apache.commons.io.IOUtils
 import org.apache.spark.injections.UDFUtils

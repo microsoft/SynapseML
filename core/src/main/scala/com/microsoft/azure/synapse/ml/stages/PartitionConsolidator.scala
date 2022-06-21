@@ -135,4 +135,3 @@ class Consolidator[T] {
   }
 
 }
-

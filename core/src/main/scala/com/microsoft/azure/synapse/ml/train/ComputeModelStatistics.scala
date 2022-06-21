@@ -4,23 +4,22 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.{
-  HasEvaluationMetric, HasLabelCol, HasScoredLabelsCol, HasScoresCol, MetricData}
+import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
-import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
+import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
