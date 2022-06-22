@@ -17,7 +17,7 @@ sys.path.append(
     join(os.path.dirname(__file__), os.pardir, os.pardir, "synapse", "ml", "dl")
 )
 
-from LitDeepVisionModel import LitDeepVisionModel
+from synapse.ml.dl import *
 
 
 class MyDummyCallback(Callback):

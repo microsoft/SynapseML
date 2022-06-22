@@ -3,7 +3,7 @@
 
 from pyspark.ml import Estimator
 import horovod.spark.lightning as hvd
-from LightningParams import LightningParams
+from synapse.ml.dl.LightningParams import LightningParams
 
 
 class LightningEstimator(Estimator, LightningParams):

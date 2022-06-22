@@ -3,8 +3,8 @@
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params
-from LightningEstimator import LightningEstimator
-from LitDeepVisionModel import LitDeepVisionModel
+from synapse.ml.dl.LightningEstimator import LightningEstimator
+from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
 
 
 class DeepVisionClassifier(LightningEstimator):

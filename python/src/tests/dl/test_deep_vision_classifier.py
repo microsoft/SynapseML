@@ -4,7 +4,6 @@
 import contextlib
 import os
 import shutil
-import sys
 import tempfile
 
 import numpy as np
@@ -18,11 +17,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from .test_deep_vision_model import MyDummyCallback
 
-sys.path.append(
-    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "synapse", "ml", "dl")
-)
-
-from DeepVisionClassifier import DeepVisionClassifier
+from synapse.ml.dl import *
 
 
 @contextlib.contextmanager
@@ -86,11 +81,11 @@ def test_mobilenet_v2(
 ):
     spark = SparkSession.builder.master("local[*]").getOrCreate()
 
-    backend = SparkBackend(
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        prefix_output_with_timestamp=True,
-    )
+    # backend = SparkBackend(
+    #     stdout=sys.stdout,
+    #     stderr=sys.stderr,
+    #     prefix_output_with_timestamp=True,
+    # )
     ctx = CallbackBackend()
 
     epochs = 5

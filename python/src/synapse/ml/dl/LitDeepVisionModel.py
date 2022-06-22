@@ -2,13 +2,13 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import inspect
-import operator
+
 import pytorch_lightning as pl
-from pytorch_lightning.utilities import _module_available
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from pytorch_lightning.utilities import _module_available
 
 _TORCHVISION_AVAILABLE = _module_available("torchvision")
 if _TORCHVISION_AVAILABLE:
@@ -51,7 +51,7 @@ class LitDeepVisionModel(pl.LightningModule):
         self.loss_name = loss_name
         self.label_cols = label_cols
         self.feature_cols = feature_cols
-        self.loss_weights = loss_weights
+        self.loss_weights = loss_weights  ## TODO: remove or add support
         self.pretrained = pretrained
         self.feature_extracting = feature_extracting
         self.dropout_aux = dropout_aux
@@ -186,7 +186,6 @@ class LitDeepVisionModel(pl.LightningModule):
         x = x.float()
         return self.model.forward(x)
 
-    # TODO: Add optimizer params input
     def configure_optimizers(self):
         self._fine_tune_layers()
         params_to_update = filter(lambda p: p.requires_grad, self.model.parameters())

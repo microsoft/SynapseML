@@ -64,3 +64,8 @@ null/
 
 # pytest
 .pytest_cache/
+
+# python wheel
+**/build/*
+**/dist/*
+**/*.egg-info/*
