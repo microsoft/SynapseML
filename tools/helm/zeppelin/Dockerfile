@@ -70,7 +70,7 @@ RUN echo "$LOG_TAG Install essentials" && \
 RUN echo "$LOG_TAG Getting maven" && \
     wget http://www.eu.apache.org/dist/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz && \
     tar -zxf apache-maven-3.3.9-bin.tar.gz -C /usr/local/ && \
-    ln -s /usr/local/apache-maven-3.3.9/bin/mvn /usr/local/bin/mvn 
+    ln -s /usr/local/apache-maven-3.3.9/bin/mvn /usr/local/bin/mvn
 
 RUN echo "$LOG_TAG install nodejs" && \
     curl -sL https://deb.nodesource.com/setup_12.x | bash - && apt-get install -y nodejs && \

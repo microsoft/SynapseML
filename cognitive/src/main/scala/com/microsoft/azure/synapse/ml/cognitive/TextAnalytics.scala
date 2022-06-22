@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{CognitiveServiceStructParam, DotnetWrappableParam, ServiceParam}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -164,7 +165,7 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
+        .setHandler(handlingFunc _)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),
@@ -408,6 +409,10 @@ class TextAnalyzeTaskParam(parent: Params,
     val parameters = valParameters.asScala.toMap.map { x => (x._1, x._2.toString) }
     TextAnalyzeTask(parameters)
   }
+
+  override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
+    v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
+      s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
 }
 
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]

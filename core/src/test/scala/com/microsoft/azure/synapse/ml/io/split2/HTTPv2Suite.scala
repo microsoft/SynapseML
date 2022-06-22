@@ -81,7 +81,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       .start()
     using(server) {
       Thread.sleep(3000)
-      assertLatency((1 to 400).map(i => sendStringRequest(client, url = url(newPort))), 10)
+      assertLatency((1 to 400).map(i => sendStringRequest(url = url(newPort))), 10)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
   }
@@ -95,7 +95,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       Thread.sleep(3000)
-      val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
+      val futures = (1 to 100).map(i => sendStringRequestAsync(url = url(newPort)))
       val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
     }
@@ -110,7 +110,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       Thread.sleep(3000)
-      val futures = (1 to 100).map(i => sendStringRequestAsync(client, url = url(newPort)))
+      val futures = (1 to 100).map(i => sendStringRequestAsync(url = url(newPort)))
       val responsesWithLatencies = futures.map(Await.result(_, requestDuration))
       assertLatency(responsesWithLatencies, 2000)
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
@@ -126,7 +126,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      (1 to 100).foreach(i => sendStringRequest(client, url = url(newPort)))
+      (1 to 100).foreach(i => sendStringRequest(url = url(newPort)))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
@@ -136,7 +136,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server2) {
       waitForServer(server2)
-      (1 to 100).foreach(i => sendStringRequest(client, url = url(newPort)))
+      (1 to 100).foreach(i => sendStringRequest(url = url(newPort)))
       println(HTTPSourceStateHolder.serviceInfoJson(apiName))
     }
 
@@ -150,7 +150,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      sendStringRequest(client, url = url(newPort))
+      sendStringRequest(url = url(newPort))
 //      val responsesWithLatencies = (1 to 100).map(_ => sendStringRequest(client, url = url(newPort)))
 //      Thread.sleep(1000)
 //      (1 to 100).foreach(_ => sendStringRequest(client, url = url(newPort)))
@@ -190,8 +190,8 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       waitForServer(server1)
       using(server2) {
         waitForServer(server2)
-        val l1 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port1/foo"))
-        val l2 = (1 to 100).map(_ => sendStringRequest(client, s"http://$host:$port2/bar"))
+        val l1 = (1 to 100).map(_ => sendStringRequest(s"http://$host:$port1/foo"))
+        val l2 = (1 to 100).map(_ => sendStringRequest(s"http://$host:$port2/bar"))
         assertLatency(l1, 20)
         assertLatency(l2, 20)
 
@@ -239,15 +239,15 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
+        sendStringRequest(payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""",targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """{"valu111e": 1}""",targetCode = 400, url = url(newPort))
       )
 
       val r3 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
 
       assertLatency(r1, 60)
@@ -268,15 +268,15 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
+        sendStringRequest(payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
       )
 
       val r3 = (1 to 10).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -307,15 +307,15 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val r1 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """{"value": 1}""", url = url(newPort))
+        sendStringRequest(payload = """{"value": 1}""", url = url(newPort))
       )
 
       val r2 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """{"valu111e": 1}""", targetCode = 400, url = url(newPort))
       )
 
       val r3 = (1 to 100).map(i =>
-        sendStringRequest(client, payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
+        sendStringRequest(payload = """jskdfjkdhdjfdjkh""", targetCode = 400, url = url(newPort))
       )
       assertLatency(r1, 60)
       assertLatency(r2, 60)
@@ -350,7 +350,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       using(server) {
         waitForServer(server)
         val responsesWithLatencies = (1 to 300).map(i =>
-          sendStringRequest(client, url = url(newPort))
+          sendStringRequest(url = url(newPort))
         )
         assertLatency(responsesWithLatencies, 200)
         println(HTTPSourceStateHolder.serviceInfoJson(apiName))
@@ -383,7 +383,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       Thread.sleep(10000)
       val responsesWithLatencies = (1 to 100).map { i =>
-        val ret = sendJsonRequest(client, i, url = url(newPort))
+        val ret = sendJsonRequest(i, url = url(newPort))
         ret
       }
 
@@ -417,7 +417,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
       lazy val client2: CloseableHttpClient = HttpClientBuilder
         .create().setDefaultRequestConfig(requestConfig2).build()
 
-      val futures = (1 to 100).map(i => Future(sendFileRequest(client2, url = url(newPort))))
+      val futures = (1 to 100).map(i => Future(sendFileRequest(client=client2, url = url(newPort))))
       val responsesWithLatencies = futures.flatMap(f => Try(Await.result(f, requestDuration)).toOption)
       Thread.sleep(6000)
       assert(server.isActive)

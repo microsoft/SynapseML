@@ -150,7 +150,7 @@ featurizeUDF = udf(featurize,  ArrayType(FloatType()))
 
 df = df.withColumn("features", featurizeUDF("tokens")).cache()
 safe_show(df, 5) # Can be flaky on build server
-    
+
 
 ```
 

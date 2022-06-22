@@ -108,4 +108,3 @@ val cb = (new VowpalWabbitContextualBandit()
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitContextualBandit"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitContextualBandit.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitContextualBandit.scala" />
-

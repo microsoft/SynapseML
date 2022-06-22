@@ -4,12 +4,12 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{DataType, StringType}
@@ -340,4 +340,3 @@ class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(ui
 
   override protected def responseDataType: DataType = AnalyzeResponse.schema
 }
-

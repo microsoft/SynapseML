@@ -139,4 +139,3 @@ with mlflow.start_run():
     prediction = list(map(str, prediction))
     mlflow.log_param("prediction", ",".join(prediction))
 ```
-

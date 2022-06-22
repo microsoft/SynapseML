@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{HasRecommenderCols, RecEvaluatorParams}

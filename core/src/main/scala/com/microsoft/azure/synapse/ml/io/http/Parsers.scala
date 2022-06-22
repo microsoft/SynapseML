@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.injections.UDFUtils
@@ -19,10 +20,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
-import org.apache.spark.injections.UDFUtils
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe.TypeTag
 
 abstract class HTTPInputParser extends Transformer with HasOutputCol with HasInputCol with Wrappable {
@@ -91,7 +90,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 
 }
 
-object CustomInputParser extends ComplexParamsReadable[CustomInputParser]
+object CustomInputParser extends ComplexParamsReadable[CustomInputParser] with Serializable
 
 class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexParamsWritable with BasicLogging {
   logClass()
@@ -230,7 +229,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
 
 }
 
-object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser]
+object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser] with Serializable
 
 class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with BasicLogging {
   logClass()

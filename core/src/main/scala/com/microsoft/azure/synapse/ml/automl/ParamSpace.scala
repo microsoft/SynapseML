@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.automl
 
-import org.apache.spark.ml.param.{Param, ParamMap, ParamPair, ParamSpace}
+import com.microsoft.azure.synapse.ml.param.ParamSpace
+import org.apache.spark.ml.param.{Param, ParamMap, ParamPair}
 
 /** Represents a distribution of values.
   * @tparam T The type T of the values generated.

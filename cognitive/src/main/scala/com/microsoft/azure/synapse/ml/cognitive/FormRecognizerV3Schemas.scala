@@ -88,5 +88,3 @@ case class FormFieldV3(`type`: String,
                        valueTime: Option[String],
                        valueObject: Option[String],
                        valueArray: Option[Seq[String]])
-
-

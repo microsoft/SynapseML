@@ -605,4 +605,3 @@ analyzeDocument.transform(imageDf).show()
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeDocument"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeDocument.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/FormRecognizerV3.scala" />
-

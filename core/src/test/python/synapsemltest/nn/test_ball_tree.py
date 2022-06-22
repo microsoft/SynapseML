@@ -9,12 +9,11 @@ from synapsemltest.spark import *
 
 
 class NNSpec(unittest.TestCase):
-
     def test_bindings(self):
-        cbt = ConditionalBallTree([[1.0, 2.0], [2.0, 3.0]], [1, 2], ['foo', 'bar'], 50)
+        cbt = ConditionalBallTree([[1.0, 2.0], [2.0, 3.0]], [1, 2], ["foo", "bar"], 50)
 
         def test_cbt(cbt_model):
-            result = cbt_model.findMaximumInnerProducts([1.0, 2.0], {'foo'}, 5)
+            result = cbt_model.findMaximumInnerProducts([1.0, 2.0], {"foo"}, 5)
             expected = [(0, 5.0)]
             self.assertEqual(expected, result)
 

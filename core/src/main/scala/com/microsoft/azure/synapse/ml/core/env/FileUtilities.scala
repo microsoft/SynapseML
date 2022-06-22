@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.core.env
 
 import java.io.File
 import java.nio.file.{Files, StandardCopyOption}
-
 import scala.io.{BufferedSource, Source}
 
 object FileUtilities {

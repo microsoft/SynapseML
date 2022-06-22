@@ -15,6 +15,7 @@ import java.util.concurrent.CountDownLatch
 class SharedDatasetState(columnParams: ColumnParams,
                          schema: StructType,
                          trainParams: BaseTrainParams,
+                         isForValidation: Boolean,
                          sharedState: SharedState) {
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val useSingleDataset: Boolean = trainParams.executionParams.useSingleDatasetMode
@@ -46,12 +47,21 @@ class SharedDatasetState(columnParams: ColumnParams,
       if (useSingleDataset) sparseAggregatedColumns
       else new SparseAggregatedColumns(chunkSize)
     }
-    aggregatedColumns.incrementCount(ts)
+    // For the validation Dataset in useSingleDataset mode, we only want 1 copy of the data (otherwise
+    // every partition appends the same broadcast-ed data). That one copy will be made by the main execution worker.
+    val mergeRowsIntoDataset: Boolean =
+      if (!isForValidation) true
+      else !useSingleDataset || sharedState.mainExecutorWorker.get == LightGBMUtils.getTaskId
+    if (mergeRowsIntoDataset) {
+      aggregatedColumns.incrementCount(ts)
+    }
     if (useSingleDataset) {
       arrayProcessedSignal.countDown()
       arrayProcessedSignal.await()
     }
-    aggregatedColumns.addRows(ts)
+    if (mergeRowsIntoDataset) {
+      aggregatedColumns.addRows(ts)
+    }
     ts.release()
     aggregatedColumns
   }
@@ -87,8 +97,18 @@ class SharedState(columnParams: ColumnParams,
   val chunkSize: Int = trainParams.executionParams.chunkSize
   val matrixType: String = trainParams.executionParams.matrixType
 
-  val datasetState: SharedDatasetState = new SharedDatasetState(columnParams, schema, trainParams, this)
-  val validationDatasetState: SharedDatasetState = new SharedDatasetState(columnParams, schema, trainParams, this)
+  val datasetState: SharedDatasetState = new SharedDatasetState(
+    columnParams,
+    schema,
+    trainParams,
+    isForValidation = false,
+    this)
+  val validationDatasetState: SharedDatasetState = new SharedDatasetState(
+    columnParams,
+    schema,
+    trainParams,
+    isForValidation = true,
+    this)
 
   @volatile var isSparse: Option[Boolean] = None
   @volatile var mainExecutorWorker: Option[Long] = None

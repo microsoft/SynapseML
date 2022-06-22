@@ -332,9 +332,3 @@ val cop = (new CustomOutputParser()
 py="synapse.ml.io.http.html#module-synapse.ml.io.http.CustomOutputParser"
 scala="com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/io/http/CustomOutputParser.scala" />
-
-
-
-
-
-

@@ -270,4 +270,3 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
 }
-

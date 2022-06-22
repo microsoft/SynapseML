@@ -3,10 +3,19 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.swig
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_double, SWIGTYPE_p_float, SWIGTYPE_p_int, doubleChunkedArray,
-  floatChunkedArray, int32ChunkedArray, lightgbmlib}
+import com.microsoft.ml.lightgbm._
 
 object SwigUtils extends Serializable {
+  /** Converts a native double array to a Java array using SWIG.
+    * @param nativeArray The native Array to convert.
+    * @return The Java array.
+    */
+  def nativeDoubleArrayToArray(nativeArray: SWIGTYPE_p_double, count: Int): Array[Double] = {
+    val array: Array[Double] = Array.fill[Double](count)(0)
+    array.indices.foreach(i => array(i) = lightgbmlib.doubleArray_getitem(nativeArray, i))
+    array
+  }
+
   /** Converts a Java float array to a native C++ array using SWIG.
     * @param array The Java float Array to convert.
     * @return The SWIG wrapper around the native array.
@@ -124,11 +133,14 @@ class IntChunkedArray(array: int32ChunkedArray) extends ChunkedArray[Int] {
 }
 
 abstract class BaseSwigArray[T]() {
+  def getItem(index: Long): T
   def setItem(index: Long, item: T): Unit
 }
 
 class FloatSwigArray(val array: SWIGTYPE_p_float) extends BaseSwigArray[Float] {
   def this(size: Long) = this(lightgbmlib.new_floatArray(size))
+
+  def getItem(index: Long): Float = lightgbmlib.floatArray_getitem(array, index)
 
   def setItem(index: Long, item: Float): Unit = lightgbmlib.floatArray_setitem(array, index, item)
 
@@ -138,6 +150,8 @@ class FloatSwigArray(val array: SWIGTYPE_p_float) extends BaseSwigArray[Float] {
 class DoubleSwigArray(val array: SWIGTYPE_p_double) extends BaseSwigArray[Double] {
   def this(size: Long) = this(lightgbmlib.new_doubleArray(size))
 
+  def getItem(index: Long): Double = lightgbmlib.doubleArray_getitem(array, index)
+
   def setItem(index: Long, item: Double): Unit = lightgbmlib.doubleArray_setitem(array, index, item)
 
   def delete(): Unit = lightgbmlib.delete_doubleArray(array)
@@ -145,6 +159,8 @@ class DoubleSwigArray(val array: SWIGTYPE_p_double) extends BaseSwigArray[Double
 
 class IntSwigArray(val array: SWIGTYPE_p_int) extends BaseSwigArray[Int] {
   def this(size: Long) = this(lightgbmlib.new_intArray(size))
+
+  def getItem(index: Long): Int = lightgbmlib.intArray_getitem(array, index)
 
   def setItem(index: Long, item: Int): Unit = lightgbmlib.intArray_setitem(array, index, item)
 

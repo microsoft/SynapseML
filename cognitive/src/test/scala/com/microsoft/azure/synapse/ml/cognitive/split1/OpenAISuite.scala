@@ -82,9 +82,13 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = CompletionResponse.makeFromRowConverter
-    completion.transform(df).collect().map(r =>
+    val t = completion.transform(df)
+    t.collect().map(r =>
       fromRow(r.getAs[Row]("out")).choices.map(c =>
         assert(c.text.length > requiredLength)))
+    /*completion.transform(df).collect().map(r =>
+      fromRow(r.getAs[Row]("out")).choices.map(c =>
+        assert(c.text.length > requiredLength)))*/
   }
 
   def newCompletion(): OpenAICompletion = {
@@ -107,5 +111,3 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   override def reader: MLReadable[_] = OpenAICompletion
 
 }
-
-

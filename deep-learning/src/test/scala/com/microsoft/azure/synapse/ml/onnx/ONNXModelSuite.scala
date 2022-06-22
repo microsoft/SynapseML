@@ -4,13 +4,13 @@
 package com.microsoft.azure.synapse.ml.onnx
 
 import breeze.linalg.{argmax, argtopk}
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema

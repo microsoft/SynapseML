@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.{binary_to_response, em
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceStateHolder
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{lit, struct, to_json, udf}
+import org.apache.spark.sql.functions.{lit, struct, to_json}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, Row}
 
