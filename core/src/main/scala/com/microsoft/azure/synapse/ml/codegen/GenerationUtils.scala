@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PythonWrappableParam}
 import org.apache.spark.ml.param._
 
 object GenerationUtils {
@@ -46,6 +47,26 @@ object GenerationUtils {
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
         s"""${p.name}=${PythonWrappableParam.pyDefaultRender(v, p)}"""
+    }
+  }
+
+  def dotnetRenderParam[T](pp: ParamPair[T]): String = {
+    dotnetRenderParam(pp.param, pp.value)
+  }
+
+  //noinspection ScalaStyle
+  def dotnetRenderParam[T](p: Param[T], v: T): String = {
+    import DefaultParamInfo._
+
+    p match {
+      case pwp: DotnetWrappableParam[T] =>
+        "." + pwp.dotnetTestSetterLine(v)
+      case _: StringArrayParam | _: DoubleArrayParam | _: IntArrayParam |
+           _: DoubleArrayArrayParam =>
+        s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType}
+           |    ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+      case _ =>
+        s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }
   }
 

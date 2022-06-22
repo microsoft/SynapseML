@@ -5,7 +5,7 @@ import sys
 
 
 def add_python_helper_to_markdown(folder, md, version):
-    replacement = """<!-- 
+    replacement = """<!--
 ```python
 import pyspark
 import os
@@ -32,7 +32,7 @@ import synapse.ml
 -->
 
 <!--pytest-codeblocks:cont-->""".format(
-        version
+        version,
     )
     with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
@@ -63,8 +63,8 @@ def main(version):
     os.chdir(folder)
     os.system(
         "pytest --codeblocks --junit-xml={}".format(
-            os.path.join(cur_path, "target", "website-test-result.xml")
-        )
+            os.path.join(cur_path, "target", "website-test-result.xml"),
+        ),
     )
 
 

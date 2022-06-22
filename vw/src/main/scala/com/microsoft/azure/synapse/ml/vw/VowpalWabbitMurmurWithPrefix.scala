@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
+
 import java.nio.charset.StandardCharsets
 
 /**

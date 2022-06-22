@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.core.test.base
 
-import java.nio.file.Files
 import breeze.linalg.norm.Impl
 import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.math.Field
@@ -18,6 +17,7 @@ import org.scalatest._
 import org.scalatest.concurrent.TimeLimits
 import org.scalatest.time.{Seconds, Span}
 
+import java.nio.file.Files
 import scala.concurrent._
 import scala.reflect.ClassTag
 

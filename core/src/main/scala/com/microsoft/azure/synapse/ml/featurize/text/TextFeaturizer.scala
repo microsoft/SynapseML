@@ -7,17 +7,15 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
-
-import java.util.NoSuchElementException
-import org.apache.spark.ml.{Pipeline, _}
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.{Pipeline, _}
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset}
 
-import scala.reflect.runtime.universe.{TypeTag, typeTag}
+import java.util.NoSuchElementException
 
 trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 

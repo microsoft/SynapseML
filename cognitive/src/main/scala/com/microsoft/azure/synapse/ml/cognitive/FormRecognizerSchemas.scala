@@ -5,9 +5,8 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import org.apache.spark.sql.Row
-import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat}
-import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, StringType, StructField, StructType}
-import spray.json._
+import org.apache.spark.sql.types._
+import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat, _}
 
 object AnalyzeResponse extends SparkBindings[AnalyzeResponse]
 

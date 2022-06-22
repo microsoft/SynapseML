@@ -43,7 +43,7 @@ def _mml_from_java(java_stage):
         py_stage = py_type._from_java(java_stage)
     else:
         raise NotImplementedError(
-            "This Java stage cannot be loaded into Python currently: %r" % stage_name
+            "This Java stage cannot be loaded into Python currently: %r" % stage_name,
         )
     return py_stage
 

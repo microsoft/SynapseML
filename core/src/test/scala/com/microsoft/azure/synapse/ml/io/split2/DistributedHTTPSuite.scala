@@ -3,18 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.io.split2
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.string_to_response
 import com.microsoft.azure.synapse.ml.io.http.{RESTHelpers, SharedSingleton}
 import com.microsoft.azure.synapse.ml.io.split1.WithFreeUrl
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{FileEntity, StringEntity}
-import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.DistributedHTTPSourceProvider
 import org.apache.spark.sql.functions.{col, length}

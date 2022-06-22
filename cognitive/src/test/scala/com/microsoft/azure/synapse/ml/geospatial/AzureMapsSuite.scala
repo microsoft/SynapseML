@@ -16,7 +16,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
-import spray.json._
 
 import java.net.URI
 

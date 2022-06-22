@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.params
 
-import com.microsoft.azure.synapse.ml.core.utils.{ParamsStringBuilder, ParamGroup}
+import com.microsoft.azure.synapse.ml.core.utils.{ParamGroup, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMDelegate
 
 /** Defines the common Booster parameters passed to the LightGBM learners.

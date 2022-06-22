@@ -11,11 +11,10 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StringType
 
-import scala.concurrent.{ExecutionContext, blocking}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.Try
 
 trait Handler {

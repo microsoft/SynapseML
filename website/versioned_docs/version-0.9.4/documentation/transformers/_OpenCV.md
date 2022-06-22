@@ -117,5 +117,3 @@ display(isa.transform(images))
 py="synapse.ml.opencv.html#module-synapse.ml.opencv.ImageSetAugmenter"
 scala="com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/opencv/src/main/scala/com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.scala" />
-
-

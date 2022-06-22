@@ -28,4 +28,3 @@ case class RankerTrainParams(passThroughArgs: Option[String],
       .appendParamValueIfNotThere("max_position", Option(maxPosition))
   }
 }
-

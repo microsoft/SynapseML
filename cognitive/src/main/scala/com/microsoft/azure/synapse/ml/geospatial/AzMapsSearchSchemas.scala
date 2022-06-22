@@ -5,9 +5,6 @@ package com.microsoft.azure.synapse.ml.geospatial
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
-import spray.json.DefaultJsonProtocol.jsonFormat5
-
-import java.util.Date
 
 object Address extends SparkBindings[Address]
 

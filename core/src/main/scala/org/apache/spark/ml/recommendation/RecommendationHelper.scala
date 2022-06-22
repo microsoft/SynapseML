@@ -4,6 +4,7 @@
 package org.apache.spark.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.param.{ArrayParamMapParam, EstimatorParam, EvaluatorParam}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
@@ -17,7 +18,52 @@ import org.apache.spark.util.ThreadUtils
 trait RecEvaluatorParams extends Wrappable
   with HasPredictionCol with HasLabelCol with hasK with ComplexParamsWritable
 
-trait RecommendationParams extends ALSParams
+trait RecommendationParams extends ALSParams {
+  /** @group setParam */
+  def setNumUserBlocks(value: Int): this.type = set(numUserBlocks, value)
+
+  /** @group setParam */
+  def setNumItemBlocks(value: Int): this.type = set(numItemBlocks, value)
+
+  /** @group setParam */
+  def setMaxIter(value: Int): this.type = set(maxIter, value)
+
+  /** @group setParam */
+  def setBlockSize(value: Int): this.type = set(blockSize, value)
+
+  /** @group setParam */
+  def setRegParam(value: Double): this.type = set(regParam, value)
+
+  /** @group setParam */
+  def setPredictionCol(value: String): this.type = set(predictionCol, value)
+
+  /** @group setParam */
+  def setRank(value: Int): this.type = set(rank, value)
+
+  /** @group setParam */
+  def setAlpha(value: Double): this.type = set(alpha, value)
+
+  /** @group setParam */
+  def setColdStartStrategy(value: String): this.type = set(coldStartStrategy, value)
+
+  /** @group setParam */
+  def setNonnegative(value: Boolean): this.type = set(nonnegative, value)
+
+  /** @group setParam */
+  def setIntermediateStorageLevel(value: String): this.type = set(intermediateStorageLevel, value)
+
+  /** @group setParam */
+  def setImplicitPrefs(value: Boolean): this.type = set(implicitPrefs, value)
+
+  /** @group setParam */
+  def setFinalStorageLevel(value: String): this.type = set(finalStorageLevel, value)
+
+  /** @group setParam */
+  def setCheckpointInterval(value: Int): this.type = set(checkpointInterval, value)
+
+  /** @group setParam */
+  def setSeed(value: Long): this.type = set(seed, value)
+}
 
 trait BaseRecommendationModel extends Params with ALSModelParams with HasPredictionCol {
 

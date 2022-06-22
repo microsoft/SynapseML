@@ -84,7 +84,7 @@ class RankingSpec(unittest.TestCase):
             print(
                 metric
                 + ": "
-                + str(RankingEvaluator(k=3, metricName=metric).evaluate(output))
+                + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)),
             )
 
     # def test_adapter_evaluator_als(self):

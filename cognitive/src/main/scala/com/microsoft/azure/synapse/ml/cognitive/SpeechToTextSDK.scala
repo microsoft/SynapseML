@@ -3,18 +3,19 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive.SpeechFormat._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.azure.synapse.ml.core.utils.OsUtils
 import com.microsoft.azure.synapse.ml.io.http.HasURL
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{
-  Conversation, ConversationTranscriber, ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber,
+  ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.broadcast.Broadcast

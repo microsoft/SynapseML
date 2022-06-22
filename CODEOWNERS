@@ -20,7 +20,7 @@ tools/helm/      @dbanda
 vw/              @eisber
 isolationforest/ @eisber
 recommendation/  @eisber
-  
+
 #Roy's Areas
 cyber/           @rolevin
 
@@ -28,7 +28,9 @@ cyber/           @rolevin
 explainers/      @memoryz
 
 #Serena's Areas
-website/         @serenaruan
+website/         @serena-ruan
+core/src/main/dotnet @serena-ruan
+core/src/main/scala/com/microsoft/azure/synapse/ml/codegen @serena-ruan
 
 # Scott's Areas
 lightgbm/        @svotaw

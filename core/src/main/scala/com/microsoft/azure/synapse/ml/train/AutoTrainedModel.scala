@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasLabelCol}
-import org.apache.spark.ml.param.{ParamMap, TransformerParam}
+import com.microsoft.azure.synapse.ml.param.TransformerParam
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.{ComplexParamsWritable, Model, PipelineModel, Transformer}
 
 /** Defines common inheritance and functions across auto trained models.

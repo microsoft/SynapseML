@@ -7,8 +7,6 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.ml.feature.{NGram, Tokenizer}
 import org.apache.spark.sql.DataFrame
 
-import scala.collection.mutable
-
 class NGramSpec extends TestBase {
 
   def ngramDFToScalaList(dataFrame: DataFrame, outputCol: String = "ngrams"): Array[List[Any]] = {

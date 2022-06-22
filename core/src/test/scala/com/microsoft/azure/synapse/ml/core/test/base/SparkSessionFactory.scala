@@ -3,10 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.core.test.base
 
-import java.io.File
-
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+
+import java.io.File
 
 // Convert configuration to JSON/ENV vars moving forward:
 // 1. Logging Level

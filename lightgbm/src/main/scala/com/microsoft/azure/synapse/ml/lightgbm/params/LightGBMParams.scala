@@ -208,11 +208,11 @@ trait LightGBMDartParams extends Wrappable {
   def getSkipDrop: Double = $(skipDrop)
   def setSkipDrop(value: Double): this.type = set(skipDrop, value)
 
-  val xgboostDartMode = new BooleanParam(this, "xgboostDartMode",
+  val xGBoostDartMode = new BooleanParam(this, "xGBoostDartMode",
     "Set this to true to use xgboost dart mode")
-  setDefault(xgboostDartMode -> false)
-  def getXGBoostDartMode: Boolean = $(xgboostDartMode)
-  def setXGBoostDartMode(value: Boolean): this.type = set(xgboostDartMode, value)
+  setDefault(xGBoostDartMode -> false)
+  def getXGBoostDartMode: Boolean = $(xGBoostDartMode)
+  def setXGBoostDartMode(value: Boolean): this.type = set(xGBoostDartMode, value)
 
   val uniformDrop = new BooleanParam(this, "uniformDrop",
     "Set this to true to use uniform drop in dart mode")

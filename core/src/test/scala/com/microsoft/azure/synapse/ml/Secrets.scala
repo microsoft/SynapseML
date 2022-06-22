@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml
 
-import java.io.IOException
-
-import sys.process._
+import spray.json.DefaultJsonProtocol._
 import spray.json._
-import DefaultJsonProtocol._
+
+import java.io.IOException
+import scala.sys.process._
 
 object Secrets {
   private val KvName = "mmlspark-build-keys"

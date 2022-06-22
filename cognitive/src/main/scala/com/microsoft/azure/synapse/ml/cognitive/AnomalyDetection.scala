@@ -3,15 +3,16 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
+import com.microsoft.azure.synapse.ml.cognitive.AnomalyDetectorProtocol._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import AnomalyDetectorProtocol._
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.{Param, ServiceParam}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._

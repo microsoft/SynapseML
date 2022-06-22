@@ -55,7 +55,7 @@ def from_java(java_stage, stage_name):
         py_stage = py_type._from_java(java_stage)
     else:
         raise NotImplementedError(
-            "This Java stage cannot be loaded into Python currently: %r" % stage_name
+            "This Java stage cannot be loaded into Python currently: %r" % stage_name,
         )
     return py_stage
 
@@ -87,13 +87,13 @@ class ComplexParamsMixin(MLReadable):
                     sc._gateway.jvm.com.microsoft.azure.synapse.ml.core.serialize.ComplexParam._java_lang_class
                 )
                 is_complex_param = complex_param_class.isAssignableFrom(
-                    java_param.getClass()
+                    java_param.getClass(),
                 )
                 service_param_class = (
-                    sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                    sc._gateway.jvm.com.microsoft.azure.synapse.ml.param.ServiceParam._java_lang_class
                 )
                 is_service_param = service_param_class.isAssignableFrom(
-                    java_param.getClass()
+                    java_param.getClass(),
                 )
                 if self._java_obj.isSet(java_param):
                     if is_complex_param:
@@ -117,10 +117,10 @@ class ComplexParamsMixin(MLReadable):
         for param in self.params:
             if self.isSet(param):
                 service_param_class = (
-                    sc._gateway.jvm.org.apache.spark.ml.param.ServiceParam._java_lang_class
+                    sc._gateway.jvm.com.microsoft.azure.synapse.ml.param.ServiceParam._java_lang_class
                 )
                 is_service_param = service_param_class.isAssignableFrom(
-                    self._java_obj.getParam(param.name).getClass()
+                    self._java_obj.getParam(param.name).getClass(),
                 )
                 if is_service_param:
                     getattr(

@@ -12,7 +12,9 @@ import random
 
 class ComplementAccessTransformer(Transformer):
     partitionKey = Param(
-        Params._dummy(), "partitionKey", "The name of the partition_key field name"
+        Params._dummy(),
+        "partitionKey",
+        "The name of the partition_key field name",
     )
 
     indexedColNamesArr = Param(
@@ -94,10 +96,10 @@ class ComplementAccessTransformer(Transformer):
             .groupBy(partition_key)
             .agg(
                 f.min(curr_col_name).alias(
-                    ComplementAccessTransformer._min_index_token(curr_col_name)
+                    ComplementAccessTransformer._min_index_token(curr_col_name),
                 ),
                 f.max(curr_col_name).alias(
-                    ComplementAccessTransformer._max_index_token(curr_col_name)
+                    ComplementAccessTransformer._max_index_token(curr_col_name),
                 ),
             )
             .orderBy(partition_key)
@@ -110,8 +112,8 @@ class ComplementAccessTransformer(Transformer):
                     [
                         t.StructField(curr_col_name, t.IntegerType())
                         for curr_col_name in indexed_col_names_arr
-                    ]
-                )
+                    ],
+                ),
             )
 
             @f.udf(schema)
@@ -121,9 +123,10 @@ class ComplementAccessTransformer(Transformer):
                         [
                             random.randint(min_index, max_index)
                             for min_index, max_index in zip(
-                                min_index_arr, max_index_arr
+                                min_index_arr,
+                                max_index_arr,
                             )
-                        ]
+                        ],
                     )
                     for _ in range(factor)
                 ]
@@ -134,7 +137,8 @@ class ComplementAccessTransformer(Transformer):
 
         for limits_df in limits_dfs:
             pre_complement_candidates_df = pre_complement_candidates_df.join(
-                limits_df, partition_key
+                limits_df,
+                partition_key,
             ).cache()
 
         cols = [f.col(partition_key)] + [
@@ -151,23 +155,23 @@ class ComplementAccessTransformer(Transformer):
                             [
                                 f.col(
                                     ComplementAccessTransformer._min_index_token(
-                                        curr_col_name
-                                    )
+                                        curr_col_name,
+                                    ),
                                 )
                                 for curr_col_name in indexed_col_names_arr
-                            ]
+                            ],
                         ),
                         f.array(
                             [
                                 f.col(
                                     ComplementAccessTransformer._max_index_token(
-                                        curr_col_name
-                                    )
+                                        curr_col_name,
+                                    ),
                                 )
                                 for curr_col_name in indexed_col_names_arr
-                            ]
+                            ],
                         ),
-                    )
+                    ),
                 ),
             )
             .select(
@@ -178,7 +182,7 @@ class ComplementAccessTransformer(Transformer):
                             "{0}.{1}".format(
                                 ComplementAccessTransformer._tuple_token(),
                                 curr_col_name,
-                            )
+                            ),
                         ).alias(curr_col_name)
                         for curr_col_name in indexed_col_names_arr
                     ]
@@ -192,7 +196,9 @@ class ComplementAccessTransformer(Transformer):
 
         res_df = (
             complement_candidates_df.join(
-                tuples_df, [partition_key] + indexed_col_names_arr, how="left_anti"
+                tuples_df,
+                [partition_key] + indexed_col_names_arr,
+                how="left_anti",
             )
             .select(*cols)
             .orderBy(*cols)
