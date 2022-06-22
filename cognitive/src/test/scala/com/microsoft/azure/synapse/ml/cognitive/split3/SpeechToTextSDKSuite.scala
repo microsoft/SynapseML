@@ -20,6 +20,7 @@ import org.scalatest.Assertion
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
+
 trait CustomSpeechKey {
   lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
 }
@@ -29,7 +30,8 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   import spark.implicits._
 
   val region = "eastus"
-  lazy val resourcesDir = new File(new File(getClass.getResource("/").toURI).toString)
+  lazy val resoucesUri = getClass.getResource("/")
+  lazy val resourcesDir = new File(getClass.getResource("/").toURI)
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
   val profanity = "masked"
@@ -471,5 +473,6 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     Seq(new TestObject(sdk, audioDf2))
 
   override def reader: MLReadable[_] = ConversationTranscription
+
 }
 

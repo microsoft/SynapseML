@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lime
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.codegen.PythonWrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
@@ -169,7 +169,7 @@ object TabularLIME extends ComplexParamsReadable[TabularLIME]
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
-  with LIMEParams with Wrappable with ComplexParamsWritable with BasicLogging {
+  with LIMEParams with PythonWrappable with ComplexParamsWritable with BasicLogging { // TODO: accommodate RWrappable
   logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIME"))
@@ -205,7 +205,7 @@ object TabularLIMEModel extends ComplexParamsReadable[TabularLIMEModel]
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
-  with LIMEBase with Wrappable with BasicLogging {
+  with LIMEBase with PythonWrappable with BasicLogging { // TODO: accommodate RWrappable
   logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIMEModel"))
@@ -266,7 +266,7 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.ImageLIME'.", since="1.0.0-rc3")
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
-  with Wrappable with HasModifier with HasCellSize with BasicLogging {
+  with PythonWrappable with HasModifier with HasCellSize with BasicLogging { // TODO: accommodate RWrappable
   logClass()
 
   def this() = this(Identifiable.randomUID("ImageLIME"))

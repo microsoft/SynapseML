@@ -14,6 +14,8 @@ import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServ
 import org.apache.commons.io.FileUtils
 import spray.json._
 
+import scala.collection.mutable
+
 
 object RTestGen {
 
@@ -49,7 +51,7 @@ object RTestGen {
       .format(new java.util.Date())
 
     conf.rTestDir.mkdirs()
-    val testsDir = conf.rTestDir.getParentFile
+    val testsDir = conf.rTestDir
     val projectDir = testsDir.getParentFile
     writeFile(new File(projectDir, "DESCRIPTION"),
       s"""|Package: ${conf.name.replace("-", ".")}
@@ -95,7 +97,14 @@ object RTestGen {
         |""".stripMargin)
 
     val synapseVersion = BuildInfo.version
-    writeFile(join(conf.rTestDir, "setup.R"),
+
+    /*val dependencies = mutable.HashMap(
+      "synapseml-cognitive" -> Seq("synapseml-core"),
+      "synapseml-deep-learning" -> Seq("synapseml-core"),
+      "synapseml-lightgbm" -> Seq("synapseml-core"),
+      */
+
+    writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |library(sparklyr)
          |
@@ -103,7 +112,7 @@ object RTestGen {
          |options(sparklyr.verbose = TRUE)
          |
          |conf <- spark_config()
-         |conf$$`sparklyr.shell.conf` <- c(
+         |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=RSparkTests",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
@@ -112,8 +121,10 @@ object RTestGen {
          |sc <- spark_connect(
          |  master = "local",
          |  version = "3.2.0",
-         |  packages = c("com.microsoft.azure:${conf.name}_${scalaVersion}:${synapseVersion}"),
-         |  config = conf)
+         |  config = conf,
+         |  packages = c("com.microsoft.azure:${conf.name}_${scalaVersion}:${synapseVersion}"))
+         |
+         |irisDf <- copy_to(sc, iris, overwrite = TRUE)
          |
          |""".stripMargin)
 

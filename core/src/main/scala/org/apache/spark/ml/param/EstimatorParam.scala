@@ -31,7 +31,7 @@ trait PipelineStageWrappable[T <: PipelineStage]
   override def rLoadLine(modelNum: Int): String = {
     s"""
        |${name}Model <- ml_load(sc, file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
-       |${name}Model <- ml_stages(${name}Model)[1]
+       |${name}Model <- ml_stages(${name}Model)[[1]][[".jobj"]]
        |""".stripMargin
   }
 

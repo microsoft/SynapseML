@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature
 import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
@@ -18,6 +19,8 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.json4s.{DefaultFormats, ExtractableJsonAstNode}
+import org.json4s.jackson.JsonMethods._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -427,9 +430,16 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity recognition tasks to perform on submitted documents"
   )
 
+  implicit val formats = DefaultFormats
+
   def getEntityRecognitionTasks: Seq[TAAnalyzeTask] = $(entityRecognitionTasks)
 
   def setEntityRecognitionTasks(v: Seq[TAAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
+
+  def setEntityRecognitionTasksR(jsonString: String): this.type = {
+    val tasks = parse(jsonString).extract[Seq[TAAnalyzeTask]]
+    this.setEntityRecognitionTasks(tasks)
+  }
 
   setDefault(entityRecognitionTasks -> Seq[TAAnalyzeTask]())
 

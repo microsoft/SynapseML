@@ -4,25 +4,41 @@
 package org.apache.spark.ml.param
 
 import spray.json._
+
 import java.lang.{StringBuilder => JStringBuilder}
+import scala.collection.immutable.Map
 
 trait RPrinter extends CompactPrinter {
 
   override protected def printArray(elements: Seq[JsValue], sb: JStringBuilder): Unit = {
-    sb.append("c(")
+    sb.append(if (elements.isEmpty) "c(" else "list(")
     printSeq(elements, sb.append(','))(print(_, sb))
     sb.append(")")
   }
 
-  override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
-    sb.append("c(")
-    printSeq(members, sb.append(',')) { m =>
-      printString(m._1, sb)
-      sb.append('=')
-      print(m._2, sb)
-    }
 
-    sb.append(')')
+  override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
+    if (members.isEmpty) {
+      sb.append("new.env()")
+    } else {
+      //super.printObject(members, sb)
+      printSeq(members, sb.append(',')) { m =>
+        sb.append("list2env(list(")
+        sb.append(m._1)
+        sb.append('=')
+        print(m._2, sb)
+        sb.append("))")
+      }
+
+      /*
+      printSeq(members, sb.append(',')) { m =>
+        sb.append('{')
+        printString(m._1, sb)
+        sb.append(':')
+        print(m._2, sb)
+        sb.append('}')
+      } */
+    }
   }
 
   override protected def printLeaf(x: JsValue, sb: JStringBuilder): Unit = {
@@ -30,7 +46,7 @@ trait RPrinter extends CompactPrinter {
       case JsNull      => sb.append("NULL")
       case JsTrue      => sb.append("TRUE")
       case JsFalse     => sb.append("FALSE")
-      case JsNumber(x) => sb.append(x)
+      case JsNumber(x) => sb.append(if (x.toString.contains(".")) x else s"as.integer($x)")
       case JsString(x) => printString(x, sb)
       case _           => throw new IllegalStateException
     }
@@ -50,7 +66,26 @@ object RWrappableParam {
   }
 
   def rDefaultRender[T](value: T, param: Param[T]): String = {
-    rDefaultRender(value, { v: T => param.jsonEncode(v) })
+    param match {
+      case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
+        rDefaultRender(value, { v: T => param.jsonEncode(v) })
+      case p: JsonEncodableParam[_] =>
+        if (value == Nil) {
+          "NULL"
+        } else {
+          value match {
+            case left: Left[_, _] =>
+              //s""""${left.value.toString}""""
+              rDefaultRender(value, { v: T => param.jsonEncode(v) })
+            case right: Right[_, _] =>
+              s""""${right.value.toString}""""
+            case _ =>
+              "'" + p.jsonEncode(value) + "'"
+          }
+        }
+      case _ =>
+        rDefaultRender(value, { v: T => param.jsonEncode(v) })
+    }
   }
 
 }

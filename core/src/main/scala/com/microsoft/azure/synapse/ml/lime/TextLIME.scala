@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.codegen.PythonWrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
@@ -27,7 +27,7 @@ object TextLIME extends ComplexParamsReadable[TextLIME]
   */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.TextLIME'.", since="1.0.0-rc3")
 class TextLIME(val uid: String) extends Model[TextLIME]
-  with LIMEBase with Wrappable with BasicLogging {
+  with LIMEBase with PythonWrappable with BasicLogging { // TODO: accommodate RWrappable
   logClass()
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)

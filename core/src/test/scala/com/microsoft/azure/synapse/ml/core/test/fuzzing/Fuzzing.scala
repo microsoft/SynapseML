@@ -17,6 +17,8 @@ import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
 
+import scala.util.Random
+
 /**
   * Class for holding test information, call by name to avoid unnecessary computations in test generations
   *
@@ -45,10 +47,13 @@ class TestObject[S <: PipelineStage](val stage: S,
 }
 
 trait TestFuzzingUtil {
-
-  val testClassName: String = this.getClass.getName.split(".".toCharArray).last
+  val testClassName: String = getClassName(this)
 
   val testFitting = false
+
+  def getClassName[T](thing: T): String = {
+    thing.getClass.getName.split(".".toCharArray).last
+  }
 }
 
 trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality with TestFuzzingUtil {
@@ -56,7 +61,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
   def pyTestObjects(): Seq[TestObject[S]]
 
   def pyTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.pyTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+    conf.pyTestDataDir, getClassName(this))
 
   def savePyDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
     df.write.mode("overwrite").parquet(new File(pyTestDataDir(conf), s"$name.parquet").toString)
@@ -87,7 +92,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
   def pyTestInstantiateModel(stage: S, num: Int): String = {
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val stageName = getClassName(stage)
 
     def instantiateModel(paramMap: Seq[ParamPair[_]]) = {
       val externalLoadingLines = paramMap.flatMap { pp =>
@@ -120,7 +125,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
   //noinspection ScalaStyle
   def makePyTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val stageName = getClassName(stage)
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
@@ -174,7 +179,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     savePyTestData(conf)
     val generatedTests = pyTestObjects().zipWithIndex.map { case (to, i) => makePyTests(to, i) }
     val stage = pyTestObjects().head.stage
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
+    val stageName = getClassName(stage)
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml")
     val testClass =
@@ -228,7 +233,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
   def rTestObjects(): Seq[TestObject[S]]
 
   def rTestDataDir(conf: CodegenConfig): File = FileUtilities.join(
-    conf.rTestDataDir, this.getClass.getName.split(".".toCharArray).last)
+    conf.rTestDataDir, getClassName(this))
 
   def saveRDataset(conf: CodegenConfig, df: DataFrame, name: String): Unit = {
     df.write.mode("overwrite").parquet(new File(rTestDataDir(conf), s"$name.parquet").toString)
@@ -247,11 +252,12 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     rTestDataDir(conf).mkdirs()
     rTestObjects().zipWithIndex.foreach { case (to, i) =>
       saveRModel(conf, to.stage, s"model-$i")
+      if (testFitting) { //
+      saveRDataset(conf, to.fitDF, s"fit-$i")
       //if (testFitting) {
-        saveRDataset(conf, to.fitDF, s"fit-$i")
         saveRDataset(conf, to.transDF, s"trans-$i")
         to.validateDF.foreach(saveRDataset(conf, _, s"val-$i"))
-      //}
+      } //
     }
   }
 
@@ -260,10 +266,10 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val fullParamMap = stage.extractParamMap().toSeq
     val partialParamMap = stage.extractParamMap().toSeq.filter(pp => stage.get(pp.param).isDefined)
 
-    val stageName = stage.getClass.getName.split(".".toCharArray).last
-    val rStageName = s"ml_${getStageName(stage)}"
+    val stageName = getClassName(stage)
+    val rStageName = s"ml_${camelToSnake(stageName)}"
 
-    def instantiateModel(paramMap: Seq[ParamPair[_]]) = {
+    def instantiateModel(paramMap: Seq[ParamPair[_]]): String = {
       val externalLoadingLines = paramMap.flatMap { pp =>
         pp.param match {
           case ep: ExternalRWrappableParam[_] =>
@@ -272,26 +278,26 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         }
       }.mkString("\n")
 
-      val firstArg =
-      //s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
-        stage match {
+     /* val firstArg = stage match {
           case _: Estimator[_] => "sc"
-          case _ => s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
+          case _ => "irisDf" //s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
+        }*/
+
+      val modelArg = stage match {
+          case _: Estimator[_] => ",unfit.model=TRUE"
+          case _ => ",unfit.model=TRUE,only.model=TRUE"
         }
 
-      val lastLine = //",only.model=TRUE)"
-        stage match {
-          case _: Estimator[_] => ",unfit.model=TRUE)"
-          case _ => ",only.model=TRUE)"
-        }
+      val uidArg = s""",uid = "${stageName}_${randomHex(12)}")"""
 
       s"""
          |$externalLoadingLines
          |
          |model <- $rStageName(
-         |${indent(firstArg, 1)}
+         |${indent("sc", 1)}
          |${if (paramMap.isEmpty) "" else indent(paramMap.map("," + rRenderParam(_)).mkString("\n"), 1)}
-         |${indent(lastLine, 1)}
+         |${indent(modelArg, 1)}
+         |${indent(uidArg, 1)}
          |""".stripMargin
     }
 
@@ -304,52 +310,58 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     }
   }
 
-
-  def getStageName(stage: S): String = {
-    val suffix = "" /*stage match {
-      case _: Estimator[_] => "_model"
-      case _ => ""
-    }*/
-    camelToSnake(stage.getClass.getName.split(".".toCharArray).last) + suffix
-  }
-
-
   //noinspection ScalaStyle
   def makeRTests(testObject: TestObject[S], num: Int): String = {
     val stage = testObject.stage
-    val stageName = getStageName(stage)
+    val stageName = camelToSnake(getClassName(stage))
     val fittingTest = stage match {
       case _: Estimator[_] if testFitting =>
         s"""
+           |# TODO: figure out what args are required for ml_fit and ml_transform
+           |# Also, should there be an assert at the end?
            |fdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))
            |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
-           |fit <- model.fit(fdf)
-           |transformed <- fit.transform(tdf)
-           |transformed.show()
+           |#fit <- ml_fit(fdf, tbl)
+           |#transformed <- ml_transform(tdf, fit)
+           |#transformed.show()
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
+           |# TODO: figure out what args are required for ml_transform
+           |# Also, should there be an assert at the end?
            |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
-           |transformed <- model.transform(tdf)
-           |transformed.show()
+           |#transformed <- ml_transform(tdf)
+           |#transformed.show()
            |""".stripMargin
       case _ => ""
     }
     val mlflowTest = stage match {
       case _: Model[_] =>
         s"""
-           |mlflow_save_model(model, "mlflow-save-model-$num")
-           |mlflow_log_model(model, "mlflow-log-model-$num")
-           |mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
+           |# TODO: figure out how to extract what mlflow wants as a model from 'model'
+           |# Error in `UseMethod("mlflow_save_model")`: no applicable method for 'mlflow_save_model' applied
+           |#   to an object of class "c('com.microsoft.azure.synapse.ml.recommendation.RecommendationIndexerModel',
+           |#   'ml_transformer', 'ml_pipeline_stage')
+           |# Also - should there be an assertion at the end of this?
+           |#library(mlflow)
+           |#mlflow_save_model(model, "mlflow-save-model-$num")
+           |#mlflow_log_model(model, "mlflow-log-model-$num")
+           |#mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
         case "cognitive" =>
           s"""
-             |# TODO - does 'model' need to massaged for R?
-             |pipeline_model <- ml_pipeline(model)
-             |mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
-             |mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
-             |mlflow_model = mlflow_load_model("mlflow-save-model-$num")
+             |# TODO: figure out how to extract what mlflow wants as a model from 'model'
+             |# Error in `UseMethod("mlflow_save_model")`: no applicable method for 'mlflow_save_model'
+             |#   applied to an object of class
+             |# "c('com.microsoft.azure.synapse.ml.recommendation.RecommendationIndexerModel',
+             |#   'ml_transformer', 'ml_pipeline_stage')
+             |# Also - should there be an assertion at the end of this?
+             |#library(mlflow)
+             |#pipeline_model <- ml_pipeline(model)
+             |#mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
+             |#mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
+             |#mlflow_model = mlflow_load_model("mlflow-save-model-$num")
              |""".stripMargin
         case _ => ""
       }
@@ -360,23 +372,23 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
        |test_that("${stageName}_constructor_${num}", {
        |  ${indent(rTestInstantiateModel(stage, num), 1)}
        |
-       |    a <- assert_correspondence_${stageName}(model, "r-constructor-model-$num.model", $num)
+       |  ${indent(s"""assert_correspondence_${stageName}(model, "r-constructor-model-$num.model", $num)""", 1)}
        |
        |  ${indent(fittingTest, 1)}
        |
        |  ${indent(mlflowTest, 1)}
-       |  ${indent("expect_equal(7-8+1, 5+6-11) # temp; otherwise test is skipped", 1)}
+       |  ${indent("expect_equal(0, 0) # otherwise test is skipped", 1)}
        |})
        |""".stripMargin
   }
 
-
+  //noinspection ScalaStyle
   def makeRTestFile(conf: CodegenConfig): Unit = {
     spark
     saveRTestData(conf)
     val generatedTests = rTestObjects().zipWithIndex.map { case (to, i) => makeRTests(to, i) }
     val stage = rTestObjects().head.stage
-    val stageName = getStageName(stage)
+    val stageName = camelToSnake(getClassName(stage))
     // stage may be in a different jar than the one specified in conf
     val stageJar = stage.getClass.getProtectionDomain().getCodeSource().getLocation().toString.split("/").last
     val stageProject = stageJar.replaceFirst("^synapseml-([^_]+)_.*", "$1")
@@ -384,11 +396,6 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val srcFile = FileUtilities.join(stageSrcDir, s"ml_${stageName}.R")
     val srcPath = srcFile.toString.replaceAllLiterally("\\", "\\\\")
     val testDir = rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")
-    /*val referenceFormat = stage match {
-      case _: Estimator[_] => "trans-%d.parquet"
-      //case _: Transformer => "trans"
-      case _ => "model-%d.model"
-    }*/
     val testContent =
       s"""
          |library(testthat)
@@ -418,9 +425,9 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
          |
          |""".stripMargin
 
-    conf.rTestDir.mkdirs()
+    conf.rTestThatDir.mkdirs()
     Files.write(
-      FileUtilities.join(conf.rTestDir, "test_" + camelToSnake(testClassName) + ".R").toPath,
+      FileUtilities.join(conf.rTestThatDir, "test_" + camelToSnake(testClassName) + ".R").toPath,
       testContent.getBytes(StandardCharsets.UTF_8))
     if (classOf[TestBase].isAssignableFrom(this.getClass)) {
       try {
@@ -429,6 +436,10 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         case _: AbstractMethodError => {}
       }
     }
+  }
+
+  private def randomHex(length: Int): String = {
+    Random.alphanumeric.filter(c => c.isDigit || ('a' <= c && c <= 'f')).take(length).mkString
   }
 
 }
@@ -542,7 +553,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 }
 
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] with RTestFuzzing[S] {
+  with ExperimentFuzzing[S] with TestFuzzingUtil {
 
   def testObjects(): Seq[TestObject[S]]
 
@@ -556,7 +567,7 @@ trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S
 
 }
 
-trait TransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] {
+trait PyTransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] with PyTestFuzzing[S] {
 
   override val ignoreEstimators: Boolean = true
 
@@ -564,4 +575,20 @@ trait TransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] {
 
 }
 
-trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S]
+trait RTransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] with RTestFuzzing[S] {
+
+  override val ignoreEstimators: Boolean = true
+
+  override def modelReader: MLReadable[_] = reader
+
+}
+
+trait TransformerFuzzing[S <: Transformer with MLWritable] extends PyTransformerFuzzing[S] with RTransformerFuzzing[S]
+
+trait PyEstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S] with PyTestFuzzing[S]
+
+trait REstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S] with RTestFuzzing[S]
+
+trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends PyEstimatorFuzzing[S] with REstimatorFuzzing[S]
+
+

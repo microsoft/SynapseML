@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, PyTransformerFuzzing}
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import com.microsoft.azure.synapse.ml.stages.udfs.get_value_udf
 import org.apache.spark.injections.UDFUtils
@@ -17,7 +17,7 @@ import org.apache.spark.sql.types.DoubleType
 import org.scalactic.Equality
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.TextLIME'.", since="1.0.0-rc3")
-class TextLIMESuite extends TransformerFuzzing[TextLIME] {
+class TextLIMESuite extends PyTransformerFuzzing[TextLIME] {
 
   import spark.implicits._
 

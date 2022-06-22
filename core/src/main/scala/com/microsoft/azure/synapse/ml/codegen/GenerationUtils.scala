@@ -42,6 +42,8 @@ object GenerationUtils {
     p match {
       case pwp: PythonWrappableParam[_] =>
         pwp.pyConstructorLine(v.asInstanceOf[pwp.PyInnerType])
+      case tap: TypedArrayParam[_] =>
+        s"""${tap.name}=${PythonWrappableParam.pyDefaultRender(v, tap)}"""
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
@@ -57,6 +59,15 @@ object GenerationUtils {
     p match {
       case rwp: RWrappableParam[_] =>
         rwp.rConstructorLine(v.asInstanceOf[rwp.RInnerType])
+      case tap: TypedArrayParam[_] =>
+        s"""${tap.name}=${RWrappableParam.rDefaultRender(v, tap)}"""
+      case sp: ServiceParam[_] =>
+        v match {
+          case _: Right[_,_] =>
+            s"""${sp.name}Col=${RWrappableParam.rDefaultRender(v, sp)}"""
+          case _ =>
+            s"""${sp.name}=${RWrappableParam.rDefaultRender(v, sp)}"""
+        }
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>

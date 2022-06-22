@@ -35,6 +35,7 @@ object CodegenPlugin extends AutoPlugin {
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
+  val RTestGenTag = Tags.Tag("rTestGen")
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
@@ -110,6 +111,15 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
     }
   } tag (PyTestGenTag)
+
+  def rTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RTestGen $arg").value
+    }
+  } tag (RTestGenTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
@@ -234,6 +244,21 @@ object CodegenPlugin extends AutoPlugin {
         new File(codegenDir.value, "test/python/")
       )
     },
+    /*testR := {
+      rTestgen.value
+      val mainTargetDir = join(baseDirectory.value.getParent, "target")
+      runCmd(
+        activateCondaEnv ++ Seq("R",
+          "-m", // ?
+          "rtest",
+          s"--cov=${genPackageNamespace.value}", //?
+          s"--junitxml=${join(mainTargetDir, s"r-test-results-${name.value}.xml")}", //
+          "--cov-report=xml",
+          genTestPackageNamespace.value
+        ),
+        new File(codegenDir.value, "test/R/")
+      )
+    },*/
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },

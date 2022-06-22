@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lime
 import breeze.linalg.{*, DenseMatrix}
 import breeze.stats.distributions.Rand
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{PyEstimatorFuzzing, PyTransformerFuzzing, TestObject }
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.regression.LinearRegression
@@ -43,7 +43,7 @@ trait LimeTestBase extends TestBase {
 }
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.TabularLIME'.", since="1.0.0-rc3")
-class TabularLIMESuite extends EstimatorFuzzing[TabularLIME] with
+class TabularLIMESuite extends PyEstimatorFuzzing[TabularLIME] with
   DataFrameEquality with LimeTestBase {
 
   test("text lime usage test check") {
@@ -60,7 +60,7 @@ class TabularLIMESuite extends EstimatorFuzzing[TabularLIME] with
 }
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.TextLIME'.", since="1.0.0-rc3")
-class TabularLIMEModelSuite extends TransformerFuzzing[TabularLIMEModel] with
+class TabularLIMEModelSuite extends PyTransformerFuzzing[TabularLIMEModel] with
   DataFrameEquality with LimeTestBase {
 
   override def testObjects(): Seq[TestObject[TabularLIMEModel]] = Seq(new TestObject(limeModel, df))

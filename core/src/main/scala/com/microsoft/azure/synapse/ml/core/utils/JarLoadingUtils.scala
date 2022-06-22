@@ -35,6 +35,7 @@ object JarLoadingUtils {
     val b = a.filter(classTag[T].runtimeClass.isAssignableFrom(_))
     val c = b.filter(c => jarName.forall(c.getResource(c.getSimpleName + ".class").toString.contains(_)))
     val d = c.filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
+    //val f = d.filter(clazz => !hasAnnotation(clazz, "deprecated"))
     val e = d.map(instantiate(_)).asInstanceOf[List[T]]
     e
     /*AllClasses
@@ -58,14 +59,14 @@ object JarLoadingUtils {
     jarName)
 
   /**
-    * Get all relevant classes from the ClassLoader.
-    *
-    * Note that the spark ClassPath utility only works for ClassLoaders derived from UrlClassLoader (which sbt uses).
-    * In IntelliJ, the ClassLoader is not a UrlClassLoader (standard App/Ext/Boot loaders), so in that case
-    * we use a different slower method.
-    *
-    * @return A list of classes in the main package and its modules
-    */
+   * Get all relevant classes from the ClassLoader.
+   *
+   * Note that the spark ClassPath utility only works for ClassLoaders derived from UrlClassLoader (which sbt uses).
+   * In IntelliJ, the ClassLoader is not a UrlClassLoader (standard App/Ext/Boot loaders), so in that case
+   * we use a different slower method.
+   *
+   * @return A list of classes in the main package and its modules
+   */
   private def getAllClasses: List[Class[_]] = {
     // ClassPath is more performant, so we try that first
     val urlBasedClasses = ClassPath.from(getClass.getClassLoader)
@@ -85,13 +86,13 @@ object JarLoadingUtils {
   }
 
   /**
-    * Scans all classes accessible from the context class loader which belong to the given package and subpackages.
-    *
-    * @param packageName The base package
-    * @return The classes
-    * @throws ClassNotFoundException
-    * @throws IOException
-    */
+   * Scans all classes accessible from the context class loader which belong to the given package and subpackages.
+   *
+   * @param packageName The base package
+   * @return The classes
+   * @throws ClassNotFoundException
+   * @throws IOException
+   */
   @throws[ClassNotFoundException]
   @throws[IOException]
   private def getClassesFromPackage(packageName: String): List[Class[_]] = {
@@ -106,13 +107,13 @@ object JarLoadingUtils {
   }
 
   /**
-    * Recursive method used to find all classes in a given directory and subdirs.
-    *
-    * @param directory   The base directory
-    * @param packageName The package name for classes found inside the base directory
-    * @return The classes
-    * @throws ClassNotFoundException
-    */
+   * Recursive method used to find all classes in a given directory and subdirs.
+   *
+   * @param directory   The base directory
+   * @param packageName The package name for classes found inside the base directory
+   * @return The classes
+   * @throws ClassNotFoundException
+   */
   @throws[ClassNotFoundException]
   private def findClassesInDirectory(directory: File, packageName: String): Seq[Class[_]] = {
     directory.listFiles().map(file => {
@@ -124,4 +125,5 @@ object JarLoadingUtils {
       }
     }).flatten.toSeq
   }
+
 }

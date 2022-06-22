@@ -15,6 +15,8 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
@@ -24,6 +26,8 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val averageKind = "average"
   val individualKind = "individual"
   val featureKind = "feature"
+
+  implicit val formats = DefaultFormats
 
   val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
     this,
@@ -40,6 +44,11 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this.setCategoricalFeatures(features)
   }
 
+  def setCategoricalFeaturesR(jsonString: String): this.type = {
+    val features = parse(jsonString).extract[Seq[ICECategoricalFeature]]
+    this.setCategoricalFeatures(features)
+  }
+
   val numericFeatures = new TypedArrayParam[ICENumericFeature] (
     this,
     "numericFeatures",
@@ -52,6 +61,11 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
     val features: Seq[ICENumericFeature] = values.asScala.map(ICENumericFeature.fromMap)
+    this.setNumericFeatures(features)
+  }
+
+  def setNumericFeaturesR(jsonString: String): this.type = {
+    val features = parse(jsonString).extract[Seq[ICENumericFeature]]
     this.setNumericFeatures(features)
   }
 

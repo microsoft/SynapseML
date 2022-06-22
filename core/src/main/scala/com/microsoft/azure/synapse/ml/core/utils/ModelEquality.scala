@@ -7,6 +7,9 @@ import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.TripleEquals._
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.camelToSnake
+
+import scala.util.matching.Regex
 
 trait ParamEquality[T] extends Param[T] {
   def assertEquality(v1: Any, v2: Any): Unit
@@ -14,6 +17,8 @@ trait ParamEquality[T] extends Param[T] {
 
 
 object ModelEquality {
+
+  //private def hex = new Regex("_[0-9A-Fa-f]_")
 
   def jaccardSimilarity(s1: String, s2: String): Double = {
     val a = Set(s1)
@@ -36,8 +41,8 @@ object ModelEquality {
       p1 match {
         case pe1: ParamEquality[_] =>
           pe1.assertEquality(v1, v2)
-        case _ if Set("outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs in them
-          assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length, s"$v1 != $v2")
+        case _ if Set("inputCol", "outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs
+          assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length)
         case _ if Set("defaultListenPort")(paramName) => // Randomly assigned ports in LightGBM
           assert(v1.asInstanceOf[Int] > 0 && v1.asInstanceOf[Int] > 0)
         case _ if Set("validationMetrics")(paramName) =>
@@ -52,6 +57,20 @@ object ModelEquality {
   private def companion[T](name: String)(implicit man: Manifest[T]): T =
     Class.forName(name + "$").getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
 
+  /*private def dropHex(str: String): String = {
+    val s = hex.replaceAllIn(str, "_")
+    if (hex.findFirstIn(s) == None) s else dropHex(s)
+  }
+
+  private* def lower(str: String): String = {
+    if (str.isBlank || str.head.isLower) {
+      str
+    } else {
+      val head: String = str.takeWhile(c => c != '_')
+      val tail = str.substring(head.length)
+      if (head.isBlank) tail else camelToSnake(head) + tail
+    }
+  }*/
 
   def assertEqual(modelClassName: String, path1: String, path2: String): Unit = {
     val companionObject = companion[MLReadable[_ <: PipelineStage]](modelClassName)

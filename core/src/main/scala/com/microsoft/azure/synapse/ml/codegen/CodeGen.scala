@@ -89,11 +89,12 @@ object CodeGen {
           |""".stripMargin)
 
     val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
+    val jarString = "'" + getSynapseJars(conf).mkString("','") + "'"
     writeFile(new File(conf.rSrcDir, "package_register.R"),
       s"""|#' @import sparklyr
           |spark_dependencies <- function(spark_version, scala_version, ...) {
           |    spark_dependency(
-          |        jars = c(),
+          |        jars = c(${jarString}),
           |        packages = c(
           |           "com.microsoft.azure:${conf.name}_${scalaVersion}:${conf.version}"
           |        ),
@@ -193,6 +194,23 @@ object CodeGen {
     if (conf.pySrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.pySrcOverrideDir), toDir(conf.pySrcDir))
     makeInitFiles(conf)
+  }
+
+  private def getSynapseJars(conf: CodegenConfig): Seq[String] = {
+    val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
+    val suffix = s"_${scalaVersion}-${conf.version}.jar"
+    val target = s"${conf.name}${suffix}"
+    val core = s"synapseml-core${suffix}"
+    conf.name match {
+     // case "synapseml-core" =>
+     //   Seq(target)
+      case "synapseml-deep-learning" =>
+       // Seq(target, core, s"synapseml-opencv${suffix}")
+        Seq(s"synapseml-opencv${suffix}", core)
+      case _ =>
+        //Seq(target, core)
+        Seq(core)
+    }
   }
 
   def main(args: Array[String]): Unit = {

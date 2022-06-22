@@ -264,7 +264,7 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
   }
 
   def setLocation(v: String): this.type = {
-    setUrl(s"https://$v.api.cognitive.microsoft.com/" + urlPath)
+    setUrl(s"https://$v.api.cognitive.microsoft.com/" + urlPath.stripPrefix("/"))
   }
 }
 
