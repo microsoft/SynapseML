@@ -61,8 +61,7 @@ object DatabricksUtilities {
   val DLLibraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.12.0")),
-    Map("pypi" -> Map("package" -> "transformers==4.19.0"))
+    Map("pypi" -> Map("package" -> "torchvision==0.12.0"))
   ).toJson.compactPrint
 
   // Execution Params
