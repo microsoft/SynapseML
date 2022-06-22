@@ -140,4 +140,3 @@ class PipelineArraySerializer extends Serializer[Array[PipelineStage]] {
     Pipeline.load(path.toString).getStages
   }
 }
-

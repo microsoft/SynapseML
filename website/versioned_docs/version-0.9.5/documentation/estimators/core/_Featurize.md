@@ -325,5 +325,3 @@ tfRaw.fit(dfRaw).transform(dfRaw).show()
 py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.TextFeaturizer"
 scala="com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.scala" />
-
-

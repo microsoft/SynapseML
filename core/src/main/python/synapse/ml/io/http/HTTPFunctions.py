@@ -45,8 +45,8 @@ HTTPRequestDataType = StructType().fromJson(
         '{"name":"value","type":"string","nullable":true,"metadata":{}}]},"nullable":true,"metadata":{}},'
         '{"name":"isChunked","type":"boolean","nullable":false,"metadata":{}},'
         '{"name":"isRepeatable","type":"boolean","nullable":false,"metadata":{}},'
-        '{"name":"isStreaming","type":"boolean","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}}]}'
-    )
+        '{"name":"isStreaming","type":"boolean","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}}]}',
+    ),
 )
 
 

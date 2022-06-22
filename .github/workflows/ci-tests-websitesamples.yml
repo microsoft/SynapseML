@@ -32,7 +32,7 @@ jobs:
       uses: actions/setup-java@v2
       with:
         java-version: '11'
-        distribution: 'temurin'    
+        distribution: 'temurin'
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:

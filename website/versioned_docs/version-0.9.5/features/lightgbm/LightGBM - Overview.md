@@ -136,8 +136,8 @@ fi = pd.Series(feature_importances,index = feature_cols)
 fi = fi.sort_values(ascending = True)
 f_index = fi.index
 f_values = fi.values
- 
-# print feature importances 
+
+# print feature importances
 print ('f_index:',f_index)
 print ('f_values:',f_values)
 

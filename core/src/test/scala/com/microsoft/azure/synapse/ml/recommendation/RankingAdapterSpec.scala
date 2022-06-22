@@ -24,4 +24,3 @@ class RankingAdapterModelSpec extends RankingTestBase with TransformerFuzzing[Ra
 
   override def reader: MLReadable[_] = RankingAdapterModel
 }
-

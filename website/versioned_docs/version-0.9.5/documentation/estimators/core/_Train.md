@@ -167,6 +167,3 @@ trainRegressor.fit(dataset).transform(dataset).show()
 py="synapse.ml.train.html#module-synapse.ml.train.TrainRegressor"
 scala="com/microsoft/azure/synapse/ml/train/TrainRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainRegressor.scala" />
-
-
-

@@ -82,14 +82,23 @@ setattr(pyspark.sql.streaming.DataStreamWriter, "continuousServer", _writeContSe
 
 
 def _parseRequest(
-    self, apiName, schema, idCol="id", requestCol="request", parsingCheck="none"
+    self,
+    apiName,
+    schema,
+    idCol="id",
+    requestCol="request",
+    parsingCheck="none",
 ):
     ctx = SparkContext.getOrCreate()
     jvm = ctx._jvm
     extended = jvm.com.microsoft.azure.synapse.ml.io.DataFrameExtensions(self._jdf)
     dt = jvm.org.apache.spark.sql.types.DataType
     jResult = extended.parseRequest(
-        apiName, dt.fromJson(schema.json()), idCol, requestCol, parsingCheck
+        apiName,
+        dt.fromJson(schema.json()),
+        idCol,
+        requestCol,
+        parsingCheck,
     )
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jResult, sql_ctx)
@@ -112,7 +121,7 @@ setattr(pyspark.sql.DataFrame, "makeReply", _makeReply)
 
 def _readImage(self):
     return self.format(image_source).schema(
-        StructType([StructField("image", ImageSchema, True)])
+        StructType([StructField("image", ImageSchema, True)]),
     )
 
 

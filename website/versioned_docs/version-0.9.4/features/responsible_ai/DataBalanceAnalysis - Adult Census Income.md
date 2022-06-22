@@ -13,12 +13,12 @@ This dataset can be used to predict whether annual income exceeds $50,000/year o
 
 ---
 
-Data Balance Analysis is relevant for overall understanding of datasets, but it becomes essential when thinking about building Machine Learning services out of such datasets. Having a well balanced data representation is critical when developing models in a responsible way, specially in terms of fairness. 
+Data Balance Analysis is relevant for overall understanding of datasets, but it becomes essential when thinking about building Machine Learning services out of such datasets. Having a well balanced data representation is critical when developing models in a responsible way, specially in terms of fairness.
 It is unfortunately all too easy to build an ML model that produces biased results for subsets of an overall population, by training or testing the model on biased ground truth data. There are multiple case studies of biased models assisting in granting loans, healthcare, recruitment opportunities and many other decision making tasks. In most of these examples, the data from which these models are trained was the common issue. These findings emphasize how important it is for model creators and auditors to analyze data balance: to measure training data across sub-populations and ensure the data has good coverage and a balanced representation of labels across sensitive categories and category combinations, and to check that test data is representative of the target population.
 
 In summary, Data Balance Analysis, used as a step for building ML models has the following benefits:
-* **Reduces risks for unbalanced models (facilitate service fairness) and reduces costs of ML building** by identifying early on data representation gaps that prompt data scientists to seek mitigation steps (collect more data, follow a specific sampling mechanism, create synthetic data, etc.) before proceeding to train their models. 
-* **Enables easy e2e debugging of ML systems** in combination with [Fairlearn](https://fairlearn.org/) by providing a clear view if for an unbalanced model the issue is tied to the data or the model. 
+* **Reduces risks for unbalanced models (facilitate service fairness) and reduces costs of ML building** by identifying early on data representation gaps that prompt data scientists to seek mitigation steps (collect more data, follow a specific sampling mechanism, create synthetic data, etc.) before proceeding to train their models.
+* **Enables easy e2e debugging of ML systems** in combination with [Fairlearn](https://fairlearn.org/) by providing a clear view if for an unbalanced model the issue is tied to the data or the model.
 
 ---
 
@@ -152,7 +152,7 @@ plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 for i in range(len(races)):
   for j in range(len(races)):
     text = ax.text(j, i, race_dp_array[i, j], ha="center", va="center", color="k")
-    
+
 ax.set_title("Demographic Parity of Races in Adult Dataset")
 fig.tight_layout()
 plt.show()
@@ -319,21 +319,21 @@ It lets us know that our dataset is leaning towards maximum inequality, and we s
 
 Throughout the course of this sample notebook, we have:
 1. Chosen "Race" and "Sex" as columns of interest in the Adult Census Income dataset.
-2. Done preliminary analysis on our dataset. 
+2. Done preliminary analysis on our dataset.
 3. Ran the 3 groups of measures that compose our **Data Balance Analysis**:
   * **Feature Balance Measures**
     * Calculated Feature Balance Measures to see that the highest Demographic Parity is in "Sex": Males see >50k income much more than Females.
     * Visualized Demographic Parity of Races to see that Asian-Pac-Islander sees >50k income much more than Other, in addition to other race combinations.
-  * **Distribution Balance Measures** 
+  * **Distribution Balance Measures**
     * Calculated Distribution Balance Measures to see that "Sex" is much closer to a perfectly balanced distribution than "Race".
     * Visualized various distribution balance measures to compare their values for "Race" and "Sex".
   * **Aggregate Balance Measures**
     * Calculated Aggregate Balance Measures to see that we need to forego 77.79% of data points to have a perfectly balanced dataset. We identified that our dataset is leaning towards maximum inequality, and we should take actionable steps to:
     * Upsample data points where the feature value is barely observed.
     * Downsample data points where the feature value is observed much more than others.
-    
+
 **In conclusion:**
-* These measures provide an indicator of disparity on the data, allowing for users to explore potential mitigations before proceeding to train. 
+* These measures provide an indicator of disparity on the data, allowing for users to explore potential mitigations before proceeding to train.
 * Users can use these measures to set thresholds on their level of "tolerance" for data representation.
-* Production pipelines can use these measures as baseline for models that require frequent retraining on new data. 
+* Production pipelines can use these measures as baseline for models that require frequent retraining on new data.
 * These measures can also be saved as key metadata for the model/service built and added as part of model cards or transparency notes helping drive overall accountability for the ML service built and its performance across different demographics or sensitive attributes.

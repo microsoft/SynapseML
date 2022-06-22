@@ -14,7 +14,7 @@ newPRWelcomeComment: >
   This helps us to create release messages and credit you for your hard work!
 
   Examples of commit messages with semantic prefixes:
-  
+
     - `fix: Fix LightGBM crashes with empty partitions`
     - `feat: Make HTTP on Spark back-offs configurable`
     - `docs: Update Spark Serving usage`

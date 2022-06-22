@@ -16,7 +16,7 @@ class TestComplementAccessTransformer(unittest.TestCase):
                 t.StructField("tenant", t.StringType(), nullable=True),
                 t.StructField("user", t.IntegerType(), nullable=True),
                 t.StructField("res", t.IntegerType(), nullable=True),
-            ]
+            ],
         )
 
         return sc.createDataFrame(

@@ -55,7 +55,7 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns> New StringIndexer object </returns>
         public StringIndexer SetHandleInvalid(string value) =>
             WrapAsStringIndexer(Reference.Invoke("setHandleInvalid", (object)value));
-        
+
         /// <summary>
         /// Sets inputCol value for <see cref="inputCol"/>
         /// </summary>
@@ -65,7 +65,7 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns> New StringIndexer object </returns>
         public StringIndexer SetInputCol(string value) =>
             WrapAsStringIndexer(Reference.Invoke("setInputCol", (object)value));
-        
+
         /// <summary>
         /// Sets inputCols value for <see cref="inputCols"/>
         /// </summary>
@@ -75,7 +75,7 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns> New StringIndexer object </returns>
         public StringIndexer SetInputCols(string[] value) =>
             WrapAsStringIndexer(Reference.Invoke("setInputCols", (object)value));
-        
+
         /// <summary>
         /// Sets outputCol value for <see cref="outputCol"/>
         /// </summary>
@@ -85,7 +85,7 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns> New StringIndexer object </returns>
         public StringIndexer SetOutputCol(string value) =>
             WrapAsStringIndexer(Reference.Invoke("setOutputCol", (object)value));
-        
+
         /// <summary>
         /// Sets outputCols value for <see cref="outputCols"/>
         /// </summary>
@@ -95,7 +95,7 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns> New StringIndexer object </returns>
         public StringIndexer SetOutputCols(string[] value) =>
             WrapAsStringIndexer(Reference.Invoke("setOutputCols", (object)value));
-        
+
         /// <summary>
         /// Sets stringOrderType value for <see cref="stringOrderType"/>
         /// </summary>
@@ -106,7 +106,7 @@ namespace Microsoft.Spark.ML.Feature
         public StringIndexer SetStringOrderType(string value) =>
             WrapAsStringIndexer(Reference.Invoke("setStringOrderType", (object)value));
 
-        
+
         /// <summary>
         /// Gets handleInvalid value for <see cref="handleInvalid"/>
         /// </summary>
@@ -115,8 +115,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </returns>
         public string GetHandleInvalid() =>
             (string)Reference.Invoke("getHandleInvalid");
-        
-        
+
+
         /// <summary>
         /// Gets inputCol value for <see cref="inputCol"/>
         /// </summary>
@@ -125,8 +125,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </returns>
         public string GetInputCol() =>
             (string)Reference.Invoke("getInputCol");
-        
-        
+
+
         /// <summary>
         /// Gets inputCols value for <see cref="inputCols"/>
         /// </summary>
@@ -135,8 +135,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </returns>
         public string[] GetInputCols() =>
             (string[])Reference.Invoke("getInputCols");
-        
-        
+
+
         /// <summary>
         /// Gets outputCol value for <see cref="outputCol"/>
         /// </summary>
@@ -145,8 +145,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </returns>
         public string GetOutputCol() =>
             (string)Reference.Invoke("getOutputCol");
-        
-        
+
+
         /// <summary>
         /// Gets outputCols value for <see cref="outputCols"/>
         /// </summary>
@@ -155,8 +155,8 @@ namespace Microsoft.Spark.ML.Feature
         /// </returns>
         public string[] GetOutputCols() =>
             (string[])Reference.Invoke("getOutputCols");
-        
-        
+
+
         /// <summary>
         /// Gets stringOrderType value for <see cref="stringOrderType"/>
         /// </summary>
@@ -180,18 +180,18 @@ namespace Microsoft.Spark.ML.Feature
         /// <returns>New <see cref="StringIndexer"/> object, loaded from path.</returns>
         public static StringIndexer Load(string path) => WrapAsStringIndexer(
             SparkEnvironment.JvmBridge.CallStaticJavaMethod(s_className, "load", path));
-        
+
         /// <summary>
         /// Saves the object so that it can be loaded later using Load. Note that these objects
         /// can be shared with Scala by Loading or Saving in Scala.
         /// </summary>
         /// <param name="path">The path to save the object to</param>
         public void Save(string path) => Reference.Invoke("save", path);
-        
+
         /// <returns>a <see cref="JavaMLWriter"/> instance for this ML instance.</returns>
         public JavaMLWriter Write() =>
             new JavaMLWriter((JvmObjectReference)Reference.Invoke("write"));
-        
+
         /// <summary>
         /// Get the corresponding JavaMLReader instance.
         /// </summary>
@@ -202,8 +202,6 @@ namespace Microsoft.Spark.ML.Feature
         private static StringIndexer WrapAsStringIndexer(object obj) =>
             new StringIndexer((JvmObjectReference)obj);
 
-        
+
     }
 }
-
-        

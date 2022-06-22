@@ -76,4 +76,3 @@ trait OptimizedKNNFitting extends KNNParams with BasicLogging {
   }
 
 }
-
