@@ -73,7 +73,7 @@ object DatabricksUtilities {
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val DeeplearningNotebooks: Seq[File] = FileUtilities.recursiveListFiles(
+  val GPUNotebooks: Seq[File] = FileUtilities.recursiveListFiles(
     FileUtilities.join(
       BuildInfo.baseDirectory.getParent, "notebooks", "deepLearning"
     ).getCanonicalFile).filterNot(_.isDirectory)

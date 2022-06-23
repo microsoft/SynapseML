@@ -11,7 +11,7 @@ import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class DeepLearningTests extends TestBase {
+class GPUTests extends TestBase {
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, PoolId)
   val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
@@ -29,7 +29,7 @@ class DeepLearningTests extends TestBase {
   workspaceMkDir(Folder)
 
   println(s"Submitting jobs")
-  val parNotebookRuns: Seq[DatabricksNotebookRun] = DeeplearningNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
+  val parNotebookRuns: Seq[DatabricksNotebookRun] = GPUNotebooks.map(uploadAndSubmitNotebook(clusterId, _))
   parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
 
   println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
