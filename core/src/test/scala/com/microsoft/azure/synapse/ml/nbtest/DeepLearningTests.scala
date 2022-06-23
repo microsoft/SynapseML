@@ -21,7 +21,7 @@ class DeepLearningTests extends TestBase {
     assert(isClusterActive(clusterId))
   }
   println("Installing libraries")
-  installLibraries(clusterId, DLLibraries)
+  installLibraries(clusterId, GPULibraries)
   tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
     assert(areLibrariesInstalled(clusterId))
   }
