@@ -120,8 +120,8 @@ By pre-multiplying this vector with the Item-to-Item similarity matrix, User 1 r
 | **Item 4** |  **28.5**  |
 | **Item 5** |  **15.5**  |
 
-Note that the recommendation score of an item is purely based on its similarity to Item 5 in this case. Assuming that a same item is 
-not recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3. 
+Note that the recommendation score of an item is purely based on its similarity to Item 5 in this case. Assuming that a same item is
+not recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3.
 
 Now, if this user adds Item 2 to the shopping cart, affinity vector (assuming weight 2 for this transaction) will be
 
@@ -144,7 +144,7 @@ resulting in recommendation scores:
 | **Item 5** |       3      |
 
 Note that the recommendation score of an item is purely based on its similarity to Item 5 in this case.
-Assuming that a same item is not recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3. 
+Assuming that a same item is not recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3.
 Now, if this user adds Item 2 to the shopping cart, affinity vector (assuming weight 2 for this transaction) will be
 
 |            | New User aff |
@@ -171,13 +171,13 @@ Now, Item 1 has the highest score, followed by Item 3 and then Item 4. Note that
 
 SAR provides explainable recommendations. For example, let's look at the reasoning behind the recommendation score for User 1 and  Item 4:
 
-_rec(User 1, Item 4)_  
-\*= **sim(Item 4, Item 1) \* aff(User 1, Item 1)\***  
-_+ sim(Item 4, Item 2) \* aff(User 1, Item 2)_  
-_+ sim(Item 4, Item 3) \* aff(User 1, Item 3)_  
-_+ sim(Item 4, Item 4) \* aff(User 1, Item 4)_  
-_+ sim(Item 4, Item 5) \* aff(User 1, Item 5)_  
-_= **3 \* 5** + 2 \* 3 + 3 \* 2.5 + 4 \* 0 + 2 \* 0_  
+_rec(User 1, Item 4)_
+\*= **sim(Item 4, Item 1) \* aff(User 1, Item 1)\***
+_+ sim(Item 4, Item 2) \* aff(User 1, Item 2)_
+_+ sim(Item 4, Item 3) \* aff(User 1, Item 3)_
+_+ sim(Item 4, Item 4) \* aff(User 1, Item 4)_
+_+ sim(Item 4, Item 5) \* aff(User 1, Item 5)_
+_= **3 \* 5** + 2 \* 3 + 3 \* 2.5 + 4 \* 0 + 2 \* 0_
 \*= **15** + 6 + 7.5 + 0 + 0 = **28.5\***
 
 Clearly, the first term (highlighted) has the highest contribution to the score and we can say that "Item 4 is recommended to User 1 because it is very similar to Item 1, to which User 1 has high affinity". A message like this can be displayed automatically for each recommendation.

@@ -3,15 +3,15 @@
 
 package com.microsoft.azure.synapse.ml
 
-import java.io.IOException
-
-import sys.process._
+import spray.json.DefaultJsonProtocol._
 import spray.json._
-import DefaultJsonProtocol._
+
+import java.io.IOException
+import scala.sys.process._
 
 object Secrets {
   private val KvName = "mmlspark-build-keys"
-  private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
+  private[ml] val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
@@ -41,6 +41,8 @@ object Secrets {
   }
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
+  lazy val OpenAIApiKey: String = getSecret("openai-api-key")
+
   lazy val CustomSpeechApiKey: String = getSecret("custom-speech-api-key")
   lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
   lazy val ConversationTranscriptionKey: String = getSecret("conversation-transcription-key")
@@ -51,7 +53,7 @@ object Secrets {
   lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
-  lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
+  lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")

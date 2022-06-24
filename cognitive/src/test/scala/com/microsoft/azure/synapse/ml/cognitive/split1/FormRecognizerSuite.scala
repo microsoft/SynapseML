@@ -4,12 +4,12 @@
 package com.microsoft.azure.synapse.ml.cognitive.split1
 
 import com.microsoft.azure.synapse.ml.cognitive.FormsFlatteners._
-import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
@@ -36,7 +36,7 @@ case class SourceFilter(prefix: String, includeSubFolders: Boolean)
 
 object FormRecognizerUtils extends CognitiveKey {
 
-  import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
+  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   val PollingDelay = 1000
 
@@ -129,6 +129,8 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
   lazy val imageDf5: DataFrame = createTestDataframe(baseUrl, Seq("id1.jpg"), returnBytes = false)
 
   lazy val bytesDF5: DataFrame = createTestDataframe(baseUrl, Seq("id1.jpg"), returnBytes = true)
+
+  lazy val imageDf6: DataFrame = createTestDataframe(baseUrl, Seq("tables1.pdf"), returnBytes = false)
 
   lazy val pdfDf1: DataFrame = createTestDataframe(baseUrl, Seq("layout2.pdf"), returnBytes = false)
 

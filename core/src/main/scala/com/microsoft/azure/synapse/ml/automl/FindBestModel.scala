@@ -7,12 +7,14 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArrayParam, TransformerParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
+
 import scala.collection.JavaConverters._
 
 object FindBestModel extends ComplexParamsReadable[FindBestModel] {

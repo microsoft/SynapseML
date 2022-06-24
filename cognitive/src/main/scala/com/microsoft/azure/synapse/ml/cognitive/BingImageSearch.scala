@@ -5,13 +5,13 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.encoders.RowEncoder

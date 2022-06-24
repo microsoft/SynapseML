@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaC
 import com.microsoft.azure.synapse.ml.core.utils.CastUtilities._
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification._
@@ -15,9 +16,9 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
-import scala.collection.JavaConverters._
 
 import java.util.UUID
+import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *

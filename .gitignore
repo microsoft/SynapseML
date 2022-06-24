@@ -25,6 +25,17 @@
 .idea
 .metals
 
+# .NET plugins and build
+.metals
+.net
+.vs
+/core/src/main/dotnet/**/bin
+/core/src/main/dotnet/**/obj
+/core/src/main/dotnet/test/SynapseMLVersion.cs
+# temp ignore these two for local tests
+/dotnetSanityCheck/**/bin
+/dotnetSanityCheck/**/obj
+
 # Vagrant configuration
 /tools/vagrant/.vagrant
 
@@ -48,11 +59,12 @@ node_modules/
 .Rproj.user
 
 # Notebook Test Files
-/notebooks/*.py
-/notebooks/*.txt
+/notebooks/**/*.py
+/notebooks/**/*.txt
 
-# R output
+# R
 *.Rout
+.Rhistory
 
 # Misc
 .bsp

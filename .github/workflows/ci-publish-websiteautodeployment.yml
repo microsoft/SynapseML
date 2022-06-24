@@ -27,7 +27,7 @@ jobs:
     - uses: Azure/get-keyvault-secrets@v1
       with:
         keyvault: "mmlspark-keys"
-        secrets: 'gh-name,gh-email,gh-token'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+        secrets: 'gh-name,gh-email,gh-token'  # comma separated list of secret keys that need to be fetched from the Key Vault
       id: GetKeyVaultSecrets
     - name: 'Install Node.js'
       uses: actions/setup-node@v2
@@ -46,7 +46,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:
         python-version: 3.8.8
-        environment-file: environment.yaml
+        environment-file: environment.yml
         activate-environment: synapseml
     - name: Convert notebooks to markdowns
       shell: bash -l {0}

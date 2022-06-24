@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.StringIntMapParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param._
@@ -13,9 +14,7 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
-import spray.json.DefaultJsonProtocol._
 
-import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]

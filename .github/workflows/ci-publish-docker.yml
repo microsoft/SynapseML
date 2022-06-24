@@ -34,20 +34,20 @@ jobs:
         echo '::set-output name=gittag::'$(git tag -l --points-at HEAD)
     - name: Demo Image Build
       shell: bash -l {0}
-      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:${{ steps.getDockerTagAndVersion.outputs.version }} .
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg SYNAPSEML_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:${{ steps.getDockerTagAndVersion.outputs.version }} .
     - name: Demo Image Push
       shell: bash -l {0}
       run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:${{ steps.getDockerTagAndVersion.outputs.version }}
     - name: Minimal Image Build
       shell: bash -l {0}
-      run: docker build -f tools/docker/minimal/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:${{ steps.getDockerTagAndVersion.outputs.version }} .
+      run: docker build -f tools/docker/minimal/Dockerfile --build-arg SYNAPSEML_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:${{ steps.getDockerTagAndVersion.outputs.version }} .
     - name: Minimal Image Push
       shell: bash -l {0}
       run: docker push mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:${{ steps.getDockerTagAndVersion.outputs.version }}
     - name: Release Image Build
       if: ${{ startsWith(steps.getDockerTagAndVersion.outputs.gittag, 'v') }}
       shell: bash -l {0}
-      run: docker build -f tools/docker/demo/Dockerfile --build-arg MMLSPARK_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
+      run: docker build -f tools/docker/demo/Dockerfile --build-arg SYNAPSEML_VERSION=${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:${{ steps.getDockerTagAndVersion.outputs.version }} -t mmlsparkmcr.azurecr.io/public/mmlspark/release:latest .
     - name: Release Image Push - build version
       if: ${{ startsWith(steps.getDockerTagAndVersion.outputs.gittag, 'v') }}
       shell: bash -l {0}

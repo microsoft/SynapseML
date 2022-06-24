@@ -22,11 +22,11 @@ jobs:
         fetch-depth: 0
     - uses: Azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
     - uses: Azure/get-keyvault-secrets@v1
       with:
         keyvault: "mmlspark-keys"
-        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault
       id: GetKeyVaultSecrets
     - name: Setup Python
       uses: actions/setup-python@v2.3.2
@@ -36,7 +36,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.1.1
       with:
         python-version: 3.8.8
-        environment-file: environment.yaml
+        environment-file: environment.yml
         activate-environment: synapseml
     - name: Publish Blob Artifacts
       shell: bash -l {0}
@@ -63,4 +63,3 @@ jobs:
         files: '**/test-reports/TEST-*.xml'
         check_name: "SynapseE2E Test Results"
         comment_title: "SynapseE2E Test Results"
-        

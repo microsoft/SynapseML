@@ -5,8 +5,8 @@ package org.apache.spark.injections
 
 import org.apache.spark.sql.api.java.{UDF1, UDF2, UDF3}
 import org.apache.spark.sql.expressions.{SparkUserDefinedFunction, UserDefinedFunction}
-import org.apache.spark.sql.types.DataType
 import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.types.DataType
 
 object UDFUtils {
   def unpackUdf(u: UserDefinedFunction): (AnyRef, DataType) = {

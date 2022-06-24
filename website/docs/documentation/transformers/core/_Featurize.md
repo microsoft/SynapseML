@@ -276,5 +276,3 @@ ps.transform(df).show()
 py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.PageSplitter"
 scala="com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.scala" />
-
-

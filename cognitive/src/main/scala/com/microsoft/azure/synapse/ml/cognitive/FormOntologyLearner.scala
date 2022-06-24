@@ -6,8 +6,9 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.DataTypeParam
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.{DataTypeParam, ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.functions.col
@@ -46,7 +47,10 @@ class FormOntologyLearner(override val uid: String) extends Estimator[FormOntolo
   def this() = this(Identifiable.randomUID("FormOntologyLearner"))
 
   private[ml] def extractOntology(fromRow: Row => AnalyzeResponse)(r: Row): StructType = {
-    val fieldResults = fromRow(r.getStruct(0)).analyzeResult.documentResults.get.head.fields
+    val fieldResults = fromRow(r.getStruct(0)).analyzeResult.documentResults
+      .getOrElse(throw new IllegalArgumentException("A row does not have a `analyzeResult.documentResults` field," +
+        " please filter these out before using the FormOntologyLearner"))
+      .head.fields
     new StructType(fieldResults
       .mapValues(_.toFieldResultRecursive.toSimplifiedDataType)
       .map({ case (name, dt) => StructField(name, dt) }).toArray)

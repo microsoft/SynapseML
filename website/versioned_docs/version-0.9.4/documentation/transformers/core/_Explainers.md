@@ -564,6 +564,3 @@ display(shap.transform(predicted))
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.VectorSHAP"
 scala="com/microsoft/azure/synapse/ml/explainers/VectorSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorSHAP.scala" />
-
-
-

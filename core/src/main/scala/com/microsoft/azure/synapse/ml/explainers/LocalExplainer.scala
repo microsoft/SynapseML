@@ -3,15 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.azure.synapse.ml.core.utils.SlicerFunctions
-import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.SQLDataTypes.{MatrixType, VectorType}
-import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.ml.linalg.SQLDataTypes.MatrixType
 import org.apache.spark.ml.param.shared.HasOutputCol
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.functions.{array, col}
-import org.apache.spark.sql.{Column, DataFrame}
-import org.apache.spark.sql.types.{ArrayType, IntegerType, MapType, NumericType, StructType}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructType
 
 trait LocalExplainer
   extends Transformer with HasExplainTarget with HasOutputCol with HasModel with ComplexParamsWritable {

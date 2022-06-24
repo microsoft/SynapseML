@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.lightgbm._
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, LightGBMDataset}
 import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
 import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
@@ -185,11 +185,12 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
-  ignore("Verify LightGBM Multiclass Classifier with vector initial score") {
-    val scoredDF1 = baseModel.fit(breastTissueDF).transform(breastTissueDF)
+  test("Verify LightGBM Multiclass Classifier with vector initial score") {
+    val multiClassModel = baseModel.setObjective(multiclassObject).setSeed(4).setDeterministic(true)
+    val scoredDF1 = multiClassModel.fit(breastTissueDF).transform(breastTissueDF)
     val df2 = scoredDF1.withColumn(initScoreCol, col(rawPredCol))
       .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
-    val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
+    val scoredDF2 = multiClassModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
     assertMulticlassImprovement(scoredDF1, scoredDF2)
   }
@@ -354,6 +355,52 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     }
   }
 
+  test("Verify LightGBM Classifier model handles iterations properly when early stopping") {
+    val df = au3DF.orderBy(rand()).withColumn(validationCol, lit(false))
+
+    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
+    val valid = validIntermediate.withColumn(validationCol, lit(true))
+    val trainAndValid = train.union(valid.orderBy(rand()))
+
+    // model1 should overfit on the given dataset
+    val model1 = baseModel
+      .setNumLeaves(100)
+      .setNumIterations(100)
+      .setLearningRate(0.9)
+      .setMinDataInLeaf(2)
+      .setMetric("auc")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(100)
+    val resultModel1 = model1.fit(trainAndValid)
+
+    // model2 should terminate early
+    val model2 = baseModel
+      .setNumLeaves(100)
+      .setNumIterations(100)
+      .setLearningRate(0.9)
+      .setMinDataInLeaf(2)
+      .setMetric("auc")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(5)
+    val resultModel2 = model2.fit(trainAndValid)
+    val numIterationsEarlyStopped = resultModel2.getLightGBMBooster.numTotalIterations
+
+    // Early stopping should result in fewer iterations.
+    assert(resultModel1.getLightGBMBooster.numTotalIterations > numIterationsEarlyStopped)
+
+    // The number of iterations should be the index of the best iteration + 1.
+    assert(numIterationsEarlyStopped == resultModel2.getBoosterBestIteration() + 1)
+
+    // Make sure we serialize and deserialize appropriately.
+    val modelString1 = resultModel1.getModel.modelStr.get
+    val deserializedModel1 =  LightGBMClassificationModel.loadNativeModelFromString(modelString1)
+    val numIterations1 = resultModel1.getLightGBMBooster.numTotalIterations
+    assert(deserializedModel1.getLightGBMBooster.numTotalIterations == numIterations1)
+    val modelString2 = resultModel2.getModel.modelStr.get
+    val deserializedModel2 =  LightGBMClassificationModel.loadNativeModelFromString(modelString2)
+    assert(deserializedModel2.getLightGBMBooster.numTotalIterations == numIterationsEarlyStopped)
+  }
+
   test("Verify LightGBM Classifier categorical parameter for sparse dataset") {
     val Array(train, test) = indexedBankTrainDF.randomSplit(Array(0.8, 0.2), seed)
     val categoricalSlotNames = indexedBankTrainDF.schema(featuresCol)
@@ -489,6 +536,18 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     // if featuresShap is not wanted, it is possible to remove it.
     val evaluatedDf2 = model.setFeaturesShapCol("").transform(test)
     assert(!evaluatedDf2.columns.contains(featuresShapCol))
+  }
+
+  test("Verify Binary LightGBM Classifier chunk size parameter") {
+    val Array(train, test) = pimaDF.repartition(4).randomSplit(Array(0.8, 0.2), seed)
+    val untrainedModel = baseModel.setUseSingleDatasetMode(true)
+    val scoredDF1 = untrainedModel.setChunkSize(1000).setSeed(1).setDeterministic(true).fit(train).transform(test)
+    val chunkSizes = Array(10, 100, 1000, 10000)
+    chunkSizes.foreach { chunkSize =>
+      val model = untrainedModel.setChunkSize(chunkSize).setSeed(1).setDeterministic(true).fit(train)
+      val scoredDF2 = model.transform(test)
+      assertBinaryEquality(scoredDF1, scoredDF2);
+    }
   }
 
   test("Verify Multiclass LightGBM Classifier local feature importance SHAP values") {
@@ -687,9 +746,13 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       val modelPath = targetDir.toString + "/" + outputFileName
       FileUtils.deleteDirectory(new File(modelPath))
       fitModel.saveNativeModel(modelPath, overwrite = true)
+      val retrievedModelStr = fitModel.getNativeModel()
       assert(Files.exists(Paths.get(modelPath)), true)
 
       val oldModelString = fitModel.getModel.modelStr.get
+      // Assert model string is equal when retrieved from booster and getNativeModel API
+      assert(retrievedModelStr == oldModelString)
+
       // Verify model string contains some feature
       colsToVerify.foreach(col => oldModelString.contains(col))
 

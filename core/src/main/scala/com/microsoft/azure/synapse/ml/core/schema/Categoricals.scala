@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 
 /** Contains objects and functions to manipulate Categoricals */
 
-import SchemaConstants._
+import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants._
 import javassist.bytecode.DuplicateMemberException
 import org.apache.spark.ml.attribute._
 import org.apache.spark.sql.DataFrame

@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.geospatial
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import java.util.Date
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 object Address extends SparkBindings[Address]
 
@@ -140,7 +140,7 @@ case class LongRunningOperationResult (
   // resource location
   resourceLocation: Option[String],
   // The created timestamp.
-  created: Option[Date],
+  created: Option[String],
   error: Option[ErrorDetail],
   warning: Option[ErrorDetail])
 
@@ -295,3 +295,9 @@ case class SearchAddressResultItem (
 case class Viewport (
   topLeftPoint: Option[LatLongPairAbbreviated],
   btmRightPoint: Option[LatLongPairAbbreviated])
+
+object AzureMapsJsonProtocol extends DefaultJsonProtocol {
+  implicit val ErrorAdditionalInfoFormat: RootJsonFormat[ErrorAdditionalInfo] = jsonFormat2(ErrorAdditionalInfo.apply)
+  implicit val ErrorDetailFormat: RootJsonFormat[ErrorDetail] = jsonFormat5(ErrorDetail.apply)
+  implicit val LRORFormat: RootJsonFormat[LongRunningOperationResult] = jsonFormat6(LongRunningOperationResult.apply)
+}

@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams, BaseTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, LightGBMModelParams,
+  LightGBMPredictionParams, RegressorTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -132,11 +132,6 @@ class LightGBMRegressionModel(override val uid: String)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {

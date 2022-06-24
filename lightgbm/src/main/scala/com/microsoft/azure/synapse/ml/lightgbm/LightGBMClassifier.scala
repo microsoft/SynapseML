@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams, BaseTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, ClassifierTrainParams,
+  LightGBMModelParams, LightGBMPredictionParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -182,11 +182,6 @@ class LightGBMClassificationModel(override val uid: String)
     } else {
       udf(predict _).apply(col(getFeaturesCol))
     }
-  }
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
   }
 }
 

@@ -7,32 +7,41 @@ description: SynapseML Development Setup
 
 # SynapseML Development Setup
 
-1) [Install JDK 11](https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html)
+1. [Install JDK 11](https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html)
     - You may need an Oracle login to download.
-2) [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
-3) Fork the repository on github
+1. [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
+1. Fork the repository on github
     - See how to here: [Fork a repo - GitHub Docs](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
-4) Clone your fork
+1. Clone your fork
     - `git clone https://github.com/<your GitHub handle>/SynapseML.git`
     - This will automatically add your fork as the default remote, called `origin`
-5) Add another Git Remote to track the original SynapseML repo. It's recommended to call it `upstream`:
+1. Add another Git Remote to track the original SynapseML repo. It's recommended to call it `upstream`:
     - `git remote add upstream https://github.com/microsoft/SynapseML.git`
     - See more about Git remotes here: [Git - Working with remotes](https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes)
-6) Go to the directory where you cloed the repo (e.g., `SynapseML`) with `cd SynapseML`
-6) Run sbt to compile and grab datasets
+1. Go to the directory where you cloed the repo (e.g., `SynapseML`) with `cd SynapseML`
+1. Run sbt to compile and grab datasets
     - `sbt setup`
-7) [Install IntelliJ](https://www.jetbrains.com/idea/download)    
-8) Configure IntelliJ
+1. [Install IntelliJ](https://www.jetbrains.com/idea/download)
+1. Configure IntelliJ
     - Install [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala) during initialization
     - **OPEN** the synapseml directory from IntelliJ
     - If the project does not automatically import,click on `build.sbt` and import project
-9) Prepare your Python Environment
+1. Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
-    - Activate the `synapseml` conda environment by running `conda env create -f environment.yaml` from the `synapseml` directory.
+    - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
+1. Install pre-commit
+    - This repository uses the [pre-commit](https://pre-commit.com/index.html) tool to manage git hooks and enforce linting/coding styles.
+    - The hooks are configured in [.pre-commit-config.yaml](https://github.com/microsoft/SynapseML/blob/master/environment.yml).
+    - To use the hooks, please run the following commands:
+    ```bash
+    pip install pre-commit
+    pre-commit install
+    ```
+    - Now `pre-commit` should automatically run on every `git commit` operation to find AND fix linting issues.
 
 > NOTE
-> 
+>
 > If you will be regularly contributing to the SynapseML repo, you'll want to keep your fork synced with the
 > upstream repository. Please read [this GitHub doc](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
 > to know more and learn techniques about how to do it.
@@ -40,7 +49,7 @@ description: SynapseML Development Setup
 # Publishing and Using Build Secrets
 
 To use secrets in the build you must be part of the synapsemlkeyvault
- and azure subscription. If you are MSFT internal would like to be 
+ and azure subscription. If you are MSFT internal would like to be
  added please reach out `synapseml-support@microsoft.com`
 
 # SBT Command Guide
@@ -67,7 +76,7 @@ Generates documentation for scala sources
 
 ### `createCondaEnv`
 
-Creates a conda environment `synapseml` from `environment.yaml` if it does not already exist. 
+Creates a conda environment `synapseml` from `environment.yml` if it does not already exist.
 This env is used for python testing. **Activate this env before using python build commands.**
 
 ### `cleanCondaEnv`

@@ -6,8 +6,8 @@ package com.microsoft.azure.synapse.ml.core.spark
 import org.apache.spark.ml.{Estimator, Model, NamespaceInjections, Transformer}
 import org.apache.spark.sql.DataFrame
 
-import scala.reflect.ClassTag
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 class DataFrameSugars(val df: DataFrame) {
 

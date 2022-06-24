@@ -1,4 +1,4 @@
-FROM openjdk:17-ea-22-jdk-oracle
+FROM mcr.microsoft.com/openjdk/jdk:11-mariner
 LABEL maintainer="Dalitso Banda dalitsohb@gmail.com"
 
 # Get Spark from US Apache mirror.

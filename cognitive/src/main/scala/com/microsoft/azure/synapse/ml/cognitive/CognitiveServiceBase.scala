@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
@@ -154,20 +155,28 @@ object URLEncodingUtils {
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
+  protected def paramNameToPayloadName(p: Param[_]): String = p match {
+    case p: ServiceParam[_] => p.payloadName
+    case _ => p.name
+  }
+
+  protected def prepareUrlRoot: Row => String = {
+    _ => getUrl
+  }
+
   protected def prepareUrl: Row => String = {
     val urlParams: Array[ServiceParam[Any]] =
       getUrlParams.asInstanceOf[Array[ServiceParam[Any]]];
     // This semicolon is needed to avoid argument confusion
     { row: Row =>
-      val base = getUrl
       val appended = if (!urlParams.isEmpty) {
         "?" + URLEncodingUtils.format(urlParams.flatMap(p =>
-          getValueOpt(row, p).map(v => p.name -> p.toValueString(v))
+          getValueOpt(row, p).map(v => paramNameToPayloadName(p) -> p.toValueString(v))
         ).toMap)
       } else {
         ""
       }
-      base + appended
+      prepareUrlRoot(row) + appended
     }
   }
 
@@ -229,6 +238,13 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |""".stripMargin
   }
 
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""
+       |public $dotnetClassName SetLinkedService(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLinkedService\", value));
+       |""".stripMargin
+  }
+
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
     val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
@@ -261,6 +277,13 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setLocation(value)
       |    return self
       |""".stripMargin
+  }
+
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""
+       |public $dotnetClassName SetLocation(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLocation\", value));
+       |""".stripMargin
   }
 
   def setLocation(v: String): this.type = {
@@ -308,7 +331,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
+        .setHandler(handlingFunc _)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),

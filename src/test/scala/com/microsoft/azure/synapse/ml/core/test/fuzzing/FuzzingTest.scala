@@ -94,7 +94,6 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase",
       "com.microsoft.azure.synapse.ml.featurize.CleanMissingDataModel",
-      "com.microsoft.azure.synapse.ml.featurize.DataConversion",
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",

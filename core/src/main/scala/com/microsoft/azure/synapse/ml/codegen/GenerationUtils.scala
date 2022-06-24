@@ -4,6 +4,8 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param.{ServiceParam, TypedArrayParam}
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PythonWrappableParam, RWrappableParam}
 import org.apache.spark.ml.param._
 
 object GenerationUtils {
@@ -63,7 +65,7 @@ object GenerationUtils {
         s"""${tap.name}=${RWrappableParam.rDefaultRender(v, tap)}"""
       case sp: ServiceParam[_] =>
         v match {
-          case _: Right[_,_] =>
+          case _: Right[_, _] =>
             s"""${sp.name}Col=${RWrappableParam.rDefaultRender(v, sp)}"""
           case _ =>
             s"""${sp.name}=${RWrappableParam.rDefaultRender(v, sp)}"""
@@ -72,6 +74,26 @@ object GenerationUtils {
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
         s"""${p.name}=${RWrappableParam.rDefaultRender(v, p)}"""
+    }
+  }
+
+  def dotnetRenderParam[T](pp: ParamPair[T]): String = {
+    dotnetRenderParam(pp.param, pp.value)
+  }
+
+  //noinspection ScalaStyle
+  def dotnetRenderParam[T](p: Param[T], v: T): String = {
+    import DefaultParamInfo._
+
+    p match {
+      case pwp: DotnetWrappableParam[T] =>
+        "." + pwp.dotnetTestSetterLine(v)
+      case _: StringArrayParam | _: DoubleArrayParam | _: IntArrayParam |
+           _: DoubleArrayArrayParam =>
+        s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType}
+           |    ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+      case _ =>
+        s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
     }
   }
 

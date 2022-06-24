@@ -7,12 +7,14 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.UDFParam
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -29,6 +31,8 @@ trait HasHandler extends Params {
   def setHandler(v: HandlerFunc): HasHandler.this.type = {
     set(handler, UDFUtils.oldUdf(v, StringType))
   }
+
+  def setHandler(v: UserDefinedFunction): HasHandler.this.type = set(handler, v)
 
   setDefault(handler -> HandlingUtils.advancedUDF(100)) //scalastyle:ignore magic.number
 

@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.split1
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.SparkException
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructType}
@@ -31,7 +32,29 @@ class FormOntologyLearnerSuite extends EstimatorFuzzing[FormOntologyLearner] wit
     "https://mmlsparkdemo.blob.core.windows.net/ignite2021/forms/2009/Invoice12241.pdf"
   ).toDF("url")
 
+  lazy val tableUrlDF: DataFrame = Seq(
+    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/tables1.pdf"
+  ).toDF("url")
+
   lazy val df: DataFrame = analyzeInvoices.transform(urlDF).cache()
+
+  test("Yields a reasonable error message when input rows dont contain documentResults") {
+    val analyzedDf = new AnalyzeLayout()
+      .setSubscriptionKey(cognitiveKey)
+      .setLocation("eastus")
+      .setImageUrlCol("url")
+      .setOutputCol("layout")
+      .setConcurrency(5)
+      .transform(tableUrlDF)
+
+    assertThrows[SparkException] {
+      new FormOntologyLearner()
+        .setInputCol("layout")
+        .setOutputCol("unified_ontology")
+        .fit(analyzedDf)
+        .transform(analyzedDf)
+    }
+  }
 
   test("Basic Usage") {
 

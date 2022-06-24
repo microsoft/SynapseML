@@ -6,7 +6,8 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{BooleanParam, DataFrameParam, ParamMap}
+import com.microsoft.azure.synapse.ml.param.DataFrameParam
+import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.functions.{broadcast, col, lit, max}

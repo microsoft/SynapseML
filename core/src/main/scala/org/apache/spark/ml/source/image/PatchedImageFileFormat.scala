@@ -21,7 +21,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.util.SerializableConfiguration
 
 import javax.imageio.ImageIO
-import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
 class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logging {

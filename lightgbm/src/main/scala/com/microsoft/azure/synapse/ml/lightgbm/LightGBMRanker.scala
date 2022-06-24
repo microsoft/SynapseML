@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams, BaseTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, LightGBMModelParams,
+  LightGBMPredictionParams, RankerTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -163,11 +163,6 @@ class LightGBMRankerModel(override val uid: String)
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
 
   override def numFeatures: Int = getModel.numFeatures
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {

@@ -5,6 +5,7 @@ from synapse.ml.explainers._ICETransformer import _ICETransformer
 from pyspark.ml.common import inherit_doc
 from typing import List, Dict, Union
 
+
 @inherit_doc
 class ICETransformer(_ICETransformer):
     def setCategoricalFeatures(self, values: List[Union[str, Dict]]):

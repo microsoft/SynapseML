@@ -13,8 +13,6 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.collection.mutable.WrappedArray
-
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
   lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
@@ -492,11 +490,11 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     .setLanguageCol("language")
     .setOutputCol("response")
     .setErrorCol("error")
-    .setEntityRecognitionTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
-    .setEntityLinkingTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
-    .setEntityRecognitionPiiTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
-    .setKeyPhraseExtractionTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
-    .setSentimentAnalysisTasks(Seq(TAAnalyzeTask(Map("model-version" -> "latest"))))
+    .setEntityRecognitionTasks(Seq(TextAnalyzeTask(Map("model-version" -> "latest"))))
+    .setEntityLinkingTasks(Seq(TextAnalyzeTask(Map("model-version" -> "latest"))))
+    .setEntityRecognitionPiiTasks(Seq(TextAnalyzeTask(Map("model-version" -> "latest"))))
+    .setKeyPhraseExtractionTasks(Seq(TextAnalyzeTask(Map("model-version" -> "latest"))))
+    .setSentimentAnalysisTasks(Seq(TextAnalyzeTask(Map("model-version" -> "latest"))))
 
   def getEntityRecognitionResults(results: Dataset[Row], resultIndex: Int): Array[Row] = {
     results.withColumn("entityRecognition",
@@ -627,7 +625,7 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     // Check we have the correct number of responses
     val response = results.select("response").collect()(0).asInstanceOf[GenericRowWithSchema](0)
     val responseCount = response match {
-      case a: WrappedArray[_] => a.length
+      case a: Seq[_] => a.length
       case _ => -1
     }
     assert(responseCount == batchSize)

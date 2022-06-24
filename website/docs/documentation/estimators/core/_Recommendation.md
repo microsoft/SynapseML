@@ -372,4 +372,3 @@ adapter.fit(res1).transform(res1).show()
 py="synapse.ml.recommendation.html#module-synapse.ml.recommendation.SAR"
 scala="com/microsoft/azure/synapse/ml/recommendation/SAR.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/SAR.scala" />
-

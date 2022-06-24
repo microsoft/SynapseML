@@ -23,7 +23,7 @@ status: stable
 ## Prerequisites
 
 1. Sign into the [Azure Portal](https://portal.azure.com) and create an Azure Maps account by following these [instructions](https://docs.microsoft.com/en-us/azure/azure-maps/how-to-manage-account-keys#create-a-new-account).
-1. Once the Maps account is created, provision a Maps Creator Resource by following these [instructions](https://docs.microsoft.com/en-us/azure/azure-maps/how-to-manage-creator#create-creator-resource). Creator is a [geographically scoped service](https://docs.microsoft.com/en-us/azure/azure-maps/creator-geographic-scope). Pick appropriate location while provisioning the creator resource. 
+1. Once the Maps account is created, provision a Maps Creator Resource by following these [instructions](https://docs.microsoft.com/en-us/azure/azure-maps/how-to-manage-creator#create-creator-resource). Creator is a [geographically scoped service](https://docs.microsoft.com/en-us/azure/azure-maps/creator-geographic-scope). Pick appropriate location while provisioning the creator resource.
 1. Follow these [instructions](https://docs.microsoft.com/en-us/azure/cognitive-services/big-data/getting-started#create-an-apache-spark-cluster) to set up your Azure Databricks environment and install SynapseML.
 1. After you create a new notebook in Azure Databricks, copy the **Shared code** below and paste into a new cell in your notebook.
 1. Choose a service sample, below, and copy paste it into a second new cell in your notebook.
@@ -67,7 +67,7 @@ azureMapsKey = os.environ["AZURE_MAPS_KEY"]
 
 ## Geocoding sample
 
-The azure maps geocoder sends batches of queries to the [Search Address API](https://docs.microsoft.com/en-us/rest/api/maps/search/getsearchaddress). The API limits the batch size to 10000 queries per request.  
+The azure maps geocoder sends batches of queries to the [Search Address API](https://docs.microsoft.com/en-us/rest/api/maps/search/getsearchaddress). The API limits the batch size to 10000 queries per request.
 
 
 ```python
@@ -135,7 +135,7 @@ This API returns a boolean value indicating whether a point is inside a set of p
 
 ### Setup geojson Polygons in your azure maps creator account
 
-Based on where the creator resource was provisioned, we need to prefix the appropriate geography code to the azure maps URL. In this example, the assumption is that the creator resource was provisioned in `East US 2` Location and hence we pick `us` as our geo prefix. 
+Based on where the creator resource was provisioned, we need to prefix the appropriate geography code to the azure maps URL. In this example, the assumption is that the creator resource was provisioned in `East US 2` Location and hence we pick `us` as our geo prefix.
 
 
 ```python
@@ -144,15 +144,15 @@ import time
 import json
 
 # Choose a geography, you want your data to reside in.
-# Allowed values 
+# Allowed values
 # us => North American datacenters
 # eu -> European datacenters
-url_geo_prefix = 'us' 
+url_geo_prefix = 'us'
 
 # Upload a geojson with polygons in them
 r= requests.post(f'https://{url_geo_prefix}.atlas.microsoft.com/mapData/upload?api-version=1.0&dataFormat=geojson&subscription-key={azureMapsKey}',
-    json= { 
-        "type": "FeatureCollection", 
+    json= {
+        "type": "FeatureCollection",
         "features": [
             {
                 "type": "Feature",
@@ -183,15 +183,15 @@ r= requests.post(f'https://{url_geo_prefix}.atlas.microsoft.com/mapData/upload?a
                             ]
                         ]
                     ]
-                } 
-            } 
-        ] 
+                }
+            }
+        ]
     })
 
 long_running_operation = r.headers.get('location')
 time.sleep(30) # Sometimes this may take upto 30 seconds
 print(f"Status Code: {r.status_code}, Long Running Operation: {long_running_operation}")
-# This Operation completes in approximately 5 ~ 15 seconds 
+# This Operation completes in approximately 5 ~ 15 seconds
 user_data_id_resource_url = json.loads(requests.get(f'{long_running_operation}&subscription-key={azureMapsKey}').content)['resourceLocation']
 user_data_id = json.loads(requests.get(f'{user_data_id_resource_url}&subscription-key={azureMapsKey}').content)['udid']
 ```

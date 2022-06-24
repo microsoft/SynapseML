@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.vw.featurizer
 
-import org.apache.spark.sql.Row
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.sql.Row
 
 import scala.collection.mutable
 

@@ -74,7 +74,7 @@ config.vm.provision "shell", inline: <<-SHELL
   libfontconfig1 libxrender1 libxtst6 libxi6
   apt-get install -y openjdk-8-jdk sbt
 
-  # Install Intellij	
+  # Install Intellij
   ed=C
   # Fetch the most recent version
   VERSION="2019.1.2"
@@ -102,7 +102,7 @@ config.vm.provision "shell", inline: <<-SHELL
   sudo chmod -R +rwx ${DIR}
   # Create symlink entry
   echo "alias idea=${BIN}/idea.sh" >> /home/vagrant/.bashrc
-  echo "Done"	
+  echo "Done"
 SHELL
 
 config.vm.provision "shell", privileged: false, inline: <<-SHELL
