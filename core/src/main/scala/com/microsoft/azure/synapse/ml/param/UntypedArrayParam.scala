@@ -18,6 +18,8 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: String => v.toJson
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
+        case v: Seq[_] => seqFormat[Any].write(v)
+        case v: Map[String, _] => mapFormat[String, Any].write(v)
         case _ => throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
       }
 
@@ -32,6 +34,8 @@ object AnyJsonFormat extends DefaultJsonProtocol {
           }
         case v: JsString => v.value
         case v: JsBoolean => v.value
+        case v: JsArray => listFormat[Any].read(value)
+        case v: JsObject => mapFormat[String, Any].read(value)
         case _ => throw new IllegalArgumentException(s"Cannot deserialize ${value}")
       }
     }
