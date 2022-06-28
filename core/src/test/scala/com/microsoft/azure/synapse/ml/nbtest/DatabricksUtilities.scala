@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
 import com.microsoft.azure.synapse.ml.nbtest.SprayImplicits._
@@ -18,8 +19,10 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
-import java.util.concurrent.TimeoutException
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import java.util.concurrent.{TimeUnit, TimeoutException}
+import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
 //noinspection ScalaStyle
 object DatabricksUtilities {
@@ -344,6 +347,58 @@ object DatabricksUtilities {
 
   def cancelAllJobs(clusterId: String): Unit = {
     listActiveJobs(clusterId).foreach(cancelRun)
+  }
+}
+
+abstract class DatabricksTestProcess extends TestBase {
+  import DatabricksUtilities._
+
+  def databricksTestProcess(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+    val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
+
+    println("Checking if cluster is active")
+    tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
+      assert(isClusterActive(clusterId))
+    }
+    println("Installing libraries")
+    installLibraries(clusterId, libraries)
+    tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
+      assert(areLibrariesInstalled(clusterId))
+    }
+    println(s"Creating folder $Folder")
+    workspaceMkDir(Folder)
+
+    println(s"Submitting jobs")
+    val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))
+    parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
+
+    println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
+
+    assert(parNotebookRuns.nonEmpty)
+
+    parNotebookRuns.foreach(run => {
+      println(s"Testing ${run.notebookName}")
+
+      test(run.notebookName) {
+        val result = Await.ready(
+          run.monitor(logLevel = 0),
+          Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+
+        if (!result.isSuccess) {
+          throw result.failed.get
+        }
+      }
+    })
+
+    jobIdsToCancel
+  }
+
+  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int], clusterId: String): Unit = {
+    println("Suite test finished. Running afterAll procedure...")
+    jobIdsToCancel.foreach(cancelRun)
+
+    deleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId.")
   }
 }
 
