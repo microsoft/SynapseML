@@ -12,9 +12,13 @@ import scala.collection.immutable.Map
 trait RPrinter extends CompactPrinter {
 
   override protected def printArray(elements: Seq[JsValue], sb: JStringBuilder): Unit = {
-    sb.append(if (elements.isEmpty) "c(" else "list(")
-    printSeq(elements, sb.append(','))(print(_, sb))
-    sb.append(")")
+    if (elements.isEmpty) {
+      sb.append("c()")
+    } else {
+      sb.append("'[")
+      printSeq(elements, sb.append(',')) { e => sb.append(e.compactPrint) }
+      sb.append("]'")
+    }
   }
 
 
@@ -76,10 +80,11 @@ object RWrappableParam {
         } else {
           value match {
             case left: Left[_, _] =>
-              //s""""${left.value.toString}""""
               rDefaultRender(value, { v: T => param.jsonEncode(v) })
             case right: Right[_, _] =>
-              s""""${right.value.toString}""""
+              rDefaultRender(value, { v: T => param.jsonEncode(v) })
+            //case
+              //s""""${right.value.toString}""""
             case _ =>
               "'" + p.jsonEncode(value) + "'"
           }

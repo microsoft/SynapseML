@@ -419,13 +419,15 @@ trait RWrappable extends BaseWrappable {
     thisStage.params.map { p =>
       val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
       p match {
-        case p: ServiceParam[_] =>
-          getRConditionalSetterLine(p.name + "Col", p.name + "Col") + "\n" +
-            getRConditionalSetterLine(p.name, value)
-        case p: TypedArrayParam[_] =>
-          getRConditionalSetterLine(p.name, value, setterSuffix = "R")
-        case p =>
-          getRConditionalSetterLine(p.name, value)
+        case sp: ServiceParam[_] =>
+          getRConditionalSetterLine(sp.name + "Col", sp.name + "Col") + "\n" +
+            getRConditionalSetterLine(sp.name, value)
+        case tap: TypedArrayParam[_] =>
+          getRConditionalSetterLine(tap.name, value, setterSuffix = "R")
+        case amp: ArrayMapParam =>
+          getRConditionalSetterLine(amp.name, value, setterSuffix = "R")
+        case r =>
+          getRConditionalSetterLine(r.name, value)
       }
     }.mkString("\n")
   }

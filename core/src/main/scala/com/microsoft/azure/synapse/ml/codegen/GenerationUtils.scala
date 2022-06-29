@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.{ServiceParam, TypedArrayParam}
 import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PythonWrappableParam, RWrappableParam}
 import org.apache.spark.ml.param._
@@ -65,8 +66,10 @@ object GenerationUtils {
         s"""${tap.name}=${RWrappableParam.rDefaultRender(v, tap)}"""
       case sp: ServiceParam[_] =>
         v match {
-          case _: Right[_, _] =>
-            s"""${sp.name}Col=${RWrappableParam.rDefaultRender(v, sp)}"""
+          case left: Left[_,_] =>
+            s"""${sp.name}=${RWrappableParam.rDefaultRender(left, sp)}"""
+          case right: Right[_, _] =>
+            s"""${sp.name}Col=${RWrappableParam.rDefaultRender(right, sp)}"""
           case _ =>
             s"""${sp.name}=${RWrappableParam.rDefaultRender(v, sp)}"""
         }

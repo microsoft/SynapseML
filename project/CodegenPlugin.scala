@@ -100,7 +100,7 @@ object CodegenPlugin extends AutoPlugin {
     rCmd(activateCondaEnv,
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
-    val testRunner = join("tools", "tests", "run_r_tests.R")
+    val testRunner = join("src", "tools", "tests", "run_r_tests.R")
     if (rTestDir.exists()){
       rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
