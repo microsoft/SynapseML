@@ -130,14 +130,17 @@ class ServiceParam[T: TypeTag](parent: Params,
 
   override private[ml] def dotnetSetter(dotnetClassName: String,
                                         capName: String,
-                                        dotnetClassWrapperName: String): String = {
+                                        dotnetClassWrapperName: String): String =
     s"""|public $dotnetClassName Set$capName($dotnetType value) =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
-        |
-        |public $dotnetClassName Set${capName}Col(string value) =>
+        |""".stripMargin
+
+  private[ml] def dotnetSetterForSrvParamCol(dotnetClassName: String,
+                                             capName: String,
+                                             dotnetClassWrapperName: String): String =
+    s"""|public $dotnetClassName Set${capName}Col(string value) =>
         |    $dotnetClassWrapperName(Reference.Invoke(\"set${capName}Col\", value));
         |""".stripMargin
-  }
 
   override private[ml] def dotnetGetter(capName: String): String = {
     dotnetType match {

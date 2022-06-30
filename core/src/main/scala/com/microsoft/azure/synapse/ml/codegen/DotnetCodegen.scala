@@ -39,7 +39,7 @@ object DotnetCodegen {
          |    <LangVersion>9.0</LangVersion>
          |    <AssemblyName>SynapseML.$curProject</AssemblyName>
          |    <IsPackable>true</IsPackable>
-         |
+         |    <GenerateDocumentationFile>true</GenerateDocumentationFile>
          |    <Description>.NET for SynapseML.$curProject</Description>
          |    <Version>${conf.dotnetVersion}</Version>
          |  </PropertyGroup>
