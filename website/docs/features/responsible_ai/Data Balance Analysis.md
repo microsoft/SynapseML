@@ -9,13 +9,26 @@ description: Learn how to do Data Balance Analysis on Spark to determine how wel
 
 ## Context
 
-Data Balance Analysis is relevant for overall understanding of datasets, but it becomes essential when thinking about building Machine Learning services out of such datasets. Having a well balanced data representation is critical when developing models in a responsible way, specially in terms of fairness.
-It is unfortunately all too easy to build an ML model that produces biased results for subsets of an overall population, by training or testing the model on biased ground truth data. There are multiple case studies of biased models assisting in granting loans, healthcare, recruitment opportunities and many other decision making tasks. In most of these examples, the data from which these models are trained was the common issue. These findings emphasize how important it is for model creators and auditors to analyze data balance: to measure training data across sub-populations and ensure the data has good coverage and a balanced representation of labels across sensitive categories and category combinations, and to check that test data is representative of the target population.
+Data Balance Analysis is relevant for gaining an overall understanding of datasets, but it becomes essential when thinking about building AI systems in a responsible way, especially in terms of fairness.
 
-In summary, Data Balance Analysis, used as a step for building ML models has the following benefits:
+AI systems can sometimes exhibit unwanted, unfair behaviors. These behaviors can cause fairness-related harms that affect various groups of people, often amplifying marginalization of particular groups whose needs and contexts are typically overlooked during the AI development and deployment life cycle. Fairness-related harms can have varying severities, and the cumulative impact of even seemingly non-severe harms can be burdensome.
 
-* **Reduces risks for unbalanced models (facilitate service fairness) and reduces costs of ML building** by identifying early on data representation gaps that prompt data scientists to seek mitigation steps (collect more data, follow a specific sampling mechanism, create synthetic data, etc.) before proceeding to train their models.
-* **Enables easy e2e debugging of ML systems** in combination with [Fairlearn](https://fairlearn.org/) by providing a clear view if for an unbalanced model the issue is tied to the data or the model.
+Fairness-related harms include:
+
+* **Allocation harms**: When an AI system extends or withholds opportunities or resources in ways that negatively impact people’s lives.
+* **Quality of service harms**: When an AI system does not work as well for one group of people as it does for another.
+* **Stereotyping harms**: When an AI system makes unfair generalizations about groups of people and reinforces negative stereotypes.
+* **Demeaning harms**: When an AI system is actively derogatory or offensive.
+* **Over- and underrepresentation harms**: When an AI system over- or underrepresents some groups of people or may even erase some groups entirely.
+
+**Note**: *Because fairness in AI is fundamentally a sociotechnical challenge, it is often impossible to fully “de-bias” an AI system. Instead, teams tasked with developing and deploying AI systems must work to identify, measure, and mitigate fairness-related harms as much as possible. Data Balance Analysis is a tool to help do so, in combination with others.*
+
+Data Balance Analysis consists of a combination of three groups of measures: Feature Balance Measures, Distribution Balance Measures, and Aggregate Balance Measures.
+
+In summary, Data Balance Analysis, when used as a step for building ML models, has the following benefits:
+
+* It reduces costs of ML building through the early identification of data representation gaps that prompt data scientists to seek mitigation steps (such as collecting more data, following a specific sampling mechanism, creating synthetic data, and so on) before proceeding to train their models.
+* It enables easy end-to-end debugging of ML systems in combination with the [RAI Toolbox](https://responsibleaitoolbox.ai/responsible-ai-toolbox-capabilities/) by providing a clear view of model-related issues versus data-related issues.
 
 ## Examples
 
@@ -111,7 +124,7 @@ Note: Many of these metrics were influenced by this paper [Measuring Model Biase
 
 | Association Metric                                 | Family                            | Description                                                                                                                                                                                                                                | Interpretation/Formula                                                                                                 | Reference                                                                    |
 |----------------------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| Demographic Parity                                 | Fairness                          | Proportion of each segment of a protected class (e.g. gender) should receive the positive outcome at equal rates.                                                                                                                          | As close to 0 means better parity. $DP = P(Y \vert A = "Male") - P(Y \vert A = "Female")$.                             | [Link](https://en.wikipedia.org/wiki/Fairness_%28machine_learning%29)        |
+| Statistical Parity                                 | Fairness                          | Proportion of each segment of a protected class (e.g. gender) should receive the positive outcome at equal rates.                                                                                                                          | As close to 0 means better parity. $DP = P(Y \vert A = "Male") - P(Y \vert A = "Female")$.                             | [Link](https://en.wikipedia.org/wiki/Fairness_%28machine_learning%29)        |
 | Pointwise Mutual Information (PMI), normalized PMI | Entropy                           | The PMI of a pair of feature values (ex: Gender=Male and Gender=Female) quantifies the discrepancy between the probability of their coincidence given their joint distribution and their individual distributions (assuming independence). | Range (normalized) $[-1, 1]$. -1 for no co-occurences. 0 for co-occurences at random. 1 for complete co-occurences.    | [Link](https://en.wikipedia.org/wiki/Pointwise_mutual_information)           |
 | Sorensen-Dice Coefficient (SDC)                    | Intersection-over-Union           | Used to gauge the similarity of two samples. Related to F1 score.                                                                                                                                                                          | Equals twice the number of elements common to both sets divided by the sum of the number of elements in each set.      | [Link](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) |
 | Jaccard Index                                      | Intersection-over-Union           | Similar to SDC, guages the similarity and diversity of sample sets.                                                                                                                                                                        | Equals the size of the intersection divided by the size of the union of the sample sets.                               | [Link](https://en.wikipedia.org/wiki/Jaccard_index)                          |

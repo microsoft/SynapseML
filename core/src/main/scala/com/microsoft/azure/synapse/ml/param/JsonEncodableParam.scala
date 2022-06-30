@@ -121,6 +121,8 @@ class ServiceParam[T: TypeTag](parent: Params,
     case "Int" => "int"
     case "Seq[String]" => "string[]"
     case "Seq[Double]" => "double[]"
+    case "Seq[Int]" => "int[]"
+    case "Seq[Seq[Int]]" => "int[][]"
     case "Array[Byte]" => "byte[]"
     case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => "TimeSeriesPoint[]"
     case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => "TargetInput[]"
