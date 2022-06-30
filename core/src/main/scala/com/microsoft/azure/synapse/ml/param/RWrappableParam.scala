@@ -71,6 +71,10 @@ object RWrappableParam {
   }
 
   def rDefaultRender[T](value: T, param: Param[T]): String = {
+    rDefaultRender(value, { v: T => param.jsonEncode(v) })
+  }
+/*
+  def rDefaultRender[T](value: T, param: Param[T]): String = {
     param match {
       case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
         rDefaultRender(value, { v: T => param.jsonEncode(v) })
@@ -92,7 +96,7 @@ object RWrappableParam {
       case _ =>
         rDefaultRender(value, { v: T => param.jsonEncode(v) })
     }
-  }
+  }*/
 
 }
 
