@@ -314,9 +314,13 @@ object CodegenPlugin extends AutoPlugin {
       runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
       FileUtils.copyFile(join(baseDirectory.value.getParent, "README.md"), join(dotnetSrcDir, "README.md"))
       runCmd(Seq("sed", "-i", "\'s/img width=\"800\"/img width=\"300\"/g\'", "README.md"), dotnetSrcDir)
+      val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
       runCmd(Seq(
-        "echo", s"PROJECT_NAME = \"SynapseML Core\"\nPROJECT_NUMBER = \"${dotnetVersion.value}\"\n" +
-          "USE_MDFILE_AS_MAINPAGE = \"README.md\"\nRECURSIVE = YES",
+        "echo",
+        s"""PROJECT_NAME = \"$packageName\"
+PROJECT_NUMBER = \"${dotnetVersion.value}\"
+USE_MDFILE_AS_MAINPAGE = \"README.md\"
+RECURSIVE = YES""".stripMargin,
         "|", "tee", "-a", "Doxyfile"
       ), dotnetSrcDir)
       runCmd(Seq("doxygen"), dotnetSrcDir)
