@@ -179,8 +179,10 @@ generatePythonDoc := {
 
 val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
 generateDotnetDoc := {
-  runTaskForAllInCompile(packageDotnet).value
-  runTaskForAllInCompile(mergeDotnetCode).value
+  Def.sequential(
+    runTaskForAllInCompile(dotnetCodeGen),
+    runTaskForAllInCompile(mergeDotnetCode)
+  ).value
   val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
   runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
   FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
