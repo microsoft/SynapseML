@@ -30,6 +30,16 @@ object BuildUtils {
     }
   }
 
+  def dotnetedVersion(version: String): String = {
+    version match {
+      case s if s.contains("-") => {
+        val versionArray = s.split("-".toCharArray)
+        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
+      }
+      case s => s
+    }
+  }
+
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
              envVars: Map[String, String] = Map()): Unit = {

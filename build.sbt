@@ -189,7 +189,7 @@ generateDotnetDoc := {
   runCmd(Seq(
     "echo",
     s"""PROJECT_NAME = \"$packageName\"
-PROJECT_NUMBER = \"${dotnetVersion.value}\"
+PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"
 USE_MDFILE_AS_MAINPAGE = \"README.md\"
 RECURSIVE = YES""".stripMargin,
     "|", "tee", "-a", "Doxyfile"
