@@ -186,7 +186,7 @@ generateDotnetDoc := {
   val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
   runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
   FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
-  runCmd(Seq("sed", "-i", "\'s/img width=\"800\"/img width=\"300\"/g\'", "README.md"), dotnetSrcDir)
+  runCmd(Seq("sed", "-i", s"""\'s/img width=\"800\"/img width=\"300\"/g\'""", "README.md"), dotnetSrcDir)
   val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
   runCmd(Seq(
     "echo",

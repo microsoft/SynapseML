@@ -60,14 +60,11 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: ShellScript@2
-      inputs:
-        scriptPath: tools/dotnet/dotnetSetup.sh
     - bash: |
         set -e
         sudo apt-get install doxygen
         source activate synapseml
-        sbt packagePython packageDotnet
+        sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
         sbt publishSigned
         sbt genBuildInfo
