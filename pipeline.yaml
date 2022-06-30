@@ -64,7 +64,7 @@ jobs:
         set -e
         sudo apt-get install doxygen
         source activate synapseml
-        sbt packagePython
+        sbt packagePython packageDotnet
         sbt publishBlob publishDocs publishR publishPython
         sbt publishSigned
         sbt genBuildInfo
