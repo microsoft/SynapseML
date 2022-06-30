@@ -244,10 +244,11 @@ publishPypi := {
   )
 }
 
-val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
   generatePythonDoc.value
   (root / Compile / unidoc).value
+  generateDotnetDoc.value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">
@@ -262,6 +263,9 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
+  val dotnetDir = join(unifiedDocDir.toString, "dotnet")
+  if (dotnetDir.exists()) FileUtils.forceDelete(dotnetDir)
+  FileUtils.copyDirectory(join(codegenDir, "src", "dotnet", "html"), dotnetDir)
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 

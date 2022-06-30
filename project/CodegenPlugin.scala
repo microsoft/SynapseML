@@ -76,6 +76,8 @@ object CodegenPlugin extends AutoPlugin {
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
+    val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc",
+      "Generate documentation for dotnet classes")
 
     val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
@@ -218,7 +220,7 @@ object CodegenPlugin extends AutoPlugin {
         val versionArray = version.value.split("-".toCharArray)
         versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
       } else {
-       version.value
+        version.value
       }
     },
     packageR := {
@@ -306,6 +308,18 @@ object CodegenPlugin extends AutoPlugin {
       val packagePath = join(codegenDir.value, "package", "dotnet",
         s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
       publishDotnetAssemblyCmd(packagePath, mergePyCodeDir.value)
+    },
+    generateDotnetDoc := {
+      val dotnetSrcDir = join(codegenDir.value, "src", "dotnet")
+      runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+      FileUtils.copyFile(join(baseDirectory.value.getParent, "README.md"), join(dotnetSrcDir, "README.md"))
+      runCmd(Seq("sed", "-i", "\'s/img width=\"800\"/img width=\"300\"/g\'", "README.md"), dotnetSrcDir)
+      runCmd(Seq(
+        "echo", s"PROJECT_NAME = \"SynapseML Core\"\nPROJECT_NUMBER = \"${dotnetVersion.value}\"\n" +
+          "USE_MDFILE_AS_MAINPAGE = \"README.md\"\nRECURSIVE = YES",
+        "|", "tee", "-a", "Doxyfile"
+      ), dotnetSrcDir)
+      runCmd(Seq("doxygen"), dotnetSrcDir)
     },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile

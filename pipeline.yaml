@@ -62,6 +62,7 @@ jobs:
     - template: templates/kv.yml
     - bash: |
         set -e
+        sudo apt-get install doxygen
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
