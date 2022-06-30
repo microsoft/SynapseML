@@ -76,11 +76,10 @@ object CodegenPlugin extends AutoPlugin {
     val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
-    val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc",
-      "Generate documentation for dotnet classes")
 
-    val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
+    val mergeCodeDir = SettingKey[File]("mergeCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
+    val mergeDotnetCode = TaskKey[Unit]("mergeDotnetCode", "copy dotnet code to a destination")
   }
 
   import autoImport._
@@ -270,7 +269,12 @@ object CodegenPlugin extends AutoPlugin {
     },
     mergePyCode := {
       val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "python", genPackageNamespace.value)
+      FileUtils.copyDirectory(srcDir, destDir)
+    },
+    mergeDotnetCode := {
+      val srcDir = join(codegenDir.value, "src", "dotnet", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "dotnet", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
@@ -307,28 +311,12 @@ object CodegenPlugin extends AutoPlugin {
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
       val packagePath = join(codegenDir.value, "package", "dotnet",
         s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
-      publishDotnetAssemblyCmd(packagePath, mergePyCodeDir.value)
-    },
-    generateDotnetDoc := {
-      val dotnetSrcDir = join(codegenDir.value, "src", "dotnet")
-      runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
-      FileUtils.copyFile(join(baseDirectory.value.getParent, "README.md"), join(dotnetSrcDir, "README.md"))
-      runCmd(Seq("sed", "-i", "\'s/img width=\"800\"/img width=\"300\"/g\'", "README.md"), dotnetSrcDir)
-      val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
-      runCmd(Seq(
-        "echo",
-        s"""PROJECT_NAME = \"$packageName\"
-PROJECT_NUMBER = \"${dotnetVersion.value}\"
-USE_MDFILE_AS_MAINPAGE = \"README.md\"
-RECURSIVE = YES""".stripMargin,
-        "|", "tee", "-a", "Doxyfile"
-      ), dotnetSrcDir)
-      runCmd(Seq("doxygen"), dotnetSrcDir)
+      publishDotnetAssemblyCmd(packagePath, mergeCodeDir.value)
     },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
-    mergePyCodeDir := {
+    mergeCodeDir := {
       join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
     },
     codegenDir := {

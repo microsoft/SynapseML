@@ -177,6 +177,26 @@ generatePythonDoc := {
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
 
+val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
+generateDotnetDoc := {
+  runTaskForAllInCompile(packageDotnet).value
+  runTaskForAllInCompile(mergeDotnetCode).value
+  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
+  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
+  runCmd(Seq("sed", "-i", "\'s/img width=\"800\"/img width=\"300\"/g\'", "README.md"), dotnetSrcDir)
+  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
+  runCmd(Seq(
+    "echo",
+    s"""PROJECT_NAME = \"$packageName\"
+PROJECT_NUMBER = \"${dotnetVersion.value}\"
+USE_MDFILE_AS_MAINPAGE = \"README.md\"
+RECURSIVE = YES""".stripMargin,
+    "|", "tee", "-a", "Doxyfile"
+  ), dotnetSrcDir)
+  runCmd(Seq("doxygen"), dotnetSrcDir)
+}
+
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
 packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
