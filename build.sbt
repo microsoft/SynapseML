@@ -188,11 +188,10 @@ generateDotnetDoc := {
   FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
   runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
   val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
-  runCmd(Seq(
-    s"""echo \'PROJECT_NAME = \"$packageName\"
-PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"
-USE_MDFILE_AS_MAINPAGE = \"README.md\"
-RECURSIVE = YES\' >> Doxyfile""".stripMargin), dotnetSrcDir)
+  runCmd(Seq("echo", "\'PROJECT_NAME = \"$packageName\"\'", ">>", "Doxyfile"), dotnetSrcDir)
+  runCmd(Seq("echo", "\'PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"\'", ">>", "Doxyfile"), dotnetSrcDir)
+  runCmd(Seq("echo", "\'USE_MDFILE_AS_MAINPAGE = \"README.md\"\'", ">>", "Doxyfile"), dotnetSrcDir)
+  runCmd(Seq("echo", "\'RECURSIVE = YES\'", ">>", "Doxyfile"), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
