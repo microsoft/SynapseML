@@ -189,13 +189,10 @@ generateDotnetDoc := {
   runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
   val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
   runCmd(Seq(
-    "echo",
-    s"""\'PROJECT_NAME = \"$packageName\"
+    s"""echo \'PROJECT_NAME = \"$packageName\"
 PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"
 USE_MDFILE_AS_MAINPAGE = \"README.md\"
-RECURSIVE = YES\'""".stripMargin,
-    ">>", "Doxyfile"
-  ), dotnetSrcDir)
+RECURSIVE = YES\' >> Doxyfile""".stripMargin), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
