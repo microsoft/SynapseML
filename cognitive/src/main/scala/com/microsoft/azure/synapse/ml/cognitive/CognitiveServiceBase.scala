@@ -239,7 +239,13 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
   }
 
   override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
-    s"""
+    s"""/// <summary>
+       |/// Sets value for linkedService
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// linkedService name
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
        |public $dotnetClassName SetLinkedService(string value) =>
        |    $dotnetClassWrapperName(Reference.Invoke(\"setLinkedService\", value));
        |""".stripMargin
@@ -280,7 +286,13 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
   }
 
   override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
-    s"""
+    s"""/// <summary>
+       |/// Sets value for location
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// Location of the cognitive service
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
        |public $dotnetClassName SetLocation(string value) =>
        |    $dotnetClassWrapperName(Reference.Invoke(\"setLocation\", value));
        |""".stripMargin

@@ -136,7 +136,7 @@ trait RankingTrainValidationSplitParams extends Wrappable with HasSeed {
     * @group param
     */
   val trainRatio: DoubleParam = new DoubleParam(this, "trainRatio",
-    "ratio between training set and validation set (>= 0 && <= 1)", ParamValidators.inRange(0, 1))
+    "ratio between training set and validation set (>= 0 and <= 1)", ParamValidators.inRange(0, 1))
 
   /** @group getParam */
   def getTrainRatio: Double = $(trainRatio)

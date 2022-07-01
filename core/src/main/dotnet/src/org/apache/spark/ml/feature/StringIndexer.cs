@@ -16,7 +16,6 @@ using Microsoft.Spark.Sql.Types;
 using Microsoft.Spark.Utils;
 using SynapseML.Dotnet.Utils;
 using Synapse.ML.LightGBM.Param;
-using Microsoft.Spark.ML.Feature;
 
 namespace Microsoft.Spark.ML.Feature
 {
