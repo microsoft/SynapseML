@@ -194,7 +194,7 @@ generateDotnetDoc := {
 PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"
 USE_MDFILE_AS_MAINPAGE = \"README.md\"
 RECURSIVE = YES""".stripMargin,
-    "|", "tee", "-a", "Doxyfile"
+    ">>", "Doxyfile"
   ), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
 }
