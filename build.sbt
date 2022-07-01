@@ -190,10 +190,10 @@ generateDotnetDoc := {
   val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
   runCmd(Seq(
     "echo",
-    s"""PROJECT_NAME = \"$packageName\"
+    s"""\'PROJECT_NAME = \"$packageName\"
 PROJECT_NUMBER = \"${dotnetedVersion(version.value)}\"
 USE_MDFILE_AS_MAINPAGE = \"README.md\"
-RECURSIVE = YES""".stripMargin,
+RECURSIVE = YES\'""".stripMargin,
     ">>", "Doxyfile"
   ), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
