@@ -302,3 +302,4 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
       dataset))
   }
 }
+

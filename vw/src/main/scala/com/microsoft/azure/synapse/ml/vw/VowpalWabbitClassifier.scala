@@ -9,10 +9,12 @@ import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.shared.HasWeightCol
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.{DoubleType, StringType, StructType}
 
 import scala.math.exp
 
@@ -20,8 +22,8 @@ object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifi
 
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
-  with VowpalWabbitBase
-  with ComplexParamsWritable with BasicLogging {
+    with VowpalWabbitBaseSpark
+    with BasicLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -64,7 +66,7 @@ class VowpalWabbitClassifier(override val uid: String)
 // Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
 

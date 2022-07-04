@@ -21,7 +21,7 @@ object VowpalWabbitMulticlassClassifier extends ComplexParamsReadable[VowpalWabb
 
 class VowpalWabbitMulticlassClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitMulticlassClassifier, VowpalWabbitMulticlassClassificationModel]
-    with VowpalWabbitBase
+    with VowpalWabbitBaseSpark
     with ComplexParamsWritable with BasicLogging {
   logClass()
 
@@ -73,7 +73,7 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
 
 class VowpalWabbitMulticlassClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitMulticlassClassificationModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
 

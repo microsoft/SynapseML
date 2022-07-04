@@ -16,7 +16,7 @@ object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor
 
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
-    with VowpalWabbitBase
+    with VowpalWabbitBaseSpark
     with ComplexParamsWritable with BasicLogging {
   logClass()
 
@@ -40,7 +40,7 @@ class VowpalWabbitRegressor(override val uid: String)
 
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
 

@@ -81,7 +81,7 @@ class ContextualBanditMetrics extends Serializable {
   }
 }
 
-trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
+trait VowpalWabbitContextualBanditBase extends VowpalWabbitBaseSpark {
 
   override protected lazy val pyInternalWrapper = true
 
@@ -297,7 +297,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
 //noinspection ScalaStyle
 class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with VowpalWabbitContextualBanditBase
     with ComplexParamsWritable with BasicLogging {
   logClass()

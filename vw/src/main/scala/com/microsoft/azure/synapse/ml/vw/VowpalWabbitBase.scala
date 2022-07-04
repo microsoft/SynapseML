@@ -6,9 +6,10 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, StopWatch, ParamsStringBuilder}
+import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, ParamsStringBuilder, StopWatch}
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
+import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -65,8 +66,7 @@ trait HasAdditionalFeatures extends Params {
   * @note parameters that regularly are swept through are exposed as proper parameters.
   */
 trait VowpalWabbitBase extends Wrappable
-  with HasWeightCol
-  with HasAdditionalFeatures
+  with ComplexParamsWritable
   with Logging {
 
   override protected lazy val pyInternalWrapper = true
@@ -83,9 +83,6 @@ trait VowpalWabbitBase extends Wrappable
   def getArgs: String = $(passThroughArgs)
   @deprecated("Please use 'setPassThroughArgs'.", since="0.9.6")
   def setArgs(value: String): this.type = set(passThroughArgs, value)
-
-
-  setDefault(additionalFeatures -> Array())
 
   // to support Grid search we need to replicate the parameters here...
   val numPasses = new IntParam(this, "numPasses", "Number of passes over the data")
@@ -125,15 +122,6 @@ trait VowpalWabbitBase extends Wrappable
   def getInitialModel: Array[Byte] = $(initialModel)
   def setInitialModel(value: Array[Byte]): this.type = set(initialModel, value)
 
-  // abstract methods that implementors need to provide (mixed in through Classifier,...)
-  def labelCol: Param[String]
-  setDefault(labelCol -> "label")
-  def getLabelCol: String
-
-  def featuresCol: Param[String]
-  setDefault(featuresCol -> "features")
-  def getFeaturesCol: String
-
   val useBarrierExecutionMode = new BooleanParam(this, "useBarrierExecutionMode",
     "Use barrier execution mode, on by default.")
   setDefault(useBarrierExecutionMode -> true)
@@ -149,8 +137,6 @@ trait VowpalWabbitBase extends Wrappable
   setDefault(numBits -> 18)
   def getNumBits: Int = $(numBits)
   def setNumBits(value: Int): this.type = set(numBits, value)
-
-  protected def getAdditionalColumns: Seq[String] = Seq.empty
 
   // support numeric types as input
   protected def getAsFloat(schema: StructType, idx: Int): Row => Float = {
@@ -174,18 +160,6 @@ trait VowpalWabbitBase extends Wrappable
       case _: LongType => (row: Row) => row.getLong(idx).toInt
     }
   }
-  protected def createLabelSetter(schema: StructType): (Row, VowpalWabbitExample) => Unit = {
-    val labelColIdx = schema.fieldIndex(getLabelCol)
-
-    val labelGetter = getAsFloat(schema, labelColIdx)
-    if (get(weightCol).isDefined) {
-      val weightGetter = getAsFloat(schema, schema.fieldIndex(getWeightCol))
-      (row: Row, ex: VowpalWabbitExample) =>
-        ex.setLabel(weightGetter(row), labelGetter(row))
-    }
-    else
-      (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
-  }
 
   private def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): String = {
     val args = new ParamsStringBuilder("--", " ")
@@ -207,40 +181,6 @@ trait VowpalWabbitBase extends Wrappable
     log.warn(s"VowpalWabbit args: $result)")
 
     result
-  }
-
-  // Separate method to be overridable
-  protected def trainRow(schema: StructType,
-                         inputRows: Iterator[Row],
-                         ctx: TrainContext
-                        ): Unit = {
-    val applyLabel = createLabelSetter(schema)
-    val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
-      schema,
-      getHashSeed,
-      Seq(getFeaturesCol) ++ getAdditionalFeatures)
-
-    StreamUtilities.using(ctx.vw.createExample()) { example =>
-      for (row <- inputRows) {
-        ctx.nativeIngestTime.measure {
-          // transfer label
-          applyLabel(row, example)
-
-          // transfer features
-          VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
-        }
-
-        // learn and cleanup
-        ctx.learnTime.measure {
-          try {
-            example.learn()
-          }
-          finally {
-            example.clear()
-          }
-        }
-      }
-    }
   }
 
   class TrainContext(val vw: VowpalWabbitNative,
@@ -280,6 +220,15 @@ trait VowpalWabbitBase extends Wrappable
     }
   }
 
+  // train an individual row
+  protected def trainRow(schema: StructType,
+                         inputRows: Iterator[Row],
+                         ctx: TrainContext
+                        ): Unit
+
+  // get list of columns needed as input
+  protected def getInputColumns(): Seq[String]
+
   /**
     * Internal training loop.
     *
@@ -307,24 +256,16 @@ trait VowpalWabbitBase extends Wrappable
           else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
             val trainContext = new TrainContext(vw)
 
-            val result = StreamUtilities.using(vw.createExample()) { ex =>
-              // pass data to VW native part
-              totalTime.measure {
-                trainRow(schema, inputRows, trainContext)
+            // pass data to VW native part
+            totalTime.measure {
+              trainRow(schema, inputRows, trainContext)
 
-                multipassTime.measure {
-                  vw.endPass()
+              multipassTime.measure {
+                vw.endPass()
 
-                  if (getNumPasses > 1)
-                    vw.performRemainingPasses()
-                }
+                if (getNumPasses > 1)
+                  vw.performRemainingPasses()
               }
-            }
-
-            // If the using statement failed rethrow here.
-            result match {
-              case Failure(exception) => throw exception
-              case Success(_) => Unit
             }
 
             // only export the model on the first partition
@@ -457,12 +398,7 @@ trait VowpalWabbitBase extends Wrappable
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
     // Select needed columns, maybe get the weight column, keeps mem usage low
-    val dfSubset = dataset.toDF().select((
-      Seq(getFeaturesCol, getLabelCol) ++
-        getAdditionalFeatures ++
-        getAdditionalColumns ++
-        Seq(get(weightCol)).flatten
-      ).map(col): _*)
+    val dfSubset = dataset.toDF().select(getInputColumns().map(col): _*)
 
     // Reduce number of partitions to number of executor cores
     val df = if (dataset.rdd.getNumPartitions > numTasks) {
