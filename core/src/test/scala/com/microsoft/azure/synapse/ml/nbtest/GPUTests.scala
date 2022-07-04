@@ -3,14 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
-import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
-import java.util.concurrent.TimeUnit
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 
 class GPUTests extends DatabricksTestProcess {
 
