@@ -99,6 +99,12 @@ genBuildInfo := {
   FileUtils.writeStringToFile(infoFile, buildInfo, "utf-8")
 }
 
+val rootGenDir = SettingKey[File]("rootGenDir")
+rootGenDir := {
+  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
+  join(targetDir, "generated")
+}
+
 // scalastyle:off line.size.limit
 val genSleetConfig = TaskKey[Unit]("genSleetConfig",
   "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
@@ -148,21 +154,9 @@ publishDotnetTestBase := {
   val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
   if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
-  runCmd(
-    Seq("dotnet", "pack", "--output", join(dotnetTestBaseDir, "target").getAbsolutePath),
-    dotnetTestBaseDir
-  )
+  packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir, "target", s"SynapseML.DotnetE2ETest.0.9.1.nupkg").getAbsolutePath
-  runCmd(
-    Seq("sleet", "push", packagePath, "--config", join(rootGenDir.value, "sleet.json").getAbsolutePath,
-      "--source", "SynapseMLNuget", "--force")
-  )
-}
-
-val rootGenDir = SettingKey[File]("rootGenDir")
-rootGenDir := {
-  val targetDir = (root / Compile / packageBin / artifactPath).value.getParentFile
-  join(targetDir, "generated")
+  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
 }
 
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
@@ -181,6 +175,30 @@ generatePythonDoc := {
   join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
+generateDotnetDoc := {
+  Def.sequential(
+    runTaskForAllInCompile(dotnetCodeGen),
+    runTaskForAllInCompile(mergeDotnetCode)
+  ).value
+  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
+  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
+  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
+  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
+  val fileContent =
+    s"""PROJECT_NAME = "$packageName"
+       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
+       |USE_MDFILE_AS_MAINPAGE = "README.md"
+       |RECURSIVE = YES
+       |""".stripMargin
+  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
+  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
+  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
+  runCmd(Seq("bash", "-c","cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -250,10 +268,11 @@ publishPypi := {
   )
 }
 
-val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
   generatePythonDoc.value
   (root / Compile / unidoc).value
+  generateDotnetDoc.value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">
@@ -268,6 +287,9 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
+  val dotnetDir = join(unifiedDocDir.toString, "dotnet")
+  if (dotnetDir.exists()) FileUtils.forceDelete(dotnetDir)
+  FileUtils.copyDirectory(join(codegenDir, "src", "dotnet", "html"), dotnetDir)
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
