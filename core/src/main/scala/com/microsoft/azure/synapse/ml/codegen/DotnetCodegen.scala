@@ -30,16 +30,20 @@ object DotnetCodegen {
       conf.dotnetSrcDir.mkdir()
     }
     val curProject = conf.name.split("-").drop(1).map(s => s.capitalize).mkString("")
+    val projectDir = join(conf.dotnetSrcDir, "synapse", "ml")
+    if (!projectDir.exists()){
+      projectDir.mkdirs()
+    }
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
-    writeFile(new File(join(conf.dotnetSrcDir, "synapse", "ml"), s"${curProject}ProjectSetup.csproj"),
+    writeFile(new File(projectDir, s"${curProject}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
          |
          |  <PropertyGroup>
-         |    <TargetFramework>net5.0</TargetFramework>
+         |    <TargetFramework>netstandard2.1</TargetFramework>
          |    <LangVersion>9.0</LangVersion>
          |    <AssemblyName>SynapseML.$curProject</AssemblyName>
          |    <IsPackable>true</IsPackable>
-         |
+         |    <GenerateDocumentationFile>true</GenerateDocumentationFile>
          |    <Description>.NET for SynapseML.$curProject</Description>
          |    <Version>${conf.dotnetVersion}</Version>
          |  </PropertyGroup>
