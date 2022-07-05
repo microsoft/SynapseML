@@ -18,8 +18,6 @@ import org.apache.spark.sql.types.{DoubleType, StringType, StructType}
 
 import scala.math.exp
 
-object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifier]
-
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseSpark
@@ -60,10 +58,11 @@ class VowpalWabbitClassifier(override val uid: String)
     })
   }
 
-  override def copy(extra: ParamMap): VowpalWabbitClassifier = defaultCopy(extra)
+  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 }
 
-// Preparation for multi-class learning, though it no fun as numClasses is spread around multiple reductions
+object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifier]
+
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModelSpark
