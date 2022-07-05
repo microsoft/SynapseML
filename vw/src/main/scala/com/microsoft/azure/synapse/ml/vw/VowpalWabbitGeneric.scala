@@ -10,7 +10,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels}
+import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
 trait HasInputCol extends Params {
   val inputCol = new Param[String](this, "inputCol", "The name of the input column")
@@ -120,11 +120,21 @@ class VowpalWabbitGenericModel(override val uid: String)
                 StructField("action", IntegerType, false),
                 StructField("score", FloatType, false)
               ))))))
+      case "prediction_type_t::action_pdf_value" => Seq(
+        StructField("action", FloatType, false),
+        StructField("pdf", FloatType, false)
+      )
+      case "prediction_type_t::pdf" => Seq(
+        StructField("segments", ArrayType(
+          StructType(Seq(
+              StructField("left", FloatType, false),
+              StructField("right", FloatType, false),
+              StructField("pdfValue", FloatType, false)
+            )))))
+
       case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
       // TODO: the java wrapper would have to support them too
-      // CASE(prediction_type_t::pdf)
       // CASE(prediction_type_t::multiclassprobs)
-      // CASE(prediction_type_t::action_pdf_value)
       // CASE(prediction_type_t::active_multiclass)
       // CASE(prediction_type_t::nopred)
     }
@@ -159,16 +169,21 @@ class VowpalWabbitGenericModel(override val uid: String)
           (input, pred.getActionScores.map({ a_s => (a_s.getAction, a_s.getScore) })))
       case "prediction_type_t::action_probs" =>
         predictRow((input, pred: ActionProbs) =>
-          (input, pred.getActionProbs.map({ a_s => (a_s.getAction, a_s.getProbability) })))
+          (input, pred.getActionProbs.map { a_s => (a_s.getAction, a_s.getProbability) }))
       case "prediction_type_t::decision_probs" =>
         predictRow((input, pred: DecisionScores) => (input,
-          pred.getDecisionScores.map({ ds => { ds.getActionScores.map({ a_s => (a_s.getAction, a_s.getScore) })} })))
+          pred.getDecisionScores.map({ ds => { ds.getActionScores.map { a_s => (a_s.getAction, a_s.getScore) }} })))
       case "prediction_type_t::multilabels" =>
         predictRow((input, pred: Multilabels) => (input, pred.getLabels))
       case "prediction_type_t::multiclass" =>
         predictRow((input, pred: java.lang.Integer) => (input, pred.toInt))
       case "prediction_type_t::prob"=>
         predictRow((input, pred: java.lang.Float) => (input, pred.toFloat))
+      case "prediction_type_t::action_pdf_value" =>
+        predictRow((input, pred: PDFValue) => (input, pred.getAction, pred.getPDFValue))
+      case "prediction_type_t::pdf" =>
+        predictRow((input, pred: PDF) => (input,
+          pred.getPDFSegments.map { s => (s.getLeft, s.getRight, s.getPDFValue) }))
       case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
       // TODO: the java wrapper would have to support them too
       // CASE(prediction_type_t::pdf)

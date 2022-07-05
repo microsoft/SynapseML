@@ -80,13 +80,14 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     import spark.implicits._
 
     val vw = new VowpalWabbitGeneric()
-      .setPassThroughArgs("–-cats_pdf 3 –bandwidth 5000 –min_value 0 –max_value 20000")
+      .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000")
+      .setUseBarrierExecutionMode(false)
 
     val dataset = Seq(
       "ca 185.121:0.657567:6.20426e-05 | a b",
       "ca 772.592:0.458316:6.20426e-05 | b c",
       "ca 15140.6:0.31791:6.20426e-05 | d"
-    ).map(StringFeatures).toDF
+    ).map(StringFeatures).toDF.coalesce(2)
 
     val classifier = vw.fit(dataset)
 
@@ -94,7 +95,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
     predictionDF.show()
   }
-
 
   test ("Verify VowpalWabbitGeneric using dsjson") {
     import spark.implicits._
