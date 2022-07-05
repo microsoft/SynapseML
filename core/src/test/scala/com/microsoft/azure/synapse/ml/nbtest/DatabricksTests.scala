@@ -13,7 +13,7 @@ import scala.language.existentials
 
 class DatabricksTests extends DatabricksTestProcess {
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, PoolId)
+  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, PoolId, "[]")
   val jobIdsToCancel: ListBuffer[Int] = databricksTestProcess(clusterId, Libraries, ParallelizableNotebooks)
 
   println(s"Submitting nonparallelizable job...")

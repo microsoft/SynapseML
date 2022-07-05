@@ -61,10 +61,11 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "mlflow"))
   ).toJson.compactPrint
 
-  val GPULibraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
-    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.12.0"))
+  // TODO: install synapse.ml.dl wheel package here
+  val GPULibraries: String = "[]"
+
+  val GPUInitScripts: String = List(
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation.sh"))
   ).toJson.compactPrint
 
   // Execution Params
@@ -133,13 +134,31 @@ object DatabricksUtilities {
     ()
   }
 
+  def uploadFileToDBFS(file: File, dest: String): Unit = {
+    val content = BaseEncoding.base64().encode(
+      IOUtils.toByteArray(new FileInputStream(file)))
+    val body =
+      s"""
+         |{
+         |  "contents": "$content",
+         |  "path": "$dest",
+         |  "overwrite": true
+         |}
+       """.stripMargin
+    databricksPost("dbfs/put", body)
+    ()
+  }
+
   def workspaceRmDir(dir: String): Unit = {
     val body = s"""{"path": "$dir", "recursive":true}"""
     databricksPost("workspace/delete", body)
     ()
   }
 
-  def createClusterInPool(clusterName: String, sparkVersion: String, poolId: String): String = {
+  def createClusterInPool(clusterName: String,
+                          sparkVersion: String,
+                          poolId: String,
+                          initScripts: String): String = {
     val body =
       s"""
          |{
@@ -150,7 +169,8 @@ object DatabricksUtilities {
          |  "instance_pool_id": "$poolId",
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-         |   }
+         |   },
+         |  "init_scripts": $initScripts
          |}
       """.stripMargin
     databricksPost("clusters/create", body).select[String]("cluster_id")
