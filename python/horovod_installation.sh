@@ -5,6 +5,10 @@
 # exit immediately on failure, or if an undefined variable is used
 set -eu
 
+# Install prerequisite libraries that horovod depends on
+pip install pytorch-lightning==1.5.0
+pip install torchvision==0.12.0
+
 # Remove Outdated Signing Key:
 sudo apt-key del 7fa2af80
 
@@ -35,3 +39,5 @@ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PY
 /databricks/python3/bin/python setup.py bdist_wheel
 
 readlink -f dist/horovod-*.whl
+
+pip install --no-cache-dir dist/horovod-0.24.3-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
