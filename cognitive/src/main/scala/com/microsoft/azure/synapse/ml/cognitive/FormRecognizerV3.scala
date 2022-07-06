@@ -19,11 +19,7 @@ trait HasPrebuiltModelID extends HasServiceParams {
   val prebuiltModelId = new ServiceParam[String](this, "prebuiltModelId",
     "Prebuilt Model identifier for Form Recognizer V3.0, supported modelId: prebuilt-read, prebuilt-layout," +
       "prebuilt-document, prebuilt-businessCard, prebuilt-idDocument, prebuilt-invoice, prebuilt-receipt," +
-      "or your custom modelId", {
-      case Left(s) => Set("prebuilt-read", "prebuilt-layout", "prebuilt-document", "prebuilt-businessCard",
-        "prebuilt-idDocument", "prebuilt-invoice", "prebuilt-receipt")(s)
-      case Right(_) => true
-    }, isRequired = true)
+      "or your custom modelId", isRequired = true)
 
   def setPrebuiltModelId(v: String): this.type = setScalarParam(prebuiltModelId, v)
 
