@@ -12,6 +12,8 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
+import java.io.Serializable
+
 trait HasInputCol extends Params {
   val inputCol = new Param[String](this, "inputCol", "The name of the input column")
   def setInputCol(value: String): this.type = set(inputCol, value)
@@ -143,54 +145,66 @@ class VowpalWabbitGenericModel(override val uid: String)
     StructType(StructField(getInputCol, StringType, false) +: fields)
   }
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = dataset.toDF()
-    val inputColIdx = df.schema.fieldIndex(getInputCol)
-
-    import df.sparkSession.implicits._
-
+  private class PredictTuple(df: DataFrame) extends Serializable {
     // fancy signature needed to make sure the right Encoder is automatically found
-    def predictRow[T <: Product: TypeTag, S](predictionToTuple: (String, S) => T): DataFrame = {
+    def predict[T <: Product: TypeTag, S](predictionToTuple: (String, S) => T): DataFrame = {
+      import df.sparkSession.implicits._
+
+      val inputColIdx = df.schema.fieldIndex(getInputCol)
+
       df.mapPartitions(inputRows => {
         inputRows.map { row => {
           val input = row.getString(inputColIdx)
           predictionToTuple(input, vw.predictFromString(input).asInstanceOf[S])
-        }}})
-        .toDF(schemaForPredictionType().fields.map(_.name): _*)
+        }}
+      })
+      .toDF(schemaForPredictionType().fields.map(_.name): _*)
     }
+  }
 
-    vw.getOutputPredictionType match {
-      case "prediction_type_t::scalar" =>
-        predictRow((input, pred: ScalarPrediction) => (input, pred.getValue, pred.getConfidence))
-      case "prediction_type_t::scalars" =>
-        predictRow((input, pred: Array[java.lang.Float]) => (input, pred))
-      case "prediction_type_t::action_scores" =>
-        predictRow((input, pred: ActionScores) =>
-          (input, pred.getActionScores.map({ a_s => (a_s.getAction, a_s.getScore) })))
-      case "prediction_type_t::action_probs" =>
-        predictRow((input, pred: ActionProbs) =>
-          (input, pred.getActionProbs.map { a_s => (a_s.getAction, a_s.getProbability) }))
-      case "prediction_type_t::decision_probs" =>
-        predictRow((input, pred: DecisionScores) => (input,
-          pred.getDecisionScores.map({ ds => { ds.getActionScores.map { a_s => (a_s.getAction, a_s.getScore) }} })))
-      case "prediction_type_t::multilabels" =>
-        predictRow((input, pred: Multilabels) => (input, pred.getLabels))
-      case "prediction_type_t::multiclass" =>
-        predictRow((input, pred: java.lang.Integer) => (input, pred.toInt))
-      case "prediction_type_t::prob"=>
-        predictRow((input, pred: java.lang.Float) => (input, pred.toFloat))
-      case "prediction_type_t::action_pdf_value" =>
-        predictRow((input, pred: PDFValue) => (input, pred.getAction, pred.getPDFValue))
-      case "prediction_type_t::pdf" =>
-        predictRow((input, pred: PDF) => (input,
-          pred.getPDFSegments.map { s => (s.getLeft, s.getRight, s.getPDFValue) }))
-      case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
-      // TODO: the java wrapper would have to support them too
-      // CASE(prediction_type_t::pdf)
-      // CASE(prediction_type_t::multiclassprobs)
-      // CASE(prediction_type_t::action_pdf_value)
-      // CASE(prediction_type_t::active_multiclass)
-      // CASE(prediction_type_t::nopred)
+  private implicit def dataFrameToPredictTuple(df: DataFrame) = new PredictTuple(df)
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    // this is doing predict, but lightgbm also logs logTransform in the model...
+    logTransform {
+      val df = dataset.toDF()
+
+      vw.getOutputPredictionType match {
+        case "prediction_type_t::scalar" =>
+          df.predict((input, pred: ScalarPrediction) => (input, pred.getValue, pred.getConfidence))
+        case "prediction_type_t::scalars" =>
+          df.predict((input, pred: Array[java.lang.Float]) => (input, pred))
+        case "prediction_type_t::action_scores" =>
+          df.predict((input, pred: ActionScores) =>
+            (input, pred.getActionScores.map({ a_s => (a_s.getAction, a_s.getScore) })))
+        case "prediction_type_t::action_probs" =>
+          df.predict((input, pred: ActionProbs) =>
+            (input, pred.getActionProbs.map { a_s => (a_s.getAction, a_s.getProbability) }))
+        case "prediction_type_t::decision_probs" =>
+          df.predict((input, pred: DecisionScores) => (input,
+            pred.getDecisionScores.map({ ds => {
+              ds.getActionScores.map { a_s => (a_s.getAction, a_s.getScore) }
+            }
+            })))
+        case "prediction_type_t::multilabels" =>
+          df.predict((input, pred: Multilabels) => (input, pred.getLabels))
+        case "prediction_type_t::multiclass" =>
+          df.predict((input, pred: java.lang.Integer) => (input, pred.toInt))
+        case "prediction_type_t::prob" =>
+          df.predict((input, pred: java.lang.Float) => (input, pred.toFloat))
+        case "prediction_type_t::action_pdf_value" =>
+          df.predict((input, pred: PDFValue) => (input, pred.getAction, pred.getPDFValue))
+        case "prediction_type_t::pdf" =>
+          df.predict((input, pred: PDF) => (input,
+            pred.getPDFSegments.map { s => (s.getLeft, s.getRight, s.getPDFValue) }))
+        case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
+        // TODO: the java wrapper would have to support them too
+        // CASE(prediction_type_t::pdf)
+        // CASE(prediction_type_t::multiclassprobs)
+        // CASE(prediction_type_t::action_pdf_value)
+        // CASE(prediction_type_t::active_multiclass)
+        // CASE(prediction_type_t::nopred)
+      }
     }
   }
 
