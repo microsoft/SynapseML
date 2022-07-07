@@ -10,11 +10,12 @@ case class KahanSum(sum: Double = 0, c: Double = 0) {
   def +(x: Double): KahanSum = {
     val newSum = sum + x
 
-    val newC =
+    val newC = c + (
       if (Math.abs(sum) >= Math.abs(x))
         (sum  - newSum) + x
       else
         (x - newSum) + sum
+      )
 
     KahanSum(newSum, newC)
   }
