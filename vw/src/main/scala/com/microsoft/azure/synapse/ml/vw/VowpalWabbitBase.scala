@@ -248,8 +248,6 @@ trait VowpalWabbitBase extends Wrappable
       FaultToleranceUtils.retryWithTimeout() {
         try {
           val totalTime = new StopWatch
-          val nativeIngestTime = new StopWatch
-          val learnTime = new StopWatch
           val multipassTime = new StopWatch
 
           val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
@@ -288,8 +286,8 @@ trait VowpalWabbitBase extends Wrappable
                 perfStats.getBestConstantLoss,
                 perfStats.getTotalNumberOfFeatures,
                 totalTime.elapsed(),
-                nativeIngestTime.elapsed(),
-                learnTime.elapsed(),
+                trainContext.nativeIngestTime.elapsed(),
+                trainContext.learnTime.elapsed(),
                 multipassTime.elapsed(),
                 trainContext.contextualBanditMetrics.getIpsEstimate,
                 trainContext.contextualBanditMetrics.getSnipsEstimate))

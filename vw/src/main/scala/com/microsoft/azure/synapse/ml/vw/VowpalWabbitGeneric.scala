@@ -46,8 +46,6 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
     // learn from all rows
     for (row <- inputRows) {
       // ingestion and learning is collapsed
-      // TODO: should we also measure here?
-      //  ctx.nativeIngestTime.measure {
       ctx.learnTime.measure {
         ctx.vw.learnFromString(row.getString(featureIdx))
       }
