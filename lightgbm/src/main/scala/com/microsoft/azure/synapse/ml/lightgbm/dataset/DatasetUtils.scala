@@ -38,18 +38,39 @@ object DatasetUtils {
     groupCardinality
   }
 
+
+  /**
+    * Get whether to use dense or sparse data, using configuration and/or data sampling.
+    *
+    * @param rowsIter        Iterator of rows.
+    * @param matrixType      Matrix type as configured by user..
+    * @param featuresColumn  The name of the features column.
+    * @return A reconstructed iterator with the same original rows and whether the matrix should be sparse or dense.
+    */
+  def getArrayType(rowsIter: Iterator[Row], matrixType: String, featuresColumn: String): (Iterator[Row], Boolean) = {
+    if (matrixType == "auto") {
+      sampleRowsForArrayType(rowsIter, featuresColumn)
+    } else if (matrixType == "sparse") {
+      (rowsIter, true)
+    } else if (matrixType == "dense") {
+      (rowsIter, false)
+    } else {
+      throw new Exception(s"Invalid parameter matrix type specified: ${matrixType}")
+    }
+  }
+
   /**
     * Sample the first several rows to determine whether to construct sparse or dense matrix in lightgbm native code.
     *
-    * @param rowsIter     Iterator of rows.
-    * @param columnParams The column parameters.
+    * @param rowsIter        Iterator of rows.
+    * @param featuresColumn  The name of the features column.
     * @return A reconstructed iterator with the same original rows and whether the matrix should be sparse or dense.
     */
-  def sampleRowsForArrayType(rowsIter: Iterator[Row], columnParams: ColumnParams): (Iterator[Row], Boolean) = {
+  def sampleRowsForArrayType(rowsIter: Iterator[Row], featuresColumn: String): (Iterator[Row], Boolean) = {
     val numSampledRows = 10
     val sampleRows = rowsIter.take(numSampledRows).toArray
     val numDense = sampleRows
-      .map(row => row.getAs[Any](columnParams.featuresColumn).isInstanceOf[DenseVector])
+      .map(row => row.getAs[Any](featuresColumn).isInstanceOf[DenseVector])
       .count(value => value)
     val numSparse = sampleRows.length - numDense
     // recreate the iterator
@@ -63,36 +84,6 @@ object DatasetUtils {
     }
   }
 
-  def getInitScores(rows: Array[Row], initScoreColumn: Option[String],
-                    schema: StructType): Option[Array[Double]] = {
-    initScoreColumn.map { col =>
-      val field = schema.fields(schema.fieldIndex(col))
-      if (field.dataType == VectorType) {
-        val initScores = rows.map(row => row.get(schema.fieldIndex(col)).asInstanceOf[DenseVector])
-        // Calculate # rows * # classes in multiclass case
-        val initScoresLength = initScores.length
-        val totalLength = initScoresLength * initScores(0).size
-        val flattenedInitScores = new Array[Double](totalLength)
-        initScores.zipWithIndex.foreach { case (rowVector, rowIndex) =>
-          rowVector.values.zipWithIndex.foreach { case (rowValue, colIndex) =>
-            flattenedInitScores(colIndex * initScoresLength + rowIndex) = rowValue
-          }
-        }
-        flattenedInitScores
-      } else {
-        rows.map(row => row.getDouble(schema.fieldIndex(col)))
-      }
-    }
-  }
-
-
-  def releaseArrays(labelsChunkedArray: floatChunkedArray, weightChunkedArrayOpt: Option[floatChunkedArray],
-                    initScoreChunkedArrayOpt: Option[doubleChunkedArray]): Unit = {
-    labelsChunkedArray.release()
-    weightChunkedArrayOpt.foreach(_.release())
-    initScoreChunkedArrayOpt.foreach(_.release())
-  }
-
   def validateGroupColumn(col: String, schema: StructType): Unit = {
     val datatype = schema(col).dataType
     if (datatype != org.apache.spark.sql.types.IntegerType
@@ -102,5 +93,4 @@ object DatasetUtils {
         s"group column $col must be of type Long, Int or String but is ${datatype.typeName}")
     }
   }
-
 }

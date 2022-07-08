@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.lightgbm._
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, LightGBMDataset}
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
 import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
 import com.microsoft.azure.synapse.ml.stages.MultiColumnAdapter
 import org.apache.commons.io.FileUtils
@@ -123,6 +123,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
       .setFeaturesShapCol(featuresShapCol)
+      .setExecutionMode("bulk")
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -236,7 +237,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
 
   test("Verify LightGBM Classifier will give reproducible results when setting seed") {
     val scoredDF1 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
-    (1 to 10).foreach { i =>
+    (1 to 10).foreach { _ =>
       val scoredDF2 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
       assertBinaryEquality(scoredDF1, scoredDF2);
     }
@@ -358,7 +359,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   test("Verify LightGBM Classifier model handles iterations properly when early stopping") {
     val df = au3DF.orderBy(rand()).withColumn(validationCol, lit(false))
 
-    val Array(train, validIntermediate, test) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
+    val Array(train, validIntermediate, _) = df.randomSplit(Array(0.5, 0.2, 0.3), seed)
     val valid = validIntermediate.withColumn(validationCol, lit(true))
     val trainAndValid = train.union(valid.orderBy(rand()))
 
@@ -427,7 +428,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setCategoricalSlotNames(categoricalSlotNames)
     val model = untrainedModel.fit(train)
     // Verify non-zero categorical features used in some tree in the model
-    val numCats = Range(1, 5).map(cat => s"num_cat=${cat}")
+    val numCats = Range(1, 5).map(cat => s"num_cat=$cat")
     assert(numCats.exists(model.getModel.modelStr.get.contains(_)))
     val metric = binaryEvaluator
       .evaluate(model.transform(test))

@@ -57,6 +57,19 @@ trait LightGBMExecutionParams extends Wrappable {
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
+  val executionMode = new Param[String](this, "executionMode",
+    "Specify how LightGBM is executed.  " +
+      "Values can be streaming, bulk. Default is bulk.")
+  setDefault(executionMode -> LightGBMConstants.BulkExecutionMode)
+  def getExecutionMode: String = $(executionMode)
+  def setExecutionMode(value: String): this.type = set(executionMode, value)
+
+  val microBatchSize = new IntParam(this, "microBatchSize",
+    "Specify how many elements are sent in a streaming micro-batch.")
+  setDefault(microBatchSize -> 1)
+  def getMicroBatchSize: Int = $(microBatchSize)
+  def setMicroBatchSize(value: Int): this.type = set(microBatchSize, value)
+
   val useSingleDatasetMode = new BooleanParam(this, "useSingleDatasetMode",
     "Use single dataset execution mode to create a single native dataset per executor (singleton) " +
       "to reduce memory and communication overhead. Note this is disabled when running spark in local mode.")
@@ -208,11 +221,11 @@ trait LightGBMDartParams extends Wrappable {
   def getSkipDrop: Double = $(skipDrop)
   def setSkipDrop(value: Double): this.type = set(skipDrop, value)
 
-  val xGBoostDartMode = new BooleanParam(this, "xGBoostDartMode",
+  val xgboostDartMode = new BooleanParam(this, "xgboostDartMode",
     "Set this to true to use xgboost dart mode")
-  setDefault(xGBoostDartMode -> false)
-  def getXGBoostDartMode: Boolean = $(xGBoostDartMode)
-  def setXGBoostDartMode(value: Boolean): this.type = set(xGBoostDartMode, value)
+  setDefault(xgboostDartMode -> false)
+  def getXGBoostDartMode: Boolean = $(xgboostDartMode)
+  def setXGBoostDartMode(value: Boolean): this.type = set(xgboostDartMode, value)
 
   val uniformDrop = new BooleanParam(this, "uniformDrop",
     "Set this to true to use uniform drop in dart mode")

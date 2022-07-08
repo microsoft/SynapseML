@@ -15,8 +15,8 @@ import org.apache.spark.sql.types.StructType
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
-import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ListBuffer
+import scala.collection.concurrent.TrieMap
 
 private[lightgbm] object ChunkedArrayUtils {
   def copyChunkedArray[T: Numeric](chunkedArray: ChunkedArray[T],
@@ -265,9 +265,9 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
 
   def generateDataset(referenceDataset: Option[LightGBMDataset], datasetParams: String): LightGBMDataset
 
-  def incrementCount(chunkedCols: BaseChunkedColumns): Unit = {
+  def incrementCount(chunkedCols: BaseChunkedColumns, partitionId: Int): Unit = {
     rowCount.addAndGet(chunkedCols.rowCount)
-    pIdToRowCountOffset.update(LightGBMUtils.getPartitionId, chunkedCols.rowCount)
+    pIdToRowCountOffset.update(partitionId, chunkedCols.rowCount)
     initScoreCount.addAndGet(chunkedCols.numInitScores)
   }
 
@@ -323,7 +323,6 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
       partitionRowCount + offset
     })
   }
-
 }
 
 private[lightgbm] trait DisjointAggregatedColumns extends BaseAggregatedColumns {
@@ -474,13 +473,13 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     chunkedCols.asInstanceOf[SparseChunkedColumns].numCols
   }
 
-  override def incrementCount(chunkedCols: BaseChunkedColumns): Unit = {
-    super.incrementCount(chunkedCols)
+  override def incrementCount(chunkedCols: BaseChunkedColumns, partitionId: Int): Unit = {
+    super.incrementCount(chunkedCols, partitionId)
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
     indexesCount.addAndGet(sparseChunkedCols.getNumIndexes)
-    pIdToIndexesCountOffset.update(LightGBMUtils.getPartitionId, sparseChunkedCols.getNumIndexes)
+    pIdToIndexesCountOffset.update(partitionId, sparseChunkedCols.getNumIndexes)
     indptrCount.addAndGet(sparseChunkedCols.getNumIndexPointers)
-    pIdToIndptrCountOffset.update(LightGBMUtils.getPartitionId, sparseChunkedCols.getNumIndexPointers)
+    pIdToIndptrCountOffset.update(partitionId, sparseChunkedCols.getNumIndexPointers)
   }
 
   protected def initializeFeatures(chunkedCols: BaseChunkedColumns, rowCount: Long): Unit = {
