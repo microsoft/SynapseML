@@ -2,7 +2,6 @@ package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
-// import scala.language.implicitConversions
 
 // KahanBabushkaNeumaierSum
 case class KahanSum(sum: Double = 0, c: Double = 0) {

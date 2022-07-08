@@ -3,14 +3,14 @@ package com.microsoft.azure.synapse.ml.vw
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
-case class BanditEstimatorCressieReadBuffer(wMin: Float,
-                                            wMax: Float,
-                                            n: KahanSum,
-                                            sumw: KahanSum,
-                                            sumwsq: KahanSum,
-                                            sumwr: KahanSum,
-                                            sumwrsqr: KahanSum,
-                                            sumr: KahanSum)
+case class BanditEstimatorCressieReadBuffer(wMin: Float = 0,
+                                            wMax: Float = 0,
+                                            n: KahanSum = 0,
+                                            sumw: KahanSum = 0,
+                                            sumwsq: KahanSum = 0,
+                                            sumwr: KahanSum = 0,
+                                            sumwrsqr: KahanSum = 0,
+                                            sumr: KahanSum = 0)
 
 case class BanditEstimatorCressieReadInput(probLog: Float,
                                            reward: Float,
@@ -31,7 +31,7 @@ class BanditEstimatorCressieRead
   //  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
   def zero: BanditEstimatorCressieReadBuffer =
-    BanditEstimatorCressieReadBuffer(0, 0, 0, 0, 0, 0, 0, 0)
+    BanditEstimatorCressieReadBuffer()
 
   def reduce(acc: BanditEstimatorCressieReadBuffer,
              x: BanditEstimatorCressieReadInput): BanditEstimatorCressieReadBuffer = {
@@ -41,14 +41,14 @@ class BanditEstimatorCressieRead
     val countWsq = countW * countW
 
     BanditEstimatorCressieReadBuffer(
-      Math.min(acc.wMin, x.wMin),
-      Math.max(acc.wMax, x.wMax),
-      acc.n + x.count,
-      acc.sumw + countW,
-      acc.sumwsq + countWsq,
-      acc.sumwr + countW * x.reward,
-      acc.sumwrsqr + countWsq * x.reward,
-      acc.sumr + x.count * x.reward
+      wMin = Math.min(acc.wMin, x.wMin),
+      wMax = Math.max(acc.wMax, x.wMax),
+      n = acc.n + x.count,
+      sumw = acc.sumw + countW,
+      sumwsq = acc.sumwsq + countWsq,
+      sumwr = acc.sumwr + countW * x.reward,
+      sumwrsqr = acc.sumwrsqr + countWsq * x.reward,
+      sumr = acc.sumr + x.count * x.reward
     )
   }
 
@@ -56,14 +56,14 @@ class BanditEstimatorCressieRead
             acc2: BanditEstimatorCressieReadBuffer): BanditEstimatorCressieReadBuffer = {
 
     BanditEstimatorCressieReadBuffer(
-      Math.min(acc1.wMin, acc2.wMin),
-      Math.max(acc1.wMax, acc2.wMax),
-      acc1.n + acc2.n,
-      acc1.sumw + acc2.sumw,
-      acc1.sumwsq + acc2.sumwsq,
-      acc1.sumwr + acc2.sumwr,
-      acc1.sumwrsqr + acc2.sumwrsqr,
-      acc1.sumr + acc2.sumr)
+      wMin = Math.min(acc1.wMin, acc2.wMin),
+      wMax = Math.max(acc1.wMax, acc2.wMax),
+      n = acc1.n + acc2.n,
+      sumw = acc1.sumw + acc2.sumw,
+      sumwsq = acc1.sumwsq + acc2.sumwsq,
+      sumwr = acc1.sumwr + acc2.sumwr,
+      sumwrsqr = acc1.sumwrsqr + acc2.sumwrsqr,
+      sumr = acc1.sumr + acc2.sumr)
   }
 
   def finish(acc: BanditEstimatorCressieReadBuffer): Double = {

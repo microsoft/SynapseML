@@ -23,7 +23,10 @@ class VerifyBanditEstimator extends Benchmarks  {
     spark.udf.register("cressieRead",
       F.udaf(new BanditEstimatorCressieRead(), Encoders.product[BanditEstimatorCressieReadInput]))
     spark.udf.register("cressieReadInterval",
-      F.udaf(new BanditEstimatorCressieReadInterval(), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+      F.udaf(new BanditEstimatorCressieReadInterval(false), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+
+    spark.udf.register("cressieReadIntervalEmpirical",
+      F.udaf(new BanditEstimatorCressieReadInterval(true), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
 
     val actual = dataset
       .groupBy("key")
@@ -32,7 +35,10 @@ class VerifyBanditEstimator extends Benchmarks  {
         F.round(F.expr("ips(probLog, reward, probPred, count)"), 1).as("ips"),
         F.round(F.expr("cressieRead(probLog, reward, probPred, count, -100, 100)"), 1)
           .as("cressieRead"),
-        F.expr("cressieReadInterval(probLog, reward, probPred, count, -100, 100)").as("cressieReadInterval")
+        F.expr("cressieReadInterval(probLog, reward, probPred, count, -100, 100, 0, 10)")
+          .as("cressieReadInterval"),
+        F.expr("cressieReadIntervalEmpirical(probLog, reward, probPred, count, -100, 100, 0, 10)")
+          .as("cressieReadIntervalEmpirical")
       )
 
     actual.show()

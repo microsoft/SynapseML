@@ -2,6 +2,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.scalactic.{Equality, TolerantNumerics}
+import org.scalatest.Matchers.convertNumericToPlusOrMinusWrapper
 
 class VerifyKahanBabushkaNeumaierSum extends TestBase {
   val large = Math.pow(2, 50)
@@ -51,27 +52,17 @@ class VerifyKahanBabushkaNeumaierSum extends TestBase {
       first = first + small
       second = second + small
 
-    val firstPlusSecond = first + second
-    val expected = 2 * large + 2
+    var firstPlusSecond = first + second
+    var expected = 2 * large + 2
 
-    implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1e-2)
+    // abs vs rel tolerance: https://github.com/VowpalWabbit/estimators/blob/03c8ba619d68f54849d4fa2da2b1a148e6cdb990/estimators/test/test_math.py#L49
+    assert (firstPlusSecond.toDouble === expected +- 1)
 
-//    2.251799813685249E15
-//    2.25179981368525E15
-    println(firstPlusSecond.toDouble)
-    println(expected)
+    firstPlusSecond += large
+    for (_ <- 0 to Math.pow(2, 15).toInt)
+      firstPlusSecond += small
 
-    // TODO: not sure why this fails?
-    assert (doubleEquality.areEqual(firstPlusSecond.toDouble, expected))
-    // assert (firstPlusSecond.toDouble == expected)
-    // assert ( math.isclose(float(first_plus_second), expected, rel_tol = 0.5**52)
-
-    //
-    //  first_plus_second += large
-    //  for _ in range(2 ** 15):
-    //    first_plus_second += small
-    //
-    //  expected = 3 * large + 3
-    //  assert math.isclose(float(first_plus_second), expected, rel_tol = 0.5**52)
+    expected = 3 * large + 3
+    assert (firstPlusSecond.toDouble === expected +- 1)
   }
 }
