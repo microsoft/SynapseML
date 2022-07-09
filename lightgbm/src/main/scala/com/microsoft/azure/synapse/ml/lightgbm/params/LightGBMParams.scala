@@ -99,7 +99,7 @@ trait LightGBMExecutionParams extends Wrappable {
   def setMatrixType(value: String): this.type = set(matrixType, value)
 
   val numThreads = new IntParam(this, "numThreads",
-    "Number of threads for LightGBM. For the best speed, set this to the number of real CPU cores.")
+    "Number of threads per executor for LightGBM. For the best speed, set this to the number of real CPU cores.")
   setDefault(numThreads -> 0)
   def getNumThreads: Int = $(numThreads)
   def setNumThreads(value: Int): this.type = set(numThreads, value)
