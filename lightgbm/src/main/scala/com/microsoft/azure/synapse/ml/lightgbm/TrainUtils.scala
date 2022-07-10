@@ -107,6 +107,7 @@ private object TrainUtils extends Serializable {
         state.learningRate = newLearningRate
       }
 
+      log.info(s"LightGBM task starting iteration ${state.iteration}")
       updateOneIteration(state, log)
 
       val trainEvalResults: Option[Map[String, Double]] =
@@ -127,7 +128,7 @@ private object TrainUtils extends Serializable {
       }
     }
 
-    log.info(s"Beginning training on LightGBM Booster for partition ${state.ctx.partitionId}")
+    log.info(s"Beginning training on LightGBM Booster for task ${state.ctx.taskId}, partition ${state.ctx.partitionId}")
     state.ctx.measures.markTrainingIterationsStart()
     val result = iterationLoop(state.ctx.trainingParams.generalParams.numIterations)
     state.ctx.measures.markTrainingIterationsStop()

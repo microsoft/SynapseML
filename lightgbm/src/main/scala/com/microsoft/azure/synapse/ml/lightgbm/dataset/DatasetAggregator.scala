@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.getRowAsDoubleArray
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
-import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils}
+import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils, PartitionTaskContext}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConstants}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -15,8 +15,8 @@ import org.apache.spark.sql.types.StructType
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable.ListBuffer
 
 private[lightgbm] object ChunkedArrayUtils {
   def copyChunkedArray[T: Numeric](chunkedArray: ChunkedArray[T],
@@ -263,7 +263,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     initScores.foreach(_.delete())
   }
 
-  def generateDataset(referenceDataset: Option[LightGBMDataset], datasetParams: String): LightGBMDataset
+  def generateDataset(ctx: PartitionTaskContext, referenceDataset: Option[LightGBMDataset]): LightGBMDataset
 
   def incrementCount(chunkedCols: BaseChunkedColumns, partitionId: Int): Unit = {
     rowCount.addAndGet(chunkedCols.rowCount)
@@ -290,9 +290,8 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
   def addInitialScores(chunkedCols: BaseChunkedColumns, startIndex: Long): Unit = {
     // Optimize for single class, which does not need transposing
     chunkedCols.initScores.foreach(chunkedArray => if (getRowCount == getInitScoreCount)
-      chunkedArray.coalesceTo(initScores.get)
+      ChunkedArrayUtils.copyChunkedArray(chunkedArray, initScores.get, startIndex)
     else {
-      log.info(s"DEBUG: cols: ${getInitScoreCount/getRowCount} rows: $getRowCount, startIndex: $startIndex")
       ChunkedArrayUtils.insertTransposedChunkedArray(
         chunkedArray,
         getInitScoreCount/getRowCount,
@@ -403,12 +402,13 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
 
   def getFeatures: DoubleSwigArray = features
 
-  def generateDataset(referenceDataset: Option[LightGBMDataset],
-                      datasetParams: String): LightGBMDataset = {
+  def generateDataset(ctx: PartitionTaskContext,
+                      referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     try {
       val numRows = rowCount.get().toInt
-      logInfo(s"LightGBM task generating dense dataset with $numRows rows and $numCols columns")
+      logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
+        s" with $numRows rows and $numCols columns")
       // Generate the dataset for features
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
         lightgbmlib.double_to_voidp_ptr(features.array),
@@ -416,13 +416,14 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
         numRows,
         numCols,
         1,
-        datasetParams,
+        ctx.trainingCtx.datasetParams,
         referenceDataset.map(_.datasetPtr).orNull,
         pointer), "Dataset create")
     } finally {
       lightgbmlib.delete_doubleArray(features.array)
     }
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} adding metadata")
     addMetadataToDataset(dataset)
     dataset
   }
@@ -517,12 +518,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     }
   }
 
-  def generateDataset(referenceDataset: Option[LightGBMDataset],
-                      datasetParams: String): LightGBMDataset = {
+  def generateDataset(ctx: PartitionTaskContext, referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
     indexPointerArrayIncrement(getIndexPointers.array)
     val pointer = lightgbmlib.voidpp_handle()
     val numRows = indptrCount.get() - 1
-    logInfo(s"LightGBM task generating sparse dataset with $numRows rows and $numCols columns")
+    logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
+      s" with $numRows rows and $numCols columns")
     // Generate the dataset for features
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
       lightgbmlib.int_to_voidp_ptr(indexPointers.array),
@@ -533,7 +534,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
       indptrCount.get(),
       indexesCount.get(),
       numCols,
-      datasetParams,
+      ctx.trainingCtx.datasetParams,
       referenceDataset.map(_.datasetPtr).orNull,
       pointer), "Dataset create")
     val dataset = new LightGBMDataset(lightgbmlib.voidpp_value(pointer))

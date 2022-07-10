@@ -88,10 +88,16 @@ object NetworkManager {
     * should not be a problem
     *
     * @param ctx Information about the current training session.
-    * @param shouldExecuteTraining True if the current worker will participate in the LightGBM training network.
+    * @param log The Logger.
+    * @param taskId The task id.
+    * @param partitionId The partition id.
+    * @param shouldExecuteTraining Whether this task should be a part of the training network.
+    * @param measures Instrumentation for perf measurements.
+    * @returns Information about the network topology.
     */
   def getGlobalNetworkInfo(ctx: TrainingContext,
                            log: Logger,
+                           taskId: Long,
                            partitionId: Int,
                            shouldExecuteTraining: Boolean,
                            measures: TaskInstrumentationMeasures): NetworkTopologyInfo = {
@@ -100,9 +106,14 @@ object NetworkManager {
     val out = using(findOpenPort(ctx, log).get) {
       openPort =>
         val localListenPort = openPort.getLocalPort
-        log.info(s"LightGBM task connecting to host: ${networkParams.ipAddress} and port: ${networkParams.port}")
+        log.info(s"LightGBM task $taskId connecting to host: ${networkParams.ipAddress}, port: ${networkParams.port}")
         FaultToleranceUtils.retryWithTimeout() {
-          getNetworkTopologyInfoFromDriver(networkParams, partitionId, localListenPort, log, shouldExecuteTraining)
+          getNetworkTopologyInfoFromDriver(networkParams,
+                                           taskId,
+                                           partitionId,
+                                           localListenPort,
+                                           log,
+                                           shouldExecuteTraining)
         }
     }.get
     measures.markNetworkInitializationStop()
@@ -110,6 +121,7 @@ object NetworkManager {
   }
 
   def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
+                                       taskId: Long,
                                        partitionId: Int,
                                        localListenPort: Int,
                                        log: Logger,
@@ -130,7 +142,7 @@ object NetworkManager {
               partitionId,
               LightGBMUtils.getExecutorId) // TODO can we use host for this?
             val message = taskStatus.toString()
-            log.info(s"task sending status message to driver: $message ")
+            log.info(s"task $taskId sending status message to driver: $message ")
             driverOutput.write(s"$message\n")
             driverOutput.flush()
 
@@ -149,8 +161,8 @@ object NetworkManager {
             val partitionsByExecutorStr = driverInput.readLine()
             val executorPartitionIds: Array[Int] =
               parseExecutorPartitionList(partitionsByExecutorStr, taskStatus.executorId)
-            log.info(s"task with partition id $partitionId received nodes for network init: $lightGbmMachineList")
-            log.info(s"task with partition id $partitionId received partition topology: $partitionsByExecutorStr")
+            log.info(s"task $taskId, partition $partitionId received nodes for network init: '$lightGbmMachineList'")
+            log.info(s"task $taskId, partition $partitionId received partition topology: '$partitionsByExecutorStr'")
             NetworkTopologyInfo(lightGbmMachineList, executorPartitionIds, localListenPort)
         }.get
     }.get

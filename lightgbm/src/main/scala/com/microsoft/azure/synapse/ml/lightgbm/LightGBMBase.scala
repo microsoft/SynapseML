@@ -43,7 +43,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       getOptGroupCol.foreach(DatasetUtils.validateGroupColumn(_, dataset.schema))
       if (isMultiBatch) {
         val ratio = 1.0 / numBatches
-        val datasetBatches = dataset.randomSplit((0 until getNumBatches).map(_ => ratio).toArray)
+        val datasetBatches = dataset.randomSplit((0 until numBatches).map(_ => ratio).toArray)
         datasetBatches.zipWithIndex.foldLeft(None: Option[TrainedModel]) { (model, datasetWithIndex) =>
           if (model.isDefined) {
             setModelString(stringFromTrainedModel(model.get))
@@ -52,13 +52,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
           val batchIndex = datasetWithIndex._2
 
           beforeTrainBatch(batchIndex, batchDataset, model)
-          val newModel = trainOneDataBatch(batchDataset, batchIndex)
+          val newModel = trainOneDataBatch(batchDataset, batchIndex, numBatches)
           afterTrainBatch(batchIndex, batchDataset, newModel)
 
           Some(newModel)
         }.get
       } else {
-        trainOneDataBatch(dataset, batchIndex = 0)
+        trainOneDataBatch(dataset, batchIndex = 0, 1)
       }
     })
   }
@@ -389,7 +389,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param batchIndex In running in batch training mode, gets the batch number.
     * @return The LightGBM Model from the trained LightGBM Booster.
     */
-  protected def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int): TrainedModel = {
+  protected def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
     val measures = new InstrumentationMeasures()
     setBatchPerformanceMeasure(batchIndex, measures)
 
@@ -412,7 +412,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val featuresSchema = dataset.schema(getFeaturesCol)
     val trainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
     calculateCustomTrainParams(trainParams, dataset)
-    log.info(s"LightGBM parameters: ${trainParams.toString()}")
+    log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
 
     val isStreamingMode = getExecutionMode == LightGBMConstants.StreamingExecutionMode
     val (broadcastedSampleData: Option[Broadcast[Array[Row]]], partitionCounts: Option[Array[Long]]) =

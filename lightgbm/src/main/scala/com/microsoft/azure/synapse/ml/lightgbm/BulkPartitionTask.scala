@@ -12,14 +12,14 @@ import scala.language.existentials
   * Class for handling the execution of bulk-based Tasks on workers for each partition.
   */
 class BulkPartitionTask extends BasePartitionTask {
-  override protected def initializeInternal(ctx: PartitionTaskContext): PartitionTaskContext = {
+  override protected def initializeInternal(ctx: TrainingContext,
+                                            shouldExecuteTraining: Boolean,
+                                            isEmptyPartition: Boolean): Unit = {
     // For useSingleDataset mode, we need to add to bulk synchronization stops
-    if (ctx.trainingCtx.useSingleDatasetMode) {
-      ctx.sharedState.incrementArrayProcessedSignal(log)
-      if (ctx.isHelperWorkerOnly) ctx.sharedState.incrementDataPrepDoneSignal(log)
+    if (ctx.useSingleDatasetMode && !isEmptyPartition) {
+      ctx.sharedState().incrementArrayProcessedSignal(log)
+      if (!shouldExecuteTraining) ctx.sharedState().incrementDataPrepDoneSignal(log)
     }
-
-    ctx
   }
 
   protected def preparePartitionDataInternal(ctx: PartitionTaskContext,
@@ -27,15 +27,20 @@ class BulkPartitionTask extends BasePartitionTask {
     // In useSingleDataset mode, we need to synchronize start of data loading
     if (ctx.shouldExecuteTraining) {
       // If in useSingleDatasetMode, we need to set a signal that helpers can start
-      if (ctx.trainingCtx.useSingleDatasetMode) ctx.sharedState.helperStartSignal.countDown()
+      if (ctx.trainingCtx.useSingleDatasetMode) {
+        ctx.sharedState.helperStartSignal.countDown()
+        log.info(s"Initiated helper start signal on task ${ctx.taskId}, partition ${ctx.partitionId}")
+      }
     } else {
-      log.info(s"Waiting for helper start signal on partition ${ctx.partitionId}")
+      log.info(s"Waiting for helper start signal on task ${ctx.taskId}, partition ${ctx.partitionId}")
       ctx.sharedState.helperStartSignal.await()
     }
 
     // Store the chunked partition data in local memory and then add it to the aggregated data
     val aggregatedColumns = {
+      log.info(s"Reading data on task ${ctx.taskId}, partition ${ctx.partitionId}")
       val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, inputRows)
+      log.info(s"Merging data on task ${ctx.taskId}, partition ${ctx.partitionId}")
       mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = false)
     }
     val aggregatedValidationColumns = ctx.trainingCtx.validationData.map { data =>
@@ -52,7 +57,7 @@ class BulkPartitionTask extends BasePartitionTask {
     val ac = if (forValidation) dataState.aggregatedValidationData.get
              else dataState.aggregatedTrainingData.get
     try {
-      val datasetInner: LightGBMDataset = ac.generateDataset(referenceDataset, ctx.trainingCtx.datasetParams)
+      val datasetInner: LightGBMDataset = ac.generateDataset(ctx, referenceDataset)
       ctx.trainingCtx.columnParams.groupColumn.foreach(_ => datasetInner.addGroupColumn(ac.getGroups))
       datasetInner.setFeatureNames(ctx.trainingCtx.featureNames, ac.getNumCols)
       datasetInner

@@ -59,7 +59,6 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
   // custom properties set by particular modes
   private val customJobCount = 2
   private val shouldCalcValidationDataInfoId = 0
-  private val shouldCalcExecutorDatasetInfoId = 1
   private val customModeInfo: Array[Boolean] = Array.fill(customJobCount)(false)
 
   val isHelperWorkerOnly: Boolean = !shouldExecuteTraining && !isEmptyPartition
@@ -76,13 +75,7 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
     this
   }
 
-  def setShouldCalcExecutorDataset(value: Boolean): PartitionTaskContext = {
-    customModeInfo(shouldCalcExecutorDatasetInfoId) = value
-    this
-  }
-
   def shouldCalcValidationDataset: Boolean = customModeInfo(shouldCalcValidationDataInfoId)
-  def shouldCalcExecutorDataset: Boolean = customModeInfo(shouldCalcExecutorDatasetInfoId)
 
   lazy val streamingExecutorRowCount: Int = {
     // Use the map of all partition counts and the map of partitions on this executor to get local count
@@ -131,14 +124,14 @@ abstract class BasePartitionTask extends Serializable with Logging {
           NetworkManager.initLightGBMNetwork(taskCtx, log)
 
           if (ctx.useSingleDatasetMode) {
-            log.info("Waiting for all data preparation to be done")
+            log.info(s"Waiting for all data prep to be done, task ${taskCtx.taskId}, partition ${taskCtx.partitionId}")
             ctx.sharedState().dataPreparationDoneSignal.await()
           }
 
           // Create the final Dataset for training and execute training iterations
           finalizeDatasetAndTrain(taskCtx, dataIntermediateState)
         } else {
-          log.info("Helper task finished processing rows")
+          log.info(s"Helper task ${taskCtx.taskId}, partition ${taskCtx.partitionId} finished processing rows")
           ctx.sharedState().dataPreparationDoneSignal.countDown()
           Array { PartitionResult(None, taskCtx.measures) }.toIterator
         }
@@ -170,31 +163,35 @@ abstract class BasePartitionTask extends Serializable with Logging {
       else if (!ctx.useSingleDatasetMode) true
       else mainExecutorWorkerId == taskId
 
-    if (ctx.useSingleDatasetMode)
-      log.info(s"Using singleDatasetMode. Task: $taskId, PartId: $partitionId. Main task: $mainExecutorWorkerId")
-
     taskMeasures.markLibraryInitializationStart()
     LightGBMUtils.initializeNativeLibrary()
     taskMeasures.markLibraryInitializationStop()
 
-    val networkInfo = NetworkManager.getGlobalNetworkInfo(ctx, log, partitionId, shouldExecuteTraining, taskMeasures)
+    initializeInternal(ctx, shouldExecuteTraining, isEmptyPartition)  // Allow subclasses to do extra initialization
+
+    val networkInfo = NetworkManager.getGlobalNetworkInfo(ctx,
+                                                          log,
+                                                          taskId,
+                                                          partitionId,
+                                                          shouldExecuteTraining,
+                                                          taskMeasures)
 
     // Return booster only from main worker to reduce network communication overhead
     val shouldReturnBooster = if (isEmptyPartition) false
       else if (!shouldExecuteTraining) false
       else networkInfo.localListenPort == NetworkManager.getMainWorkerPort(networkInfo.lightgbmNetworkString, log)
 
-    log.info(s"Initializing custom partition $partitionId and taskId $taskId running on executor $getExecutorId")
-    val taskCtx: PartitionTaskContext = initializeInternal(PartitionTaskContext(ctx,
-                                                                                partitionId,
-                                                                                taskId,
-                                                                                taskMeasures,
-                                                                                networkInfo,
-                                                                                shouldExecuteTraining,
-                                                                                isEmptyPartition,
-                                                                                shouldReturnBooster))
+    val taskCtx = getTaskContext(ctx,
+                                 partitionId,
+                                 taskId,
+                                 taskMeasures,
+                                 networkInfo,
+                                 shouldExecuteTraining,
+                                 isEmptyPartition,
+                                 shouldReturnBooster)
+
     if (ctx.trainingParams.generalParams.verbosity > 1)
-      log.info(s"Done initializing partition $partitionId and taskId $taskId running on executor $getExecutorId")
+      log.info(s"Done initializing partition: $partitionId, taskId: $taskId, executor: $getExecutorId")
     taskMeasures.markInitializationStop()
     taskCtx
   }
@@ -206,11 +203,11 @@ abstract class BasePartitionTask extends Serializable with Logging {
     * @return Any intermediate data state (used mainly by bulk execution mode) to pass to future stages.
     */
   private def preparePartitionData(ctx: PartitionTaskContext, inputRows: Iterator[Row]): PartitionDataState = {
-    log.info(s"starting data preparation on partition ${ctx.partitionId}")
+    log.info(s"starting data preparation on partition ${ctx.partitionId}, task ${ctx.taskId}")
     ctx.measures.markDataPreparationStart()
     val state = preparePartitionDataInternal(ctx, inputRows)
     ctx.measures.markDataPreparationStop()
-    log.info(s"done with data preparation on partition ${ctx.partitionId}")
+    log.info(s"done with data preparation on partition ${ctx.partitionId}, task ${ctx.taskId}")
     state
   }
 
@@ -233,11 +230,13 @@ abstract class BasePartitionTask extends Serializable with Logging {
         else Option(generateFinalDataset(ctx, dataState, forValidation = true, Some(trainDataset)))
 
       try {
-        log.info(s"Creating LightGBM Booster for partition ${ctx.partitionId}")
+        log.info(s"Creating LightGBM Booster for partition ${ctx.partitionId}, task ${ctx.taskId}")
         val booster = createBooster(ctx.trainingCtx.trainingParams, trainDataset, validDatasetOpt)
         val state = PartitionTaskTrainingState(ctx, booster)
         try {
           val bestIterResult = executeTrainingIterations(state, log)
+          log.info(s"*** Completed training in partition ${ctx.partitionId}, task ${ctx.taskId}, " +
+            s"iteration count: ${state.iteration}, best: $bestIterResult")
           getPartitionTaskResult(state, bestIterResult)
         } finally {
           // Free booster
@@ -247,6 +246,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
         validDatasetOpt.foreach(_.close())
       }
     } finally {
+      log.info(s"Freeing Dataset from partition ${ctx.partitionId}, task ${ctx.taskId}")
       trainDataset.close()
     }
   }
@@ -256,7 +256,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
     * @param ctx The task context information.
     */
   private def cleanup(ctx: PartitionTaskContext): Unit = {
-    log.info(s"Beginning cleanup for partition ${ctx.partitionId}")
+    log.info(s"Beginning cleanup for partition ${ctx.partitionId}, task ${ctx.taskId}")
 
     // Finalize network when done
     if (ctx.shouldExecuteTraining) LightGBMUtils.validate(lightgbmlib.LGBM_NetworkFree(), "Finalize network")
@@ -264,7 +264,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
     cleanupInternal(ctx)
 
     ctx.measures.markTaskEnd()
-    log.info(s"Done with cleanup for partition ${ctx.partitionId}")
+    log.info(s"Done with cleanup for partition ${ctx.partitionId}, task ${ctx.taskId}")
   }
 
   /**
@@ -272,8 +272,44 @@ abstract class BasePartitionTask extends Serializable with Logging {
     * @param ctx The task context information.
     * @return The updated context information for the task.
     */
-  protected def initializeInternal(ctx: PartitionTaskContext): PartitionTaskContext = {
-    ctx  // By default, just no-op
+  protected def initializeInternal(ctx: TrainingContext,
+                                   shouldExecuteTraining: Boolean,
+                                   isEmptyPartition: Boolean): Unit = {
+    // By default, just no-op
+  }
+
+  /**
+    * Initialize and customize the context for the task.
+    * @param trainingCtx The training context information.
+    * @param partitionId The task context information.
+    * @param taskId The task context information.
+    * @param measures The task instrumentation measures.
+    * @param networkTopologyInfo Information about the network.
+    * @param shouldExecuteTraining Whether this task should participate in LightGBM training.
+    * @param isEmptyPartition Whether the partition has rows.
+    * @param shouldReturnBooster Whether the task should return a booster.
+    * @return The updated context information for the task.
+    */
+  protected def getTaskContext(trainingCtx: TrainingContext,
+                               partitionId: Int,
+                               taskId: Long,
+                               measures: TaskInstrumentationMeasures,
+                               networkTopologyInfo: NetworkTopologyInfo,
+                               shouldExecuteTraining: Boolean,
+                               isEmptyPartition: Boolean,
+                               shouldReturnBooster: Boolean): PartitionTaskContext = {
+    val mainExecutorWorkerId = trainingCtx.sharedState().mainExecutorWorker.getOrElse(-1)
+    if (trainingCtx.useSingleDatasetMode)
+      log.info(s"Using singleDatasetMode. Task: $taskId, PartId: $partitionId. Main task: $mainExecutorWorkerId" +
+        s" shouldExecuteTraining: $shouldExecuteTraining, isEmptyPartition: $isEmptyPartition")
+    PartitionTaskContext(trainingCtx,
+                         partitionId,
+                         taskId,
+                         measures,
+                         networkTopologyInfo,
+                         shouldExecuteTraining,
+                         isEmptyPartition,
+                         shouldReturnBooster)
   }
 
   /**
