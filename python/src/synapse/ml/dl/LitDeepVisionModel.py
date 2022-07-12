@@ -29,39 +29,32 @@ class LitDeepVisionModel(pl.LightningModule):
     def __init__(
         self,
         backbone,
-        num_layers_to_train,
+        additional_layers_to_train,
         num_classes,
-        input_shapes,
+        input_shape,
         optimizer_name,
         loss_name,
-        label_cols,
-        feature_cols,
-        loss_weights=[],
-        pretrained=True,
-        feature_extracting=True,
+        label_col,
+        image_col,
         dropout_aux=0.7,
     ):
         super(LitDeepVisionModel, self).__init__()
 
         self.backbone = backbone
-        self.num_layers_to_train = num_layers_to_train
+        self.additional_layers_to_train = additional_layers_to_train
         self.num_classes = num_classes
-        self.input_shapes = input_shapes
+        self.input_shape = input_shape
         self.optimizer_name = optimizer_name
         self.loss_name = loss_name
-        self.label_cols = label_cols
-        self.feature_cols = feature_cols
-        self.loss_weights = loss_weights  ## TODO: remove or add support
-        self.pretrained = pretrained
-        self.feature_extracting = feature_extracting
+        self.label_col = label_col
+        self.image_col = image_col
         self.dropout_aux = dropout_aux
 
         self._check_params()
 
         # Freeze those weights
-        if feature_extracting:
-            for p in self.model.parameters():
-                p.requires_grad = False
+        for p in self.model.parameters():
+            p.requires_grad = False
 
         # Tune certain layers including num_classes
         if backbone.startswith("alexnet"):
@@ -127,34 +120,31 @@ class LitDeepVisionModel(pl.LightningModule):
         # under the "hyper_parameters" key in the checkpoint.
         self.save_hyperparameters(
             "backbone",
-            "num_layers_to_train",
+            "additional_layers_to_train",
             "num_classes",
-            "input_shapes",
+            "input_shape",
             "optimizer_name",
             "loss_name",
-            "label_cols",
-            "feature_cols",
-            "pretrained",
-            "feature_extracting",
+            "label_col",
+            "image_col",
             "dropout_aux",
         )
 
     def _check_params(self):
         # TORCHVISION
         if self.backbone in models.__dict__:
-            self.model = models.__dict__[self.backbone](pretrained=self.pretrained)
+            self.model = models.__dict__[self.backbone](pretrained=True)
         # TODO: add HUGGINGFACE.TRANSFORMERS
         else:
             raise ValueError("No model: {} found".format(self.backbone))
 
-        if self.num_layers_to_train < 0 or self.num_layers_to_train > 3:
+        if self.additional_layers_to_train < 0 or self.additional_layers_to_train > 3:
             raise ValueError(
-                "num_layers_to_train has to between 0 and 3: {} found".format(
-                    self.num_layers_to_train
+                "additional_layers_to_train has to between 0 and 3: {} found".format(
+                    self.additional_layers_to_train
                 )
             )
 
-        ## TODO: Assign default loss functions for different model type
         if self.loss_name.lower() not in F.__dict__:
             raise ValueError("No loss function: {} found".format(self.loss_name))
         self.loss_fn = F.__dict__[self.loss_name.lower()]
@@ -168,11 +158,13 @@ class LitDeepVisionModel(pl.LightningModule):
             raise ValueError("No optimizer: {} found".format(self.optimizer_name))
         self.optimizer_fn = optimizers_mapping[self.optimizer_name.lower()]
 
-    # tune last num_layers_to_train layers
+    # tune last additional_layers_to_train layers
     def _fine_tune_layers(self):
         children = list(self.model.children())
         added_layer, cur_layer = 0, -1
-        while added_layer < self.num_layers_to_train and -cur_layer < len(children):
+        while added_layer < self.additional_layers_to_train and -cur_layer < len(
+            children
+        ):
             tunable = False
             for p in children[cur_layer].parameters():
                 p.requires_grad = True
@@ -197,31 +189,17 @@ class LitDeepVisionModel(pl.LightningModule):
         return loss
 
     def _step(self, batch, validation):
-        # Is this the correct assumption? Forward only takes one tensor
-        assert len(self.feature_cols) == 1 and len(self.input_shapes) == 1
-        inputs = {"x": batch[self.feature_cols[0]].reshape(self.input_shapes[0])}
-        labels = [batch[label] for label in self.label_cols]
-        outputs = self(**inputs)
-        if type(outputs) not in (tuple, list):
-            outputs = [outputs]
+        inputs = {"x": batch[self.image_col].reshape(self.input_shape)}
+        label = batch[self.label_col]
+        output = self(**inputs)
 
         if self.backbone.startswith("inception") and not validation:
             # https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958/9
-            losses1 = [
-                self.loss_fn(output, label.long())
-                for output, label in zip([outputs[0].logits], labels)
-            ]
-            losses2 = [
-                self.loss_fn(output, label.long())
-                for output, label in zip([outputs[0].aux_logits], labels)
-            ]
-            losses = [loss1 + 0.4 * loss2 for loss1, loss2 in zip(losses1, losses2)]
+            loss1 = self.loss_fn(output.logits, label.long())
+            loss2 = self.loss_fn(output.aux_logits, label.long())
+            loss = loss1 + 0.4 * loss2
         else:
-            losses = [
-                self.loss_fn(output, label.long())
-                for output, label in zip(outputs, labels)
-            ]
-        loss = sum(losses)
+            loss = self.loss_fn(output, label.long())
         return loss
 
     def validation_step(self, batch, batch_idx):
