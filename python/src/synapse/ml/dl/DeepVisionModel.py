@@ -41,7 +41,18 @@ class DeepVisionModel(TorchModel):
         self._setDefault(transform_fn=None)
 
         kwargs = self._input_kwargs
+        print(kwargs)
         self.setParams(**kwargs)
+        self._set(history=history)
+        self._set(model=model)
+        self._set(feature_columns=feature_columns)
+        self._set(input_shapes=input_shapes)
+        self._set(label_columns=label_columns)
+        self._set(optimizer=optimizer)
+        self._set(run_id=run_id)
+        self._set(_metadata=_metadata)
+        self._set(loss=loss)
+        self._set(loss_constructors=loss_constructors)
 
         self._update_transform_fn()
 
@@ -80,7 +91,7 @@ class DeepVisionModel(TorchModel):
             def predict_fn(model, row):
                 if type(row[feature_col]) == str:
                     image = Image.open(row[feature_col]).convert("RGB")
-                    data = transform(image).numpy().reshape(input_shape)
+                    data = torch.tensor(transform(image).numpy()).reshape(input_shape)
                 else:
                     data = torch.tensor([row[feature_col]]).reshape(input_shape)
 

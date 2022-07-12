@@ -15,7 +15,7 @@ from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from horovod.spark.lightning import TorchEstimator
 
 
-class DeepVisionClassifier(LightningEstimator):
+class DeepVisionClassifier(TorchEstimator):
 
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
@@ -116,12 +116,58 @@ class DeepVisionClassifier(LightningEstimator):
 
         # override those keyword args
         kwargs = self._input_kwargs
+        print(kwargs)
         self.setParams(**kwargs)
+
+        self._set(backbone=backbone)
+        self._set(additional_layers_to_train=additional_layers_to_train)
+        self._set(num_classes=num_classes)
+        self._set(optimizer_name=optimizer_name)
+        self._set(loss_name=loss_name)
+        self._set(dropout_aux=dropout_aux)
+        self._set(transform_fn=transform_fn)
+        
+        self._set(num_proc=num_proc)
+        self._set(backend=backend)
+        self._set(store=store)
+        self._set(loss=loss)
+        self._set(optimizer=optimizer)
+        self._set(metrics=metrics)
+        self._set(loss_weights=loss_weights)
+        self._set(sample_weight_col=sample_weight_col)
+        self._set(feature_cols=feature_cols)
+        self._set(input_shapes=input_shapes)
+        self._set(validation=validation)
+        self._set(label_cols=label_cols)
+        self._set(callbacks=callbacks)
+        self._set(batch_size=batch_size)
+        self._set(val_batch_size=val_batch_size)
+        self._set(epochs=epochs)
+        self._set(verbose=verbose)
+        self._set(shuffle_buffer_size=shuffle_buffer_size)
+        self._set(partitions_per_process=partitions_per_process)
+        self._set(run_id=run_id)
+        self._set(train_minibatch_fn=train_minibatch_fn)
+        self._set(train_steps_per_epoch=train_steps_per_epoch)
+        self._set(validation_steps_per_epoch=validation_steps_per_epoch)
+        self._set(transformation_fn=transformation_fn)
+        self._set(train_reader_num_workers=train_reader_num_workers)
+        self._set(val_reader_num_workers=val_reader_num_workers)
+        self._set(reader_pool_type=reader_pool_type)
+        self._set(label_shapes=label_shapes)
+        self._set(inmemory_cache_all=inmemory_cache_all)
+        self._set(num_gpus=num_gpus)
+        self._set(logger=logger)
+        self._set(log_every_n_steps=log_every_n_steps)
+        self._set(data_module=data_module)
+        self._set(loader_num_epochs=loader_num_epochs)
+        self._set(terminate_on_nan=terminate_on_nan)
+        self._set(profiler=profiler)
 
         self._update_input_shapes()
         self._update_transformation_fn()
 
-        self.model = LitDeepVisionModel(
+        model = LitDeepVisionModel(
             backbone=self.getBackbone(),
             additional_layers_to_train=self.getAdditionalLayersToTrain(),
             num_classes=self.getNumClasses(),
@@ -132,6 +178,7 @@ class DeepVisionClassifier(LightningEstimator):
             image_col=self.getFeatureCols()[0],
             dropout_aux=self.getDropoutAUX(),
         )
+        self._set(model=model)
 
     def setBackbone(self, value):
         return self._set(backbone=value)
