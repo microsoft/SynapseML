@@ -55,12 +55,8 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
                                 networkTopologyInfo: NetworkTopologyInfo,
                                 shouldExecuteTraining: Boolean,
                                 isEmptyPartition: Boolean,
-                                shouldReturnBooster: Boolean) {
-  // custom properties set by particular modes
-  private val customJobCount = 2
-  private val shouldCalcValidationDataInfoId = 0
-  private val customModeInfo: Array[Boolean] = Array.fill(customJobCount)(false)
-
+                                shouldReturnBooster: Boolean,
+                                shouldCalcValidationDataset: Boolean) {
   val isHelperWorkerOnly: Boolean = !shouldExecuteTraining && !isEmptyPartition
 
   val lightGBMNetworkString: String = networkTopologyInfo.lightgbmNetworkString
@@ -71,11 +67,17 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
   val trainingParams: BaseTrainParams = trainingCtx.trainingParams
 
   def setShouldCalcValidationData(value: Boolean): PartitionTaskContext = {
-    customModeInfo(shouldCalcValidationDataInfoId) = value
-    this
+    if (value == shouldCalcValidationDataset) this
+    else PartitionTaskContext(trainingCtx,
+                              partitionId,
+                              taskId,
+                              measures,
+                              networkTopologyInfo,
+                              shouldExecuteTraining,
+                              isEmptyPartition,
+                              shouldReturnBooster,
+                              value)
   }
-
-  def shouldCalcValidationDataset: Boolean = customModeInfo(shouldCalcValidationDataInfoId)
 
   lazy val streamingExecutorRowCount: Int = {
     // Use the map of all partition counts and the map of partitions on this executor to get local count
@@ -309,7 +311,8 @@ abstract class BasePartitionTask extends Serializable with Logging {
                          networkTopologyInfo,
                          shouldExecuteTraining,
                          isEmptyPartition,
-                         shouldReturnBooster)
+                         shouldReturnBooster,
+                         shouldCalcValidationDataset = false)
   }
 
   /**

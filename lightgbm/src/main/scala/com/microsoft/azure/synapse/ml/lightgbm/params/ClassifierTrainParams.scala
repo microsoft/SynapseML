@@ -19,11 +19,9 @@ case class ClassifierTrainParams(passThroughArgs: Option[String],
                                  executionParams: ExecutionParams,
                                  objectiveParams: ObjectiveParams,
                                  seedParams: SeedParams,
-                                 categoricalParams: CategoricalParams) extends BaseTrainParams {
-  var numClass: Int = 1
-
+                                 categoricalParams: CategoricalParams,
+                                 numClass: Int = 1) extends BaseTrainParams {
   val isBinary: Boolean = objectiveParams.objective == LightGBMConstants.BinaryObjective
-  val isMulti: Boolean = !isBinary
 
   override def appendSpecializedParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
@@ -31,4 +29,21 @@ case class ClassifierTrainParams(passThroughArgs: Option[String],
       .appendParamValueIfNotThere("is_unbalance", if (isBinary) Option(isUnbalance) else None)
       .appendParamValueIfNotThere("boost_from_average", Option(boostFromAverage))
   }
+
+  def setNumClass(n: Int): BaseTrainParams = {
+    if (n == numClass) this
+    else ClassifierTrainParams(passThroughArgs,
+                               isUnbalance,
+                               boostFromAverage,
+                               isProvideTrainingMetric,
+                               delegate,
+                               generalParams,
+                               datasetParams,
+                               dartModeParams,
+                               executionParams,
+                               objectiveParams,
+                               seedParams,
+                               categoricalParams,
+                               n)
+    }
 }

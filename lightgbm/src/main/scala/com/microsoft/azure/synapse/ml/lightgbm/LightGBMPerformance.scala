@@ -3,10 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-/**
-  * Class for encapsulating performance instrumentation measures.
-  */
+import com.microsoft.azure.synapse.ml.lightgbm.InstrumentationMeasures.getInterval
 
+/**
+  * Class for encapsulating performance instrumentation measures of each partition Task.
+  */
 class TaskInstrumentationMeasures(val partitionId: Int) extends Serializable {
   private val startTime = System.currentTimeMillis()
   private var initializationStart: Long = 0
@@ -55,25 +56,16 @@ class TaskInstrumentationMeasures(val partitionId: Int) extends Serializable {
   def markCleanupStop(): Unit = { cleanupStop = System.currentTimeMillis() }
   def markTaskEnd(): Unit = { endTime = System.currentTimeMillis() }
 
-  def initializationTime: Long = { if (initializationStop == 0) 0 else initializationStop - initializationStart }
-  def libraryInitializationTime: Long = {
-    if (libraryInitializationStop == 0) 0 else libraryInitializationStop - libraryInitializationStart
-  }
-  def networkInitializationTime: Long = {
-    if (networkInitializationStop == 0) 0 else networkInitializationStop - networkInitializationStart
-  }
-  def dataPreparationTime: Long = { if (dataPreparationStop == 0) 0 else dataPreparationStop - dataPreparationStart }
-  def waitTime: Long = { if (waitStop == 0) 0 else waitStop - waitStart }
-  def datasetCreationTime: Long = { if (datasetCreationStop == 0) 0 else datasetCreationStop - datasetCreationStart }
-  def validationDatasetCreationTime: Long = {
-    if (validationDatasetCreationStop == 0) 0 else validationDatasetCreationStop - validationDatasetCreationStart
-  }
-  def trainingIterationsTime: Long = {
-    if (trainingIterationsStop == 0) 0
-    else Math.max(1, trainingIterationsStop - trainingIterationsStart)
-  }
-  def cleanupTime: Long = { if (cleanupStop == 0) 0 else cleanupStop - cleanupStart }
-  def totalTime: Long = { if (endTime == 0) 0 else endTime - startTime }
+  def initializationTime: Long = getInterval(initializationStart, initializationStop)
+  def libraryInitializationTime: Long = getInterval(libraryInitializationStart, libraryInitializationStop)
+  def networkInitializationTime: Long = getInterval(networkInitializationStart, networkInitializationStop)
+  def dataPreparationTime: Long = getInterval(dataPreparationStart, dataPreparationStop)
+  def waitTime: Long = getInterval(waitStart, waitStop)
+  def datasetCreationTime: Long = getInterval(datasetCreationStart, datasetCreationStop)
+  def validationDatasetCreationTime: Long = getInterval(validationDatasetCreationStart, validationDatasetCreationStop)
+  def trainingIterationsTime: Long = getInterval(trainingIterationsStart, trainingIterationsStop)
+  def cleanupTime: Long = getInterval(cleanupStart, cleanupStop)
+  def totalTime: Long = getInterval(startTime, endTime)
   def overheadTime: Long = {
     (totalTime
       - initializationTime
@@ -85,6 +77,16 @@ class TaskInstrumentationMeasures(val partitionId: Int) extends Serializable {
   }
 }
 
+object InstrumentationMeasures {
+  def getInterval(start: Long, stop: Long): Long = {
+    // always return 0 if no stop time given, and always return at least 1 if there is any internal at all
+    if (stop == 0) 0 else Math.max(1, stop - start)
+  }
+}
+
+/**
+  * Class for encapsulating performance instrumentation measures of overall training.
+  */
 class InstrumentationMeasures() extends Serializable {
   private val startTime = System.currentTimeMillis()
   private var validationDataCollectionStart: Long = 0
@@ -121,75 +123,33 @@ class InstrumentationMeasures() extends Serializable {
 
   def getTaskMeasures: Seq[TaskInstrumentationMeasures] = { taskMeasures.get }
 
-  def validationDataCollectionTime(): Long = {
-    if (validationDataCollectionStop == 0) 0
-    else Math.max(1, validationDataCollectionStop - validationDataCollectionStart) // show at least 1 msec
-  }
-  def columnStatisticsTime(): Long = {
-    if (columnStatisticsStop == 0) 0
-    else Math.max(1, columnStatisticsStop - columnStatisticsStart)
-  }
-  def rowStatisticsTime(): Long = {
-    if (rowStatisticsStop == 0) 0
-    else Math.max(1, rowStatisticsStop - rowStatisticsStart) }
-  def rowCountTime(): Long = {
-    if (rowCountsStop == 0) 0
-    else Math.max(1, rowCountsStop - rowCountsStart) }
-  def samplingTime(): Long = {
-    if (samplingStop == 0) 0
-    else Math.max(1, samplingStop - samplingStart) }
-  def trainingTime(): Long = {
-    if (trainingStop == 0) 0
-    else Math.max(1, trainingStop - trainingStart) }
-  def totalTime: Long = { if (endTime == 0) 0 else endTime - startTime }
+  def validationDataCollectionTime(): Long = getInterval(validationDataCollectionStart, validationDataCollectionStop)
+  def columnStatisticsTime(): Long = getInterval(columnStatisticsStart, columnStatisticsStop)
+  def rowStatisticsTime(): Long = getInterval(rowStatisticsStart, rowStatisticsStop)
+  def rowCountTime(): Long = getInterval(rowCountsStart, rowCountsStop)
+  def samplingTime(): Long = getInterval(samplingStart, samplingStop)
+  def trainingTime(): Long = getInterval(trainingStart, trainingStop)
+  def totalTime: Long = getInterval(startTime, endTime)
 
   def overheadTime: Long = { (totalTime
     - columnStatisticsTime()
     - rowStatisticsTime()
     - trainingTime()) }
 
-  def taskInitializationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.initializationTime) else Seq()
-  }
+  def taskInitializationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.initializationTime)
+  def taskLibraryInitializationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.libraryInitializationTime)
+  def taskNetworkInitializationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.networkInitializationTime)
+  def taskDataPreparationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.dataPreparationTime)
+  def taskWaitTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.waitTime)
+  def taskDatasetCreationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.datasetCreationTime)
+  def taskValidDatasetCreationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.validationDatasetCreationTime)
+  def taskTrainingIterationTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.trainingIterationsTime)
+  def taskCleanupTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.cleanupTime)
+  def taskTotalTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.totalTime)
+  def taskOverheadTimes(): Seq[Long] = getTaskMeasureSeq(measures => measures.overheadTime)
 
-  def taskLibraryInitializationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.libraryInitializationTime) else Seq()
-  }
-
-  def taskNetworkInitializationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.networkInitializationTime) else Seq()
-  }
-
-  def taskDataPreparationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.dataPreparationTime) else Seq()
-  }
-
-  def taskWaitTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.waitTime) else Seq()
-  }
-
-  def taskDatasetCreationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.datasetCreationTime) else Seq()
-  }
-
-  def taskValidDatasetCreationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.validationDatasetCreationTime) else Seq()
-  }
-
-  def taskTrainingIterationTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.trainingIterationsTime) else Seq()
-  }
-
-  def taskCleanupTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.cleanupTime) else Seq()
-  }
-
-  def taskTotalTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.totalTime) else Seq()
-  }
-
-  def taskOverheadTimes(): Seq[Long] = {
-    if (taskMeasures.isDefined) taskMeasures.get.map(measures => measures.overheadTime) else Seq()
+  private def getTaskMeasureSeq(f: TaskInstrumentationMeasures => Long) = {
+    if (taskMeasures.isDefined) taskMeasures.get.map(f) else Seq()
   }
 }
 
@@ -214,8 +174,8 @@ trait LightGBMPerformance extends Serializable {
     performanceMeasures.map(array => array.flatten)
   }
 
-  /** In the common case of 1 batch, there is only 1 measure, so this is a convenience method.
-    *
+  /**
+    * In the common case of 1 batch, there is only 1 measure, so this is a convenience method.
     */
   def getPerformanceMeasures: Option[InstrumentationMeasures] = {
     performanceMeasures.flatMap(array => array(0))

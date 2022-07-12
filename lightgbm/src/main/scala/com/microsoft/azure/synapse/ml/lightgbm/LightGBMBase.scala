@@ -410,8 +410,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
-    val trainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
-    calculateCustomTrainParams(trainParams, dataset)
+    val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
+    val trainParams = addCustomTrainParams(generalTrainParams, dataset)
     log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
 
     val isStreamingMode = getExecutionMode == LightGBMConstants.StreamingExecutionMode
@@ -422,18 +422,17 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       } else (None, None)
 
     validateSlotNames(featuresSchema)
-    executeTraining(
-      preprocessedDF,
-      validationData,
-      broadcastedSampleData,
-      partitionCounts,
-      trainParams,
-      numCols,
-      numInitScoreClasses,
-      batchIndex,
-      numTasks,
-      numTasksPerExecutor,
-      measures)
+    executeTraining(preprocessedDF,
+                    validationData,
+                    broadcastedSampleData,
+                    partitionCounts,
+                    trainParams,
+                    numCols,
+                    numInitScoreClasses,
+                    batchIndex,
+                    numTasks,
+                    numTasksPerExecutor,
+                    measures)
   }
 
   private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
@@ -509,9 +508,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       .rdd
       .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
       .collect()
-    val rowCounts: Array[Long] = new Array[Long](indexedRowCounts.length)
-    indexedRowCounts.foreach(pair => rowCounts(pair._1) = pair._2)
-    val totalNumRows = indexedRowCounts.map(partition => partition._2).sum
+    // Get an array where the index is implicitly the partition id
+    val rowCounts: Array[Long] = indexedRowCounts.sortBy(pair => pair._1).map(pair => pair._2)
+    val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
     // Get sample data using sample() function in Spark
@@ -592,8 +591,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                       measures: InstrumentationMeasures): LightGBMBooster = {
     // Create the object that will manage the mapPartitions function
     // TODO next PR, add in StreamingPartitionTask
-    val workerTaskHandler: BasePartitionTask = if (ctx.isStreaming) new BulkPartitionTask()
-    else new BulkPartitionTask()
+    val workerTaskHandler: BasePartitionTask = new BulkPartitionTask()
     val mapPartitionsFunc = workerTaskHandler.mapPartitionTask(ctx)(_)
 
     val encoder = Encoders.kryo[PartitionResult]
@@ -634,6 +632,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                    batchIndex: Int,
                                    numTasksPerExecutor: Int,
                                    networkManager: NetworkManager): TrainingContext = {
+    if (trainParams.executionParams.executionMode != LightGBMConstants.BulkExecutionMode) {
+      throw new Exception("Only bulk execution mode supported for now")
+    }
+
     val networkParams = NetworkParams(
       getDefaultListenPort,
       networkManager.host,
@@ -683,13 +685,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                featuresSchema: StructField,
                                numTasksPerExec: Int): BaseTrainParams
 
-  protected def calculateCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): Unit = { }
+  protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = params
 
   protected def stringFromTrainedModel(model: TrainedModel): String
 
   /** Allow algorithm specific preprocessing of dataset.
     *
-    * @param df The data frame to preprocess prior to training.
+    * @param df The dataframe to preprocess prior to training.
     * @return The preprocessed data.
     */
   protected def preprocessData(df: DataFrame): DataFrame = df

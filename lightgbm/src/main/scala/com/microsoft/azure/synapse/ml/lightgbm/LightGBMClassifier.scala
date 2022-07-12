@@ -56,15 +56,14 @@ class LightGBMClassifier(override val uid: String)
       getCategoricalParams)
   }
 
-  override protected def calculateCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): Unit = {
+  override protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here.  Since this could be a full pass over
      * the data, explicitly call it out as a calculation and only do it if needed.
      */
     val classifierParams = params.asInstanceOf[ClassifierTrainParams]
-    if (classifierParams.isMulti) {
-      classifierParams.numClass = getNumClasses(dataset)
-    }
+    if (classifierParams.isBinary) params
+    else classifierParams.setNumClass(getNumClasses(dataset))
   }
 
   def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
