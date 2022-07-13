@@ -23,7 +23,7 @@ object SwigUtils extends Serializable {
   def floatArrayToNative(array: Array[Float]): SWIGTYPE_p_float = {
     val colArray = lightgbmlib.new_floatArray(array.length)
     array.zipWithIndex.foreach(ri =>
-      lightgbmlib.floatArray_setitem(colArray, ri._2.toLong, ri._1.toFloat))
+      lightgbmlib.floatArray_setitem(colArray, ri._2.toLong, ri._1))
     colArray
   }
 }
@@ -137,6 +137,7 @@ abstract class BaseSwigArray[T]() {
   def setItem(index: Long, item: T): Unit
 }
 
+// Wraps float*
 class FloatSwigArray(val array: SWIGTYPE_p_float) extends BaseSwigArray[Float] {
   def this(size: Long) = this(lightgbmlib.new_floatArray(size))
 
@@ -147,6 +148,7 @@ class FloatSwigArray(val array: SWIGTYPE_p_float) extends BaseSwigArray[Float] {
   def delete(): Unit = lightgbmlib.delete_floatArray(array)
 }
 
+// Wraps double*
 class DoubleSwigArray(val array: SWIGTYPE_p_double) extends BaseSwigArray[Double] {
   def this(size: Long) = this(lightgbmlib.new_doubleArray(size))
 
@@ -157,6 +159,7 @@ class DoubleSwigArray(val array: SWIGTYPE_p_double) extends BaseSwigArray[Double
   def delete(): Unit = lightgbmlib.delete_doubleArray(array)
 }
 
+// Wraps int*
 class IntSwigArray(val array: SWIGTYPE_p_int) extends BaseSwigArray[Int] {
   def this(size: Long) = this(lightgbmlib.new_intArray(size))
 

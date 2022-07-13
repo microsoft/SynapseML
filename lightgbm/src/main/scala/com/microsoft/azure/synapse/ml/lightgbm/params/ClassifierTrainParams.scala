@@ -10,7 +10,6 @@ import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDeleg
   */
 case class ClassifierTrainParams(passThroughArgs: Option[String],
                                  isUnbalance: Boolean,
-                                 numClass: Int,
                                  boostFromAverage: Boolean,
                                  isProvideTrainingMetric: Option[Boolean],
                                  delegate: Option[LightGBMDelegate],
@@ -20,12 +19,31 @@ case class ClassifierTrainParams(passThroughArgs: Option[String],
                                  executionParams: ExecutionParams,
                                  objectiveParams: ObjectiveParams,
                                  seedParams: SeedParams,
-                                 categoricalParams: CategoricalParams) extends BaseTrainParams {
+                                 categoricalParams: CategoricalParams,
+                                 numClass: Int = 1) extends BaseTrainParams {
+  val isBinary: Boolean = objectiveParams.objective == LightGBMConstants.BinaryObjective
+
   override def appendSpecializedParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
-    val isBinary = objectiveParams.objective == LightGBMConstants.BinaryObjective
     sb.appendParamValueIfNotThere("num_class", if (!isBinary) Option(numClass) else None)
       .appendParamValueIfNotThere("is_unbalance", if (isBinary) Option(isUnbalance) else None)
       .appendParamValueIfNotThere("boost_from_average", Option(boostFromAverage))
   }
+
+  def setNumClass(n: Int): BaseTrainParams = {
+    if (n == numClass) this
+    else ClassifierTrainParams(passThroughArgs,
+                               isUnbalance,
+                               boostFromAverage,
+                               isProvideTrainingMetric,
+                               delegate,
+                               generalParams,
+                               datasetParams,
+                               dartModeParams,
+                               executionParams,
+                               objectiveParams,
+                               seedParams,
+                               categoricalParams,
+                               n)
+    }
 }

@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, LightGBMModelParams,
-  LightGBMPredictionParams, RegressorTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{
+  BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -14,6 +14,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StructField
 
 object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 
@@ -56,7 +57,7 @@ class LightGBMRegressor(override val uid: String)
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
+  def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
     RegressorTrainParams(
       get(passThroughArgs),
       getAlpha,
@@ -64,7 +65,7 @@ class LightGBMRegressor(override val uid: String)
       getBoostFromAverage,
       get(isProvideTrainingMetric),
       getDelegate,
-      getGeneralParams(numTasks, dataset, numTasksPerExec),
+      getGeneralParams(numTasks, featuresSchema),
       getDatasetParams,
       getDartParams,
       getExecutionParams(numTasksPerExec),
