@@ -503,13 +503,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
     // Get the row counts per partition
     measures.markRowCountsStart()
-    val indexedRowCounts: Array[(Int, Long)] = dataframe
-      .select(getLabelCol)
-      .rdd
-      .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
-      .collect()
     // Get an array where the index is implicitly the partition id
-    val rowCounts: Array[Long] = indexedRowCounts.sortBy(pair => pair._1).map(pair => pair._2)
+    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, getLabelCol)
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
@@ -517,9 +512,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // TODO optimize with just a take() in case of user approval
     measures.markSamplingStart()
     val sampleCount: Int = getBinSampleCount
-    val seed: Int = getSeedParams.dataRandomSeed.getOrElse(42) // TODO data or just plain seed?
+    val seed: Int = getSeedParams.dataRandomSeed.getOrElse(0)
     val featureColName = getFeaturesCol
-    // TODO what if error causes < sampleCount?  should we add a little buffer and let limit() do the work?
     val fraction = if (sampleCount > totalNumRows) 1.0
                    else Math.min(1.0, (sampleCount.toDouble + 10000)/totalNumRows)
     val numSamples = Math.min(sampleCount, totalNumRows).toInt
