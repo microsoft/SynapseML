@@ -30,7 +30,7 @@ dl_require_list = [
     "pytorch_lightning>=1.5.0,<1.5.10",
 ]
 
-dl_extra_list = ["torchvision>=0.12.0", "horovod>=0.24.3"]
+dl_extra_list = ["torchvision>=0.12.0", "horovod==0.25.0"]
 
 
 class PreInstallCommand(install):

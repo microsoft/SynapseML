@@ -9,10 +9,22 @@ from PIL import Image
 from pyspark import keyword_only
 from pyspark.context import SparkContext
 from pyspark.ml.param.shared import Param, Params
-from synapse.ml.dl.LightningEstimator import LightningEstimator
 from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
 from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from horovod.spark.lightning import TorchEstimator
+from pytorch_lightning.utilities import _module_available
+
+_HOROVOD_AVAILABLE = _module_available("horovod")
+if _HOROVOD_AVAILABLE:
+    import horovod
+
+    _HOROVOD_EQUAL_0_25_0 = horovod.__version__ == "0.25.0"
+    if not _HOROVOD_EQUAL_0_25_0:
+        raise RuntimeError(
+            "horovod should be of version 0.25.0, found: {}".format(horovod.__version__)
+        )
+else:
+    raise ModuleNotFoundError("module not found: horovod")
 
 
 class DeepVisionClassifier(TorchEstimator):
@@ -59,23 +71,28 @@ class DeepVisionClassifier(TorchEstimator):
         backbone=None,
         additional_layers_to_train=0,
         num_classes=None,
+        optimizer_name="adam",
+        loss_name="cross_entropy",
+        dropout_aux=0.7,
+        transform_fn=None,
+        # TorchEstimator args
         num_proc=None,
         backend=None,
         store=None,
-        loss=None,
-        optimizer=None,
-        metrics=None,
+        metrics=[],
         loss_weights=None,
         sample_weight_col=None,
+        gradient_compression=None,
         feature_cols=["image"],
         input_shapes=None,
         validation=None,
         label_cols=["label"],
-        callbacks=None,
-        batch_size=None,
+        callbacks=[],
+        batch_size=32,
         val_batch_size=None,
-        epochs=None,
+        epochs=1,
         verbose=1,
+        random_seed=None,
         shuffle_buffer_size=None,
         partitions_per_process=10,
         run_id=None,
@@ -83,8 +100,9 @@ class DeepVisionClassifier(TorchEstimator):
         train_steps_per_epoch=None,
         validation_steps_per_epoch=None,
         transformation_fn=None,
-        train_reader_num_workers=None,
-        val_reader_num_workers=None,
+        train_reader_num_workers=2,
+        trainer_args=None,
+        val_reader_num_workers=2,
         reader_pool_type=None,
         label_shapes=None,
         inmemory_cache_all=False,
@@ -95,13 +113,57 @@ class DeepVisionClassifier(TorchEstimator):
         loader_num_epochs=None,
         terminate_on_nan=False,
         profiler=None,
-        # diff from horovod
-        optimizer_name="adam",
-        loss_name="cross_entropy",
-        dropout_aux=0.7,
-        transform_fn=None,
+        debug_data_loader=False,
+        train_async_data_loader_queue_size=None,
+        val_async_data_loader_queue_size=None,
+        use_gpu=True,
+        mp_start_method=None,
     ):
-        super(DeepVisionClassifier, self).__init__()
+        super(DeepVisionClassifier, self).__init__(
+            num_proc=num_proc,
+            backend=backend,
+            store=store,
+            metrics=metrics,
+            loss_weights=loss_weights,
+            sample_weight_col=sample_weight_col,
+            gradient_compression=gradient_compression,
+            feature_cols=feature_cols,
+            input_shapes=input_shapes,
+            validation=validation,
+            label_cols=label_cols,
+            callbacks=callbacks,
+            batch_size=batch_size,
+            val_batch_size=val_batch_size,
+            epochs=epochs,
+            verbose=verbose,
+            random_seed=random_seed,
+            shuffle_buffer_size=shuffle_buffer_size,
+            partitions_per_process=partitions_per_process,
+            run_id=run_id,
+            train_minibatch_fn=train_minibatch_fn,
+            train_steps_per_epoch=train_steps_per_epoch,
+            validation_steps_per_epoch=validation_steps_per_epoch,
+            transformation_fn=transformation_fn,
+            train_reader_num_workers=train_reader_num_workers,
+            trainer_args=trainer_args,
+            val_reader_num_workers=val_reader_num_workers,
+            reader_pool_type=reader_pool_type,
+            label_shapes=label_shapes,
+            inmemory_cache_all=inmemory_cache_all,
+            num_gpus=num_gpus,
+            logger=logger,
+            log_every_n_steps=log_every_n_steps,
+            data_module=data_module,
+            loader_num_epochs=loader_num_epochs,
+            terminate_on_nan=terminate_on_nan,
+            profiler=profiler,
+            debug_data_loader=debug_data_loader,
+            train_async_data_loader_queue_size=train_async_data_loader_queue_size,
+            val_async_data_loader_queue_size=val_async_data_loader_queue_size,
+            use_gpu=use_gpu,
+            mp_start_method=mp_start_method,
+        )
+
         self._setDefault(
             backbone=None,
             additional_layers_to_train=0,
@@ -114,11 +176,6 @@ class DeepVisionClassifier(TorchEstimator):
             label_cols=["label"],
         )
 
-        # override those keyword args
-        kwargs = self._input_kwargs
-        print(kwargs)
-        self.setParams(**kwargs)
-
         self._set(backbone=backbone)
         self._set(additional_layers_to_train=additional_layers_to_train)
         self._set(num_classes=num_classes)
@@ -126,43 +183,6 @@ class DeepVisionClassifier(TorchEstimator):
         self._set(loss_name=loss_name)
         self._set(dropout_aux=dropout_aux)
         self._set(transform_fn=transform_fn)
-        
-        self._set(num_proc=num_proc)
-        self._set(backend=backend)
-        self._set(store=store)
-        self._set(loss=loss)
-        self._set(optimizer=optimizer)
-        self._set(metrics=metrics)
-        self._set(loss_weights=loss_weights)
-        self._set(sample_weight_col=sample_weight_col)
-        self._set(feature_cols=feature_cols)
-        self._set(input_shapes=input_shapes)
-        self._set(validation=validation)
-        self._set(label_cols=label_cols)
-        self._set(callbacks=callbacks)
-        self._set(batch_size=batch_size)
-        self._set(val_batch_size=val_batch_size)
-        self._set(epochs=epochs)
-        self._set(verbose=verbose)
-        self._set(shuffle_buffer_size=shuffle_buffer_size)
-        self._set(partitions_per_process=partitions_per_process)
-        self._set(run_id=run_id)
-        self._set(train_minibatch_fn=train_minibatch_fn)
-        self._set(train_steps_per_epoch=train_steps_per_epoch)
-        self._set(validation_steps_per_epoch=validation_steps_per_epoch)
-        self._set(transformation_fn=transformation_fn)
-        self._set(train_reader_num_workers=train_reader_num_workers)
-        self._set(val_reader_num_workers=val_reader_num_workers)
-        self._set(reader_pool_type=reader_pool_type)
-        self._set(label_shapes=label_shapes)
-        self._set(inmemory_cache_all=inmemory_cache_all)
-        self._set(num_gpus=num_gpus)
-        self._set(logger=logger)
-        self._set(log_every_n_steps=log_every_n_steps)
-        self._set(data_module=data_module)
-        self._set(loader_num_epochs=loader_num_epochs)
-        self._set(terminate_on_nan=terminate_on_nan)
-        self._set(profiler=profiler)
 
         self._update_input_shapes()
         self._update_transformation_fn()

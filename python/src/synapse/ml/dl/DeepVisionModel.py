@@ -36,24 +36,27 @@ class DeepVisionModel(TorchModel):
         # diff from horovod
         transform_fn=None,
     ):
-        super(DeepVisionModel, self).__init__()
+        # TODO: make sure the default values work
+        super(DeepVisionModel, self).__init__(
+            history=history,
+            model=model,
+            feature_columns=feature_columns,
+            input_shapes=input_shapes,
+            label_columns=label_columns,
+            optimizer=optimizer,
+            run_id=run_id,
+            _metadata=_metadata,
+            loss=loss,
+            loss_constructors=loss_constructors,
+        )
 
-        self._setDefault(transform_fn=None)
-
-        kwargs = self._input_kwargs
-        print(kwargs)
-        self.setParams(**kwargs)
-        self._set(history=history)
-        self._set(model=model)
-        self._set(feature_columns=feature_columns)
-        self._set(input_shapes=input_shapes)
-        self._set(label_columns=label_columns)
-        self._set(optimizer=optimizer)
-        self._set(run_id=run_id)
-        self._set(_metadata=_metadata)
-        self._set(loss=loss)
-        self._set(loss_constructors=loss_constructors)
-
+        self._setDefault(optimizer=None,
+                         loss=None,
+                         loss_constructors=None,
+                         input_shapes=None,
+                         transform_fn=None)
+        if transform_fn is not None:
+            self._set(transform_fn=transform_fn)
         self._update_transform_fn()
 
     def setTransformFn(self, value):

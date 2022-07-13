@@ -32,12 +32,13 @@ libcusparse-dev-11-0=11.1.1.245-1
 
 git clone --recursive https://github.com/horovod/horovod.git
 cd horovod
-# fix a certain commit at version 0.24.3
-git reset --hard 7707267a4bef79e09a9df1d41b0652feb61b76c7
+# fix version 0.25.0
+git fetch origin refs/tags/v0.25.0:tags/v0.25.0
+git checkout tags/v0.25.0 -b v0.25.0-branch
 rm -rf build/ dist/
 HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 \
 /databricks/python3/bin/python setup.py bdist_wheel
 
 readlink -f dist/horovod-*.whl
 
-pip install --no-cache-dir dist/horovod-0.24.3-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
+pip install --no-cache-dir dist/horovod-0.25.0-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
