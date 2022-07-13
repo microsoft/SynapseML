@@ -290,7 +290,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
   def addInitialScores(chunkedCols: BaseChunkedColumns, startIndex: Long): Unit = {
     // Optimize for single class, which does not need transposing
     chunkedCols.initScores.foreach(chunkedArray => if (getRowCount == getInitScoreCount)
-      chunkedArray.coalesceTo(initScores.get)
+      ChunkedArrayUtils.copyChunkedArray(chunkedArray, initScores.get, startIndex)
     else {
       log.info(s"DEBUG: cols: ${getInitScoreCount/getRowCount} rows: $getRowCount, startIndex: $startIndex")
       ChunkedArrayUtils.insertTransposedChunkedArray(
