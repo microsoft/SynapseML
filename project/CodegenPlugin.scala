@@ -291,9 +291,9 @@ object CodegenPlugin extends AutoPlugin {
         activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          s"--cov=${genPackageNamespace.value}",
+          //s"--cov=${genPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
-          "--cov-report=xml",
+          //"--cov-report=xml",
           genTestPackageNamespace.value
         ),
         new File(codegenDir.value, "test/python/")

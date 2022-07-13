@@ -35,7 +35,7 @@ trait PipelineStageWrappable[T <: PipelineStage]
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
+       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
        |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
        """.stripMargin
   }
@@ -101,7 +101,7 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
   override def rLoadLine(modelNum: Int): String = {
     super.rLoadLine(modelNum)
     s"""
-       |${name}dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
+       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
        |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
        """.stripMargin
   }*/

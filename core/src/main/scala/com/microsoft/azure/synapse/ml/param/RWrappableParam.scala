@@ -12,37 +12,39 @@ import scala.collection.immutable.Map
 trait RPrinter extends CompactPrinter {
 
   override protected def printArray(elements: Seq[JsValue], sb: JStringBuilder): Unit = {
-    if (elements.isEmpty) {
-      sb.append("c()")
-    } else {
-      sb.append("'[")
-      printSeq(elements, sb.append(',')) { e => sb.append(e.compactPrint) }
-      sb.append("]'")
-    }
+    sb.append("c(")
+    printSeq(elements, sb.append(',')) { e => printArrayElement(e, sb) }
+    /*if (!elements.isEmpty) {
+      elements.head match {
+        case jsObject: spray.json.JsObject =>
+          printSeq(elements, sb.append(',')) { e => printObject(jsObject.fields, sb) }
+        case _ =>
+          printSeq(elements, sb.append(',')) { e => sb.append(e.compactPrint) }
+      }
+    }*/
+    sb.append(")")
   }
 
+  def printArrayElement(element: JsValue, sb: JStringBuilder): Unit = {
+    element match {
+      case jsObject: spray.json.JsObject =>
+        printObject(jsObject.fields, sb)
+      case _ =>
+        sb.append(element.compactPrint)
+    }
+  }
 
   override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
     if (members.isEmpty) {
       sb.append("new.env()")
     } else {
-      //super.printObject(members, sb)
+      sb.append("list2env(list(")
       printSeq(members, sb.append(',')) { m =>
-        sb.append("list2env(list(")
         sb.append(m._1)
         sb.append('=')
         print(m._2, sb)
-        sb.append("))")
       }
-
-      /*
-      printSeq(members, sb.append(',')) { m =>
-        sb.append('{')
-        printString(m._1, sb)
-        sb.append(':')
-        print(m._2, sb)
-        sb.append('}')
-      } */
+      sb.append("))")
     }
   }
 
@@ -73,6 +75,7 @@ object RWrappableParam {
   def rDefaultRender[T](value: T, param: Param[T]): String = {
     rDefaultRender(value, { v: T => param.jsonEncode(v) })
   }
+
 /*
   def rDefaultRender[T](value: T, param: Param[T]): String = {
     param match {

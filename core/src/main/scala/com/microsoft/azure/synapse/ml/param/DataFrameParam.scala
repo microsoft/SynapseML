@@ -141,7 +141,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
+       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
        |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
        """.stripMargin
   }

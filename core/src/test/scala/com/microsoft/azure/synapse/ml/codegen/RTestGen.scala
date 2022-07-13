@@ -14,8 +14,6 @@ import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServ
 import org.apache.commons.io.FileUtils
 import spray.json._
 
-import scala.collection.mutable
-
 
 object RTestGen {
 
@@ -31,18 +29,6 @@ object RTestGen {
       }
     }
   }
-
-  /*def makeRInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
-    val dir = new File(new File(conf.rTestDir,  "synapsemltest"), packageFolder)
-    if (!dir.exists()){
-      printf("----------------  making dir %s\n", dir.toString)
-      dir.mkdirs()
-    }
-    writeFile(new File(dir, "__init__.r"), "")
-    dir.listFiles().filter(_.isDirectory).foreach(f =>
-      makeRInitFiles(conf, packageFolder + "/" + f.getName)
-    )
-  }*/
 
   //noinspection ScalaStyle
   def generateRPackageData(conf: CodegenConfig): Unit = {
@@ -98,12 +84,6 @@ object RTestGen {
 
     val synapseVersion = BuildInfo.version
 
-    /*val dependencies = mutable.HashMap(
-      "synapseml-cognitive" -> Seq("synapseml-core"),
-      "synapseml-deep-learning" -> Seq("synapseml-core"),
-      "synapseml-lightgbm" -> Seq("synapseml-core"),
-      */
-
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |library(sparklyr)
@@ -120,11 +100,8 @@ object RTestGen {
          |
          |sc <- spark_connect(
          |  master = "local",
-         |  version = "3.2.0",
-         |  config = conf,
-         |  packages = c("com.microsoft.azure:${conf.name}_${scalaVersion}:${synapseVersion}"))
-         |
-         |irisDf <- copy_to(sc, iris, overwrite = TRUE)
+         |  version = "3.3.0",
+         |  config = conf)
          |
          |""".stripMargin)
 
@@ -147,6 +124,5 @@ object RTestGen {
     if (toDir(conf.rTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.rTestOverrideDir), toDir(conf.rTestDir))
     }
-
   }
 }

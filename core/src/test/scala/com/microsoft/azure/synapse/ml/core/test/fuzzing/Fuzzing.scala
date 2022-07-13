@@ -14,12 +14,10 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 import org.apache.spark.sql.DataFrame
-import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._ // checkme
-
-import scala.util.Random // checkme
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import scala.util.Random
 
 /**
   * Class for holding test information, call by name to avoid unnecessary computations in test generations
@@ -477,7 +475,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
 
      /* val firstArg = stage match {
           case _: Estimator[_] => "sc"
-          case _ => "irisDf" //s"""spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
+          case _ => """spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
         }*/
 
       val modelArg = stage match {
