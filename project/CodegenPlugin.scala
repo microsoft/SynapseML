@@ -79,8 +79,9 @@ object CodegenPlugin extends AutoPlugin {
     val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
     val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
 
-    val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
+    val mergeCodeDir = SettingKey[File]("mergeCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
+    val mergeDotnetCode = TaskKey[Unit]("mergeDotnetCode", "copy dotnet code to a destination")
   }
 
   import autoImport._
@@ -230,7 +231,7 @@ object CodegenPlugin extends AutoPlugin {
         val versionArray = version.value.split("-".toCharArray)
         versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
       } else {
-       version.value
+        version.value
       }
     },
     packageR := {
@@ -280,7 +281,12 @@ object CodegenPlugin extends AutoPlugin {
     },
     mergePyCode := {
       val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "python", genPackageNamespace.value)
+      FileUtils.copyDirectory(srcDir, destDir)
+    },
+    mergeDotnetCode := {
+      val srcDir = join(codegenDir.value, "src", "dotnet", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "dotnet", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
@@ -325,24 +331,19 @@ object CodegenPlugin extends AutoPlugin {
       val sourceDotnetDir = join(dotnetSrcDir.getAbsolutePath, genPackageNamespace.value)
       FileUtils.copyDirectory(sourceDotnetDir, destDotnetDir)
       val packageDir = join(codegenDir.value, "package", "dotnet").absolutePath
-      runCmd(
-        Seq("dotnet", "pack", "--output", packageDir),
-        join(dotnetSrcDir, "synapse", "ml"))
+      packDotnetAssemblyCmd(packageDir, join(dotnetSrcDir, "synapse", "ml"))
     },
     publishDotnet := {
       packageDotnet.value
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
       val packagePath = join(codegenDir.value, "package", "dotnet",
         s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
-      val sleetConfigFile = join(mergePyCodeDir.value, "sleet.json").getAbsolutePath
-      runCmd(
-        Seq("sleet", "push", packagePath, "--config", sleetConfigFile, "--source", "SynapseMLNuget", "--force")
-      )
+      publishDotnetAssemblyCmd(packagePath, mergeCodeDir.value)
     },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
-    mergePyCodeDir := {
+    mergeCodeDir := {
       join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
     },
     codegenDir := {

@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
-import com.microsoft.azure.synapse.ml.param.WrappableParam
+import com.microsoft.azure.synapse.ml.param.{ServiceParam, WrappableParam}
 import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
@@ -120,14 +120,21 @@ trait DotnetWrappable extends BaseWrappable {
     val capName = p.name.capitalize
     val docString =
       s"""|/// <summary>
-          |/// Sets ${p.name} value for <see cref=\"${p.name}\"/>
+          |/// Sets value for ${p.name}
           |/// </summary>
-          |/// <param name=\"${p.name}\">
+          |/// <param name=\"value\">
           |/// ${p.doc}
           |/// </param>
           |/// <returns> New $dotnetClassName object </returns>""".stripMargin
     p match {
       // TODO: Fix UDF & UDPyF confusion; ParamSpaceParam, BallTreeParam, ConditionalBallTreeParam type
+      case sp: ServiceParam[_] =>
+        s"""|$docString
+            |${sp.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)}
+            |
+            |${docString.replaceFirst(sp.name, s"${sp.name} column")}
+            |${sp.dotnetSetterForSrvParamCol(dotnetClassName, capName, dotnetClassWrapperName)}
+            |""".stripMargin
       case wp: WrappableParam[_] =>
         s"""|$docString
             |${wp.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)}
@@ -148,7 +155,7 @@ trait DotnetWrappable extends BaseWrappable {
     val capName = p.name.capitalize
     val docString =
       s"""|/// <summary>
-          |/// Gets ${p.name} value for <see cref=\"${p.name}\"/>
+          |/// Gets ${p.name} value
           |/// </summary>
           |/// <returns>
           |/// ${p.name}: ${p.doc}

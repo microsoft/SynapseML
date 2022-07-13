@@ -256,10 +256,11 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   override protected def getInternalTransformer(schema: StructType): PipelineModel =
     customGetInternalTransformer(schema, Seq("text", "toLanguage"))
 
-  val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage", "Specifies the language of the output" +
-    " text. The target language must be one of the supported languages included in the translation scope." +
-    " For example, use to=de to translate to German. It's possible to translate to multiple languages simultaneously" +
-    " by repeating the parameter in the query string. For example, use to=de&to=it to translate to German and Italian.",
+  val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage",
+    "Specifies the language of the output text. The target language must be one of the supported languages" +
+      " included in the translation scope. For example, use to=de to translate to German. It's possible to translate" +
+      " to multiple languages simultaneously by repeating the parameter in the query string. For example, use " +
+      "to=de and to=it to translate to German and Italian.",
     isRequired = true, isURLParam = true,
     toValueString = { seq => seq.mkString(",") })
 

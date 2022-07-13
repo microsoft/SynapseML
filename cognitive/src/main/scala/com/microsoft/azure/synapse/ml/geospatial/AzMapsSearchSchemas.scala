@@ -18,7 +18,7 @@ case class Address (
   // The building number on the street.
   streetNumber: Option[String],
   // The codes used to unambiguously identify the street
-  routeNumbers: Option[Seq[Integer]],
+  routeNumbers: Option[Seq[String]],
   // The street name.
   streetName: Option[String],
   // The street name and number.
@@ -55,7 +55,7 @@ case class Address (
   // This field is used to build the `freeformAddress` property.
   localName: Option[String],
   // Bounding box coordinates.
-  boundingBox: Option[BoundingBox])
+  boundingBox: Option[BoundingBox2])
 
 case class AddressRanges (
   // Address range on the left side of the street.
@@ -74,6 +74,11 @@ case class BoundingBox (
   topLeftPoint: Option[LatLongPairAbbreviated],
   // bottom-right
   btmRightPoint: Option[LatLongPairAbbreviated])
+
+case class BoundingBox2(
+  northEast: String,
+  southWest: String,
+  entity: Option[String])
 
 case class Classification (
   // Code property
@@ -155,9 +160,9 @@ case class OperatingHoursTime (
   // Represents current calendar date in POI time zone, e.g. \"2019-02-07\".
   date: Option[String],
   // Hours are in the 24 hour format in the local time of a POI; possible values are 0 - 23.
-  hour: Option[Integer],
+  hour: Option[Int],
   // Minutes are in the local time of a POI; possible values are 0 - 59.
-  minute: Option[Integer])
+  minute: Option[Int])
 
 case class OperatingHoursTimeRange (
  // The point in the next 7 days range when a given POI is being opened, or the beginning of the range
@@ -184,7 +189,7 @@ case class PointOfInterest (
 
 case class PointOfInterestCategorySet (
   // Category ID
-  id: Option[Integer])
+  id: Option[Int])
 
 object ReverseSearchAddressResult extends SparkBindings[ReverseSearchAddressResult]
 case class ReverseSearchAddressResult (
@@ -211,13 +216,13 @@ case class ReverseSearchAddressBatchResult (
 object ReverseSearchAddressBatchItem extends SparkBindings[ReverseSearchAddressBatchItem]
 case class ReverseSearchAddressBatchItem (
   // HTTP request status code.
-  statusCode: Option[Integer],
+  statusCode: Option[Int],
   // The result of the query.
   response: Option[ReverseSearchAddressResult])
 
 case class SearchBatchSummary(
-  successfulRequests: Option[Integer],
-  totalRequests: Option[Integer]
+  successfulRequests: Option[Int],
+  totalRequests: Option[Int]
 )
 
 object SearchAddressBatchProcessResult extends SparkBindings[SearchAddressBatchProcessResult]
@@ -230,7 +235,7 @@ case class SearchAddressBatchProcessResult (
 object SearchAddressBatchItem extends SparkBindings[SearchAddressBatchItem]
 case class SearchAddressBatchItem (
   // HTTP request status code.
-  statusCode: Option[Integer],
+  statusCode: Option[Int],
   // The result of the query.
   response: Option[SearchAddressResult])
 
@@ -249,17 +254,17 @@ case class SearchSummary (
   // The type of query being returned: NEARBY or NON_NEAR.
   queryType: Option[String],
   // Time spent resolving the query, in milliseconds.
-  queryTime: Option[Integer],
+  queryTime: Option[Int],
   // Number of results in the response.
-  numResults: Option[Integer],
+  numResults: Option[Int],
   // Maximum number of responses that will be returned
-  limit: Option[Integer],
+  limit: Option[Int],
   // The starting offset of the returned Results within the full Result set.
-  offset: Option[Integer],
+  offset: Option[Int],
   // The total number of Results found.
-  totalResults: Option[Integer],
+  totalResults: Option[Int],
   // The maximum fuzzy level required to provide Results.
-  fuzzyLevel: Option[Integer],
+  fuzzyLevel: Option[Int],
   // Indication when the internal search engine has applied a geospatial bias to improve the ranking of results.
   // In  some methods, this can be affected by setting the lat and lon parameters where available.
   // In other cases it is  purely internal.
@@ -290,7 +295,7 @@ case class SearchAddressResultItem (
  // Information on the type of match.  One of:   * AddressPoint   * HouseNumberRange   * Street
  matchType: Option[String],
  // Detour time in seconds. Only returned for calls to the Search Along Route API.
- detourTime: Option[Integer])
+ detourTime: Option[Int])
 
 case class Viewport (
   topLeftPoint: Option[LatLongPairAbbreviated],

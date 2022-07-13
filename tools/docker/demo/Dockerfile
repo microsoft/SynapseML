@@ -16,6 +16,8 @@ RUN apt-get -qq update \
       wget \
       default-jre \
       openmpi-bin \
+    && apt-get upgrade -y \
+    && apt-get clean -y \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
