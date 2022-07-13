@@ -177,13 +177,16 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
   }
 
   test("Verify LightGBM Classifier continued training with initial score") {
-    val convertUDF = udf((vector: DenseVector) => vector(1))
-    val scoredDF1 = baseModel.fit(pimaDF).transform(pimaDF)
-    val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
-      .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
-    val scoredDF2 = baseModel.setInitScoreCol(initScoreCol).fit(df2).transform(df2)
+    // test each useSingleDatasetMode mode since the paths differ slightly
+    Array(true, false).foreach(mode => {
+      val convertUDF = udf((vector: DenseVector) => vector(1))
+      val scoredDF1 = baseModel.setUseSingleDatasetMode(mode).fit(pimaDF).transform(pimaDF)
+      val df2 = scoredDF1.withColumn(initScoreCol, convertUDF(col(rawPredCol)))
+        .drop(predCol, rawPredCol, probCol, leafPredCol, featuresShapCol)
+      val scoredDF2 = baseModel.setUseSingleDatasetMode(mode).setInitScoreCol(initScoreCol).fit(df2).transform(df2)
 
-    assertBinaryImprovement(scoredDF1, scoredDF2)
+      assertBinaryImprovement(scoredDF1, scoredDF2)
+    })
   }
 
   test("Verify LightGBM Multiclass Classifier with vector initial score") {
