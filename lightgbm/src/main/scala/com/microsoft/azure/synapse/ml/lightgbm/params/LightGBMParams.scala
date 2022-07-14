@@ -57,6 +57,19 @@ trait LightGBMExecutionParams extends Wrappable {
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
+  val executionMode = new Param[String](this, "executionMode",
+    "Specify how LightGBM is executed.  " +
+      "Values can be streaming, bulk. Default is bulk.")
+  setDefault(executionMode -> LightGBMConstants.BulkExecutionMode)
+  def getExecutionMode: String = $(executionMode)
+  def setExecutionMode(value: String): this.type = set(executionMode, value)
+
+  val microBatchSize = new IntParam(this, "microBatchSize",
+    "Specify how many elements are sent in a streaming micro-batch.")
+  setDefault(microBatchSize -> 1)
+  def getMicroBatchSize: Int = $(microBatchSize)
+  def setMicroBatchSize(value: Int): this.type = set(microBatchSize, value)
+
   val useSingleDatasetMode = new BooleanParam(this, "useSingleDatasetMode",
     "Use single dataset execution mode to create a single native dataset per executor (singleton) " +
       "to reduce memory and communication overhead.")
