@@ -3,7 +3,6 @@
 
 import os
 import random
-import sys
 from os.path import join
 
 import numpy as np
@@ -12,10 +11,6 @@ from PIL import Image
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
-
-sys.path.append(
-    join(os.path.dirname(__file__), os.pardir, os.pardir, "synapse", "ml", "dl")
-)
 
 from synapse.ml.dl import *
 
@@ -107,13 +102,13 @@ def test_lit_deep_vision_model(transform, get_data_path):
     epochs = 10
     model = LitDeepVisionModel(
         backbone="resnet50",
-        num_layers_to_train=1,
+        additional_layers_to_train=1,
         num_classes=17,
-        input_shapes=[[-1, 3, 224, 224]],
+        input_shape=[-1, 3, 224, 224],
         optimizer_name="adam",
         loss_name="cross_entropy",
-        label_cols=["label"],
-        feature_cols=["image"],
+        label_col="label",
+        image_col="image",
     )
 
     callbacks = [MyDummyCallback(epochs), ModelCheckpoint(dirpath="target/resnet50/")]

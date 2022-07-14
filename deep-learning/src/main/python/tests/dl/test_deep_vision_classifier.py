@@ -6,12 +6,10 @@ import os
 import shutil
 import tempfile
 
-import numpy as np
-from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import LocalStore
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, udf
+from pyspark.sql.functions import col
 from pyspark.sql.types import DoubleType
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -74,10 +72,7 @@ class CallbackBackend(object):
         return 1
 
 
-def test_mobilenet_v2(
-    get_data_path,
-    read_image_and_transform_udf,
-):
+def test_mobilenet_v2(get_data_path):
     spark = SparkSession.builder.master("local[*]").getOrCreate()
 
     ctx = CallbackBackend()
@@ -109,17 +104,9 @@ def test_mobilenet_v2(
             ["label_prob"]
         )
 
-        argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
-
-        test_df_trans = test_df.withColumn(
-            "features", read_image_and_transform_udf("image")
-        )
-        pred_df = deep_vision_model.setFeatureColumns(["features"]).transform(
-            test_df_trans
-        )
-        pred_df = pred_df.withColumn("label_pred", argmax(pred_df.label_prob))
+        pred_df = deep_vision_model.transform(test_df)
         evaluator = MulticlassClassificationEvaluator(
-            predictionCol="label_pred", labelCol="label", metricName="accuracy"
+            predictionCol="prediction", labelCol="label", metricName="accuracy"
         )
         accuracy = evaluator.evaluate(pred_df)
         assert accuracy > 0.5
