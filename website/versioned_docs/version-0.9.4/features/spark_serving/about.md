@@ -14,7 +14,7 @@ sidebar_label: About
     parallelism that Spark is famous for.
 -   **Fast**: No single node bottlenecks, no round trips to Python.
     Requests can be routed directly to and from worker JVMs through
-    network switches.  Spin up a web service in a matter of seconds. 
+    network switches.  Spin up a web service in a matter of seconds.
 -   **Low Latency**: When using continuous serving,
     you can achieve latencies as low as 1 millisecond.
 -   **Deployable Anywhere**: Works anywhere that runs Spark such as
@@ -50,7 +50,7 @@ df = spark.readStream.server() \
     .parseRequest(StructType().add("foo", StringType()).add("bar", IntegerType()))
 
 replies = df.withColumn("fooLength", length(col("foo")))\
-    .makeReply("fooLength") 
+    .makeReply("fooLength")
 
 server = replies\
     .writeStream \
@@ -100,7 +100,7 @@ In brief you can use the following:
 `spark.readStream.distributedServer()`: For custom load balanced services
 `spark.readStream.continuousServer()`: For a custom load balanced, sub-millisecond latency continuous server
 
-To create the various different serving dataframes and use the equivalent statements after `df.writeStream` 
+To create the various different serving dataframes and use the equivalent statements after `df.writeStream`
 for replying to the web requests
 
 ### Head Node Load Balanced
@@ -109,7 +109,7 @@ You can deploy head node load balancing with the `HTTPSource` and
 `HTTPSink` classes.  This mode spins up a queue on the head node,
 distributes work across partitions, then collects response data back to
 the head node.  All HTTP requests are kept and replied to on the head
-node. In both python and Scala these classes can be access by using 
+node. In both python and Scala these classes can be access by using
 `spark.readStream.server()` after importing SynapseML.
 This mode allows for more complex windowing, repartitioning, and
 SQL operations.  This option is also idea for rapid setup and testing,
@@ -124,8 +124,8 @@ switches.A diagram of this configuration can be seen below:
 
 You can configure Spark Serving for a custom load balancer using the
 `DistributedHTTPSource` and `DistributedHTTPSink` classes.  This mode
-spins up servers on each executor JVM.  
-In both python and Scala these classes can be access by using 
+spins up servers on each executor JVM.
+In both python and Scala these classes can be access by using
 `spark.readStream.distributedServer()` after importing SynapseML.
 Each server will feed its
 executor's partitions in parallel.  This mode is key for high throughput
@@ -166,19 +166,19 @@ Note that in continuous serving, much like continuous streaming you need to add 
       ...
 
 The architecture is very similiar to the custom load balancer setup described above.
-More specifically, Spark will manage a web service on each partition. 
-These webservices can be unified together using an Azure Load Balancer, 
+More specifically, Spark will manage a web service on each partition.
+These webservices can be unified together using an Azure Load Balancer,
 Kubernetes Service Endpoint, Azure Application gateway or any other way to load balance a distributed service.
-It is currently the user's responsibility to optionally unify these services as they see fit. 
+It is currently the user's responsibility to optionally unify these services as they see fit.
 In the furutre we will include options to dynamically spin up and manage a load balancer.
 
 #### Databricks Setup
 
 Databricks is a managed architecture and they have restricted
-all incoming traffic to the nodes of the cluster. 
+all incoming traffic to the nodes of the cluster.
 If you create a web service in your databricks cluster (head or worker nodes),
 your cluster can communicate with the service, but the outside world cannot.
-However, In the future, Databricks will support Virtual Network Injection so this will not be a problem. 
+However, In the future, Databricks will support Virtual Network Injection so this will not be a problem.
 In the meantime, you must use SSH tunneling to forward the services to another machine(s)
 to act as a networking gateway. This machine can be any machine that accpets SSH traffic and requests.
 We have included settings to automatically configure this SSH tunneling for convenience.
@@ -204,11 +204,11 @@ We have included settings to automatically configure this SSH tunneling for conv
           .option("forwarding.sshHost", "ip or dns")
           .option("forwarding.keySas", "SAS url from the previous step")
           .address("localhost", 8904, "my_api")
-          .load() 
+          .load()
 
-Note that this will make your service require an extra jump and affect latency. 
+Note that this will make your service require an extra jump and affect latency.
 It is important to pick a gateway that has good connectivity to your spark cluster.
-For this reason we suggest using Spark Serving 
+For this reason we suggest using Spark Serving
 on a cluster enviromnent that is more open such as Kubernetes, Mesos, or Azure Batch
 for best performance and ease of configuration.
 

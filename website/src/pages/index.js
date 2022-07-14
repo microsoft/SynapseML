@@ -44,7 +44,7 @@ model_prediction_df = (ONNXModel()
     label: "Responsible AI",
     further: "docs/features/responsible_ai/Model%20Interpretation%20on%20Spark",
     config: `from synapse.ml.explainers import *
-    
+
 interpretation_df = (TabularSHAP()
     .setInputCols(features)
     .setOutputCol("shapValues")
@@ -58,7 +58,7 @@ interpretation_df = (TabularSHAP()
     label: "LightGBM",
     further: "docs/features/lightgbm/about",
     config: `from synapse.ml.lightgbm import *
-    
+
 quantile_df = (LightGBMRegressor()
     .setApplication('quantile')
     .setAlpha(0.3)

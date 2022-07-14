@@ -90,7 +90,7 @@ def extract_location_fields(df):
         col("output.response.results").getItem(0).getField("position").getField("lat").alias("Latitude"),
         col("output.response.results").getItem(0).getField("position").getField("lon").alias("Longitude")
     ).drop("output")
-   
+
 
 # Azure Maps geocoder to enhance the dataframe with location data
 geocoder = (AddressGeocoder()
@@ -108,7 +108,7 @@ display(geocoded_addresses)
 
 Now that we have geocoded the addresses, we can now use the `CheckPointInPolygon` function to check if a property is in a flood zone or not.
 
-### Setup Check Point In Polygon 
+### Setup Check Point In Polygon
 
 
 ```python

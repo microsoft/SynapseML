@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.io.powerbi
 
 import com.microsoft.azure.synapse.ml.io.http.{CustomOutputParser, HTTPResponseData, SimpleHTTPTransformer}
-import com.microsoft.azure.synapse.ml.stages.{
-  DynamicMiniBatchTransformer, FixedMiniBatchTransformer, PartitionConsolidator, TimeIntervalMiniBatchTransformer}
+import com.microsoft.azure.synapse.ml.stages.{DynamicMiniBatchTransformer, FixedMiniBatchTransformer,
+  PartitionConsolidator, TimeIntervalMiniBatchTransformer}
 import org.apache.http.client.HttpResponseException
 import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.sql.functions.{col, struct}

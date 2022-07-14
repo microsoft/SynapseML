@@ -125,7 +125,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   def getEpsilon: Double = $(epsilon)
   def setEpsilon(value: Double): this.type = set(epsilon, value)
 
-  def setParallelismForParamListFit(value: Int): this.type = set(parallelism, value)
+  def setParallelism(value: Int): this.type = set(parallelism, value)
 
   // Used in the base class to remove unneeded columns from the dataframe.
   protected override def getAdditionalColumns: Seq[String] =

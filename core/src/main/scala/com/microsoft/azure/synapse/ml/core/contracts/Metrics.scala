@@ -11,7 +11,7 @@ object ConvenienceTypes {
     type UniqueName = String
     type MetricTable = Map[UniqueName, Seq[Metric]]
 }
-import ConvenienceTypes._
+import com.microsoft.azure.synapse.ml.core.contracts.ConvenienceTypes._
 
 // One option
 case class TypedMetric[T](name: UniqueName, value: T) extends Metric

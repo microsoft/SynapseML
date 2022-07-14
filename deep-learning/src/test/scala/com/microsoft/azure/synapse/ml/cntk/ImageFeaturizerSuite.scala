@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cntk
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.downloader.{ModelDownloader, ModelSchema}
@@ -11,7 +12,6 @@ import com.microsoft.azure.synapse.ml.image.ImageTestUtils
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
 import com.microsoft.azure.synapse.ml.io.split1.FileReaderUtils
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable

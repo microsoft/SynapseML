@@ -8,15 +8,15 @@ import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.OsUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-
-import java.io.{File, FileInputStream}
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.io.IOUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.source.image.PatchedImageFileFormat
-import org.apache.spark.sql.functions.{col, to_json, udf}
+import org.apache.spark.sql.functions.{col, to_json}
 import org.apache.spark.sql.types.StringType
+
+import java.io.{File, FileInputStream}
 
 class ImageReaderSuite extends TestBase with FileReaderUtils {
 

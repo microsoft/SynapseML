@@ -4,9 +4,9 @@
 from synapse.ml.vw._VowpalWabbitClassifier import _VowpalWabbitClassifier
 from pyspark.ml.common import inherit_doc
 
+
 @inherit_doc
 class VowpalWabbitClassifier(_VowpalWabbitClassifier):
-
     def setInitialModel(self, model):
         """
         Initialize the estimator with a previously trained model.

@@ -5,10 +5,11 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.sql.Dataset
+import com.microsoft.azure.synapse.ml.param.PipelineStageParam
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
+import org.apache.spark.ml.param.{ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
 object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]

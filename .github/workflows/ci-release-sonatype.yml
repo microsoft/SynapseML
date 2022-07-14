@@ -48,13 +48,13 @@ jobs:
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
       uses: Azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
     - name: Get Secrets from KeyVault
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
       uses: Azure/get-keyvault-secrets@v1
       with:
         keyvault: "mmlspark-keys"
-        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw,pypi-api-token'  # comma separated list of secret keys that need to be fetched from the Key Vault 
+        secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw,pypi-api-token'  # comma separated list of secret keys that need to be fetched from the Key Vault
       id: GetKeyVaultSecrets
     - name: Setup Python
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')

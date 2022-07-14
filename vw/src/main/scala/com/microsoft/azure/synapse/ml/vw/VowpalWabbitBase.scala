@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUtils, ParamsStringBuilder, StopWatch}
+import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.TaskContext
 import org.apache.spark.internal._
 import org.apache.spark.ml.ComplexParamsWritable
@@ -391,7 +392,7 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
-    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
+    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 

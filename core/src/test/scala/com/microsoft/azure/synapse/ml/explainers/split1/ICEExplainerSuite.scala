@@ -3,16 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.explainers.split1
 
-import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions._
-import org.apache.spark.ml.classification.LogisticRegression
 import com.microsoft.azure.synapse.ml.explainers.{ICECategoricalFeature, ICENumericFeature, ICETransformer}
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Row}
+
 import scala.jdk.CollectionConverters._
 
 

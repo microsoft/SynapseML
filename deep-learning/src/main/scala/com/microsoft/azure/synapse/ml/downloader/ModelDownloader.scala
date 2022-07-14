@@ -4,10 +4,6 @@
 package com.microsoft.azure.synapse.ml.downloader
 
 import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
-
-import java.io._
-import java.net.{URI, URL}
-import java.util
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.{Configuration => HadoopConf}
 import org.apache.hadoop.fs.{FileSystem, LocatedFileStatus, Path}
@@ -16,6 +12,9 @@ import org.apache.log4j.LogManager
 import org.apache.spark.sql.SparkSession
 import spray.json._
 
+import java.io._
+import java.net.{URI, URL}
+import java.util
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 

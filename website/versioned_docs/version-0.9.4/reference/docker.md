@@ -290,4 +290,3 @@ documentation [online](https://docs.docker.com/).
 [Spark ports]: https://spark.apache.org/docs/latest/security.html#configuring-ports-for-network-security
 
 [Docker settings]: https://docs.docker.com/docker-for-windows/#docker-settings
-

@@ -10,7 +10,6 @@ Original file: https://github.com/apache/spark/core/src/main/scala/org/apache/sp
 
 import java.io.Serializable
 import java.util.{PriorityQueue => JPriorityQueue}
-
 import scala.collection.generic.Growable
 
 /**

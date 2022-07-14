@@ -4,12 +4,12 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{DataType, StringType}
@@ -37,7 +37,7 @@ trait HasPages extends HasServiceParams {
   val pages = new ServiceParam[String](this, "pages", "The page selection only leveraged for" +
     " multi-page PDF and TIFF documents. Accepted input include single pages (e.g.'1, 2' -> pages 1 and 2 will be " +
     "processed), finite (e.g. '2-5' -> pages 2 to 5 will be processed) and open-ended ranges (e.g. '5-' -> all the" +
-    " pages from page 5 will be processed & e.g. '-10' -> pages 1 to 10 will be processed). All of these can be mixed" +
+    " pages from page 5 will be processed; e.g. '-10' -> pages 1 to 10 will be processed). All of these can be mixed" +
     " together and ranges are allowed to overlap (eg. '-5, 1, 3, 5-10' - pages 1 to 10 will be processed). The" +
     " service will accept the request if it can process at least one page of the document (e.g. using '5-100' on a " +
     "5 page document is a valid input where page 5 will be processed). If no page range is provided, the entire" +
@@ -340,4 +340,3 @@ class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(ui
 
   override protected def responseDataType: DataType = AnalyzeResponse.schema
 }
-

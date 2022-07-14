@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.vw.featurizer
 
 import org.apache.spark.sql.Row
-import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable
 

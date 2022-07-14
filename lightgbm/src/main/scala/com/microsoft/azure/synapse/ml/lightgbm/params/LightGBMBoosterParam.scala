@@ -5,16 +5,20 @@ package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
+import com.microsoft.azure.synapse.ml.param.WrappableParam
 import org.apache.spark.ml.param.Params
 
 /** Custom ComplexParam for LightGBMBooster, to make it settable on the LightGBM models.
   */
 class LightGBMBoosterParam(parent: Params, name: String, doc: String,
-                        isValid: LightGBMBooster => Boolean)
+                           isValid: LightGBMBooster => Boolean)
 
-  extends ComplexParam[LightGBMBooster](parent, name, doc, isValid) {
+  extends ComplexParam[LightGBMBooster](parent, name, doc, isValid)
+    with WrappableParam[LightGBMBooster] {
 
   def this(parent: Params, name: String, doc: String) =
-    this(parent, name, doc, {_ => true})
+    this(parent, name, doc, { _ => true })
+
+  override def dotnetType: String = "LightGBMBooster"
 
 }

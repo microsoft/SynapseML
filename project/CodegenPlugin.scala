@@ -8,7 +8,7 @@ import spray.json._
 import BuildUtils._
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
-  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
+  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
 }
 
 import CodegenConfigProtocol._
@@ -20,6 +20,7 @@ case class CodegenConfig(name: String,
                          version: String,
                          pythonizedVersion: String,
                          rVersion: String,
+                         dotnetVersion: String,
                          packageName: String)
 
 //noinspection ScalaStyle
@@ -34,11 +35,16 @@ object CodegenPlugin extends AutoPlugin {
 
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
+  val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
+  val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
+  val TestDotnetTag = Tags.Tag("testDotnet")
 
   object autoImport {
     val rVersion = settingKey[String]("R version")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
+
+    val dotnetVersion = settingKey[String]("Dotnet version")
 
     val genPackageNamespace = settingKey[String]("genPackageNamespace")
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
@@ -65,15 +71,23 @@ object CodegenPlugin extends AutoPlugin {
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
-    val mergePyCodeDir = SettingKey[File]("mergePyCodeDir")
+    val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
+    val dotnetCodeGen = TaskKey[Unit]("dotnetCodegen", "Generate dotnet code")
+    val packageDotnet = TaskKey[Unit]("packageDotnet", "Generate dotnet nuget package")
+    val publishDotnet = TaskKey[Unit]("publishDotnet", "publish dotnet nuget package")
+    val testDotnet = TaskKey[Unit]("testDotnet", "test dotnet nuget package")
+
+    val mergeCodeDir = SettingKey[File]("mergeCodeDir")
     val mergePyCode = TaskKey[Unit]("mergePyCode", "copy python code to a destination")
+    val mergeDotnetCode = TaskKey[Unit]("mergeDotnetCode", "copy dotnet code to a destination")
   }
 
   import autoImport._
 
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
-      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1))
+      Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(DotnetTestGenTag, 1),
+      Tags.limit(DotnetCodeGenTag, 1), Tags.limit(TestDotnetTag, 1))
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
@@ -85,7 +99,7 @@ object CodegenPlugin extends AutoPlugin {
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (join(rSrcDir,"tests").exists()){
+    if (join(rSrcDir, "tests").exists()) {
       rCmd(activateCondaEnv,
         Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
     }
@@ -109,6 +123,38 @@ object CodegenPlugin extends AutoPlugin {
     }
   } tag (PyTestGenTag)
 
+  def dotnetTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.DotnetTestGen $arg").value
+    }
+  } tag (DotnetTestGenTag)
+
+  def dotnetCodeGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = codegenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.DotnetCodegen $arg").value
+    }
+  } tag (DotnetCodeGenTag)
+
+  def testDotnetImpl: Def.Initialize[Task[Unit]] = Def.task {
+    dotnetTestGen.value
+    val mainTargetDir = join(baseDirectory.value.getParent, "target")
+    runCmd(
+      Seq("dotnet",
+        "test",
+        s"${join(codegenDir.value, "test", "dotnet", "SynapseMLtest", "TestProjectSetup.csproj")}",
+        "--logger",
+        s""""trx;LogFileName=${join(mainTargetDir, s"dotnet_test_results_${name.value}.trx")}""""
+      ),
+      new File(codegenDir.value, "test/dotnet/")
+    )
+  } tag (TestDotnetTag)
+
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := true,
     codegenArgs := {
@@ -120,6 +166,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
+        dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -132,6 +179,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
+        dotnetVersion.value,
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -162,6 +210,14 @@ object CodegenPlugin extends AutoPlugin {
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
+      } else {
+        version.value
+      }
+    },
+    dotnetVersion := {
+      if (version.value.contains("-")) {
+        val versionArray = version.value.split("-".toCharArray)
+        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
       } else {
         version.value
       }
@@ -213,7 +269,12 @@ object CodegenPlugin extends AutoPlugin {
     },
     mergePyCode := {
       val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
-      val destDir = join(mergePyCodeDir.value, "src", "python", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "python", genPackageNamespace.value)
+      FileUtils.copyDirectory(srcDir, destDir)
+    },
+    mergeDotnetCode := {
+      val srcDir = join(codegenDir.value, "src", "dotnet", genPackageNamespace.value)
+      val destDir = join(mergeCodeDir.value, "src", "dotnet", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
     testPython := {
@@ -232,10 +293,30 @@ object CodegenPlugin extends AutoPlugin {
         new File(codegenDir.value, "test/python/")
       )
     },
+    dotnetCodeGen := dotnetCodeGenImpl.value,
+    dotnetTestGen := dotnetTestGenImpl.value,
+    testDotnet := testDotnetImpl.value,
+    packageDotnet := {
+      dotnetCodeGen.value
+      val destDotnetDir = join(targetDir.value, "classes", genPackageNamespace.value)
+      val dotnetSrcDir = join(codegenDir.value, "src", "dotnet")
+      if (destDotnetDir.exists()) FileUtils.forceDelete(destDotnetDir)
+      val sourceDotnetDir = join(dotnetSrcDir.getAbsolutePath, genPackageNamespace.value)
+      FileUtils.copyDirectory(sourceDotnetDir, destDotnetDir)
+      val packageDir = join(codegenDir.value, "package", "dotnet").absolutePath
+      packDotnetAssemblyCmd(packageDir, join(dotnetSrcDir, "synapse", "ml"))
+    },
+    publishDotnet := {
+      packageDotnet.value
+      val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
+      val packagePath = join(codegenDir.value, "package", "dotnet",
+        s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
+      publishDotnetAssemblyCmd(packagePath, mergeCodeDir.value)
+    },
     targetDir := {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
-    mergePyCodeDir := {
+    mergeCodeDir := {
       join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
     },
     codegenDir := {

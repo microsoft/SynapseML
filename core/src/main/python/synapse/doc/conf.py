@@ -10,12 +10,14 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named "sphinx.ext.*") or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc",
-              "sphinx.ext.intersphinx",
-              "sphinx.ext.mathjax",
-              "sphinx.ext.ifconfig",
-              "sphinx.ext.viewcode",
-              "sphinx.ext.napoleon"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.ifconfig",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ["_templates"]
@@ -27,9 +29,9 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project   = "Microsoft Machine Learning for Apache Spark"
+project = "Microsoft Machine Learning for Apache Spark"
 copyright = "2017, Microsoft"
-author    = "Microsoft"
+author = "Microsoft"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -82,9 +84,7 @@ htmlhelp_basename = "SynapseMLdoc"
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, "synapseml", "SynapseML Documentation", [author], 1)
-]
+man_pages = [(master_doc, "synapseml", "SynapseML Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -93,8 +93,15 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, "SynapseML", "SynapseML Documentation", author,
-     "SynapseML", "One line description of project.", "Miscellaneous"),
+    (
+        master_doc,
+        "SynapseML",
+        "SynapseML Documentation",
+        author,
+        "SynapseML",
+        "One line description of project.",
+        "Miscellaneous",
+    ),
 ]
 
 
@@ -104,15 +111,18 @@ intersphinx_mapping = {"https://docs.python.org/": None}
 
 # -- Mock out pandas+numpy that can't be found ----------------------------
 import sys
+
 try:
-    from unittest.mock import MagicMock # python >= 3.3
+    from unittest.mock import MagicMock  # python >= 3.3
 except ImportError:
     from mock import Mock as MagicMock  # older
+
 
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
         return MagicMock()
+
 
 MOCK_MODULES = ["numpy", "pandas"]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

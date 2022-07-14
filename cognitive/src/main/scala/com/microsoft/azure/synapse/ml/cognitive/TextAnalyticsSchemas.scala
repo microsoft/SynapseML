@@ -5,8 +5,6 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.RootJsonFormat
-import org.apache.spark.ml.param.Params
-import org.apache.spark.ml.param.ParamValidators
 
 // General Text Analytics Schemas
 

@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.core.test.benchmarks
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.sql.Row
 import org.scalatest.Assertion
 

@@ -15,8 +15,9 @@ import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils.bufferedAwait
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL, HeaderValues}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize}
-import org.apache.spark.ml.param.{ParamMap, ServiceParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder

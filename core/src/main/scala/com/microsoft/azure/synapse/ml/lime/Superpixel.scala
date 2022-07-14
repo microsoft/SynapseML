@@ -5,13 +5,6 @@ package com.microsoft.azure.synapse.ml.lime
 
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-
-import java.awt.FlowLayout
-import java.awt.image.BufferedImage
-import java.io.File
-import java.util
-import javax.imageio.ImageIO
-import javax.swing.{ImageIcon, JFrame, JLabel}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SpLogging}
 import org.apache.spark.ml.image.ImageSchema
@@ -20,6 +13,12 @@ import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.{BinaryType, DataType}
 
+import java.awt.FlowLayout
+import java.awt.image.BufferedImage
+import java.io.File
+import java.util
+import javax.imageio.ImageIO
+import javax.swing.{ImageIcon, JFrame, JLabel}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 case class SuperpixelData(clusters: Seq[Seq[(Int, Int)]])

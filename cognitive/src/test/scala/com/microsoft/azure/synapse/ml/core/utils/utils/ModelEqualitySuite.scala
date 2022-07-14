@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.core.utils.utils
 
 import com.microsoft.azure.synapse.ml.cognitive.TextSentiment
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities.join
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.ModelEquality
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities.join
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 
 class ModelEqualitySuite extends TestBase {

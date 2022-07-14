@@ -5,12 +5,12 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.ml.regression.RegressionModel
 
 object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
 

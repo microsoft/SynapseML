@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import AzureSearchProtocol._
-import RESTHelpers._
+import com.microsoft.azure.synapse.ml.cognitive.AzureSearchProtocol._
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
 object AzureSearchAPIConstants {
   val DefaultAPIVersion = "2019-05-06"
 }
-import AzureSearchAPIConstants._
+import com.microsoft.azure.synapse.ml.cognitive.AzureSearchAPIConstants._
 
 trait IndexParser {
   def parseIndexJson(str: String): IndexInfo = {

@@ -8,10 +8,6 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-
-import java.awt.Color
-import java.awt.color.ColorSpace
-import java.awt.image.BufferedImage
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -22,6 +18,9 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
+import java.awt.Color
+import java.awt.color.ColorSpace
+import java.awt.image.BufferedImage
 import scala.math.round
 
 object UnrollImage extends DefaultParamsReadable[UnrollImage] {

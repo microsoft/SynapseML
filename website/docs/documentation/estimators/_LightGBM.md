@@ -159,8 +159,3 @@ val lgbmRegressor = (new LightGBMRegressor()
 py="synapse.ml.lightgbm.html#module-synapse.ml.lightgbm.LightGBMRegressor"
 scala="com/microsoft/azure/synapse/ml/lightgbm/LightGBMRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/lightgbm/src/main/scala/com/microsoft/azure/synapse/ml/lightgbm/LightGBMRegressor.scala" />
-
-
-
-
-
