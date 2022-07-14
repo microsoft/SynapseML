@@ -18,7 +18,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
 
   import spark.implicits._
 
-  val lime: ImageLIME = LIME.image
+  lazy val lime: ImageLIME = LIME.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setSamplingFraction(0.7)

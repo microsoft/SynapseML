@@ -16,7 +16,7 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
 
   import spark.implicits._
 
-  val shap: ImageSHAP = KernelSHAP.image
+  lazy val shap: ImageSHAP = KernelSHAP.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setTargetClasses(Array(172))

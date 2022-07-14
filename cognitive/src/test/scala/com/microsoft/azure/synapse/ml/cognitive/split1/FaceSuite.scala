@@ -266,6 +266,14 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     assert(caught.getMessage.contains("faceIds"))
   }
 
+  // Utility entrypoint, remove ignore to clean up manually
+  ignore("Clean up all personGroups") {
+    PersonGroup.list().foreach { pgi =>
+      PersonGroup.delete(pgi.personGroupId)
+      println(s"deleted group $pgi")
+    }
+  }
+
   override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
 
   override def reader: MLReadable[_] = IdentifyFaces
