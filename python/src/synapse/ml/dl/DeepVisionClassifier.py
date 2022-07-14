@@ -5,14 +5,15 @@ import sys
 
 import torchvision.transforms as transforms
 from horovod.spark.common.backend import SparkBackend
-from PIL import Image
-from pyspark import keyword_only
-from pyspark.context import SparkContext
-from pyspark.ml.param.shared import Param, Params
-from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
-from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from horovod.spark.lightning import TorchEstimator
+from PIL import Image
+from pyspark.context import SparkContext
+from pyspark.ml import Predictor
+from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
+from synapse.ml.dl.DeepVisionModel import DeepVisionModel
+from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
+from synapse.ml.dl.utils import keywords_catch
 
 _HOROVOD_AVAILABLE = _module_available("horovod")
 if _HOROVOD_AVAILABLE:
@@ -27,7 +28,7 @@ else:
     raise ModuleNotFoundError("module not found: horovod")
 
 
-class DeepVisionClassifier(TorchEstimator):
+class DeepVisionClassifier(TorchEstimator, Predictor):
 
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
@@ -65,7 +66,7 @@ class DeepVisionClassifier(TorchEstimator):
         "A composition of transforms used to transform and augnment the input image, should be of type torchvision.transforms.Compose",
     )
 
-    @keyword_only
+    @keywords_catch
     def __init__(
         self,
         backbone=None,
@@ -75,34 +76,36 @@ class DeepVisionClassifier(TorchEstimator):
         loss_name="cross_entropy",
         dropout_aux=0.7,
         transform_fn=None,
+        # Classifier args
+        labelCol="label",
+        featuresCol="features",
+        predictionCol="prediction",
         # TorchEstimator args
         num_proc=None,
         backend=None,
         store=None,
-        metrics=[],
+        metrics=None,
         loss_weights=None,
         sample_weight_col=None,
         gradient_compression=None,
-        feature_cols=["image"],
         input_shapes=None,
         validation=None,
-        label_cols=["label"],
-        callbacks=[],
-        batch_size=32,
+        callbacks=None,
+        batch_size=None,
         val_batch_size=None,
-        epochs=1,
+        epochs=None,
         verbose=1,
         random_seed=None,
         shuffle_buffer_size=None,
-        partitions_per_process=10,
+        partitions_per_process=None,
         run_id=None,
         train_minibatch_fn=None,
         train_steps_per_epoch=None,
         validation_steps_per_epoch=None,
         transformation_fn=None,
-        train_reader_num_workers=2,
+        train_reader_num_workers=None,
         trainer_args=None,
-        val_reader_num_workers=2,
+        val_reader_num_workers=None,
         reader_pool_type=None,
         label_shapes=None,
         inmemory_cache_all=False,
@@ -119,50 +122,7 @@ class DeepVisionClassifier(TorchEstimator):
         use_gpu=True,
         mp_start_method=None,
     ):
-        super(DeepVisionClassifier, self).__init__(
-            num_proc=num_proc,
-            backend=backend,
-            store=store,
-            metrics=metrics,
-            loss_weights=loss_weights,
-            sample_weight_col=sample_weight_col,
-            gradient_compression=gradient_compression,
-            feature_cols=feature_cols,
-            input_shapes=input_shapes,
-            validation=validation,
-            label_cols=label_cols,
-            callbacks=callbacks,
-            batch_size=batch_size,
-            val_batch_size=val_batch_size,
-            epochs=epochs,
-            verbose=verbose,
-            random_seed=random_seed,
-            shuffle_buffer_size=shuffle_buffer_size,
-            partitions_per_process=partitions_per_process,
-            run_id=run_id,
-            train_minibatch_fn=train_minibatch_fn,
-            train_steps_per_epoch=train_steps_per_epoch,
-            validation_steps_per_epoch=validation_steps_per_epoch,
-            transformation_fn=transformation_fn,
-            train_reader_num_workers=train_reader_num_workers,
-            trainer_args=trainer_args,
-            val_reader_num_workers=val_reader_num_workers,
-            reader_pool_type=reader_pool_type,
-            label_shapes=label_shapes,
-            inmemory_cache_all=inmemory_cache_all,
-            num_gpus=num_gpus,
-            logger=logger,
-            log_every_n_steps=log_every_n_steps,
-            data_module=data_module,
-            loader_num_epochs=loader_num_epochs,
-            terminate_on_nan=terminate_on_nan,
-            profiler=profiler,
-            debug_data_loader=debug_data_loader,
-            train_async_data_loader_queue_size=train_async_data_loader_queue_size,
-            val_async_data_loader_queue_size=val_async_data_loader_queue_size,
-            use_gpu=use_gpu,
-            mp_start_method=mp_start_method,
-        )
+        super(DeepVisionClassifier, self).__init__()
 
         self._setDefault(
             backbone=None,
@@ -172,20 +132,19 @@ class DeepVisionClassifier(TorchEstimator):
             loss_name="cross_entropy",
             dropout_aux=0.7,
             transform_fn=None,
-            feature_cols=["image"],
+            feature_cols=["features"],
             label_cols=["label"],
+            labelCol="label",
+            featuresCol="features",
+            predictionCol="prediction",
         )
 
-        self._set(backbone=backbone)
-        self._set(additional_layers_to_train=additional_layers_to_train)
-        self._set(num_classes=num_classes)
-        self._set(optimizer_name=optimizer_name)
-        self._set(loss_name=loss_name)
-        self._set(dropout_aux=dropout_aux)
-        self._set(transform_fn=transform_fn)
+        kwargs = self._kwargs
+        self._set(**kwargs)
 
         self._update_input_shapes()
         self._update_transformation_fn()
+        self._update_cols()
 
         model = LitDeepVisionModel(
             backbone=self.getBackbone(),
@@ -246,11 +205,12 @@ class DeepVisionClassifier(TorchEstimator):
         if self.getInputShapes() is None:
             if self.getBackbone().startswith("inception"):
                 self.setInputShapes([[-1, 3, 299, 299]])
-            ## Check if this is needed
-            elif self.getBackbone() == "regnet_y_32gf":
-                self.setInputShapes([[-1, 3, 384, 384]])
             else:
                 self.setInputShapes([[-1, 3, 224, 224]])
+
+    def _update_cols(self):
+        self.setFeatureCols([self.getFeaturesCol()])
+        self.setLabelCols([self.getLabelCol()])
 
     def _fit(self, dataset):
         return super()._fit(dataset)
@@ -318,3 +278,18 @@ class DeepVisionClassifier(TorchEstimator):
 
     def get_model_class(self):
         return DeepVisionModel
+
+    def _get_model_kwargs(self, model, history, optimizer, run_id, metadata):
+        return dict(
+            history=history,
+            model=model,
+            optimizer=optimizer,
+            input_shapes=self.getInputShapes(),
+            run_id=run_id,
+            _metadata=metadata,
+            loss=self.getLoss(),
+            loss_constructors=self.getLossConstructors(),
+            labelCol=self.getLabelCol(),
+            featuresCol=self.getFeaturesCol(),
+            predictionCol=self.getPredictionCol(),
+        )

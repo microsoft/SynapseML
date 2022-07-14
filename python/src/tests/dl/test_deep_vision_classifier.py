@@ -75,17 +75,11 @@ class CallbackBackend(object):
 
 
 def test_mobilenet_v2(
-    transform_row_func,
     get_data_path,
     read_image_and_transform_udf,
 ):
     spark = SparkSession.builder.master("local[*]").getOrCreate()
 
-    # backend = SparkBackend(
-    #     stdout=sys.stdout,
-    #     stderr=sys.stderr,
-    #     prefix_output_with_timestamp=True,
-    # )
     ctx = CallbackBackend()
 
     epochs = 5
@@ -100,23 +94,13 @@ def test_mobilenet_v2(
 
         deep_vision_classifier = DeepVisionClassifier(
             backbone="mobilenet_v2",
-            num_layers_to_fine_tune=0,
             store=store,
             backend=ctx,
             callbacks=callbacks,
-            input_shapes=[[-1, 3, 224, 224]],
             num_classes=17,
-            feature_cols=["image"],
-            label_cols=["label"],
-            optimizer_name="adam",
-            loss_name="cross_entropy",
             batch_size=16,
             epochs=epochs,
             validation=0.1,
-            verbose=1,
-            profiler=None,
-            partitions_per_process=1,
-            transformation_fn=transform_row_func,
         )
 
         train_df, test_df = generate_data(spark, train_folder, test_folder)

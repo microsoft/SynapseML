@@ -10,9 +10,6 @@ from os.path import join
 import numpy as np
 import pytest
 import torchvision.transforms as transforms
-from PIL import Image
-from pyspark.ml.linalg import DenseVector, VectorUDT
-from pyspark.sql.functions import udf
 
 IS_WINDOWS = os.name == "nt"
 delimiter = "\\" if IS_WINDOWS else "/"
@@ -82,24 +79,3 @@ def transform():
         ]
     )
     return transform
-
-
-@pytest.fixture(scope="module")
-def transform_row_func(transform):
-    def _transform_row(row):
-        image = Image.open(row["image"]).convert("RGB")
-        image = transform(image).numpy()
-        label = row["label"]
-        return {"image": image, "label": label}
-
-    return _transform_row
-
-
-@pytest.fixture(scope="module")
-def read_image_and_transform_udf(transform):
-    def readImageAndTransform(path):
-        image = Image.open(path).convert("RGB")
-        image = DenseVector(transform(image).numpy().reshape(-1))
-        return image
-
-    return udf(lambda x: readImageAndTransform(x), VectorUDT())

@@ -1,18 +1,19 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-from horovod.spark.lightning import TorchModel
-from pyspark.ml.param.shared import Param, Params
-from pyspark import keyword_only
-import torchvision.transforms as transforms
-from PIL import Image
-import torch
-from pyspark.sql.functions import udf, col
-from pyspark.sql.types import DoubleType
 import numpy as np
+import torch
+import torchvision.transforms as transforms
+from horovod.spark.lightning import TorchModel
+from PIL import Image
+from pyspark.ml.base import _PredictorParams
+from pyspark.ml.param.shared import Param, Params
+from pyspark.sql.functions import col, udf
+from pyspark.sql.types import DoubleType
+from synapse.ml.dl.utils import keywords_catch
 
 
-class DeepVisionModel(TorchModel):
+class DeepVisionModel(TorchModel, _PredictorParams):
 
     transform_fn = Param(
         Params._dummy(),
@@ -20,14 +21,12 @@ class DeepVisionModel(TorchModel):
         "A composition of transforms used to transform and augnment the input image, should be of type torchvision.transforms.Compose",
     )
 
-    @keyword_only
+    @keywords_catch
     def __init__(
         self,
         history=None,
         model=None,
-        feature_columns=None,
         input_shapes=None,
-        label_columns=None,
         optimizer=None,
         run_id=None,
         _metadata=None,
@@ -35,29 +34,29 @@ class DeepVisionModel(TorchModel):
         loss_constructors=None,
         # diff from horovod
         transform_fn=None,
+        labelCol="label",
+        featuresCol="features",
+        predictionCol="prediction",
     ):
-        # TODO: make sure the default values work
-        super(DeepVisionModel, self).__init__(
-            history=history,
-            model=model,
-            feature_columns=feature_columns,
-            input_shapes=input_shapes,
-            label_columns=label_columns,
-            optimizer=optimizer,
-            run_id=run_id,
-            _metadata=_metadata,
-            loss=loss,
-            loss_constructors=loss_constructors,
+        super(DeepVisionModel, self).__init__()
+
+        self._setDefault(
+            optimizer=None,
+            loss=None,
+            loss_constructors=None,
+            input_shapes=None,
+            transform_fn=None,
+            labelCol="label",
+            featuresCol="features",
+            predictionCol="prediction",
+            feature_columns=["features"],
+            label_columns=["label"],
         )
 
-        self._setDefault(optimizer=None,
-                         loss=None,
-                         loss_constructors=None,
-                         input_shapes=None,
-                         transform_fn=None)
-        if transform_fn is not None:
-            self._set(transform_fn=transform_fn)
+        kwargs = self._kwargs
+        self._set(**kwargs)
         self._update_transform_fn()
+        self._update_cols()
 
     def setTransformFn(self, value):
         return self._set(transform_fn=value)
@@ -84,6 +83,10 @@ class DeepVisionModel(TorchModel):
                 ]
             )
             self.setTransformFn(transform)
+
+    def _update_cols(self):
+        self.setFeatureColumns([self.getFeaturesCol()])
+        self.setLabelColoumns([self.getLabelCol()])
 
     # override this to open the image if it's a path
     def get_prediction_fn(self):
@@ -115,6 +118,24 @@ class DeepVisionModel(TorchModel):
         output_df = super()._transform(df)
         argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
         pred_df = output_df.withColumn(
-            "prediction", argmax(col(self.getOutputCols()[0]))
+            self.getPredictionCol(), argmax(col(self.getOutputCols()[0]))
         )
         return pred_df
+
+    def setLabelCol(self, value):
+        """
+        Sets the value of :py:attr:`labelCol`.
+        """
+        return self._set(labelCol=value)
+
+    def setFeaturesCol(self, value):
+        """
+        Sets the value of :py:attr:`featuresCol`.
+        """
+        return self._set(featuresCol=value)
+
+    def setPredictionCol(self, value):
+        """
+        Sets the value of :py:attr:`predictionCol`.
+        """
+        return self._set(predictionCol=value)
