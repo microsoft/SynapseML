@@ -91,7 +91,7 @@ class DeepVisionModel(TorchModel, _PredictorParams):
     # override this to open the image if it's a path
     def get_prediction_fn(self):
         input_shape = self.getInputShapes()[0]
-        feature_col = self.getFeatureColumns()[0]
+        feature_col = self.getFeaturesCol()
 
         def _create_predict_fn(transform):
             def predict_fn(model, row):

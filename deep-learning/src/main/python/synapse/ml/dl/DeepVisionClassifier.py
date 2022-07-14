@@ -143,8 +143,8 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
         self._set(**kwargs)
 
         self._update_input_shapes()
-        self._update_transformation_fn()
         self._update_cols()
+        self._update_transformation_fn()
 
         model = LitDeepVisionModel(
             backbone=self.getBackbone(),
@@ -270,8 +270,8 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
 
             self.setTransformationFn(
                 _create_transform_row(
-                    self.getFeatureCols()[0],
-                    self.getLabelCols()[0],
+                    self.getFeaturesCol(),
+                    self.getLabelCol(),
                     self.getTransformFn(),
                 )
             )
