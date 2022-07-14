@@ -1,7 +1,9 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import org.apache.spark.sql.{functions => F, types => T}
+import org.apache.commons.math3.special.Gamma
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.{Encoders, functions => F, types => T}
 
 class VerifyBanditEstimator extends Benchmarks  {
   lazy val moduleName = "vw"
@@ -49,5 +51,34 @@ class VerifyBanditEstimator extends Benchmarks  {
     //    ).toDF("key", "snips", "ips")
     //
     //    assertDFEq(actual, expected)
+  }
+  test ("Verify Bernstein") {
+    import spark.implicits._
+
+    val dataset = Seq(
+      (0.2, 1, 0.3, 1, "A", 1),
+      (0.2, 2, 0.1, 2, "A", 2),
+      (0.1, 2, 0.1, 2, "A", 3),
+      (0.2, 3, 0.4, 1, "C", 1),
+      (0.1, 3, 0.4, 1, "C", 2),
+      (0.4, 3, 0.4, 1, "C", 3),
+      (0.2, 3, 0.4, 1, "C", 4),
+    ).toDF("probLog", "reward", "probPred", "count", "key", "t")
+
+    spark.udf.register("bernstein",
+      F.udaf(new BanditEstimatorEmpiricalBernsteinCS(), Encoders.product[BanditEstimatorEmpiricalBernsteinCSInput]))
+
+    val w = Window.partitionBy($"key")
+      .orderBy($"t")
+      .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+
+    dataset.withColumn("bernstein",
+      F.expr("bernstein(probLog, reward, probPred, count)")
+       .over(w))
+      .show()
+
+//    Window.partitionBy($"product_id", $"ack")
+//      .orderBy($"date_time")
+//      .rowsBetween(Window.unboundedPreceding, Window.currentRow)
   }
 }

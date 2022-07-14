@@ -2,22 +2,101 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.commons.lang.time.DateUtils
 
 import reflect.runtime.universe.TypeTag
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
 import java.io.Serializable
+import java.util.{Calendar, Date}
 
 trait HasInputCol extends Params {
   val inputCol = new Param[String](this, "inputCol", "The name of the input column")
   def setInputCol(value: String): this.type = set(inputCol, value)
   def getInputCol: String = $(inputCol)
+}
+
+abstract class VowpalWabbitSynchronizationSchedule[T: Ordering] {
+  protected def getNextSyncValue(current: T): T
+
+  protected def getInitialSyncValue(): T
+
+  var nextSyncValue = getInitialSyncValue
+
+  protected def getRowValue(row: Row): T
+
+  def shouldTriggerAllReduce(row: Row): Boolean = {
+    val value = getRowValue(row)
+
+    if (Ordering[T].lt(value, nextSyncValue))
+      false
+    else {
+      nextSyncValue = getNextSyncValue(value)
+      true
+    }
+  }
+}
+
+/// WRONG!!! needs to be on a per partition basis
+// well date is global, but count based is not
+class VowpalWabbitSynchronizationScheduleTemporal (df: DataFrame,
+                                                   scheduleCol: String,
+                                                   calendarField: Integer,
+                                                   stepSize: Integer)
+  extends VowpalWabbitSynchronizationSchedule[java.util.Date] {
+
+  assert(stepSize > 0, "stepSize must be greater than zero")
+
+  val (minVal, maxVal) = {
+    val row = df.agg(F.min(F.col(scheduleCol)), F.max(F.col(scheduleCol))).head
+    row.getTimestamp(0)
+    (row.getTimestamp(0), row.getTimestamp(1))
+  }
+
+  val calendar = Calendar.getInstance
+
+  override protected def getNextSyncValue(current: java.util.Date) = {
+    val truncated = DateUtils.truncate(current, Calendar.DATE)
+
+    calendar.setTime(truncated)
+    calendar.add(calendarField, stepSize)
+
+    calendar.getTime
+    //    val nextTime = calendar.getTime
+    // Ordering[java.util.Date].max(nextTime, maxVal)
+  }
+
+  override protected def getInitialSyncValue(): Date = getNextSyncValue(minVal)
+
+  val scheduleColIdx = df.schema.fieldIndex(scheduleCol)
+  override protected def getRowValue(row: Row): Date = row.getTimestamp(scheduleColIdx)
+}
+
+class VowpalWabbitSynchronizationScheduleSplits (df: DataFrame,
+                                                 numSplits: Integer)
+  extends VowpalWabbitSynchronizationSchedule[Long] {
+
+  assert(numSplits > 0, "Number of splits must be greater than zero")
+
+  val stepSize = Math.ceil(df.count() / numSplits).toLong
+  var rowCount = 0
+
+  override protected def getNextSyncValue(current: Long) = current + stepSize
+    // Ordering[java.util.Date].max(nextTime, maxVal)
+
+  override protected def getInitialSyncValue(): Long = 0
+
+  override protected def getRowValue(row: Row): Long = {
+    val ret = rowCount
+    rowCount += 1
+    ret
+  }
 }
 
 class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabbitGenericModel]
@@ -36,12 +115,20 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
 
   protected def getInputColumns(): Seq[String] = Seq(getInputCol)
 
-  protected def trainRow(schema: StructType,
+  override protected def trainRow(schema: StructType,
                          inputRows: Iterator[Row],
                          ctx: TrainContext
                         ): Unit = {
 
     val featureIdx = schema.fieldIndex(getInputCol)
+
+    // Application time based
+    // (end - start) date
+    // step_size (e.g. 1-day)
+
+    // next-sync = start + step_size
+    // if row < next-sync --> end-pass
+    // if row >= next-sync --> train
 
     // learn from all rows
     for (row <- inputRows) {
