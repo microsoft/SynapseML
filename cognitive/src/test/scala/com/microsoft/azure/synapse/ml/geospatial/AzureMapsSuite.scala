@@ -117,6 +117,27 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
         .getField("country").as("country"))
   }
 
+  test("Usage with strange address responses"){
+    val df = Seq(
+      (45.32202, -75.83875),
+      (47.62039, -122.34928),
+      (45.37032, -75.70161),
+      (45.3702793, -75.7037331),
+      (45.28471, -75.73897),
+      (48.85607, 2.29833)
+    ).toDF("lat", "lon")
+
+    val geocoder = new ReverseAddressGeocoder()
+      .setSubscriptionKey(azureMapsKey)
+      .setLatitudeCol("lat")
+      .setLongitudeCol("lon")
+      .setOutputCol("output")
+
+    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df)
+
+    assert(geocoder.transform(batchedDF).where(col("output").isNull).count() == 0)
+  }
+
   test("Basic Batch Reverse Geocode Usage") {
     val batchedDF = batchReverseGeocode.transform(new FixedMiniBatchTransformer().setBatchSize(5)
       .transform(df.coalesce(1)))

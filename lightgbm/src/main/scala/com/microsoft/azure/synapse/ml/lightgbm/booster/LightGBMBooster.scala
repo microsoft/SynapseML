@@ -209,7 +209,8 @@ protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
   * @param modelStr Optional parameter with the string serialized representation of the learner
   */
 @SerialVersionUID(777L)
-class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val parameters: Option[String] = None,
+class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
+                      val parameters: Option[String] = None,
                       val modelStr: Option[String] = None) extends Serializable {
 
   /** Represents a LightGBM Booster learner
@@ -229,7 +230,6 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
 
   @transient
   lazy val boosterHandler: BoosterHandler = {
-    LightGBMUtils.initializeNativeLibrary()
     if (trainDataset.isEmpty && modelStr.isEmpty) {
       throw new IllegalArgumentException("One of training dataset or serialized model parameters must be specified")
     }

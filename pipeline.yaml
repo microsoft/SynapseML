@@ -62,6 +62,8 @@ jobs:
     - template: templates/kv.yml
     - bash: |
         set -e
+        sudo apt-get install doxygen
+        sudo apt-get install graphviz -y
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
