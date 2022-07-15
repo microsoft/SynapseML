@@ -77,10 +77,9 @@ object DatabricksUtilities {
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val GPUNotebooks: Seq[File] = FileUtilities.recursiveListFiles(
-    FileUtilities.join(
-      BuildInfo.baseDirectory.getParent, "notebooks", "deepLearning"
-    ).getCanonicalFile).filterNot(_.isDirectory)
+  val CPUNotebooks: Seq[File] = ParallelizableNotebooks.filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 
   val NonParallelizableNotebooks: Seq[File] = Nil
 
@@ -370,10 +369,10 @@ object DatabricksUtilities {
   }
 }
 
-abstract class DatabricksTestProcess extends TestBase {
+abstract class DatabricksTestHelper extends TestBase {
   import DatabricksUtilities._
 
-  def databricksTestProcess(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+  def databricksTestHelper(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
     val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
 
     println("Checking if cluster is active")

@@ -11,10 +11,10 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 
-class DatabricksTests extends DatabricksTestProcess {
+class DatabricksTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, PoolId, "[]")
-  val jobIdsToCancel: ListBuffer[Int] = databricksTestProcess(clusterId, Libraries, ParallelizableNotebooks)
+  val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(clusterId, Libraries, CPUNotebooks)
 
   println(s"Submitting nonparallelizable job...")
   NonParallelizableNotebooks.toIterator.foreach(notebook => {

@@ -10,13 +10,13 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 import java.io.File
 import scala.collection.mutable.ListBuffer
 
-class GPUTests extends DatabricksTestProcess {
+class GPUTests extends DatabricksTestHelper {
 
   val horovodInstallationScript: File = FileUtilities.join(
     BuildInfo.baseDirectory.getParent, "python", "horovod_installation.sh").getCanonicalFile
   uploadFileToDBFS(horovodInstallationScript, "/FileStore/horovod/horovod_installation.sh")
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, PoolId, GPUInitScripts)
-  val jobIdsToCancel: ListBuffer[Int] = databricksTestProcess(clusterId, GPULibraries, GPUNotebooks)
+  val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(clusterId, GPULibraries, GPUNotebooks)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(jobIdsToCancel, clusterId)
