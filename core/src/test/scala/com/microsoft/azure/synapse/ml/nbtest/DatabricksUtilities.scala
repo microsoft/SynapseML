@@ -62,7 +62,9 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   // TODO: install synapse.ml.dl wheel package here
-  val GPULibraries: String = "[]"
+  val GPULibraries: String = List(
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository))
+  ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
     Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation.sh"))
