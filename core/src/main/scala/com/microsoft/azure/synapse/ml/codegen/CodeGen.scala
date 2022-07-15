@@ -88,6 +88,7 @@ object CodeGen {
           |Suggests:
           |    testthat (>= 3.0.0)
           |Config/testthat/edition: 3
+          |Encoding: UTF-8
           |""".stripMargin)
 
     val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
