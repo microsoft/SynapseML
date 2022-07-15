@@ -142,15 +142,6 @@ object CodeGen {
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     val requireList = if(conf.name.contains("deep-learning")) {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-         |pyspark_require_list = [
-         |    'pyspark>=3.2.0;python_version>="{}"'.format(MINIMUM_SUPPORTED_PYTHON_VERSION)
-         |]
-         |spark_require_list = [
-         |    "numpy",
-         |    "petastorm>=0.11.0",
-         |    "pyarrow>=0.15.0",
-         |    "fsspec>=2021.07.0",
-         |]  ## TO BE VERIFY
          |dl_require_list = [
          |    "cmake",
          |    "torch>=1.11.0",
@@ -160,7 +151,7 @@ object CodeGen {
          |dl_extra_list = ["torchvision>=0.12.0", "horovod==0.25.0"]""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
-      s"""    install_requires=pyspark_require_list + spark_require_list + dl_require_list,
+      s"""    install_requires=dl_require_list,
          |    extras_require={"extras": dl_extra_list},
          |    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""
