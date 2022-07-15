@@ -6,16 +6,16 @@ import os
 import shutil
 import tempfile
 
+import pytest
 from horovod.spark.common.store import LocalStore
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 from pyspark.sql.types import DoubleType
 from pytorch_lightning.callbacks import ModelCheckpoint
+from synapse.ml.dl import *
 
 from .test_deep_vision_model import MyDummyCallback
-
-from synapse.ml.dl import *
 
 
 @contextlib.contextmanager
@@ -72,6 +72,7 @@ class CallbackBackend(object):
         return 1
 
 
+@pytest.mark.skip(reason="not testing this for now")
 def test_mobilenet_v2(get_data_path):
     spark = SparkSession.builder.master("local[*]").getOrCreate()
 
