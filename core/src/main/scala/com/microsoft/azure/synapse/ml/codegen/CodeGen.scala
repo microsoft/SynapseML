@@ -139,6 +139,30 @@ object CodeGen {
       conf.pySrcDir.mkdir()
     }
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
+    val requireList = if(conf.name.contains("deep-learning")) {
+      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
+         |pyspark_require_list = [
+         |    'pyspark>=3.2.0;python_version>="{}"'.format(MINIMUM_SUPPORTED_PYTHON_VERSION)
+         |]
+         |spark_require_list = [
+         |    "numpy",
+         |    "petastorm>=0.11.0",
+         |    "pyarrow>=0.15.0",
+         |    "fsspec>=2021.07.0",
+         |]  ## TO BE VERIFY
+         |dl_require_list = [
+         |    "cmake",
+         |    "torch>=1.11.0",
+         |    "pytorch_lightning>=1.5.0,<1.5.10",
+         |]
+         |
+         |dl_extra_list = ["torchvision>=0.12.0", "horovod==0.25.0"]""".stripMargin
+    } else ""
+    val extraRequirements = if (conf.name.contains("deep-learning")) {
+      s"""    install_requires=pyspark_require_list + spark_require_list + dl_require_list,
+         |    extras_require={"extras": dl_extra_list},
+         |    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
+    } else ""
     writeFile(join(conf.pySrcDir, "setup.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -148,6 +172,8 @@ object CodeGen {
          |from setuptools import setup, find_namespace_packages
          |import codecs
          |import os.path
+         |
+         |$requireList
          |
          |setup(
          |    name="${conf.name}",
@@ -171,6 +197,12 @@ object CodeGen {
          |    ],
          |    zip_safe=True,
          |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |    project_urls={
+         |        "Website": "https://microsoft.github.io/SynapseML/",
+         |        "Documentation": "https://mmlspark.blob.core.windows.net/docs/${conf.pythonizedVersion}/pyspark/index.html",
+         |        "Source Code": "https://github.com/Microsoft/SynapseML",
+         |    },
+         |$extraRequirements
          |)
          |
          |""".stripMargin)

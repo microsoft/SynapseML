@@ -96,7 +96,7 @@ def test_mobilenet_v2(get_data_path):
             batch_size=16,
             epochs=epochs,
             validation=0.1,
-            featuresCol="image"
+            featuresCol="image",
         )
 
         train_df, test_df = generate_data(spark, train_folder, test_folder)
