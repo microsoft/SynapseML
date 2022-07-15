@@ -26,3 +26,6 @@ dependencies:
     - mlflow
     - torchvision==0.12.0
     - horovod==0.25.0
+    - petastorm>=0.11.0
+    - pyarrow>=0.15.0
+    - fsspec>=2021.07.0
