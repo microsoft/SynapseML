@@ -122,6 +122,14 @@ jobs:
         scriptType: bash
         inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: AzureCLI@2
+      displayName: 'GPU tests'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.GPUTests"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
