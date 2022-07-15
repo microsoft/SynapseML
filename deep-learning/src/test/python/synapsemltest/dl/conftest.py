@@ -14,7 +14,8 @@ import torchvision.transforms as transforms
 IS_WINDOWS = os.name == "nt"
 delimiter = "\\" if IS_WINDOWS else "/"
 dataset_dir = (
-    delimiter.join([os.getcwd(), os.pardir, os.pardir, os.pardir, os.pardir]) + delimiter
+    delimiter.join([os.getcwd(), os.pardir, os.pardir, os.pardir, os.pardir])
+    + delimiter
 )
 
 
