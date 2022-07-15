@@ -134,6 +134,7 @@ object CodeGen {
   }
 
   //noinspection ScalaStyle
+  //scalastyle:off
   def generatePyPackageData(conf: CodegenConfig): Unit = {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
@@ -207,6 +208,7 @@ object CodeGen {
          |
          |""".stripMargin)
   }
+  //scalastyle:on
 
   def rGen(conf: CodegenConfig): Unit = {
     println(s"Generating R for ${conf.jarName}")
