@@ -2,6 +2,8 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import org.apache.commons.math3.special.Gamma
+import org.apache.spark.TaskContext
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Encoders, functions => F, types => T}
 
@@ -26,7 +28,6 @@ class VerifyBanditEstimator extends Benchmarks  {
       F.udaf(new BanditEstimatorCressieRead(), Encoders.product[BanditEstimatorCressieReadInput]))
     spark.udf.register("cressieReadInterval",
       F.udaf(new BanditEstimatorCressieReadInterval(false), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
-
     spark.udf.register("cressieReadIntervalEmpirical",
       F.udaf(new BanditEstimatorCressieReadInterval(true), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
 
@@ -80,5 +81,28 @@ class VerifyBanditEstimator extends Benchmarks  {
 //    Window.partitionBy($"product_id", $"ack")
 //      .orderBy($"date_time")
 //      .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+  }
+
+  test("Verify foo") {
+    import spark.implicits._
+
+    val dataset = Seq(
+      (0.2, 1, 0.3, 1, "A", 1),
+      (0.2, 2, 0.1, 2, "A", 2),
+      (0.1, 2, 0.1, 2, "A", 3),
+      (0.2, 3, 0.4, 1, "C", 1),
+      (0.1, 3, 0.4, 1, "C", 2),
+      (0.4, 3, 0.4, 1, "C", 3),
+      (0.2, 3, 0.4, 1, "C", 4),
+    ).toDF("probLog", "reward", "probPred", "count", "key", "t")
+
+    dataset.mapPartitions(it => {
+      println(s"${TaskContext.get.stageId()} - ${TaskContext.get.partitionId()}")
+      it
+    })(RowEncoder(dataset.schema))
+      .show()
+
+    // dataset.rdd.mapPartitions(it => it.size)
+    // dataset.select(F.lit(0)).show()
   }
 }

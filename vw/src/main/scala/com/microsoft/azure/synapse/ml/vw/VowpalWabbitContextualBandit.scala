@@ -196,9 +196,9 @@ class VowpalWabbitContextualBandit(override val uid: String)
     schema
   }
 
-  protected override def trainRow(schema: StructType,
-                                  inputRows: Iterator[Row],
-                                  ctx: TrainContext
+  protected override def trainFromRows(schema: StructType,
+                                       inputRows: Iterator[Row],
+                                       ctx: TrainContext
                                  ): Unit = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures

@@ -1,20 +1,22 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
+import com.microsoft.azure.synapse.ml.core.utils.ClusterUtil
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.commons.lang.time.DateUtils
+import org.apache.spark.TaskContext
 
 import reflect.runtime.universe.TypeTag
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
-import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
-import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.io.Serializable
-import java.util.{Calendar, Date}
 
 trait HasInputCol extends Params {
   val inputCol = new Param[String](this, "inputCol", "The name of the input column")
@@ -22,85 +24,8 @@ trait HasInputCol extends Params {
   def getInputCol: String = $(inputCol)
 }
 
-abstract class VowpalWabbitSynchronizationSchedule[T: Ordering] {
-  protected def getNextSyncValue(current: T): T
-
-  protected def getInitialSyncValue(): T
-
-  var nextSyncValue = getInitialSyncValue
-
-  protected def getRowValue(row: Row): T
-
-  def shouldTriggerAllReduce(row: Row): Boolean = {
-    val value = getRowValue(row)
-
-    if (Ordering[T].lt(value, nextSyncValue))
-      false
-    else {
-      nextSyncValue = getNextSyncValue(value)
-      true
-    }
-  }
-}
-
-/// WRONG!!! needs to be on a per partition basis
-// well date is global, but count based is not
-class VowpalWabbitSynchronizationScheduleTemporal (df: DataFrame,
-                                                   scheduleCol: String,
-                                                   calendarField: Integer,
-                                                   stepSize: Integer)
-  extends VowpalWabbitSynchronizationSchedule[java.util.Date] {
-
-  assert(stepSize > 0, "stepSize must be greater than zero")
-
-  val (minVal, maxVal) = {
-    val row = df.agg(F.min(F.col(scheduleCol)), F.max(F.col(scheduleCol))).head
-    row.getTimestamp(0)
-    (row.getTimestamp(0), row.getTimestamp(1))
-  }
-
-  val calendar = Calendar.getInstance
-
-  override protected def getNextSyncValue(current: java.util.Date) = {
-    val truncated = DateUtils.truncate(current, Calendar.DATE)
-
-    calendar.setTime(truncated)
-    calendar.add(calendarField, stepSize)
-
-    calendar.getTime
-    //    val nextTime = calendar.getTime
-    // Ordering[java.util.Date].max(nextTime, maxVal)
-  }
-
-  override protected def getInitialSyncValue(): Date = getNextSyncValue(minVal)
-
-  val scheduleColIdx = df.schema.fieldIndex(scheduleCol)
-  override protected def getRowValue(row: Row): Date = row.getTimestamp(scheduleColIdx)
-}
-
-class VowpalWabbitSynchronizationScheduleSplits (df: DataFrame,
-                                                 numSplits: Integer)
-  extends VowpalWabbitSynchronizationSchedule[Long] {
-
-  assert(numSplits > 0, "Number of splits must be greater than zero")
-
-  val stepSize = Math.ceil(df.count() / numSplits).toLong
-  var rowCount = 0
-
-  override protected def getNextSyncValue(current: Long) = current + stepSize
-    // Ordering[java.util.Date].max(nextTime, maxVal)
-
-  override protected def getInitialSyncValue(): Long = 0
-
-  override protected def getRowValue(row: Row): Long = {
-    val ret = rowCount
-    rowCount += 1
-    ret
-  }
-}
-
 class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabbitGenericModel]
-  with VowpalWabbitBase
+  with VowpalWabbitBaseLearner
   with HasInputCol
   with BasicLogging {
   logClass()
@@ -115,26 +40,22 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
 
   protected def getInputColumns(): Seq[String] = Seq(getInputCol)
 
-  override protected def trainRow(schema: StructType,
-                         inputRows: Iterator[Row],
-                         ctx: TrainContext
-                        ): Unit = {
+  override protected def trainFromRows(schema: StructType,
+                                       inputRows: Iterator[Row],
+                                       ctx: TrainContext): Unit = {
 
     val featureIdx = schema.fieldIndex(getInputCol)
-
-    // Application time based
-    // (end - start) date
-    // step_size (e.g. 1-day)
-
-    // next-sync = start + step_size
-    // if row < next-sync --> end-pass
-    // if row >= next-sync --> train
 
     // learn from all rows
     for (row <- inputRows) {
       // ingestion and learning is collapsed
       ctx.learnTime.measure {
         ctx.vw.learnFromString(row.getString(featureIdx))
+      }
+
+      // trigger inter-pass all reduce
+      if (ctx.synchronizationSchedule.shouldTriggerAllReduce(row)) {
+        ctx.vw.endPass()
       }
     }
   }
@@ -147,7 +68,7 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
 
   def transformSchema(schema: StructType): StructType = {
     // validate the input column is here
-    // TODO: is this the right way of doing it?
+    // TODO: is this the right way of doing it? (as in expecting an exception?)
     schema.fieldIndex(getInputCol)
 
     schema
@@ -160,6 +81,66 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
 
       trainInternal(dataset.toDF, model)
     })
+  }
+}
+
+class VowpalWabbitGenericProgressive(override val uid: String)
+  extends VowpalWabbitBaseProgressive
+    with HasInputCol
+    with BasicLogging {
+  logClass()
+  override protected lazy val pyInternalWrapper = true
+
+  def this() = this(Identifiable.randomUID("VowpalWabbitGenericProgressive"))
+
+  setDefault(inputCol -> "input")
+
+  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
+
+  override protected def getInputColumns(): Seq[String] = Seq(getInputCol)
+
+  private def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
+    val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
+
+    val args = buildCommandLineArguments(getCommandLineArgs.result, "")
+
+    val vw =
+      if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+      else new VowpalWabbitNative(args, localInitialModel.get)
+
+    StreamUtilities.using(vw) { block(_) }.get
+  }
+
+  // it's a bit annoying that we have to start/stop VW to understand the schema
+  lazy val (additionalOutputSchema, predictionFunc) = {
+    executeWithVowpalWabbit { vw => {
+      val schema = VowpalWabbitPrediction.getSchema(vw)
+      val func = VowpalWabbitPrediction.getPredictionFunc(vw)
+
+      (schema, func)
+    } }
+  }
+
+  override def getAdditionalOutputSchema(): StructType = additionalOutputSchema
+
+  var featureIdx: Int = 0
+
+  override def trainFromRow(vw: VowpalWabbitNative, row: Row): Seq[Any] = {
+    // fetch data
+    val features = row.getString(featureIdx)
+
+    // learn
+    val pred = vw.learnFromString(features)
+
+    // convert prediction to seq
+    predictionFunc(pred)
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    // ugh, would have to pass the context all the way through to trainFromRow
+    featureIdx = dataset.schema.fieldIndex(getInputCol)
+
+    super.transform(dataset)
   }
 }
 
@@ -178,118 +159,28 @@ class VowpalWabbitGenericModel(override val uid: String)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  private def schemaForPredictionType(): StructType = {
-    val fields = vw.getOutputPredictionType match {
-      case "prediction_type_t::scalars" => Seq(StructField("predictions", ArrayType(FloatType), false))
-      case "prediction_type_t::multiclass" => Seq(StructField("prediction", IntegerType, false))
-      case "prediction_type_t::prob"=> Seq(StructField("prediction", FloatType, false))
-      case "prediction_type_t::multilabels" => Seq(StructField("prediction", ArrayType(IntegerType), false))
-      case "prediction_type_t::scalar" => Seq(
-        StructField("prediction", FloatType, false),
-          StructField("confidence", FloatType, false))
-      case "prediction_type_t::action_scores" => Seq(
-        StructField("predictions", ArrayType(StructType(Seq(
-          StructField("action", IntegerType, false),
-          StructField("score", FloatType, false)
-        ))))
-      )
-      case "prediction_type_t::action_probs" => Seq(
-        StructField("predictions", ArrayType(StructType(Seq(
-          StructField("action", IntegerType, false),
-          StructField("probability", FloatType, false)
-        ))))
-      )
-      case "prediction_type_t::decision_probs" => Seq(
-        StructField("predictions",
-          ArrayType(
-            ArrayType(
-              StructType(Seq(
-                StructField("action", IntegerType, false),
-                StructField("score", FloatType, false)
-              ))))))
-      case "prediction_type_t::action_pdf_value" => Seq(
-        StructField("action", FloatType, false),
-        StructField("pdf", FloatType, false)
-      )
-      case "prediction_type_t::pdf" => Seq(
-        StructField("segments", ArrayType(
-          StructType(Seq(
-              StructField("left", FloatType, false),
-              StructField("right", FloatType, false),
-              StructField("pdfValue", FloatType, false)
-            )))))
-
-      case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
-      // TODO: the java wrapper would have to support them too
-      // CASE(prediction_type_t::multiclassprobs)
-      // CASE(prediction_type_t::active_multiclass)
-      // CASE(prediction_type_t::nopred)
-    }
-
-    // always return the the input column
-    StructType(StructField(getInputCol, StringType, false) +: fields)
-  }
-
-  private class PredictTuple(df: DataFrame) extends Serializable {
-    // fancy signature needed to make sure the right Encoder is automatically found
-    def predict[T <: Product: TypeTag, S](predictionToTuple: (String, S) => T): DataFrame = {
-      import df.sparkSession.implicits._
-
-      val inputColIdx = df.schema.fieldIndex(getInputCol)
-
-      df.mapPartitions(inputRows => {
-        inputRows.map { row => {
-          val input = row.getString(inputColIdx)
-          predictionToTuple(input, vw.predictFromString(input).asInstanceOf[S])
-        }}
-      })
-      .toDF(schemaForPredictionType().fields.map(_.name): _*)
-    }
-  }
-
-  private implicit def dataFrameToPredictTuple(df: DataFrame) = new PredictTuple(df)
+  private def schemaForPredictionType(): StructType =
+    StructType(StructField(getInputCol, StringType, false) +: VowpalWabbitPrediction.getSchema(vw).fields)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // this is doing predict, but lightgbm also logs logTransform in the model...
     logTransform {
       val df = dataset.toDF()
+      val inputColIdx = df.schema.fieldIndex(getInputCol)
 
-      vw.getOutputPredictionType match {
-        case "prediction_type_t::scalar" =>
-          df.predict((input, pred: ScalarPrediction) => (input, pred.getValue, pred.getConfidence))
-        case "prediction_type_t::scalars" =>
-          df.predict((input, pred: Array[java.lang.Float]) => (input, pred))
-        case "prediction_type_t::action_scores" =>
-          df.predict((input, pred: ActionScores) =>
-            (input, pred.getActionScores.map({ a_s => (a_s.getAction, a_s.getScore) })))
-        case "prediction_type_t::action_probs" =>
-          df.predict((input, pred: ActionProbs) =>
-            (input, pred.getActionProbs.map { a_s => (a_s.getAction, a_s.getProbability) }))
-        case "prediction_type_t::decision_probs" =>
-          df.predict((input, pred: DecisionScores) => (input,
-            pred.getDecisionScores.map({ ds => {
-              ds.getActionScores.map { a_s => (a_s.getAction, a_s.getScore) }
-            }
-            })))
-        case "prediction_type_t::multilabels" =>
-          df.predict((input, pred: Multilabels) => (input, pred.getLabels))
-        case "prediction_type_t::multiclass" =>
-          df.predict((input, pred: java.lang.Integer) => (input, pred.toInt))
-        case "prediction_type_t::prob" =>
-          df.predict((input, pred: java.lang.Float) => (input, pred.toFloat))
-        case "prediction_type_t::action_pdf_value" =>
-          df.predict((input, pred: PDFValue) => (input, pred.getAction, pred.getPDFValue))
-        case "prediction_type_t::pdf" =>
-          df.predict((input, pred: PDF) => (input,
-            pred.getPDFSegments.map { s => (s.getLeft, s.getRight, s.getPDFValue) }))
-        case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
-        // TODO: the java wrapper would have to support them too
-        // CASE(prediction_type_t::pdf)
-        // CASE(prediction_type_t::multiclassprobs)
-        // CASE(prediction_type_t::action_pdf_value)
-        // CASE(prediction_type_t::active_multiclass)
-        // CASE(prediction_type_t::nopred)
-      }
+      val predictToSeq = VowpalWabbitPrediction.getPredictionFunc(vw)
+
+      val rowEncoder = RowEncoder(schemaForPredictionType())
+
+      df.mapPartitions(inputRows => {
+        inputRows.map { row => {
+          val input = row.getString(inputColIdx)
+          val prediction = vw.predictFromString(input)
+
+          Row.fromSeq(row.toSeq ++ predictToSeq(prediction))
+        }}
+      })(rowEncoder)
+        .toDF()
     }
   }
 

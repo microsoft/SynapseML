@@ -504,7 +504,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // Get the row counts per partition
     measures.markRowCountsStart()
     // Get an array where the index is implicitly the partition id
-    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, getLabelCol)
+    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, dataframe.col(getLabelCol))
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 

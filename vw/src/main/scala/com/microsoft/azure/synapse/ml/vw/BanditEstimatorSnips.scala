@@ -5,7 +5,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-case class BanditEstimatorSnipsBuffer(weightedExampleCount: Float, weightedReward: Float) {
+case class BanditEstimatorSnipsBuffer(weightedExampleCount: Double, weightedReward: Double) {
   def add(probLog: Float, reward: Float, probPred: Float, count: Float): BanditEstimatorSnipsBuffer = {
     val w = probPred / probLog
 
@@ -20,11 +20,12 @@ case class BanditEstimatorSnipsBuffer(weightedExampleCount: Float, weightedRewar
       weightedReward + other.weightedReward)
   }
 
-  def get(): Float =
+  def get(): Double =
     if (weightedExampleCount == 0)
       -1 // TODO: how to return null?
-    else
+    else {
       weightedReward / weightedExampleCount
+    }
 }
 
 case class BanditEstimatorSnipsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
@@ -47,7 +48,7 @@ class BanditEstimatorSnips
     acc1.add(acc2)
 
   // multiple outputs: https://stackoverflow.com/questions/63206872/custom-spark-aggregator-returning-row
-  def finish(acc: BanditEstimatorSnipsBuffer): Float = acc.get
+  def finish(acc: BanditEstimatorSnipsBuffer): Float = acc.get.toFloat
 
   def bufferEncoder: Encoder[BanditEstimatorSnipsBuffer] = Encoders.product[BanditEstimatorSnipsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat

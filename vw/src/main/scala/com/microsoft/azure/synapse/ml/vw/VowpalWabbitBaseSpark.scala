@@ -8,7 +8,7 @@ import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitExample
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 
-trait VowpalWabbitBaseSpark extends VowpalWabbitBase
+trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
   with HasWeightCol
   with HasAdditionalFeatures {
   // abstract methods that implementors need to provide (mixed in through Classifier,...)
@@ -44,9 +44,9 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBase
       Seq(get(weightCol)).flatten
 
   // Separate method to be overridable
-  protected override def trainRow(schema: StructType,
-                         inputRows: Iterator[Row],
-                         ctx: TrainContext
+  protected override def trainFromRows(schema: StructType,
+                                       inputRows: Iterator[Row],
+                                       ctx: TrainContext
                         ): Unit = {
     val applyLabel = createLabelSetter(schema)
     val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(

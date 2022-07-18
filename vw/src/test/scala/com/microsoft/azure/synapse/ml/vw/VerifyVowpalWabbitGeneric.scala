@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{functions => F, types => T}
+import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
 
 class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalWabbitGeneric] {
   lazy val moduleName = "vw"
@@ -72,7 +72,39 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val predictionDF = classifier.transform(dataset)
 
     predictionDF.show()
+
+    // TODO: compare output
   }
+
+  test ("Verify VowpalWabbitGeneric using oaa w/ probs") {
+
+    // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
+    import spark.implicits._
+
+    val vw = new VowpalWabbitGeneric()
+      .setPassThroughArgs("--oaa 4")
+      .setNumPasses(4)
+
+    val dataset = Seq(
+      "1 | a b c",
+      "3 | b c d",
+      "1 | a c e",
+      "4 | b d f",
+      "2 | d e f"
+    ).map(StringFeatures).toDF
+
+    val classifier = vw.fit(dataset)
+
+    val predictionDF = classifier
+      .setTestArgs("--probabilities")
+      .transform(dataset)
+
+    predictionDF.show()
+
+    // TODO: compare output
+  }
+
+
 
   test ("Verify VowpalWabbitGeneric using CATS") {
 
@@ -96,22 +128,91 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     predictionDF.show()
   }
 
-  test ("Verify VowpalWabbitGeneric CmPLX") {
+  test ("Verify VowpalWabbitGeneric Complex stratify") {
+    val dataset = spark.read.text("/home/marcozo/vw_complex/split-newline/*")
+      .withColumnRenamed("value", "input")
+
+    val extractSchema = T.StructType(Seq(
+      T.StructField("Timestamp", T.StringType, false),
+      T.StructField("EventId", T.StringType, false)
+    ))
+
+    dataset
+      .select(
+        F.col("input"),
+        F.from_json(F.col("input"), extractSchema).alias("json"))
+      .withColumn("Timestamp", F.to_timestamp(F.col("json.Timestamp")))
+      .repartition(10, F.col("json.EventId"))
+      .sortWithinPartitions(F.col("Timestamp"))
+      .select(
+        F.col("input")
+        // F.col("json.Timestamp").alias("Timestamp")
+      )
+      .write
+      .option("header", "false")
+      .option("compression", "gzip")
+      .mode(SaveMode.Overwrite)
+      .text("/home/marcozo/vw_complex/cmplx-stratified")
+  }
+
+  test ("Verify VowpalWabbitGeneric Complex") {
     import spark.implicits._
+
+    spark.udf.register("snips", F.udaf(new BanditEstimatorSnips(), Encoders.product[BanditEstimatorSnipsInput]))
+    spark.udf.register("ips", F.udaf(new BanditEstimatorIps(), Encoders.product[BanditEstimatorIpsInput]))
+    spark.udf.register("cressieRead",
+      F.udaf(new BanditEstimatorCressieRead(), Encoders.product[BanditEstimatorCressieReadInput]))
+    spark.udf.register("cressieReadInterval",
+      F.udaf(new BanditEstimatorCressieReadInterval(false), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+    spark.udf.register("cressieReadIntervalEmpirical",
+      F.udaf(new BanditEstimatorCressieReadInterval(true), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+    spark.udf.register("bernstein",
+      F.udaf(new BanditEstimatorEmpiricalBernsteinCS(), Encoders.product[BanditEstimatorEmpiricalBernsteinCSInput]))
 
     val time = System.currentTimeMillis()
 
-    val vw = new VowpalWabbitGeneric()
-      .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+    val vw = new VowpalWabbitGenericProgressive()
+      // .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+      .setPassThroughArgs("--cb_explore_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+      .setNumSyncsPerPass(30)
 
-    val dataset = spark.read.text("/home/marcozo/vw_complex/split/*")
+    val extractSchema = T.StructType(Seq(
+      T.StructField("_label_cost", T.FloatType, false),
+      T.StructField("_label_probability", T.FloatType, false),
+      T.StructField("_label_Action", T.IntegerType, false)
+    ))
+
+    val dataset = spark.read.text("/home/marcozo/vw_complex/cmplx-stratified/*")
       .withColumnRenamed("value", "input")
+      .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("probLog", F.col("json._label_probability"))
+      .withColumn("reward", F.col("json._label_cost"))
 
-    val classifier = vw.fit(dataset)
+    vw.transform(dataset)
+      // .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).score"))
+      .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).probability"))
+      .withColumn("count", F.lit(1))
+      .agg(
+        F.expr("snips(probLog, reward, probPred, count)").as("snips"),
+        F.expr("ips(probLog, reward, probPred, count)").as("ips"),
+        // TODO: not sure what to pass for wmin/wmax
+        F.expr("cressieRead(probLog, reward, probPred, count, -1, 0)").as("cressieRead"),
+        F.expr("cressieReadInterval(probLog, reward, probPred, count, -1, 0, -1, 0)")
+          .as("cressieReadInterval"),
+        F.expr("cressieReadIntervalEmpirical(probLog, reward, probPred, count, -1, 0, -1, 0)")
+          .as("cressieReadIntervalEmpirical"),
+        // TODO: fails
+//        F.expr("bernstein(probLog, reward, probPred, count)").alias("bernstein")
+      )
+      .show(false)
 
-    classifier.getPerformanceStatistics.show()
+    // dataset.show()
 
-    println(s"Time: ${(System.currentTimeMillis() - time)/1000}s")
+//    val classifier = vw.fit(dataset)
+//
+//    classifier.getPerformanceStatistics.show()
+//
+//    println(s"Time: ${(System.currentTimeMillis() - time)/1000}s")
 //
 //    val predictionDF = classifier
 //      .setTestArgs("--dsjson")
