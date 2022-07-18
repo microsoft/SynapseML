@@ -51,6 +51,7 @@ class DeepVisionModel(TorchModel, PredictionParams):
             prediction_col="prediction",
             feature_columns=["image"],
             label_columns=["label"],
+            outputCols=["output"],
         )
 
         kwargs = self._kwargs
