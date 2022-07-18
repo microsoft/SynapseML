@@ -30,6 +30,7 @@ object DatabricksUtilities {
   // ADB Info
   val Region = "eastus"
   val PoolName = "synapseml-build-10.1"
+  val GpuPoolName = "synapseml-build-10.4-gpu"
   val AdbRuntime = "10.1.x-scala2.12"
   val AdbGpuRuntime = "10.2.x-gpu-ml-scala2.12"
   val NumWorkers = 5
@@ -40,6 +41,7 @@ object DatabricksUtilities {
     .encode(("token:" + Token).getBytes("UTF-8"))
   val BaseURL = s"https://$Region.azuredatabricks.net/api/2.0/"
   lazy val PoolId: String = getPoolIdByName(PoolName)
+  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
 
