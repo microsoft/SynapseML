@@ -8,12 +8,12 @@ from horovod.spark.common.backend import SparkBackend
 from horovod.spark.lightning import TorchEstimator
 from PIL import Image
 from pyspark.context import SparkContext
-from pyspark.ml import Predictor
 from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
 from synapse.ml.dl.utils import keywords_catch
+from synapse.ml.dl.PredictionParams import PredictionParams
 
 _HOROVOD_AVAILABLE = _module_available("horovod")
 if _HOROVOD_AVAILABLE:
@@ -28,7 +28,7 @@ else:
     raise ModuleNotFoundError("module not found: horovod")
 
 
-class DeepVisionClassifier(TorchEstimator, Predictor):
+class DeepVisionClassifier(TorchEstimator, PredictionParams):
 
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
@@ -77,9 +77,9 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
         dropout_aux=0.7,
         transform_fn=None,
         # Classifier args
-        labelCol="label",
-        featuresCol="features",
-        predictionCol="prediction",
+        label_col="label",
+        image_col="image",
+        prediction_col="prediction",
         # TorchEstimator args
         num_proc=None,
         backend=None,
@@ -132,11 +132,11 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
             loss_name="cross_entropy",
             dropout_aux=0.7,
             transform_fn=None,
-            feature_cols=["features"],
+            feature_cols=["image"],
             label_cols=["label"],
-            labelCol="label",
-            featuresCol="features",
-            predictionCol="prediction",
+            label_col="label",
+            image_col="image",
+            prediction_col="prediction",
         )
 
         kwargs = self._kwargs
@@ -153,8 +153,8 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
             input_shape=self.getInputShapes()[0],
             optimizer_name=self.getOptimizerName(),
             loss_name=self.getLossName(),
-            label_col=self.getLabelCols()[0],
-            image_col=self.getFeatureCols()[0],
+            label_col=self.getLabelCol(),
+            image_col=self.getImageCol(),
             dropout_aux=self.getDropoutAUX(),
         )
         self._set(model=model)
@@ -209,7 +209,7 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
                 self.setInputShapes([[-1, 3, 224, 224]])
 
     def _update_cols(self):
-        self.setFeatureCols([self.getFeaturesCol()])
+        self.setFeatureCols([self.getImageCol()])
         self.setLabelCols([self.getLabelCol()])
 
     def _fit(self, dataset):
@@ -270,7 +270,7 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
 
             self.setTransformationFn(
                 _create_transform_row(
-                    self.getFeaturesCol(),
+                    self.getImageCol(),
                     self.getLabelCol(),
                     self.getTransformFn(),
                 )
@@ -289,7 +289,7 @@ class DeepVisionClassifier(TorchEstimator, Predictor):
             _metadata=metadata,
             loss=self.getLoss(),
             loss_constructors=self.getLossConstructors(),
-            labelCol=self.getLabelCol(),
-            featuresCol=self.getFeaturesCol(),
-            predictionCol=self.getPredictionCol(),
+            label_col=self.getLabelCol(),
+            image_col=self.getImageCol(),
+            prediction_col=self.getPredictionCol(),
         )

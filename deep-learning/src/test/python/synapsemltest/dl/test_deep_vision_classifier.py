@@ -97,14 +97,11 @@ def test_mobilenet_v2(get_data_path):
             batch_size=16,
             epochs=epochs,
             validation=0.1,
-            featuresCol="image",
         )
 
         train_df, test_df = generate_data(spark, train_folder, test_folder)
 
-        deep_vision_model = deep_vision_classifier.fit(train_df).setOutputCols(
-            ["label_prob"]
-        )
+        deep_vision_model = deep_vision_classifier.fit(train_df)
 
         pred_df = deep_vision_model.transform(test_df)
         evaluator = MulticlassClassificationEvaluator(

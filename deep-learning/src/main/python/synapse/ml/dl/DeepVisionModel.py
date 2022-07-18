@@ -6,14 +6,14 @@ import torch
 import torchvision.transforms as transforms
 from horovod.spark.lightning import TorchModel
 from PIL import Image
-from pyspark.ml.base import _PredictorParams
-from pyspark.ml.param.shared import Param, Params
+from synapse.ml.dl.PredictionParams import PredictionParams
+from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql.functions import col, udf
 from pyspark.sql.types import DoubleType
 from synapse.ml.dl.utils import keywords_catch
 
 
-class DeepVisionModel(TorchModel, _PredictorParams):
+class DeepVisionModel(TorchModel, PredictionParams):
 
     transform_fn = Param(
         Params._dummy(),
@@ -34,9 +34,9 @@ class DeepVisionModel(TorchModel, _PredictorParams):
         loss_constructors=None,
         # diff from horovod
         transform_fn=None,
-        labelCol="label",
-        featuresCol="features",
-        predictionCol="prediction",
+        label_col="label",
+        image_col="image",
+        prediction_col="prediction",
     ):
         super(DeepVisionModel, self).__init__()
 
@@ -46,10 +46,10 @@ class DeepVisionModel(TorchModel, _PredictorParams):
             loss_constructors=None,
             input_shapes=None,
             transform_fn=None,
-            labelCol="label",
-            featuresCol="features",
-            predictionCol="prediction",
-            feature_columns=["features"],
+            label_col="label",
+            image_col="image",
+            prediction_col="prediction",
+            feature_columns=["image"],
             label_columns=["label"],
         )
 
@@ -85,21 +85,21 @@ class DeepVisionModel(TorchModel, _PredictorParams):
             self.setTransformFn(transform)
 
     def _update_cols(self):
-        self.setFeatureColumns([self.getFeaturesCol()])
+        self.setFeatureColumns([self.getImageCol()])
         self.setLabelColoumns([self.getLabelCol()])
 
     # override this to open the image if it's a path
     def get_prediction_fn(self):
         input_shape = self.getInputShapes()[0]
-        feature_col = self.getFeaturesCol()
+        image_col = self.getImageCol()
 
         def _create_predict_fn(transform):
             def predict_fn(model, row):
-                if type(row[feature_col]) == str:
-                    image = Image.open(row[feature_col]).convert("RGB")
+                if type(row[image_col]) == str:
+                    image = Image.open(row[image_col]).convert("RGB")
                     data = torch.tensor(transform(image).numpy()).reshape(input_shape)
                 else:
-                    data = torch.tensor([row[feature_col]]).reshape(input_shape)
+                    data = torch.tensor([row[image_col]]).reshape(input_shape)
 
                 with torch.no_grad():
                     pred = model(data)
@@ -121,21 +121,3 @@ class DeepVisionModel(TorchModel, _PredictorParams):
             self.getPredictionCol(), argmax(col(self.getOutputCols()[0]))
         )
         return pred_df
-
-    def setLabelCol(self, value):
-        """
-        Sets the value of :py:attr:`labelCol`.
-        """
-        return self._set(labelCol=value)
-
-    def setFeaturesCol(self, value):
-        """
-        Sets the value of :py:attr:`featuresCol`.
-        """
-        return self._set(featuresCol=value)
-
-    def setPredictionCol(self, value):
-        """
-        Sets the value of :py:attr:`predictionCol`.
-        """
-        return self._set(predictionCol=value)
