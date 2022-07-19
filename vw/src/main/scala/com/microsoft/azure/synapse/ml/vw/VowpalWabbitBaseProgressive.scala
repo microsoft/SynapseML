@@ -37,7 +37,12 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
 
       if (!ret) {
         // blocks until sync in AllReduce use-case is done
-        vw.endPass()
+        // make sure that all partitions call endPass the same amount of time
+        // (and at least once at the end)
+        0 to synchronizationSchedule.getFinishTriggerCount() foreach { _ =>
+          println(s"AllReduce Finalize ${TaskContext.getPartitionId()}")
+          vw.endPass()
+        }
         // cleanup
         vw.close()
       }
@@ -49,8 +54,12 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
       try {
         val inputRow = inputRows.next()
 
-        if (synchronizationSchedule.shouldTriggerAllReduce(inputRow))
+        0 until synchronizationSchedule.getAllReduceTriggerCount(inputRow) foreach { _ =>
+//          if (TaskContext.getPartitionId() == 0) {
+//            println(s"AllReduce ${TaskContext.getPartitionId()}}")
+//          }
           vw.endPass()
+        }
 
         // withColumn
         Row.fromSeq(inputRow.toSeq :+ trainFromRow(vw, inputRow))

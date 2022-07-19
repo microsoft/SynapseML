@@ -8,6 +8,8 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestO
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
 
+import java.time.{LocalDate, ZoneOffset}
+
 class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalWabbitGeneric] {
   lazy val moduleName = "vw"
   val numPartitions = 2
@@ -142,7 +144,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
         F.col("input"),
         F.from_json(F.col("input"), extractSchema).alias("json"))
       .withColumn("Timestamp", F.to_timestamp(F.col("json.Timestamp")))
-      .repartition(10, F.col("json.EventId"))
+      .repartition(15, F.col("json.EventId"))
       .sortWithinPartitions(F.col("Timestamp"))
       .select(
         F.col("input")
@@ -153,6 +155,33 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       .option("compression", "gzip")
       .mode(SaveMode.Overwrite)
       .text("/home/marcozo/vw_complex/cmplx-stratified")
+  }
+
+  test ("Verify VowpalWabbitGeneric Complex Stats") {
+    val extractSchema = T.StructType(Seq(
+      T.StructField("Timestamp", T.StringType, false)
+    ))
+
+    val dataset = spark.read.text("/home/marcozo/vw_complex/cmplx-stratified/*")
+      .withColumnRenamed("value", "input")
+      .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("Timestamp", F.to_timestamp(F.col("json.Timestamp")))
+      .withColumn("TimestampDay", F.date_format(F.col("Timestamp"), "yyyy-MM-dd"))
+
+    dataset
+      .agg(
+        F.min("Timestamp"),
+        F.max("Timestamp"),
+        F.count_distinct(F.col("TimestampDay")))
+      .show()
+
+    /*
++--------------------+--------------------+-------------------+
+|      min(Timestamp)|      max(Timestamp)|count(TimestampDay)|
++--------------------+--------------------+-------------------+
+|2017-11-06 01:33:...|2018-10-18 06:48:...|                347|
++--------------------+--------------------+-------------------+
+     */
   }
 
   test ("Verify VowpalWabbitGeneric Complex") {
@@ -171,26 +200,40 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
     val time = System.currentTimeMillis()
 
+    val startDate = LocalDate.of(2017, 11, 6).atStartOfDay().toInstant(ZoneOffset.UTC)
+    val endDate = LocalDate.of(2018, 10, 19).atStartOfDay().toInstant(ZoneOffset.UTC)
+
     val vw = new VowpalWabbitGenericProgressive()
       // .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
       .setPassThroughArgs("--cb_explore_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
-      .setNumSyncsPerPass(30)
+      .setNumSyncsPerPass(50)
+      .setTemporalSyncScheduleCol("timestamp")
+      .setTemporalSyncStepUnit("DAYS")
+      .setTemporalSyncStepSize(30)
+      .setTemporalSyncStartTimestamp(startDate)
+      .setTemporalSyncEndTimestamp(endDate)
 
+    // extract cost, prob and action from dsjson
     val extractSchema = T.StructType(Seq(
       T.StructField("_label_cost", T.FloatType, false),
       T.StructField("_label_probability", T.FloatType, false),
-      T.StructField("_label_Action", T.IntegerType, false)
+      T.StructField("_label_Action", T.IntegerType, false),
+      T.StructField("Timestamp", T.StringType, false)
     ))
 
     val dataset = spark.read.text("/home/marcozo/vw_complex/cmplx-stratified/*")
       .withColumnRenamed("value", "input")
+      // provide nice names
       .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("timestamp", F.to_timestamp(F.col("json.Timestamp")))
       .withColumn("probLog", F.col("json._label_probability"))
       .withColumn("reward", F.col("json._label_cost"))
 
     vw.transform(dataset)
-      // .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).score"))
+//      .write.mode(SaveMode.Overwrite).parquet("/home/marcozo/vw_complex/cmplx-pred.parquet")
+//      // fetch the probability the offline policy assigns
       .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).probability"))
+      // no reweighting
       .withColumn("count", F.lit(1))
       .agg(
         F.expr("snips(probLog, reward, probPred, count)").as("snips"),
@@ -212,14 +255,12 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 //
 //    classifier.getPerformanceStatistics.show()
 //
-//    println(s"Time: ${(System.currentTimeMillis() - time)/1000}s")
+    println(s"Time: ${(System.currentTimeMillis() - time)/1000}s")
 //
 //    val predictionDF = classifier
 //      .setTestArgs("--dsjson")
 //      .transform(dataset)
   }
-
-
 
   test ("Verify VowpalWabbitGeneric using dsjson") {
     import spark.implicits._

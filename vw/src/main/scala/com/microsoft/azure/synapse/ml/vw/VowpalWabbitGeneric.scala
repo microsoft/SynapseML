@@ -54,9 +54,7 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
       }
 
       // trigger inter-pass all reduce
-      if (ctx.synchronizationSchedule.shouldTriggerAllReduce(row)) {
-        ctx.vw.endPass()
-      }
+      0 until ctx.synchronizationSchedule.getAllReduceTriggerCount(row) foreach { _ => ctx.vw.endPass() }
     }
   }
 
