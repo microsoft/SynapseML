@@ -209,6 +209,7 @@ and some necessary custom wrappers may be missing.
 ### C# (.NET)
 
 To try out SynapseML with .NET, please follow the [.NET Installation Guide](website/docs/reference/dotnet-setup.md).
+Please note that some classes including the `AzureSearchWriter`, `DiagnosticInfo`, `UDPyFParam`, `ParamSpaceParam`, `BallTreeParam`, `ConditionalBallTreeParam`, `LightGBMBoosterParam` are still under development and not exposed in .NET yet.
 
 ### Building from source
 

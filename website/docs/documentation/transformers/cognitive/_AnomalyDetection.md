@@ -105,6 +105,7 @@ dla.transform(df).show()
 <DocTable className="DetectLastAnomaly"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectLastAnomaly"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectLastAnomaly.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1DetectLastAnomaly.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
 ### DetectAnomalies
@@ -204,6 +205,7 @@ da.transform(df).show()
 <DocTable className="DetectAnomalies"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectAnomalies.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1DetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
 
 ### SimpleDetectAnomalies
@@ -313,4 +315,5 @@ sda.transform(df).show()
 <DocTable className="SimpleDetectAnomalies"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SimpleDetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/SimpleDetectAnomalies.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1SimpleDetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />

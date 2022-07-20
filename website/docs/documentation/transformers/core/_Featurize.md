@@ -61,6 +61,7 @@ dc.transform(df).show()
 <DocTable className="DataConversion"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.DataConversion"
 scala="com/microsoft/azure/synapse/ml/featurize/DataConversion.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1DataConversion.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/DataConversion.scala" />
 
 
@@ -124,6 +125,7 @@ itv.transform(df2).show()
 <DocTable className="IndexToValue"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.IndexToValue"
 scala="com/microsoft/azure/synapse/ml/featurize/IndexToValue.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1IndexToValue.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/IndexToValue.scala" />
 
 
@@ -204,6 +206,7 @@ mng.transform(dfTok).show()
 <DocTable className="MultiNGram"
 py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.MultiNGram"
 scala="com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1Text_1_1MultiNGram.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/MultiNGram.scala" />
 
 
@@ -275,4 +278,5 @@ ps.transform(df).show()
 <DocTable className="PageSplitter"
 py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.PageSplitter"
 scala="com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1Text_1_1PageSplitter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/PageSplitter.scala" />

@@ -56,6 +56,7 @@ val lgbmClassifier = (new LightGBMClassifier()
 <DocTable className="LightGBMClassifier"
 py="synapse.ml.lightgbm.html#module-synapse.ml.lightgbm.LightGBMClassifier"
 scala="com/microsoft/azure/synapse/ml/lightgbm/LightGBMClassifier.html"
+csharp="classSynapse_1_1ML_1_1Lightgbm_1_1LightGBMClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/lightgbm/src/main/scala/com/microsoft/azure/synapse/ml/lightgbm/LightGBMClassifier.scala" />
 
 
@@ -109,6 +110,7 @@ val lgbmRanker = (new LightGBMRanker()
 <DocTable className="LightGBMRanker"
 py="synapse.ml.lightgbm.html#module-synapse.ml.lightgbm.LightGBMRanker"
 scala="com/microsoft/azure/synapse/ml/lightgbm/LightGBMRanker.html"
+csharp="classSynapse_1_1ML_1_1Lightgbm_1_1LightGBMRanker.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/lightgbm/src/main/scala/com/microsoft/azure/synapse/ml/lightgbm/LightGBMRanker.scala" />
 
 
@@ -158,4 +160,5 @@ val lgbmRegressor = (new LightGBMRegressor()
 <DocTable className="LightGBMRegressor"
 py="synapse.ml.lightgbm.html#module-synapse.ml.lightgbm.LightGBMRegressor"
 scala="com/microsoft/azure/synapse/ml/lightgbm/LightGBMRegressor.html"
+csharp="classSynapse_1_1ML_1_1Lightgbm_1_1LightGBMRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/lightgbm/src/main/scala/com/microsoft/azure/synapse/ml/lightgbm/LightGBMRegressor.scala" />

@@ -69,6 +69,7 @@ cb.fit(df).transform(df).show()
 <DocTable className="ClassBalancer"
 py="synapse.ml.stages.html#module-synapse.ml.stages.ClassBalancer"
 scala="com/microsoft/azure/synapse/ml/stages/ClassBalancer.html"
+csharp="classSynapse_1_1ML_1_1Stages_1_1ClassBalancer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/ClassBalancer.scala" />
 
 
@@ -136,6 +137,7 @@ mca.fit(df).transform(df).show()
 <DocTable className="MultiColumnAdapter"
 py="synapse.ml.stages.html#module-synapse.ml.stages.MultiColumnAdapter"
 scala="com/microsoft/azure/synapse/ml/stages/MultiColumnAdapter.html"
+csharp="classSynapse_1_1ML_1_1Stages_1_1MultiColumnAdapter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/MultiColumnAdapter.scala" />
 
 
@@ -213,4 +215,5 @@ timer.fit(df3).transform(df3).show()
 <DocTable className="Timer"
 py="synapse.ml.stages.html#module-synapse.ml.stages.Timer"
 scala="com/microsoft/azure/synapse/ml/stages/Timer.html"
+csharp="classSynapse_1_1ML_1_1Stages_1_1Timer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Timer.scala" />
