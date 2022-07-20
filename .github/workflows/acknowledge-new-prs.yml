@@ -1,0 +1,16 @@
+name: Acknowledge PR
+on:
+  pull_request_target:
+    types: opened
+jobs:
+  commentor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment to acknowledge PRs
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Hello @${{ github.event.pull_request.sender }}! Thank you so much for contributing
+	    to our repository. Someone from SynapseML Team will be reviewing this pull request
+	    soon. Appreciate your patience.
