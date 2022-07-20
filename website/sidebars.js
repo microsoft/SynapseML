@@ -133,6 +133,7 @@ module.exports = {
         'reference/contributing_guide',
         'reference/docker',
         'reference/R-setup',
+        'reference/dotnet-setup',
         'reference/SAR',
         'reference/cyber',
         'reference/datasets',
