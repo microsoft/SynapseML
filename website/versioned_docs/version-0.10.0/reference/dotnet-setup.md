@@ -240,3 +240,9 @@ When your app runs, the sentiment analysis result is written to the console.
 ```
 Congratulations! You successfully authored and ran a .NET for SynapseML app.
 Refer to the [developer docs](https://mmlspark.blob.core.windows.net/docs/0.10.0/dotnet/index.html) for API guidance.
+
+### Next
+
+* Refer to this [tutorial](https://docs.microsoft.com/en-us/dotnet/spark/tutorials/databricks-deployment) for deploying a .NET app to Databricks.
+* You could download compatible [install-worker.sh](https://mmlspark.blob.core.windows.net/publicwasb/dotnet/install-worker.sh)
+and [db-init.sh](https://mmlspark.blob.core.windows.net/publicwasb/dotnet/db-init.sh) files needed for deployment on Databricks.
