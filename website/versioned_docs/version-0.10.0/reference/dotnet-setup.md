@@ -179,7 +179,7 @@ namespace SynapseMLApp
 
             // Create TextSentiment
             var model = new TextSentiment()
-                .SetSubscriptionKey("df74b0018d394ca0ab2173f3623ca7a1")
+                .SetSubscriptionKey("YOUR_SUBSCRIPTION_KEY")
                 .SetLocation("eastus")
                 .SetTextCol("text")
                 .SetOutputCol("sentiment")

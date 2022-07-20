@@ -167,6 +167,4 @@ and some necessary custom wrappers may be missing.
 
 ## C# (.NET)
 
-To try out SynapseML with .NET, please follow [instructions](reference/dotnet-setup.md).
-
-Note: This feature is not fully supported so some special functions may be missing.
+To try out SynapseML with .NET, please follow the [.NET Installation Guide](reference/dotnet-setup.md).
