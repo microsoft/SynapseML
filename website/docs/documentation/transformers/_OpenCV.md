@@ -57,6 +57,7 @@ it.transform(images).show()
 <DocTable className="ImageTransformer"
 py="synapse.ml.opencv.html#module-synapse.ml.opencv.ImageTransformer"
 scala="com/microsoft/azure/synapse/ml/opencv/ImageTransformer.html"
+csharp="classSynapse_1_1ML_1_1Opencv_1_1ImageTransformer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/opencv/src/main/scala/com/microsoft/azure/synapse/ml/opencv/ImageTransformer.scala" />
 
 
@@ -116,4 +117,5 @@ isa.transform(images).show()
 <DocTable className="ImageSetAugmenter"
 py="synapse.ml.opencv.html#module-synapse.ml.opencv.ImageSetAugmenter"
 scala="com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.html"
+csharp="classSynapse_1_1ML_1_1Opencv_1_1ImageSetAugmenter.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/opencv/src/main/scala/com/microsoft/azure/synapse/ml/opencv/ImageSetAugmenter.scala" />

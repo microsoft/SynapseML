@@ -65,6 +65,7 @@ val lime = (new ImageLIME()
 <DocTable className="ImageLIME"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.ImageLIME"
 scala="com/microsoft/azure/synapse/ml/explainers/ImageLIME.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1ImageLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageLIME.scala" />
 
 
@@ -132,6 +133,7 @@ val shap = (new ImageSHAP()
 <DocTable className="ImageSHAP"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.ImageSHAP"
 scala="com/microsoft/azure/synapse/ml/explainers/ImageSHAP.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1ImageSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/ImageSHAP.scala" />
 
 
@@ -206,6 +208,7 @@ val lime = (new TabularLIME()
 <DocTable className="TabularLIME"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.TabularLIME"
 scala="com/microsoft/azure/synapse/ml/explainers/TabularLIME.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1TabularLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularLIME.scala" />
 
 
@@ -278,6 +281,7 @@ val shap = (new TabularSHAP()
 <DocTable className="TabularSHAP"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.TabularSHAP"
 scala="com/microsoft/azure/synapse/ml/explainers/TabularSHAP.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1TabularSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TabularSHAP.scala" />
 
 
@@ -340,6 +344,7 @@ val lime = (new TextLIME()
 <DocTable className="TextLIME"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.TextLIME"
 scala="com/microsoft/azure/synapse/ml/explainers/TextLIME.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1TextLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextLIME.scala" />
 
 
@@ -400,6 +405,7 @@ val shap = (new TextSHAP()
 <DocTable className="TextSHAP"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.TextSHAP"
 scala="com/microsoft/azure/synapse/ml/explainers/TextSHAP.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1TextSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/TextSHAP.scala" />
 
 
@@ -482,6 +488,7 @@ val lime = (new VectorLIME()
 <DocTable className="VectorLIME"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.VectorLIME"
 scala="com/microsoft/azure/synapse/ml/explainers/VectorLIME.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1VectorLIME.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorLIME.scala" />
 
 
@@ -563,4 +570,5 @@ shap.transform(predicted).show()
 <DocTable className="VectorSHAP"
 py="synapse.ml.explainers.html#module-synapse.ml.explainers.VectorSHAP"
 scala="com/microsoft/azure/synapse/ml/explainers/VectorSHAP.html"
+csharp="classSynapse_1_1ML_1_1Explainers_1_1VectorSHAP.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/explainers/VectorSHAP.scala" />
