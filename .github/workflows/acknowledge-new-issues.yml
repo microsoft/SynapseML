@@ -11,6 +11,6 @@ jobs:
         with:
           issue-number: ${{ github.event.issue.number }}
           body: |
-            Hello @${{ github.event.issue.sender }}! Thank you so much for reporting
+            Hey @${{ github.event.issue.user.login }} ! Thank you so much for reporting
             the issue/feature request. Someone from SynapseML Team will be looking
             to triage this issue soon. Appreciate your patience.
