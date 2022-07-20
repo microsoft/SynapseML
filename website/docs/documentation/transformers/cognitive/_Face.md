@@ -72,6 +72,7 @@ face.transform(df).show()
 <DocTable className="DetectFace"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectFace"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectFace.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1DetectFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -165,6 +166,7 @@ findSimilar.transform(faceIdDF).show()
 <DocTable className="FindSimilarFace"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.FindSimilarFace"
 scala="com/microsoft/azure/synapse/ml/cognitive/FindSimilarFace.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1FindSimilarFace.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -256,6 +258,7 @@ group.transform(faceIdDF).show()
 <DocTable className="GroupFaces"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.GroupFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/GroupFaces.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1GroupFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -312,6 +315,7 @@ val identifyFaces = (new IdentifyFaces()
 <DocTable className="IdentifyFaces"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.IdentifyFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/IdentifyFaces.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1IdentifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />
 
 
@@ -406,4 +410,5 @@ verify.transform(faceIdDF2).show()
 <DocTable className="VerifyFaces"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.VerifyFaces"
 scala="com/microsoft/azure/synapse/ml/cognitive/VerifyFaces.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1VerifyFaces.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/Face.scala" />

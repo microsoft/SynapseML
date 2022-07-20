@@ -168,3 +168,5 @@ and some necessary custom wrappers may be missing.
 ## C# (.NET)
 
 To try out SynapseML with .NET, please follow the [.NET Installation Guide](reference/dotnet-setup.md).
+Note: Some stages including AzureSearchWriter, DiagnosticInfo, UDPyF Param, ParamSpaceParam, BallTreeParam,
+ConditionalBallTreeParam, LightGBMBooster Param are still under development and not exposed in .NET.
