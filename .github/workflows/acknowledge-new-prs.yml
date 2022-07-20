@@ -12,5 +12,5 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             Hello @${{ github.event.pull_request.sender }}! Thank you so much for contributing
-	    to our repository. Someone from SynapseML Team will be reviewing this pull request
-	    soon. Appreciate your patience.
+            to our repository. Someone from SynapseML Team will be reviewing this pull request
+            soon. Appreciate your patience.
