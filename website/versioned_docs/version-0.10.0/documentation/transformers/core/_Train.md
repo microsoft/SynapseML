@@ -61,6 +61,7 @@ cms.transform(df).show()
 <DocTable className="ComputeModelStatistics"
 py="synapse.ml.train.html#module-synapse.ml.train.ComputeModelStatistics"
 scala="com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.html"
+csharp="classSynapse_1_1ML_1_1Train_1_1ComputeModelStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputeModelStatistics.scala" />
 
 
@@ -146,4 +147,5 @@ cps.transform(scoredData).show()
 <DocTable className="ComputePerInstanceStatistics"
 py="synapse.ml.train.html#module-synapse.ml.train.ComputePerInstanceStatistics"
 scala="com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.html"
+csharp="classSynapse_1_1ML_1_1Train_1_1ComputePerInstanceStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.scala" />

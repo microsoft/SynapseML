@@ -53,6 +53,7 @@ val vwRegressor = (new VowpalWabbitRegressor()
 <DocTable className="VowpalWabbitRegressor"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitRegressor"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitRegressor.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VowpalWabbitRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitRegressor.scala" />
 
 
@@ -107,4 +108,5 @@ val cb = (new VowpalWabbitContextualBandit()
 <DocTable className="VowpalWabbitContextualBandit"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitContextualBandit"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitContextualBandit.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VowpalWabbitContextualBandit.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitContextualBandit.scala" />

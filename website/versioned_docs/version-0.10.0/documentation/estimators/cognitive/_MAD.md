@@ -101,4 +101,5 @@ model.cleanUpIntermediateData()
 <DocTable className="FitMultivariateAnomaly"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.FitMultivariateAnomaly"
 scala="com/microsoft/azure/synapse/ml/cognitive/FitMultivariateAnomaly.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1FitMultivariateAnomaly.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/MultivariateAnomalyDetection.scala" />

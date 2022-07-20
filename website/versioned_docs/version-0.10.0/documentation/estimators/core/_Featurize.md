@@ -79,6 +79,7 @@ val cmd = (new CleanMissingData()
 <DocTable className="CleanMissingData"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.CleanMissingData"
 scala="com/microsoft/azure/synapse/ml/featurize/CleanMissingData.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1CleanMissingData.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CleanMissingData.scala" />
 
 
@@ -137,6 +138,7 @@ cs.fit(df).transform(df).show()
 <DocTable className="CountSelector"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.CountSelector"
 scala="com/microsoft/azure/synapse/ml/featurize/CountSelector.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1CountSelector.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/CountSelector.scala" />
 
 
@@ -206,6 +208,7 @@ feat.fit(dataset).transform(dataset).show()
 <DocTable className="Featurize"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.Featurize"
 scala="com/microsoft/azure/synapse/ml/featurize/Featurize.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1Featurize.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/Featurize.scala" />
 
 
@@ -261,6 +264,7 @@ vi.fit(df).transform(df).show()
 <DocTable className="ValueIndexer"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.ValueIndexer"
 scala="com/microsoft/azure/synapse/ml/featurize/ValueIndexer.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1ValueIndexer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/ValueIndexer.scala" />
 
 ## Featurize Text
@@ -324,4 +328,5 @@ tfRaw.fit(dfRaw).transform(dfRaw).show()
 <DocTable className="TextFeaturizer"
 py="synapse.ml.featurize.text.html#module-synapse.ml.featurize.text.TextFeaturizer"
 scala="com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.html"
+csharp="classSynapse_1_1ML_1_1Featurize_1_1Text_1_1TextFeaturizer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/featurize/text/TextFeaturizer.scala" />

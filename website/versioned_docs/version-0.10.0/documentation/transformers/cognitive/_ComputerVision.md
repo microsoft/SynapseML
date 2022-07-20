@@ -67,6 +67,7 @@ ocr.transform(df).show()
 <DocTable className="OCR"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.OCR"
 scala="com/microsoft/azure/synapse/ml/cognitive/OCR.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1OCR.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -140,6 +141,7 @@ ai.transform(df).select("url", "features").show()
 <DocTable className="AnalyzeImage"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.AnalyzeImage"
 scala="com/microsoft/azure/synapse/ml/cognitive/AnalyzeImage.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1AnalyzeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -210,6 +212,7 @@ rt.transform(df).show()
 <DocTable className="RecognizeText"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeText"
 scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeText.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1RecognizeText.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -278,6 +281,7 @@ ri.transform(df).show()
 <DocTable className="ReadImage"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.ReadImage"
 scala="com/microsoft/azure/synapse/ml/cognitive/ReadImage.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1ReadImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -342,6 +346,7 @@ celeb.transform(df).show()
 <DocTable className="RecognizeDomainSpecificContent"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeDomainSpecificContent"
 scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeDomainSpecificContent.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1RecognizeDomainSpecificContent.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -410,6 +415,7 @@ gt.transform(df).show()
 <DocTable className="GenerateThumbnails"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.GenerateThumbnails"
 scala="com/microsoft/azure/synapse/ml/cognitive/GenerateThumbnails.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1GenerateThumbnails.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -472,6 +478,7 @@ ti.transform(df).show()
 <DocTable className="TagImage"
 py="synapse.ml.cognitive.html#module-mmlspark.cognitive.TagImage"
 scala="com/microsoft/azure/synapse/ml/cognitive/TagImage.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1TagImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
@@ -536,4 +543,5 @@ di.transform(df).show()
 <DocTable className="DescribeImage"
 py="synapse.ml.cognitive.html#module-mmlspark.cognitive.DescribeImage"
 scala="com/microsoft/azure/synapse/ml/cognitive/DescribeImage.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1DescribeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />

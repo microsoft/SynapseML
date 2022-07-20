@@ -26,6 +26,7 @@ module.exports = {
         'getting_started/installation',
         'getting_started/first_example',
         'getting_started/first_model',
+        'getting_started/dotnet_example',
       ],
     },
     {
