@@ -81,6 +81,7 @@ tc.fit(df).transform(df).show()
 <DocTable className="TrainClassifier"
 py="synapse.ml.train.html#module-synapse.ml.train.TrainClassifier"
 scala="com/microsoft/azure/synapse/ml/train/TrainClassifier.html"
+csharp="classSynapse_1_1ML_1_1Train_1_1TrainClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainClassifier.scala" />
 
 
@@ -166,4 +167,5 @@ trainRegressor.fit(dataset).transform(dataset).show()
 <DocTable className="TrainRegressor"
 py="synapse.ml.train.html#module-synapse.ml.train.TrainRegressor"
 scala="com/microsoft/azure/synapse/ml/train/TrainRegressor.html"
+csharp="classSynapse_1_1ML_1_1Train_1_1TrainRegressor.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/TrainRegressor.scala" />
