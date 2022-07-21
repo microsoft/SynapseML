@@ -26,23 +26,23 @@ class TabularSHAPExplainerSuite extends TestBase
 
   override val sortInDataframeEquality = true
 
-  val data: DataFrame = (1 to 100).flatMap(_ => Seq(
+  lazy val data: DataFrame = (1 to 100).flatMap(_ => Seq(
     (-5d, "a", -5d, 0),
     (-5d, "b", -5d, 0),
     (5d, "a", 5d, 1),
     (5d, "b", 5d, 1)
   )).toDF("col1", "col2", "col3", "label")
 
-  val pipeline: Pipeline = new Pipeline().setStages(Array(
+  lazy val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),
     new OneHotEncoder().setInputCol("col2_ind").setOutputCol("col2_enc"),
     new VectorAssembler().setInputCols(Array("col1", "col2_enc", "col3")).setOutputCol("features"),
     new LogisticRegression().setLabelCol("label").setFeaturesCol("features")
   ))
 
-  val model: PipelineModel = pipeline.fit(data)
+  lazy val model: PipelineModel = pipeline.fit(data)
 
-  val kernelShap: TabularSHAP = KernelSHAP.tabular
+  lazy val kernelShap: TabularSHAP = KernelSHAP.tabular
     .setInputCols(Array("col1", "col2", "col3"))
     .setOutputCol("shapValues")
     .setBackgroundData(data)
@@ -51,7 +51,7 @@ class TabularSHAPExplainerSuite extends TestBase
     .setTargetCol("probability")
     .setTargetClasses(Array(1))
 
-  val infer: DataFrame = Seq(
+  lazy val infer: DataFrame = Seq(
     (3d, "a", 3d)
   ) toDF("col1", "col2", "col3")
 

@@ -19,7 +19,7 @@ abstract class TextExplainersSuite extends TestBase {
 
   import spark.implicits._
 
-  val model: PipelineModel = {
+  lazy val model: PipelineModel = {
     val df: DataFrame = Seq(
       ("hi this is example 1", 1.0),
       ("hi this is cat 1", 0.0),
@@ -44,7 +44,7 @@ abstract class TextExplainersSuite extends TestBase {
     textClassifier.fit(df)
   }
 
-  val shap: TextSHAP = KernelSHAP.text
+  lazy val shap: TextSHAP = KernelSHAP.text
     .setModel(model)
     .setInputCol("text")
     .setTargetCol("prob")
@@ -53,7 +53,7 @@ abstract class TextExplainersSuite extends TestBase {
     .setTokensCol("tokens")
     .setNumSamples(1000)
 
-  val lime: TextLIME = LIME.text
+  lazy val lime: TextLIME = LIME.text
     .setModel(model)
     .setInputCol("text")
     .setTargetCol("prob")
@@ -63,7 +63,7 @@ abstract class TextExplainersSuite extends TestBase {
     .setSamplingFraction(0.7)
     .setNumSamples(1000)
 
-  val infer: DataFrame = Seq(
+  lazy val infer: DataFrame = Seq(
     ("hi this is example 1", 1.0),
     ("hi bar is cat 1", 0.0)
   ) toDF("text", "label")

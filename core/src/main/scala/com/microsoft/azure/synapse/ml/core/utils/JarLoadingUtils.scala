@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.sparkproject.guava.reflect.ClassPath
 
 import java.io.{File, IOException}
-import java.lang.reflect.Modifier
+import java.lang.reflect.{InvocationTargetException, Modifier}
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
@@ -38,7 +38,12 @@ object JarLoadingUtils {
   }
 
   def instantiateServices[T: ClassTag](jarName: Option[String] = None): List[T] = instantiateServices[T]({
-    clazz: Class[_] => clazz.getConstructor().newInstance()
+    clazz: Class[_] =>
+      try {
+        clazz.getConstructor().newInstance()
+      } catch {
+        case e: InvocationTargetException => throw e.getCause
+      }
   }, jarName)
 
   def instantiateObjects[T: ClassTag](jarName: Option[String] = None): List[T] = instantiateServices[T](

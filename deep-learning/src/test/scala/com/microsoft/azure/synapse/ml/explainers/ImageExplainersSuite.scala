@@ -23,9 +23,9 @@ abstract class ImageExplainersSuite extends TestBase with TrainedCNTKModelUtils 
     loc
   }
 
-  val imageDf: DataFrame = spark.read.image.load(greyhoundImageLocation)
+  lazy val imageDf: DataFrame = spark.read.image.load(greyhoundImageLocation)
 
-  val resNetTransformer: ImageFeaturizer = new ImageFeaturizer()
+  lazy val resNetTransformer: ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
     .setModel(resNet)
