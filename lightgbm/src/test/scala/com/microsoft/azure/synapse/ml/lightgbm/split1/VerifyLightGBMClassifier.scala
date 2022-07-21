@@ -26,9 +26,7 @@ import scala.math.exp
 
 // scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module. */
-class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier]
-  with LightGBMTestUtils {
-
+class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] with LightGBMTestUtils {
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()
   lazy val taskDF: DataFrame = loadBinary("task.train.csv", "TaskFailed10").cache()
   lazy val breastTissueDF: DataFrame = loadMulticlass("BreastTissue.csv", "Class").cache()
@@ -123,7 +121,7 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
       .setFeaturesShapCol(featuresShapCol)
-      .setExecutionMode("bulk")
+      .setExecutionMode("streaming")
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit") {
@@ -366,43 +364,43 @@ class VerifyLightGBMClassifier extends Benchmarks with EstimatorFuzzing[LightGBM
     val valid = validIntermediate.withColumn(validationCol, lit(true))
     val trainAndValid = train.union(valid.orderBy(rand()))
 
-    // model1 should overfit on the given dataset
-    val model1 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(100)
-      .setLearningRate(0.9)
-      .setMinDataInLeaf(2)
-      .setMetric("auc")
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(100)
-    val resultModel1 = model1.fit(trainAndValid)
+      // model1 should overfit on the given dataset
+      val model1 = baseModel
+        .setNumLeaves(100)
+        .setNumIterations(100)
+        .setLearningRate(0.9)
+        .setMinDataInLeaf(2)
+        .setMetric("auc")
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(100)
+      val resultModel1 = model1.fit(trainAndValid)
 
-    // model2 should terminate early
-    val model2 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(100)
-      .setLearningRate(0.9)
-      .setMinDataInLeaf(2)
-      .setMetric("auc")
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(5)
-    val resultModel2 = model2.fit(trainAndValid)
-    val numIterationsEarlyStopped = resultModel2.getLightGBMBooster.numTotalIterations
+             // model2 should terminate early
+            val model2 = baseModel
+              .setNumLeaves(100)
+              .setNumIterations(100)
+              .setLearningRate(0.9)
+              .setMinDataInLeaf(2)
+              .setMetric("auc")
+              .setValidationIndicatorCol(validationCol)
+              .setEarlyStoppingRound(5)
+            val resultModel2 = model2.fit(trainAndValid)
+            val numIterationsEarlyStopped = resultModel2.getLightGBMBooster.numTotalIterations
 
-    // Early stopping should result in fewer iterations.
-    assert(resultModel1.getLightGBMBooster.numTotalIterations > numIterationsEarlyStopped)
+          // Early stopping should result in fewer iterations.
+          assert(resultModel1.getLightGBMBooster.numTotalIterations > numIterationsEarlyStopped)
 
-    // The number of iterations should be the index of the best iteration + 1.
-    assert(numIterationsEarlyStopped == resultModel2.getBoosterBestIteration() + 1)
+          // The number of iterations should be the index of the best iteration + 1.
+          assert(numIterationsEarlyStopped == resultModel2.getBoosterBestIteration() + 1)
 
-    // Make sure we serialize and deserialize appropriately.
-    val modelString1 = resultModel1.getModel.modelStr.get
-    val deserializedModel1 =  LightGBMClassificationModel.loadNativeModelFromString(modelString1)
-    val numIterations1 = resultModel1.getLightGBMBooster.numTotalIterations
-    assert(deserializedModel1.getLightGBMBooster.numTotalIterations == numIterations1)
-    val modelString2 = resultModel2.getModel.modelStr.get
-    val deserializedModel2 =  LightGBMClassificationModel.loadNativeModelFromString(modelString2)
-    assert(deserializedModel2.getLightGBMBooster.numTotalIterations == numIterationsEarlyStopped)
+          // Make sure we serialize and deserialize appropriately.
+          val modelString1 = resultModel1.getModel.modelStr.get
+          val deserializedModel1 =  LightGBMClassificationModel.loadNativeModelFromString(modelString1)
+          val numIterations1 = resultModel1.getLightGBMBooster.numTotalIterations
+          assert(deserializedModel1.getLightGBMBooster.numTotalIterations == numIterations1)
+          val modelString2 = resultModel2.getModel.modelStr.get
+          val deserializedModel2 =  LightGBMClassificationModel.loadNativeModelFromString(modelString2)
+          assert(deserializedModel2.getLightGBMBooster.numTotalIterations == numIterationsEarlyStopped)
   }
 
   test("Verify LightGBM Classifier categorical parameter for sparse dataset") {

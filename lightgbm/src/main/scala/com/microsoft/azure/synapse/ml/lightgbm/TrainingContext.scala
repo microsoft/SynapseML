@@ -10,6 +10,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
 
+import scala.language.implicitConversions
+
 case class NetworkParams(defaultListenPort: Int,
                          ipAddress: String,
                          port: Int,
@@ -45,6 +47,7 @@ case class TrainingContext(batchIndex: Int,
   val microBatchSize: Int = { trainingParams.executionParams.microBatchSize }
 
   val isStreaming: Boolean = trainingParams.executionParams.executionMode == LightGBMConstants.StreamingExecutionMode
+  val isBulk: Boolean = trainingParams.executionParams.executionMode == LightGBMConstants.BulkExecutionMode
 
   val useSingleDatasetMode: Boolean = trainingParams.executionParams.useSingleDatasetMode || isStreaming
 
@@ -52,11 +55,18 @@ case class TrainingContext(batchIndex: Int,
 
   val hasValidationData: Boolean = validationData.isDefined
 
-
   val hasWeights: Boolean = { columnParams.weightColumn.isDefined && columnParams.weightColumn.get.nonEmpty }
   val hasInitialScores: Boolean = { columnParams.initScoreColumn.isDefined &&
                                     columnParams.initScoreColumn.get.nonEmpty }
   val hasGroups: Boolean = { columnParams.groupColumn.isDefined && columnParams.groupColumn.get.nonEmpty }
+
+  val hasWeightsAsInt: Int = toInt(hasWeights)
+  val hasInitialScoresAsInt: Int = toInt(hasInitialScores)
+  val hasGroupsAsInt: Int = toInt(hasGroups)
+
+  if (!isStreaming && !isBulk) {
+    throw new Exception("Execution mode must be streaming or bulk")
+  }
 
   def sharedState(): SharedState = { sharedStateSingleton.get }
 
@@ -74,4 +84,6 @@ case class TrainingContext(batchIndex: Int,
       sharedState().validationDatasetWorker.get == LightGBMUtils.getTaskId
     } else false
   }
+
+  implicit def toInt(b: Boolean): Int = if (b) 1 else 0
 }

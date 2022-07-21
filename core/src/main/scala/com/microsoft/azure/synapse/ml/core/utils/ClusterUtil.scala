@@ -7,6 +7,7 @@ import java.net.InetAddress
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
+import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.slf4j.Logger
 
@@ -45,7 +46,7 @@ object ClusterUtil {
     */
   def getNumRowsPerPartition(df: DataFrame, labelCol: String): Array[Long] = {
     val indexedRowCounts: Array[(Int, Long)] = df
-      .select(labelCol)
+      .select(typedLit(0.toByte))
       .rdd
       .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
       .collect()

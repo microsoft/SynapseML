@@ -20,6 +20,8 @@ abstract class BaseTrainParams extends Serializable {
   def seedParams: SeedParams
   def categoricalParams: CategoricalParams
 
+  def getNumClass: Int = 1
+
   override def toString: String = {
     // Note: passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
     // Fetch and print training metrics in `TrainUtils.scala` through JNI.

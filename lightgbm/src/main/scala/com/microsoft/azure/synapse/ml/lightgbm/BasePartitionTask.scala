@@ -33,7 +33,7 @@ case class PartitionDataState(aggregatedTrainingData: Option[BaseAggregatedColum
   */
 case class PartitionTaskTrainingState(ctx: PartitionTaskContext,
                                       booster: LightGBMBooster) {
-  lazy val evalNames: Array[String] = booster.getEvalNames()
+  lazy val evalNames: Array[String] = booster.getEvalNames
   lazy val evalCounts: Int = evalNames.length
   lazy val bestScore = new Array[Double](evalCounts)
   lazy val bestScores = new Array[Array[Double]](evalCounts)
@@ -79,13 +79,25 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
                               value)
   }
 
-  lazy val streamingExecutorRowCount: Int = {
+  /* The relative index of this Task's thread relative to other executor threads
+   */
+  lazy val threadIndex: Int = networkTopologyInfo.executorPartitionIdList.sortBy(id => id).indexOf(partitionId)
+
+  /* The count of partitions in this executor
+   */
+  lazy val executorPartitionCount: Int = trainingCtx.partitionCounts.get.length
+
+  /* The total count of partition rows in this executor
+   */
+  lazy val executorRowCount: Int = {
     // Use the map of all partition counts and the map of partitions on this executor to get local count
     val allPartitionRowCounts = trainingCtx.partitionCounts.get
     networkTopologyInfo.executorPartitionIdList
       .map(partitionId => allPartitionRowCounts(partitionId)).sum.toInt
   }
 
+  /* The starting offset of where this partition should place rows in the shared executor Dataset
+   */
   lazy val streamingPartitionOffset: Int = {
     // Use the map of all partition counts and the map of partitions on this executor to get this partition offset
     val allPartitionRowCounts = trainingCtx.partitionCounts.get
@@ -225,11 +237,11 @@ abstract class BasePartitionTask extends Serializable with Logging {
   private def finalizeDatasetAndTrain(ctx: PartitionTaskContext,
                                       dataState: PartitionDataState): Iterator[PartitionResult] = {
     ctx.measures.isActiveTrainingTask = true
-    val trainDataset: LightGBMDataset = generateFinalDataset(ctx, dataState, forValidation = false, None)
+    val trainDataset: LightGBMDataset = getFinalTrainingDataset(ctx, dataState)
     try {
       val validDatasetOpt: Option[LightGBMDataset] =
         if (!ctx.trainingCtx.hasValidationData) None
-        else Option(generateFinalDataset(ctx, dataState, forValidation = true, Some(trainDataset)))
+        else Option(getFinalValidationDataset(ctx, dataState, trainDataset))
 
       try {
         log.info(s"Creating LightGBM Booster for partition ${ctx.partitionId}, task ${ctx.taskId}")
@@ -304,6 +316,9 @@ abstract class BasePartitionTask extends Serializable with Logging {
     if (trainingCtx.useSingleDatasetMode)
       log.info(s"Using singleDatasetMode. Task: $taskId, PartId: $partitionId. Main task: $mainExecutorWorkerId" +
         s" shouldExecuteTraining: $shouldExecuteTraining, isEmptyPartition: $isEmptyPartition")
+
+    val shouldCalcValidationDataset = trainingCtx.sharedState.validationDatasetWorker.getOrElse(-1) == taskId
+
     PartitionTaskContext(trainingCtx,
                          partitionId,
                          taskId,
@@ -312,7 +327,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
                          shouldExecuteTraining,
                          isEmptyPartition,
                          shouldReturnBooster,
-                         shouldCalcValidationDataset = false)
+                         shouldCalcValidationDataset)
   }
 
   /**
@@ -324,17 +339,24 @@ abstract class BasePartitionTask extends Serializable with Logging {
   protected def preparePartitionDataInternal(ctx: PartitionTaskContext, inputRows: Iterator[Row]): PartitionDataState
 
   /**
-    * Generate the final dataset for this task.  Internal implementation for specific execution modes.
+    * Generate the final training dataset for this task.  Internal implementation for specific execution modes.
     * @param ctx The training context.
     * @param dataState Any intermediate data state (used mainly by bulk execution mode).
-    * @param forValidation Whether to generate the final training dataset or the validation dataset.
-    * @param referenceDataset A reference dataset to start with (used mainly for validation dataset).
     * @return LightGBM dataset Java wrapper.
     */
-  protected def generateFinalDatasetInternal(ctx: PartitionTaskContext,
+  protected def getTrainingDatasetInternal(ctx: PartitionTaskContext,
+                                           dataState: PartitionDataState): LightGBMDataset
+
+  /**
+    * Generate the final opt validation dataset for this task. Internal implementation for specific execution modes.
+    * @param ctx The training context.
+    * @param dataState Any intermediate data state (used mainly by bulk execution mode).
+    * @param referenceDataset A reference dataset to start with.
+    * @return LightGBM dataset Java wrapper.
+    */
+  protected def getValidationDatasetInternal(ctx: PartitionTaskContext,
                                              dataState: PartitionDataState,
-                                             forValidation: Boolean,
-                                             referenceDataset: Option[LightGBMDataset]): LightGBMDataset
+                                             referenceDataset: LightGBMDataset): LightGBMDataset
 
   /** Cleanup the task
     *
@@ -348,35 +370,46 @@ abstract class BasePartitionTask extends Serializable with Logging {
     * the training rounds, i.e. in useSingleDataset mode it will only be 1 task/executor.
     * @param ctx The training context.
     * @param dataState Any intermediate data state (used mainly by bulk execution mode).
-    * @param forValidation Whether to generate the final training dataset or the validation dataset.
-    * @param referenceDataset A reference dataset to start with (used mainly for validation dataset).
     * @return LightGBM dataset Java wrapper.
     */
-  private def generateFinalDataset(ctx: PartitionTaskContext,
-                                   dataState: PartitionDataState,
-                                   forValidation: Boolean,
-                                   referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
-    log.info(s"Getting final Dataset for partition ${ctx.partitionId}. isValidation: $forValidation")
-    if (forValidation) {
-      beforeGenerateValidDataset(ctx, log)
-      ctx.measures.markValidationDatasetStart()
-    } else {
-      beforeGenerateTrainDataset(ctx, log)
-      ctx.measures.markDatasetCreationStart()
-    }
+  private def getFinalTrainingDataset(ctx: PartitionTaskContext,
+                                      dataState: PartitionDataState): LightGBMDataset = {
+    log.info(s"Getting final training Dataset for partition ${ctx.partitionId}.")
+    beforeGenerateTrainDataset(ctx, log)
+    ctx.measures.markDatasetCreationStart()
 
-    val dataset = generateFinalDatasetInternal(ctx, dataState, forValidation, referenceDataset)
+    val dataset = getTrainingDatasetInternal(ctx, dataState)
 
     // Validate generated dataset has the correct number of rows and cols
     dataset.validateDataset()
 
-    if (forValidation) {
-      afterGenerateValidDataset(ctx, log)
-      ctx.measures.markValidationDatasetStop()
-    } else {
-      ctx.measures.markDatasetCreationStop()
-      afterGenerateTrainDataset(ctx, log)
-    }
+    ctx.measures.markDatasetCreationStop()
+    afterGenerateTrainDataset(ctx, log)
+
+    dataset
+  }
+
+  /**
+    * Generate the final validation dataset for this task.  This should only be run be tasks that will participate in
+    * the training rounds, i.e. in useSingleDataset mode it will only be 1 task/executor.
+    * @param ctx The training context.
+    * @param dataState Any intermediate data state (used mainly by bulk execution mode).
+    * @param referenceDataset A reference dataset to start with (used mainly for validation dataset).
+    * @return LightGBM dataset Java wrapper.
+    */
+  private def getFinalValidationDataset(ctx: PartitionTaskContext,
+                                             dataState: PartitionDataState,
+                                             referenceDataset: LightGBMDataset): LightGBMDataset = {
+    log.info(s"Getting final validation Dataset for partition ${ctx.partitionId}.")
+    beforeGenerateValidDataset(ctx, log)
+    ctx.measures.markValidationDatasetStart()
+
+    val dataset = getValidationDatasetInternal(ctx, dataState, referenceDataset)
+
+    // Validate generated dataset has the correct number of rows and cols
+    dataset.validateDataset()
+    afterGenerateValidDataset(ctx, log)
+    ctx.measures.markValidationDatasetStop()
 
     dataset
   }
