@@ -28,6 +28,7 @@ module.exports = {
     prism: {
       theme: require('./src/plugins/prism_themes/github'),
       darkTheme: require('./src/plugins/prism_themes/monokai'),
+      additionalLanguages: ['csharp', 'powershell'],
     },
     colorMode: {
       defaultMode: 'dark',
@@ -62,6 +63,10 @@ module.exports = {
             {
               label: 'Scala',
               href: `https://mmlspark.blob.core.windows.net/docs/${version}/scala/com/microsoft/azure/synapse/ml/index.html`,
+            },
+            {
+              label: 'C#',
+              href: `https://mmlspark.blob.core.windows.net/docs/${version}/dotnet/index.html`,
             }
           ]
         },

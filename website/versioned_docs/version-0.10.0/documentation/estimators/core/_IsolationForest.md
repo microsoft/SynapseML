@@ -61,4 +61,5 @@ val isolationForest = (new IsolationForest()
 <DocTable className="IsolationForest"
 py="synapse.ml.isolationforest.html#module-synapse.ml.isolationforest.IsolationForest"
 scala="com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.html"
+csharp="classSynapse_1_1ML_1_1Isolationforest_1_1IsolationForest.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />

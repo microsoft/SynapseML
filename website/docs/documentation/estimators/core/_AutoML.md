@@ -110,6 +110,7 @@ bestModel.transform(df).show()
 <DocTable className="FindBestModel"
 py="synapse.ml.automl.html#module-synapse.ml.automl.FindBestModel"
 scala="com/microsoft/azure/synapse/ml/automl/FindBestModel.html"
+csharp="classSynapse_1_1ML_1_1Automl_1_1FindBestModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/FindBestModel.scala" />
 
 
@@ -209,4 +210,5 @@ tuneHyperparameters.fit(dataset).show()
 <DocTable className="TuneHyperparameters"
 py="synapse.ml.automl.html#module-synapse.ml.automl.TuneHyperparameters"
 scala="com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.html"
+csharp="classSynapse_1_1ML_1_1Automl_1_1TuneHyperparameters.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.scala" />
