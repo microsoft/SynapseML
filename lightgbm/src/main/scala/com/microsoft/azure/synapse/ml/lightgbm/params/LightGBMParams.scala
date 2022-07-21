@@ -66,7 +66,7 @@ trait LightGBMExecutionParams extends Wrappable {
 
   val microBatchSize = new IntParam(this, "microBatchSize",
     "Specify how many elements are sent in a streaming micro-batch.")
-  setDefault(microBatchSize -> 1)
+  setDefault(microBatchSize -> 100)
   def getMicroBatchSize: Int = $(microBatchSize)
   def setMicroBatchSize(value: Int): this.type = set(microBatchSize, value)
 

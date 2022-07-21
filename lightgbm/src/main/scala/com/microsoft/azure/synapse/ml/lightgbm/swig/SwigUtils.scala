@@ -169,3 +169,79 @@ class IntSwigArray(val array: SWIGTYPE_p_int) extends BaseSwigArray[Int] {
 
   def delete(): Unit = lightgbmlib.delete_intArray(array)
 }
+
+// Wraps long*
+class LongSwigArray(val array: SWIGTYPE_p_long_long) extends BaseSwigArray[Long] {
+  def this(size: Long) = this(lightgbmlib.new_longArray(size))
+
+  def getItem(index: Long): Long = lightgbmlib.longArray_getitem(array, index)
+
+  def setItem(index: Long, item: Long): Unit = lightgbmlib.longArray_setitem(array, index, item)
+
+  def delete(): Unit = lightgbmlib.delete_longArray(array)
+}
+
+// Wraps void**
+class VoidPointerSwigArray(val array: SWIGTYPE_p_p_void, val size: Int) extends BaseSwigArray[SWIGTYPE_p_void] {
+  def this(size: Int) = this(lightgbmlib.new_voidPtrArray(size), size)
+
+  def getItem(index: Long): SWIGTYPE_p_void = lightgbmlib.voidPtrArray_getitem(array, index)
+
+  def setItem(index: Long, item: SWIGTYPE_p_void): Unit = {
+    lightgbmlib.voidPtrArray_setitem(array, index, item) // set native pointer value
+  }
+
+  def delete(): Unit =  {
+    lightgbmlib.delete_voidPtrArray(array)
+  }
+}
+
+// Wraps double**, which is implemented in the wrapper as an array of DoubleSwigArray
+class DoublePointerSwigArray(val array: SWIGTYPE_p_p_double, val size: Int) extends BaseSwigArray[DoubleSwigArray] {
+  val columnVectors: Array[Option[DoubleSwigArray]] = Array.fill(size)(None)
+
+  def this(size: Int) = this(lightgbmlib.new_doublePtrArray(size), size)
+
+  def getItem(index: Long): DoubleSwigArray = columnVectors.apply(index.toInt).get
+
+  def setItem(index: Long, item: DoubleSwigArray): Unit = {
+    columnVectors(index.toInt).foreach(array => array.delete()) // free existing vector if exists
+    columnVectors(index.toInt) = Option(item) // store vector wrapper locally
+    lightgbmlib.doublePtrArray_setitem(array, index, item.array) // set native pointer value
+  }
+
+  def pushElement(col: Int, row: Int, value: Double): Unit = {
+    columnVectors(col).foreach(v => v.setItem(row, value))
+  }
+
+  def delete(): Unit =  {
+    // delete the individual vectors first
+    columnVectors.foreach(v => v.map(array => array.delete()))
+    lightgbmlib.delete_doublePtrArray(array)
+  }
+}
+
+// Wraps int**, which is implemented in the wrapper as an array of IntSwigArray
+class IntPointerSwigArray(val array: SWIGTYPE_p_p_int, val size: Int) extends BaseSwigArray[IntSwigArray] {
+  val columnVectors: Array[Option[IntSwigArray]] = Array.fill(size)(None)
+
+  def this(size: Int) = this(lightgbmlib.new_intPtrArray(size), size)
+
+  def getItem(index: Long): IntSwigArray = columnVectors.apply(index.toInt).get
+
+  def setItem(index: Long, item: IntSwigArray): Unit = {
+    columnVectors(index.toInt).foreach(array => array.delete()) // free existing vector if exists
+    columnVectors(index.toInt) = Option(item) // store vector wrapper locally
+    lightgbmlib.intPtrArray_setitem(array, index, item.array) // set native pointer value
+  }
+
+  def pushElement(col: Int, row: Int, value: Int): Unit = {
+    columnVectors(col).foreach(v => v.setItem(row, value))
+  }
+
+  def delete(): Unit =  {
+    // delete the individual vectors first
+    columnVectors.foreach(v => v.map(array => array.delete()))
+    lightgbmlib.delete_intPtrArray(array)
+  }
+}
