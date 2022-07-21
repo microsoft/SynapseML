@@ -4,6 +4,8 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import breeze.stats.distributions.FDistribution
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
@@ -12,11 +14,10 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
                      BanditEstimatorCressieReadIntervalBuffer,
                      BanditEstimatorCressieReadIntervalOutput]
     with Serializable {
-  // TODO: doesn't work
-  //    with BasicLogging {
-  //  logClass()
-
-  //  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
+//    with BasicLogging {
+//  logClass()
+//
+//  override val uid: String = Identifiable.randomUID("BanditEstimatorCressieReadInterval")
 
   def zero: BanditEstimatorCressieReadIntervalBuffer =
     BanditEstimatorCressieReadIntervalBuffer()
@@ -67,91 +68,93 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
   }
 
   def finish(acc: BanditEstimatorCressieReadIntervalBuffer): BanditEstimatorCressieReadIntervalOutput = {
-    if (acc.n == 0)
-      BanditEstimatorCressieReadIntervalOutput(-1, -1)
-    else {
-      val n = acc.n.toDouble
-      val sumw = acc.sumw.toDouble
-      val sumwsq = acc.sumwsq.toDouble
-      val sumwr = acc.sumwr.toDouble
-      val sumwsqr = acc.sumwsqr.toDouble
-      val sumwsqrsq = acc.sumwsqrsq.toDouble
+//    logVerb("aggregate", {
+      if (acc.n == 0)
+        BanditEstimatorCressieReadIntervalOutput(-1, -1)
+      else {
+        val n = acc.n.toDouble
+        val sumw = acc.sumw.toDouble
+        val sumwsq = acc.sumwsq.toDouble
+        val sumwr = acc.sumwr.toDouble
+        val sumwsqr = acc.sumwsqr.toDouble
+        val sumwsqrsq = acc.sumwsqrsq.toDouble
 
-      val uncwfake = if (sumw < n) acc.wMax else acc.wMin
+        val uncwfake = if (sumw < n) acc.wMax else acc.wMin
 
-      val uncgstar =
-        if (uncwfake.isInfinity)
-           1 + 1 / n
-        else {
-          val unca = (uncwfake + sumw) / (1 + n)
-          val uncb = (uncwfake * uncwfake + sumwsq) / (1 + n)
-          (1 + n) * (unca - 1) * (unca - 1) / (uncb - unca * unca)
-        }
-
-      val Fdist = new FDistribution(numeratorDegreesOfFreedom = 1, denominatorDegreesOfFreedom = n)
-      val alpha = 0.05 // TODO: parameter?
-      val atol = 1e-9
-
-      //      delta = f.isf(q=alpha, dfn=1, dfd=n)
-      val delta = 1 - Fdist.inverseCdf(alpha)
-
-      val phi = (-uncgstar - delta) / (2 * (1 + n))
-
-      def computeBound(r: Double, sign: Int) = {
-        def computeBoundInner(wfake: Double): Option[Double] = {
-          if (wfake.isInfinity) {
-            val x = sign * (r + (sumwr - sumw * r) / n)
-            val rsumw_sumwr = (r * sumw - sumwr)
-            var y = (rsumw_sumwr * rsumw_sumwr / (n * (1 + n))
-              - (r *r  * sumwsq - 2 * r * sumwsqr + sumwsqrsq) / (1 + n)
-              )
-            val z = phi + 1 / (2 * n)
-            // if isclose(y * z, 0, abs_tol=1e-9):
-            if (Math.abs(y*z) < atol)
-              y = 0
-
-            // if isclose(y * z, 0, abs_tol=atol * atol):
-            if (Math.abs(y * z) < atol * atol)
-              Some(x - Math.sqrt(2) * atol)
-            else if (z <= 0 && y * z >= 0)
-              Some(x - Math.sqrt(2 * y * z))
-
-            None
-          }
+        val uncgstar =
+          if (uncwfake.isInfinity)
+            1 + 1 / n
           else {
-            val barw = (wfake + sumw) / (1 + n)
-            val barwsq = (wfake * wfake + sumwsq) / (1 + n)
-            val barwr = sign * (wfake * r + sumwr) / (1 + n)
-            val barwsqr = sign * (wfake * wfake * r + sumwsqr) / (1 + n)
-            val barwsqrsq = (wfake * wfake * r * r + sumwsqrsq) / (1 + n)
+            val unca = (uncwfake + sumw) / (1 + n)
+            val uncb = (uncwfake * uncwfake + sumwsq) / (1 + n)
+            (1 + n) * (unca - 1) * (unca - 1) / (uncb - unca * unca)
+          }
 
-            if (barwsq <= barw * barw) None
-            else {
-              val x = barwr + ((1 - barw) * (barwsqr - barw * barwr) / (barwsq - barw * barw))
-              val y = (barwsqr - barw * barwr) * (barwsqr - barw * barwr) /
-                (barwsq - barw * barw) - (barwsqrsq - barwr * barwr)
-              val z = phi + (1 / 2) * (1 - barw) * (1 - barw) / (barwsq - barw * barw)
+        val Fdist = new FDistribution(numeratorDegreesOfFreedom = 1, denominatorDegreesOfFreedom = n)
+        val alpha = 0.05 // TODO: parameter?
+        val atol = 1e-9
 
-              // if isclose(y * z, 0, abs_tol = atol * atol):
-              if (Math.abs(y * x) < atol * atol)
+        //      delta = f.isf(q=alpha, dfn=1, dfd=n)
+        val delta = 1 - Fdist.inverseCdf(alpha)
+
+        val phi = (-uncgstar - delta) / (2 * (1 + n))
+
+        def computeBound(r: Double, sign: Int) = {
+          def computeBoundInner(wfake: Double): Option[Double] = {
+            if (wfake.isInfinity) {
+              val x = sign * (r + (sumwr - sumw * r) / n)
+              val rsumw_sumwr = (r * sumw - sumwr)
+              var y = (rsumw_sumwr * rsumw_sumwr / (n * (1 + n))
+                - (r * r * sumwsq - 2 * r * sumwsqr + sumwsqrsq) / (1 + n)
+                )
+              val z = phi + 1 / (2 * n)
+              // if isclose(y * z, 0, abs_tol=1e-9):
+              if (Math.abs(y * z) < atol)
+                y = 0
+
+              // if isclose(y * z, 0, abs_tol=atol * atol):
+              if (Math.abs(y * z) < atol * atol)
                 Some(x - Math.sqrt(2) * atol)
               else if (z <= 0 && y * z >= 0)
-                Some(x - Math.sqrt(2 * y *z))
-              else
-                None
+                Some(x - Math.sqrt(2 * y * z))
+
+              None
+            }
+            else {
+              val barw = (wfake + sumw) / (1 + n)
+              val barwsq = (wfake * wfake + sumwsq) / (1 + n)
+              val barwr = sign * (wfake * r + sumwr) / (1 + n)
+              val barwsqr = sign * (wfake * wfake * r + sumwsqr) / (1 + n)
+              val barwsqrsq = (wfake * wfake * r * r + sumwsqrsq) / (1 + n)
+
+              if (barwsq <= barw * barw) None
+              else {
+                val x = barwr + ((1 - barw) * (barwsqr - barw * barwr) / (barwsq - barw * barw))
+                val y = (barwsqr - barw * barwr) * (barwsqr - barw * barwr) /
+                  (barwsq - barw * barw) - (barwsqrsq - barwr * barwr)
+                val z = phi + (1 / 2) * (1 - barw) * (1 - barw) / (barwsq - barw * barw)
+
+                // if isclose(y * z, 0, abs_tol = atol * atol):
+                if (Math.abs(y * x) < atol * atol)
+                  Some(x - Math.sqrt(2) * atol)
+                else if (z <= 0 && y * z >= 0)
+                  Some(x - Math.sqrt(2 * y * z))
+                else
+                  None
+              }
             }
           }
+
+          val best = Seq(computeBoundInner(acc.wMin), computeBoundInner(acc.wMax)).flatten.min
+
+          Math.min(acc.rMax, Math.max(acc.rMin, sign * best))
         }
 
-        val best = Seq(computeBoundInner(acc.wMin), computeBoundInner(acc.wMax)).flatten.min
-
-        Math.min(acc.rMax, Math.max(acc.rMin, sign * best))
+        BanditEstimatorCressieReadIntervalOutput(
+          computeBound(acc.rMin, 1),
+          computeBound(acc.rMax, -1))
       }
-
-      BanditEstimatorCressieReadIntervalOutput(
-        computeBound(acc.rMin, 1),
-        computeBound(acc.rMax, -1))
-    }
+//    })
   }
 
   def bufferEncoder: Encoder[BanditEstimatorCressieReadIntervalBuffer] =

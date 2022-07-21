@@ -3,9 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.BrentSolver
 import org.apache.commons.math3.special.Gamma
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
@@ -14,9 +16,10 @@ class BanditEstimatorEmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
                      BanditEstimatorEmpiricalBernsteinCSBuffer,
                      BanditEstimatorEmpiricalBernsteinCSOutput]
     with Serializable {
-  // TODO: doesn't work
-  //    with BasicLogging {
-  //  logClass()
+//    with BasicLogging {
+//  logClass()
+//
+//  override val uid: String = Identifiable.randomUID("BanditEstimatorEmpiricalBernsteinCS")
 
   if (rho <= 0)
     throw new IllegalArgumentException(s"rho ($rho) must be > 0")
@@ -94,9 +97,11 @@ class BanditEstimatorEmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
       }
     }
 
-    BanditEstimatorEmpiricalBernsteinCSOutput(
-      lblogwealth(acc.t, acc.sumXlow, acc.sumvlow, alpha/2),
-      1 - lblogwealth(acc.t, acc.sumXhigh, acc.sumvhigh, alpha/2))
+//    logVerb("aggregate", {
+      BanditEstimatorEmpiricalBernsteinCSOutput(
+        lblogwealth(acc.t, acc.sumXlow, acc.sumvlow, alpha / 2),
+        1 - lblogwealth(acc.t, acc.sumXhigh, acc.sumvhigh, alpha / 2))
+//    })
   }
 
   def bufferEncoder: Encoder[BanditEstimatorEmpiricalBernsteinCSBuffer] =

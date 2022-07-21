@@ -187,6 +187,73 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   test ("Verify VowpalWabbitGeneric Complex") {
     import spark.implicits._
 
+    val time = System.currentTimeMillis()
+
+    val startDate = LocalDate.of(2017, 11, 6).atStartOfDay().toInstant(ZoneOffset.UTC)
+    val endDate = LocalDate.of(2018, 10, 19).atStartOfDay().toInstant(ZoneOffset.UTC)
+
+    val vw = new VowpalWabbitGenericProgressive()
+      // .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+      .setPassThroughArgs("--cb_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+      // .setPassThroughArgs("--cb_explore_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
+      // .setNumSyncsPerPass(12)
+    //      .setTemporalSyncScheduleCol("timestamp")
+    //      .setTemporalSyncStepUnit("DAYS")
+    //      .setTemporalSyncStepSize(30)
+    //      .setTemporalSyncStartTimestamp(startDate)
+    //      .setTemporalSyncEndTimestamp(endDate)
+
+    // extract cost, prob and action from dsjson
+    val extractSchema = T.StructType(Seq(
+      T.StructField("_label_cost", T.FloatType, false),
+      T.StructField("_label_probability", T.FloatType, false),
+      T.StructField("_label_Action", T.IntegerType, false),
+      T.StructField("_labelIndex", T.IntegerType, false),
+      T.StructField("Timestamp", T.StringType, false),
+      T.StructField("EventId", T.StringType, false),
+      T.StructField("c", T.StructType(Seq(
+        T.StructField("Geo", T.StructType(Seq(
+          T.StructField("country", T.StringType, true)
+        )), true)
+      )), true)
+    ))
+
+    val dataset = spark.read.text("/home/marcozo/vw_complex/cmplx-stratified/*")
+      .withColumnRenamed("value", "input")
+      // provide nice names
+      .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("timestamp", F.to_timestamp(F.col("json.Timestamp")))
+      .withColumn("probLog", F.col("json._label_probability"))
+      .withColumn("reward", F.col("json._label_cost"))
+//      .limit(100)
+
+    vw.transform(dataset)
+      //  probPred = 1_{logged action = argmin score action}
+      // best action is always first (and one-based indexing)
+      .withColumn("probPred",
+        F.when(F.expr("element_at(predictions, 1).action == json._labelIndex"), 1f).otherwise(0f))
+
+      .select($"timestamp",
+        $"probLog",
+        $"probPred",
+        $"reward",
+        $"json.EventId",
+        $"json.c.Geo.country".alias("country"),
+        $"predictions",
+        $"json._labelIndex".as("chosenIndex"))
+      .write.mode(SaveMode.Overwrite).parquet("/home/marcozo/vw_complex/cmplx-pred.parquet")
+
+    ////      // fetch the probability the offline policy assigns
+    //      // cb_adf_explore
+    ////      .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).probability"))
+    //      // no reweighting
+
+    println(s"Time: ${(System.currentTimeMillis() - time) / 1000}s")
+  }
+
+  test ("Verify VowpalWabbitGeneric Complex Analysis") {
+    import spark.implicits._
+
     spark.udf.register("snips", F.udaf(new BanditEstimatorSnips(), Encoders.product[BanditEstimatorSnipsInput]))
     spark.udf.register("ips", F.udaf(new BanditEstimatorIps(), Encoders.product[BanditEstimatorIpsInput]))
     spark.udf.register("cressieRead",
@@ -200,43 +267,15 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
     val time = System.currentTimeMillis()
 
-    val startDate = LocalDate.of(2017, 11, 6).atStartOfDay().toInstant(ZoneOffset.UTC)
-    val endDate = LocalDate.of(2018, 10, 19).atStartOfDay().toInstant(ZoneOffset.UTC)
+    val df = spark.read.parquet("/home/marcozo/vw_complex/cmplx-pred.parquet")
 
-    val vw = new VowpalWabbitGenericProgressive()
-      // .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
-      .setPassThroughArgs("--cb_explore_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
-      .setNumSyncsPerPass(12)
-//      .setTemporalSyncScheduleCol("timestamp")
-//      .setTemporalSyncStepUnit("DAYS")
-//      .setTemporalSyncStepSize(30)
-//      .setTemporalSyncStartTimestamp(startDate)
-//      .setTemporalSyncEndTimestamp(endDate)
-
-    // extract cost, prob and action from dsjson
-    val extractSchema = T.StructType(Seq(
-      T.StructField("_label_cost", T.FloatType, false),
-      T.StructField("_label_probability", T.FloatType, false),
-      T.StructField("_label_Action", T.IntegerType, false),
-      T.StructField("Timestamp", T.StringType, false)
-    ))
-
-    val dataset = spark.read.text("/home/marcozo/vw_complex/cmplx-stratified/*")
-      .withColumnRenamed("value", "input")
-      // provide nice names
-      .withColumn("json", F.from_json(F.col("input"), extractSchema))
-      .withColumn("timestamp", F.to_timestamp(F.col("json.Timestamp")))
-      .withColumn("probLog", F.col("json._label_probability"))
-      .withColumn("reward", F.col("json._label_cost"))
-
-    vw.transform(dataset)
-//      .write.mode(SaveMode.Overwrite).parquet("/home/marcozo/vw_complex/cmplx-pred.parquet")
-//      // fetch the probability the offline policy assigns
-      .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).probability"))
-      // no reweighting
+    df
       .withColumn("count", F.lit(1))
+      .withColumn("w",$"probPred" / $"probLog")
       // .groupBy()
+      .groupBy($"country")
       .agg(
+        F.count("*").alias("cnt"),
         F.expr("snips(probLog, reward, probPred, count)").as("snips"),
         F.expr("ips(probLog, reward, probPred, count)").as("ips"),
         // TODO: not sure what to pass for wmin/wmax
@@ -245,22 +284,21 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
           .as("cressieReadInterval"),
         F.expr("cressieReadIntervalEmpirical(probLog, reward, probPred, count, -1, 0, -1, 0)")
           .as("cressieReadIntervalEmpirical"),
-        // TODO: fails
+        F.expr("avg(w)").alias("average of importance weights"),
+        F.expr("avg(w * w)").alias("average of squared importance weights"),
+        F.expr("max(w)/count(*)").alias("proportion of maximum importance weight"),
+
+//         TODO: fails
 //        F.expr("bernstein(probLog, reward, probPred, count)").alias("bernstein")
       )
-      .show(false)
+      .orderBy($"cnt".desc)
+      .show() //1000, 1000, vertical = true)
 
-    // dataset.show()
+    println(df.where($"probPred" > 0).count())
 
-//    val classifier = vw.fit(dataset)
-//
-//    classifier.getPerformanceStatistics.show()
-//
-    println(s"Time: ${(System.currentTimeMillis() - time)/1000}s")
-//
-//    val predictionDF = classifier
-//      .setTestArgs("--dsjson")
-//      .transform(dataset)
+    println(df.count())
+
+    println(s"Time: ${(System.currentTimeMillis() - time) / 1000}s")
   }
 
   test ("Verify VowpalWabbitGeneric using dsjson") {

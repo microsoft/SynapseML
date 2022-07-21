@@ -11,10 +11,9 @@ import org.apache.spark.sql.{Encoder, Encoders}
 class BanditEstimatorIps
   extends Aggregator[BanditEstimatorIpsInput, BanditEstimatorIpsBuffer, Float]
     with Serializable {
-  // TODO: doesn't work
-  //    with BasicLogging {
-  //  logClass()
-
+//    with BasicLogging {
+//    logClass()
+//
 //  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
   def zero: BanditEstimatorIpsBuffer = BanditEstimatorIpsBuffer(0, 0)
@@ -34,10 +33,12 @@ class BanditEstimatorIps
   }
 
   def finish(acc: BanditEstimatorIpsBuffer): Float =
-    if (acc.exampleCount == 0)
-      -1 // TODO: how to return null?
-    else
-      acc.weightedReward / acc.exampleCount
+//    logVerb("aggregate", {
+      if (acc.exampleCount == 0)
+        -1 // TODO: how to return null?
+      else
+        acc.weightedReward / acc.exampleCount
+//    })
 
   def bufferEncoder: Encoder[BanditEstimatorIpsBuffer] = Encoders.product[BanditEstimatorIpsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat

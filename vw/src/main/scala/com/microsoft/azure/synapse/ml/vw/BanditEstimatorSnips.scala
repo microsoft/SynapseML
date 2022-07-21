@@ -11,7 +11,6 @@ import org.apache.spark.sql.{Encoder, Encoders}
 class BanditEstimatorSnips
   extends Aggregator[BanditEstimatorSnipsInput, BanditEstimatorSnipsBuffer, Float]
     with Serializable {
-  // TODO: doesn't work
 //    with BasicLogging {
 //  logClass()
 
@@ -33,10 +32,12 @@ class BanditEstimatorSnips
       acc1.weightedReward + acc2.weightedReward)
 
   def finish(acc: BanditEstimatorSnipsBuffer): Float = {
-    if (acc.weightedExampleCount == 0)
-      -1f // TODO: how to return null?
-    else
-      (acc.weightedReward / acc.weightedExampleCount).toFloat
+//    logVerb("aggregate", {
+      if (acc.weightedExampleCount == 0)
+        -1f // TODO: how to return null?
+      else
+        (acc.weightedReward / acc.weightedExampleCount).toFloat
+//    })
   }
 
   def bufferEncoder: Encoder[BanditEstimatorSnipsBuffer] = Encoders.product[BanditEstimatorSnipsBuffer]

@@ -7,7 +7,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
 import org.vowpalwabbit.spark.VowpalWabbitNative
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
+import vowpalWabbit.responses.{ActionProbs, ActionScore, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
 object VowpalWabbitPrediction {
   def getSchema(vw: VowpalWabbitNative): StructType = {
@@ -77,8 +77,8 @@ object VowpalWabbitPrediction {
         obj => Seq(obj.asInstanceOf[Array[Float]])
       case "prediction_type_t::action_scores" =>
         obj => {
-          val pred = obj.asInstanceOf[ActionScores]
-          pred.getActionScores.map({ a_s => Row.fromTuple(a_s.getAction, a_s.getScore) })
+          val pred = obj.asInstanceOf[ActionScores].getActionScores
+          pred.map({ a_s => Row.fromTuple(a_s.getAction, a_s.getScore) })
         }
       case "prediction_type_t::action_probs" =>
         obj => obj.asInstanceOf[ActionProbs]
