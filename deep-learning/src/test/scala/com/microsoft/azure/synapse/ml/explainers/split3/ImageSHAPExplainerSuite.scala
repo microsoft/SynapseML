@@ -3,8 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.explainers.split3
 
+import com.microsoft.azure.synapse.ml.cntk.ImageFeaturizer
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+import com.microsoft.azure.synapse.ml.downloader.ModelSchema
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.KernelSHAP
 import com.microsoft.azure.synapse.ml.explainers.{ImageExplainersSuite, ImageFormat, ImageSHAP}
 import com.microsoft.azure.synapse.ml.lime.SuperpixelData
@@ -16,9 +18,18 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
 
   import spark.implicits._
 
+  lazy val resNet18: ModelSchema = modelDownloader.downloadByName("ResNet18")
+  lazy val resNet18Transformer: ImageFeaturizer = new ImageFeaturizer()
+    .setInputCol(inputCol)
+    .setOutputCol(outputCol)
+    .setModel(resNet18)
+    .setCutOutputLayers(0)
+    .setInputCol("image")
+    .setMiniBatchSize(1)
+
   lazy val shap: ImageSHAP = KernelSHAP.image
-    .setModel(resNetTransformer)
-    .setTargetCol(resNetTransformer.getOutputCol)
+    .setModel(resNet18Transformer)
+    .setTargetCol(resNet18Transformer.getOutputCol)
     .setTargetClasses(Array(172))
     .setOutputCol("weights")
     .setSuperpixelCol("superpixels")
