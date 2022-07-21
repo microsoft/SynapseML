@@ -13,4 +13,4 @@ jobs:
           body: |
             Hey @${{ github.event.pull_request.user.login }} ! Thank you so much for contributing
             to our repository. Someone from SynapseML Team will be reviewing this pull request
-            soon. Appreciate your patience.
+            soon. We appreciate your patience and contributions!
