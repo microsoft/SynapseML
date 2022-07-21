@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.utils.{ FaultToleranceUtils, ParamsSt
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row, functions=>F}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 import org.vowpalwabbit.spark._
 
 // structure for the diagnostics dataframe

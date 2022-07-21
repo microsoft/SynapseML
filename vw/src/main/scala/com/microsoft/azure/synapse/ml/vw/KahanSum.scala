@@ -1,10 +1,13 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
 // KahanBabushkaNeumaierSum
-case class KahanSum(sum: Double = 0, c: Double = 0) {
+final case class KahanSum(sum: Double = 0, c: Double = 0) {
   // TODO: should be done w/ Float too? how to write the generics?
   def +(x: Double): KahanSum = {
     val newSum = sum + x

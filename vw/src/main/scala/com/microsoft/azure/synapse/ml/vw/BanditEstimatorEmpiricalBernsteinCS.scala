@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.commons.math3.analysis.UnivariateFunction
@@ -6,21 +9,10 @@ import org.apache.commons.math3.special.Gamma
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
-case class BanditEstimatorEmpiricalBernsteinCSBuffer(sumXlow: Double = 0,
-                                                     sumXhigh: Double = 0,
-                                                     sumvlow: Double = 0,
-                                                     sumvhigh: Double = 0,
-                                                     t: Long = 0)
-
-case class BanditEstimatorEmpiricalBernsteinCSInput(probLog: Float, reward: Float, probPred: Float, count: Float)
-
-case class BanditEstimatorEmpiricalBernsteinCSOutput(lower: Double, upper: Double)
-
 class BanditEstimatorEmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
-  extends Aggregator[
-    BanditEstimatorEmpiricalBernsteinCSInput,
-    BanditEstimatorEmpiricalBernsteinCSBuffer,
-    BanditEstimatorEmpiricalBernsteinCSOutput]
+  extends Aggregator[BanditEstimatorEmpiricalBernsteinCSInput,
+                     BanditEstimatorEmpiricalBernsteinCSBuffer,
+                     BanditEstimatorEmpiricalBernsteinCSOutput]
     with Serializable {
   // TODO: doesn't work
   //    with BasicLogging {
@@ -50,7 +42,8 @@ class BanditEstimatorEmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
       t = acc.t + 1)
   }
 
-  def merge(acc1: BanditEstimatorEmpiricalBernsteinCSBuffer, acc2: BanditEstimatorEmpiricalBernsteinCSBuffer): BanditEstimatorEmpiricalBernsteinCSBuffer = {
+  def merge(acc1: BanditEstimatorEmpiricalBernsteinCSBuffer,
+            acc2: BanditEstimatorEmpiricalBernsteinCSBuffer): BanditEstimatorEmpiricalBernsteinCSBuffer = {
     BanditEstimatorEmpiricalBernsteinCSBuffer(
       sumXlow = acc1.sumXlow + acc2.sumXlow,
       sumXhigh = acc1.sumXhigh + acc2.sumXhigh,
@@ -111,3 +104,13 @@ class BanditEstimatorEmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
   def outputEncoder: Encoder[BanditEstimatorEmpiricalBernsteinCSOutput] =
     Encoders.product[BanditEstimatorEmpiricalBernsteinCSOutput]
 }
+
+final case class BanditEstimatorEmpiricalBernsteinCSBuffer(sumXlow: Double = 0,
+                                                           sumXhigh: Double = 0,
+                                                           sumvlow: Double = 0,
+                                                           sumvhigh: Double = 0,
+                                                           t: Long = 0)
+
+final case class BanditEstimatorEmpiricalBernsteinCSInput(probLog: Float, reward: Float, probPred: Float, count: Float)
+
+case class BanditEstimatorEmpiricalBernsteinCSOutput(lower: Double, upper: Double)

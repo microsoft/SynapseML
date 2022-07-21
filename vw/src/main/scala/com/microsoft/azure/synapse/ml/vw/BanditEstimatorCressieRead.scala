@@ -1,26 +1,18 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
-case class BanditEstimatorCressieReadBuffer(wMin: Float = 0,
-                                            wMax: Float = 0,
-                                            n: KahanSum = 0,
-                                            sumw: KahanSum = 0,
-                                            sumwsq: KahanSum = 0,
-                                            sumwr: KahanSum = 0,
-                                            sumwrsqr: KahanSum = 0,
-                                            sumr: KahanSum = 0)
-
-case class BanditEstimatorCressieReadInput(probLog: Float,
-                                           reward: Float,
-                                           probPred: Float,
-                                           count: Float,
-                                           wMin: Float,
-                                           wMax: Float)
-
-// ported from
-// https://github.com/VowpalWabbit/estimators/blob/03c8ba619d68f54849d4fa2da2b1a148e6cdb990/estimators/bandits/cressieread.py#L25
+/**
+  * Cressie-Read Bandit estimator
+  *
+  * Background http://www.machinedlearnings.com/2020/12/distributionally-robust-contextual.html
+  *
+  * Python: https://github.com/VowpalWabbit/estimators/blob/03c8ba619d68f54849d4fa2da2b1a148e6cdb990/estimators/bandits/cressieread.py#L25
+  */
 class BanditEstimatorCressieRead
   extends Aggregator[BanditEstimatorCressieReadInput, BanditEstimatorCressieReadBuffer, Double]
   with Serializable {
@@ -56,8 +48,10 @@ class BanditEstimatorCressieRead
             acc2: BanditEstimatorCressieReadBuffer): BanditEstimatorCressieReadBuffer = {
 
     BanditEstimatorCressieReadBuffer(
+      // min of min, max of max
       wMin = Math.min(acc1.wMin, acc2.wMin),
       wMax = Math.max(acc1.wMax, acc2.wMax),
+      // sum up
       n = acc1.n + acc2.n,
       sumw = acc1.sumw + acc2.sumw,
       sumwsq = acc1.sumwsq + acc2.sumwsq,
@@ -99,3 +93,21 @@ class BanditEstimatorCressieRead
   def bufferEncoder: Encoder[BanditEstimatorCressieReadBuffer] = Encoders.product[BanditEstimatorCressieReadBuffer]
   def outputEncoder: Encoder[Double] = Encoders.scalaDouble
 }
+
+// Internal buffer state
+final case class BanditEstimatorCressieReadBuffer(wMin: Float = 0,
+                                                  wMax: Float = 0,
+                                                  n: KahanSum = 0,
+                                                  sumw: KahanSum = 0,
+                                                  sumwsq: KahanSum = 0,
+                                                  sumwr: KahanSum = 0,
+                                                  sumwrsqr: KahanSum = 0,
+                                                  sumr: KahanSum = 0)
+
+// Input fields to aggregate over
+final case class BanditEstimatorCressieReadInput(probLog: Float,
+                                                 reward: Float,
+                                                 probPred: Float,
+                                                 count: Float,
+                                                 wMin: Float,
+                                                 wMax: Float)

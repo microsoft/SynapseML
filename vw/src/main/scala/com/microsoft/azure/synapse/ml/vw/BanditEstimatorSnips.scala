@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
@@ -5,30 +8,10 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-case class BanditEstimatorSnipsBuffer(weightedExampleCount: Double, weightedReward: Double) {
-  def add(probLog: Float, reward: Float, probPred: Float, count: Float): BanditEstimatorSnipsBuffer = {
-    val w = probPred / probLog
-
-    BanditEstimatorSnipsBuffer(
-      weightedExampleCount + w * count,
-      weightedReward + reward * w * count)
-  }
-
-  def add(other: BanditEstimatorSnipsBuffer): BanditEstimatorSnipsBuffer = {
-    BanditEstimatorSnipsBuffer(
-      weightedExampleCount + other.weightedExampleCount,
-      weightedReward + other.weightedReward)
-  }
-
-  def get(): Double =
-    if (weightedExampleCount == 0)
-      -1 // TODO: how to return null?
-    else {
-      weightedReward / weightedExampleCount
-    }
-}
-
-case class BanditEstimatorSnipsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
+case class BanditEstimatorSnipsInput(probabilityLogged: Float,
+                                     reward: Float,
+                                     probabilityPredicted: Float,
+                                     count: Float)
 
 class BanditEstimatorSnips
   extends Aggregator[BanditEstimatorSnipsInput, BanditEstimatorSnipsBuffer, Float]
@@ -41,15 +24,28 @@ class BanditEstimatorSnips
 
   def zero: BanditEstimatorSnipsBuffer = BanditEstimatorSnipsBuffer(0, 0)
 
-  def reduce(acc: BanditEstimatorSnipsBuffer, x: BanditEstimatorSnipsInput): BanditEstimatorSnipsBuffer =
-    acc.add(x.probLog, x.reward, x.probPred, x.count)
+  def reduce(acc: BanditEstimatorSnipsBuffer, x: BanditEstimatorSnipsInput): BanditEstimatorSnipsBuffer = {
+    val w = x.probabilityPredicted / x.probabilityLogged
+
+    BanditEstimatorSnipsBuffer(
+      acc.weightedExampleCount + w * x.count,
+      acc.weightedReward + x.reward * w * x.count)
+  }
 
   def merge(acc1: BanditEstimatorSnipsBuffer, acc2: BanditEstimatorSnipsBuffer): BanditEstimatorSnipsBuffer =
-    acc1.add(acc2)
+    BanditEstimatorSnipsBuffer(
+      acc1.weightedExampleCount + acc2.weightedExampleCount,
+      acc1.weightedReward + acc2.weightedReward)
 
-  // multiple outputs: https://stackoverflow.com/questions/63206872/custom-spark-aggregator-returning-row
-  def finish(acc: BanditEstimatorSnipsBuffer): Float = acc.get.toFloat
+  def finish(acc: BanditEstimatorSnipsBuffer): Float = {
+    if (acc.weightedExampleCount == 0)
+      -1f // TODO: how to return null?
+    else
+      (acc.weightedReward / acc.weightedExampleCount).toFloat
+  }
 
   def bufferEncoder: Encoder[BanditEstimatorSnipsBuffer] = Encoders.product[BanditEstimatorSnipsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat
 }
+
+final case class BanditEstimatorSnipsBuffer(weightedExampleCount: Double, weightedReward: Double)

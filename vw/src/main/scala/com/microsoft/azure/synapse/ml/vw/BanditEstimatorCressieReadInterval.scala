@@ -1,36 +1,16 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import breeze.stats.distributions.FDistribution
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
-case class BanditEstimatorCressieReadIntervalBuffer(wMin: Float = 0,
-                                                    wMax: Float = 0,
-                                                    rMin: Float = 0,
-                                                    rMax: Float = 0,
-                                                    n: KahanSum = 0,
-                                                    sumw: KahanSum = 0,
-                                                    sumwsq: KahanSum = 0,
-                                                    sumwr: KahanSum = 0,
-                                                    sumwsqr: KahanSum = 0,
-                                                    sumwsqrsq: KahanSum = 0)
-
-case class BanditEstimatorCressieReadIntervalInput(probLog: Float,
-                                                   reward: Float,
-                                                   probPred: Float,
-                                                   count: Float,
-                                                   wMin: Float,
-                                                   wMax: Float,
-                                                   rMin: Float,
-                                                   rMax: Float)
-
-case class BanditEstimatorCressieReadIntervalOutput(lower: Double, upper: Double)
-
 class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
-  extends Aggregator[
-    BanditEstimatorCressieReadIntervalInput,
-    BanditEstimatorCressieReadIntervalBuffer,
-    BanditEstimatorCressieReadIntervalOutput]
+  extends Aggregator[BanditEstimatorCressieReadIntervalInput,
+                     BanditEstimatorCressieReadIntervalBuffer,
+                     BanditEstimatorCressieReadIntervalOutput]
     with Serializable {
   // TODO: doesn't work
   //    with BasicLogging {
@@ -54,7 +34,7 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
     else {
       if (x.reward > x.rMax || x.reward < x.rMin)
         throw new IllegalArgumentException(s"Reward is out of bounds: ${x.rMin} < ${x.reward} < ${x.rMax}")
-      (0f ,0f)
+      (0f, 0f)
     }
 
     BanditEstimatorCressieReadIntervalBuffer(
@@ -179,3 +159,25 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
   def outputEncoder: Encoder[BanditEstimatorCressieReadIntervalOutput] =
     Encoders.product[BanditEstimatorCressieReadIntervalOutput]
 }
+
+final case class BanditEstimatorCressieReadIntervalBuffer(wMin: Float = 0,
+                                                          wMax: Float = 0,
+                                                          rMin: Float = 0,
+                                                          rMax: Float = 0,
+                                                          n: KahanSum = 0,
+                                                          sumw: KahanSum = 0,
+                                                          sumwsq: KahanSum = 0,
+                                                          sumwr: KahanSum = 0,
+                                                          sumwsqr: KahanSum = 0,
+                                                          sumwsqrsq: KahanSum = 0)
+
+final case class BanditEstimatorCressieReadIntervalInput(probLog: Float,
+                                                         reward: Float,
+                                                         probPred: Float,
+                                                         count: Float,
+                                                         wMin: Float,
+                                                         wMax: Float,
+                                                         rMin: Float,
+                                                         rMax: Float)
+
+case class BanditEstimatorCressieReadIntervalOutput(lower: Double, upper: Double)

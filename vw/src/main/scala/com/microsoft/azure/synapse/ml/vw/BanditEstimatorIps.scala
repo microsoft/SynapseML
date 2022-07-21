@@ -1,31 +1,12 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
-
-case class BanditEstimatorIpsBuffer(exampleCount: Float, weightedReward: Float) {
-  def add(probLog: Float, reward: Float, probPred: Float, count: Float): BanditEstimatorIpsBuffer = {
-    val w = probPred / probLog
-
-    BanditEstimatorIpsBuffer(
-      exampleCount + count,
-      weightedReward + reward * w * count)
-  }
-
-  def add(other: BanditEstimatorIpsBuffer): BanditEstimatorIpsBuffer = {
-    BanditEstimatorIpsBuffer(
-      exampleCount + other.exampleCount,
-      weightedReward + other.weightedReward)
-  }
-
-  def get(): Float =
-    if (exampleCount == 0)
-      -1 // TODO: how to return null?
-    else
-      weightedReward / exampleCount
-}
 
 case class BanditEstimatorIpsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
 
@@ -40,14 +21,28 @@ class BanditEstimatorIps
 
   def zero: BanditEstimatorIpsBuffer = BanditEstimatorIpsBuffer(0, 0)
 
-  def reduce(acc: BanditEstimatorIpsBuffer, x: BanditEstimatorIpsInput): BanditEstimatorIpsBuffer =
-    acc.add(x.probLog, x.reward, x.probPred, x.count)
+  def reduce(acc: BanditEstimatorIpsBuffer, x: BanditEstimatorIpsInput): BanditEstimatorIpsBuffer = {
+    val w = x.probPred / x.probLog
 
-  def merge(acc1: BanditEstimatorIpsBuffer, acc2: BanditEstimatorIpsBuffer): BanditEstimatorIpsBuffer =
-    acc1.add(acc2)
+    BanditEstimatorIpsBuffer(
+      acc.exampleCount + x.count,
+      acc.weightedReward + x.reward * w * x.count)
+  }
 
-  def finish(acc: BanditEstimatorIpsBuffer): Float = acc.get
+  def merge(acc1: BanditEstimatorIpsBuffer, acc2: BanditEstimatorIpsBuffer): BanditEstimatorIpsBuffer = {
+    BanditEstimatorIpsBuffer(
+      acc1.exampleCount + acc2.exampleCount,
+      acc1.weightedReward + acc2.weightedReward)
+  }
+
+  def finish(acc: BanditEstimatorIpsBuffer): Float =
+    if (acc.exampleCount == 0)
+      -1 // TODO: how to return null?
+    else
+      acc.weightedReward / acc.exampleCount
 
   def bufferEncoder: Encoder[BanditEstimatorIpsBuffer] = Encoders.product[BanditEstimatorIpsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat
 }
+
+final case class BanditEstimatorIpsBuffer(exampleCount: Float, weightedReward: Float)

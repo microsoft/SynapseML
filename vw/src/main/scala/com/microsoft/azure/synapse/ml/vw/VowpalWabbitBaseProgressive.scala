@@ -1,11 +1,13 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.core.utils.ParamsStringBuilder
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.{StructType}
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.util.UUID
@@ -18,9 +20,17 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
                                   numTasks: Int)
     extends Iterator[Row] {
 
+      var closed = false
+
     // TODO: make sure we don't do double close
-//    private def close(): Unit = {
-//    }
+    override def finalize(): Unit = close
+
+    private def close(): Unit = {
+      if (!closed) {
+        vw.close()
+        closed = true
+      }
+    }
 
     // note this is executed on each worker
     lazy val vw = {
@@ -40,11 +50,12 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
         // make sure that all partitions call endPass the same amount of time
         // (and at least once at the end)
         0 to synchronizationSchedule.getFinishTriggerCount() foreach { _ =>
-          println(s"AllReduce Finalize ${TaskContext.getPartitionId()}")
+//          println(s"AllReduce Finalize ${TaskContext.getPartitionId()}")
           vw.endPass()
         }
+
         // cleanup
-        vw.close()
+        close()
       }
 
       ret
@@ -55,9 +66,6 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
         val inputRow = inputRows.next()
 
         0 until synchronizationSchedule.getAllReduceTriggerCount(inputRow) foreach { _ =>
-//          if (TaskContext.getPartitionId() == 0) {
-//            println(s"AllReduce ${TaskContext.getPartitionId()}}")
-//          }
           vw.endPass()
         }
 
@@ -66,8 +74,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
       }
       catch {
         case e: Exception =>
-          println(s"VW failed: ${e.getMessage}")
-          vw.close()
+          close
 
           throw new Exception(s"VW failed", e)
       }
@@ -83,11 +90,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
     val schema = transformSchema(df.schema)
 
     val numTasks = df.rdd.getNumPartitions
-
     val synchronizationSchedule = getSynchronizationSchedule(df)
-
-    // TODO: extend schema w/ predictions
-    val encoder = RowEncoder(schema)
 
     // schedule multiple mapPartitions in
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
@@ -95,6 +98,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
     // TODO: this graph cannot be re-used
     val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt).toString
 
+    // build the command line args and potentially add AllReduce related parameters
     val vwArgs = getCommandLineArgs()
 
     if (numTasks > 1)
@@ -104,6 +108,8 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
 
     // TODO: barrier mode?
     // TODO: check w/ Stage ID (different stages)
+    val encoder = RowEncoder(schema)
+
     df
       .mapPartitions(inputRows =>
         new TrainingPartitionIterator(

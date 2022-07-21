@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -6,6 +9,9 @@ import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import org.vowpalwabbit.spark.{VowpalWabbitExample}
 
+/**
+  * Base implementation for models that use Spark-based features and result in Spark vectors
+  */
 trait VowpalWabbitBaseModelSpark
   extends VowpalWabbitBaseModel
     with org.apache.spark.ml.param.shared.HasFeaturesCol

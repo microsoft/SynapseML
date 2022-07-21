@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -7,7 +10,6 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, IntParam, Param, Params, StringArrayParam}
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.functions.col
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -164,8 +166,8 @@ trait VowpalWabbitBase extends Wrappable
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
-    // Select needed columns, maybe get the weight column, keeps mem usage low
-    val dfSubset = dataset.toDF() //.select(getInputColumns().map(col): _*)
+    // Need to pass all columns as sub-cl
+    val dfSubset = dataset.toDF()
 
     // Reduce number of partitions to number of executor cores
     if (dataset.rdd.getNumPartitions > numTasks) {

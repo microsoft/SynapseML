@@ -74,6 +74,7 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
           }
         }
 
+        // inter-pass all reduce trigger
         0 until ctx.synchronizationSchedule.getAllReduceTriggerCount(row) foreach { _ => ctx.vw.endPass() }
       }
     }

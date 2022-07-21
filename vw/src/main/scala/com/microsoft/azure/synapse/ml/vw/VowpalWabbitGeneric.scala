@@ -1,13 +1,12 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.core.utils.ClusterUtil
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.commons.lang.time.DateUtils
-import org.apache.spark.TaskContext
 
-import reflect.runtime.universe.TypeTag
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
@@ -16,14 +15,15 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
-import java.io.Serializable
-
 trait HasInputCol extends Params {
   val inputCol = new Param[String](this, "inputCol", "The name of the input column")
   def setInputCol(value: String): this.type = set(inputCol, value)
   def getInputCol: String = $(inputCol)
 }
 
+/**
+  * This Estimator supports driving VW using VW-style examples (e.g. 0 |a b c)
+  */
 class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabbitGenericModel]
   with VowpalWabbitBaseLearner
   with HasInputCol
@@ -97,6 +97,7 @@ class VowpalWabbitGenericProgressive(override val uid: String)
 
   override protected def getInputColumns(): Seq[String] = Seq(getInputCol)
 
+  // wrap the block w/ a VW instance that will be closed when the block is done.
   private def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 

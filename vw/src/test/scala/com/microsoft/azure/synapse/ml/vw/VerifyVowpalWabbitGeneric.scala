@@ -206,12 +206,12 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val vw = new VowpalWabbitGenericProgressive()
       // .setPassThroughArgs("--cb_adf --cb_type mtr --coin --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
       .setPassThroughArgs("--cb_explore_adf --cb_type mtr --clip_p 0.1 -q GT -q MS -q GR -q OT -q MT -q OS --dsjson")
-      .setNumSyncsPerPass(50)
-      .setTemporalSyncScheduleCol("timestamp")
-      .setTemporalSyncStepUnit("DAYS")
-      .setTemporalSyncStepSize(30)
-      .setTemporalSyncStartTimestamp(startDate)
-      .setTemporalSyncEndTimestamp(endDate)
+      .setNumSyncsPerPass(12)
+//      .setTemporalSyncScheduleCol("timestamp")
+//      .setTemporalSyncStepUnit("DAYS")
+//      .setTemporalSyncStepSize(30)
+//      .setTemporalSyncStartTimestamp(startDate)
+//      .setTemporalSyncEndTimestamp(endDate)
 
     // extract cost, prob and action from dsjson
     val extractSchema = T.StructType(Seq(
@@ -235,6 +235,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       .withColumn("probPred", F.expr("element_at(predictions, json._label_Action).probability"))
       // no reweighting
       .withColumn("count", F.lit(1))
+      // .groupBy()
       .agg(
         F.expr("snips(probLog, reward, probPred, count)").as("snips"),
         F.expr("ips(probLog, reward, probPred, count)").as("ips"),

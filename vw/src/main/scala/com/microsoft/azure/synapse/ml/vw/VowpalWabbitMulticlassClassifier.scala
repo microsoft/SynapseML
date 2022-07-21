@@ -161,4 +161,5 @@ class VowpalWabbitMulticlassClassificationModel(override val uid: String)
   }
 }
 
-object VowpalWabbitMulticlassClassificationModel extends ComplexParamsReadable[VowpalWabbitMulticlassClassificationModel]
+object VowpalWabbitMulticlassClassificationModel
+  extends ComplexParamsReadable[VowpalWabbitMulticlassClassificationModel]
