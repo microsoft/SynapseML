@@ -26,14 +26,14 @@ class TabularLIMEExplainerSuite extends TestBase
 
   override val sortInDataframeEquality = true
 
-  val data: DataFrame = Seq(
+  lazy val data: DataFrame = Seq(
     (-6.0, 0),
     (-5.0, 0),
     (5.0, 1),
     (6.0, 1)
   ) toDF("col1", "label")
 
-  val model: PipelineModel = {
+  lazy val model: PipelineModel = {
     val vecAssembler = new VectorAssembler().setInputCols(Array("col1")).setOutputCol("features")
     val classifier = new LogisticRegression()
       .setLabelCol("label")
@@ -43,11 +43,11 @@ class TabularLIMEExplainerSuite extends TestBase
     pipeline.fit(data)
   }
 
-  val infer: DataFrame = Seq(
+  lazy val infer: DataFrame = Seq(
     Tuple1(0.0)
   ) toDF "col1"
 
-  val lime: TabularLIME = LIME.tabular
+  lazy val lime: TabularLIME = LIME.tabular
     .setInputCols(Array("col1"))
     .setOutputCol("weights")
     .setBackgroundData(data)

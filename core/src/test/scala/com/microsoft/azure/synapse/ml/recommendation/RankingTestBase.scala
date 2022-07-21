@@ -64,7 +64,7 @@ trait RankingTestBase extends TestBase {
     .setItemOutputCol(itemColIndex)
     .setRatingCol(ratingCol)
 
-  val als: ALS = new ALS()
+  lazy val als: ALS = new ALS()
     .setNumUserBlocks(1)
     .setNumItemBlocks(1)
     .setUserCol(recommendationIndexer.getUserOutputCol)
@@ -72,7 +72,7 @@ trait RankingTestBase extends TestBase {
     .setRatingCol(ratingCol)
     .setSeed(0)
 
-  val sar: SAR = new SAR()
+  lazy val sar: SAR = new SAR()
     .setUserCol(recommendationIndexer.getUserOutputCol)
     .setItemCol(recommendationIndexer.getItemOutputCol)
     .setRatingCol(ratingCol)
