@@ -42,4 +42,5 @@ val onnx_ml = (new ONNXModel()
 <DocTable className="ONNXModel"
 py="synapse.ml.onnx.html#module-synapse.ml.onnx.ONNXModel"
 scala="com/microsoft/azure/synapse/ml/onnx/ONNXModel.html"
+csharp="classSynapse_1_1ML_1_1Onnx_1_1ONNXModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/scala/com/microsoft/azure/synapse/ml/onnx/ONNXModel.scala" />

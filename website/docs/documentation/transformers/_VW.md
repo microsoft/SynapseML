@@ -12,6 +12,7 @@ defaultValue="py"
 values={[
 {label: `Python`, value: `py`},
 {label: `Scala`, value: `scala`},
+{label: `.NET`, value: `csharp`},
 ]}>
 <TabItem value="py">
 
@@ -75,11 +76,68 @@ vectorZipper.transform(seqDF).show()
 ```
 
 </TabItem>
+<TabItem value="csharp">
+
+```csharp
+using System;
+using System.Collections.Generic;
+using Synapse.ML.Vw;
+using Microsoft.Spark.Sql;
+using Microsoft.Spark.Sql.Types;
+
+namespace SynapseMLApp
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            SparkSession spark =
+                SparkSession
+                    .Builder()
+                    .AppName("Example")
+                    .GetOrCreate();
+
+            DataFrame df = spark.CreateDataFrame(
+                new List<GenericRow>
+                {
+                    new GenericRow(new object[] {"action1_f", "action2_f"}),
+                    new GenericRow(new object[] {"action1_f", "action2_f"}),
+                    new GenericRow(new object[] {"action1_f", "action2_f"}),
+                    new GenericRow(new object[] {"action1_f", "action2_f"})
+                },
+                new StructType(new List<StructField>
+                {
+                    new StructField("action1", new StringType()),
+                    new StructField("action2", new StringType())
+                })
+            );
+
+            var actionOneFeaturizer = new VowpalWabbitFeaturizer()
+                .SetInputCols(new string[]{"action1"})
+                .SetOutputCol("sequence_one");
+            var actionTwoFeaturizer = new VowpalWabbitFeaturizer()
+                .SetInputCols(new string[]{"action2"})
+                .SetOutputCol("sequence_two");
+            var seqDF = actionTwoFeaturizer.Transform(actionOneFeaturizer.Transform(df));
+
+            var vectorZipper = new VectorZipper()
+                .SetInputCols(new string[]{"sequence_one", "sequence_two"})
+                .SetOutputCol("out");
+            vectorZipper.Transform(seqDF).Show();
+
+            spark.Stop();
+        }
+    }
+}
+```
+
+</TabItem>
 </Tabs>
 
 <DocTable className="VectorZipper"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VectorZipper"
 scala="com/microsoft/azure/synapse/ml/vw/VectorZipper.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VectorZipper.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VectorZipper.scala" />
 
 
@@ -128,6 +186,7 @@ val vw = (new VowpalWabbitClassifier()
 <DocTable className="VowpalWabbitClassifier"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitClassifier"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitClassifier.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VowpalWabbitClassifier.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitClassifier.scala" />
 
 
@@ -178,6 +237,7 @@ val featurizer = (new VowpalWabbitFeaturizer()
 <DocTable className="VowpalWabbitFeaturizer"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitFeaturizer"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitFeaturizer.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VowpalWabbitFeaturizer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitFeaturizer.scala" />
 
 
@@ -233,4 +293,5 @@ interactions.transform(df).show()
 <DocTable className="VowpalWabbitInteractions"
 py="synapse.ml.vw.html#module-synapse.ml.vw.VowpalWabbitInteractions"
 scala="com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.html"
+csharp="classSynapse_1_1ML_1_1Vw_1_1VowpalWabbitInteractions.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/vw/src/main/scala/com/microsoft/azure/synapse/ml/vw/VowpalWabbitInteractions.scala" />

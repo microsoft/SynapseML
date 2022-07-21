@@ -26,6 +26,7 @@ module.exports = {
         'getting_started/installation',
         'getting_started/first_example',
         'getting_started/first_model',
+        'getting_started/dotnet_example',
       ],
     },
     {
@@ -133,6 +134,7 @@ module.exports = {
         'reference/contributing_guide',
         'reference/docker',
         'reference/R-setup',
+        'reference/dotnet-setup',
         'reference/SAR',
         'reference/cyber',
         'reference/datasets',

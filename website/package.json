@@ -22,6 +22,7 @@
     "ansi-html-community": "^0.0.8",
     "caniuse-lite": "^1.0.30001359",
     "classnames": "^2.2.6",
+    "glob-parent": "^6.0.1",
     "got": "^11.8.5",
     "hast-util-is-element": "1.1.0",
     "node": "^16.14",
