@@ -8,11 +8,6 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-case class BanditEstimatorSnipsInput(probabilityLogged: Float,
-                                     reward: Float,
-                                     probabilityPredicted: Float,
-                                     count: Float)
-
 class BanditEstimatorSnips
   extends Aggregator[BanditEstimatorSnipsInput, BanditEstimatorSnipsBuffer, Float]
     with Serializable {
@@ -49,3 +44,8 @@ class BanditEstimatorSnips
 }
 
 final case class BanditEstimatorSnipsBuffer(weightedExampleCount: Double, weightedReward: Double)
+
+final case class BanditEstimatorSnipsInput(probabilityLogged: Float,
+                                           reward: Float,
+                                           probabilityPredicted: Float,
+                                           count: Float)

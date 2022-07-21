@@ -8,8 +8,6 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-case class BanditEstimatorIpsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
-
 class BanditEstimatorIps
   extends Aggregator[BanditEstimatorIpsInput, BanditEstimatorIpsBuffer, Float]
     with Serializable {
@@ -44,5 +42,7 @@ class BanditEstimatorIps
   def bufferEncoder: Encoder[BanditEstimatorIpsBuffer] = Encoders.product[BanditEstimatorIpsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat
 }
+
+final case class BanditEstimatorIpsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
 
 final case class BanditEstimatorIpsBuffer(exampleCount: Float, weightedReward: Float)
