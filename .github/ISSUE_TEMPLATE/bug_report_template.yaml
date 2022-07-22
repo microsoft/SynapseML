@@ -10,6 +10,7 @@ body:
         Thank you for submitting an issue.
         Please refer to our [website](https://microsoft.github.io/SynapseML/) for guidance about installation and samples.
         On Synapse or Databricks, please make sure the SynapseML version you installed corresponds to cluster/pool's Spark version.
+        If the bug pertains to a specific feature please tag the appropriate [CODEOWNER](https://github.com/Microsoft/SynapseML/blob/master/CODEOWNERS) for better visibility
         #### Please fill in this bug report template to ensure a timely and thorough response.
 
   - type: input
