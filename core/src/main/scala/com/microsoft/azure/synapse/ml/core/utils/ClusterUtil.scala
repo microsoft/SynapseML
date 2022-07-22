@@ -41,10 +41,9 @@ object ClusterUtil {
   /** Get number of rows per partition of a dataframe.  Note that this will execute a full
     * distributed Spark app query.
     * @param df The dataframe.
-    * @param labelCol The name of the label column.  Used just to only load a known single column.
     * @return The number of rows per partition (where partitionId is the array index).
     */
-  def getNumRowsPerPartition(df: DataFrame, labelCol: String): Array[Long] = {
+  def getNumRowsPerPartition(df: DataFrame): Array[Long] = {
     val indexedRowCounts: Array[(Int, Long)] = df
       .select(typedLit(0.toByte))
       .rdd
