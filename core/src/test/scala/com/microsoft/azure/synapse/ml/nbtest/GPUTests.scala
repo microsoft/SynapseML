@@ -8,10 +8,22 @@ import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
 import java.io.File
+import java.io.PrintWriter
 import scala.collection.mutable.ListBuffer
+import scala.io.Source
 
 class GPUTests extends DatabricksTestHelper {
 
+  val updatedNotebooks = GPUNotebooks.foreach(
+    file => {
+      val tmpFile = new File("tmp.txt")
+      val w = new PrintWriter(tmpFile)
+      Source.fromFile(file).getLines().map{
+        _.replaceAll("CUR_VERSION", BuildInfo.version)}.foreach(x => w.println(x))
+      w.close()
+      tmpFile.renameTo(file)
+    }
+  )
   val horovodInstallationScript: File = FileUtilities.join(
     BuildInfo.baseDirectory.getParent, "deep-learning",
     "src", "main", "python", "horovod_installation.sh").getCanonicalFile
