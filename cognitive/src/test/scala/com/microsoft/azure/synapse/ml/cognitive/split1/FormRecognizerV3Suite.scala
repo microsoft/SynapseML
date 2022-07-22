@@ -206,21 +206,14 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-document Basic Usage") {
+    val fromRow = AnalyzeDocumentResponse.makeFromRowConverter
     val result1 = documentTest(analyzePrebuiltDocument, imageDf2)
-      .select("source", "result", "content", "entities", "keyValuePairs")
-      .collect()
     val result2 = documentTest(bytesAnalyzePrebuiltDocument, bytesDF2)
-      .select("imageBytes", "result", "content", "entities", "keyValuePairs")
-      .collect()
-
     for (result <- Seq(result1, result2)) {
-      assert(result.head.getString(2).startsWith("O\nContoso\nContoso\n123 Main Street\nRedmond, WA 98052\n" +
-        "123-456-7890\n6/10/2019 13:59\nSales Associate: Paul\n"))
-      assert(result.head.getSeq(3).mkString(",").equals("8GB,999.00,1,99.99,- 1098.99,$ 104.40,1203.39,Contoso," +
-        "Contoso,123 Main Street,123,Redmond,WA,98052,6/10/2019 13:59,Paul,-\n 1,6,256GB,Intel"))
-      assert(result.head.getMap(4).toString().equals("Map(Tax -> $ 104.40, 1 Surface Pro 6 256GB /" +
-        " Intel Core i5 / 8GB RAM (Black) -> 999.00, 1 SurfacePen -> 99.99, Total -> 1203.39, " +
-        "Sub-Total -> 1098.99, Sales Associate: -> Paul)"))
+      val response = fromRow(result.select("result").collect().head.getStruct(0))
+      assert(response.analyzeResult
+        .keyValuePairs.get.map(_.key.content.toLowerCase).toSet
+        .contains("tax"))
     }
   }
 
