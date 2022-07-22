@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.param
 
 import org.apache.spark.ml.param.Param
+import spray.json.DefaultJsonProtocol.JsValueFormat
 import spray.json._
 
 import java.lang.{StringBuilder => JStringBuilder}
@@ -12,31 +13,38 @@ import scala.collection.immutable.Map
 trait RPrinter extends CompactPrinter {
 
   override protected def printArray(elements: Seq[JsValue], sb: JStringBuilder): Unit = {
-    sb.append("c(")
-    printSeq(elements, sb.append(',')) { e => printArrayElement(e, sb) }
-    /*if (!elements.isEmpty) {
+    if (elements.isEmpty) {
+      sb.append("c()")
+    } else {
       elements.head match {
-        case jsObject: spray.json.JsObject =>
-          printSeq(elements, sb.append(',')) { e => printObject(jsObject.fields, sb) }
-        case _ =>
-          printSeq(elements, sb.append(',')) { e => sb.append(e.compactPrint) }
+        // Sparklyr does not support deserialization of arrays of hash tables (environments in R terms).
+        // Hence we pass such arrays as strings and do the conversion on the Scala side.
+        // See readArray in sparklyr's serializer.scala.
+        case _: spray.json.JsObject =>
+          sb.append("'[")
+          printSeq(elements, sb.append(',')) { e => sb.append(e.toJson.compactPrint)}
+          sb.append("]'")
+        case _ => {
+          sb.append("list(")
+          printSeq(elements, sb.append(',')) { e =>
+                try {
+                  printLeaf(e, sb)
+                }
+                catch {
+                  case _: IllegalStateException => sb.append(e.compactPrint)
+                }
+          }
+          sb.append(")")
+        }
       }
-    }*/
-    sb.append(")")
-  }
-
-  def printArrayElement(element: JsValue, sb: JStringBuilder): Unit = {
-    element match {
-      case jsObject: spray.json.JsObject =>
-        printObject(jsObject.fields, sb)
-      case _ =>
-        sb.append(element.compactPrint)
     }
   }
 
+
+
   override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
     if (members.isEmpty) {
-      sb.append("new.env()")
+      sb.append("c()")
     } else {
       sb.append("list2env(list(")
       printSeq(members, sb.append(',')) { m =>
@@ -75,32 +83,6 @@ object RWrappableParam {
   def rDefaultRender[T](value: T, param: Param[T]): String = {
     rDefaultRender(value, { v: T => param.jsonEncode(v) })
   }
-
-/*
-  def rDefaultRender[T](value: T, param: Param[T]): String = {
-    param match {
-      case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
-        rDefaultRender(value, { v: T => param.jsonEncode(v) })
-      case p: JsonEncodableParam[_] =>
-        if (value == Nil) {
-          "NULL"
-        } else {
-          value match {
-            case left: Left[_, _] =>
-              rDefaultRender(value, { v: T => param.jsonEncode(v) })
-            case right: Right[_, _] =>
-              rDefaultRender(value, { v: T => param.jsonEncode(v) })
-            //case
-              //s""""${right.value.toString}""""
-            case _ =>
-              "'" + p.jsonEncode(value) + "'"
-          }
-        }
-      case _ =>
-        rDefaultRender(value, { v: T => param.jsonEncode(v) })
-    }
-  }*/
-
 }
 
 trait RWrappableParam[T] extends Param[T] {

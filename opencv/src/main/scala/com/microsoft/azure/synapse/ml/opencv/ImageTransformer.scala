@@ -19,6 +19,7 @@ import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods.parse
 import org.opencv.core._
 import org.opencv.imgproc.Imgproc
+import org.sparkproject.dmg.pmml.False
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -431,13 +432,25 @@ class ImageTransformer(val uid: String) extends Transformer
   val stages: ArrayMapParam = new ArrayMapParam(this, "stages", "Image transformation stages")
 
   def setStages(value: Array[Map[String, Any]]): this.type = set(stages, value)
+   /* { implicit val formats = DefaultFormats
+    val jsonString = """[{"sigma":10.0, "apertureSize":20, "action":"gaussiankernel"}]"""
+    val features = parse(jsonString).extract[Array[Map[String, Any]]]
+    val m = Map[String, Any]("foo" -> 20)
+    com.microsoft.azure.synapse.ml.param.ArrayMapJsonProtocol.MapJsonFormat.write(m)
+    set(stages, features)
+  }*/
 
   def setStages(value: java.util.ArrayList[java.util.HashMap[String, Any]]): this.type =
     set(stages, value.asScala.toArray.map(_.asScala.toMap))
+    /*{implicit val formats = DefaultFormats
+    val jsonString = """[{"sigma":10.0, "apertureSize":20, "action":"gaussiankernel"}]"""
+    val features = parse(jsonString).extract[Array[Map[String, Any]]]
+    set(stages, features)
+  }*/
 
   def setStagesR(jsonString: String): this.type = {
     implicit val formats = DefaultFormats
-    val features = parse(jsonString).extract[Seq[Map[String, Any]]].toArray
+    val features = parse(jsonString).extract[Array[Map[String, Any]]]
     this.setStages(features)
   }
 

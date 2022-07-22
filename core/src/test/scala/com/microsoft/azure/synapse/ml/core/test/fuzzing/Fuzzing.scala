@@ -447,12 +447,11 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     rTestDataDir(conf).mkdirs()
     rTestObjects().zipWithIndex.foreach { case (to, i) =>
       saveRModel(conf, to.stage, s"model-$i")
-      if (testFitting) { //
-      saveRDataset(conf, to.fitDF, s"fit-$i")
-      //if (testFitting) {
+      if (testFitting) {
+        saveRDataset(conf, to.fitDF, s"fit-$i")
         saveRDataset(conf, to.transDF, s"trans-$i")
         to.validateDF.foreach(saveRDataset(conf, _, s"val-$i"))
-      } //
+      }
     }
   }
 
@@ -472,11 +471,6 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
           case _ => None
         }
       }.mkString("\n")
-
-     /* val firstArg = stage match {
-          case _: Estimator[_] => "sc"
-          case _ => """spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))"""
-        }*/
 
       val modelArg = stage match {
           case _: Estimator[_] => ",unfit.model=TRUE"
@@ -748,14 +742,16 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 }
 
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-//  with ExperimentFuzzing[S] with TestFuzzingUtil { // checkme
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] { // scheckme
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] with RTestFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 
   def pyTestObjects(): Seq[TestObject[S]] = testObjects()
 
-  def rTestObjects(): Seq[TestObject[S]] = testObjects()
+  def rTestObjects(): Seq[TestObject[S]] = testObjects().filter(o => {
+      val name = o.getClass.getName
+      !name.contains("LIME") || name.contains("Explainer") // LIME classes that are not explainers are deprecated
+    })
 
   def dotnetTestObjects(): Seq[TestObject[S]] = testObjects()
 

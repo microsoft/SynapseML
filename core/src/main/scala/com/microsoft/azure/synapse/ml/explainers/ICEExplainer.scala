@@ -16,16 +16,8 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
-// checkme vvv
-import org.apache.spark.ml.stat.Summarizer
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
-import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-// checkme ^^^
-
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 

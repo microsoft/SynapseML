@@ -174,7 +174,6 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .resize(height = 15, width = 10)

@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import com.microsoft.azure.synapse.ml.codegen.PythonWrappable
+import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable, RWrappable, Wrappable}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
@@ -25,9 +25,12 @@ object TextLIME extends ComplexParamsReadable[TextLIME]
   *
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
+/* Due to R's lack of modules, we cannot separate the R wrapper for this from the one for the explainer version.
+ * So do not extend with RWrappable.
+ */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.TextLIME'.", since="1.0.0-rc3")
 class TextLIME(val uid: String) extends Model[TextLIME]
-  with LIMEBase with PythonWrappable with BasicLogging { // TODO: accommodate RWrappable
+  with LIMEBase with PythonWrappable with DotnetWrappable with BasicLogging {
   logClass()
 
   setDefault(nSamples -> 1000, regularization -> 0.0, samplingFraction -> 0.3)

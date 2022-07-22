@@ -188,7 +188,7 @@ class TextSentimentV3Suite extends TransformerFuzzing[TextSentiment] with TextSe
     .setOutputCol("replies")
 
   test("Basic Usage") {
-
+    val a = TextAnalyze.convertJsonToTasks2("""[{"parameters":{"model-version":"latest"}}]""")
     val results = t.transform(df).select(
       col("replies").alias("scoredDocuments")
     ).collect().toList

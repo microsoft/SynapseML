@@ -46,7 +46,6 @@ object TestGen {
     copyOverrides(conf.rTestOverrideDir, conf.rTestDir)
     copyOverrides(conf.dotnetTestOverrideDir, conf.dotnetTestDir)
     makePyInitFiles(conf)
-    //makeInitFiles(conf) // scheckme
     generateDotnetTestProjFile(conf)
     generateDotnetHelperFile(conf)
   }

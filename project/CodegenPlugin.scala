@@ -37,6 +37,7 @@ object CodegenPlugin extends AutoPlugin {
   val TestGenTag = Tags.Tag("testGen")
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
+  val RCodeGenTag = Tags.Tag("rCodeGen")
   val RTestGenTag = Tags.Tag("rTestGen")
   val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
   val TestDotnetTag = Tags.Tag("testDotnet")
@@ -65,7 +66,8 @@ object CodegenPlugin extends AutoPlugin {
     val packageR = TaskKey[Unit]("packageR", "Generate roxygen docs and zip R package")
     val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
     val testR = TaskKey[Unit]("testR", "Run testthat on R tests")
-    val rTestgen = TaskKey[Unit]("rTestgen", "Generate python tests")
+    val rCodeGen = TaskKey[Unit]("rCodegen", "Generate R code")
+    val rTestGen = TaskKey[Unit]("rTestgen", "Generate tests")
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
@@ -125,6 +127,15 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
     }
   } tag (PyTestGenTag)
+
+  def rCodeGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = codegenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RCodegen $arg").value
+    }
+  } tag (RCodeGenTag)
 
   def rTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -305,6 +316,9 @@ object CodegenPlugin extends AutoPlugin {
         new File(codegenDir.value, "test/python/")
       )
     },
+    rCodeGen := rCodeGenImpl.value,
+    rTestGen := rTestGenImpl.value,
+    testR := testRImpl.value,
     /*testR := {
       rTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")

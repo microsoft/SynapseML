@@ -24,8 +24,8 @@ class TransformerParam(parent: Params, name: String, doc: String, isValid: Trans
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
-       |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
        """.stripMargin
   }
 

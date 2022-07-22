@@ -20,7 +20,9 @@ object RTestGen {
   import CodeGenUtils._
 
   def generateRTests(conf: CodegenConfig): Unit = {
-    instantiateServices[RTestFuzzing[_]](conf.jarName).foreach { ltc =>
+    instantiateServices[RTestFuzzing[_]](conf.jarName)
+      .filter(s => !isDeprecated(s.getClass.getName))
+      .foreach { ltc =>
       try {
         ltc.makeRTestFile(conf)
       } catch {
@@ -87,6 +89,7 @@ object RTestGen {
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |library(sparklyr)
+         |library(jsonlite)
          |
          |options(sparklyr.log.console = TRUE)
          |options(sparklyr.verbose = TRUE)
@@ -94,13 +97,15 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=RSparkTests",
+         |  "spark.jars.packages=com.microsoft.azure:synapseml_2.12:${conf.version}",
+         |  "spark.jars.repositories=https://mmlspark.azureedge.net/maven",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
          |
          |sc <- spark_connect(
          |  master = "local",
-         |  version = "3.3.0",
+         |  version = "3.2.0",
          |  config = conf)
          |
          |""".stripMargin)
@@ -112,6 +117,10 @@ object RTestGen {
          |library($library)
          |
          |""".stripMargin)
+  }
+
+  def isDeprecated(name: String): Boolean = {
+    name.contains("LIME") && !name.toLowerCase.contains("explainer")
   }
 
   def main(args: Array[String]): Unit = {

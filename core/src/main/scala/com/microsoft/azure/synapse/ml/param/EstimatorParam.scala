@@ -35,8 +35,8 @@ trait PipelineStageWrappable[T <: PipelineStage]
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
-       |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
        """.stripMargin
   }
 
@@ -94,16 +94,15 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
   override private[ml] def dotnetGetter(capName: String): String =
     dotnetGetterHelper(dotnetReturnType, "JavaPipelineStage", capName)
 
- /* def rValue(v: Estimator[_]): String = {
+  def rValue(v: Estimator[_]): String = {
     s"""${name}Model"""
   }
 
   override def rLoadLine(modelNum: Int): String = {
-    super.rLoadLine(modelNum)
     s"""
-       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
-       |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
-       """.stripMargin
-  }*/
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
+     """.stripMargin
+  }
 
 }

@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lime
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.distributions.Rand
-import com.microsoft.azure.synapse.ml.codegen.PythonWrappable
+import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
@@ -168,9 +168,12 @@ trait LIMEBase extends LIMEParams with ComplexParamsWritable {
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 object TabularLIME extends ComplexParamsReadable[TabularLIME]
 
+/* Due to R's lack of modules, we cannot separate the R wrapper for this from the one for the explainer version.
+ * So do not extend with RWrappable.
+ */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
-  with LIMEParams with PythonWrappable with ComplexParamsWritable with BasicLogging { // TODO: accommodate RWrappable
+  with LIMEParams with PythonWrappable with DotnetWrappable with ComplexParamsWritable with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIME"))
@@ -204,9 +207,12 @@ class TabularLIME(val uid: String) extends Estimator[TabularLIMEModel]
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 object TabularLIMEModel extends ComplexParamsReadable[TabularLIMEModel]
 
+/* Due to R's lack of modules, we cannot separate the R wrapper for this from the one for the explainer version.
+ * So do not extend with RWrappable.
+ */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.VectorLIME'.", since="1.0.0-rc3")
 class TabularLIMEModel(val uid: String) extends Model[TabularLIMEModel]
-  with LIMEBase with PythonWrappable with BasicLogging { // TODO: accommodate RWrappable
+  with LIMEBase with PythonWrappable with DotnetWrappable with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TabularLIMEModel"))
@@ -265,9 +271,12 @@ object ImageLIME extends ComplexParamsReadable[ImageLIME]
   *
   * https://arxiv.org/pdf/1602.04938v1.pdf
   */
+/* Due to R's lack of modules, we cannot separate the R wrapper for this from the one for the explainer version.
+ * So do not extend with RWrappable.
+ */
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.ImageLIME'.", since="1.0.0-rc3")
 class ImageLIME(val uid: String) extends Transformer with LIMEBase
-  with PythonWrappable with HasModifier with HasCellSize with BasicLogging { // TODO: accommodate RWrappable
+  with PythonWrappable with DotnetWrappable with HasModifier with HasCellSize with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ImageLIME"))

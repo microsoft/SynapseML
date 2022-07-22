@@ -12,9 +12,13 @@ import scala.collection.immutable.Map
 object ArrayMapJsonProtocol extends DefaultJsonProtocol {
 
   implicit object MapJsonFormat extends JsonFormat[Map[String, Any]] {
+    //scalastyle:off cylomatic.complexity
     def write(m: Map[String, Any]): JsValue = {
       JsObject(m.mapValues {
         case v: Int => JsNumber(v)
+        case v: Short => JsNumber(v)
+        case v: Long => JsNumber(v)
+        case v: BigInt => JsNumber(v)
         case v: Double => JsNumber(v)
         case v: String => JsString(v)
         case true => JsTrue
@@ -23,6 +27,7 @@ object ArrayMapJsonProtocol extends DefaultJsonProtocol {
         case default => serializationError(s"Unable to serialize $default")
       })
     }
+    //scalastyle:on cyclomatic.complexity
 
     def read(value: JsValue): Map[String, Any] = value.asInstanceOf[JsObject].fields.map(kvp => {
       val convValue = kvp._2 match {

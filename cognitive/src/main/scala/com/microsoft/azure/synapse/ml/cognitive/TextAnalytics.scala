@@ -403,7 +403,7 @@ class TextAnalyzeTaskParam(parent: Params,
 
   def hashMapToTAAnalyzeTask(value: util.HashMap[String, Any]): TextAnalyzeTask = {
     if (!value.containsKey("parameters")) {
-      throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
+      throw new IllegalArgumentException("Task options must include 'parameters' value")
     }
     if (value.size() > 1) {
       throw new IllegalArgumentException("Task options should only include 'parameters' value")
@@ -418,7 +418,13 @@ class TextAnalyzeTaskParam(parent: Params,
       s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
 }
 
-object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
+object TextAnalyze extends ComplexParamsReadable[TextAnalyze] {
+  def convertJsonToTasks2(jsonString: String): Seq[TextAnalyzeTask] = {
+    implicit val formats = DefaultFormats
+    val p = parse(jsonString).extract[Seq[Map[String, Map[String,String]]]]
+    Seq[Map[String, String]](p.head.head._2).map(m => TextAnalyzeTask(m))
+  }
+}
 
 class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
@@ -434,21 +440,17 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity recognition tasks to perform on submitted documents"
   )
 
-  implicit val formats = DefaultFormats // checkme
+  implicit val formats = DefaultFormats
 
-  // def getEntityRecognitionTasks: Seq[TAAnalyzeTask] = $(entityRecognitionTasks) // checkme
-  def getEntityRecognitionTasks: Seq[TextAnalyzeTask] = $(entityRecognitionTasks) // scheckme
+  def getEntityRecognitionTasks: Seq[TextAnalyzeTask] = $(entityRecognitionTasks)
 
   def setEntityRecognitionTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
 
   def setEntityRecognitionTasksR(jsonString: String): this.type = {
-    //val tasks = parse(jsonString).extract[Seq[TAAnalyzeTask]] // checkme
-    val tasks = parse(jsonString).extract[Seq[TextAnalyzeTask]] // scheckme kindof
-    this.setEntityRecognitionTasks(tasks)
+    this.setEntityRecognitionTasks(convertJsonToTasks(jsonString))
   }
 
-  //setDefault(entityRecognitionTasks -> Seq[TAAnalyzeTask]()) // checkme
-  setDefault(entityRecognitionTasks -> Seq[TextAnalyzeTask]()) // scheckme
+  setDefault(entityRecognitionTasks -> Seq[TextAnalyzeTask]())
 
   val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
     this,
@@ -459,6 +461,10 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   def getEntityRecognitionPiiTasks: Seq[TextAnalyzeTask] = $(entityRecognitionPiiTasks)
 
   def setEntityRecognitionPiiTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
+
+  def setEntityRecognitionPiiTasksR(jsonString: String): this.type = {
+    this.setEntityRecognitionPiiTasks(convertJsonToTasks(jsonString))
+  }
 
   setDefault(entityRecognitionPiiTasks -> Seq[TextAnalyzeTask]())
 
@@ -472,6 +478,10 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   def setEntityLinkingTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityLinkingTasks, v)
 
+  def setEntityLinkingTasksR(jsonString: String): this.type = {
+    this.setEntityLinkingTasks(convertJsonToTasks(jsonString))
+  }
+
   setDefault(entityLinkingTasks -> Seq[TextAnalyzeTask]())
 
   val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
@@ -484,6 +494,10 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   def setKeyPhraseExtractionTasks(v: Seq[TextAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
 
+  def setKeyPhraseExtractionTasksR(jsonString: String): this.type = {
+    this.setKeyPhraseExtractionTasks(convertJsonToTasks(jsonString))
+  }
+
   setDefault(keyPhraseExtractionTasks -> Seq[TextAnalyzeTask]())
 
   val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
@@ -495,6 +509,10 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   def getSentimentAnalysisTasks: Seq[TextAnalyzeTask] = $(sentimentAnalysisTasks)
 
   def setSentimentAnalysisTasks(v: Seq[TextAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
+
+  def setSentimentAnalysisTasksR(jsonString: String): this.type = {
+    this.setSentimentAnalysisTasks(convertJsonToTasks(jsonString));
+  }
 
   setDefault(sentimentAnalysisTasks -> Seq[TextAnalyzeTask]())
 
@@ -622,4 +640,10 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     )
   }
 
+  // total kluge for R
+  private def convertJsonToTasks(jsonString: String): Seq[TextAnalyzeTask] = {
+    implicit val formats = DefaultFormats
+    val p = parse(jsonString).extract[Seq[Map[String, Map[String,String]]]]
+    Seq[Map[String, String]](p.head.head._2).map(m => TextAnalyzeTask(m))
+  }
 }
