@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchem
 import com.microsoft.azure.synapse.ml.downloader.ModelSchema
 import com.microsoft.azure.synapse.ml.image.{ResizeImageTransformer, UnrollBinaryImage, UnrollImage}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable

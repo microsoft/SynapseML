@@ -27,5 +27,3 @@ jobs:
         distribution: 'temurin'
     - name: Run scalastyle
       run: sbt scalastyle test:scalastyle
-  
-  

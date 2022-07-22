@@ -3,12 +3,13 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.cntk._CNTKModel import _CNTKModel
 from pyspark.ml.common import inherit_doc, _java2py, _py2java
 from pyspark import SparkContext
+
 
 @inherit_doc
 class CNTKModel(_CNTKModel):
@@ -18,6 +19,7 @@ class CNTKModel(_CNTKModel):
         SparkSession (SparkSession): The SparkSession that will be used to find the model
         location (str): The location of the model, either on local or HDFS
     """
+
     def _transfer_map_from_java(self, param):
         """
         Transforms the embedded com.microsoft.azure.synapse.ml.core.serialize.params from the companion Java object.
@@ -28,7 +30,7 @@ class CNTKModel(_CNTKModel):
             if self._java_obj.isSet(java_param):
                 java_map = self._java_obj.getOrDefault(java_param).toList()
                 pairs = [java_map.apply(i) for i in range(java_map.length())]
-                py_map = {p._1():p._2() for p in pairs}
+                py_map = {p._1(): p._2() for p in pairs}
                 self._set(**{param.name: py_map})
 
     def _transfer_map_to_java(self, param):

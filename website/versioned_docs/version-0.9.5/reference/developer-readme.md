@@ -26,7 +26,7 @@ description: SynapseML Development Setup
 # Publishing and Using Build Secrets
 
 To use secrets in the build you must be part of the synapsemlkeyvault
- and azure subscription. If you are MSFT internal would like to be 
+ and azure subscription. If you are MSFT internal would like to be
  added please reach out `synapseml-support@microsoft.com`
 
 # SBT Command Guide
@@ -53,7 +53,7 @@ Generates documentation for scala sources
 
 ### `createCondaEnv`
 
-Creates a conda environment `synapseml` from `environment.yaml` if it does not already exist. 
+Creates a conda environment `synapseml` from `environment.yaml` if it does not already exist.
 This env is used for python testing. **Activate this env before using python build commands.**
 
 ### `cleanCondaEnv`

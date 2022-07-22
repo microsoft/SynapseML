@@ -62,6 +62,3 @@ val isolationForest = (new IsolationForest()
 py="synapse.ml.isolationforest.html#module-synapse.ml.isolationforest.IsolationForest"
 scala="com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/isolationforest/IsolationForest.scala" />
-
-
-

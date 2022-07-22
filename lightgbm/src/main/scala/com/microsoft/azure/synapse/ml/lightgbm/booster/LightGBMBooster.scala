@@ -209,7 +209,8 @@ protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
   * @param modelStr Optional parameter with the string serialized representation of the learner
   */
 @SerialVersionUID(777L)
-class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val parameters: Option[String] = None,
+class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
+                      val parameters: Option[String] = None,
                       val modelStr: Option[String] = None) extends Serializable {
 
   /** Represents a LightGBM Booster learner

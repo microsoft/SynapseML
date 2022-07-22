@@ -150,7 +150,7 @@ from pyspark.sql.window import Window
 w = Window.partitionBy(
                   'tenant_id',
                   'user',
-                  'res'  
+                  'res'
                 ).orderBy(
                   f.desc('anomaly_score')
                 )
@@ -174,7 +174,7 @@ results_to_la = results_above_threshold.withColumn(
 
 # add a fake timestamp to the results
 results_to_la = results_to_la.withColumn('timestamp', f.current_timestamp())
-  
+
 display(results_to_la)
 ```
 
@@ -206,7 +206,7 @@ non_anomalous_records = interesting_records.join(results_to_display, ['user', 'r
 
 top_non_anomalous_records = non_anomalous_records.groupBy(
                           'tenant_id',
-                          'user', 
+                          'user',
                           'res'
                         ).agg(
                           f.count('*').alias('count'),
@@ -261,7 +261,7 @@ x = pd.merge(high_scores_df, unique_df, how='left', left_on='user', right_on='na
 all_access_index_df = pd.merge(x, unique_df, how='left', left_on='res', right_on='name').drop(['name'], axis=1).rename(columns={'index' : 'resIndex'})
 all_access_index_df['color'] = normal_line_color
 
-# results_to_display index, color and 
+# results_to_display index, color and
 y = results_to_display.toPandas().drop(['tenant_id', 'timestamp', 'anomaly_score'], axis=1)
 y = pd.merge(y, unique_df, how='left', left_on='user', right_on='name').drop(['name'], axis=1).rename(columns={'index' : 'userIndex'})
 high_scores_index_df = pd.merge(y, unique_df, how='left', left_on='res', right_on='name').drop(['name'], axis=1).rename(columns={'index' : 'resIndex'})
@@ -313,7 +313,7 @@ layout =  dict(
     height = 772,
     font = dict(
       size = 10
-    ),    
+    ),
 )
 
 fig = dict(data=[data_trace], layout=layout)

@@ -3,8 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.io.binary
 
-import java.io.Closeable
 import org.apache.hadoop.mapreduce.RecordReader
+
+import java.io.Closeable
 
 // Based on:
 // https://github.com/apache/spark/blob/master/sql/core/src/main/scala/

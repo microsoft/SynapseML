@@ -4,15 +4,14 @@
 package com.microsoft.azure.synapse.ml.cognitive.split2
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers._
-import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{lit, monotonically_increasing_id}
 
 import java.util.UUID
 import scala.collection.mutable

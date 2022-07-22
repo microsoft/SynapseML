@@ -105,6 +105,60 @@ rootGenDir := {
   join(targetDir, "generated")
 }
 
+// scalastyle:off line.size.limit
+val genSleetConfig = TaskKey[Unit]("genSleetConfig",
+  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
+genSleetConfig := {
+  val fileContent =
+    s"""{
+       |  "username": "",
+       |  "useremail": "",
+       |  "sources": [
+       |    {
+       |      "name": "SynapseMLNuget",
+       |      "type": "azure",
+       |      "container": "synapsemlnuget",
+       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
+       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
+       |    }
+       |  ]
+       |}""".stripMargin
+  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
+  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
+  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+}
+// scalastyle:on line.size.limit
+
+val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
+  "generate dotnet test helper file with current library version and publish E2E test base")
+publishDotnetTestBase := {
+  genSleetConfig.value
+  val fileContent =
+    s"""// Licensed to the .NET Foundation under one or more agreements.
+       |// The .NET Foundation licenses this file to you under the MIT license.
+       |// See the LICENSE file in the project root for more information.
+       |
+       |namespace SynapseMLtest.Utils
+       |{
+       |    public class Helper
+       |    {
+       |        public static string GetSynapseMLPackage()
+       |        {
+       |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
+       |        }
+       |    }
+       |
+       |}
+       |""".stripMargin
+  val dotnetTestBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "test")
+  val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
+  if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
+  FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
+  packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
+  val packagePath = join(dotnetTestBaseDir, "target", s"SynapseML.DotnetE2ETest.0.9.1.nupkg").getAbsolutePath
+  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
+}
+
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
   task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
@@ -121,6 +175,30 @@ generatePythonDoc := {
   join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
+generateDotnetDoc := {
+  Def.sequential(
+    runTaskForAllInCompile(dotnetCodeGen),
+    runTaskForAllInCompile(mergeDotnetCode)
+  ).value
+  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
+  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
+  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
+  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
+  val fileContent =
+    s"""PROJECT_NAME = "$packageName"
+       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
+       |USE_MDFILE_AS_MAINPAGE = "README.md"
+       |RECURSIVE = YES
+       |""".stripMargin
+  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
+  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
+  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
+  runCmd(Seq("bash", "-c","cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -190,10 +268,11 @@ publishPypi := {
   )
 }
 
-val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
   generatePythonDoc.value
   (root / Compile / unidoc).value
+  generateDotnetDoc.value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">
@@ -208,6 +287,9 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
+  val dotnetDir = join(unifiedDocDir.toString, "dotnet")
+  if (dotnetDir.exists()) FileUtils.forceDelete(dotnetDir)
+  FileUtils.copyDirectory(join(codegenDir, "src", "dotnet", "html"), dotnetDir)
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
@@ -225,7 +307,8 @@ publishBadges := {
       s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
+      s"badges/$filename", "icons",
+      extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
@@ -295,8 +378,15 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.14.2",
+      "com.azure" % "azure-storage-blob" % "12.14.4",
       "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+    ),
+    dependencyOverrides ++= Seq(
+      "com.fasterxml.jackson.core" %  "jackson-databind" % "2.12.5",
+      "com.fasterxml.jackson.core" %  "jackson-core" % "2.12.5",
+      "com.fasterxml.jackson.core" %  "jackson-annotations" % "2.12.5",
+      "com.fasterxml.jackson.dataformat"  %  "jackson-dataformat-xml" % "2.12.5",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5"
     ),
     name := "synapseml-cognitive"
   ): _*)

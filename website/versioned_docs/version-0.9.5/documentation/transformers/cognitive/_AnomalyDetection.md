@@ -201,7 +201,7 @@ da.transform(df).show()
 </TabItem>
 </Tabs>
 
-<DocTable className="DetectAnomalies" 
+<DocTable className="DetectAnomalies"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.DetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/DetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />
@@ -310,7 +310,7 @@ sda.transform(df).show()
 </TabItem>
 </Tabs>
 
-<DocTable className="SimpleDetectAnomalies" 
+<DocTable className="SimpleDetectAnomalies"
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SimpleDetectAnomalies"
 scala="com/microsoft/azure/synapse/ml/cognitive/SimpleDetectAnomalies.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/AnomalyDetection.scala" />

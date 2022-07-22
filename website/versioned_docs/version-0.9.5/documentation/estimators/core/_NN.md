@@ -88,6 +88,3 @@ val knn = (new KNN()
 py="synapse.ml.nn.html#module-synapse.ml.nn.KNN"
 scala="com/microsoft/azure/synapse/ml/nn/KNN.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/nn/KNN.scala" />
-
-
-

@@ -537,6 +537,3 @@ di.transform(df).show()
 py="synapse.ml.cognitive.html#module-mmlspark.cognitive.DescribeImage"
 scala="com/microsoft/azure/synapse/ml/cognitive/DescribeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
-
-
-

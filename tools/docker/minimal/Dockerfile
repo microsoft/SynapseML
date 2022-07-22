@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:20.04
 
-ARG SYNAPSEML_VERSION=0.9.5
+ARG SYNAPSEML_VERSION=0.10.0
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SPARK_VERSION=3.2.1
+ENV SPARK_VERSION=3.2.2
 ENV HADOOP_VERSION=2.7
 ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
 ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
@@ -16,6 +16,8 @@ RUN apt-get -qq update \
       wget \
       default-jre \
       openmpi-bin \
+    && apt-get upgrade -y \
+    && apt-get clean -y \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log

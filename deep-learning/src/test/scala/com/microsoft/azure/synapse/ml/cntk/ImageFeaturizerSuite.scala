@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.cntk
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.downloader.{ModelDownloader, ModelSchema}
@@ -11,13 +12,15 @@ import com.microsoft.azure.synapse.ml.image.ImageTestUtils
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
 import com.microsoft.azure.synapse.ml.io.split1.FileReaderUtils
-import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.onnx.ONNXModel
+import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.{FloatType, StringType}
 
 import java.io.File
 import java.net.URI
@@ -35,6 +38,14 @@ trait TrainedCNTKModelUtils extends ImageTestUtils with FileReaderUtils {
     .setOutputCol(outputCol)
     .setModel(resNet)
 
+}
+
+trait TrainedONNXModelUtils {
+  lazy val resNetOnnxUrl = "https://mmlspark.blob.core.windows.net/datasets/ONNXModels/resnet50-v1-12-int8.onnx";
+  lazy val resNetOnnxPayload: Array[Byte] = {
+    val isr = scala.io.Source.fromURL(resNetOnnxUrl, "ISO-8859-1").reader()
+    Stream.continually(isr.read()).takeWhile(_ != -1).map(_.toByte).toArray
+  }
 }
 
 class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]

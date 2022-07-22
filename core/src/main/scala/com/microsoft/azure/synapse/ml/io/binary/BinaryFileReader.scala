@@ -9,11 +9,11 @@ import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.BinaryType
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 
 object BinaryFileReader {
 

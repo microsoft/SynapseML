@@ -3,8 +3,8 @@ title: SparkServing - Deploying a Classifier
 hide_title: true
 status: stable
 ---
-## Model Deployment with Spark Serving 
-In this example, we try to predict incomes from the *Adult Census* dataset. Then we will use Spark serving to deploy it as a realtime web service. 
+## Model Deployment with Spark Serving
+In this example, we try to predict incomes from the *Adult Census* dataset. Then we will use Spark serving to deploy it as a realtime web service.
 First, we import needed packages:
 
 

@@ -8,7 +8,9 @@ if sys.version >= "3":
 
 from pyspark.ml.tuning import _ValidatorParams
 from pyspark.ml.wrapper import JavaParams
-from synapse.ml.recommendation._RankingTrainValidationSplit import _RankingTrainValidationSplit
+from synapse.ml.recommendation._RankingTrainValidationSplit import (
+    _RankingTrainValidationSplit,
+)
 
 
 class RankingTrainValidationSplit(_ValidatorParams, _RankingTrainValidationSplit):
@@ -19,7 +21,8 @@ class RankingTrainValidationSplit(_ValidatorParams, _RankingTrainValidationSplit
         estimator, epms, evaluator = _ValidatorParams._to_java_impl(self)
 
         _java_obj = JavaParams._new_java_obj(
-            "com.microsoft.azure.synapse.ml.recommendation.RankingTrainValidationSplit", self.uid
+            "com.microsoft.azure.synapse.ml.recommendation.RankingTrainValidationSplit",
+            self.uid,
         )
         _java_obj.setEstimatorParamMaps(epms)
         _java_obj.setEvaluator(evaluator)

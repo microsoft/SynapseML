@@ -6,13 +6,9 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.featurize.text.TextFeaturizer
-
-import java.sql.{Date, Timestamp}
-import java.time.temporal.ChronoField
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
-import org.apache.spark.ml.feature.{Imputer, OneHotEncoder, SQLTransformer, VectorAssembler}
+import org.apache.spark.ml.feature.{OneHotEncoder, SQLTransformer, VectorAssembler}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
@@ -22,6 +18,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
+import java.sql.{Date, Timestamp}
+import java.time.temporal.ChronoField
 import scala.collection.mutable
 
 private[ml] object FeaturizeUtilities {

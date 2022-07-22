@@ -6,15 +6,16 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.codegen.{GenerationUtils, Wrappable}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import AnyJsonFormat.anyFormat
+
 import scala.language.existentials
 
 
@@ -34,7 +35,7 @@ trait HasSetServiceName extends Wrappable with HasURL {
 
 trait HasPrompt extends HasServiceParams {
   val prompt: ServiceParam[String] = new ServiceParam[String](
-    this, "prompt", "The text to complete", isRequired = true)
+    this, "prompt", "The text to complete", isRequired = false)
 
   def getPrompt: String = getScalarParam(prompt)
 
@@ -43,6 +44,45 @@ trait HasPrompt extends HasServiceParams {
   def getPromptCol: String = getVectorParam(prompt)
 
   def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
+}
+
+trait HasBatchPrompt extends HasServiceParams {
+  val batchPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
+    this, "batchPrompt", "Sequence of prompts to complete", isRequired = false)
+
+  def getBatchPrompt: Seq[String] = getScalarParam(batchPrompt)
+
+  def setBatchPrompt(v: Seq[String]): this.type = setScalarParam(batchPrompt, v)
+
+  def getBatchPromptCol: String = getVectorParam(batchPrompt)
+
+  def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
+}
+
+trait HasIndexPrompt extends HasServiceParams {
+  val indexPrompt: ServiceParam[Seq[Int]] = new ServiceParam[Seq[Int]](
+    this, "indexPrompt", "Sequence of indexes to complete", isRequired = false)
+
+  def getIndexPrompt: Seq[Int] = getScalarParam(indexPrompt)
+
+  def setIndexPrompt(v: Seq[Int]): this.type = setScalarParam(indexPrompt, v)
+
+  def getIndexPromptCol: String = getVectorParam(indexPrompt)
+
+  def setIndexPromptCol(v: String): this.type = setVectorParam(indexPrompt, v)
+}
+
+trait HasBatchIndexPrompt extends HasServiceParams {
+  val batchIndexPrompt: ServiceParam[Seq[Seq[Int]]] = new ServiceParam[Seq[Seq[Int]]](
+    this, "batchIndexPrompt", "Sequence of index sequences to complete", isRequired = false)
+
+  def getBatchIndexPrompt: Seq[Seq[Int]] = getScalarParam(batchIndexPrompt)
+
+  def setBatchIndexPrompt(v: Seq[Seq[Int]]): this.type = setScalarParam(batchIndexPrompt, v)
+
+  def getBatchIndexPromptCol: String = getVectorParam(batchIndexPrompt)
+
+  def setBatchIndexPromptCol(v: String): this.type = setVectorParam(batchIndexPrompt, v)
 }
 
 trait HasAPIVersion extends HasServiceParams {
@@ -93,7 +133,8 @@ trait HasMaxTokens extends HasServiceParams {
 }
 
 trait HasOpenAIParams extends HasServiceParams
-  with HasSetServiceName with HasPrompt with HasAPIVersion with HasDeploymentName with HasMaxTokens {
+  with HasSetServiceName with HasPrompt  with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
+  with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
     this, "temperature",
@@ -299,14 +340,25 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
         getValueOpt(r, logProbs).map(v => ("logprobs", v))
       ).flatten).toMap
 
-      getValueOpt(r, prompt).map { prompt =>
-        val fullPayload = optionalParams.updated("prompt", prompt)
-        new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
-      }
+      getValueOpt(r, prompt)
+        .map(prompt => getStringEntity(prompt, optionalParams))
+        .orElse(getValueOpt(r, batchPrompt)
+          .map(batchPrompt => getStringEntity(batchPrompt, optionalParams)))
+        .orElse(getValueOpt(r, indexPrompt)
+          .map(indexPrompt => getStringEntity(indexPrompt, optionalParams)))
+        .orElse(getValueOpt(r, batchIndexPrompt)
+          .map(batchIndexPrompt => getStringEntity(batchIndexPrompt, optionalParams)))
+        .orElse(throw new IllegalArgumentException(
+          "Please set one of prompt, batchPrompt, indexPrompt or batchIndexPrompt."))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def responseDataType: DataType = CompletionResponse.schema
+
+  private[this] def getStringEntity[A](prompt: A, optionalParams: Map[String, Any]): StringEntity = {
+    val fullPayload = optionalParams.updated("prompt", prompt)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
 
 }

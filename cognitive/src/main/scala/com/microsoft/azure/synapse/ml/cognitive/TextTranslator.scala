@@ -6,10 +6,10 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.SimpleHTTPTransformer
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
-import org.apache.spark.ml.param.ServiceParam
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
@@ -256,10 +256,11 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   override protected def getInternalTransformer(schema: StructType): PipelineModel =
     customGetInternalTransformer(schema, Seq("text", "toLanguage"))
 
-  val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage", "Specifies the language of the output" +
-    " text. The target language must be one of the supported languages included in the translation scope." +
-    " For example, use to=de to translate to German. It's possible to translate to multiple languages simultaneously" +
-    " by repeating the parameter in the query string. For example, use to=de&to=it to translate to German and Italian.",
+  val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage",
+    "Specifies the language of the output text. The target language must be one of the supported languages" +
+      " included in the translation scope. For example, use to=de to translate to German. It's possible to translate" +
+      " to multiple languages simultaneously by repeating the parameter in the query string. For example, use " +
+      "to=de and to=it to translate to German and Italian.",
     isRequired = true, isURLParam = true,
     toValueString = { seq => seq.mkString(",") })
 

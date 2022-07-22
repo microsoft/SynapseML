@@ -43,4 +43,3 @@ val onnx_ml = (new ONNXModel()
 py="synapse.ml.onnx.html#module-synapse.ml.onnx.ONNXModel"
 scala="com/microsoft/azure/synapse/ml/onnx/ONNXModel.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/deep-learning/src/main/scala/com/microsoft/azure/synapse/ml/onnx/ONNXModel.scala" />
-

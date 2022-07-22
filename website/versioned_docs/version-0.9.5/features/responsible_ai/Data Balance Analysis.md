@@ -168,22 +168,22 @@ These measures look at distribution of records across all combinations of sensit
 
 ## Mitigation
 
-It will not be a stretch to say that every real-world dataset has caveats, biases, and imbalances. Data collection is costly. Data Imbalance mitigation or de-biasing data is an area of research. There are many techniques available at various stages of ML lifecycle i.e., during pre-processing, in-processing, and post processing. Here we outline a couple of pre-processing techniques -  
+It will not be a stretch to say that every real-world dataset has caveats, biases, and imbalances. Data collection is costly. Data Imbalance mitigation or de-biasing data is an area of research. There are many techniques available at various stages of ML lifecycle i.e., during pre-processing, in-processing, and post processing. Here we outline a couple of pre-processing techniques -
 
 ### Resampling
 
-This involves under-sampling from majority class and over-sampling from minority class. Most naïve way to over-sample would be duplicate records and under-sample would be to remove records at random.  
+This involves under-sampling from majority class and over-sampling from minority class. Most naïve way to over-sample would be duplicate records and under-sample would be to remove records at random.
 
-* Caveats:  
+* Caveats:
 
-  1. Under-sampling may remove valuable information.  
+  1. Under-sampling may remove valuable information.
   2. Over-sampling may cause overfitting and poor generalization on test set.
 
 ![Bar chart undersampling and oversampling](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_SamplingBar.png)
 
-There are smarter techniques to under-sample and over-sample in literature and implemented in Python’s [imbalanced-learn](https://imbalanced-learn.org/stable/) package.  
+There are smarter techniques to under-sample and over-sample in literature and implemented in Python’s [imbalanced-learn](https://imbalanced-learn.org/stable/) package.
 
-For example, we can cluster the records of the majority class, and do the under-sampling by removing records from each cluster, thus seeking to preserve information.  
+For example, we can cluster the records of the majority class, and do the under-sampling by removing records from each cluster, thus seeking to preserve information.
 
 One technique of under-sampling is use of Tomek Links. Tomek links are pairs of very close instances but of opposite classes. Removing the instances of the majority class of each pair increases the space between the two classes, facilitating the classification process. A similar way to under-sample majority class is using Near-Miss. It first calculates the distance between all the points in the larger class with the points in the smaller class. When two points belonging to different classes are very close to each other in the distribution, this algorithm eliminates the datapoint of the larger class thereby trying to balance the distribution.
 
@@ -195,6 +195,6 @@ In over-sampling, instead of creating exact copies of the minority class records
 
 ### Reweighting
 
-There is an expected and observed value in each table cell. The weight is essentially expected / observed value. This is easy to extend to multiple features with more than 2 groups. The weights are then incorporated in loss function of model training.  
+There is an expected and observed value in each table cell. The weight is essentially expected / observed value. This is easy to extend to multiple features with more than 2 groups. The weights are then incorporated in loss function of model training.
 
 ![Reweighting](https://mmlspark.blob.core.windows.net/graphics/responsible_ai/DataBalanceAnalysis_Reweight.png)

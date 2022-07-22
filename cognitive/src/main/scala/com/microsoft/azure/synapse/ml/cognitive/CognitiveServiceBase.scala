@@ -8,13 +8,14 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param.{ServiceParam, _}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
@@ -237,6 +238,19 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |""".stripMargin
   }
 
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""/// <summary>
+       |/// Sets value for linkedService
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// linkedService name
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
+       |public $dotnetClassName SetLinkedService(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLinkedService\", value));
+       |""".stripMargin
+  }
+
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
     val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
@@ -269,6 +283,19 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setLocation(value)
       |    return self
       |""".stripMargin
+  }
+
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""/// <summary>
+       |/// Sets value for location
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// Location of the cognitive service
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
+       |public $dotnetClassName SetLocation(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setLocation\", value));
+       |""".stripMargin
   }
 
   def setLocation(v: String): this.type = {
@@ -316,7 +343,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
         .setOutputCol(getOutputCol)
         .setInputParser(getInternalInputParser(schema))
         .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
+        .setHandler(handlingFunc _)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
         .setErrorCol(getErrorCol),

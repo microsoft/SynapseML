@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 import pyspark
@@ -18,11 +18,14 @@ def streamToPowerBI(df, url, options=dict()):
     writer = jvm.com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
     return writer.stream(df.drop("label")._jdf, url, options)
 
-setattr(pyspark.sql.DataFrame, 'streamToPowerBI', streamToPowerBI)
+
+setattr(pyspark.sql.DataFrame, "streamToPowerBI", streamToPowerBI)
+
 
 def writeToPowerBI(df, url, options=dict()):
     jvm = SparkContext.getOrCreate()._jvm
     writer = jvm.com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
     writer.write(df._jdf, url, options)
 
-setattr(pyspark.sql.DataFrame, 'writeToPowerBI', writeToPowerBI)
+
+setattr(pyspark.sql.DataFrame, "writeToPowerBI", writeToPowerBI)

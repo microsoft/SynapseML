@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.LinuxOnly
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.image.ImageTestUtils
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.DenseVector

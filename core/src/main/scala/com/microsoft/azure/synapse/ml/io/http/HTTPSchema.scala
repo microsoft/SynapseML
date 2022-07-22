@@ -3,11 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
-import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-
-import java.net.{SocketException, URI}
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import com.sun.net.httpserver.HttpExchange
 import org.apache.commons.io.IOUtils
 import org.apache.http._
@@ -17,10 +15,11 @@ import org.apache.http.message.BasicHeader
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, lit, struct, typedLit, udf}
+import org.apache.spark.sql.functions.{col, lit, struct, typedLit}
 import org.apache.spark.sql.types.{DataType, StringType}
 import org.apache.spark.sql.{Column, Row}
 
+import java.net.{SocketException, URI}
 import scala.collection.JavaConverters._
 
 case class HeaderData(name: String, value: String) {

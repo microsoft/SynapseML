@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.countCardinality
 import com.microsoft.lightgbm.SwigPtrWrapper
 import com.microsoft.ml.lightgbm._
-import DatasetUtils.countCardinality
 
 import scala.reflect.ClassTag
 
@@ -187,6 +187,6 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
 
   override def close(): Unit = {
     // Free dataset
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr), "Finalize Dataset")
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr), "Free Dataset")
   }
 }

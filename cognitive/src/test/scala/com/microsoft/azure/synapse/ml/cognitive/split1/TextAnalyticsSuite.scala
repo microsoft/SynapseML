@@ -7,14 +7,11 @@ import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.featurize.text.PageSplitter
 import com.microsoft.azure.synapse.ml.stages.FixedMiniBatchTransformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.{col, collect_list, concat_ws, explode, lit, posexplode}
+import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-
-import scala.collection.mutable.WrappedArray
 
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)

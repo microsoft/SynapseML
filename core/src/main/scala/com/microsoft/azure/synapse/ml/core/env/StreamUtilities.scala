@@ -3,11 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.core.env
 
-import java.io.{ByteArrayOutputStream, InputStream}
-import java.util.zip.ZipInputStream
-
 import org.apache.commons.io.IOUtils
 
+import java.io.{ByteArrayOutputStream, InputStream}
+import java.util.zip.ZipInputStream
 import scala.io.Source
 import scala.util.Random
 

@@ -5,11 +5,10 @@ package com.microsoft.azure.synapse.ml.downloader
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
+import org.apache.commons.io.FileUtils
 
 import java.io.File
 import java.nio.file.Files
-import org.apache.commons.io.FileUtils
-
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.util.Random

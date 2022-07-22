@@ -31,3 +31,14 @@ $ GIT_USER=<Your GitHub username> USE_SSH=true yarn deploy
 ```
 
 If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+
+
+### Adding a new versioned docs section
+
+To add a version to the docs like `0.9.5` from the `website` directory
+```
+cd ../
+sbt convertNotebooks
+cd website
+yarn run docusaurus docs:version 0.9.5`
+````

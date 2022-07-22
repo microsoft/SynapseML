@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param._
 import org.apache.commons.lang.StringEscapeUtils
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -14,6 +15,7 @@ import java.lang.reflect.ParameterizedType
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.collection.Iterator.iterate
+
 
 trait BaseWrappable extends Params {
 
@@ -107,8 +109,15 @@ trait PythonWrappable extends BaseWrappable {
   protected lazy val pyParamsDefinitions: String = {
     thisStage.params.map { p =>
       val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-      s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
-          |""".stripMargin
+      p match {
+        case sp: ServiceParam[_] =>
+          // Helps when we call _transfer_params_to_java the underlying java_obj set service params correctly
+          s"""|${sp.name} = Param(Params._dummy(), "${sp.name}", "ServiceParam: ${escape(sp.doc)}"$typeConverterString)
+              |""".stripMargin
+        case _ =>
+          s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
+              |""".stripMargin
+      }
     }.mkString("\n")
   }
 
@@ -148,12 +157,13 @@ trait PythonWrappable extends BaseWrappable {
           |    ${p.name}: ${p.doc}
           |"\""
           |""".stripMargin
+    // scalastyle:off line.size.limit
     p match {
       case _: ServiceParam[_] =>
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
             |    if isinstance(value, list):
-            |        value = SparkContext._active_spark_context._jvm.org.apache.spark.ml.param.ServiceParam.toSeq(value)
+            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
             |    self._java_obj = self._java_obj.set$capName(value)
             |    return self
             |
@@ -169,6 +179,7 @@ trait PythonWrappable extends BaseWrappable {
             |    return self
             |""".stripMargin
     }
+    // scalastyle:on line.size.limit
   }
 
   protected def pyParamsSetters: String =
@@ -484,5 +495,4 @@ trait RWrappable extends BaseWrappable {
 
 }
 
-trait Wrappable extends PythonWrappable with RWrappable
-
+trait Wrappable extends PythonWrappable with RWrappable with DotnetWrappable

@@ -28,6 +28,5 @@
 
 ## Acknowledgements
 We would like to acknowledge the developers and contributors, both internal and external who helped create this version of SynapseML.\n
- 
-{{ end -}}
 
+{{ end -}}

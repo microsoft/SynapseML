@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 
 case class Foo(a: Int, b: String, c: Seq[Bar])
 

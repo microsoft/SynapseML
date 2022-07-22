@@ -28,7 +28,7 @@ location = 'eastus'
 df = spark.createDataFrame(data=[
         ["en", "Hello Seattle"],
         ["en", "There once was a dog who lived in London and thought she was a human"]
-    ], 
+    ],
     schema=["language","text"])
 ```
 

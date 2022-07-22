@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.param.TypedIntArrayParam
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
@@ -14,7 +15,6 @@ import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
 
 object MultiNGram extends DefaultParamsReadable[MultiNGram]
 
