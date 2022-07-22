@@ -415,6 +415,8 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
 
 trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
 
+  def ignoreExperimentFuzzing: Boolean = false
+
   def experimentTestObjects(): Seq[TestObject[S]]
 
   def runExperiment(s: S, fittingDF: DataFrame, transformingDF: DataFrame): DataFrame = {
@@ -438,7 +440,7 @@ trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   }
 
   test("Experiment Fuzzing") {
-    testExperiments()
+    if (!ignoreExperimentFuzzing) testExperiments()
   }
 
 }
@@ -463,6 +465,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   }
 
   val ignoreEstimators: Boolean = false
+  def ignoreSerializationFuzzing: Boolean = false
 
   private def testSerializationHelper(path: String,
                                       stage: PipelineStage with MLWritable,
@@ -516,7 +519,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   }
 
   test("Serialization Fuzzing") {
-    testSerialization()
+    if (!ignoreSerializationFuzzing) testSerialization()
   }
 
 }
