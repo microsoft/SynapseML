@@ -11,7 +11,7 @@ function Videos() {
   return (
     <Layout
       title={`${siteConfig.title} Videos`}
-      description="A collection of Benthos videos"
+      description="A collection of SynapseML videos"
     >
       <header>
         <div className="container">
@@ -24,6 +24,20 @@ function Videos() {
       </header>
       <main>
         <div className="container margin-vert--lg">
+          <div className="row margin-bottom--lg">
+            <div className="col col--8 col--offset-2">
+              <h1>Create Custom Search Engines from Unstructured Data with SynapseML</h1>
+              <p>
+                Learn how to create custom search engines from unstructured data using
+                Form Recognizer, Form Ontology Learner, Translation, GPT-3 and Azure Search in SynapseML.
+              </p>
+            </div>
+            <ReactPlayer
+              className={classnames("col col--8 col--offset-2")}
+              url="https://www.youtube.com/watch?v=iXnBLwp7f88"
+              controls="true"
+            />
+          </div>
           <div className="row margin-bottom--lg">
             <div className="col col--8 col--offset-2">
               <h1>Unsupervised Currency Detection</h1>
