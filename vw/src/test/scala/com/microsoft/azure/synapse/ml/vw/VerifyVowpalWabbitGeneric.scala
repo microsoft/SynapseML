@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
 
 import java.time.{LocalDate, ZoneOffset}
@@ -269,34 +270,43 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
     val df = spark.read.parquet("/home/marcozo/vw_complex/cmplx-pred.parquet")
 
+    val minMaxRow = df
+      .agg(F.min("reward"),
+        F.max("reward"))
+      .head()
+
+    val (minReward, maxReward) = (minMaxRow.getFloat(0), minMaxRow.getFloat(1))
+
     df
       .withColumn("count", F.lit(1))
+      .withColumn("minReward", F.lit(minReward))
+      .withColumn("maxReward", F.lit(maxReward))
       .withColumn("w",$"probPred" / $"probLog")
-      // .groupBy()
-      .groupBy($"country")
+//      .groupBy($"country")
       .agg(
         F.count("*").alias("cnt"),
+        F.sum(F.when(F.expr("probPred > 0"), 1).otherwise(0)).alias("probPredNonZeroCount"),
+        F.min($"reward").alias("minReward"),
+        F.max($"reward").alias("maxReward"),
         F.expr("snips(probLog, reward, probPred, count)").as("snips"),
         F.expr("ips(probLog, reward, probPred, count)").as("ips"),
         // TODO: not sure what to pass for wmin/wmax
-        F.expr("cressieRead(probLog, reward, probPred, count, -1, 0)").as("cressieRead"),
-        F.expr("cressieReadInterval(probLog, reward, probPred, count, -1, 0, -1, 0)")
+        F.expr("cressieRead(probLog, reward, probPred, count, 0, 220)").as("cressieRead"),
+        F.expr("cressieReadInterval(probLog, reward, probPred, count, 0, 220, minReward, maxReward)")
           .as("cressieReadInterval"),
-        F.expr("cressieReadIntervalEmpirical(probLog, reward, probPred, count, -1, 0, -1, 0)")
+        F.expr("cressieReadIntervalEmpirical(probLog, reward, probPred, count, 0, 220, minReward, maxReward)")
           .as("cressieReadIntervalEmpirical"),
+        F.min($"w").alias("minimum importance weights"),
+        F.max($"w").alias("maximum importance weights"),
         F.expr("avg(w)").alias("average of importance weights"),
         F.expr("avg(w * w)").alias("average of squared importance weights"),
         F.expr("max(w)/count(*)").alias("proportion of maximum importance weight"),
-
-//         TODO: fails
-//        F.expr("bernstein(probLog, reward, probPred, count)").alias("bernstein")
+        F.expr("bernstein(probLog, reward, probPred, count, minReward, maxReward)").alias("bernstein")
       )
       .orderBy($"cnt".desc)
-      .show() //1000, 1000, vertical = true)
+      .show(1000, 1000, vertical = true)
+    // .show()
 
-    println(df.where($"probPred" > 0).count())
-
-    println(df.count())
 
     println(s"Time: ${(System.currentTimeMillis() - time) / 1000}s")
   }
