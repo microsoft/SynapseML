@@ -65,7 +65,7 @@ case class TrainingContext(batchIndex: Int,
   val hasGroupsAsInt: Int = toInt(hasGroups)
 
   if (!isStreaming && !isBulk) {
-    throw new Exception("Execution mode must be streaming or bulk")
+    throw new IllegalArgumentException("Execution mode must be streaming or bulk")
   }
 
   def sharedState(): SharedState = { sharedStateSingleton.get }

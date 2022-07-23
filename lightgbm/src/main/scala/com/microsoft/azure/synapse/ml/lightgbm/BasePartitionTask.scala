@@ -398,8 +398,8 @@ abstract class BasePartitionTask extends Serializable with Logging {
     * @return LightGBM dataset Java wrapper.
     */
   private def getFinalValidationDataset(ctx: PartitionTaskContext,
-                                             dataState: PartitionDataState,
-                                             referenceDataset: LightGBMDataset): LightGBMDataset = {
+                                        dataState: PartitionDataState,
+                                        referenceDataset: LightGBMDataset): LightGBMDataset = {
     log.info(s"Getting final validation Dataset for partition ${ctx.partitionId}.")
     beforeGenerateValidDataset(ctx, log)
     ctx.measures.markValidationDatasetStart()
