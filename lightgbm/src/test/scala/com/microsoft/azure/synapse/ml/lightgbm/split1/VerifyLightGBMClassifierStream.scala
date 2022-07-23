@@ -297,14 +297,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     val resultModel1 = model1.fit(trainAndValid)
 
      // model2 should terminate early
-    val model2 = baseModel
-      .setNumLeaves(100)
-      .setNumIterations(100)
-      .setLearningRate(0.9)
-      .setMinDataInLeaf(2)
-      .setMetric("auc")
-      .setValidationIndicatorCol(validationCol)
-      .setEarlyStoppingRound(5)
+    val model2 = model1.setEarlyStoppingRound(5)
     val resultModel2 = model2.fit(trainAndValid)
     val numIterationsEarlyStopped = resultModel2.getLightGBMBooster.numTotalIterations
 

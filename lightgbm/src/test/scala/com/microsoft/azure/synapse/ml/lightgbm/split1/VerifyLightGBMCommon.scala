@@ -144,7 +144,6 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
 
   test("Verify performance measures") {
     val Array(train, _) = taskDF.randomSplit(Array(0.8, 0.2), seed)
-    // TODO How does this make fresh copy?
     val measuredModel = baseModel
       .setUseSingleDatasetMode(false)
       .setExecutionMode("streaming")
@@ -198,7 +197,8 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     // TODO verify all diff measures that are 0 by default
   }
 
-  test("Performance testing") {
+  // Utility used for doing local perf testing, so leave ignored unless in use
+  ignore("Performance testing") {
     // modify this test for getting some simple performance measures
     val dataset = taskDF
     val measurementCount = 1
@@ -231,65 +231,57 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
                          matrixType: String,
                          useSingleDataset: Boolean): Unit = {
     val Array(train, _) = df.randomSplit(Array(0.8, 0.2), seed)
-    val measurements = Array.ofDim[InstrumentationMeasures](measurementCount)
+    val measures = Array.ofDim[InstrumentationMeasures](measurementCount)
 
     (0 until measurementCount).foreach(i => {
-      println(s"** Start Measurement $i")
-
       val measuredModel = baseModel
         .setUseSingleDatasetMode(useSingleDataset)
         .setExecutionMode(executionMode)
         .setMatrixType(matrixType)
         .setMicroBatchSize(microBatchSize)
-
+      println(s"** Start Measurement $i")
       val _ = measuredModel.fit(train)
-      measurements(i) = measuredModel.getPerformanceMeasures.get
-      println(s"Total time, ${measurements(i).totalTime}")
-      println(s"Column statistics, ${measurements(i).columnStatisticsTime}")
-      println(s"Row statistics time, ${measurements(i).rowStatisticsTime}")
-      println(s"Row count time, ${measurements(i).rowCountTime()}")
-      println(s"Sampling time, ${measurements(i).samplingTime()}")
-      println(s"Training time, ${measurements(i).trainingTime}")
-      println(s"Overhead time, ${measurements(i).overheadTime}")
-      println(s"Task total times, ${measurements(i).taskTotalTimes.mkString(",")}")
-      println(s"Task overhead times, ${measurements(i).taskOverheadTimes().mkString(",")}")
-      println(s"Task initialization times, ${measurements(i).taskInitializationTimes().mkString(",")}")
-      println(s"Task library initialization times, ${measurements(i).taskLibraryInitializationTimes().mkString(",")}")
-      println(s"Task network initialization times, ${measurements(i).taskNetworkInitializationTimes().mkString(",")}")
-      println(s"Task data preparation times, ${measurements(i).taskDataPreparationTimes.mkString(",")}")
-      println(s"Task dataset wait times, ${measurements(i).taskWaitTimes().mkString(",")}")
-      println(s"Task dataset creation times, ${measurements(i).taskDatasetCreationTimes.mkString(",")}")
-      println(s"Task training iteration times, ${measurements(i).taskTrainingIterationTimes.mkString(",")}")
-      println(s"Task cleanup times, ${measurements(i).taskCleanupTimes().mkString(",")}")
+      measures(i) = measuredModel.getPerformanceMeasures.get
+      println(s"Total time, ${measures(i).totalTime}")
+      println(s"Column statistics, ${measures(i).columnStatisticsTime}")
+      println(s"Row statistics time, ${measures(i).rowStatisticsTime}")
+      println(s"Row count time, ${measures(i).rowCountTime()}")
+      println(s"Sampling time, ${measures(i).samplingTime()}")
+      println(s"Training time, ${measures(i).trainingTime}")
+      println(s"Overhead time, ${measures(i).overheadTime}")
+      println(s"Task total times, ${measures(i).taskTotalTimes.mkString(",")}")
+      println(s"Task overhead times, ${measures(i).taskOverheadTimes().mkString(",")}")
+      println(s"Task initialization times, ${measures(i).taskInitializationTimes().mkString(",")}")
+      println(s"Task library initialization times, ${measures(i).taskLibraryInitializationTimes().mkString(",")}")
+      println(s"Task network initialization times, ${measures(i).taskNetworkInitializationTimes().mkString(",")}")
+      println(s"Task data preparation times, ${measures(i).taskDataPreparationTimes.mkString(",")}")
+      println(s"Task dataset wait times, ${measures(i).taskWaitTimes().mkString(",")}")
+      println(s"Task dataset creation times, ${measures(i).taskDatasetCreationTimes.mkString(",")}")
+      println(s"Task training iteration times, ${measures(i).taskTrainingIterationTimes.mkString(",")}")
+      println(s"Task cleanup times, ${measures(i).taskCleanupTimes().mkString(",")}")
       println(s"** Completed Measurement $i")
     })
     println(s"***** Averaged results for $measurementCount runs")
-    var median = getMedian(measurements.map(m => m.totalTime))
-    println(s"Median Total time, $median")
-    median = getMedian(measurements.map(m => m.columnStatisticsTime))
-    println(s"Median Column statistics, $median")
-    median = getMedian(measurements.map(m => m.rowCountTime()))
-    println(s"Median Row count time, $median")
-    median = getMedian(measurements.map(m => m.samplingTime()))
-    println(s"Median Sampling time, $median")
-    median = getMedian(measurements.map(m => m.rowStatisticsTime()))
-    println(s"Median Row statistics time, $median")
-    median = getMedian(measurements.map(m => m.trainingTime))
-    println(s"Median Training time, $median")
-    median = getMedian(measurements.map(m => m.overheadTime))
-    println(s"Median Overhead time, $median")
-    var medianMax = getMedian(measurements.map(m => m.taskTotalTimes.max))
-    println(s"Median-max Task total times, $medianMax")
-    medianMax = getMedian(measurements.map(m => m.taskOverheadTimes().max))
-    println(s"Median-max Task overhead times, $medianMax")
-    medianMax = getMedian(measurements.map(m => m.taskInitializationTimes().max))
-    println(s"Median-max Task initialization times, $medianMax")
-    medianMax = getMedian(measurements.map(m => m.taskDataPreparationTimes.max))
-    println(s"Median-max Task data preparation times, $medianMax")
-    medianMax = getMedian(measurements.map(m => m.taskDatasetCreationTimes.max))
-    println(s"Median-max Task dataset creation times, $medianMax")
-    medianMax = getMedian(measurements.map(m => m.taskTrainingIterationTimes.max))
-    println(s"Median-max Task training iteration times, $medianMax")
+    printMedianMeasure("Median Total time", measures, m => m.totalTime)
+    printMedianMeasure("Median Column statistics", measures, m => m.columnStatisticsTime)
+    printMedianMeasure("Median Row count time", measures, m => m.rowCountTime)
+    printMedianMeasure("Median Sampling time", measures, m => m.samplingTime)
+    printMedianMeasure("Median Row statistics time", measures, m => m.rowStatisticsTime)
+    printMedianMeasure("Median Training time", measures, m => m.trainingTime)
+    printMedianMeasure("Median Overhead time", measures, m => m.overheadTime)
+    printMedianMeasure("Median-max Task total times", measures, m => m.taskTotalTimes.max)
+    printMedianMeasure("Median-max Task overhead times", measures, m => m.taskOverheadTimes.max)
+    printMedianMeasure("Median-max Task initialization times", measures, m => m.taskInitializationTimes.max)
+    printMedianMeasure("Median-max Task data preparation times", measures, m => m.taskDataPreparationTimes.max)
+    printMedianMeasure("Median-max Task dataset creation times", measures, m => m.taskDatasetCreationTimes.max)
+    printMedianMeasure("Median-max Task training iteration times", measures, m => m.taskTrainingIterationTimes.max)
+  }
+
+  def printMedianMeasure(prefix: String,
+                         measures: Array[InstrumentationMeasures],
+                         f: InstrumentationMeasures => Long): Unit = {
+    val median = getMedian(measures.map(f))
+    println(prefix + s": $median")
   }
 
   def getMedian[T: Ordering](seq: Seq[T])(implicit conv: T => Float, f: Fractional[Float]): Float = {
