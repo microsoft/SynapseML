@@ -6,13 +6,11 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
 
 import java.time.{LocalDate, ZoneOffset}
 
 class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalWabbitGeneric] {
-  lazy val moduleName = "vw"
   val numPartitions = 2
 
   test ("Verify VowpalWabbitGeneric from string") {
