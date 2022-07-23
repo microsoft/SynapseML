@@ -111,50 +111,6 @@ trait VowpalWabbitBase extends Wrappable
 
   def getNumSyncsPerPass: Int = $(numSyncsPerPass)
   def setNumSyncsPerPass(value: Int): this.type = set(numSyncsPerPass, value)
-
-  //region Temporal Synchronization Params
-  val temporalSyncScheduleCol = new Param[String](
-    this,
-    "temporalSyncScheduleCol",
-    "Input column used as application time to trigger inter-pass all-reduce synchronization. Empty disables.")
-  setDefault(temporalSyncScheduleCol -> "")
-
-  def getTemporalSyncScheduleCol: String = $(temporalSyncScheduleCol)
-  def setTemporalSyncScheduleCol(value: String): this.type = set(temporalSyncScheduleCol, value)
-
-  val temporalSyncStepUnit = new Param[String](
-    this,
-    "temporalSyncStepUnit",
-    "ChronoUnit used to determine synchronization steps. e.g. DAYS, HOURS")
-  setDefault(temporalSyncStepUnit -> "DAYS")
-
-  def getTemporalSyncStepUnit: String = $(temporalSyncStepUnit)
-  def setTemporalSyncStepUnit(value: String): this.type = set(temporalSyncStepUnit, value)
-
-  val temporalSyncStepSize = new IntParam(
-    this,
-    "temporalSyncStepSize",
-    "ChronoUnit used to determine synchronization steps. e.g. DAYS, HOURS")
-  setDefault(temporalSyncStepSize -> 1)
-
-  def getTemporalSyncStepSize: Int = $(temporalSyncStepSize)
-  def setTemporalSyncStepSize(value: Int): this.type = set(temporalSyncStepSize, value)
-
-  val temporalSyncStartTimestamp = new Param[Instant](
-    this,
-    "temporalSyncStartTimestamp",
-    "Optional start timestamp. Otherwise it is computed from the input data")
-
-  def getTemporalSyncStartTimestamp: Instant = $(temporalSyncStartTimestamp)
-  def setTemporalSyncStartTimestamp(value: Instant): this.type = set(temporalSyncStartTimestamp, value)
-
-  val temporalSyncEndTimestamp = new Param[Instant](
-    this,
-    "temporalSyncEndTimestamp",
-    "Optional End timestamp. Otherwise it is computed from the input data")
-
-  def getTemporalSyncEndTimestamp: Instant = $(temporalSyncEndTimestamp)
-  def setTemporalSyncEndTimestamp(value: Instant): this.type = set(temporalSyncEndTimestamp, value)
   //endregion
 
   // get list of columns needed as input
@@ -189,17 +145,7 @@ trait VowpalWabbitBase extends Wrappable
     * @note this is supposed to be executed on the driver
     */
   protected def getSynchronizationSchedule(df: DataFrame): VowpalWabbitSynchronizationSchedule = {
-    if (isSet(temporalSyncScheduleCol))
-      new VowpalWabbitSynchronizationScheduleTemporal(
-        df,
-        getTemporalSyncScheduleCol,
-        ChronoUnit.valueOf(getTemporalSyncStepUnit),
-        getTemporalSyncStepSize,
-        // assume this throws an error if just one is set
-        if (isSet(temporalSyncStartTimestamp) || isSet(temporalSyncEndTimestamp))
-            Some((getTemporalSyncStartTimestamp, getTemporalSyncEndTimestamp))
-        else None)
-    else if (getNumSyncsPerPass == 0)
+    if (getNumSyncsPerPass == 0)
       VowpalWabbitSynchronizationSchedule.Disabled
     else
       new VowpalWabbitSynchronizationScheduleSplits(df, getNumSyncsPerPass)

@@ -301,6 +301,8 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
         F.expr("avg(w)").alias("average of importance weights"),
         F.expr("avg(w * w)").alias("average of squared importance weights"),
         F.expr("max(w)/count(*)").alias("proportion of maximum importance weight"),
+        F.expr("approx_percentile(w, array(0.25, 0.5, 0.75, 0.95))")
+          .alias("quantiles (0.25, 0.5, 0.75, 0.95) of importance weight"),
         F.expr("bernstein(probLog, reward, probPred, count, minReward, maxReward)").alias("bernstein")
       )
       .orderBy($"cnt".desc)
