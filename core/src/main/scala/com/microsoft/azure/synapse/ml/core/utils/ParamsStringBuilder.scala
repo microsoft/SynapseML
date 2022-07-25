@@ -175,9 +175,12 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     this
   }
 
-  def result: String = sb.result
+  def result(): String =
+  {
+    sb.result
+  }
 
-  private def getParent: Params = {
+  private def getParent(): Params = {
     if (parent.isEmpty)
     {
       throw new IllegalArgumentException("ParamsStringBuilder requires a parent for this operation")
