@@ -99,11 +99,12 @@ class VerifyVowpalWabbitGenericProgressive extends TestBase {
 
   // TODO: wait for VW to fix CATS producing output through API
   // https://github.com/VowpalWabbit/vowpal_wabbit/pull/4071/files
+  // nasty workaround using -p /tmp/foo to activate
 //  test("Verify VowpalWabbitGeneric using CATS") {
 //
 //    // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions
 //    val vw = new VowpalWabbitGenericProgressive()
-//      .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000")
+//      .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000 -p /tmp/foo")
 //      .setUseBarrierExecutionMode(false)
 //
 //    val dataset = Seq(
