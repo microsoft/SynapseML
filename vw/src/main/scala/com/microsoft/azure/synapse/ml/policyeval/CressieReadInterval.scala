@@ -1,29 +1,31 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.vw
+package com.microsoft.azure.synapse.ml.policyeval
 
 import breeze.stats.distributions.FDistribution
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{Encoder, Encoders}
+import com.microsoft.azure.synapse.ml.policyeval
+import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.spark.sql.expressions.Aggregator
+import org.apache.spark.sql.{Encoder, Encoders}
 
-class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
-  extends Aggregator[BanditEstimatorCressieReadIntervalInput,
-                     BanditEstimatorCressieReadIntervalBuffer,
-                     BanditEstimatorCressieReadIntervalOutput]
+class CressieReadInterval(empiricalBounds: Boolean)
+  extends Aggregator[CressieReadIntervalInput,
+                     CressieReadIntervalBuffer,
+                     BanditEstimator]
     with Serializable {
 //    with BasicLogging {
 //  logClass()
 //
 //  override val uid: String = Identifiable.randomUID("BanditEstimatorCressieReadInterval")
+  val alpha = 0.05
+  val atol = 1e-9
 
-  def zero: BanditEstimatorCressieReadIntervalBuffer =
-    BanditEstimatorCressieReadIntervalBuffer()
+  def zero: CressieReadIntervalBuffer =
+    policyeval.CressieReadIntervalBuffer()
 
-  def reduce(acc: BanditEstimatorCressieReadIntervalBuffer,
-             x: BanditEstimatorCressieReadIntervalInput): BanditEstimatorCressieReadIntervalBuffer = {
+  def reduce(acc: CressieReadIntervalBuffer,
+             x: CressieReadIntervalInput): CressieReadIntervalBuffer = {
 
     val w = x.probPred / x.probLog
     val countW = x.count * w
@@ -38,7 +40,7 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
       (0f, 0f)
     }
 
-    BanditEstimatorCressieReadIntervalBuffer(
+    CressieReadIntervalBuffer(
       wMin = Math.min(acc.wMin, x.wMin),
       wMax = Math.max(acc.wMax, x.wMax),
       rMin = rMin,
@@ -51,10 +53,10 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
       sumwsqrsq = acc.sumwsqrsq + countWsqr * x.reward)
   }
 
-  def merge(acc1: BanditEstimatorCressieReadIntervalBuffer,
-            acc2: BanditEstimatorCressieReadIntervalBuffer): BanditEstimatorCressieReadIntervalBuffer = {
+  def merge(acc1: CressieReadIntervalBuffer,
+            acc2: CressieReadIntervalBuffer): CressieReadIntervalBuffer = {
 
-    BanditEstimatorCressieReadIntervalBuffer(
+    CressieReadIntervalBuffer(
       wMin = Math.min(acc1.wMin, acc2.wMin),
       wMax = Math.max(acc1.wMax, acc2.wMax),
       rMin = Math.min(acc1.rMin, acc2.rMin),
@@ -67,12 +69,78 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
       sumwsqrsq = acc1.sumwsqrsq + acc2.sumwsqrsq)
   }
 
-  def finish(acc: BanditEstimatorCressieReadIntervalBuffer): BanditEstimatorCressieReadIntervalOutput = {
-//    logVerb("aggregate", {
-      if (acc.n == 0)
-        BanditEstimatorCressieReadIntervalOutput(-1, -1)
+  private def computeBoundInfinity(n: Double,
+                                   sign: Double,
+                                   r: Double,
+                                   sumw: Double,
+                                   sumwsq: Double,
+                                   sumwr: Double,
+                                   sumwsqr: Double,
+                                   sumwsqrsq: Double,
+                                   phi: Double): Option[Double] = {
+    val x = sign * (r + (sumwr - sumw * r) / n)
+    val rSumwSumwr = r * sumw - sumwr
+    var y = (rSumwSumwr * rSumwSumwr / (n * (1 + n))
+      - (r * r * sumwsq - 2 * r * sumwsqr + sumwsqrsq) / (1 + n)
+      )
+    val z = phi + 1 / (2 * n)
+    // if isclose(y * z, 0, abs_tol=1e-9):
+    if (Math.abs(y * z) < atol)
+      y = 0
+
+    // if isclose(y * z, 0, abs_tol=atol * atol):
+    if (Math.abs(y * z) < atol * atol)
+      Some(x - Math.sqrt(2) * atol)
+    else if (z <= 0 && y * z >= 0)
+      Some(x - Math.sqrt(2 * y * z))
+
+    None
+  }
+
+  private def computeBoundInner(wfake: Double,
+                                n: Double,
+                                sign: Double,
+                                r: Double,
+                                sumw: Double,
+                                sumwsq: Double,
+                                sumwr: Double,
+                                sumwsqr: Double,
+                                sumwsqrsq: Double,
+                                phi: Double): Option[Double] = {
+    if (wfake.isInfinity)
+      computeBoundInfinity(n, sign, r, sumw, sumwsq, sumwr, sumwsqr, sumwsqrsq, phi)
+    else {
+      val barw = (wfake + sumw) / (1 + n)
+      val barwsq = (wfake * wfake + sumwsq) / (1 + n)
+      val barwr = sign * (wfake * r + sumwr) / (1 + n)
+      val barwsqr = sign * (wfake * wfake * r + sumwsqr) / (1 + n)
+      val barwsqrsq = (wfake * wfake * r * r + sumwsqrsq) / (1 + n)
+
+      if (barwsq <= barw * barw) None
       else {
-        val n = acc.n.toDouble
+        val x = barwr + ((1 - barw) * (barwsqr - barw * barwr) / (barwsq - barw * barw))
+        val y = (barwsqr - barw * barwr) * (barwsqr - barw * barwr) /
+          (barwsq - barw * barw) - (barwsqrsq - barwr * barwr)
+        val z = phi + (1 / 2) * (1 - barw) * (1 - barw) / (barwsq - barw * barw)
+
+        // if isclose(y * z, 0, abs_tol = atol * atol):
+        if (Math.abs(y * x) < atol * atol)
+          Some(x - Math.sqrt(2) * atol)
+        else if (z <= 0 && y * z >= 0)
+          Some(x - Math.sqrt(2 * y * z))
+        else
+          None
+      }
+    }
+  }
+
+  def finish(acc: CressieReadIntervalBuffer): BanditEstimator = {
+//    logVerb("aggregate", {
+    val n = acc.n.toDouble
+
+    if (n == 0)
+        BanditEstimator(-1, -1)
+      else {
         val sumw = acc.sumw.toDouble
         val sumwsq = acc.sumwsq.toDouble
         val sumwr = acc.sumwr.toDouble
@@ -91,8 +159,6 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
           }
 
         val fDistribution = new FDistribution(numeratorDegreesOfFreedom = 1, denominatorDegreesOfFreedom = n)
-        val alpha = 0.05 // TODO: parameter?
-        val atol = 1e-9
 
         //      delta = f.isf(q=alpha, dfn=1, dfd=n)
         val delta = 1 - fDistribution.inverseCdf(alpha)
@@ -100,87 +166,45 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
         val phi = (-uncgstar - delta) / (2 * (1 + n))
 
         def computeBound(r: Double, sign: Int) = {
-          def computeBoundInner(wfake: Double): Option[Double] = {
-            if (wfake.isInfinity) {
-              val x = sign * (r + (sumwr - sumw * r) / n)
-              val rSumwSumwr = (r * sumw - sumwr)
-              var y = (rSumwSumwr * rSumwSumwr / (n * (1 + n))
-                - (r * r * sumwsq - 2 * r * sumwsqr + sumwsqrsq) / (1 + n)
-                )
-              val z = phi + 1 / (2 * n)
-              // if isclose(y * z, 0, abs_tol=1e-9):
-              if (Math.abs(y * z) < atol)
-                y = 0
+          val lower = computeBoundInner(wfake = acc.wMin, n, sign, r, sumw, sumwsq, sumwr, sumwsqr, sumwsqrsq, phi)
+          val upper = computeBoundInner(wfake = acc.wMax, n, sign, r, sumw, sumwsq, sumwr, sumwsqr, sumwsqrsq, phi)
 
-              // if isclose(y * z, 0, abs_tol=atol * atol):
-              if (Math.abs(y * z) < atol * atol)
-                Some(x - Math.sqrt(2) * atol)
-              else if (z <= 0 && y * z >= 0)
-                Some(x - Math.sqrt(2 * y * z))
-
-              None
-            }
-            else {
-              val barw = (wfake + sumw) / (1 + n)
-              val barwsq = (wfake * wfake + sumwsq) / (1 + n)
-              val barwr = sign * (wfake * r + sumwr) / (1 + n)
-              val barwsqr = sign * (wfake * wfake * r + sumwsqr) / (1 + n)
-              val barwsqrsq = (wfake * wfake * r * r + sumwsqrsq) / (1 + n)
-
-              if (barwsq <= barw * barw) None
-              else {
-                val x = barwr + ((1 - barw) * (barwsqr - barw * barwr) / (barwsq - barw * barw))
-                val y = (barwsqr - barw * barwr) * (barwsqr - barw * barwr) /
-                  (barwsq - barw * barw) - (barwsqrsq - barwr * barwr)
-                val z = phi + (1 / 2) * (1 - barw) * (1 - barw) / (barwsq - barw * barw)
-
-                // if isclose(y * z, 0, abs_tol = atol * atol):
-                if (Math.abs(y * x) < atol * atol)
-                  Some(x - Math.sqrt(2) * atol)
-                else if (z <= 0 && y * z >= 0)
-                  Some(x - Math.sqrt(2 * y * z))
-                else
-                  None
-              }
-            }
-          }
-
-          val best = Seq(computeBoundInner(acc.wMin), computeBoundInner(acc.wMax)).flatten.min
+          val best = Seq(lower, upper).flatten.min
 
           Math.min(acc.rMax, Math.max(acc.rMin, sign * best))
         }
 
-        BanditEstimatorCressieReadIntervalOutput(
+        BanditEstimator(
           computeBound(acc.rMin, 1),
           computeBound(acc.rMax, -1))
       }
 //    })
   }
 
-  def bufferEncoder: Encoder[BanditEstimatorCressieReadIntervalBuffer] =
-    Encoders.product[BanditEstimatorCressieReadIntervalBuffer]
-  def outputEncoder: Encoder[BanditEstimatorCressieReadIntervalOutput] =
-    Encoders.product[BanditEstimatorCressieReadIntervalOutput]
+  def bufferEncoder: Encoder[CressieReadIntervalBuffer] =
+    Encoders.product[CressieReadIntervalBuffer]
+  def outputEncoder: Encoder[BanditEstimator] =
+    Encoders.product[BanditEstimator]
 }
 
-final case class BanditEstimatorCressieReadIntervalBuffer(wMin: Float = 0,
-                                                          wMax: Float = 0,
-                                                          rMin: Float = 0,
-                                                          rMax: Float = 0,
-                                                          n: KahanSum = 0,
-                                                          sumw: KahanSum = 0,
-                                                          sumwsq: KahanSum = 0,
-                                                          sumwr: KahanSum = 0,
-                                                          sumwsqr: KahanSum = 0,
-                                                          sumwsqrsq: KahanSum = 0)
+final case class CressieReadIntervalBuffer(wMin: Float = 0,
+                                           wMax: Float = 0,
+                                           rMin: Float = 0,
+                                           rMax: Float = 0,
+                                           n: KahanSum = 0,
+                                           sumw: KahanSum = 0,
+                                           sumwsq: KahanSum = 0,
+                                           sumwr: KahanSum = 0,
+                                           sumwsqr: KahanSum = 0,
+                                           sumwsqrsq: KahanSum = 0)
 
-final case class BanditEstimatorCressieReadIntervalInput(probLog: Float,
-                                                         reward: Float,
-                                                         probPred: Float,
-                                                         count: Float,
-                                                         wMin: Float,
-                                                         wMax: Float,
-                                                         rMin: Float,
-                                                         rMax: Float)
+final case class CressieReadIntervalInput(probLog: Float,
+                                          reward: Float,
+                                          probPred: Float,
+                                          count: Float,
+                                          wMin: Float,
+                                          wMax: Float,
+                                          rMin: Float,
+                                          rMax: Float)
 
-case class BanditEstimatorCressieReadIntervalOutput(lower: Double, upper: Double)
+case class BanditEstimator(lower: Double, upper: Double)

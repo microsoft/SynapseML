@@ -1,6 +1,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
+import com.microsoft.azure.synapse.ml.policyeval.{CressieRead, CressieReadInput, CressieReadInterval, CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput}
 import org.apache.commons.math3.special.Gamma
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -22,14 +23,14 @@ class VerifyBanditEstimator extends Benchmarks  {
 
     import org.apache.spark.sql.Encoders
 
-    spark.udf.register("snips", F.udaf(new BanditEstimatorSnips(), Encoders.product[BanditEstimatorSnipsInput]))
-    spark.udf.register("ips", F.udaf(new BanditEstimatorIps(), Encoders.product[BanditEstimatorIpsInput]))
+    spark.udf.register("snips", F.udaf(new Snips(), Encoders.product[SnipsInput]))
+    spark.udf.register("ips", F.udaf(new Ips(), Encoders.product[IpsInput]))
     spark.udf.register("cressieRead",
-      F.udaf(new BanditEstimatorCressieRead(), Encoders.product[BanditEstimatorCressieReadInput]))
+      F.udaf(new CressieRead(), Encoders.product[CressieReadInput]))
     spark.udf.register("cressieReadInterval",
-      F.udaf(new BanditEstimatorCressieReadInterval(false), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+      F.udaf(new CressieReadInterval(false), Encoders.product[CressieReadIntervalInput]))
     spark.udf.register("cressieReadIntervalEmpirical",
-      F.udaf(new BanditEstimatorCressieReadInterval(true), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+      F.udaf(new CressieReadInterval(true), Encoders.product[CressieReadIntervalInput]))
 
     val actual = dataset
       .groupBy("key")
@@ -67,7 +68,7 @@ class VerifyBanditEstimator extends Benchmarks  {
     ).toDF("probLog", "reward", "probPred", "count", "key", "t")
 
     spark.udf.register("bernstein",
-      F.udaf(new BanditEstimatorEmpiricalBernsteinCS(), Encoders.product[BanditEstimatorEmpiricalBernsteinCSInput]))
+      F.udaf(new EmpiricalBernsteinCS(), Encoders.product[EmpiricalBernsteinCSInput]))
 
     val w = Window.partitionBy($"key")
       .orderBy($"t")

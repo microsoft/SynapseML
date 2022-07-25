@@ -1,12 +1,12 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.vw
+package com.microsoft.azure.synapse.ml.policyeval
 
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{Encoder, Encoders}
+import com.microsoft.azure.synapse.ml.policyeval
+import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.spark.sql.expressions.Aggregator
+import org.apache.spark.sql.{Encoder, Encoders}
 
 /**
   * Cressie-Read Bandit estimator
@@ -14,25 +14,25 @@ import org.apache.spark.sql.expressions.Aggregator
   * Background http://www.machinedlearnings.com/2020/12/distributionally-robust-contextual.html
   *
   */
-class BanditEstimatorCressieRead
-  extends Aggregator[BanditEstimatorCressieReadInput, BanditEstimatorCressieReadBuffer, Double]
+class CressieRead
+  extends Aggregator[CressieReadInput, CressieReadBuffer, Double]
     with Serializable {
 //    with BasicLogging {
 //  logClass()
 //
 //  override val uid: String = Identifiable.randomUID("BanditEstimatorCressieRead")
 
-  def zero: BanditEstimatorCressieReadBuffer =
-    BanditEstimatorCressieReadBuffer()
+  def zero: CressieReadBuffer =
+    policyeval.CressieReadBuffer()
 
-  def reduce(acc: BanditEstimatorCressieReadBuffer,
-             x: BanditEstimatorCressieReadInput): BanditEstimatorCressieReadBuffer = {
+  def reduce(acc: CressieReadBuffer,
+             x: CressieReadInput): CressieReadBuffer = {
 
     val w = x.probPred / x.probLog
     val countW = x.count * w
     val countWsq = countW * countW
 
-    BanditEstimatorCressieReadBuffer(
+    CressieReadBuffer(
       wMin = Math.min(acc.wMin, x.wMin),
       wMax = Math.max(acc.wMax, x.wMax),
       n = acc.n + x.count,
@@ -44,10 +44,10 @@ class BanditEstimatorCressieRead
     )
   }
 
-  def merge(acc1: BanditEstimatorCressieReadBuffer,
-            acc2: BanditEstimatorCressieReadBuffer): BanditEstimatorCressieReadBuffer = {
+  def merge(acc1: CressieReadBuffer,
+            acc2: CressieReadBuffer): CressieReadBuffer = {
 
-    BanditEstimatorCressieReadBuffer(
+    CressieReadBuffer(
       // min of min, max of max
       wMin = Math.min(acc1.wMin, acc2.wMin),
       wMax = Math.max(acc1.wMax, acc2.wMax),
@@ -60,7 +60,7 @@ class BanditEstimatorCressieRead
       sumr = acc1.sumr + acc2.sumr)
   }
 
-  def finish(acc: BanditEstimatorCressieReadBuffer): Double = {
+  def finish(acc: CressieReadBuffer): Double = {
 //    logVerb("aggregate",
       {
       val n = acc.n.toDouble
@@ -95,24 +95,24 @@ class BanditEstimatorCressieRead
     // )
   }
 
-  def bufferEncoder: Encoder[BanditEstimatorCressieReadBuffer] = Encoders.product[BanditEstimatorCressieReadBuffer]
+  def bufferEncoder: Encoder[CressieReadBuffer] = Encoders.product[CressieReadBuffer]
   def outputEncoder: Encoder[Double] = Encoders.scalaDouble
 }
 
 // Internal buffer state
-final case class BanditEstimatorCressieReadBuffer(wMin: Float = 0,
-                                                  wMax: Float = 0,
-                                                  n: KahanSum = 0,
-                                                  sumw: KahanSum = 0,
-                                                  sumwsq: KahanSum = 0,
-                                                  sumwr: KahanSum = 0,
-                                                  sumwrsqr: KahanSum = 0,
-                                                  sumr: KahanSum = 0)
+final case class CressieReadBuffer(wMin: Float = 0,
+                                   wMax: Float = 0,
+                                   n: KahanSum = 0,
+                                   sumw: KahanSum = 0,
+                                   sumwsq: KahanSum = 0,
+                                   sumwr: KahanSum = 0,
+                                   sumwrsqr: KahanSum = 0,
+                                   sumr: KahanSum = 0)
 
 // Input fields to aggregate over
-final case class BanditEstimatorCressieReadInput(probLog: Float,
-                                                 reward: Float,
-                                                 probPred: Float,
-                                                 count: Float,
-                                                 wMin: Float,
-                                                 wMax: Float)
+final case class CressieReadInput(probLog: Float,
+                                  reward: Float,
+                                  probPred: Float,
+                                  count: Float,
+                                  wMin: Float,
+                                  wMax: Float)
