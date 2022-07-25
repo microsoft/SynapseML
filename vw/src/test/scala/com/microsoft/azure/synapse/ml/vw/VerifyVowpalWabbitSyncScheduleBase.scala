@@ -3,7 +3,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import org.apache.spark.{SparkException, TaskContext}
 
-class VerifyVowpalWabbitSynchronizationScheduleBase extends Benchmarks {
+class VerifyVowpalWabbitSyncScheduleBase extends Benchmarks {
   val numPartitions = 2
 
   test("Verify VW Sync Schedule Splits") {
@@ -20,7 +20,7 @@ class VerifyVowpalWabbitSynchronizationScheduleBase extends Benchmarks {
     ) .toDF("partitionKey", "value", "rowId")
       .repartition(2, $"partitionKey")
 
-    val splits = new VowpalWabbitSynchronizationScheduleSplits(df, 2)
+    val splits = new VowpalWabbitSyncScheduleSplits(df, 2)
 
     val actual = df.mapPartitions(it =>
       { it.map { row => (row.getInt(2), splits.shouldTriggerAllReduce(row)) } })
@@ -48,7 +48,7 @@ class VerifyVowpalWabbitSynchronizationScheduleBase extends Benchmarks {
       ("B"),
     ) .toDF("value")
 
-    val splits = new VowpalWabbitSynchronizationScheduleSplits(df, 3)
+    val splits = new VowpalWabbitSyncScheduleSplits(df, 3)
 
     withoutLogging {
       intercept[SparkException] {

@@ -216,7 +216,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val exampleStack = new ExampleStack(ctx.vw)
 
     for (row <- inputRows) {
-      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, ctx.vw, exampleStack,
+      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, exampleStack,
         examples => {
           // It's one-based but we need to skip the shared example anyway
           val selectedActionIdx = row.getInt(chosenActionColIdx)
@@ -329,7 +329,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
       val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns)
 
       val predictUDF = udf { (row: Row) =>
-        VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
+        VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, exampleStack.get,
           examples => {
             vw.predict(examples)
               .asInstanceOf[vowpalWabbit.responses.ActionProbs]

@@ -76,7 +76,7 @@ class VerifyVowpalWabbitMulticlassClassifier extends Benchmarks with EstimatorFu
   }
 
   override def reader: MLReadable[_] = VowpalWabbitMulticlassClassifier
-  override def modelReader: MLReadable[_] = VowpalWabbitMulticlassClassificationModel
+  override def modelReader: MLReadable[_] = VowpalWabbitMulticlassModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitMulticlassClassifier]] = {
     val dataset = getVowelTrainDataFrame(1)

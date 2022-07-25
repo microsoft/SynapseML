@@ -62,13 +62,13 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
       case _: DoubleType => (row: Row) => row.getDouble(idx).toInt
       case _: FloatType => (row: Row) => row.getFloat(idx).toInt
       case _: ShortType => (row: Row) => row.getShort(idx).toInt
-      case _: IntegerType => (row: Row) => row.getInt(idx).toInt
+      case _: IntegerType => (row: Row) => row.getInt(idx)
       case _: LongType => (row: Row) => row.getLong(idx).toInt
     }
   }
 
   class TrainContext(val vw: VowpalWabbitNative,
-                     val synchronizationSchedule: VowpalWabbitSynchronizationSchedule,
+                     val synchronizationSchedule: VowpalWabbitSyncSchedule,
                      val contextualBanditMetrics: ContextualBanditMetrics = new ContextualBanditMetrics,
                      val totalTime: StopWatch = new StopWatch,
                      val nativeIngestTime: StopWatch = new StopWatch,
@@ -122,7 +122,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
     val schema = df.schema
 
-    val synchronizationSchedule = getSynchronizationSchedule(df)
+    val synchronizationSchedule = interPassSyncSchedule(df)
 
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
@@ -156,21 +156,11 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
             (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
               TrainingStats(
                 TaskContext.get.partitionId,
-                args.getArgs,
-                args.getLearningRate,
-                args.getPowerT,
-                args.getHashSeed,
-                args.getNumBits,
-                perfStats.getNumberOfExamplesPerPass,
-                perfStats.getWeightedExampleSum,
-                perfStats.getWeightedLabelSum,
-                perfStats.getAverageLoss,
-                perfStats.getBestConstant,
-                perfStats.getBestConstantLoss,
+                args.getArgs, args.getLearningRate, args.getPowerT, args.getHashSeed, args.getNumBits,
+                perfStats.getNumberOfExamplesPerPass, perfStats.getWeightedExampleSum, perfStats.getWeightedLabelSum,
+                perfStats.getAverageLoss, perfStats.getBestConstant, perfStats.getBestConstantLoss,
                 perfStats.getTotalNumberOfFeatures,
-                totalTime.elapsed(),
-                trainContext.nativeIngestTime.elapsed(),
-                trainContext.learnTime.elapsed(),
+                totalTime.elapsed(), trainContext.nativeIngestTime.elapsed(), trainContext.learnTime.elapsed(),
                 multipassTime.elapsed(),
                 trainContext.contextualBanditMetrics.getIpsEstimate,
                 trainContext.contextualBanditMetrics.getSnipsEstimate))
@@ -259,7 +249,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val numTasks = df.rdd.getNumPartitions
 
     // get the final command line args
-    val vwArgs = getCommandLineArgs()
+    val vwArgs = getCommandLineArgs
 
     // call training
     val trainingResults = if (numTasks == 1)

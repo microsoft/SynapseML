@@ -7,7 +7,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.{StructType}
+import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.util.UUID
@@ -15,7 +15,7 @@ import java.util.UUID
 trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
   class TrainingPartitionIterator(inputRows: Iterator[Row],
                                   localInitialModel: Option[Array[Byte]],
-                                  synchronizationSchedule: VowpalWabbitSynchronizationSchedule,
+                                  syncSchedule: VowpalWabbitSyncSchedule,
                                   vwArgs: String,
                                   numTasks: Int)
     extends Iterator[Row] {
@@ -33,7 +33,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
     }
 
     // note this is executed on each worker
-    lazy val vw = {
+    private lazy val vw = {
       val contextArgs = if (numTasks == 1) "" else s"--node ${TaskContext.get.partitionId}"
 
       val args = buildCommandLineArguments(vwArgs, contextArgs)
@@ -57,7 +57,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
       try {
         val inputRow = inputRows.next()
 
-        if (synchronizationSchedule.shouldTriggerAllReduce(inputRow))
+        if (syncSchedule.shouldTriggerAllReduce(inputRow))
           vw.endPass()
 
         // withColumn
@@ -74,14 +74,14 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
 
   def trainFromRow(vw: VowpalWabbitNative, row: Row): Seq[Any]
 
-  def getAdditionalOutputSchema(): StructType
+  def getAdditionalOutputSchema: StructType
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val df = prepareDataSet(dataset)
     val schema = transformSchema(df.schema)
 
     val numTasks = df.rdd.getNumPartitions
-    val synchronizationSchedule = getSynchronizationSchedule(df)
+    val synchronizationSchedule = interPassSyncSchedule(df)
 
     // schedule multiple mapPartitions in
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
@@ -90,7 +90,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
     val jobUniqueId = Math.abs(UUID.randomUUID.getLeastSignificantBits.toInt).toString
 
     // build the command line args and potentially add AllReduce related parameters
-    val vwArgs = getCommandLineArgs()
+    val vwArgs = getCommandLineArgs
 
     if (numTasks > 1)
       VowpalWabbitClusterUtil.Instance.augmentVowpalWabbitArguments(vwArgs, numTasks, jobUniqueId)
@@ -113,5 +113,5 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
   }
 
   override def transformSchema(schema: StructType): StructType =
-    StructType(schema.fields ++ getAdditionalOutputSchema().fields)
+    StructType(schema.fields ++ getAdditionalOutputSchema.fields)
 }

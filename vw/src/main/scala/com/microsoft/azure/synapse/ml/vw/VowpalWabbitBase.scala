@@ -114,7 +114,7 @@ trait VowpalWabbitBase extends Wrappable
   //endregion
 
   // get list of columns needed as input
-  protected def getInputColumns(): Seq[String]
+  protected def getInputColumns: Seq[String]
 
   protected def prepareDataSet(dataset: Dataset[_]): DataFrame = {
     // follow LightGBM pattern
@@ -144,11 +144,11 @@ trait VowpalWabbitBase extends Wrappable
     * @return the synchronization schedule
     * @note this is supposed to be executed on the driver
     */
-  protected def getSynchronizationSchedule(df: DataFrame): VowpalWabbitSynchronizationSchedule = {
+  protected def interPassSyncSchedule(df: DataFrame): VowpalWabbitSyncSchedule = {
     if (getNumSyncsPerPass == 0)
-      VowpalWabbitSynchronizationSchedule.Disabled
+      VowpalWabbitSyncSchedule.Disabled
     else
-      new VowpalWabbitSynchronizationScheduleSplits(df, getNumSyncsPerPass)
+      new VowpalWabbitSyncScheduleSplits(df, getNumSyncsPerPass)
   }
 
   protected def buildCommandLineArguments(vwArgs: String, contextArgs: => String = ""): String = {
@@ -173,7 +173,7 @@ trait VowpalWabbitBase extends Wrappable
     result
   }
 
-  protected def getCommandLineArgs(): ParamsStringBuilder = {
+  protected def getCommandLineArgs: ParamsStringBuilder = {
     new ParamsStringBuilder(this, prefix = "--", delimiter = " ")
       .append(getPassThroughArgs) // first so that pass through args override explicit setters (TODO reconsider)
       .appendParamValueIfNotThere("hash_seed", "hash_seed", hashSeed)

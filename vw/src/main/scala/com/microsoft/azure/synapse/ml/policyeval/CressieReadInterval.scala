@@ -90,12 +90,12 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
             (1 + n) * (unca - 1) * (unca - 1) / (uncb - unca * unca)
           }
 
-        val Fdist = new FDistribution(numeratorDegreesOfFreedom = 1, denominatorDegreesOfFreedom = n)
+        val fDistribution = new FDistribution(numeratorDegreesOfFreedom = 1, denominatorDegreesOfFreedom = n)
         val alpha = 0.05 // TODO: parameter?
         val atol = 1e-9
 
         //      delta = f.isf(q=alpha, dfn=1, dfd=n)
-        val delta = 1 - Fdist.inverseCdf(alpha)
+        val delta = 1 - fDistribution.inverseCdf(alpha)
 
         val phi = (-uncgstar - delta) / (2 * (1 + n))
 
@@ -103,8 +103,8 @@ class BanditEstimatorCressieReadInterval(empiricalBounds: Boolean)
           def computeBoundInner(wfake: Double): Option[Double] = {
             if (wfake.isInfinity) {
               val x = sign * (r + (sumwr - sumw * r) / n)
-              val rsumw_sumwr = (r * sumw - sumwr)
-              var y = (rsumw_sumwr * rsumw_sumwr / (n * (1 + n))
+              val rSumwSumwr = (r * sumw - sumwr)
+              var y = (rSumwSumwr * rSumwSumwr / (n * (1 + n))
                 - (r * r * sumwsq - 2 * r * sumwsqr + sumwsqrsq) / (1 + n)
                 )
               val z = phi + 1 / (2 * n)

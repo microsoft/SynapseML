@@ -13,7 +13,6 @@ import org.apache.spark.sql.expressions.Aggregator
   *
   * Background http://www.machinedlearnings.com/2020/12/distributionally-robust-contextual.html
   *
-  * Python: https://github.com/VowpalWabbit/estimators/blob/03c8ba619d68f54849d4fa2da2b1a148e6cdb990/estimators/bandits/cressieread.py#L25
   */
 class BanditEstimatorCressieRead
   extends Aggregator[BanditEstimatorCressieReadInput, BanditEstimatorCressieReadBuffer, Double]

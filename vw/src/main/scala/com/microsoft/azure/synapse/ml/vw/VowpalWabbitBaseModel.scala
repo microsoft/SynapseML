@@ -21,7 +21,7 @@ case class PathAndData(path: String, bytes: Array[Byte])
 trait VowpalWabbitBaseModel extends Params {
   @transient
   lazy val vw: VowpalWabbitNative = FaultToleranceUtils.retryWithTimeout() {
-    new VowpalWabbitNative(s"--testonly ${getTestArgs}", getModel)
+    new VowpalWabbitNative(s"--testonly $getTestArgs", getModel)
   }
 
   @transient

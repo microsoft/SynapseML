@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
@@ -37,7 +40,7 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
       (row: Row, ex: VowpalWabbitExample) => ex.setLabel(labelGetter(row))
   }
 
-  protected override def getInputColumns(): Seq[String] =
+  protected override def getInputColumns: Seq[String] =
     Seq(getFeaturesCol, getLabelCol) ++
       getAdditionalFeatures ++
       getAdditionalColumns ++

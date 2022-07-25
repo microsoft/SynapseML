@@ -22,7 +22,7 @@ final case class KahanSum(sum: Double = 0, c: Double = 0) {
     KahanSum(newSum, newC)
   }
 
-  def toDouble(): Double = sum + c
+  def toDouble: Double = sum + c
 
   def +(other: KahanSum): KahanSum =
     KahanSum(this.sum, this.c) + other.sum + other.c
@@ -32,7 +32,10 @@ object KahanSum {
   implicit def double2KahanSum(x: Double): KahanSum = KahanSum(x)
 }
 
-class KahanBabushkaNeumaierSumAggregator
+/**
+  * Kahan-Babushka-Neumaier sum aggregator make sure lots of small numbers are accumulated numerically stable.
+  */
+class KahanSumAggregator
   extends Aggregator[Float, KahanSum, Float]
     with Serializable {
   // TODO: doesn't work
@@ -41,7 +44,7 @@ class KahanBabushkaNeumaierSumAggregator
 
   //  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
-  def zero: KahanSum = KahanSum(0, 0)
+  def zero: KahanSum = KahanSum()
 
   def reduce(acc: KahanSum, x: Float): KahanSum = acc + x
 

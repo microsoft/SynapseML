@@ -12,7 +12,7 @@ import java.io.Serializable
 /**
   * Defines when VW needs to synchonize across partitions.
   */
-trait VowpalWabbitSynchronizationSchedule extends Serializable {
+trait VowpalWabbitSyncSchedule extends Serializable {
   /**
     * Implementations must guarantee to trigger the same number of times across all partitions.
     *
@@ -22,40 +22,40 @@ trait VowpalWabbitSynchronizationSchedule extends Serializable {
   def shouldTriggerAllReduce(row: Row): Boolean
 }
 
-class VowpalWabbitSynchronizationScheduleDisabled extends VowpalWabbitSynchronizationSchedule {
+class VowpalWabbitSyncScheduleDisabled extends VowpalWabbitSyncSchedule {
   override def shouldTriggerAllReduce(row: Row): Boolean = false
 }
 
-object VowpalWabbitSynchronizationSchedule
+object VowpalWabbitSyncSchedule
 {
-  lazy val Disabled = new VowpalWabbitSynchronizationScheduleDisabled
+  lazy val Disabled = new VowpalWabbitSyncScheduleDisabled
 }
 
-class VowpalWabbitSynchronizationScheduleSplits (df: DataFrame,
-                                                 numSplits: Integer)
-  extends VowpalWabbitSynchronizationSchedule {
+class VowpalWabbitSyncScheduleSplits(df: DataFrame,
+                                     numSplits: Integer)
+  extends VowpalWabbitSyncSchedule {
 
   assert(numSplits > 0, "Number of splits must be greater than zero")
 
-  val rowsPerPartitions = ClusterUtil.getNumRowsPerPartition(df, F.lit(0))
+  private val rowsPerPartitions = ClusterUtil.getNumRowsPerPartition(df, F.lit(0))
 
-  val stepSizePerPartition = rowsPerPartitions.map { c => c / numSplits.toDouble }
+  private val stepSizePerPartition = rowsPerPartitions.map { c => c / numSplits.toDouble }
 
-  lazy val rowCount = rowsPerPartitions(TaskContext.getPartitionId())
+  private lazy val rowCount = rowsPerPartitions(TaskContext.getPartitionId())
 
   @transient
-  lazy val stepSize = {
+  private lazy val stepSize = {
     val s = stepSizePerPartition(TaskContext.getPartitionId())
 
-    assert (s > 1, s"Number of splits $numSplits > ${rowCount}")
+    assert (s > 1, s"Number of splits $numSplits > $rowCount")
 
     Math.ceil(s).toLong
   }
 
-  lazy val needToSyncOnLastRow = stepSize * numSplits != rowCount
+  private lazy val needToSyncOnLastRow = stepSize * numSplits != rowCount
 
   @transient
-  var i = 0
+  private var i = 0
 
   override def shouldTriggerAllReduce(row: Row): Boolean = {
     i += 1

@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
@@ -11,9 +14,8 @@ class VowpalWabbitClusterUtil(quiet: Boolean) {
 
   spanningTree.start()
 
-  // val driverHostAddress = ClusterUtil.getDriverHost(SparkSession.builder.getOrCreate)
-  val driverHostAddress = ClusterUtil.getDriverHost(SparkSession.active)
-  val port = spanningTree.getPort
+  private val driverHostAddress = ClusterUtil.getDriverHost(SparkSession.active)
+  private val port = spanningTree.getPort
 
   def augmentVowpalWabbitArguments(vwArgs: ParamsStringBuilder,
                                    numTasks: Int,

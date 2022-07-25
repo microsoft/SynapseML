@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions.{col, struct, udf}
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import org.vowpalwabbit.spark.{VowpalWabbitExample}
+import org.vowpalwabbit.spark.VowpalWabbitExample
 
 /**
   * Base implementation for models that use Spark-based features and result in Spark vectors

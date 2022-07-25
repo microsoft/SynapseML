@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.policyeval.{CressieRead, CressieReadInput, CressieReadInterval, CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
@@ -260,16 +261,16 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   test ("Verify VowpalWabbitGeneric Complex Analysis") {
     import spark.implicits._
 
-    spark.udf.register("snips", F.udaf(new BanditEstimatorSnips(), Encoders.product[BanditEstimatorSnipsInput]))
-    spark.udf.register("ips", F.udaf(new BanditEstimatorIps(), Encoders.product[BanditEstimatorIpsInput]))
+    spark.udf.register("snips", F.udaf(new Snips(), Encoders.product[SnipsInput]))
+    spark.udf.register("ips", F.udaf(new Ips(), Encoders.product[IpsInput]))
     spark.udf.register("cressieRead",
-      F.udaf(new BanditEstimatorCressieRead(), Encoders.product[BanditEstimatorCressieReadInput]))
+      F.udaf(new CressieRead(), Encoders.product[CressieReadInput]))
     spark.udf.register("cressieReadInterval",
-      F.udaf(new BanditEstimatorCressieReadInterval(false), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+      F.udaf(new CressieReadInterval(false), Encoders.product[CressieReadIntervalInput]))
     spark.udf.register("cressieReadIntervalEmpirical",
-      F.udaf(new BanditEstimatorCressieReadInterval(true), Encoders.product[BanditEstimatorCressieReadIntervalInput]))
+      F.udaf(new CressieReadInterval(true), Encoders.product[CressieReadIntervalInput]))
     spark.udf.register("bernstein",
-      F.udaf(new BanditEstimatorEmpiricalBernsteinCS(), Encoders.product[BanditEstimatorEmpiricalBernsteinCSInput]))
+      F.udaf(new EmpiricalBernsteinCS(), Encoders.product[EmpiricalBernsteinCSInput]))
 
     val time = System.currentTimeMillis()
 

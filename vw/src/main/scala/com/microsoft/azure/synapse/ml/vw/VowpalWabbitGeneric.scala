@@ -38,7 +38,7 @@ class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabb
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  protected def getInputColumns(): Seq[String] = Seq(getInputCol)
+  protected def getInputColumns: Seq[String] = Seq(getInputCol)
 
   override protected def trainFromRows(schema: StructType,
                                        inputRows: Iterator[Row],
@@ -96,13 +96,13 @@ class VowpalWabbitGenericProgressive(override val uid: String)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  override protected def getInputColumns(): Seq[String] = Seq(getInputCol)
+  override protected def getInputColumns: Seq[String] = Seq(getInputCol)
 
   // wrap the block w/ a VW instance that will be closed when the block is done.
   private def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
-    val args = buildCommandLineArguments(getCommandLineArgs.result, "")
+    val args = buildCommandLineArguments(getCommandLineArgs.result)
 
     val vw =
       if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
@@ -121,7 +121,7 @@ class VowpalWabbitGenericProgressive(override val uid: String)
     } }
   }
 
-  override def getAdditionalOutputSchema(): StructType = additionalOutputSchema
+  override def getAdditionalOutputSchema: StructType = additionalOutputSchema
 
   var featureIdx: Int = 0
 
@@ -159,8 +159,8 @@ class VowpalWabbitGenericModel(override val uid: String)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  private def schemaForPredictionType(): StructType =
-    StructType(StructField(getInputCol, StringType, false) +: VowpalWabbitPrediction.getSchema(vw).fields)
+  private def schemaForPredictionType: StructType =
+    StructType(StructField(getInputCol, StringType, nullable = false) +: VowpalWabbitPrediction.getSchema(vw).fields)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // this is doing predict, but lightgbm also logs logTransform in the model...
@@ -170,7 +170,7 @@ class VowpalWabbitGenericModel(override val uid: String)
 
       val predictToSeq = VowpalWabbitPrediction.getPredictionFunc(vw)
 
-      val rowEncoder = RowEncoder(schemaForPredictionType())
+      val rowEncoder = RowEncoder(schemaForPredictionType)
 
       df.mapPartitions(inputRows => {
         inputRows.map { row => {

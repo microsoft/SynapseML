@@ -20,7 +20,7 @@ import org.vowpalwabbit.spark.VowpalWabbitExample
 object VowpalWabbitMulticlassClassifier extends ComplexParamsReadable[VowpalWabbitClassifier]
 
 class VowpalWabbitMulticlassClassifier(override val uid: String)
-  extends ProbabilisticClassifier[Row, VowpalWabbitMulticlassClassifier, VowpalWabbitMulticlassClassificationModel]
+  extends ProbabilisticClassifier[Row, VowpalWabbitMulticlassClassifier, VowpalWabbitMulticlassModel]
     with VowpalWabbitBaseSpark
     with ComplexParamsWritable with BasicLogging {
   logClass()
@@ -54,9 +54,9 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
         ex.setMulticlassLabel(labelGetter(row))
   }
 
-  override protected def train(dataset: Dataset[_]): VowpalWabbitMulticlassClassificationModel = {
+  override protected def train(dataset: Dataset[_]): VowpalWabbitMulticlassModel = {
     logTrain({
-      val model = new VowpalWabbitMulticlassClassificationModel(uid)
+      val model = new VowpalWabbitMulticlassModel(uid)
         .setFeaturesCol(getFeaturesCol)
         .setAdditionalFeatures(getAdditionalFeatures)
         .setPredictionCol(getPredictionCol)
@@ -71,8 +71,8 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitMulticlassClassifier = defaultCopy(extra)
 }
 
-class VowpalWabbitMulticlassClassificationModel(override val uid: String)
-  extends ProbabilisticClassificationModel[Row, VowpalWabbitMulticlassClassificationModel]
+class VowpalWabbitMulticlassModel(override val uid: String)
+  extends ProbabilisticClassificationModel[Row, VowpalWabbitMulticlassModel]
     with VowpalWabbitBaseModelSpark
     with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
@@ -161,5 +161,5 @@ class VowpalWabbitMulticlassClassificationModel(override val uid: String)
   }
 }
 
-object VowpalWabbitMulticlassClassificationModel
-  extends ComplexParamsReadable[VowpalWabbitMulticlassClassificationModel]
+object VowpalWabbitMulticlassModel
+  extends ComplexParamsReadable[VowpalWabbitMulticlassModel]

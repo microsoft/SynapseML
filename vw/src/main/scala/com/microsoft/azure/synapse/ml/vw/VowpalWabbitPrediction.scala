@@ -4,63 +4,54 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructField, StructType}
 import org.vowpalwabbit.spark.VowpalWabbitNative
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
-import vowpalWabbit.responses.{ActionProbs, ActionScore, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
+import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
 object VowpalWabbitPrediction {
-  def getSchema(vw: VowpalWabbitNative): StructType = {
-    val fields = vw.getOutputPredictionType match {
-      case "prediction_type_t::scalars" => Seq(StructField("predictions", ArrayType(FloatType), false))
-      case "prediction_type_t::multiclass" => Seq(StructField("prediction", IntegerType, false))
-      case "prediction_type_t::prob" => Seq(StructField("prediction", FloatType, false))
-      case "prediction_type_t::multilabels" => Seq(StructField("prediction", ArrayType(IntegerType), false))
-      case "prediction_type_t::scalar" => Seq(
-        StructField("prediction", FloatType, false),
-        StructField("confidence", FloatType, false))
-      case "prediction_type_t::action_scores" => Seq(
-        StructField("predictions", ArrayType(StructType(Seq(
-          StructField("action", IntegerType, false),
-          StructField("score", FloatType, false)
-        ))))
-      )
-      case "prediction_type_t::action_probs" => Seq(
-        StructField("predictions", ArrayType(StructType(Seq(
-          StructField("action", IntegerType, false),
-          StructField("probability", FloatType, false)
-        ))))
-      )
-      case "prediction_type_t::decision_probs" => Seq(
-        StructField("predictions",
+  val SchemaMap = Map(
+    "prediction_type_t::scalars" -> Seq(StructField("predictions", ArrayType(FloatType), nullable = false)),
+    "prediction_type_t::multiclass" -> Seq(StructField("prediction", IntegerType, nullable = false)),
+    "prediction_type_t::prob" -> Seq(StructField("prediction", FloatType, nullable = false)),
+    "prediction_type_t::multilabels" -> Seq(StructField("prediction", ArrayType(IntegerType), nullable = false)),
+    "prediction_type_t::scalar" -> Seq(
+      StructField("prediction", FloatType, nullable = false),
+      StructField("confidence", FloatType, nullable = false)),
+    "prediction_type_t::action_scores" -> Seq(
+      StructField("predictions", ArrayType(StructType(Seq(
+        StructField("action", IntegerType, nullable = false),
+        StructField("score", FloatType, nullable = false)
+      ))))
+    ),
+    "prediction_type_t::action_probs" -> Seq(
+      StructField("predictions", ArrayType(StructType(Seq(
+        StructField("action", IntegerType, nullable = false),
+        StructField("probability", FloatType, nullable = false)
+      ))))
+    ),
+    "prediction_type_t::decision_probs" -> Seq(
+      StructField("predictions",
+        ArrayType(
           ArrayType(
-            ArrayType(
-              StructType(Seq(
-                StructField("action", IntegerType, false),
-                StructField("score", FloatType, false)
-              ))))))
-      case "prediction_type_t::action_pdf_value" => Seq(
-        StructField("action", FloatType, false),
-        StructField("pdf", FloatType, false)
-      )
-      case "prediction_type_t::pdf" => Seq(
-        StructField("segments", ArrayType(
-          StructType(Seq(
-            StructField("left", FloatType, false),
-            StructField("right", FloatType, false),
-            StructField("pdfValue", FloatType, false)
-          )))))
+            StructType(Seq(
+              StructField("action", IntegerType, nullable = false),
+              StructField("score", FloatType, nullable = false)
+            )))))),
+    "prediction_type_t::action_pdf_value" -> Seq(
+      StructField("action", FloatType, nullable = false),
+      StructField("pdf", FloatType, nullable = false)
+    ),
+    "prediction_type_t::pdf" -> Seq(
+      StructField("segments", ArrayType(
+        StructType(Seq(
+          StructField("left", FloatType, nullable = false),
+          StructField("right", FloatType, nullable = false),
+          StructField("pdfValue", FloatType, nullable = false)
+        )))))
+    )
 
-      case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
-      // TODO: the java wrapper would have to support them too
-      // CASE(prediction_type_t::multiclassprobs)
-      // CASE(prediction_type_t::active_multiclass)
-      // CASE(prediction_type_t::nopred)
-    }
-
-    // always return the the input column
-    StructType(fields)
-  }
+  def getSchema(vw: VowpalWabbitNative): StructType = StructType(SchemaMap(vw.getOutputPredictionType))
 
   type VowpalWabbitPredictionToSeqFunc = Object => Seq[Any]
 
@@ -104,7 +95,7 @@ object VowpalWabbitPrediction {
         obj => Seq(obj.asInstanceOf[PDF]
           .getPDFSegments
           .map { s => Row.fromTuple((s.getLeft, s.getRight, s.getPDFValue)) })
-      case x => throw new NotImplementedError(s"Prediction type '${x}' not supported")
+      case x => throw new NotImplementedError(s"Prediction type '$x' not supported")
 
       // TODO: the java wrapper would have to support them too
       // CASE(prediction_type_t::pdf)
