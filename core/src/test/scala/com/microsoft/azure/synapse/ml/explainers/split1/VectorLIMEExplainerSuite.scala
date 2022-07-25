@@ -69,12 +69,12 @@ class VectorLIMEExplainerSuite extends TestBase
     }
   }
 
-  val d1 = 3
-  val d2 = 1
+  lazy val d1 = 3
+  lazy val d2 = 1
 
-  val coefficients: BDM[Double] = new BDM(d1, d2, Array(1.0, -1.0, 2.0))
+  lazy val coefficients: BDM[Double] = new BDM(d1, d2, Array(1.0, -1.0, 2.0))
 
-  val df: DataFrame = {
+  lazy val df: DataFrame = {
     val nRows = 100
     val intercept: Double = math.random()
 
@@ -86,9 +86,9 @@ class VectorLIMEExplainerSuite extends TestBase
     xRows.zip(yRows).toDF("features", "label")
   }
 
-  val model: LinearRegressionModel = new LinearRegression().fit(df)
+  lazy val model: LinearRegressionModel = new LinearRegression().fit(df)
 
-  val lime: VectorLIME = LIME.vector
+  lazy val lime: VectorLIME = LIME.vector
     .setModel(model)
     .setBackgroundData(df)
     .setInputCol("features")

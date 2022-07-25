@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, LightGBMModelParams,
-  LightGBMPredictionParams, RankerTrainParams}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{
+  BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -13,6 +13,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StructField
 
 object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
 
@@ -47,7 +48,7 @@ class LightGBMRanker(override val uid: String)
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): BaseTrainParams = {
+  def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
     RankerTrainParams(
       get(passThroughArgs),
       getMaxPosition,
@@ -55,7 +56,7 @@ class LightGBMRanker(override val uid: String)
       getEvalAt,
       get(isProvideTrainingMetric),
       getDelegate,
-      getGeneralParams(numTasks, dataset, numTasksPerExec),
+      getGeneralParams(numTasks, featuresSchema),
       getDatasetParams,
       getDartParams,
       getExecutionParams(numTasksPerExec),
@@ -81,11 +82,11 @@ class LightGBMRanker(override val uid: String)
   override def getOptGroupCol: Option[String] = Some(getGroupCol)
 
   /** For Ranking, we need to sort the data within partitions by group prior to training to ensure training succeeds.
-    * @param dataset The dataset to preprocess prior to training.
-    * @return The preprocessed data, sorted within partiton by group.
+    * @param df The data frame to preprocess prior to training.
+    * @return The preprocessed data, sorted within partition by group.
     */
-  override def preprocessData(dataset: DataFrame): DataFrame = {
-    dataset.sortWithinPartitions(getOptGroupCol.get)
+  override def preprocessData(df: DataFrame): DataFrame = {
+    df.sortWithinPartitions(getOptGroupCol.get)
   }
 
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
@@ -99,7 +100,7 @@ class LightGBMRanker(override val uid: String)
 
           // in barrier mode, will use repartition in super.prepareDataframe,
           // this will let repartition on groupingCol fail
-          // so repartition here, then super.prepareDataframe won't repartion
+          // so repartition here, then super.prepareDataframe won't repartition
           if (getUseBarrierExecutionMode) {
             if (numPartitions > numTasks) {
               dataset.repartition(numTasks, new Column(groupingCol))
