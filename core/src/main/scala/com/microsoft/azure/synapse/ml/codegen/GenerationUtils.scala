@@ -69,15 +69,6 @@ object GenerationUtils {
         }
       case tap: TypedArrayParam[_] =>
         s"""${tap.name}=${RWrappableParam.rDefaultRender(v, tap)}"""
-/*      case sp: ServiceParam[_] =>
-        v match {
-          case left: Left[_, _] =>
-            s"""${sp.name}="${left.value}""""
-          case right: Right[_, _] =>
-            s"""${sp.name}Col="${right.value}""""
-          case _ =>
-            s"""${sp.name}=${RWrappableParam.rDefaultRender(v, sp)}"""
-        }*/
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>

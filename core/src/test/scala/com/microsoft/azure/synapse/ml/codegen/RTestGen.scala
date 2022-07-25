@@ -88,8 +88,10 @@ object RTestGen {
 
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
-         |library(sparklyr)
-         |library(jsonlite)
+         |if (!require("sparklyr")) {
+         |  install.packages("sparklyr")
+         |  library("sparklyr")
+         |}
          |
          |options(sparklyr.log.console = TRUE)
          |options(sparklyr.verbose = TRUE)
@@ -113,10 +115,21 @@ object RTestGen {
     val library = conf.name.replaceAll("-", ".")
     writeFile(join(testsDir, "testthat.R"),
       s"""
-         |library(testthat)
+         |useLibrary <- function(name) {
+         |  if (!require(name)) {
+         |    install.packages(name)
+         |    library(name)
+         |  }
+         |}
+         |
+         |useLibrary("testthat")
+         |useLibrary("jsonlite")
+         |useLibrary("mlflow")
          |library($library)
+         |}
          |
          |""".stripMargin)
+
   }
 
   def isDeprecated(name: String): Boolean = {

@@ -510,17 +510,17 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
            |# Also, should there be an assert at the end?
            |fdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "fit-$num.parquet")))
            |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
-           |#fit <- ml_fit(fdf, tbl)
-           |#transformed <- ml_transform(tdf, fit)
-           |#transformed.show()
+           |fit <- ml_fit(fdf, tbl)
+           |transformed <- ml_transform(tdf, fit)
+           |transformed.show()
            |""".stripMargin
       case _: Transformer if testFitting =>
         s"""
            |# TODO: figure out what args are required for ml_transform
            |# Also, should there be an assert at the end?
            |tdf <- spark_dataframe(spark_read_parquet(sc, path = file.path(test_data_dir, "trans-$num.parquet")))
-           |#transformed <- ml_transform(tdf)
-           |#transformed.show()
+           |transformed <- ml_transform(tdf)
+           |transformed.show()
            |""".stripMargin
       case _ => ""
     }
@@ -532,10 +532,10 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
            |#   to an object of class "c('com.microsoft.azure.synapse.ml.recommendation.RecommendationIndexerModel',
            |#   'ml_transformer', 'ml_pipeline_stage')
            |# Also - should there be an assertion at the end of this?
-           |#library(mlflow)
-           |#mlflow_save_model(model, "mlflow-save-model-$num")
-           |#mlflow_log_model(model, "mlflow-log-model-$num")
-           |#mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
+           |library(mlflow)
+           |mlflow_save_model(model, "mlflow-save-model-$num")
+           |mlflow_log_model(model, "mlflow-log-model-$num")
+           |mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
         case "cognitive" =>
@@ -546,11 +546,11 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
              |# "c('com.microsoft.azure.synapse.ml.recommendation.RecommendationIndexerModel',
              |#   'ml_transformer', 'ml_pipeline_stage')
              |# Also - should there be an assertion at the end of this?
-             |#library(mlflow)
-             |#pipeline_model <- ml_pipeline(model)
-             |#mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
-             |#mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
-             |#mlflow_model = mlflow_load_model("mlflow-save-model-$num")
+             |library(mlflow)
+             |pipeline_model <- ml_pipeline(model)
+             |mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
+             |mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
+             |mlflow_model = mlflow_load_model("mlflow-save-model-$num")
              |""".stripMargin
         case _ => ""
       }
@@ -587,9 +587,8 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val testDir = rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")
     val testContent =
       s"""
-         |library(testthat)
-         |library(dplyr)
-         |library(sparklyr)
+         |#library(testthat)
+         |#library(sparklyr)
          |
          |source("${srcPath}")
          |test_data_dir <- "${testDir}"
