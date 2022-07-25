@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Encoders, SaveMode, functions => F, types => T}
 
 import java.time.{LocalDate, ZoneOffset}
@@ -19,13 +20,11 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val vw = new VowpalWabbitGeneric()
       .setNumPasses(2)
 
-    val dataset = Seq("1 |a b c", "0 |d e f").map(StringFeatures).toDF
+    val dataset = Seq("1 |a b c", "0 |d e f").toDF("input")
 
     val classifier = vw.fit(dataset)
 
     val predictionDF = classifier.transform(dataset)
-
-    predictionDF.show()
 
     val labelOneCnt = predictionDF.where($"prediction" > 0.5).count()
     assert(labelOneCnt == 1)
@@ -42,13 +41,14 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val dataset = Seq(
       "1:0 2:1 3:1 4:1 | a b c",
       "1:1 2:1 3:0 4:1 | b c d"
-    ).map(StringFeatures).toDF
+    ).toDF("input")
 
     val classifier = vw.fit(dataset)
 
-    val predictionDF = classifier.transform(dataset)
+    val actual = classifier.transform(dataset).select("prediction")
 
-    predictionDF.show()
+    val expected = Seq(1, 3).toDF("prediction")
+    verifyResult(expected, actual)
   }
 
   test ("Verify VowpalWabbitGeneric using oaa") {
@@ -66,19 +66,17 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "1 | a c e",
       "4 | b d f",
       "2 | d e f"
-    ).map(StringFeatures).toDF
+    ).toDF("input")
 
     val classifier = vw.fit(dataset)
 
-    val predictionDF = classifier.transform(dataset)
+    val actual = classifier.transform(dataset).select("prediction")
 
-    predictionDF.show()
-
-    // TODO: compare output
+    val expected = Seq(1, 3, 1, 4, 2).toDF("prediction")
+    verifyResult(expected, actual)
   }
 
   test ("Verify VowpalWabbitGeneric using oaa w/ probs") {
-
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
     import spark.implicits._
 
@@ -92,20 +90,26 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "1 | a c e",
       "4 | b d f",
       "2 | d e f"
-    ).map(StringFeatures).toDF
+    ).toDF("input")
 
     val classifier = vw.fit(dataset)
 
-    val predictionDF = classifier
+    val pred = classifier
       .setTestArgs("--probabilities")
       .transform(dataset)
+      .select($"input", F.posexplode($"predictions"))
+      // .withColumn("prob", F.round($"col", 1))
+      .withColumn("maxProb", F.max("col").over(Window.partitionBy("input")))
 
-    predictionDF.show()
+    assert (pred.where(F.expr("col < 0 and col > 1")).count() == 0, "predictions must be between 0 and 1")
 
-    // TODO: compare output
+    val predMatched = pred
+      .where($"col" === $"maxProb")
+      .withColumn("label", F.substring($"input", 0, 1).cast(T.IntegerType))
+      .where($"label" === $"pos" + 1)
+
+    assert (predMatched.count() == 5, "Highest prob prediction must match label")
   }
-
-
 
   test ("Verify VowpalWabbitGeneric using CATS") {
 
@@ -114,19 +118,22 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
     val vw = new VowpalWabbitGeneric()
       .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000")
+      .setNumPasses(4)
       .setUseBarrierExecutionMode(false)
 
     val dataset = Seq(
       "ca 185.121:0.657567:6.20426e-05 | a b",
       "ca 772.592:0.458316:6.20426e-05 | b c",
       "ca 15140.6:0.31791:6.20426e-05 | d"
-    ).map(StringFeatures).toDF.coalesce(2)
+    ).toDF("input").coalesce(2)
 
     val classifier = vw.fit(dataset)
 
-    val predictionDF = classifier.transform(dataset)
+    val predictionDF = classifier
+      .transform(dataset)
+      .select($"input", F.posexplode($"segments"))
 
-    predictionDF.show()
+    predictionDF.show(truncate = false)
   }
 
   test ("Verify VowpalWabbitGeneric Complex stratify") {
@@ -320,7 +327,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val dataset = Seq(
       "{\"_label_cost\":-0.0,\"_label_probability\":0.05000000074505806,\"_label_Action\":4,\"_labelIndex\":3,\"o\":[{\"v\":0.0,\"EventId\":\"13118d9b4c114f8485d9dec417e3aefe\",\"ActionTaken\":false}],\"Timestamp\":\"2021-02-04T16:31:29.2460000Z\",\"Version\":\"1\",\"EventId\":\"13118d9b4c114f8485d9dec417e3aefe\",\"a\":[4,2,1,3],\"c\":{\"FromUrl\":[{\"timeofday\":\"Afternoon\",\"weather\":\"Sunny\",\"name\":\"Cathy\"}],\"_multi\":[{\"_tag\":\"Cappucino\",\"i\":{\"constant\":1,\"id\":\"Cappucino\"},\"j\":[{\"type\":\"hot\",\"origin\":\"kenya\",\"organic\":\"yes\",\"roast\":\"dark\"}]},{\"_tag\":\"Cold brew\",\"i\":{\"constant\":1,\"id\":\"Cold brew\"},\"j\":[{\"type\":\"cold\",\"origin\":\"brazil\",\"organic\":\"yes\",\"roast\":\"light\"}]},{\"_tag\":\"Iced mocha\",\"i\":{\"constant\":1,\"id\":\"Iced mocha\"},\"j\":[{\"type\":\"cold\",\"origin\":\"ethiopia\",\"organic\":\"no\",\"roast\":\"light\"}]},{\"_tag\":\"Latte\",\"i\":{\"constant\":1,\"id\":\"Latte\"},\"j\":[{\"type\":\"hot\",\"origin\":\"brazil\",\"organic\":\"no\",\"roast\":\"dark\"}]}]},\"p\":[0.05,0.05,0.05,0.85],\"VWState\":{\"m\":\"ff0744c1aa494e1ab39ba0c78d048146/550c12cbd3aa47f09fbed3387fb9c6ec\"},\"_original_label_cost\":-0.0}",
       "{\"_label_cost\":-1.0,\"_label_probability\":0.8500000238418579,\"_label_Action\":1,\"_labelIndex\":0,\"o\":[{\"v\":1.0,\"EventId\":\"bf50a49c34b74937a81e8d6fc95faa99\",\"ActionTaken\":false}],\"Timestamp\":\"2021-02-04T16:31:29.9430000Z\",\"Version\":\"1\",\"EventId\":\"bf50a49c34b74937a81e8d6fc95faa99\",\"a\":[1,3,2,4],\"c\":{\"FromUrl\":[{\"timeofday\":\"Evening\",\"weather\":\"Snowy\",\"name\":\"Alice\"}],\"_multi\":[{\"_tag\":\"Cappucino\",\"i\":{\"constant\":1,\"id\":\"Cappucino\"},\"j\":[{\"type\":\"hot\",\"origin\":\"kenya\",\"organic\":\"yes\",\"roast\":\"dark\"}]},{\"_tag\":\"Cold brew\",\"i\":{\"constant\":1,\"id\":\"Cold brew\"},\"j\":[{\"type\":\"cold\",\"origin\":\"brazil\",\"organic\":\"yes\",\"roast\":\"light\"}]},{\"_tag\":\"Iced mocha\",\"i\":{\"constant\":1,\"id\":\"Iced mocha\"},\"j\":[{\"type\":\"cold\",\"origin\":\"ethiopia\",\"organic\":\"no\",\"roast\":\"light\"}]},{\"_tag\":\"Latte\",\"i\":{\"constant\":1,\"id\":\"Latte\"},\"j\":[{\"type\":\"hot\",\"origin\":\"brazil\",\"organic\":\"no\",\"roast\":\"dark\"}]}]},\"p\":[0.85,0.05,0.05,0.05],\"VWState\":{\"m\":\"ff0744c1aa494e1ab39ba0c78d048146/550c12cbd3aa47f09fbed3387fb9c6ec\"},\"_original_label_cost\":-1.0}"
-    ).map(StringFeatures).toDF
+    ).toDF("input")
 
     import org.apache.spark.sql.functions
 
@@ -360,11 +367,9 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   override def testObjects(): Seq[TestObject[VowpalWabbitGeneric]] = {
     import spark.implicits._
 
-    val dataset = Seq("1 |a b c", "0 |d e f").map(StringFeatures).toDF
+    val dataset = Seq("1 |a b c", "0 |d e f").toDF("input")
     Seq(new TestObject(
       new VowpalWabbitGeneric(),
       dataset))
   }
 }
-
-case class StringFeatures(input: String)

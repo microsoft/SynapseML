@@ -9,7 +9,16 @@ import org.apache.spark.sql.{DataFrame, Row, functions => F}
 
 import java.io.Serializable
 
+/**
+  * Defines when VW needs to synchonize across partitions.
+  */
 trait VowpalWabbitSynchronizationSchedule extends Serializable {
+  /**
+    * Implementations must guarantee to trigger the same number of times across all partitions.
+    *
+    * @param row passed in to enable content passed schedules (e.g. temporal)
+    * @return True if this partition needs to synchronize, false otherwise.
+    */
   def shouldTriggerAllReduce(row: Row): Boolean
 }
 
@@ -30,27 +39,32 @@ class VowpalWabbitSynchronizationScheduleSplits (df: DataFrame,
 
   val rowsPerPartitions = ClusterUtil.getNumRowsPerPartition(df, F.lit(0))
 
-  val stepSizePerPartition = rowsPerPartitions.map { c => Math.ceil(c / numSplits.toDouble).toLong }
+  val stepSizePerPartition = rowsPerPartitions.map { c => c / numSplits.toDouble }
 
-  private def getStepSize() = stepSizePerPartition(TaskContext.getPartitionId())
-
-  class ValueHolder(var value: Long)
+  lazy val rowCount = rowsPerPartitions(TaskContext.getPartitionId())
 
   @transient
-  lazy val nextSyncValue = new ValueHolder(getStepSize)
+  lazy val stepSize = {
+    val s = stepSizePerPartition(TaskContext.getPartitionId())
+
+    assert (s > 1, s"Number of splits $numSplits > ${rowCount}")
+
+    Math.ceil(s).toLong
+  }
+
+  lazy val needToSyncOnLastRow = stepSize * numSplits != rowCount
 
   @transient
-  var rowCount = 0
+  var i = 0
 
   override def shouldTriggerAllReduce(row: Row): Boolean = {
-    rowCount += 1
+    i += 1
 
-    if (rowCount < nextSyncValue.value)
-      false
-    else {
-      nextSyncValue.value = rowCount + getStepSize()
-
+    if (i % stepSize == 0)
       true
+    else {
+      // let's make sure even and odd partitions have the same number synchronizations
+      needToSyncOnLastRow && i == rowCount
     }
   }
 }
