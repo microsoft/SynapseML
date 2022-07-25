@@ -30,29 +30,29 @@ class VectorSHAPExplainerSuite extends TestBase
 
   import spark.implicits._
 
-  private val randBasis = RandBasis.withSeed(123)
-  private val m: BDM[Double] = BDM.rand[Double](1000, 5, randBasis.gaussian)
-  private val l: BDV[Double] = m(*, ::).map {
+  private lazy val randBasis = RandBasis.withSeed(123)
+  private lazy val m: BDM[Double] = BDM.rand[Double](1000, 5, randBasis.gaussian)
+  private lazy val l: BDV[Double] = m(*, ::).map {
     row =>
       if (row(2) + row(3) > 0.5) 1d else 0d
   }
 
-  val data: DataFrame = m(*, ::).iterator.zip(l.valuesIterator).map {
+  lazy val data: DataFrame = m(*, ::).iterator.zip(l.valuesIterator).map {
     case (f, l) => (f.toSpark, l)
   }.toSeq.toDF("features", "label")
 
-  val model: LogisticRegressionModel = new LogisticRegression()
+  lazy val model: LogisticRegressionModel = new LogisticRegression()
     .setFeaturesCol("features")
     .setLabelCol("label")
     .fit(data)
 
   // println(model.coefficients)
 
-  val infer: DataFrame = Seq(
+  lazy val infer: DataFrame = Seq(
     Tuple1(Vectors.dense(1d, 1d, 1d, 1d, 1d))
   ) toDF "features"
 
-  val kernelShap: VectorSHAP = KernelSHAP.vector
+  lazy val kernelShap: VectorSHAP = KernelSHAP.vector
     .setInputCol("features")
     .setOutputCol("shapValues")
     .setBackgroundData(data)

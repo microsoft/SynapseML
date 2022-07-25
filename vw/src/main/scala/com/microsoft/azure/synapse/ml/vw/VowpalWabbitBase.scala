@@ -443,7 +443,7 @@ trait VowpalWabbitBase extends Wrappable
     */
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
     // follow LightGBM pattern
-    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset, log)
+    val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
     val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
