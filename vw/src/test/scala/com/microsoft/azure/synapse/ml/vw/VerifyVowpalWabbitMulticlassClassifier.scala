@@ -17,7 +17,9 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.io.File
 
-class VerifyVowpalWabbitMulticlassClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitMulticlassClassifier] {
+class VerifyVowpalWabbitMulticlassClassifier
+  extends Benchmarks
+    with EstimatorFuzzing[VowpalWabbitMulticlassClassifier] {
   lazy val moduleName = "vw"
   val numClasses = 11
 

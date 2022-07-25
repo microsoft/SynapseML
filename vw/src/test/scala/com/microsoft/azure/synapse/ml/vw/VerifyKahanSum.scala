@@ -1,23 +1,25 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest.Matchers.convertNumericToPlusOrMinusWrapper
 
-class VerifyKahanBabushkaNeumaierSum extends TestBase {
-  val large = Math.pow(2, 50)
-  val small = Math.pow(0.5, 15)
+class VerifyKahanSum extends TestBase {
+  private val large = Math.pow(2, 50)
+  private val small = Math.pow(0.5, 15)
 
   test ("Verify KahanBabushkaNeumaierSum simple") {
       var s = KahanSum()
 
-      assert (s.toDouble() == 0)
+      assert (s.toDouble == 0)
 
       s = s + 1.0
-      assert (s.toDouble() == 1)
+      assert (s.toDouble == 1)
 
       s = s + 2.0
-      assert (s.toDouble() == 3)
+      assert (s.toDouble == 3)
     }
 
   test ("Verify KahanBabushkaNeumaierSum better than naive") {

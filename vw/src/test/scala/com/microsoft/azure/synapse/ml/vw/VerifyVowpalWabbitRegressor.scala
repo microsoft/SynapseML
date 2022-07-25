@@ -74,8 +74,8 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
           .setPredictionCol(predCol)
           .setMetricName("rmse")
         val metric = eval.evaluate(scoredResult)
-        addBenchmark(s"VowpalWabbitRegressor_${fileName}_${arg}",
-          metric, decimals, false)
+        addBenchmark(s"VowpalWabbitRegressor_${fileName}_$arg",
+          metric, decimals, higherIsBetter = false)
       }
     }
   }

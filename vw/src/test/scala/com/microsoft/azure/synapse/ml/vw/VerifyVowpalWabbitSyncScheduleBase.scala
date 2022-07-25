@@ -1,7 +1,10 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.SparkException
 
 class VerifyVowpalWabbitSyncScheduleBase extends Benchmarks {
   val numPartitions = 2
@@ -43,10 +46,7 @@ class VerifyVowpalWabbitSyncScheduleBase extends Benchmarks {
   test("Verify VW Sync Schedule Splits to large") {
     import spark.implicits._
 
-    val df = Seq(
-      ("A"),
-      ("B"),
-    ) .toDF("value")
+    val df = Seq("A", "B") .toDF("value")
 
     val splits = new VowpalWabbitSyncScheduleSplits(df, 3)
 
