@@ -5,8 +5,10 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import com.microsoft.azure.synapse.ml.policyeval.{CressieRead, CressieReadInput, CressieReadInterval,
-  CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput}
+import com.microsoft.azure.synapse.ml.policyeval.{
+  CressieRead, CressieReadInput, CressieReadInterval,
+  CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput
+}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{functions => F, types => T}
@@ -16,7 +18,7 @@ import java.io.File
 class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalWabbitGeneric] {
   val numPartitions = 2
 
-  test ("Verify VowpalWabbitGeneric from string") {
+  test("Verify VowpalWabbitGeneric from string") {
     import spark.implicits._
 
     val vw = new VowpalWabbitGeneric()
@@ -32,7 +34,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     assert(labelOneCnt == 1)
   }
 
-  test ("Verify VowpalWabbitGeneric using csoaa") {
+  test("Verify VowpalWabbitGeneric using csoaa") {
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Cost-Sensitive-One-Against-All-(csoaa)-multi-class-example
     import spark.implicits._
@@ -53,7 +55,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     verifyResult(expected, actual)
   }
 
-  test ("Verify VowpalWabbitGeneric using oaa") {
+  test("Verify VowpalWabbitGeneric using oaa") {
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
     import spark.implicits._
@@ -78,7 +80,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     verifyResult(expected, actual)
   }
 
-  test ("Verify VowpalWabbitGeneric using oaa w/ probs") {
+  test("Verify VowpalWabbitGeneric using oaa w/ probs") {
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
     import spark.implicits._
 
@@ -103,24 +105,23 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       // .withColumn("prob", F.round($"col", 1))
       .withColumn("maxProb", F.max("col").over(Window.partitionBy("input")))
 
-    assert (pred.where(F.expr("col < 0 and col > 1")).count() == 0, "predictions must be between 0 and 1")
+    assert(pred.where(F.expr("col < 0 and col > 1")).count() == 0, "predictions must be between 0 and 1")
 
     val predMatched = pred
       .where($"col" === $"maxProb")
       .withColumn("label", F.substring($"input", 0, 1).cast(T.IntegerType))
       .where($"label" === $"pos" + 1)
 
-    assert (predMatched.count() == 5, "Highest prob prediction must match label")
+    assert(predMatched.count() == 5, "Highest prob prediction must match label")
   }
 
-  test ("Verify VowpalWabbitGeneric using CATS") {
+  test("Verify VowpalWabbitGeneric using CATS") {
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions
     import spark.implicits._
 
-    val vw = new VowpalWabbitGeneric()
+    val vw = new VowpalWabbitGenericProgressive()
       .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000")
-      .setNumPasses(4)
       .setUseBarrierExecutionMode(false)
 
     val dataset = Seq(
@@ -129,16 +130,15 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "ca 15140.6:0.31791:6.20426e-05 | d"
     ).toDF("input").coalesce(2)
 
-    val classifier = vw.fit(dataset)
-
-    val predictionDF = classifier
+    val predictionDF = vw
       .transform(dataset)
-      .select($"input", F.posexplode($"segments"))
+    // .select($"input", F.posexplode($"segments"))
 
     predictionDF.show(truncate = false)
   }
 
   override def reader: MLReadable[_] = VowpalWabbitGeneric
+
   override def modelReader: MLReadable[_] = VowpalWabbitGenericModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitGeneric]] = {

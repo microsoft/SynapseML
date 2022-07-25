@@ -92,9 +92,9 @@ object VowpalWabbitPrediction {
           Seq(pred.getAction, pred.getPDFValue)
         }
       case "prediction_type_t::pdf" =>
-        obj => Seq(obj.asInstanceOf[PDF]
+        obj => obj.asInstanceOf[PDF]
           .getPDFSegments
-          .map { s => Row.fromTuple((s.getLeft, s.getRight, s.getPDFValue)) })
+          .map { s => Row.fromTuple((s.getLeft, s.getRight, s.getPDFValue)) }
       case x => throw new NotImplementedError(s"Prediction type '$x' not supported")
 
       // TODO: the java wrapper would have to support them too
