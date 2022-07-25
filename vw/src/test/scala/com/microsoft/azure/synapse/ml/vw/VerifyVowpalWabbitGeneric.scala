@@ -17,9 +17,9 @@ import java.io.File
 
 class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalWabbitGeneric] {
   val numPartitions = 2
+  import spark.implicits._
 
   test("Verify VowpalWabbitGeneric from string") {
-    import spark.implicits._
 
     val vw = new VowpalWabbitGeneric()
       .setNumPasses(2)
@@ -37,8 +37,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   test("Verify VowpalWabbitGeneric using csoaa") {
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Cost-Sensitive-One-Against-All-(csoaa)-multi-class-example
-    import spark.implicits._
-
     val vw = new VowpalWabbitGeneric()
       .setPassThroughArgs("--csoaa 4")
 
@@ -58,8 +56,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   test("Verify VowpalWabbitGeneric using oaa") {
 
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
-    import spark.implicits._
-
     val vw = new VowpalWabbitGeneric()
       .setPassThroughArgs("--oaa 4")
       .setNumPasses(4)
@@ -82,8 +78,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
 
   test("Verify VowpalWabbitGeneric using oaa w/ probs") {
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Multiclass-classification
-    import spark.implicits._
-
     val vw = new VowpalWabbitGeneric()
       .setPassThroughArgs("--oaa 4")
       .setNumPasses(4)
@@ -116,25 +110,30 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   }
 
   test("Verify VowpalWabbitGeneric using CATS") {
-
     // https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions
-    import spark.implicits._
-
-    val vw = new VowpalWabbitGenericProgressive()
+    val vw = new VowpalWabbitGeneric()
       .setPassThroughArgs("--cats_pdf 3 --bandwidth 5000 --min_value 0 --max_value 20000")
       .setUseBarrierExecutionMode(false)
 
     val dataset = Seq(
       "ca 185.121:0.657567:6.20426e-05 | a b",
       "ca 772.592:0.458316:6.20426e-05 | b c",
-      "ca 15140.6:0.31791:6.20426e-05 | d"
-    ).toDF("input").coalesce(2)
+      "ca 15140.6:0.31791:6.20426e-05 | d")
+      .toDF("input")
+      .coalesce(1)
 
-    val predictionDF = vw
-      .transform(dataset)
-    // .select($"input", F.posexplode($"segments"))
+    val classifier = vw.fit(dataset)
 
-    predictionDF.show(truncate = false)
+    val actual = classifier.transform(dataset.limit(1))
+      .select($"input", F.posexplode($"segments"))
+      .select(F.expr("col.*"))
+
+    val expected = Seq(
+      (0.0, 8333.333, 1.165E-4),
+      (8333.333, 20000.0, 2.5E-6))
+      .toDF("left", "right", "pdfValue")
+
+    verifyResult(actual, expected)
   }
 
   override def reader: MLReadable[_] = VowpalWabbitGeneric
@@ -142,8 +141,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   override def modelReader: MLReadable[_] = VowpalWabbitGenericModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitGeneric]] = {
-    import spark.implicits._
-
     val dataset = Seq("1 |a b c", "0 |d e f").toDF("input")
     Seq(new TestObject(
       new VowpalWabbitGeneric(),

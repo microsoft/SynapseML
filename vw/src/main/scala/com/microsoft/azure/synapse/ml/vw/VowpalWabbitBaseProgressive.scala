@@ -46,6 +46,8 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
       val ret = inputRows.hasNext
 
       if (!ret) {
+        vw.endPass()
+
         // cleanup
         close()
       }
@@ -61,7 +63,7 @@ trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
           vw.endPass()
 
         // withColumn
-        Row.fromSeq(inputRow.toSeq :+ trainFromRow(vw, inputRow))
+        Row.fromSeq(inputRow.toSeq ++ trainFromRow(vw, inputRow))
       }
       catch {
         case e: Exception =>

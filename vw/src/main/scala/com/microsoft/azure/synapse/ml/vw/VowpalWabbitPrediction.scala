@@ -69,17 +69,17 @@ object VowpalWabbitPrediction {
       case "prediction_type_t::action_scores" =>
         obj => {
           val pred = obj.asInstanceOf[ActionScores].getActionScores
-          pred.map({ a_s => Row.fromTuple(a_s.getAction, a_s.getScore) })
+          Seq(pred.map({ a_s => Row.fromTuple(a_s.getAction, a_s.getScore) }))
         }
       case "prediction_type_t::action_probs" =>
-        obj => obj.asInstanceOf[ActionProbs]
+        obj => Seq(obj.asInstanceOf[ActionProbs]
           .getActionProbs
-          .map { a_s => Row.fromTuple((a_s.getAction, a_s.getProbability)) }
+          .map { a_s => Row.fromTuple((a_s.getAction, a_s.getProbability)) })
       case "prediction_type_t::decision_probs" =>
-        obj => obj.asInstanceOf[DecisionScores]
+        obj => Seq(obj.asInstanceOf[DecisionScores]
           .getDecisionScores.map({ ds => {
             ds.getActionScores.map { a_s => Row.fromTuple((a_s.getAction, a_s.getScore)) }
-          }})
+          }}))
       case "prediction_type_t::multilabels" =>
         obj => Seq(obj.asInstanceOf[Multilabels].getLabels)
       case "prediction_type_t::multiclass" =>
@@ -92,9 +92,11 @@ object VowpalWabbitPrediction {
           Seq(pred.getAction, pred.getPDFValue)
         }
       case "prediction_type_t::pdf" =>
-        obj => obj.asInstanceOf[PDF]
-          .getPDFSegments
-          .map { s => Row.fromTuple((s.getLeft, s.getRight, s.getPDFValue)) }
+        obj => {
+          Seq(obj.asInstanceOf[PDF]
+            .getPDFSegments
+            .map { s => Row.fromTuple((s.getLeft, s.getRight, s.getPDFValue)) })
+        }
       case x => throw new NotImplementedError(s"Prediction type '$x' not supported")
 
       // TODO: the java wrapper would have to support them too
