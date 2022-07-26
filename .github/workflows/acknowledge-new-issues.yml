@@ -11,6 +11,7 @@ jobs:
         with:
           issue-number: ${{ github.event.issue.number }}
           body: |
-            Hey @${{ github.event.issue.user.login }} ! Thank you so much for reporting
-            the issue/feature request. Someone from SynapseML Team will be looking
-            to triage this issue soon. We appreciate your patience.
+            Hey @${{ github.event.issue.user.login }} :wave:!
+            Thank you so much for reporting the issue/feature request :rotating_light:.
+            Someone from SynapseML Team will be looking to triage this issue soon.
+            We appreciate your patience.
