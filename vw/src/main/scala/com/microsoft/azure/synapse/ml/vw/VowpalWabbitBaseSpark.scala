@@ -3,26 +3,19 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
+import com.microsoft.azure.synapse.ml.core.contracts.{HasWeightCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitExample
-import org.vowpalwabbit.spark.prediction.ScalarPrediction
 
 trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
+  with HasLabelCol
   with HasWeightCol
+  with HasFeaturesCol
   with HasAdditionalFeatures {
-  // abstract methods that implementors need to provide (mixed in through Classifier,...)
-  def labelCol: Param[String]
-  setDefault(labelCol -> "label")
-  def getLabelCol: String
-
-  def featuresCol: Param[String]
-  setDefault(featuresCol -> "features")
-  def getFeaturesCol: String
-
   setDefault(additionalFeatures -> Array())
 
   protected def getAdditionalColumns: Seq[String] = Seq.empty

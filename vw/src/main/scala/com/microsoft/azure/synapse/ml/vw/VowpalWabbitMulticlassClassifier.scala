@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.contracts.HasFeaturesCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
 import com.microsoft.azure.synapse.ml.core.utils.ParamsStringBuilder
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
@@ -82,7 +83,8 @@ class VowpalWabbitMulticlassModel(override val uid: String)
   override protected lazy val pyInternalWrapper = true
 
   // need to name differently from numClasses
-  val numClassesModel = new IntParam(this, "numClasses", "Number of classes. Passed via --oaa")
+  val numClassesModel = new IntParam(this, "numClassesModel",
+    "Number of classes. Passed via --oaa")
 
   def getNumClassesModel: Int = $(numClassesModel)
   def setNumClassesModel(value: Int): this.type = set(numClassesModel, value)

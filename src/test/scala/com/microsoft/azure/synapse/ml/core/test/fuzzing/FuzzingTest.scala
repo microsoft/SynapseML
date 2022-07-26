@@ -223,8 +223,11 @@ class FuzzingTest extends TestBase {
     val exemptions = Set[String](
       "org.apache.spark.ml.feature.FastVectorAssembler", // In Spark namespace
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassifier", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitMulticlassClassifier", // HasFeaturesCol is part of spark's base
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBandit", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressor", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGeneric", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericProgressive", // HasFeaturesCol is part of spark's base
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRanker", // HasFeaturesCol is part of spark's base class
@@ -235,6 +238,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitMulticlassModel",
       "com.microsoft.azure.synapse.ml.explainers.ImageLIME",
       "com.microsoft.azure.synapse.ml.explainers.ImageSHAP",
       "com.microsoft.azure.synapse.ml.explainers.TabularLIME",
