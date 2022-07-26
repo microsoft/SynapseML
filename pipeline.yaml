@@ -459,12 +459,12 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - bash: |
-      curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
-      mkdir ~/bin
-      tar -xzvf spark-3.2.0-bin-hadoop3.2.tgz -C ~/bin
-      export SPARK_HOME=~/bin/spark-3.2.0-bin-hadoop3.2/
-      echo "##vso[task.setvariable variable=SPARK_HOME]$SPARK_HOME"
-      echo "##vso[task.setvariable variable=PATH]$SPARK_HOME/bin:$PATH"
+        curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
+        mkdir ~/bin
+        tar -xzvf spark-3.2.0-bin-hadoop3.2.tgz -C ~/bin
+        export SPARK_HOME=~/bin/spark-3.2.0-bin-hadoop3.2/
+        echo "##vso[task.setvariable variable=SPARK_HOME]$SPARK_HOME"
+        echo "##vso[task.setvariable variable=PATH]$SPARK_HOME/bin:$PATH"
       displayName: Install Apache Spark
     - task: AzureCLI@2
       displayName: 'Test R Code'
