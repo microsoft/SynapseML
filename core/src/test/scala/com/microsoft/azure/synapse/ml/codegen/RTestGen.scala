@@ -115,21 +115,22 @@ object RTestGen {
     val library = conf.name.replaceAll("-", ".")
     writeFile(join(testsDir, "testthat.R"),
       s"""
-         |useLibrary <- function(name) {
-         |  if (!require(name)) {
-         |    install.packages(name)
-         |    library(name)
-         |  }
-         |}
-         |
-         |useLibrary("testthat")
-         |useLibrary("jsonlite")
-         |useLibrary("mlflow")
+         |${useLibrary("testthat")}
+         |${useLibrary("jsonlite")}
+         |${useLibrary("mlflow")}
          |library($library)
-         |}
          |
          |""".stripMargin)
 
+  }
+
+  def useLibrary(name: String): String = {
+    s"""
+       |if (!require("${name}")) {
+       |  install.packages("${name}")
+       |  library("${name}")
+       |}
+       |""".stripMargin
   }
 
   def isDeprecated(name: String): Boolean = {

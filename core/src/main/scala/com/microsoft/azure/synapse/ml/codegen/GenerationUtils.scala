@@ -85,8 +85,6 @@ object GenerationUtils {
           case _ =>
             rwp.rConstructorLine(v.asInstanceOf[rwp.RInnerType])
         }
-      //case tap: TypedArrayParam[_] =>
-      //  s"""${tap.name}=${RWrappableParam.rDefaultRender(v, tap)}"""
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
