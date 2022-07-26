@@ -12,5 +12,7 @@ from pyspark.ml.common import _py2java
 
 
 @inherit_doc
-class VowpalWabbitContextualBandit(_VowpalWabbitContextualBandit, VowpalWabbitPythonBase):
+class VowpalWabbitContextualBandit(
+    _VowpalWabbitContextualBandit, VowpalWabbitPythonBase
+):
     pass

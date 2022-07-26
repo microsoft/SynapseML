@@ -13,5 +13,7 @@ from pyspark.sql import DataFrame
 
 
 @inherit_doc
-class VowpalWabbitContextualBanditModel(_VowpalWabbitContextualBanditModel, VowpalWabbitPythonBaseModel):
+class VowpalWabbitContextualBanditModel(
+    _VowpalWabbitContextualBanditModel, VowpalWabbitPythonBaseModel
+):
     pass

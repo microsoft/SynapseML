@@ -11,5 +11,7 @@ from pyspark.sql import DataFrame
 
 
 @inherit_doc
-class VowpalWabbitMulticlassModel(_VowpalWabbitMulticlassModel, VowpalWabbitPythonBaseModel):
+class VowpalWabbitMulticlassModel(
+    _VowpalWabbitMulticlassModel, VowpalWabbitPythonBaseModel
+):
     pass
