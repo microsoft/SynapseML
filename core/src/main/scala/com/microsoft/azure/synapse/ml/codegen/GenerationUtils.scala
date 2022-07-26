@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import com.microsoft.azure.synapse.ml.param.TypedArrayParam
 import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PythonWrappableParam, RWrappableParam}
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._

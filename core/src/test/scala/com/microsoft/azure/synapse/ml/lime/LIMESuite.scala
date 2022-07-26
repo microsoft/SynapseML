@@ -7,7 +7,6 @@ import breeze.linalg.{*, DenseMatrix}
 import breeze.stats.distributions.Rand
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{PyEstimatorFuzzing, PyTransformerFuzzing}
-//import com.microsoft.azure.synapse.ml.core.test.fuzzing.{PyEstimatorFuzzing, PyTransformerFuzzing, TestObject } // checkme
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.spark.ml.linalg.DenseVector
