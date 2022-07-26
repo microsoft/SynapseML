@@ -52,7 +52,7 @@ class VowpalWabbitSpec(unittest.TestCase):
         model1 = estimator1.fit(featurized_data)
 
         estimator2 = VowpalWabbitClassifier()
-        estimator2.setInitialModel(model1)
+        estimator2.setInitialModel(model1.getNativeModel())
 
         model2 = estimator2.fit(featurized_data)
 
