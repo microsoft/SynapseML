@@ -5,9 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import java.io.File  // checkme
-import java.util.concurrent.locks.{Lock, ReentrantLock} // checkme
-import CodegenConfigProtocol._ // checkme
+import java.io.File
 import org.apache.commons.io.FileUtils
 import spray.json._
 
@@ -37,15 +35,15 @@ object TestGen {
     clean(conf.testDataDir)
     clean(conf.testDir)
     generatePythonTests(conf)
-    generateRTests(conf)
     generateDotnetTests(conf)
+    generateRTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
     generateRPackageData(conf)
     copyOverrides(conf.pyTestOverrideDir, conf.pyTestDir)
-    copyOverrides(conf.rTestOverrideDir, conf.rTestDir)
     copyOverrides(conf.dotnetTestOverrideDir, conf.dotnetTestDir)
-    makePyInitFiles(conf)
+    copyOverrides(conf.rTestOverrideDir, conf.rTestDir)
+    makeInitFiles(conf)
     generateDotnetTestProjFile(conf)
     generateDotnetHelperFile(conf)
   }

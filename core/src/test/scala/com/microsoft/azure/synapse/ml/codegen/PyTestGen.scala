@@ -29,14 +29,14 @@ object PyTestGen {
     }
   }
 
-  def makePyInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
+  def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = new File(new File(conf.pyTestDir,  "synapsemltest"), packageFolder)
     if (!dir.exists()){
       dir.mkdirs()
     }
     writeFile(new File(dir, "__init__.py"), "")
     dir.listFiles().filter(_.isDirectory).foreach(f =>
-      makePyInitFiles(conf, packageFolder + "/" + f.getName)
+      makeInitFiles(conf, packageFolder + "/" + f.getName)
     )
   }
 
@@ -82,6 +82,6 @@ object PyTestGen {
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
 
-    makePyInitFiles(conf)
+    makeInitFiles(conf)
   }
 }

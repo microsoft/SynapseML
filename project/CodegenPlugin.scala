@@ -308,9 +308,9 @@ object CodegenPlugin extends AutoPlugin {
         activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          //s"--cov=${genPackageNamespace.value}",
+          s"--cov=${genPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
-          //"--cov-report=xml",
+          "--cov-report=xml",
           genTestPackageNamespace.value
         ),
         new File(codegenDir.value, "test/python/")
@@ -319,21 +319,6 @@ object CodegenPlugin extends AutoPlugin {
     rCodeGen := rCodeGenImpl.value,
     rTestGen := rTestGenImpl.value,
     testR := testRImpl.value,
-    /*testR := {
-      rTestgen.value
-      val mainTargetDir = join(baseDirectory.value.getParent, "target")
-      runCmd(
-        activateCondaEnv ++ Seq("R",
-          "-m", // ?
-          "rtest",
-          s"--cov=${genPackageNamespace.value}", //?
-          s"--junitxml=${join(mainTargetDir, s"r-test-results-${name.value}.xml")}", //
-          "--cov-report=xml",
-          genTestPackageNamespace.value
-        ),
-        new File(codegenDir.value, "test/R/")
-      )
-    },*/
     dotnetCodeGen := dotnetCodeGenImpl.value,
     dotnetTestGen := dotnetTestGenImpl.value,
     testDotnet := testDotnetImpl.value,
