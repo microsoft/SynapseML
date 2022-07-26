@@ -30,11 +30,12 @@ trait HasAdditionalFeatures extends Params {
   def setAdditionalFeatures(value: Array[String]): this.type = set(additionalFeatures, value)
 }
 
-trait VowpalWabbitBase extends Wrappable
-  with ComplexParamsWritable
-  with Logging {
+trait VowpalWabbitBase
+  extends Wrappable
+    with ComplexParamsWritable
+    with Logging {
 
-  override protected lazy val pyInternalWrapper = true
+   override protected lazy val pyInternalWrapper = true
 
   // can we switch to use meta programming (https://docs.scala-lang.org/overviews/macros/paradise.html)
   // to generate all the parameters?

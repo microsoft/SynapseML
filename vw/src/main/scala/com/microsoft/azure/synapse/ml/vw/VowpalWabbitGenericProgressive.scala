@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
@@ -18,7 +19,6 @@ class VowpalWabbitGenericProgressive(override val uid: String)
     with HasInputCol
     with BasicLogging {
   logClass()
-  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("VowpalWabbitGenericProgressive"))
 

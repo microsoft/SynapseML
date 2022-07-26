@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -12,7 +13,9 @@ import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.util.UUID
 
-trait VowpalWabbitBaseProgressive extends Transformer with VowpalWabbitBase {
+trait VowpalWabbitBaseProgressive
+  extends Transformer
+    with VowpalWabbitBase {
   class TrainingPartitionIterator(inputRows: Iterator[Row],
                                   localInitialModel: Option[Array[Byte]],
                                   syncSchedule: VowpalWabbitSyncSchedule,
