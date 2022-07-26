@@ -4,20 +4,14 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-
-trait HasInputCol extends Params {
-  val inputCol = new Param[String](this, "inputCol", "The name of the input column")
-  def setInputCol(value: String): this.type = set(inputCol, value)
-  def getInputCol: String = $(inputCol)
-}
 
 /**
   * This Estimator supports driving VW using VW-style examples (e.g. 0 |a b c)

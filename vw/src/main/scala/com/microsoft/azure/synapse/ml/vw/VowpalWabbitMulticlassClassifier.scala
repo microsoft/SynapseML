@@ -64,7 +64,7 @@ class VowpalWabbitMulticlassClassifier(override val uid: String)
         .setRawPredictionCol(getRawPredictionCol)
 
       trainInternal(dataset, model)
-        .setNumClasses(getNumClasses)
+        .setNumClassesModel(getNumClasses)
     })
   }
 
@@ -81,13 +81,13 @@ class VowpalWabbitMulticlassModel(override val uid: String)
 
   override protected lazy val pyInternalWrapper = true
 
-  def numClasses: Int = getNumClasses
+  // need to name differently from numClasses
+  val numClassesModel = new IntParam(this, "numClasses", "Number of classes. Passed via --oaa")
 
-  val numClassesParam = new IntParam(this, "numClasses", "Number of classes")
+  def getNumClassesModel: Int = $(numClassesModel)
+  def setNumClassesModel(value: Int): this.type = set(numClassesModel, value)
 
-  def getNumClasses: Int = $(numClassesParam)
-
-  def setNumClasses(value: Int): this.type = set(numClassesParam, value)
+  def numClasses: Int = getNumClassesModel
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({

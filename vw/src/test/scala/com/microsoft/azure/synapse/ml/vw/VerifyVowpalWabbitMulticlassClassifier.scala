@@ -5,17 +5,10 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.TaskContext
-import org.apache.spark.ml.classification.{LogisticRegression, OneVsRest}
-import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
+import org.apache.spark.ml.evaluation.{MulticlassClassificationEvaluator}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DoubleType, IntegerType, UserDefinedType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-
-import java.io.File
+import org.apache.spark.sql.types.{DoubleType}
+import org.apache.spark.sql.{Dataset, Row}
 
 class VerifyVowpalWabbitMulticlassClassifier
   extends Benchmarks
@@ -37,7 +30,7 @@ class VerifyVowpalWabbitMulticlassClassifier
       .repartition(localNumPartitions)
   }
 
-  test ("Verify VowpalWabbit Multiclass Classifier") {
+  test("Verify VowpalWabbit Multiclass Classifier") {
     val train = getVowelTrainDataFrame(1)
     val test = getVowelTestDataFrame(2)
 
@@ -58,7 +51,7 @@ class VerifyVowpalWabbitMulticlassClassifier
     assert(evaluator.evaluate(model.transform(test)) > 0.5)
   }
 
-  test ("Verify VowpalWabbit Multiclass Classifier Probability output") {
+  test("Verify VowpalWabbit Multiclass Classifier Probability output") {
     val train = getVowelTrainDataFrame(1)
 
     val vw = new VowpalWabbitMulticlassClassifier()
@@ -78,6 +71,7 @@ class VerifyVowpalWabbitMulticlassClassifier
   }
 
   override def reader: MLReadable[_] = VowpalWabbitMulticlassClassifier
+
   override def modelReader: MLReadable[_] = VowpalWabbitMulticlassModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitMulticlassClassifier]] = {

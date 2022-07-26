@@ -4,25 +4,26 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{functions => F, types => T}
 
-class VerifyVowpalWabbitGenericProgressive extends TestBase {
+class VerifyVowpalWabbitGenericProgressive
+  extends TestBase
+    with TransformerFuzzing[VowpalWabbitGenericProgressive] {
   import spark.implicits._
+
+  lazy val simpleDf = Seq("1 |a b c", "0 |d e f", "1 |a b c")
+    .toDF("input")
+    // TODO: remove coalese and fix it
+    .coalesce(1)
 
   test("Verify VerifyVowpalWabbitGenericProgressive from string") {
 
     val vw = new VowpalWabbitGenericProgressive()
 
-    val dataset = Seq("1 |a b c", "0 |d e f", "1 |a b c")
-      .toDF("input")
-      // TODO: remove coalese and fix it
-      .coalesce(1)
-
-    val actual = vw.transform(dataset)
+    val actual = vw.transform(simpleDf)
       .select(F.round($"prediction", 1).alias("prediction"))
 
     val expected = Seq(0, 0.2, 0.6).toDF("prediction")
@@ -120,4 +121,11 @@ class VerifyVowpalWabbitGenericProgressive extends TestBase {
 //
 //    predictionDF.show(truncate = false)
 //  }
+
+  lazy val vwTest = new VowpalWabbitGenericProgressive()
+
+  override def testObjects(): Seq[TestObject[VowpalWabbitGenericProgressive]] =
+    Seq(new TestObject(vwTest, simpleDf))
+
+  override def reader: MLReadable[_] = VowpalWabbitGenericProgressive
 }

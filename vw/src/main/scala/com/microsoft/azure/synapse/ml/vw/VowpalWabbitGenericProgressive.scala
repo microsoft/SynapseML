@@ -3,8 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -71,3 +73,6 @@ class VowpalWabbitGenericProgressive(override val uid: String)
     super.transform(dataset)
   }
 }
+
+object VowpalWabbitGenericProgressive extends ComplexParamsReadable[VowpalWabbitGenericProgressive] with Serializable
+
