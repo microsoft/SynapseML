@@ -62,7 +62,7 @@ node_modules/
 /notebooks/**/*.py
 /notebooks/**/*.txt
 
-# R
+# R output
 *.Rout
 .Rhistory
 

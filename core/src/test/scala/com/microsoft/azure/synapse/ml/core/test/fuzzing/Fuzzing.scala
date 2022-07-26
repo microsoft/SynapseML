@@ -525,7 +525,6 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
       case _: Model[_] =>
         s"""
            |# TODO: restore when mlflow supports spark flavor
-           |#library(mlflow)
            |#mlflow_save_model(model, "mlflow-save-model-$num")
            |#mlflow_log_model(model, "mlflow-log-model-$num")
            |#mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
@@ -534,7 +533,6 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
         case "cognitive" =>
           s"""
              |# TODO: restore when mlflow supports spark flavor
-             |#library(mlflow)
              |#pipeline_model <- ml_pipeline(model)
              |#mlflow_save_model(pipeline_model, "mlflow-save-model-$num")
              |#mlflow_log_model(pipeline_model, "mlflow-log-model-$num")
@@ -575,9 +573,6 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val testDir = rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")
     val testContent =
       s"""
-         |#library(testthat)
-         |#library(sparklyr)
-         |
          |source("${srcPath}")
          |test_data_dir <- "${testDir}"
          |
