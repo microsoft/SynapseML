@@ -164,7 +164,7 @@ class ServiceParam[T: TypeTag](parent: Params,
       case "TimeSeriesPoint[]" |
            "TargetInput[]" |
            "TextAndTranslation[]" |
-           "TAAnalyzeTask[]" => // should this be TextAnalyzeTask?
+           "TextAnalyzeTask[]" =>
         s"""|public $dotnetType Get$capName()
             |{
             |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");

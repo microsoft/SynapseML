@@ -6,14 +6,13 @@ package com.microsoft.azure.synapse.ml.explainers
 import com.microsoft.azure.synapse.ml.core.utils.SlicerFunctions
 import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerParam}
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{PipelineModel, Transformer}
+import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.functions.{array, col}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame}
-import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat, _}
 
 trait CanValidateSchema {
   protected def validateSchema(inputSchema: StructType): Unit = {}

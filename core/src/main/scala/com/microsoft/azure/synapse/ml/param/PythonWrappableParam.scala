@@ -43,7 +43,7 @@ trait PythonWrappableParam[T] extends Param[T] {
 
   val name: String
 
-  type PyInnerType = T
+  type InnerType = T
 
   def pyValue(v: T): String
 

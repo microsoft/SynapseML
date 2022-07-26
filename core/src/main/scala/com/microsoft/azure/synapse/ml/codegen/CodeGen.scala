@@ -38,6 +38,7 @@ object CodeGen {
 
   def generateRClasses(conf: CodegenConfig): Unit = {
     val instantiatedClasses = instantiateServices[RWrappable](conf.jarName)
+    // We omit deprecated LIME classes due to a conflict with the non-deprecated versions
     instantiatedClasses
       .filter(c => !c.getClass.getName.contains("LIME") || c.getClass.getName.toLowerCase.contains("explainer"))
       .foreach { w =>

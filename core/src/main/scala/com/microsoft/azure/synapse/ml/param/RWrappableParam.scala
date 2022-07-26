@@ -19,7 +19,7 @@ trait RPrinter extends CompactPrinter {
       elements.head match {
         // Sparklyr does not support deserialization of arrays of hash tables (environments in R terms).
         // Hence we pass such arrays as strings and do the conversion on the Scala side.
-        // See readArray in sparklyr's serializer.scala.
+        // See readArray in https://github.com/sparklyr/sparklyr/blob/main/java/spark-1.5.2/serializer.scala.
         case _: spray.json.JsObject =>
           sb.append("'[")
           printSeq(elements, sb.append(',')) { e => sb.append(e.toJson.compactPrint)}

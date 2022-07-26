@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature
 import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.param.{CognitiveServiceStructParam, DotnetWrappableParam, ServiceParam}
@@ -19,7 +18,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.json4s.{DefaultFormats, ExtractableJsonAstNode}
+import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -418,13 +417,7 @@ class TextAnalyzeTaskParam(parent: Params,
       s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
 }
 
-object TextAnalyze extends ComplexParamsReadable[TextAnalyze] {
-  def convertJsonToTasks2(jsonString: String): Seq[TextAnalyzeTask] = {
-    implicit val formats = DefaultFormats
-    val p = parse(jsonString).extract[Seq[Map[String, Map[String,String]]]]
-    Seq[Map[String, String]](p.head.head._2).map(m => TextAnalyzeTask(m))
-  }
-}
+object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
 
 class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation

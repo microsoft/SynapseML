@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable, RWrappable, Wrappable}
+import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging

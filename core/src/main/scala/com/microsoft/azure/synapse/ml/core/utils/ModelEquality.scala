@@ -6,9 +6,6 @@ package com.microsoft.azure.synapse.ml.core.utils
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.TripleEquals._
-import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.camelToSnake
-
-import scala.util.matching.Regex
 
 trait ParamEquality[T] extends Param[T] {
   def assertEquality(v1: Any, v2: Any): Unit
@@ -16,8 +13,6 @@ trait ParamEquality[T] extends Param[T] {
 
 
 object ModelEquality {
-
-  //private def hex = new Regex("_[0-9A-Fa-f]_")
 
   def jaccardSimilarity(s1: String, s2: String): Double = {
     val a = Set(s1)
@@ -80,21 +75,6 @@ object ModelEquality {
 
   private def companion[T](name: String)(implicit man: Manifest[T]): T =
     Class.forName(name + "$").getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
-
-  /*private def dropHex(str: String): String = {
-    val s = hex.replaceAllIn(str, "_")
-    if (hex.findFirstIn(s) == None) s else dropHex(s)
-  }
-
-  private* def lower(str: String): String = {
-    if (str.isBlank || str.head.isLower) {
-      str
-    } else {
-      val head: String = str.takeWhile(c => c != '_')
-      val tail = str.substring(head.length)
-      if (head.isBlank) tail else camelToSnake(head) + tail
-    }
-  }*/
 
   def assertEqual(modelClassName: String, path1: String, path2: String): Unit = {
     val companionObject = companion[MLReadable[_ <: Params]](modelClassName)

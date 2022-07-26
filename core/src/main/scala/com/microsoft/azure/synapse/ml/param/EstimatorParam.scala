@@ -7,9 +7,7 @@ import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage}
-import org.apache.spark.sql.DataFrame
 
-// import java.io.File // checkme
 
 trait PipelineStageWrappable[T <: PipelineStage]
   extends ParamEquality[T]

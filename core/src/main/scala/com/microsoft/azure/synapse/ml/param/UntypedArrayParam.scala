@@ -6,10 +6,12 @@ package com.microsoft.azure.synapse.ml.param
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat, _}
+import org.json4s.DefaultFormats
 
 import scala.collection.JavaConverters._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
+
   implicit def anyFormat: JsonFormat[Any] =
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
@@ -19,6 +21,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
         case v: Seq[_] => seqFormat[Any].write(v)
+        case v: Map[String, _] => mapFormat[String, Any].write(v)
         case _ => throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
       }
 
