@@ -270,9 +270,11 @@ publishPypi := {
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
-  generatePythonDoc.value
-  (root / Compile / unidoc).value
-  generateDotnetDoc.value
+  Def.sequential(
+    generatePythonDoc,
+    generateDotnetDoc,
+    (root / Compile / unidoc)
+  ).value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">

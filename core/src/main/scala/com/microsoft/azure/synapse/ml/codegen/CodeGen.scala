@@ -145,7 +145,7 @@ object CodeGen {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
          |dl_require_list = [
          |    "cmake",
-         |    "torch>=1.11.0",
+         |    "torch==1.11.0",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
          |]
          |

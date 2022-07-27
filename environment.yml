@@ -29,4 +29,4 @@ dependencies:
     - horovod==0.25.0
     - petastorm>=0.11.0
     - pyarrow>=0.15.0
-    - numpy
+    - numpy==1.19.2

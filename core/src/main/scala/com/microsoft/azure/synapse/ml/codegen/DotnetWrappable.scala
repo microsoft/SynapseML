@@ -275,7 +275,9 @@ trait DotnetWrappable extends BaseWrappable {
     val srcFolders = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml").split(".".toCharArray)
     val srcDir = FileUtilities.join((Seq(conf.dotnetSrcDir.toString) ++ srcFolders.toSeq): _*)
-    srcDir.mkdirs()
+    if (!srcDir.exists()) {
+      srcDir.mkdirs()
+    }
     Files.write(
       FileUtilities.join(srcDir, dotnetClassName + ".cs").toPath,
       dotnetClass().getBytes(StandardCharsets.UTF_8))
