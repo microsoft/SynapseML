@@ -6,6 +6,9 @@ package com.microsoft.azure.synapse.ml.policyeval
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
+// TODO: prob doc
+// inverse propensity score
+// https://towardsdatascience.com/contextual-bandits-and-reinforcement-learning-6bdfeaece72a
 class Ips
   extends Aggregator[IpsInput, IpsBuffer, Float]
     with Serializable {

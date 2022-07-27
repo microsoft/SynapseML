@@ -26,8 +26,7 @@ class VowpalWabbitSyncScheduleDisabled extends VowpalWabbitSyncSchedule {
   override def shouldTriggerAllReduce(row: Row): Boolean = false
 }
 
-object VowpalWabbitSyncSchedule
-{
+object VowpalWabbitSyncSchedule {
   lazy val Disabled = new VowpalWabbitSyncScheduleDisabled
 }
 

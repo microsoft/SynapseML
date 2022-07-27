@@ -3,10 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.functions.{col, struct, udf}
-import org.apache.spark.sql.types.StructType
-import org.vowpalwabbit.spark.prediction.ScalarPrediction
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.vowpalwabbit.spark.VowpalWabbitExample
 
 /**
@@ -21,6 +20,11 @@ trait VowpalWabbitBaseModelSpark
   @transient
   lazy val example: VowpalWabbitExample = vw.createExample()
 
+  /**
+    * Store the detailed prediction output of VW
+    */
+  val vowpalWabbitPredictionCol: String = "vowpalWabbitPredictionCol"
+
   protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
     // select the columns we care for
     val featureColumnNames = Seq(getFeaturesCol) ++ getAdditionalFeatures
@@ -28,26 +32,36 @@ trait VowpalWabbitBaseModelSpark
 
     // pre-compute namespace hashes
     val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
-      StructType(featureColumns),
+      dataset.schema,
       vwArgs.getHashSeed,
       Seq(getFeaturesCol) ++ getAdditionalFeatures)
 
-    // define UDF
-    val predictUDF = udf { (namespaces: Row) => predictInternal(featureColIndices, namespaces) }
+    // translate prediction to Seq(...)
+    val predictToSeq = VowpalWabbitPrediction.getPredictionFunc(vw)
+    // get the schema for the prediction type
+    val schemaForPredictionType = VowpalWabbitPrediction.getSchema(vw)
 
-    // add prediction column
-    dataset.withColumn(
-      $(rawPredictionCol),
-      predictUDF(struct(featureColumns.map(f => col(f.name)): _*)))
-  }
+    // add the detailed prediction column
+    val outputSchema = dataset.schema.add(StructField(vowpalWabbitPredictionCol, schemaForPredictionType, false))
 
-  protected def predictInternal(featureColIndices: Seq[NamespaceInfo], row: Row): Double = {
-    example.clear()
+    // create a fitting row encoder
+    val rowEncoder = RowEncoder(outputSchema)
 
-    // transfer features
-    VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
+    dataset.toDF.mapPartitions(inputRows => {
+      inputRows.map { row => {
+        // clear re-used example
+        example.clear()
 
-    // TODO: surface prediction confidence
-    example.predict.asInstanceOf[ScalarPrediction].getValue.toDouble
+        // transfer features
+        VowpalWabbitUtil.addFeaturesToExample(featureColIndices, row, example)
+
+        // predict
+        val prediction = example.predict
+
+        // withColumn
+        Row.fromSeq(row.toSeq :+ Row.fromSeq(predictToSeq(prediction)))
+      }}
+    })(rowEncoder)
+      .toDF()
   }
 }

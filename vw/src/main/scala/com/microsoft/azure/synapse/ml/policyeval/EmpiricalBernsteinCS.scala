@@ -174,17 +174,17 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
     Encoders.product[EmpiricalBernsteinCSOutput]
 }
 
-final case class EmpiricalBernsteinCSBuffer(sumwsqrsq: KahanSum = 0,
-                                            sumwsqr: KahanSum = 0,
-                                            sumwsq: KahanSum = 0,
-                                            sumwr: KahanSum = 0,
-                                            sumw: KahanSum = 0,
-                                            sumwrxhatlow: KahanSum = 0,
-                                            sumwxhatlow: KahanSum = 0,
-                                            sumxhatlowsq: KahanSum = 0,
-                                            sumwrxhathigh: KahanSum = 0,
-                                            sumwxhathigh: KahanSum = 0,
-                                            sumxhathighsq: KahanSum = 0,
+final case class EmpiricalBernsteinCSBuffer(sumwsqrsq: KahanSum[Double] = 0,
+                                            sumwsqr: KahanSum[Double] = 0,
+                                            sumwsq: KahanSum[Double] = 0,
+                                            sumwr: KahanSum[Double] = 0,
+                                            sumw: KahanSum[Double] = 0,
+                                            sumwrxhatlow: KahanSum[Double] = 0,
+                                            sumwxhatlow: KahanSum[Double] = 0,
+                                            sumxhatlowsq: KahanSum[Double] = 0,
+                                            sumwrxhathigh: KahanSum[Double] = 0,
+                                            sumwxhathigh: KahanSum[Double] = 0,
+                                            sumxhathighsq: KahanSum[Double] = 0,
                                             rmin: Double = 0,
                                             rmax: Double = 0,
                                             t: Long = 0)

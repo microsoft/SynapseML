@@ -102,12 +102,12 @@ class CressieRead
 // Internal buffer state
 final case class CressieReadBuffer(wMin: Float = 0,
                                    wMax: Float = 0,
-                                   n: KahanSum = 0,
-                                   sumw: KahanSum = 0,
-                                   sumwsq: KahanSum = 0,
-                                   sumwr: KahanSum = 0,
-                                   sumwrsqr: KahanSum = 0,
-                                   sumr: KahanSum = 0)
+                                   n: KahanSum[Double] = 0,
+                                   sumw: KahanSum[Double] = 0,
+                                   sumwsq: KahanSum[Double] = 0,
+                                   sumwr: KahanSum[Double] = 0,
+                                   sumwrsqr: KahanSum[Double] = 0,
+                                   sumr: KahanSum[Double] = 0)
 
 // Input fields to aggregate over
 final case class CressieReadInput(probLog: Float,

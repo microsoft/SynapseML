@@ -90,7 +90,6 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       .setTestArgs("--probabilities")
       .transform(dataset)
       .select($"input", F.posexplode($"predictions"))
-      // .withColumn("prob", F.round($"col", 1))
       .withColumn("maxProb", F.max("col").over(Window.partitionBy("input")))
 
     assert(pred.where(F.expr("col < 0 and col > 1")).count() == 0, "predictions must be between 0 and 1")

@@ -4,12 +4,14 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.ComplexParamsWritable
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, IntParam, Param, Params, StringArrayParam}
 import org.apache.spark.sql.{DataFrame, Dataset}
+import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit

@@ -191,12 +191,12 @@ final case class CressieReadIntervalBuffer(wMin: Float = 0,
                                            wMax: Float = 0,
                                            rMin: Float = 0,
                                            rMax: Float = 0,
-                                           n: KahanSum = 0,
-                                           sumw: KahanSum = 0,
-                                           sumwsq: KahanSum = 0,
-                                           sumwr: KahanSum = 0,
-                                           sumwsqr: KahanSum = 0,
-                                           sumwsqrsq: KahanSum = 0)
+                                           n: KahanSum[Double] = 0,
+                                           sumw: KahanSum[Double] = 0,
+                                           sumwsq: KahanSum[Double] = 0,
+                                           sumwr: KahanSum[Double] = 0,
+                                           sumwsqr: KahanSum[Double] = 0,
+                                           sumwsqrsq: KahanSum[Double] = 0)
 
 final case class CressieReadIntervalInput(probLog: Float,
                                           reward: Float,

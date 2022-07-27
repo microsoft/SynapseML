@@ -16,10 +16,11 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 /**
   * This Estimator supports driving VW using VW-style examples (e.g. 0 |a b c)
   */
-class VowpalWabbitGeneric(override val uid: String) extends Estimator[VowpalWabbitGenericModel]
-  with VowpalWabbitBaseLearner
-  with HasInputCol
-  with BasicLogging {
+class VowpalWabbitGeneric(override val uid: String)
+  extends Estimator[VowpalWabbitGenericModel]
+    with VowpalWabbitBaseLearner
+    with HasInputCol
+    with BasicLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true

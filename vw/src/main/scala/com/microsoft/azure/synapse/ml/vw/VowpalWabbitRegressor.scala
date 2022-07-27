@@ -50,6 +50,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
+      .withColumn($(rawPredictionCol), col(vowpalWabbitPredictionCol).getField("prediction"))
       .withColumn($(predictionCol), col($(rawPredictionCol)))
   }
 

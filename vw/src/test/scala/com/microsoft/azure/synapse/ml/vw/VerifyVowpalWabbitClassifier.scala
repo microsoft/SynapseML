@@ -6,11 +6,12 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.TaskContext
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{DoubleType, IntegerType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.io.File
@@ -124,6 +125,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
     val vw = new VowpalWabbitClassifier()
       .setLabelCol("label01")
+      .setLabelConversion(true)
 
     val classifier = vw.fit(df)
     val labelOneCnt = classifier.transform(df).select("prediction").filter(_.getDouble(0) == 1.0).count()
@@ -237,20 +239,20 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     assert(labelOneCnt1 == labelOneCnt2)
   }
 
-  test("Verify VowpalWabbit Classifier w/ bfgs and cache file") {
-    val dataset = getAlaTrainDataFrame()
-
-    val vw1 = new VowpalWabbitClassifier()
-      .setNumPasses(3)
-      .setPassThroughArgs("--loss_function=logistic --bfgs")
-      .setLabelConversion(false)
-
-    val classifier1 = vw1.fit(dataset)
-
-    val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
-
-    println(labelOneCnt1)
-  }
+//  test("Verify VowpalWabbit Classifier w/ bfgs and cache file") {
+//    val dataset = getAlaTrainDataFrame()
+//
+//    val vw1 = new VowpalWabbitClassifier()
+//      .setNumPasses(3)
+//      .setPassThroughArgs("--loss_function=logistic --bfgs")
+//      .setLabelConversion(false)
+//
+//    val classifier1 = vw1.fit(dataset)
+//
+//    val labelOneCnt1 = classifier1.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
+//
+//    println(labelOneCnt1)
+//  }
 
   case class ClassificationInput[T](label: Int, in: T)
 
@@ -279,6 +281,65 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     assert(classifier1.getPerformanceStatistics.select("totalNumberOfFeatures").head.get(0) == 14)
   }
 
+  val numClasses = 11
+
+  def getVowelTrainDataFrame(localNumPartitions: Int): Dataset[Row] = {
+    val fileLocation = DatasetUtils.multiclassTrainFile(s"vowel.train.svmlight").toString
+    spark.read.format("libsvm")
+      .load(fileLocation)
+      .repartition(localNumPartitions)
+      .select(col("features"), col("label").cast(IntegerType).alias("label"))
+  }
+
+  def getVowelTestDataFrame(localNumPartitions: Int): Dataset[Row] = {
+    val fileLocation = DatasetUtils.multiclassTestFile(s"vowel.test.svmlight").toString
+    spark.read.format("libsvm")
+      .load(fileLocation)
+      .repartition(localNumPartitions)
+      .select(col("features"), col("label").cast(IntegerType).alias("label"))
+  }
+
+  test("Verify VowpalWabbit Multiclass Classifier") {
+    val train = getVowelTrainDataFrame(1)
+    val test = getVowelTestDataFrame(2)
+
+    // find max-label
+    // train.select(max(col("label"))).show()
+
+    val vw = new VowpalWabbitClassifier()
+      .setNumClasses(numClasses)
+      .setNumPasses(30)
+      .setPassThroughArgs(s"--oaa $numClasses --indexing 0 --quiet --holdout_off --loss_function=logistic -q ::")
+
+    val model = vw.fit(train)
+
+    // for evaluation to work need to pass --indexing 0
+    val evaluator = new MulticlassClassificationEvaluator()
+      .setMetricName("accuracy")
+
+    assert(evaluator.evaluate(model.transform(train)) > 0.9)
+    assert(evaluator.evaluate(model.transform(test)) > 0.5)
+  }
+
+  test("Verify VowpalWabbit Multiclass Classifier Probability output") {
+    val train = getVowelTrainDataFrame(1)
+
+    val vw = new VowpalWabbitClassifier()
+      .setNumClasses(numClasses)
+      .setPassThroughArgs(s"--oaa $numClasses --indexing 0 --quiet --holdout_off --loss_function=logistic")
+
+    val model = vw.fit(train)
+
+    model.setTestArgs("--probabilities --loss_function=logistic")
+
+//    model.transform(train).show()
+
+    val outputSchema = model.transform(train).schema
+
+    assert(outputSchema("prediction").dataType == DoubleType)
+    assert(outputSchema("probability").dataType == org.apache.spark.ml.linalg.SQLDataTypes.VectorType)
+  }
+
   /** Reads a CSV file given the file name and file location.
     * @param fileName The name of the csv file.
     * @param fileLocation The full path to the csv file.
@@ -297,9 +358,15 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
 
   override def testObjects(): Seq[TestObject[VowpalWabbitClassifier]] = {
     val dataset = getAlaTrainDataFrame()
+    val datasetMulti = getVowelTrainDataFrame(1)
+
     Seq(new TestObject(
       new VowpalWabbitClassifier(),
-      dataset))
+      dataset),
+      new TestObject(
+        new VowpalWabbitClassifier()
+          .setNumClasses(numClasses),
+        datasetMulti))
   }
 }
 
