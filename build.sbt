@@ -9,7 +9,7 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.0"
+val sparkVersion = "3.2.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -29,7 +29,7 @@ val coreDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.5",
-  "io.spray" %% "spray-json" % "1.3.2",
+  "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
@@ -381,9 +381,11 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.4",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+      "com.azure" % "azure-ai-textanalytics" % "5.1.6"
     ),
     dependencyOverrides ++= Seq(
+      "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
+      "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
       "com.fasterxml.jackson.core" % "jackson-core" % "2.12.5",
       "com.fasterxml.jackson.core" % "jackson-annotations" % "2.12.5",
