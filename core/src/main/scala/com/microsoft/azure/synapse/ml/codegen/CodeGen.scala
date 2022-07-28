@@ -143,7 +143,7 @@ object CodeGen {
     }
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     val requireList = if(conf.name.contains("deep-learning")) {
-      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8""".stripMargin
+      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
       s"""extras_require={"extras": [
