@@ -197,7 +197,7 @@ generateDotnetDoc := {
   val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
   if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
   FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
-  runCmd(Seq("bash", "-c","cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
@@ -384,10 +384,10 @@ lazy val cognitive = (project in file("cognitive"))
       "com.azure" % "azure-ai-textanalytics" % "5.1.4"
     ),
     dependencyOverrides ++= Seq(
-      "com.fasterxml.jackson.core" %  "jackson-databind" % "2.12.5",
-      "com.fasterxml.jackson.core" %  "jackson-core" % "2.12.5",
-      "com.fasterxml.jackson.core" %  "jackson-annotations" % "2.12.5",
-      "com.fasterxml.jackson.dataformat"  %  "jackson-dataformat-xml" % "2.12.5",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.12.5",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.12.5",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
       "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5"
     ),
     name := "synapseml-cognitive"

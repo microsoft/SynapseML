@@ -22,7 +22,7 @@ dataset_dir = (
 def _download_dataset():
 
     urllib.request.urlretrieve(
-        "https://www.robots.ox.ac.uk/~vgg/data/flowers/17/17flowers.tgz",
+        "https://mmlspark.blob.core.windows.net/publicwasb/17flowers.tgz",
         dataset_dir + "17flowers.tgz",
     )
     if os.path.exists(dataset_dir + "jpg"):
