@@ -27,7 +27,7 @@ body:
         Describe the system where you encountered the bug.
       value: |
         - **Language version** (e.g. python 3.8, scala 2.12):
-        - **Spark Version** (e.g. 3.2.1):
+        - **Spark Version** (e.g. 3.2.2):
         - **Spark Platform** (e.g. Synapse, Databricks):
     validations:
       required: true
