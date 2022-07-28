@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from PIL import Image
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+from pytorch_lightning.callbacks import Callback
 from torch.utils.data import DataLoader, Dataset
 
 from synapse.ml.dl import *
@@ -111,7 +111,7 @@ def test_lit_deep_vision_model(transform, get_data_path):
         image_col="image",
     )
 
-    callbacks = [MyDummyCallback(epochs), ModelCheckpoint(dirpath="target/resnet50/")]
+    callbacks = [MyDummyCallback(epochs)]
     trainer = Trainer(callbacks=callbacks, max_epochs=epochs)
     trainer.fit(model, train_dataloaders=train_loader)
     trainer.test(model, dataloaders=test_loader)

@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.codegen
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.indent
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
@@ -143,18 +144,17 @@ object CodeGen {
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     val requireList = if(conf.name.contains("deep-learning")) {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-         |dl_require_list = [
+         |dl_extra_list = [
          |    "cmake",
-         |    "torch==1.11.0",
+         |    "horovod==0.25.0",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
-         |]
-         |
-         |dl_extra_list = ["torchvision>=0.12.0", "horovod==0.25.0"]""".stripMargin
+         |    "torch==1.11.0",
+         |    "torchvision>=0.12.0",
+         |]""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
-      s"""    install_requires=dl_require_list,
-         |    extras_require={"extras": dl_extra_list},
-         |    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
+      s"""extras_require={"extras": dl_extra_list},
+         |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""
     writeFile(join(conf.pySrcDir, "setup.py"),
       s"""
@@ -195,7 +195,7 @@ object CodeGen {
          |        "Documentation": "https://mmlspark.blob.core.windows.net/docs/${conf.pythonizedVersion}/pyspark/index.html",
          |        "Source Code": "https://github.com/Microsoft/SynapseML",
          |    },
-         |$extraRequirements
+         |${indent(extraRequirements, 1)}
          |)
          |
          |""".stripMargin)
