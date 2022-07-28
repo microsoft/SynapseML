@@ -3,16 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
 class Snips
   extends Aggregator[SnipsInput, SnipsBuffer, Float]
-    with Serializable {
-//    with BasicLogging {
-//  logClass()
+    with Serializable
+    with BasicLogging {
+  override val uid: String = Identifiable.randomUID("BanditEstimatorSnips")
 
-//  override val uid: String = Identifiable.randomUID("BanditEstimatorSnips")
+  logClass()
 
   def zero: SnipsBuffer = SnipsBuffer(0, 0)
 
@@ -30,12 +32,12 @@ class Snips
       acc1.weightedReward + acc2.weightedReward)
 
   def finish(acc: SnipsBuffer): Float = {
-//    logVerb("aggregate", {
+    logVerb("aggregate", {
       if (acc.weightedExampleCount == 0)
         -1f // TODO: how to return null?
       else
         (acc.weightedReward / acc.weightedExampleCount).toFloat
-//    })
+    })
   }
 
   def bufferEncoder: Encoder[SnipsBuffer] = Encoders.product[SnipsBuffer]

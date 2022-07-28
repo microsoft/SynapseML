@@ -6,19 +6,20 @@ package com.microsoft.azure.synapse.ml.vw
 import org.apache.spark.sql.{Encoder, Encoders}
 import org.apache.spark.sql.expressions.Aggregator
 
+import scala.reflect.ClassTag
+
 // TODO: add doc
 // KahanBabushkaNeumaierSum
-final case class KahanSum[T:Numeric](sum: T = 0, c: T = 0) {
+// Can use generics if we are looking for perf
+// https://stackoverflow.com/questions/4753629/how-do-i-make-a-class-generic-for-all-numeric-types
+final case class KahanSum(sum: Double = 0, c: Double = 0) {
 
   // TODO: should be done w/ Float too? how to write the generics?
-  def +(x: T): KahanSum[T] = {
-    import Numeric.Implicits._
-    import Ordering.Implicits._
-
+  def +(x: Double): KahanSum = {
     val newSum = sum + x
 
     val newC = c + (
-      if (sum.abs() >= x.abs())
+      if (math.abs(sum) >= math.abs(x.abs))
         (sum  - newSum) + x
       else
         (x - newSum) + sum
@@ -28,25 +29,23 @@ final case class KahanSum[T:Numeric](sum: T = 0, c: T = 0) {
   }
 
   def toDouble: Double = {
-    import Numeric.Implicits._
-
     (sum + c).toDouble
   }
 
-  def +(other: KahanSum[T]): KahanSum[T] =
+  def +(other: KahanSum): KahanSum =
     KahanSum(this.sum, this.c) + other.sum + other.c
 }
 
 object KahanSum {
 
-  implicit def double2KahanSum(x: Double): KahanSum[Double] = KahanSum(x)
+  implicit def double2KahanSum(x: Double): KahanSum = KahanSum(x)
 }
 
 /**
   * Kahan-Babushka-Neumaier sum aggregator make sure lots of small numbers are accumulated numerically stable.
   */
 class KahanSumAggregator
-  extends Aggregator[Float, KahanSum[Double], Float]
+  extends Aggregator[Float, KahanSum, Float]
     with Serializable {
   // TODO: doesn't work
   //    with BasicLogging {
@@ -54,15 +53,15 @@ class KahanSumAggregator
 
   //  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
-  def zero: KahanSum[Double] = KahanSum()
+  def zero: KahanSum = KahanSum()
 
-  def reduce(acc: KahanSum[Double], x: Float): KahanSum[Double] = acc + x
+  def reduce(acc: KahanSum, x: Float): KahanSum = acc + x
 
-  def merge(acc1: KahanSum[Double], acc2: KahanSum[Double]): KahanSum[Double] =
+  def merge(acc1: KahanSum, acc2: KahanSum): KahanSum =
     acc1 + acc2
 
-  def finish(acc: KahanSum[Double]): Float = acc.toDouble.toFloat
+  def finish(acc: KahanSum): Float = acc.toDouble.toFloat
 
-  def bufferEncoder: Encoder[KahanSum[Double]] = Encoders.product[KahanSum[Double]]
+  def bufferEncoder: Encoder[KahanSum] = Encoders.product[KahanSum]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat
 }

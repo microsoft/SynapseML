@@ -3,8 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.policyeval
 import com.microsoft.azure.synapse.ml.vw.KahanSum
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
@@ -16,11 +18,11 @@ import org.apache.spark.sql.{Encoder, Encoders}
   */
 class CressieRead
   extends Aggregator[CressieReadInput, CressieReadBuffer, Double]
-    with Serializable {
-//    with BasicLogging {
-//  logClass()
-//
-//  override val uid: String = Identifiable.randomUID("BanditEstimatorCressieRead")
+    with Serializable
+    with BasicLogging {
+  override val uid: String = Identifiable.randomUID("BanditEstimatorCressieRead")
+
+  logClass()
 
   def zero: CressieReadBuffer =
     policyeval.CressieReadBuffer()
@@ -61,8 +63,7 @@ class CressieRead
   }
 
   def finish(acc: CressieReadBuffer): Double = {
-//    logVerb("aggregate",
-      {
+    logVerb("aggregate", {
       val n = acc.n.toDouble
 
       val sumw = acc.sumw.toDouble
@@ -91,8 +92,7 @@ class CressieRead
       val rhatmissing = sumr / n
 
       vhat + missing * rhatmissing
-    }
-    // )
+    })
   }
 
   def bufferEncoder: Encoder[CressieReadBuffer] = Encoders.product[CressieReadBuffer]
@@ -102,12 +102,12 @@ class CressieRead
 // Internal buffer state
 final case class CressieReadBuffer(wMin: Float = 0,
                                    wMax: Float = 0,
-                                   n: KahanSum[Double] = 0,
-                                   sumw: KahanSum[Double] = 0,
-                                   sumwsq: KahanSum[Double] = 0,
-                                   sumwr: KahanSum[Double] = 0,
-                                   sumwrsqr: KahanSum[Double] = 0,
-                                   sumr: KahanSum[Double] = 0)
+                                   n: KahanSum = 0,
+                                   sumw: KahanSum = 0,
+                                   sumwsq: KahanSum = 0,
+                                   sumwr: KahanSum = 0,
+                                   sumwrsqr: KahanSum = 0,
+                                   sumr: KahanSum = 0)
 
 // Input fields to aggregate over
 final case class CressieReadInput(probLog: Float,

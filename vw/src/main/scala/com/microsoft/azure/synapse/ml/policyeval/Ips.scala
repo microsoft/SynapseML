@@ -3,6 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
@@ -11,11 +13,11 @@ import org.apache.spark.sql.{Encoder, Encoders}
 // https://towardsdatascience.com/contextual-bandits-and-reinforcement-learning-6bdfeaece72a
 class Ips
   extends Aggregator[IpsInput, IpsBuffer, Float]
-    with Serializable {
-//    with BasicLogging {
-//    logClass()
-//
-//  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
+    with Serializable
+    with BasicLogging {
+  override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
+
+  logClass()
 
   def zero: IpsBuffer = IpsBuffer(0, 0)
 
@@ -34,12 +36,12 @@ class Ips
   }
 
   def finish(acc: IpsBuffer): Float =
-//    logVerb("aggregate", {
+    logVerb("aggregate", {
       if (acc.exampleCount == 0)
         -1 // TODO: how to return null?
       else
         acc.weightedReward / acc.exampleCount
-//    })
+    })
 
   def bufferEncoder: Encoder[IpsBuffer] = Encoders.product[IpsBuffer]
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat

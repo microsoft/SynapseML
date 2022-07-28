@@ -3,23 +3,25 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
+import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.policyeval
 import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.BrentSolver
 import org.apache.commons.math3.special.Gamma
+import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
+class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
   extends Aggregator[EmpiricalBernsteinCSInput,
-                     EmpiricalBernsteinCSBuffer,
-                     EmpiricalBernsteinCSOutput]
-    with Serializable {
-//    with BasicLogging {
-//  logClass()
-//
-//  override val uid: String = Identifiable.randomUID("BanditEstimatorEmpiricalBernsteinCS")
+    EmpiricalBernsteinCSBuffer,
+    EmpiricalBernsteinCSOutput]
+    with Serializable
+    with BasicLogging {
+  override val uid: String = Identifiable.randomUID("BanditEstimatorEmpiricalBernsteinCS")
+  logClass()
+
 
   val solverMaxIterations = 100
 
@@ -37,21 +39,21 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
 
     val w = x.probPred / x.probLog
 
-    assert (w >= 0)
+    assert(w >= 0)
 
     //    val xhatlow = (acc.sumXlow + 1/2) / (acc.t + 1)
-//    val xhathigh = (acc.sumXhigh + 1/2) / (acc.t + 1)
-//
-//    val sumvlow = (w * x.reward - Math.min(1, xhatlow))
-//    val sumvhigh = (w * (1 - x.reward) - Math.min(1, xhathigh))
+    //    val xhathigh = (acc.sumXhigh + 1/2) / (acc.t + 1)
+    //
+    //    val sumvlow = (w * x.reward - Math.min(1, xhatlow))
+    //    val sumvhigh = (w * (1 - x.reward) - Math.min(1, xhathigh))
 
     val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * rmin) / (rmax - rmin)
-    val xhatlow = (sumXlow + 1/2) / (acc.t + 1)
+    val xhatlow = (sumXlow + 1 / 2) / (acc.t + 1)
     val sumXhigh = (acc.sumw.toDouble * rmax - acc.sumwr.toDouble) / (rmax - rmin)
-    val xhathigh = (sumXhigh + 1/2) / (acc.t + 1)
+    val xhathigh = (sumXhigh + 1 / 2) / (acc.t + 1)
 
     EmpiricalBernsteinCSBuffer(
-      sumwsqrsq = acc.sumwsqrsq + (w * x.reward)*(w * x.reward),
+      sumwsqrsq = acc.sumwsqrsq + (w * x.reward) * (w * x.reward),
       sumwsqr = acc.sumwsqr + w * w * x.reward,
       sumwsq = acc.sumwsq + w * w,
       sumwr = acc.sumwr + w * x.reward,
@@ -94,7 +96,7 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
   private val loggammalowerincrhorho = loggammalowerinc(rho, rho)
 
   private def logwealth(s: Double, v: Double): Double = {
-    assert (s + v + rho > 0, s"$s + $v + $rho > 0")
+    assert(s + v + rho > 0, s"$s + $v + $rho > 0")
 
     (s + v
       + rhoLogRho
@@ -104,7 +106,7 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
   }
 
   private def lblogwealth(t: Long, sumXt: Double, v: Double, alpha: Double) = {
-    assert (0 < alpha && alpha < 1)
+    assert(0 < alpha && alpha < 1)
 
     val thres = -Math.log(alpha)
     val logwealthminmu = logwealth(sumXt, v)
@@ -132,59 +134,56 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double =0.05)
   }
 
   def finish(acc: EmpiricalBernsteinCSBuffer): EmpiricalBernsteinCSOutput = {
-    if (acc.t == 0 || acc.rmin == acc.rmax)
-      EmpiricalBernsteinCSOutput(acc.rmin, acc.rmax)
-    else {
-      val rrange = acc.rmax - acc.rmin
-      val sumvlow = (
-        acc.sumwsqrsq.toDouble -
-          2 * acc.rmin * acc.sumwsqr.toDouble +
-          (acc.rmin*acc.rmin * acc.sumwsq.toDouble) / (rrange * rrange)
-          - 2 * (acc.sumwrxhatlow.toDouble - acc.rmin * acc.sumwxhatlow.toDouble) / rrange
-          + acc.sumxhatlowsq.toDouble)
+    logVerb("aggregate", {
+      if (acc.t == 0 || acc.rmin == acc.rmax)
+        EmpiricalBernsteinCSOutput(acc.rmin, acc.rmax)
+      else {
+        val rrange = acc.rmax - acc.rmin
+        val sumvlow = (
+          acc.sumwsqrsq.toDouble -
+            2 * acc.rmin * acc.sumwsqr.toDouble +
+            (acc.rmin * acc.rmin * acc.sumwsq.toDouble) / (rrange * rrange)
+            - 2 * (acc.sumwrxhatlow.toDouble - acc.rmin * acc.sumwxhatlow.toDouble) / rrange
+            + acc.sumxhatlowsq.toDouble)
 
-      val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * acc.rmin) / rrange
-      val l = lblogwealth(t=acc.t, sumXt=sumXlow, v=sumvlow, alpha=alpha/2)
+        val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * acc.rmin) / rrange
+        val l = lblogwealth(t = acc.t, sumXt = sumXlow, v = sumvlow, alpha = alpha / 2)
 
-      val sumvhigh =
-        acc.sumwsqrsq.toDouble -
-          2 * acc.rmax * acc.sumwsqr.toDouble +
-          (acc.rmax * acc.rmax * acc.sumwsq.toDouble) / (rrange * rrange) +
-          2 * (acc.sumwrxhathigh.toDouble - acc.rmax * acc.sumwxhathigh.toDouble) / rrange +
-          acc.sumxhathighsq.toDouble
+        val sumvhigh =
+          acc.sumwsqrsq.toDouble -
+            2 * acc.rmax * acc.sumwsqr.toDouble +
+            (acc.rmax * acc.rmax * acc.sumwsq.toDouble) / (rrange * rrange) +
+            2 * (acc.sumwrxhathigh.toDouble - acc.rmax * acc.sumwxhathigh.toDouble) / rrange +
+            acc.sumxhathighsq.toDouble
 
-      val sumXhigh = (acc.sumw.toDouble * acc.rmax - acc.sumwr.toDouble) / rrange
-      val u = 1 - lblogwealth(t=acc.t, sumXt=sumXhigh, v=sumvhigh, alpha=alpha/2)
+        val sumXhigh = (acc.sumw.toDouble * acc.rmax - acc.sumwr.toDouble) / rrange
+        val u = 1 - lblogwealth(t = acc.t, sumXt = sumXhigh, v = sumvhigh, alpha = alpha / 2)
 
-      EmpiricalBernsteinCSOutput(
-        acc.rmin + l * rrange,
-        acc.rmin + u * rrange)
-  //    logVerb("aggregate", {
-//        BanditEstimatorEmpiricalBernsteinCSOutput(
-//          lblogwealth(acc.t, acc.sumXlow, acc.sumvlow, alpha / 2),
-//          1 - lblogwealth(acc.t, acc.sumXhigh, acc.sumvhigh, alpha / 2))
-  //    })
-    }
-
+        EmpiricalBernsteinCSOutput(
+          acc.rmin + l * rrange,
+          acc.rmin + u * rrange)
+      }
+    })
   }
 
   def bufferEncoder: Encoder[EmpiricalBernsteinCSBuffer] =
     Encoders.product[EmpiricalBernsteinCSBuffer]
+
   def outputEncoder: Encoder[EmpiricalBernsteinCSOutput] =
     Encoders.product[EmpiricalBernsteinCSOutput]
 }
 
-final case class EmpiricalBernsteinCSBuffer(sumwsqrsq: KahanSum[Double] = 0,
-                                            sumwsqr: KahanSum[Double] = 0,
-                                            sumwsq: KahanSum[Double] = 0,
-                                            sumwr: KahanSum[Double] = 0,
-                                            sumw: KahanSum[Double] = 0,
-                                            sumwrxhatlow: KahanSum[Double] = 0,
-                                            sumwxhatlow: KahanSum[Double] = 0,
-                                            sumxhatlowsq: KahanSum[Double] = 0,
-                                            sumwrxhathigh: KahanSum[Double] = 0,
-                                            sumwxhathigh: KahanSum[Double] = 0,
-                                            sumxhathighsq: KahanSum[Double] = 0,
+final case class EmpiricalBernsteinCSBuffer(sumwsqrsq: KahanSum = 0,
+                                            sumwsqr: KahanSum = 0,
+                                            sumwsq: KahanSum = 0,
+                                            sumwr: KahanSum = 0,
+                                            sumw: KahanSum = 0,
+                                            sumwrxhatlow: KahanSum = 0,
+                                            sumwxhatlow: KahanSum = 0,
+                                            sumxhatlowsq: KahanSum = 0,
+                                            sumwrxhathigh: KahanSum = 0,
+                                            sumwxhathigh: KahanSum = 0,
+                                            sumxhathighsq: KahanSum = 0,
                                             rmin: Double = 0,
                                             rmax: Double = 0,
                                             t: Long = 0)

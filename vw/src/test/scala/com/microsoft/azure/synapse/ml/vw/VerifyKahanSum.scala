@@ -11,7 +11,7 @@ class VerifyKahanSum extends TestBase {
   private val small = Math.pow(0.5, 15)
 
   test ("Verify KahanBabushkaNeumaierSum simple") {
-      var s = KahanSum[Double]()
+      var s = KahanSum()
 
       assert (s.toDouble == 0)
 
@@ -23,7 +23,7 @@ class VerifyKahanSum extends TestBase {
     }
 
   test ("Verify KahanBabushkaNeumaierSum better than naive") {
-    var compensatedSum = KahanSum[Double]()
+    var compensatedSum = KahanSum()
     var naiveSum = 0.0
 
     naiveSum += large
@@ -40,8 +40,8 @@ class VerifyKahanSum extends TestBase {
   }
 
   test ("Verify KahanBabushkaNeumaierSum incremental") {
-    var first = KahanSum[Double]()
-    var second = KahanSum[Double]()
+    var first = KahanSum()
+    var second = KahanSum()
 
     first = first + large
     second = second + large
