@@ -143,17 +143,16 @@ object CodeGen {
     }
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
     val requireList = if(conf.name.contains("deep-learning")) {
-      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
-         |dl_extra_list = [
+      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8""".stripMargin
+    } else ""
+    val extraRequirements = if (conf.name.contains("deep-learning")) {
+      s"""extras_require={"extras": [
          |    "cmake",
          |    "horovod==0.25.0",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
          |    "torch==1.11.0",
-         |    "torchvision>=0.12.0",
-         |]""".stripMargin
-    } else ""
-    val extraRequirements = if (conf.name.contains("deep-learning")) {
-      s"""extras_require={"extras": dl_extra_list},
+         |    "torchvision>=0.12.0"
+         |]},
          |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""
     writeFile(join(conf.pySrcDir, "setup.py"),
