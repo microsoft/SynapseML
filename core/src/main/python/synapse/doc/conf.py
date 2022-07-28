@@ -113,7 +113,7 @@ intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pytorch_lightning": ("https://pytorch-lightning.readthedocs.io/en/stable/", None),
-    "torchvision": ("https://pytorch.org/vision/stable/", None)
+    "torchvision": ("https://pytorch.org/vision/stable/", None),
 }
 # intersphinx_mapping = { "scala": ("/scala/index.html", None) }
 
