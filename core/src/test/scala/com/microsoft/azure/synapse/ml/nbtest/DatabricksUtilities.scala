@@ -85,8 +85,6 @@ object DatabricksUtilities {
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 
-  val NonParallelizableNotebooks: Seq[File] = Nil
-
   def databricksGet(path: String): JsValue = {
     val request = new HttpGet(BaseURL + path)
     request.addHeader("Authorization", AuthValue)
@@ -385,25 +383,24 @@ abstract class DatabricksTestHelper extends TestBase {
     tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
       assert(isClusterActive(clusterId))
     }
+
     println("Installing libraries")
     installLibraries(clusterId, libraries)
     tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
       assert(areLibrariesInstalled(clusterId))
     }
+
     println(s"Creating folder $Folder")
     workspaceMkDir(Folder)
 
     println(s"Submitting jobs")
     val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))
     parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
-
     println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
-
     assert(parNotebookRuns.nonEmpty)
 
     parNotebookRuns.foreach(run => {
       println(s"Testing ${run.notebookName}")
-
       test(run.notebookName) {
         val result = Await.ready(
           run.monitor(logLevel = 0),
@@ -423,7 +420,6 @@ abstract class DatabricksTestHelper extends TestBase {
                                clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     jobIdsToCancel.foreach(cancelRun)
-
     deleteCluster(clusterId)
     println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
