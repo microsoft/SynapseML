@@ -160,6 +160,7 @@ object DatabricksUtilities {
 
   def createClusterInPool(clusterName: String,
                           sparkVersion: String,
+                          numWorkers: Int,
                           poolId: String,
                           initScripts: String): String = {
     val body =
@@ -167,7 +168,7 @@ object DatabricksUtilities {
          |{
          |  "cluster_name": "$clusterName",
          |  "spark_version": "$sparkVersion",
-         |  "num_workers": $NumWorkers,
+         |  "num_workers": $numWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_env_vars": {
@@ -374,6 +375,7 @@ object DatabricksUtilities {
 }
 
 abstract class DatabricksTestHelper extends TestBase {
+
   import DatabricksUtilities._
 
   def databricksTestHelper(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
@@ -416,12 +418,14 @@ abstract class DatabricksTestHelper extends TestBase {
     jobIdsToCancel
   }
 
-  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int], clusterId: String): Unit = {
+  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int],
+                               clusterId: String,
+                               clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     jobIdsToCancel.foreach(cancelRun)
 
     deleteCluster(clusterId)
-    println(s"Deleted cluster with Id $clusterId.")
+    println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
 

@@ -13,7 +13,7 @@ import scala.language.existentials
 
 class DatabricksTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, PoolId, "[]")
+  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, "[]")
   val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(clusterId, Libraries, CPUNotebooks)
 
   println(s"Submitting nonparallelizable job...")
@@ -33,7 +33,7 @@ class DatabricksTests extends DatabricksTestHelper {
   })
 
   protected override def afterAll(): Unit = {
-    afterAllHelper(jobIdsToCancel, clusterId)
+    afterAllHelper(jobIdsToCancel, clusterId, ClusterName)
 
     super.afterAll()
   }
