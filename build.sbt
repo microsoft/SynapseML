@@ -9,7 +9,7 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.1"
+val sparkVersion = "3.2.2"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
