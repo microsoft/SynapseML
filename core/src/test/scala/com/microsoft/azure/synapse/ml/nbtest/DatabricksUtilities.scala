@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
 import com.microsoft.azure.synapse.ml.nbtest.SprayImplicits._
@@ -18,8 +19,10 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
-import java.util.concurrent.TimeoutException
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import java.util.concurrent.{TimeUnit, TimeoutException}
+import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
 //noinspection ScalaStyle
 object DatabricksUtilities {
@@ -27,7 +30,9 @@ object DatabricksUtilities {
   // ADB Info
   val Region = "eastus"
   val PoolName = "synapseml-build-10.1"
+  val GpuPoolName = "synapseml-build-10.4-gpu"
   val AdbRuntime = "10.1.x-scala2.12"
+  val AdbGpuRuntime = "10.4.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -36,7 +41,9 @@ object DatabricksUtilities {
     .encode(("token:" + Token).getBytes("UTF-8"))
   val BaseURL = s"https://$Region.azuredatabricks.net/api/2.0/"
   lazy val PoolId: String = getPoolIdByName(PoolName)
+  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
+  lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
@@ -56,14 +63,27 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "mlflow"))
   ).toJson.compactPrint
 
+  // TODO: install synapse.ml.dl wheel package here
+  val GPULibraries: String = List(
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository))
+  ).toJson.compactPrint
+
+  val GPUInitScripts: String = List(
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation.sh"))
+  ).toJson.compactPrint
+
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
     FileUtilities.join(
-      BuildInfo.baseDirectory.getParent, "notebooks").getCanonicalFile)
+      BuildInfo.baseDirectory.getParent, "notebooks", "features").getCanonicalFile)
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
+
+  val CPUNotebooks: Seq[File] = ParallelizableNotebooks.filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 
   val NonParallelizableNotebooks: Seq[File] = Nil
 
@@ -117,35 +137,55 @@ object DatabricksUtilities {
     ()
   }
 
+  def uploadFileToDBFS(file: File, dest: String): Unit = {
+    val content = BaseEncoding.base64().encode(
+      IOUtils.toByteArray(new FileInputStream(file)))
+    val body =
+      s"""
+         |{
+         |  "contents": "$content",
+         |  "path": "$dest",
+         |  "overwrite": true
+         |}
+       """.stripMargin
+    databricksPost("dbfs/put", body)
+    ()
+  }
+
   def workspaceRmDir(dir: String): Unit = {
     val body = s"""{"path": "$dir", "recursive":true}"""
     databricksPost("workspace/delete", body)
     ()
   }
 
-  def createClusterInPool(clusterName: String, poolId: String): String = {
+  def createClusterInPool(clusterName: String,
+                          sparkVersion: String,
+                          numWorkers: Int,
+                          poolId: String,
+                          initScripts: String): String = {
     val body =
       s"""
          |{
          |  "cluster_name": "$clusterName",
-         |  "spark_version": "$AdbRuntime",
-         |  "num_workers": $NumWorkers,
+         |  "spark_version": "$sparkVersion",
+         |  "num_workers": $numWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-         |   }
+         |   },
+         |  "init_scripts": $initScripts
          |}
       """.stripMargin
     databricksPost("clusters/create", body).select[String]("cluster_id")
   }
 
-  def installLibraries(clusterId: String): Unit = {
+  def installLibraries(clusterId: String, libraries: String): Unit = {
     databricksPost("libraries/install",
       s"""
          |{
          | "cluster_id": "$clusterId",
-         | "libraries": $Libraries
+         | "libraries": $libraries
          |}
       """.stripMargin)
     ()
@@ -331,6 +371,61 @@ object DatabricksUtilities {
 
   def cancelAllJobs(clusterId: String): Unit = {
     listActiveJobs(clusterId).foreach(cancelRun)
+  }
+}
+
+abstract class DatabricksTestHelper extends TestBase {
+
+  import DatabricksUtilities._
+
+  def databricksTestHelper(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+    val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
+
+    println("Checking if cluster is active")
+    tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
+      assert(isClusterActive(clusterId))
+    }
+    println("Installing libraries")
+    installLibraries(clusterId, libraries)
+    tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
+      assert(areLibrariesInstalled(clusterId))
+    }
+    println(s"Creating folder $Folder")
+    workspaceMkDir(Folder)
+
+    println(s"Submitting jobs")
+    val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))
+    parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
+
+    println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
+
+    assert(parNotebookRuns.nonEmpty)
+
+    parNotebookRuns.foreach(run => {
+      println(s"Testing ${run.notebookName}")
+
+      test(run.notebookName) {
+        val result = Await.ready(
+          run.monitor(logLevel = 0),
+          Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+
+        if (!result.isSuccess) {
+          throw result.failed.get
+        }
+      }
+    })
+
+    jobIdsToCancel
+  }
+
+  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int],
+                               clusterId: String,
+                               clusterName: String): Unit = {
+    println("Suite test finished. Running afterAll procedure...")
+    jobIdsToCancel.foreach(cancelRun)
+
+    deleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
 

@@ -122,6 +122,14 @@ jobs:
         scriptType: bash
         inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
       condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: AzureCLI@2
+      displayName: 'GPU tests'
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.GPUTests"'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -450,8 +458,6 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - bash: curl https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o spark-3.2.0-bin-hadoop3.2.tgz
-      displayName: Download spark
     - task: AzureCLI@2
       displayName: 'Test R Code'
       timeoutInMinutes: 30

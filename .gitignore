@@ -69,3 +69,14 @@ node_modules/
 .bsp
 website/.docusaurus
 null/
+
+# pytorch_lightning logs
+**/lightning_logs/*
+
+# pytest
+.pytest_cache/
+
+# python wheel
+**/build/*
+**/dist/*
+**/*.egg-info/*

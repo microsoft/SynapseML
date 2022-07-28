@@ -8,11 +8,12 @@ dependencies:
   - requests=2.26.0
   - pip=21.3
   - r-base=4.1.1
-  - r-sparklyr=1.7.2
+  - r-sparklyr=1.7.6
   - r-devtools=2.4.2
   - pip:
     - wheel
     - sphinx==4.2.0
+    - sphinx_paramlinks==0.5.2
     - sphinx_rtd_theme
     - coverage
     - pytest
@@ -24,3 +25,10 @@ dependencies:
     - twine
     - jupyter
     - mlflow
+    - numpy==1.19.3
+    - torch==1.11.0
+    - torchvision==0.12.0
+    - horovod==0.25.0
+    - petastorm>=0.11.0
+    - pyarrow>=0.15.0
+    - pytorch_lightning==1.5.0
