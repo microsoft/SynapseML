@@ -10,8 +10,7 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 import java.io.File
 import scala.collection.mutable.ListBuffer
 
-class GPUTests extends DatabricksTestHelper {
-
+class DatabricksGPUTests extends DatabricksTestHelper {
   val horovodInstallationScript: File = FileUtilities.join(
     BuildInfo.baseDirectory.getParent, "deep-learning",
     "src", "main", "python", "horovod_installation.sh").getCanonicalFile
@@ -21,7 +20,6 @@ class GPUTests extends DatabricksTestHelper {
 
   protected override def afterAll(): Unit = {
     afterAllHelper(jobIdsToCancel, clusterId, GPUClusterName)
-
     super.afterAll()
   }
 
