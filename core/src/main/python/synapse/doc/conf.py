@@ -12,11 +12,13 @@
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
+    "sphinx_paramlinks",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -106,26 +108,17 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pytorch_lightning": ("https://pytorch-lightning.readthedocs.io/en/stable/", None),
+    "torchvision": ("https://pytorch.org/vision/stable/", None)
+}
 # intersphinx_mapping = { "scala": ("/scala/index.html", None) }
 
-# -- Mock out pandas+numpy that can't be found ----------------------------
-import sys
-
-try:
-    from unittest.mock import MagicMock  # python >= 3.3
-except ImportError:
-    from mock import Mock as MagicMock  # older
-
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-MOCK_MODULES = ["numpy", "pandas"]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+# -- Mock out pandas that can't be found ----------------------------
+autodoc_mock_imports = ["pandas"]
 
 # -- Setup AutoStructify --------------------------------------------------
 # Use this if we ever want to use markdown pages instead of rst pages.
