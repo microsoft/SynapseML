@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
@@ -134,7 +135,7 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
     assert (metric < 11)
   }
 
-  test("Verify SGD followed-by BFGS") {
+  test("Verify SGD and SparkML model stats") {
     val dataset = spark.read.format("libsvm")
       .load(DatasetUtils.regressionTrainFile("triazines.scale.reg.train.svmlight").toString)
       .coalesce(1)
@@ -143,6 +144,17 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
       .setNumPasses(20)
       .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
       .fit(dataset)
+
+    val predictions = model1.transform(dataset)
+
+    val metrics = new ComputeModelStatistics()
+      .setEvaluationMetric("regression")
+      .setLabelCol("label")
+      .setScoresCol("prediction")
+
+    val mse = metrics.transform(predictions).head().getAs[Double]("mean_squared_error")
+
+    assert (mse < 0.16)
 
     // crashes on latest version
 //    val model2 = new VowpalWabbitRegressor()

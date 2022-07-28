@@ -11,6 +11,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.DoubleType
 
 /**
   * VowpalWabbit exposed as SparkML regressor.
@@ -53,7 +54,8 @@ class VowpalWabbitRegressionModel(override val uid: String)
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
-      .withColumn($(rawPredictionCol), col(vowpalWabbitPredictionCol).getField("prediction"))
+      .withColumn($(rawPredictionCol),
+        col(vowpalWabbitPredictionCol).getField("prediction").cast(DoubleType))
       .withColumn($(predictionCol), col($(rawPredictionCol)))
   }
 
