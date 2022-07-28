@@ -19,8 +19,9 @@ import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable
 
-object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
-
+/**
+  * Exposes VW-style featurizer using hashing to SparkML eco system.
+  */
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
   with Wrappable with ComplexParamsWritable with BasicLogging
@@ -224,3 +225,5 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     schema.add(StructField(getOutputCol, VectorType, nullable = true))
   }
 }
+
+object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]

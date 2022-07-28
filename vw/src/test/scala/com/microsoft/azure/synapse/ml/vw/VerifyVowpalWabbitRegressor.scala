@@ -144,6 +144,7 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
       .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
       .fit(dataset)
 
+    // crashes on latest version
 //    val model2 = new VowpalWabbitRegressor()
 //      .setNumPasses(20)
 //      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs --predict_only_model")

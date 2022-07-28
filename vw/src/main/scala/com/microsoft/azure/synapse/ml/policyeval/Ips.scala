@@ -8,9 +8,11 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
-// TODO: prob doc
-// inverse propensity score
-// https://towardsdatascience.com/contextual-bandits-and-reinforcement-learning-6bdfeaece72a
+/**
+  * Simplest off-policy evaluation metric: IPS (Inverse Propensity Score)
+  *
+  * See https://courses.cs.washington.edu/courses/cse599m/19sp/notes/off_policy.pdf
+  */
 class Ips
   extends Aggregator[IpsInput, IpsBuffer, Float]
     with Serializable

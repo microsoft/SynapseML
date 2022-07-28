@@ -9,6 +9,9 @@ import org.vowpalwabbit.spark.ClusterSpanningTree
 
 import java.util.UUID
 
+/**
+  * Helper to spin up spanning tree coordinator for AllReduce.
+  */
 class VowpalWabbitClusterUtil(quiet: Boolean) {
   val spanningTree = new ClusterSpanningTree(0, quiet)
 

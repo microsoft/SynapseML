@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.{StructField}
 import org.vowpalwabbit.spark.VowpalWabbitExample
 
 /**
@@ -26,10 +26,6 @@ trait VowpalWabbitBaseModelSpark
   val vowpalWabbitPredictionCol: String = "vowpalWabbitPredictionCol"
 
   protected def transformImplInternal(dataset: Dataset[_]): DataFrame = {
-    // select the columns we care for
-    val featureColumnNames = Seq(getFeaturesCol) ++ getAdditionalFeatures
-    val featureColumns = dataset.schema.filter({ f => featureColumnNames.contains(f.name) })
-
     // pre-compute namespace hashes
     val featureColIndices = VowpalWabbitUtil.generateNamespaceInfos(
       dataset.schema,
@@ -58,7 +54,7 @@ trait VowpalWabbitBaseModelSpark
         // predict
         val prediction = example.predict
 
-        // withColumn
+        // add the prediction column to the output
         Row.fromSeq(row.toSeq :+ Row.fromSeq(predictToSeq(prediction)))
       }}
     })(rowEncoder)

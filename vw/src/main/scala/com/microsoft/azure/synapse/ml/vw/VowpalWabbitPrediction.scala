@@ -9,6 +9,9 @@ import org.vowpalwabbit.spark.VowpalWabbitNative
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
 
+/**
+  * Provide schemas and accessor functions for almost all VW prediction types.
+  */
 object VowpalWabbitPrediction {
   val SchemaMap = Map(
     "prediction_type_t::scalars" -> Seq(StructField("predictions", ArrayType(FloatType), nullable = false)),
@@ -56,8 +59,6 @@ object VowpalWabbitPrediction {
   type VowpalWabbitPredictionToSeqFunc = Object => Seq[Any]
 
   def getPredictionFunc(vw: VowpalWabbitNative): VowpalWabbitPredictionToSeqFunc = {
-//    println(s"Pred type: ${vw.getOutputPredictionType}")
-
     vw.getOutputPredictionType match {
       case "prediction_type_t::scalar" =>
         obj => {

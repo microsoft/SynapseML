@@ -22,30 +22,21 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
   override val uid: String = Identifiable.randomUID("BanditEstimatorEmpiricalBernsteinCS")
   logClass()
 
-
   val solverMaxIterations = 100
 
   if (rho <= 0)
     throw new IllegalArgumentException(s"rho ($rho) must be > 0")
 
-  //  override val uid: String = Identifiable.randomUID("BanditEstimatorEmpiricalBernsteinCS")
-
   def zero: EmpiricalBernsteinCSBuffer = policyeval.EmpiricalBernsteinCSBuffer()
 
   def reduce(acc: EmpiricalBernsteinCSBuffer,
              x: EmpiricalBernsteinCSInput): EmpiricalBernsteinCSBuffer = {
-    val rmin = Math.min(x.rmin, acc.rmin)
-    val rmax = Math.max(x.rmax, acc.rmax)
+    val rmin = Math.min(x.rewardMin, acc.rewardMin)
+    val rmax = Math.max(x.rewardMax, acc.rewardMax)
 
     val w = x.probPred / x.probLog
 
     assert(w >= 0)
-
-    //    val xhatlow = (acc.sumXlow + 1/2) / (acc.t + 1)
-    //    val xhathigh = (acc.sumXhigh + 1/2) / (acc.t + 1)
-    //
-    //    val sumvlow = (w * x.reward - Math.min(1, xhatlow))
-    //    val sumvhigh = (w * (1 - x.reward) - Math.min(1, xhathigh))
 
     val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * rmin) / (rmax - rmin)
     val xhatlow = (sumXlow + 1 / 2) / (acc.t + 1)
@@ -64,8 +55,8 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
       sumwrxhathigh = acc.sumwrxhathigh + w * x.reward * xhathigh,
       sumwxhathigh = acc.sumwxhathigh + w * xhathigh,
       sumxhathighsq = acc.sumxhathighsq + xhathigh * xhathigh,
-      rmin = rmin,
-      rmax = rmax,
+      rewardMin = rmin,
+      rewardMax = rmax,
       t = acc.t + 1)
   }
 
@@ -83,8 +74,8 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
       sumwrxhathigh = acc1.sumwrxhathigh + acc2.sumwrxhathigh,
       sumwxhathigh = acc1.sumwxhathigh + acc2.sumwxhathigh,
       sumxhathighsq = acc1.sumxhathighsq + acc2.sumxhathighsq,
-      rmin = Math.min(acc1.rmin, acc2.rmin),
-      rmax = Math.max(acc1.rmax, acc2.rmax),
+      rewardMin = Math.min(acc1.rewardMin, acc2.rewardMin),
+      rewardMax = Math.max(acc1.rewardMax, acc2.rewardMax),
       t = acc1.t + acc2.t
     )
   }
@@ -119,7 +110,6 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
 
       val logwealthmaxmu = logwealth(sumXt - t * maxmu, v)
 
-      //        assert (logwealthmaxmu <= thres, s"$logwealthmaxmu < $thres")
       if (logwealthmaxmu >= thres)
         maxmu
       else {
@@ -135,33 +125,33 @@ class EmpiricalBernsteinCS(rho: Double = 1, alpha: Double = 0.05)
 
   def finish(acc: EmpiricalBernsteinCSBuffer): EmpiricalBernsteinCSOutput = {
     logVerb("aggregate", {
-      if (acc.t == 0 || acc.rmin == acc.rmax)
-        EmpiricalBernsteinCSOutput(acc.rmin, acc.rmax)
+      if (acc.t == 0 || acc.rewardMin == acc.rewardMax)
+        EmpiricalBernsteinCSOutput(acc.rewardMin, acc.rewardMax)
       else {
-        val rrange = acc.rmax - acc.rmin
+        val rrange = acc.rewardMax - acc.rewardMin
         val sumvlow = (
           acc.sumwsqrsq.toDouble -
-            2 * acc.rmin * acc.sumwsqr.toDouble +
-            (acc.rmin * acc.rmin * acc.sumwsq.toDouble) / (rrange * rrange)
-            - 2 * (acc.sumwrxhatlow.toDouble - acc.rmin * acc.sumwxhatlow.toDouble) / rrange
+            2 * acc.rewardMin * acc.sumwsqr.toDouble +
+            (acc.rewardMin * acc.rewardMin * acc.sumwsq.toDouble) / (rrange * rrange)
+            - 2 * (acc.sumwrxhatlow.toDouble - acc.rewardMin * acc.sumwxhatlow.toDouble) / rrange
             + acc.sumxhatlowsq.toDouble)
 
-        val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * acc.rmin) / rrange
+        val sumXlow = (acc.sumwr.toDouble - acc.sumw.toDouble * acc.rewardMin) / rrange
         val l = lblogwealth(t = acc.t, sumXt = sumXlow, v = sumvlow, alpha = alpha / 2)
 
         val sumvhigh =
           acc.sumwsqrsq.toDouble -
-            2 * acc.rmax * acc.sumwsqr.toDouble +
-            (acc.rmax * acc.rmax * acc.sumwsq.toDouble) / (rrange * rrange) +
-            2 * (acc.sumwrxhathigh.toDouble - acc.rmax * acc.sumwxhathigh.toDouble) / rrange +
+            2 * acc.rewardMax * acc.sumwsqr.toDouble +
+            (acc.rewardMax * acc.rewardMax * acc.sumwsq.toDouble) / (rrange * rrange) +
+            2 * (acc.sumwrxhathigh.toDouble - acc.rewardMax * acc.sumwxhathigh.toDouble) / rrange +
             acc.sumxhathighsq.toDouble
 
-        val sumXhigh = (acc.sumw.toDouble * acc.rmax - acc.sumwr.toDouble) / rrange
+        val sumXhigh = (acc.sumw.toDouble * acc.rewardMax - acc.sumwr.toDouble) / rrange
         val u = 1 - lblogwealth(t = acc.t, sumXt = sumXhigh, v = sumvhigh, alpha = alpha / 2)
 
         EmpiricalBernsteinCSOutput(
-          acc.rmin + l * rrange,
-          acc.rmin + u * rrange)
+          acc.rewardMin + l * rrange,
+          acc.rewardMin + u * rrange)
       }
     })
   }
@@ -184,15 +174,15 @@ final case class EmpiricalBernsteinCSBuffer(sumwsqrsq: KahanSum = 0,
                                             sumwrxhathigh: KahanSum = 0,
                                             sumwxhathigh: KahanSum = 0,
                                             sumxhathighsq: KahanSum = 0,
-                                            rmin: Double = 0,
-                                            rmax: Double = 0,
+                                            rewardMin: Double = 0,
+                                            rewardMax: Double = 0,
                                             t: Long = 0)
 
 final case class EmpiricalBernsteinCSInput(probLog: Float,
                                            reward: Float,
                                            probPred: Float,
                                            count: Float,
-                                           rmin: Float,
-                                           rmax: Float)
+                                           rewardMin: Float,
+                                           rewardMax: Float)
 
 case class EmpiricalBernsteinCSOutput(lower: Double, upper: Double)

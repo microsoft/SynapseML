@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
@@ -14,6 +13,9 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
+/**
+  * VW-style string based input implemention of online learning with progressive (1-step ahead) output.
+  */
 class VowpalWabbitGenericProgressive(override val uid: String)
   extends VowpalWabbitBaseProgressive
     with HasInputCol
@@ -28,7 +30,9 @@ class VowpalWabbitGenericProgressive(override val uid: String)
 
   override protected def getInputColumns: Seq[String] = Seq(getInputCol)
 
-  // wrap the block w/ a VW instance that will be closed when the block is done.
+  /**
+    * wrap the block w/ a VW instance that will be closed when the block is done.
+    */
   private def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 

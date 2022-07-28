@@ -10,7 +10,7 @@ import org.apache.spark.sql.{DataFrame, Row, functions => F}
 import java.io.Serializable
 
 /**
-  * Defines when VW needs to synchonize across partitions.
+  * Defines when VW needs to synchronize across partitions.
   */
 trait VowpalWabbitSyncSchedule extends Serializable {
   /**
@@ -30,6 +30,9 @@ object VowpalWabbitSyncSchedule {
   lazy val Disabled = new VowpalWabbitSyncScheduleDisabled
 }
 
+/**
+  * Row-count based splitting.
+  */
 class VowpalWabbitSyncScheduleSplits(df: DataFrame,
                                      numSplits: Integer)
   extends VowpalWabbitSyncSchedule {

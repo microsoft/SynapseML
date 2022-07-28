@@ -11,10 +11,9 @@ import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
 /**
-  * Cressie-Read Bandit estimator
+  * Cressie-Read off-policy evaluation metric.
   *
   * Background http://www.machinedlearnings.com/2020/12/distributionally-robust-contextual.html
-  *
   */
 class CressieRead
   extends Aggregator[CressieReadInput, CressieReadBuffer, Double]
@@ -24,12 +23,9 @@ class CressieRead
 
   logClass()
 
-  def zero: CressieReadBuffer =
-    policyeval.CressieReadBuffer()
+  def zero: CressieReadBuffer = policyeval.CressieReadBuffer()
 
-  def reduce(acc: CressieReadBuffer,
-             x: CressieReadInput): CressieReadBuffer = {
-
+  def reduce(acc: CressieReadBuffer, x: CressieReadInput): CressieReadBuffer = {
     val w = x.probPred / x.probLog
     val countW = x.count * w
     val countWsq = countW * countW
@@ -48,7 +44,6 @@ class CressieRead
 
   def merge(acc1: CressieReadBuffer,
             acc2: CressieReadBuffer): CressieReadBuffer = {
-
     CressieReadBuffer(
       // min of min, max of max
       wMin = Math.min(acc1.wMin, acc2.wMin),

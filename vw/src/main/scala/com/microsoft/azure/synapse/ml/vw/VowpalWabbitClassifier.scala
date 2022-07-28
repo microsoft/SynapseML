@@ -19,6 +19,9 @@ import org.vowpalwabbit.spark.VowpalWabbitExample
 
 import scala.math.exp
 
+/**
+  * VowpalWabbit exposed as SparkML classifier.
+  */
 class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseSpark

@@ -9,6 +9,9 @@ import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol}
 import org.apache.spark.sql.{Row, types => T}
 import org.vowpalwabbit.spark.VowpalWabbitExample
 
+/**
+  * * Base implementation for estimators that use Spark-based features (e.g. SparkML vectors)
+  */
 trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
   with HasLabelCol
   with HasWeightCol
@@ -29,13 +32,17 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
     T.StructField("probability", T.FloatType, false)
   ))
 
-  private val contextualBanditContinousLabelSchema = T.StructType(Seq(
+  private val contextualBanditContinuousLabelSchema = T.StructType(Seq(
     T.StructField("actions", T.ArrayType(T.FloatType), false),
     T.StructField("costs", T.ArrayType(T.FloatType), false),
     T.StructField("pdfValues", T.ArrayType(T.FloatType), false)
   ))
 
-  // default weight to 1 if not provided
+  /**
+    * default weight to 1 if not provided
+    * @param schema the schema to fetch weight from
+    * @return an accessor method used to fetch the weight
+    */
   protected def getWeightGetter(schema: T.StructType) = if (get(weightCol).isDefined)
     getAsFloat(schema, schema.fieldIndex(getWeightCol))
   else
@@ -87,7 +94,7 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
             row.getFloat(costIndex),
             row.getFloat(probabilityIndex))
 
-      case t: T.StructType if t.equals(contextualBanditContinousLabelSchema) =>
+      case t: T.StructType if t.equals(contextualBanditContinuousLabelSchema) =>
         val actionsIndex = t.fieldIndex("actions")
         val costIndex = t.fieldIndex("costs")
         val pdfValuesIndex = t.fieldIndex("pdfValues")
@@ -108,7 +115,6 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
       getAdditionalColumns ++
       Seq(get(weightCol)).flatten
 
-  // Separate method to be overridable
   protected override def trainFromRows(schema: T.StructType,
                                        inputRows: Iterator[Row],
                                        ctx: TrainContext): Unit = {

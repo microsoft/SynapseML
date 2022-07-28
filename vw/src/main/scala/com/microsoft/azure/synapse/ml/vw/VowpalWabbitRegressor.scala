@@ -12,8 +12,9 @@ import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsW
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 
-object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
-
+/**
+  * VowpalWabbit exposed as SparkML regressor.
+  */
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseSpark
@@ -37,6 +38,8 @@ class VowpalWabbitRegressor(override val uid: String)
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
+
+object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
 
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]

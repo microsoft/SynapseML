@@ -8,6 +8,11 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
+/**
+  * SNIPS off policy estimator: the Self-Normalized Estimator for Counterfactual Learning
+  *
+  * See https://papers.nips.cc/paper/2015/file/39027dfad5138c9ca0c474d71db915c3-Paper.pdf
+  */
 class Snips
   extends Aggregator[SnipsInput, SnipsBuffer, Float]
     with Serializable

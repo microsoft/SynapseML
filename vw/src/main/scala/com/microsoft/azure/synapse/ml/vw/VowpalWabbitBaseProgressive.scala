@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -13,6 +12,14 @@ import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.util.UUID
 
+/**
+  * VowpalWabbit is focused on online learning. In these settings it is common
+  * to operate in progressive validation using a 1-step ahead approach.
+  * By default when VW learns from data, it first computes the prediction without learning
+  * and then updates the model from the new data.
+  * This is especially useful in bandit scenarios as one wants to avoid cheating -
+  * as in "knowing the future".
+  */
 trait VowpalWabbitBaseProgressive
   extends Transformer
     with VowpalWabbitBase {
@@ -62,6 +69,7 @@ trait VowpalWabbitBaseProgressive
       try {
         val inputRow = inputRows.next()
 
+        // used to trigger inter-pass all reduce synchronizations
         if (syncSchedule.shouldTriggerAllReduce(inputRow))
           vw.endPass()
 
@@ -77,6 +85,7 @@ trait VowpalWabbitBaseProgressive
     }
   }
 
+  // implementors are task with the transfer of the data to VW
   def trainFromRow(vw: VowpalWabbitNative, row: Row): Seq[Any]
 
   def getAdditionalOutputSchema: StructType

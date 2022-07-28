@@ -11,6 +11,11 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
 
+/**
+  * Cressie-Read with intervals off-policy evaluation metric.
+  *
+  * Background http://www.machinedlearnings.com/2020/12/distributionally-robust-contextual.html
+  */
 class CressieReadInterval(empiricalBounds: Boolean)
   extends Aggregator[CressieReadIntervalInput,
                      CressieReadIntervalBuffer,
@@ -24,30 +29,27 @@ class CressieReadInterval(empiricalBounds: Boolean)
   val alpha = 0.05
   val atol = 1e-9
 
-  def zero: CressieReadIntervalBuffer =
-    policyeval.CressieReadIntervalBuffer()
+  def zero: CressieReadIntervalBuffer = policyeval.CressieReadIntervalBuffer()
 
-  def reduce(acc: CressieReadIntervalBuffer,
-             x: CressieReadIntervalInput): CressieReadIntervalBuffer = {
-
+  def reduce(acc: CressieReadIntervalBuffer, x: CressieReadIntervalInput): CressieReadIntervalBuffer = {
     val w = x.probPred / x.probLog
     val countW = x.count * w
     val countWsq = countW * countW
     val countWsqr = countWsq * x.reward
 
     val (rMax, rMin) = if (empiricalBounds)
-      (Math.max(acc.rMax, x.reward), Math.min(acc.rMin, x.reward))
+      (Math.max(acc.rewardMax, x.reward), Math.min(acc.rewardMin, x.reward))
     else {
-      if (x.reward > x.rMax || x.reward < x.rMin)
-        throw new IllegalArgumentException(s"Reward is out of bounds: ${x.rMin} < ${x.reward} < ${x.rMax}")
+      if (x.reward > x.rewardMax || x.reward < x.rewardMin)
+        throw new IllegalArgumentException(s"Reward is out of bounds: ${x.rewardMin} < ${x.reward} < ${x.rewardMax}")
       (0f, 0f)
     }
 
     CressieReadIntervalBuffer(
       wMin = Math.min(acc.wMin, x.wMin),
       wMax = Math.max(acc.wMax, x.wMax),
-      rMin = rMin,
-      rMax = rMax,
+      rewardMin = rMin,
+      rewardMax = rMax,
       n = acc.n + x.count,
       sumw = acc.sumw + countW,
       sumwsq = acc.sumwsq + countWsq,
@@ -58,12 +60,11 @@ class CressieReadInterval(empiricalBounds: Boolean)
 
   def merge(acc1: CressieReadIntervalBuffer,
             acc2: CressieReadIntervalBuffer): CressieReadIntervalBuffer = {
-
     CressieReadIntervalBuffer(
       wMin = Math.min(acc1.wMin, acc2.wMin),
       wMax = Math.max(acc1.wMax, acc2.wMax),
-      rMin = Math.min(acc1.rMin, acc2.rMin),
-      rMax = Math.max(acc1.rMax, acc2.rMax),
+      rewardMin = Math.min(acc1.rewardMin, acc2.rewardMin),
+      rewardMax = Math.max(acc1.rewardMax, acc2.rewardMax),
       n = acc1.n + acc2.n,
       sumw = acc1.sumw + acc2.sumw,
       sumwsq = acc1.sumwsq + acc2.sumwsq,
@@ -174,12 +175,12 @@ class CressieReadInterval(empiricalBounds: Boolean)
 
           val best = Seq(lower, upper).flatten.min
 
-          Math.min(acc.rMax, Math.max(acc.rMin, sign * best))
+          Math.min(acc.rewardMax, Math.max(acc.rewardMin, sign * best))
         }
 
         BanditEstimator(
-          computeBound(acc.rMin, 1),
-          computeBound(acc.rMax, -1))
+          computeBound(acc.rewardMin, 1),
+          computeBound(acc.rewardMax, -1))
       }
     })
   }
@@ -192,8 +193,8 @@ class CressieReadInterval(empiricalBounds: Boolean)
 
 final case class CressieReadIntervalBuffer(wMin: Float = 0,
                                            wMax: Float = 0,
-                                           rMin: Float = 0,
-                                           rMax: Float = 0,
+                                           rewardMin: Float = 0,
+                                           rewardMax: Float = 0,
                                            n: KahanSum = 0,
                                            sumw: KahanSum = 0,
                                            sumwsq: KahanSum = 0,
@@ -201,13 +202,15 @@ final case class CressieReadIntervalBuffer(wMin: Float = 0,
                                            sumwsqr: KahanSum = 0,
                                            sumwsqrsq: KahanSum = 0)
 
+// w is the ratio of x.probPred / x.probLog, we would like to know the min/max of that ratio
+// from the user
 final case class CressieReadIntervalInput(probLog: Float,
                                           reward: Float,
                                           probPred: Float,
                                           count: Float,
                                           wMin: Float,
                                           wMax: Float,
-                                          rMin: Float,
-                                          rMax: Float)
+                                          rewardMin: Float,
+                                          rewardMax: Float)
 
 case class BanditEstimator(lower: Double, upper: Double)
