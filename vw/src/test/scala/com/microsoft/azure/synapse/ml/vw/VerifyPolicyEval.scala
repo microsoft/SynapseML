@@ -4,10 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import com.microsoft.azure.synapse.ml.policyeval.{
-  CressieRead, CressieReadInput, CressieReadInterval,
-  CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput
-}
+import com.microsoft.azure.synapse.ml.policyeval.{CressieRead, CressieReadInput, CressieReadInterval, CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput, PolicyEvalUDAFUtil}
 import org.apache.spark.sql.{functions => F}
 
 class VerifyPolicyEval extends Benchmarks {
@@ -16,6 +13,38 @@ class VerifyPolicyEval extends Benchmarks {
 
   import spark.implicits._
 
+  test("Verify Repartition") {
+//    spark.sparkContext.setCheckpointDir("/tmp/checkpoint-foo/")
+
+    val dataset = Seq(
+      (10, "A", 1),
+      (20, "A", 2),
+      (30, "C", 3),
+      (40, "C", 4),
+      (5,  "A", 5),
+      (15, "A", 6),
+      (25, "C", 7),
+      (35, "C", 8)
+    )
+      .toDF("id", "groupkey", "value")
+//      .filter($"groupKey".isNotNull)
+      .repartition($"groupKey") //, $"id")
+      .cache()
+      // .checkpoint()
+
+    dataset.printSchema()
+
+    for (x <- Seq("A", "C")) {
+      println(s"grouping for $x")
+      val subDF = dataset.filter($"groupKey" === F.lit(x))
+
+      subDF.explain()
+
+      println(s"count: ${subDF.count}")
+      println()
+    }
+  }
+
   test("Verify BanditSnips") {
     val dataset = Seq(
       (0.2, 1, 0.3, 1, "A"),
@@ -23,16 +52,7 @@ class VerifyPolicyEval extends Benchmarks {
       (0.2, 3, 0.4, 1, "C")
     ).toDF("probLog", "reward", "probPred", "count", "key")
 
-    import org.apache.spark.sql.Encoders
-
-    spark.udf.register("snips", F.udaf(new Snips(), Encoders.product[SnipsInput]))
-    spark.udf.register("ips", F.udaf(new Ips(), Encoders.product[IpsInput]))
-    spark.udf.register("cressieRead",
-      F.udaf(new CressieRead(), Encoders.product[CressieReadInput]))
-    spark.udf.register("cressieReadInterval",
-      F.udaf(new CressieReadInterval(false), Encoders.product[CressieReadIntervalInput]))
-    spark.udf.register("cressieReadIntervalEmpirical",
-      F.udaf(new CressieReadInterval(true), Encoders.product[CressieReadIntervalInput]))
+    PolicyEvalUDAFUtil.registerUdafs()
 
     val actual = dataset
       .groupBy("key")

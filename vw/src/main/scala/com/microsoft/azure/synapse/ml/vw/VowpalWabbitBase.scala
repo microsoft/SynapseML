@@ -192,8 +192,7 @@ trait VowpalWabbitBase
 
   /** Override to add parameters specific to subclass.
     */
-  protected def appendExtraParams(sb: ParamsStringBuilder): ParamsStringBuilder =
-  {
+  protected def appendExtraParams(sb: ParamsStringBuilder): ParamsStringBuilder =  {
     sb
   }
 
