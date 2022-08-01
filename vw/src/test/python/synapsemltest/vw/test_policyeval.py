@@ -1,7 +1,7 @@
 import pyspark
+import unittest
 
-from synapse.ml.policyeval.PolicyEvalUDAFUtil import register_policyeval_udafs
-
+from synapse.ml.policyeval.PolicyEvalUtil import register_policyeval_udafs
 
 class VowpalWabbitPolicyEval(unittest.TestCase):
 
