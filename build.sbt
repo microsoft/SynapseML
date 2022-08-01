@@ -9,7 +9,7 @@ import BuildUtils._
 import xerial.sbt.Sonatype._
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.0"
+val sparkVersion = "3.2.2"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -29,7 +29,7 @@ val coreDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.5",
-  "io.spray" %% "spray-json" % "1.3.2",
+  "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
@@ -197,7 +197,7 @@ generateDotnetDoc := {
   val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
   if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
   FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
-  runCmd(Seq("bash", "-c","cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
   runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
@@ -270,9 +270,11 @@ publishPypi := {
 
 val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
-  generatePythonDoc.value
-  (root / Compile / unidoc).value
-  generateDotnetDoc.value
+  Def.sequential(
+    generatePythonDoc,
+    generateDotnetDoc,
+    (root / Compile / unidoc)
+  ).value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">
@@ -379,13 +381,15 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.4",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+      "com.azure" % "azure-ai-textanalytics" % "5.1.6"
     ),
     dependencyOverrides ++= Seq(
-      "com.fasterxml.jackson.core" %  "jackson-databind" % "2.12.5",
-      "com.fasterxml.jackson.core" %  "jackson-core" % "2.12.5",
-      "com.fasterxml.jackson.core" %  "jackson-annotations" % "2.12.5",
-      "com.fasterxml.jackson.dataformat"  %  "jackson-dataformat-xml" % "2.12.5",
+      "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
+      "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.12.5",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.12.5",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
       "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5"
     ),
     name := "synapseml-cognitive"
