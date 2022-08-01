@@ -485,10 +485,7 @@ class AnalyzeImage(override val uid: String)
 
   val details = new ServiceParam[Seq[String]](
     this, "details", "what visual feature types to return",
-    {
-      case Left(seq) => seq.forall(Set("Celebrities", "Landmarks"))
-      case _ => true
-    },
+    { _ => true},
     isURLParam = true,
     toValueString = { seq => seq.mkString(",") }
   )
@@ -500,6 +497,21 @@ class AnalyzeImage(override val uid: String)
   def setDetails(v: Seq[String]): this.type = setScalarParam(details, v)
 
   def setDetailsCol(v: String): this.type = setVectorParam(details, v)
+
+  val descriptionExclude = new ServiceParam[Seq[String]](
+    this, "descriptionExclude", "Whether to exclude certain parts of the model in the description",
+    { _ => true},
+    isURLParam = true,
+    toValueString = { seq => seq.mkString(",") }
+  )
+
+  def getDescriptionExclude: Seq[String] = getScalarParam(descriptionExclude)
+
+  def getDescriptionExcludeCol: String = getVectorParam(descriptionExclude)
+
+  def setDescriptionExclude(v: Seq[String]): this.type = setScalarParam(descriptionExclude, v)
+
+  def setDescriptionExcludeCol(v: String): this.type = setVectorParam(descriptionExclude, v)
 
   val language = new ServiceParam[String](
     this, "language", "the language of the response (en if none given)", isURLParam = true
