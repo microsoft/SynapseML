@@ -19,8 +19,6 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.json4s.DefaultFormats
-import org.json4s.jackson.JsonMethods._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -440,8 +438,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     "the entity recognition tasks to perform on submitted documents"
   )
 
-  implicit val formats = DefaultFormats
-
   def getEntityRecognitionTasks: Seq[TextAnalyzeTask] = $(entityRecognitionTasks)
 
   def setEntityRecognitionTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
@@ -620,10 +616,4 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     )
   }
 
-  // total kluge for R
-  private def convertJsonToTasks(jsonString: String): Seq[TextAnalyzeTask] = {
-    implicit val formats = DefaultFormats
-    val p = parse(jsonString).extract[Seq[Map[String, Map[String,String]]]]
-    Seq[Map[String, String]](p.head.head._2).map(m => TextAnalyzeTask(m))
-  }
 }
