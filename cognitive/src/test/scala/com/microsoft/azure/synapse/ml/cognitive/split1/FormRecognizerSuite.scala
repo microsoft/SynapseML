@@ -243,8 +243,7 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith(
-      ("""{"Tax":{"valueNumber":104.4,"page":1,"boundingBox"""").stripMargin))
+    assert(docHeadStr.contains("Tax"))
   }
 
   test("Basic Usage with Bytes") {
@@ -256,8 +255,7 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith(
-      ("""{"Tax":{"valueNumber":104.4,"page":1,"boundingBox":""").stripMargin))
+    assert(docHeadStr.contains("Tax"))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeReceipts]] =
@@ -343,8 +341,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith((
-      """{"CustomerAddress":{"page":1,"valueString":"1020 Enterprise Way Sunnayvale, CA 87659"""").stripMargin))
+    assert(docHeadStr.contains("Enterprise Way Sunnayvale"))
   }
 
   test("Basic Usage with pdf") {
@@ -356,7 +353,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith("""{"CustomerAddress":{"page":1,"valueString":"123 Other St, Redmond WA, 98052","""))
+    assert(docHeadStr.contains("123 Other St"))
   }
 
   test("Basic Usage with Bytes") {
@@ -368,8 +365,7 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith((
-      """{"CustomerAddress":{"page":1,"valueString":"1020 Enterprise Way Sunnayvale, CA 87659"""").stripMargin))
+    assert(docHeadStr.contains("Enterprise Way Sunnayvale"))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeInvoices]] =
@@ -405,8 +401,7 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith((
-      """{"DateOfExpiration":{"page":1,"boundingBox":""").stripMargin))
+    assert(docHeadStr.contains("DateOfExpiration"))
   }
 
   test("Basic Usage with Bytes") {
@@ -418,8 +413,8 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
     val headStr = results.head.getString(0)
     assert(headStr === "")
     val docHeadStr = results.head.getString(1)
-    assert(docHeadStr.startsWith((
-      """{"DateOfExpiration":{"page":1,"boundingBox":""").stripMargin))
+    assert(docHeadStr.contains("DateOfExpiration"))
+
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeIDDocuments]] =

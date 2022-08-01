@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.codegen
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.indent
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
@@ -88,6 +89,7 @@ object CodeGen {
           |Suggests:
           |    testthat (>= 3.0.0)
           |Config/testthat/edition: 3
+          |Encoding: UTF-8
           |""".stripMargin)
 
     val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
@@ -134,11 +136,25 @@ object CodeGen {
   }
 
   //noinspection ScalaStyle
+  //scalastyle:off
   def generatePyPackageData(conf: CodegenConfig): Unit = {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
     }
     val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
+    val requireList = if(conf.name.contains("deep-learning")) {
+      s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
+    } else ""
+    val extraRequirements = if (conf.name.contains("deep-learning")) {
+      s"""extras_require={"extras": [
+         |    "cmake",
+         |    "horovod==0.25.0",
+         |    "pytorch_lightning>=1.5.0,<1.5.10",
+         |    "torch==1.11.0",
+         |    "torchvision>=0.12.0"
+         |]},
+         |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
+    } else ""
     writeFile(join(conf.pySrcDir, "setup.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -148,6 +164,8 @@ object CodeGen {
          |from setuptools import setup, find_namespace_packages
          |import codecs
          |import os.path
+         |
+         |$requireList
          |
          |setup(
          |    name="${conf.name}",
@@ -171,10 +189,17 @@ object CodeGen {
          |    ],
          |    zip_safe=True,
          |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |    project_urls={
+         |        "Website": "https://microsoft.github.io/SynapseML/",
+         |        "Documentation": "https://mmlspark.blob.core.windows.net/docs/${conf.pythonizedVersion}/pyspark/index.html",
+         |        "Source Code": "https://github.com/Microsoft/SynapseML",
+         |    },
+         |${indent(extraRequirements, 1)}
          |)
          |
          |""".stripMargin)
   }
+  //scalastyle:on
 
   def rGen(conf: CodegenConfig): Unit = {
     println(s"Generating R for ${conf.jarName}")

@@ -11,6 +11,7 @@ let ss_pages = listExamplePaths("features", "spark_serving");
 let ocv_pages = listExamplePaths("features", "opencv");
 let cls_pages = listExamplePaths("features", "classification");
 let reg_pages = listExamplePaths("features", "regression");
+let dl_pages = listExamplePaths("features", "simple_deep_learning");
 let other_pages = listExamplePaths("features", "other");
 
 module.exports = {
@@ -87,6 +88,11 @@ module.exports = {
           type: 'category',
           label: 'Regression',
           items: reg_pages,
+        },
+        {
+          type: 'category',
+          label: 'Simple Deep Learning',
+          items: dl_pages,
         },
         {
           type: 'category',
