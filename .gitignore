@@ -71,3 +71,14 @@ node_modules/
 website/.docusaurus
 null/
 metastore_db/
+
+# pytorch_lightning logs
+**/lightning_logs/*
+
+# pytest
+.pytest_cache/
+
+# python wheel
+**/build/*
+**/dist/*
+**/*.egg-info/*
