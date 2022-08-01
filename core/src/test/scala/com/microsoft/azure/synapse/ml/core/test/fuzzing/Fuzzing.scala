@@ -413,13 +413,6 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     Files.write(
       FileUtilities.join(testDir, "test_" + camelToSnake(testClassName) + ".py").toPath,
       testClass.getBytes(StandardCharsets.UTF_8))
-    if (classOf[TestBase].isAssignableFrom(this.getClass)) {
-      try {
-        afterAll()
-      } catch {
-        case _: AbstractMethodError => {}
-      }
-    }
   }
 
 }
@@ -730,11 +723,7 @@ trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S
 
   def pyTestObjects(): Seq[TestObject[S]] = testObjects()
 
-  def rTestObjects(): Seq[TestObject[S]] = testObjects().filter(o => {
-      // LIME classes that are not explainers are deprecated
-      val name = o.getClass.getName
-      !name.contains("LIME") || name.toLowerCase.contains("explainer")
-    })
+  def rTestObjects(): Seq[TestObject[S]] = testObjects()
 
   def dotnetTestObjects(): Seq[TestObject[S]] = testObjects()
 
@@ -744,7 +733,7 @@ trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S
 
 }
 
-trait PyTransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] with PyTestFuzzing[S] {
+trait TransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] {
 
   override val ignoreEstimators: Boolean = true
 
@@ -752,20 +741,4 @@ trait PyTransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] 
 
 }
 
-trait RTransformerFuzzing[S <: Transformer with MLWritable] extends Fuzzing[S] with RTestFuzzing[S] {
-
-  override val ignoreEstimators: Boolean = true
-
-  override def modelReader: MLReadable[_] = reader
-
-}
-
-trait TransformerFuzzing[S <: Transformer with MLWritable] extends PyTransformerFuzzing[S] with RTransformerFuzzing[S]
-
-trait PyEstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S] with PyTestFuzzing[S]
-
-trait REstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S] with RTestFuzzing[S]
-
-trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends PyEstimatorFuzzing[S] with REstimatorFuzzing[S]
-
-
+trait EstimatorFuzzing[S <: Estimator[_] with MLWritable] extends Fuzzing[S]

@@ -88,10 +88,7 @@ object RTestGen {
 
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
-         |if (!require("sparklyr")) {
-         |  install.packages("sparklyr")
-         |  library("sparklyr")
-         |}
+         |${useLibrary("sparklyr")}
          |
          |options(sparklyr.log.console = TRUE)
          |options(sparklyr.verbose = TRUE)

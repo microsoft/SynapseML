@@ -70,3 +70,4 @@ node_modules/
 .bsp
 website/.docusaurus
 null/
+metastore_db/

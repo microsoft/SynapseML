@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.param
 
 import org.apache.spark.ml.param.Param
-import spray.json.DefaultJsonProtocol.JsValueFormat
 import spray.json._
 
 import java.lang.{StringBuilder => JStringBuilder}
@@ -17,13 +16,8 @@ trait RPrinter extends CompactPrinter {
       sb.append("c()")
     } else {
       elements.head match {
-        // Sparklyr does not support deserialization of arrays of hash tables (environments in R terms).
-        // Hence we pass such arrays as strings and do the conversion on the Scala side.
-        // See readArray in https://github.com/sparklyr/sparklyr/blob/main/java/spark-1.5.2/serializer.scala.
         case _: spray.json.JsObject =>
-          sb.append("'[")
-          printSeq(elements, sb.append(',')) { e => sb.append(e.toJson.compactPrint)}
-          sb.append("]'")
+          printSeq(elements, sb.append(',')) { e =>  print(e, sb)  }
         case _ => {
           sb.append("list(")
           printSeq(elements, sb.append(',')) { e =>
@@ -40,15 +34,15 @@ trait RPrinter extends CompactPrinter {
     }
   }
 
-
-
   override protected def printObject(members: Map[String, JsValue], sb: JStringBuilder): Unit = {
     if (members.isEmpty) {
       sb.append("c()")
     } else {
       sb.append("list2env(list(")
       printSeq(members, sb.append(',')) { m =>
+        sb.append('"')
         sb.append(m._1)
+        sb.append('"')
         sb.append('=')
         print(m._2, sb)
       }
@@ -61,7 +55,7 @@ trait RPrinter extends CompactPrinter {
       case JsNull      => sb.append("NULL")
       case JsTrue      => sb.append("TRUE")
       case JsFalse     => sb.append("FALSE")
-      case JsNumber(x) => sb.append(if (x.toString.contains(".")) x else s"as.integer($x)")
+      case JsNumber(x) => sb.append(if (x.toString.contains(".")) x else s"${x}L")
       case JsString(x) => printString(x, sb)
       case _           => throw new IllegalStateException
     }

@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PythonWrappableParam, RWrappableParam}
-import org.apache.spark.ml._
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PipelineStageWrappable, PythonWrappableParam}
+import com.microsoft.azure.synapse.ml.param.RWrappableParam
 import org.apache.spark.ml.param._
 
 object GenerationUtils {
@@ -77,13 +77,10 @@ object GenerationUtils {
 
   def rRenderParam[T](p: Param[T], v: T): String = {
     p match {
-      case rwp: RWrappableParam[_] =>
-        v match {
-          case _: PipelineStage =>
-            s"""${rwp.name}=spark_jobj(${rwp.rValue(v.asInstanceOf[rwp.RInnerType])})"""
-          case _ =>
-            rwp.rConstructorLine(v.asInstanceOf[rwp.RInnerType])
-        }
+      case psw: PipelineStageWrappable[_] =>
+        s"""${psw.name}=spark_jobj(${psw.rValue(v.asInstanceOf[psw.RInnerType])})"""
+      case rp: RWrappableParam[_] =>
+        rp.rConstructorLine(v.asInstanceOf[rp.RInnerType])
       case _: ComplexParam[_] =>
         throw new NotImplementedError("No translation found for complex parameter")
       case _ =>

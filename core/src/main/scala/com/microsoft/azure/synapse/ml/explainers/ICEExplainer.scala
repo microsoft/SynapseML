@@ -44,11 +44,6 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this.setCategoricalFeatures(features)
   }
 
-  def setCategoricalFeaturesR(jsonString: String): this.type = {
-    val features = parse(jsonString).extract[Seq[ICECategoricalFeature]]
-    this.setCategoricalFeatures(features)
-  }
-
   val numericFeatures = new TypedArrayParam[ICENumericFeature] (
     this,
     "numericFeatures",
@@ -61,11 +56,6 @@ trait ICEFeatureParams extends Params with HasNumSamples {
 
   def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
     val features: Seq[ICENumericFeature] = values.asScala.map(ICENumericFeature.fromMap)
-    this.setNumericFeatures(features)
-  }
-
-  def setNumericFeaturesR(jsonString: String): this.type = {
-    val features = parse(jsonString).extract[Seq[ICENumericFeature]]
     this.setNumericFeatures(features)
   }
 

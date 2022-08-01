@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.param.{CognitiveServiceStructParam, DotnetWrappableParam, ServiceParam}
+import com.microsoft.azure.synapse.ml.param.{CognitiveServiceStructParam, DotnetWrappableParam, RWrappableParam, ServiceParam}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -415,6 +415,12 @@ class TextAnalyzeTaskParam(parent: Params,
   override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
     v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
       s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
+
+  override def rConstructorLine(v: Seq[TextAnalyzeTask]): String = {
+    val className =  "com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask"
+    val elements = v.map(x => s"""invoke_new(sc, "${className}", ${RWrappableParam.rDefaultRender(x.parameters)})""")
+    s"${rName(v)}=${elements}".replace("=List(", "=list(")
+  }
 }
 
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
@@ -439,10 +445,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   def setEntityRecognitionTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
 
-  def setEntityRecognitionTasksR(jsonString: String): this.type = {
-    this.setEntityRecognitionTasks(convertJsonToTasks(jsonString))
-  }
-
   setDefault(entityRecognitionTasks -> Seq[TextAnalyzeTask]())
 
   val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
@@ -454,10 +456,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   def getEntityRecognitionPiiTasks: Seq[TextAnalyzeTask] = $(entityRecognitionPiiTasks)
 
   def setEntityRecognitionPiiTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
-
-  def setEntityRecognitionPiiTasksR(jsonString: String): this.type = {
-    this.setEntityRecognitionPiiTasks(convertJsonToTasks(jsonString))
-  }
 
   setDefault(entityRecognitionPiiTasks -> Seq[TextAnalyzeTask]())
 
@@ -471,10 +469,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   def setEntityLinkingTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityLinkingTasks, v)
 
-  def setEntityLinkingTasksR(jsonString: String): this.type = {
-    this.setEntityLinkingTasks(convertJsonToTasks(jsonString))
-  }
-
   setDefault(entityLinkingTasks -> Seq[TextAnalyzeTask]())
 
   val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
@@ -487,10 +481,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
 
   def setKeyPhraseExtractionTasks(v: Seq[TextAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
 
-  def setKeyPhraseExtractionTasksR(jsonString: String): this.type = {
-    this.setKeyPhraseExtractionTasks(convertJsonToTasks(jsonString))
-  }
-
   setDefault(keyPhraseExtractionTasks -> Seq[TextAnalyzeTask]())
 
   val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
@@ -502,10 +492,6 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
   def getSentimentAnalysisTasks: Seq[TextAnalyzeTask] = $(sentimentAnalysisTasks)
 
   def setSentimentAnalysisTasks(v: Seq[TextAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
-
-  def setSentimentAnalysisTasksR(jsonString: String): this.type = {
-    this.setSentimentAnalysisTasks(convertJsonToTasks(jsonString));
-  }
 
   setDefault(sentimentAnalysisTasks -> Seq[TextAnalyzeTask]())
 

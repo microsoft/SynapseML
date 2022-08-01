@@ -25,7 +25,6 @@ case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
 }
 
 object DefaultParamInfo extends Logging {
-
   val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
   val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
   val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")

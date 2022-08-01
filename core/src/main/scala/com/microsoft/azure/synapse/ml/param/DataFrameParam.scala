@@ -117,9 +117,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   extends ComplexParam[DataFrame](parent, name, doc, isValid)
     with ParamEquality[DataFrame]
     with DataFrameEquality
-    with ExternalPythonWrappableParam[DataFrame]
-    with ExternalDotnetWrappableParam[DataFrame]
-    with ExternalRWrappableParam[DataFrame] {
+    with ExternalWrappableParam[DataFrame] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: DataFrame) => true)

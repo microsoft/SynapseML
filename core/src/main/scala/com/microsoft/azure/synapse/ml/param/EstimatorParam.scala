@@ -11,9 +11,7 @@ import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage}
 
 trait PipelineStageWrappable[T <: PipelineStage]
   extends ParamEquality[T]
-  with ExternalPythonWrappableParam[T]
-  with ExternalDotnetWrappableParam[T]
-  with ExternalRWrappableParam[T] {
+  with ExternalWrappableParam[T] {
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""

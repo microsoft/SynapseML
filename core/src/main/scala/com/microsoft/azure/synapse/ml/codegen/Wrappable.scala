@@ -416,16 +416,12 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rSetterLines: String = {
-    thisStage.params.map { p =>
+   thisStage.params.map { p =>
       val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
       p match {
         case sp: ServiceParam[_] =>
           val colName = sp.name + "Col"
           getRConditionalSetterLine(colName, colName) + "\n" + getRConditionalSetterLine(sp.name, value)
-        case _: TypedIntArrayParam | _: TypedDoubleArrayParam =>
-          getRConditionalSetterLine(p.name, value)
-        case _: TypedArrayParam[_] | _: ArrayMapParam | _: JsonEncodableParam[_] =>
-          getRConditionalSetterLine(p.name, value, setterSuffix = "R")
         case _ =>
           getRConditionalSetterLine(p.name, value)
       }
@@ -460,7 +456,6 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rClass(): String = {
-    val pipe = if (thisStage.params.isEmpty) "" else " %>%"
     s"""
        |$copyrightLines
        |
