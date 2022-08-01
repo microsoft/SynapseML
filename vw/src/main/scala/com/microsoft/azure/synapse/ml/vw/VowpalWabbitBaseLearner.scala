@@ -202,7 +202,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
   val splitColValues = new StringArrayParam(this, "splitColValues",
     "Sorted values to use to select each split to train on. If not specified, computed from data")
-  def getSpitColValues: Array[String] = $(splitColValues)
+  def getSplitColValues: Array[String] = $(splitColValues)
   def setSplitColValues(value: Array[String]): this.type = set(splitColValues, value)
 
   protected def trainInternalDistributedExternal(df: DataFrame): Seq[TrainingResult] = {
@@ -210,8 +210,8 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
     // iterate over splits
     val splits =
-      if (getSpitColValues.nonEmpty)
-        getSpitColValues
+      if (getSplitColValues.nonEmpty)
+        getSplitColValues
       else
         df.select(getSplitCol).distinct().collect().map(_.get(0))
 
