@@ -645,9 +645,7 @@ jobs:
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: |
-          **/test-reports/TEST-*.xml
-          **/generated/r-test-results.xml
+        testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
     - task: AzureCLI@2
