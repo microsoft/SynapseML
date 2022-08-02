@@ -17,15 +17,15 @@ import java.net.URL
 
 trait ImageTestUtils extends TestBase {
 
-  val filesRoot = BuildInfo.datasetDir.toString
-  val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
-  val modelPath = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
-  val inputCol = "cntk_images"
+  val filesRoot: String = BuildInfo.datasetDir.toString
+  val imagePath: String = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
+  val modelPath: String = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
+  val inputCol = "cntk"
   val outputCol = "out"
   val labelCol = "labels"
 
-  val featureVectorLength = 3 * 32 * 32
-  lazy val saveFile = new File(tmpDir.toFile, "spark-z.model").toString
+  val featureVectorLength: Int = 3 * 32 * 32
+  lazy val saveFile: String = new File(tmpDir.toFile, "spark-z.model").toString
 
   def testModelDF(spark: SparkSession): DataFrame = {
     import spark.implicits._

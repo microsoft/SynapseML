@@ -3,8 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.onnx
 
-import ai.onnxruntime.OrtException.OrtErrorCode
-import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime._
 import breeze.linalg.{argmax, softmax, DenseVector => BDV}
@@ -14,11 +12,12 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.onnx.ONNXRuntime._
+import com.microsoft.azure.synapse.ml.onnx.ONNXUtils._
 import com.microsoft.azure.synapse.ml.param.{ByteArrayParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasMiniBatcher}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml._
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
@@ -30,13 +29,9 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.{SparkContext, TaskContext}
 
-import java.nio._
 import java.util
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
-import scala.reflect.ClassTag
 
 trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts {
 
@@ -110,34 +105,6 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
   )
 }
 
-//noinspection ScalaStyle
-private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
-  override def hasNext: Boolean = delegate.hasNext
-
-  override def next(): T = {
-    val t = delegate.next()
-
-    if (!delegate.hasNext) {
-      // Cleanup the resource if there is no more rows, but iterator does not have to exhaust.
-      cleanup
-    }
-
-    t
-  }
-
-  override def finalize(): Unit = {
-    try {
-      // Make sure resource is cleaned up.
-      cleanup
-    }
-    catch {
-      case _: Throwable =>
-    }
-
-    super.finalize()
-  }
-}
-
 /**
  * Object model for an ONNX model:
  * OrtSession
@@ -173,255 +140,7 @@ private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) exte
  * |-size: Int
  * MapInfo defines keyType, valueType and size. It is usually used inside SequenceInfo.
  */
-object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
-  private[onnx] def initializeOrt(modelContent: Array[Byte],
-                                  ortEnv: OrtEnvironment,
-                                  optLevel: OptLevel = OptLevel.ALL_OPT,
-                                  gpuDeviceId: Option[Int] = None)
-  : OrtSession = {
-    val options = new SessionOptions()
-
-    try {
-      gpuDeviceId.foreach(options.addCUDA)
-    } catch {
-      case exp: OrtException if exp.getCode == OrtErrorCode.ORT_INVALID_ARGUMENT =>
-        val err = s"GPU device is found on executor nodes with id ${gpuDeviceId.get}, " +
-          s"but adding CUDA support failed. Most likely the ONNX runtime supplied to the cluster " +
-          s"does not support GPU. Please install com.microsoft.onnxruntime:onnxruntime_gpu:{version} " +
-          s"instead for optimal performance. Exception details: ${exp.toString}"
-        logError(err)
-    }
-
-    options.setOptimizationLevel(optLevel)
-    ortEnv.createSession(modelContent, options)
-  }
-
-  private[onnx] def mapOnnxJavaTypeToDataType(javaType: OnnxJavaType): DataType = {
-    javaType match {
-      case OnnxJavaType.INT8 => ByteType
-      case OnnxJavaType.INT16 => ShortType
-      case OnnxJavaType.INT32 => IntegerType
-      case OnnxJavaType.INT64 => LongType
-      case OnnxJavaType.FLOAT => FloatType
-      case OnnxJavaType.DOUBLE => DoubleType
-      case OnnxJavaType.BOOL => BooleanType
-      case OnnxJavaType.STRING => StringType
-      case OnnxJavaType.UNKNOWN => BinaryType
-    }
-  }
-
-  private[onnx] def mapTensorInfoToDataType(tensorInfo: TensorInfo): DataType = {
-    val dataType = mapOnnxJavaTypeToDataType(tensorInfo.`type`)
-
-    def nestedArrayType(depth: Int, dataType: DataType): ArrayType = {
-      if (depth == 1)
-        ArrayType(dataType)
-      else
-        ArrayType(nestedArrayType(depth - 1, dataType))
-    }
-
-    if (tensorInfo.isScalar) {
-      dataType
-    } else if (tensorInfo.getShape.length == 1) {
-      // first dimension is assumed to be batch size.
-      dataType
-    } else {
-      nestedArrayType(tensorInfo.getShape.length - 1, dataType)
-    }
-  }
-
-  @tailrec
-  private[onnx] def mapValueInfoToDataType(valueInfo: ValueInfo): DataType = {
-    valueInfo match {
-      case mapInfo: MapInfo =>
-        val keyDataType = mapOnnxJavaTypeToDataType(mapInfo.keyType)
-        val valueDataType = mapOnnxJavaTypeToDataType(mapInfo.valueType)
-        MapType(keyDataType, valueDataType)
-      case seqInfo: SequenceInfo =>
-        if (seqInfo.sequenceOfMaps) {
-          mapValueInfoToDataType(seqInfo.mapInfo)
-        } else {
-          mapOnnxJavaTypeToDataType(seqInfo.sequenceType)
-        }
-      case tensorInfo: TensorInfo =>
-        mapTensorInfoToDataType(tensorInfo)
-    }
-  }
-
-  private[onnx] def mapOnnxValueToArray(value: OnnxValue): Seq[Any] = {
-    value.getInfo match {
-      case tensorInfo: TensorInfo =>
-        if (tensorInfo.isScalar)
-          Seq(value.getValue)
-        else {
-          value.getValue.asInstanceOf[Array[_]].toSeq
-        }
-      case sequenceInfo: SequenceInfo =>
-        if (sequenceInfo.sequenceOfMaps) {
-          value.getValue.asInstanceOf[java.util.List[java.util.Map[_, _]]]
-            .asScala.toArray.map(_.asScala.toMap)
-        } else {
-          value.getValue.asInstanceOf[java.util.List[_]].asScala
-        }
-      case _: MapInfo =>
-        Array(value.getValue.asInstanceOf[java.util.Map[_, _]].asScala.toMap)
-    }
-  }
-
-  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Unit = {
-    nestedSeq.foreach {
-      case x: T => bufferWrite(x)
-      case s: Seq[_] =>
-        writeNestedSeqToBuffer(s, bufferWrite)
-    }
-  }
-
-  private def writeNestedSeqToStringBuffer(nestedSeq: Seq[_], size: Int): ArrayBuffer[String] = {
-    var i = 0
-    val buffer = ArrayBuffer.fill[String](size)("")
-
-    def innerWrite(nestedSeq: Seq[_]): Unit = {
-      nestedSeq.foreach {
-        case x: String =>
-          buffer.update(i, x)
-          i = i + 1
-        case s: Seq[_] =>
-          innerWrite(s)
-      }
-    }
-
-    innerWrite(nestedSeq)
-    buffer
-  }
-
-  private[onnx] def selectGpuDevice(deviceType: Option[String]): Option[Int] = {
-    deviceType match {
-      case None | Some("CUDA") =>
-        val gpuNum = TaskContext.get().resources().get("gpu").flatMap(_.addresses.map(_.toInt).headOption)
-        gpuNum
-      case Some("CPU") =>
-        None
-      case _ =>
-        None
-    }
-  }
-
-  private[onnx] def applyModel(session: OrtSession,
-                               env: OrtEnvironment,
-                               feedMap: Map[String, String],
-                               fetchMap: Map[String, String],
-                               inputSchema: StructType
-                              )(rows: Iterator[Row]): Iterator[Row] = {
-    val results = rows.map {
-      row =>
-        // Each row contains a batch
-        // Get the input tensors for each input node.
-        val inputTensors = session.getInputInfo.asScala.map {
-          case (inputName, inputNodeInfo) =>
-
-            val batchedValues: Seq[Any] = row.getAs[Seq[Any]](feedMap(inputName))
-
-            inputNodeInfo.getInfo match {
-              case tensorInfo: TensorInfo => // Only supports tensor input.
-                val tensor = createTensor(env, tensorInfo, batchedValues)
-                (inputName, tensor)
-              case other =>
-                throw new NotImplementedError(s"Only tensor input type is supported, but got $other instead.")
-            }
-        }
-
-        // Run the tensors through the ONNX runtime.
-        val outputBatches: Seq[Seq[Any]] = using(session.run(inputTensors.asJava)) {
-          result =>
-            // Map the output tensors to batches.
-            fetchMap.map {
-              case (_, outputName) =>
-                val i = session.getOutputInfo.asScala.keysIterator.indexOf(outputName)
-                val outputValue: OnnxValue = result.get(i)
-                mapOnnxValueToArray(outputValue)
-            }.toSeq
-        }.get
-
-        // Close the tensor and clean up native handles
-        inputTensors.valuesIterator.foreach {
-          _.close()
-        }
-
-        // Return a row for each output batch: original payload appended with model output.
-        val data = inputSchema.map(f => row.getAs[Any](f.name))
-        Row.fromSeq(data ++ outputBatches)
-    }
-
-    new ClosableIterator[Row](results, {
-      session.close()
-      env.close()
-    })
-  }
-
-  private def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]): OnnxTensor = {
-    val shape: Array[Long] = tensorInfo.getShape
-    // the first dimension of the shape can be -1 when multiple inputs are allowed. Setting it to the real
-    // input size. Otherwise we cannot create the tensor from the 1D array buffer.
-    shape(0) = batchedValues.length
-    val size = shape.product.toInt
-
-    tensorInfo.`type` match {
-      case OnnxJavaType.FLOAT =>
-        val buffer = FloatBuffer.allocate(size)
-        writeNestedSeqToBuffer[Float](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.DOUBLE =>
-        val buffer = DoubleBuffer.allocate(size)
-        writeNestedSeqToBuffer[Double](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.INT8 =>
-        val buffer = ByteBuffer.allocate(size)
-        writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.INT16 =>
-        val buffer = ShortBuffer.allocate(size)
-        writeNestedSeqToBuffer[Short](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.INT32 =>
-        val buffer = IntBuffer.allocate(size)
-        writeNestedSeqToBuffer[Int](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.INT64 =>
-        val buffer = LongBuffer.allocate(size)
-        writeNestedSeqToBuffer[Long](batchedValues, buffer.put(_))
-        buffer.rewind()
-        OnnxTensor.createTensor(env, buffer, shape)
-      case OnnxJavaType.STRING =>
-        val flattened = writeNestedSeqToStringBuffer(batchedValues, size).toArray
-        OnnxTensor.createTensor(env, flattened, shape)
-      case other =>
-        throw new NotImplementedError(s"Tensor input type $other not supported. " +
-          s"Only FLOAT, DOUBLE, INT8, INT16, INT32, INT64, STRING types are supported.")
-    }
-  }
-
-  /**
-   * Returns true if the two data types are compatible. They are compatible if they share the same "shape", and
-   * 1. The element types from both sides are numeric types, or
-   * 2. The element types from both sides are the same.
-   */
-  @tailrec
-  private def compatible(from: DataType, to: DataType): Boolean = {
-    (from, to) match {
-      case (VectorType, right: ArrayType) =>
-        compatible(DoubleType, right.elementType)
-      case (left: ArrayType, right: ArrayType) =>
-        compatible(left.elementType, right.elementType)
-      case (_: NumericType, _: NumericType) => true
-      case (fromDataType, toDataType) => fromDataType == toDataType
-    }
-  }
-}
+object ONNXModel extends ComplexParamsReadable[ONNXModel]
 
 class ONNXModel(override val uid: String)
   extends Transformer
@@ -429,8 +148,6 @@ class ONNXModel(override val uid: String)
     with ONNXModelParams
     with Wrappable
     with BasicLogging {
-
-  import ONNXModel._
 
   override protected lazy val pyInternalWrapper = true
 
@@ -441,7 +158,7 @@ class ONNXModel(override val uid: String)
   def modelInput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
-        using(initializeOrt(getModelPayload, env)) {
+        using(createOrtSession(getModelPayload, env)) {
           session => session.getInputInfo.asScala.toMap
         }
     }.flatten.get
@@ -454,7 +171,7 @@ class ONNXModel(override val uid: String)
   def modelOutput: Map[String, NodeInfo] = {
     using(OrtEnvironment.getEnvironment) {
       env =>
-        using(initializeOrt(getModelPayload, env)) {
+        using(createOrtSession(getModelPayload, env)) {
           session => session.getOutputInfo.asScala.toMap
         }
     }.flatten.get
@@ -483,10 +200,34 @@ class ONNXModel(override val uid: String)
     this.setModelPayload(modelBytes)
   }
 
+  def sliceAtOutput(output: String): ONNXModel = {
+    sliceAtOutputs(Array{output})
+  }
+
+  def sliceAtOutputs(outputs: Array[String]): ONNXModel = {
+    sliceModelAtOutputs(this, outputs)
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = logTransform {
     val inputSchema = dataset.schema
     this.validateSchema(inputSchema)
 
+    // If the fetch dictionary indicates a request to transform the entire model, just use this model.
+    // Otherwise, we need to slice the model at the requested outputs before doing the transforming.
+    // We do this automatically for the caller based on how they configure the fetchDict.
+    // e.g., a fetchDict of ("rawFeatures" -> "some_intermediate_output") will slice the model
+    // at the output "some_intermediate_output"
+    val requestedOutputs = getFetchDict.values.toSeq.sorted
+    val modelOutputs = modelOutput.keys.toSeq.sorted
+    val actualModel =
+      if (requestedOutputs == modelOutputs) this
+      else sliceAtOutputs(getFetchDict.values.toArray)
+
+    // Due to potential slicing of model, we either use this model or a sliced one to do the actual transform
+    actualModel.transformInner(dataset, inputSchema)
+  }
+
+  def transformInner(dataset: Dataset[_], inputSchema: StructType): DataFrame = logTransform {
     val modelOutputSchema = getModelOutputSchema(inputSchema)
 
     implicit val enc: Encoder[Row] = RowEncoder(
@@ -507,7 +248,7 @@ class ONNXModel(override val uid: String)
         val gpuDeviceId = selectGpuDevice(devType)
         val env = OrtEnvironment.getEnvironment
         logInfo(s"Task:$taskId;DeviceType=$devType;DeviceId=$gpuDeviceId;OptimizationLevel=$optLevel")
-        val session = initializeOrt(payload, env, optLevel, gpuDeviceId)
+        val session = createOrtSession(payload, env, optLevel, gpuDeviceId)
         applyModel(session, env, feedDict, fetchDicts, inputSchema)(rows)
     }
 
@@ -587,7 +328,7 @@ class ONNXModel(override val uid: String)
       }
   }
 
-  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+  override def copy(extra: ParamMap): ONNXModel = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     this.validateSchema(schema)

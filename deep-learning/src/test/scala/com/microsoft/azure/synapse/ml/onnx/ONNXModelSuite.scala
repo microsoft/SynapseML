@@ -24,6 +24,7 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 import java.io.File
 import java.net.URL
+import scala.collection.mutable
 
 class ONNXModelSuite extends TestBase
   with TransformerFuzzing[ONNXModel] {
@@ -257,6 +258,13 @@ class ONNXModelSuite extends TestBase
       .setMiniBatchSize(1)
   }
 
+  // We must clear the softMax and argMax dictionaries, as they only apply to the full model transform
+  private lazy val onnxResNet50ForSlicing = {
+    onnxResNet50
+      .setSoftMaxDict(Map.empty[String, String])
+      .setArgMaxDict(Map.empty[String, String])
+  }
+
   private lazy val testDfResNet50: DataFrame = {
     val greyhoundImageLocation: String = {
       val loc = "/tmp/greyhound.jpg"
@@ -289,5 +297,41 @@ class ONNXModelSuite extends TestBase
     val top2 = argtopk(probability.toBreeze, 2).toArray
     assert(top2 sameElements Array(176, 172))
     assert(prediction.toInt == 176)
+  }
+
+  test("ONNXModel automatic slicing based on fetch dictionary") {
+    // Set the fetch dictionary to an intermediate output, and the model should automatically slice at that point.
+    val intermediateOutputName = "resnetv24_pool1_fwd"
+    val adjustedSlicedModel = onnxResNet50ForSlicing
+      .setFetchDict(Map("rawFeatures" -> intermediateOutputName))
+
+    assert(!adjustedSlicedModel.modelOutput.keys.toArray.contains(intermediateOutputName))
+
+    val intermediateDf = adjustedSlicedModel.transform(testDfResNet50)
+
+    val firstRowFeatures = extractFirstRowFromSlicedLayer(intermediateDf, "rawFeatures")
+    assert(firstRowFeatures.length == 2048)
+  }
+
+  test("ONNXModel manual slicing") {
+    // Note that we must also clear the softMax and argMax dictionaries, as they only apply to the full model transform
+    val intermediateOutputName = "resnetv24_pool1_fwd"
+    val slicedModel = onnxResNet50ForSlicing
+      .sliceAtOutput(intermediateOutputName)
+      .setFetchDict(Map("rawFeatures" -> intermediateOutputName))
+
+    assert(slicedModel.modelOutput.keys.toArray.contains(intermediateOutputName))
+
+    val intermediateDf = slicedModel.transform(testDfResNet50)
+
+    val firstRowFeatures = extractFirstRowFromSlicedLayer(intermediateDf, "rawFeatures")
+    assert(firstRowFeatures.length == 2048)
+  }
+
+  def extractFirstRowFromSlicedLayer(df: DataFrame, colName: String): Array[Float] = {
+    df.select(colName).collect()(0)(0)
+      .asInstanceOf[mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]]]
+      .map(wrappedArr => wrappedArr.head.head)
+      .toArray
   }
 }

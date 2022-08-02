@@ -3,11 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
-import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedCNTKModelUtils}
+import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedONNXModelUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-import com.microsoft.azure.synapse.ml.io.split1.FileReaderUtils
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import com.microsoft.azure.synapse.ml.stages.udfs.get_value_udf
@@ -24,7 +23,7 @@ import java.net.URL
 
 @deprecated("Please use 'com.microsoft.azure.synapse.ml.explainers.ImageLIME'.", since="1.0.0-RC3")
 class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
-  DataFrameEquality with TrainedCNTKModelUtils with FileReaderUtils {
+  DataFrameEquality with TrainedONNXModelUtils {
 
   lazy val greyhoundImageLocation: String = {
     val loc = "/tmp/greyhound.jpg"
@@ -36,7 +35,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     loc
   }
 
-  lazy val resNetTransformer: ImageFeaturizer = resNetModel().setCutOutputLayers(0)
+  lazy val resNetTransformer: ImageFeaturizer = resNetModel().setHeadless(false)
   lazy val getGreyhoundClass: UDFTransformer = new UDFTransformer()
     .setInputCol(resNetTransformer.getOutputCol)
     .setOutputCol(resNetTransformer.getOutputCol)

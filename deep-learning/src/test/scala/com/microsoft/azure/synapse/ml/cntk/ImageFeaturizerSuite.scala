@@ -1,83 +1,49 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
+// TODO move to onnx
 package com.microsoft.azure.synapse.ml.cntk
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.downloader.{ModelDownloader, ModelSchema}
 import com.microsoft.azure.synapse.ml.image.ImageTestUtils
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
 import com.microsoft.azure.synapse.ml.io.split1.FileReaderUtils
-import com.microsoft.azure.synapse.ml.onnx.ONNXModel
-import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{FloatType, StringType}
+import org.apache.spark.sql.types.StringType
 
-import java.io.File
-import java.net.URI
+trait TrainedONNXModelUtils extends ImageTestUtils {
+  override def beforeAll(): Unit = {
+    spark
+    super.beforeAll()
+  }
 
-trait TrainedCNTKModelUtils extends ImageTestUtils with FileReaderUtils {
-
-  lazy val modelDir = new File(filesRoot, "CNTKModel")
-  lazy val modelDownloader = new ModelDownloader(spark, modelDir.toURI)
-
-  lazy val resNetUri: URI = new File(modelDir, "ResNet50_ImageNet.model").toURI
-  lazy val resNet: ModelSchema = modelDownloader.downloadByName("ResNet50")
-
-  def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
-    .setInputCol(inputCol)
-    .setOutputCol(outputCol)
-    .setModel(resNet)
-
-}
-
-trait TrainedONNXModelUtils {
-  lazy val resNetOnnxUrl = "https://mmlspark.blob.core.windows.net/datasets/ONNXModels/resnet50-v1-12-int8.onnx";
+  lazy val resNetOnnxUrl = "https://mmlspark.blob.core.windows.net/datasets/ONNXModels/resnet50-v1-12-int8.onnx"
   lazy val resNetOnnxPayload: Array[Byte] = {
     val isr = scala.io.Source.fromURL(resNetOnnxUrl, "ISO-8859-1").reader()
     Stream.continually(isr.read()).takeWhile(_ != -1).map(_.toByte).toArray
   }
+
+  def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
+    .setInputCol(inputCol)
+    .setOutputCol(outputCol)
+    .setModel("ResNet18")
 }
 
 class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
-  with TrainedCNTKModelUtils {
-
-  test("Image featurizer should reproduce the CIFAR10 experiment") {
-    print(spark)
-    val model = new ImageFeaturizer()
-      .setInputCol(inputCol)
-      .setOutputCol(outputCol)
-      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
-      .setCutOutputLayers(0)
-      .setLayerNames(Array("z"))
-    val result = model.transform(images)
-    compareToTestModel(result)
-  }
+  with TrainedONNXModelUtils with FileReaderUtils {
 
   test("structured streaming") {
-
-    val model = new ImageFeaturizer()
-      .setInputCol("image")
-      .setOutputCol(outputCol)
-      .setModelLocation(FileUtilities.join(BuildInfo.datasetDir, "CNTKModel", "ConvNet_CIFAR10.model").toString)
-      .setCutOutputLayers(0)
-      .setLayerNames(Array("z"))
-
     val imageDF = spark
       .readStream
       .image
       .load(cifarDirectory)
-
-    val resultDF = model.transform(imageDF)
+    val resultDF = resNetModel().transform(imageDF)
 
     val q1 = resultDF.writeStream
       .format("memory")
@@ -94,16 +60,15 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("the Image feature should work with the modelSchema") {
-    val result = resNetModel().setCutOutputLayers(0).transform(images)
+    val result = resNetModel().transform(images)
     compareToTestModel(result)
   }
 
   test("the Image feature should work with the modelSchema + new images") {
     val newImages = spark.read.image
       .load(cifarDirectory)
-      .withColumnRenamed("image", "cntk_images")
 
-    val result = resNetModel().setCutOutputLayers(0).transform(newImages)
+    val result = resNetModel().transform(images) // TODO should this be using the above val?
     compareToTestModel(result)
   }
 
@@ -165,17 +130,6 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .select("foo")
 
     PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
-  }
-
-  test("test layers of network") {
-    (0 to 9).foreach({ i =>
-      val model = new ImageFeaturizer()
-        .setModel(resNet)
-        .setInputCol(inputCol)
-        .setOutputCol(outputCol)
-        .setCutOutputLayers(i)
-      val result = model.transform(images)
-    })
   }
 
   val reader: MLReadable[_] = ImageFeaturizer

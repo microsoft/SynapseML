@@ -3,21 +3,25 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
-import com.microsoft.CNTK.CNTKExtensions._
-import com.microsoft.CNTK.{SerializableFunction => CNTKFunction}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
-import com.microsoft.azure.synapse.ml.downloader.ModelSchema
-import com.microsoft.azure.synapse.ml.image.{ResizeImageTransformer, UnrollBinaryImage, UnrollImage}
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.findUnusedColumnName
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.onnx.{ONNXHub, ONNXModel, ONNXModelInfo}
+import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import com.microsoft.azure.synapse.ml.param.TransformerParam
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.{BinaryType, StructType}
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.{FloatType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.collection.mutable
+import scala.collection.mutable.WrappedArray
 
 object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
@@ -48,65 +52,71 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   // Parameters related to the inner model
 
-  val cntkModel: TransformerParam =
+  val onnxModel: TransformerParam =
     new TransformerParam(
       this,
-      "cntkModel", "The internal CNTK model used in the featurizer",
-      { t => t.isInstanceOf[CNTKModel] })
+      "onnxModel", "The internal ONNX model used in the featurizer",
+      { t => t.isInstanceOf[ONNXModel] })
 
   /** @group setParam */
-  def setCntkModel(value: CNTKModel): this.type = set(cntkModel, value)
+  def setOnnxModel(value: ONNXModel): this.type = set(onnxModel, value)
 
-  val emptyCntkModel = new CNTKModel()
+  val emptyOnnxModel = new ONNXModel()
 
   /** @group getParam */
-  def getCntkModel: CNTKModel =
-    if (isDefined(cntkModel)) $(cntkModel).asInstanceOf[CNTKModel] else emptyCntkModel
+  def getOnnxModel: ONNXModel =
+    if (isDefined(onnxModel)) $(onnxModel).asInstanceOf[ONNXModel] else emptyOnnxModel
 
   /** @group setParam */
-  def setMiniBatchSize(value: Int): this.type = set(cntkModel, getCntkModel.setMiniBatchSize(value))
+  def setMiniBatchSize(value: Int): this.type = set(onnxModel, getOnnxModel.setMiniBatchSize(value))
 
   /** @group getParam */
-  def getMiniBatchSize: Int = getCntkModel.getMiniBatchSize
-
-  /** @group setParam */
-  def setInputNode(value: Int): this.type = set(cntkModel, getCntkModel.setInputNodeIndex(value))
-
-  /** @group getParam */
-  def getInputNode: Int = getCntkModel.getInputNodeIndex
+  def getMiniBatchSize: Int = getOnnxModel.getMiniBatchSize
 
   def setModelLocation(path: String): this.type = {
-    set(cntkModel, getCntkModel.setModelLocation(path))
+    set(onnxModel, getOnnxModel.setModelLocation(path))
   }
 
-  def setModel(modelSchema: ModelSchema): this.type = {
-    setLayerNames(modelSchema.layerNames)
-      .setInputNode(modelSchema.inputNode)
-      .setModelLocation(modelSchema.uri.toString)
+  def setModel(name: String): this.type = {
+    val hub = new ONNXHub()
+    val info = hub.getModelInfo(name)
+    val bytes = hub.load(name)
+    setModel(bytes).setModelInfo(info)
   }
 
-  /** @group setParam */
-  def setModel(model: CNTKFunction): this.type = set(cntkModel, getCntkModel.setModel(model))
+  def setModelInfo(info: ONNXModelInfo): this.type = {
+    val input = info.metadata.ioPorts.get.inputs.head
+    setImageHeight(input.shape.head.right.get)
+      .setImageWidth(input.shape.apply(1).right.get)
+      .setImageTensorName(input.name)
+      .setFeatureTensorName(info.metadata.extraPorts.get.features.head.name)
+  }
+
+  def setModel(bytes: Array[Byte]): this.type = {
+    set(onnxModel, getOnnxModel.setModelPayload(bytes))
+  }
 
   /** @group getParam */
-  def getModel: CNTKFunction = getCntkModel.getModel
+  /** @group getParam */
+  def getModel: Array[Byte] = getOnnxModel.getModelPayload
 
-  // Parameters for just the ImageFeaturizer
-
-  /** The number of layer to cut off the end of the network; 0 leaves the network intact, 1 removes
-    * the output layer, etc.
-    *
-    * @group param
-    */
-  val cutOutputLayers: IntParam = new IntParam(this, "cutOutputLayers", "The number of layers to cut " +
-    "off the end of the network, 0 leaves the network intact," +
-    " 1 removes the output layer, etc", ParamValidators.gtEq(0))
+  val imageHeight: IntParam = new IntParam(
+    this, "imageHeight", "Size required by model", ParamValidators.gtEq(0))
 
   /** @group setParam */
-  def setCutOutputLayers(value: Int): this.type = set(cutOutputLayers, value)
+  def setImageHeight(value: Int): this.type = set(imageHeight, value)
 
   /** @group getParam */
-  def getCutOutputLayers: Int = $(cutOutputLayers)
+  def getImageHeight: Int = $(imageHeight)
+
+  val imageWidth: IntParam = new IntParam(
+    this, "imageWidth", "Size required by model", ParamValidators.gtEq(0))
+
+  /** @group setParam */
+  def setImageWidth(value: Int): this.type = set(imageWidth, value)
+
+  /** @group getParam */
+  def getImageWidth: Int = $(imageWidth)
 
   //TODO make nulls pass through
   val dropNa: BooleanParam =
@@ -118,77 +128,114 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getDropNa: Boolean = $(dropNa)
 
-  /** Array with valid CNTK nodes to choose from; the first entries of this array should be closer
-    * to the output node.
+  /** Name of the output node which represents features
     *
     * @group param
     */
-  val layerNames: StringArrayParam = new StringArrayParam(this, "layerNames",
-    "Array with valid CNTK nodes to choose from, the first entries of" +
-      " this array should be closer to the output node")
+  val featureTensorName: Param[String] = new Param[String](this, "featureTensorName",
+    "the name of the tensor to include in the fetch dict")
 
   /** @group setParam */
-  def setLayerNames(value: Array[String]): this.type = set(layerNames, value)
+  def setFeatureTensorName(value: String): this.type = set(featureTensorName, value)
 
   /** @group getParam */
-  def getLayerNames: Array[String] = $(layerNames)
+  def getFeatureTensorName: String = $(featureTensorName)
 
-  setDefault(cutOutputLayers -> 1, outputCol -> (uid + "_output"), dropNa -> true)
+  /** Name of the output node which represents probabilities
+    *
+    * @group param
+    */
+  val outputTensorName: Param[String] = new Param[String](this, "outputTensorName",
+    "the name of the tensor to include in the fetch dict")
+
+  /** @group setParam */
+  def setOutputTensorName(value: String): this.type = set(outputTensorName, value)
+
+  /** @group getParam */
+  def getOutputTensorName: String = $(outputTensorName)
+
+  val headless: BooleanParam = new BooleanParam(this, "headless",
+    "whether to use the feature tensor or the output tensor")
+
+  /** @group setParam */
+  def setHeadless(value: Boolean): this.type = set(headless, value)
+
+  /** @group getParam */
+  def getHeadless: Boolean = $(headless)
+
+  /** Name of the input node for images
+    *
+    * @group param
+    */
+  val imageTensorName: Param[String] = new Param[String](this, "imageTensorName",
+    "the name of the tensor to include in the fetch dict")
+
+  /** @group setParam */
+  def setImageTensorName(value: String): this.type = set(imageTensorName, value)
+
+  /** @group getParam */
+  def getImageTensorName: String = $(imageTensorName)
+
+  setDefault(outputCol -> (uid + "_output"), dropNa -> true, headless->true)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      val resizedCol = DatasetExtensions.findUnusedColumnName("resized")(dataset.columns.toSet)
+      val imgCol = DatasetExtensions.findUnusedColumnName("images")(dataset.columns.toSet)
 
-      val cntkModel = getCntkModel
-        .setOutputNode(getLayerNames.apply(getCutOutputLayers))
-        .setInputCol(resizedCol)
-        .setOutputCol(getOutputCol)
-
-      val requiredSize = cntkModel.getModel.getArguments.get(0).getShape.getDimensions
-
-      val inputSchema = dataset.schema(getInputCol).dataType
-
-      val unrolledDF = if (ImageSchemaUtils.isImage(inputSchema)) {
-        val prepare = new ResizeImageTransformer()
-          .setInputCol(getInputCol)
-          .setWidth(requiredSize(0).toInt)
-          .setHeight(requiredSize(1).toInt)
-          .setNChannels(3)
-
-        val unroll = new UnrollImage()
-          .setInputCol(prepare.getOutputCol)
-          .setOutputCol(resizedCol)
-
-        val resizedDF = prepare.transform(dataset)
-        unroll.transform(resizedDF).drop(prepare.getOutputCol)
-      } else if (inputSchema == BinaryType) {
-        val unroll = new UnrollBinaryImage()
-          .setInputCol(getInputCol)
-          .setWidth(requiredSize(0).toInt)
-          .setHeight(requiredSize(1).toInt)
-          .setNChannels(3)
-          .setOutputCol(resizedCol)
-        unroll.transform(dataset)
-      } else {
-        throw new IllegalArgumentException(
-          s"Input schema : $inputSchema needs to have image or binary type")
-      }
+      val transformed = new ImageTransformer()
+        .setInputCol(getInputCol)
+        .setOutputCol(imgCol)
+        .resize(getImageHeight, getImageWidth)
+        .centerCrop(getImageHeight, getImageWidth)
+        .normalize(
+          mean = Array(0.485, 0.456, 0.406),
+          std = Array(0.229, 0.224, 0.225),
+          colorScaleFactor = 1d / 255d)
+        .setTensorElementType(FloatType)
+        .transform(dataset)
 
       val dropped = if (getDropNa) {
-        unrolledDF.na.drop(List(resizedCol))
+        transformed.na.drop(List(imgCol))
       } else {
-        unrolledDF
+        transformed
       }
-      cntkModel.transform(dropped).drop(resizedCol)
-    })
 
+      val outputTensor =
+        if (getHeadless) getFeatureTensorName
+        else getOutputTensorName
+      val tempCol = findUnusedColumnName("onnx", transformed)
+
+      val rawResult = getOnnxModel
+        .setFeedDict(Map(getImageTensorName->imgCol))
+        .setFetchDict(Map(tempCol->outputTensor))
+        .transform(dropped).drop(imgCol)
+
+      val result = if (getHeadless) {
+        val outputUDF = udf(convertFeaturesToVector)
+        rawResult.withColumn(getOutputCol, outputUDF(col(tempCol)))
+      } else {
+        val outputUDF = udf(convertOutputToVector)
+        rawResult.withColumn(getOutputCol, outputUDF(col(tempCol)))
+      }
+
+      result.drop(tempCol)
+    })
+  }
+
+  val convertOutputToVector: mutable.WrappedArray[Float] => DenseVector = (raw: mutable.WrappedArray[Float]) => {
+    new DenseVector(raw.map(_.toDouble).toArray)
+  }
+
+  val convertFeaturesToVector: mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]] =>
+    DenseVector = (raw: mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]]) => {
+      new DenseVector(raw.map(_.head.head.toDouble).toArray)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   /** Add the features column to the schema
     *
-    * @param schema
+    * @param schema Schema to transform
     * @return schema with features column
     */
   override def transformSchema(schema: StructType): StructType = {
