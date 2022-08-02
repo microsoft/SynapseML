@@ -75,7 +75,6 @@ class CressieRead
           val a = (wfake + sumw) / (1 + n)
           val b = (wfake * wfake + sumwsq) / (1 + n)
 
-          // TODO: changed to <=
           assert(a * a <= b)
 
           ((b - a) / (a * a - b), (1 - a) / (a * a - b))

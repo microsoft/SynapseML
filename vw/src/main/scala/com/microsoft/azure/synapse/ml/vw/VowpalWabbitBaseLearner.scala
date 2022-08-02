@@ -222,6 +222,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     var lastStats: Option[TrainingStats] = None
 
     for (split <- splits) {
+      println(s"Training on split $split")
       val models = df.where(col(getSplitCol) === lit(split)).mapPartitions({ inputRows => {
         // create VW instance
         StreamUtilities.using(
@@ -239,6 +240,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
       }})(encoder).collect
 
       // TODO: merge
+      println("TODO: merge")
       driverModel = Some(models.flatMap(_.model).head)
 
       // TODO: merge stats

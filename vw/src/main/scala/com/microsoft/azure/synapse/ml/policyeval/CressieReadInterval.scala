@@ -42,7 +42,7 @@ class CressieReadInterval(empiricalBounds: Boolean)
     else {
       if (x.reward > x.rewardMax || x.reward < x.rewardMin)
         throw new IllegalArgumentException(s"Reward is out of bounds: ${x.rewardMin} < ${x.reward} < ${x.rewardMax}")
-      (0f, 0f)
+      (x.rewardMax, x.rewardMin)
     }
 
     CressieReadIntervalBuffer(
