@@ -15,6 +15,8 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsWritable, ImageInjections, Transformer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.json4s.DefaultFormats
+import org.json4s.jackson.JsonMethods.parse
 import org.opencv.core._
 import org.opencv.imgproc.Imgproc
 
@@ -433,8 +435,10 @@ class ImageTransformer(val uid: String) extends Transformer
   def setStages(value: java.util.ArrayList[java.util.HashMap[String, Any]]): this.type =
     set(stages, value.asScala.toArray.map(_.asScala.toMap))
 
-  def setStages(value: Map[String, Any]): this.type =
-    set(stages, Array(value))
+  def setStages(jsonString: String): this.type = {
+    implicit val formats = DefaultFormats
+    this.setStages(parse(jsonString).extract[Array[Map[String, Any]]])
+  }
 
   val emptyStages: Array[Map[String, Any]] = Array[Map[String, Any]]()
 

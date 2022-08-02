@@ -155,7 +155,7 @@ trait HasOpenAIParams extends HasServiceParams
     this, "topP",
     "An alternative to sampling with temperature, called nucleus sampling, where the model considers the" +
       " results of the tokens with top_p probability mass." +
-      " So 0.1 means only the tokens comprising the top 10% probability mass are considered." +
+      " So 0.1 means only the tokens comprising the top 10 percent probability mass are considered." +
       " We generally recommend using this or `temperature` but not both." +
       " Minimum of 0 and maximum of 1 allowed.",
     isRequired = false)

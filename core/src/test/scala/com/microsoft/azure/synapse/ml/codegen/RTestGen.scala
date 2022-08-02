@@ -113,7 +113,9 @@ object RTestGen {
          |${useLibrary("jsonlite")}
          |${useLibrary("mlflow")}
          |library($library)
+         |library(synapseml)
          |
+         |testcheck("synapseml")
          |""".stripMargin)
 
   }
