@@ -102,13 +102,29 @@ object CodegenPlugin extends AutoPlugin {
     val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
     val rTestDir = join(codegenDir.value, "test", "R")
-    rCmd(activateCondaEnv,
-      Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
-      rSrcDir.getParentFile, libPath)
-    val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (rTestDir.exists()){
+    try {
       rCmd(activateCondaEnv,
-        Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
+        Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
+        rSrcDir.getParentFile, libPath)
+    }
+    catch {
+      case e: Exception => {
+        println(s"Exception in activateConda: ${e.toString} (${e.getClass}")
+        throw e
+      }
+    }
+    val testRunner = join("tools", "tests", "run_r_tests.R")
+    if (rTestDir.exists()) {
+      try {
+        rCmd(activateCondaEnv,
+          Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
+      }
+      catch {
+        case e: Exception => {
+          println(s"Exception in running tests: ${e.toString} (${e.getClass})}")
+          throw e
+        }
+      }
     }
   } tag (RInstallTag)
 
