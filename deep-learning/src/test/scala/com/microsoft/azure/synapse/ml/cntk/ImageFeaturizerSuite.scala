@@ -1,7 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-// TODO move to onnx
 package com.microsoft.azure.synapse.ml.cntk
 
 import com.microsoft.azure.synapse.ml.Secrets
@@ -16,6 +15,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StringType
+
+// TODO all move to onnx package
 
 trait TrainedONNXModelUtils extends ImageTestUtils {
   override def beforeAll(): Unit = {
