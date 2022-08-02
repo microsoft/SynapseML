@@ -47,7 +47,6 @@ def toNDArray(image):
         return np.asarray(image.data, dtype=np.uint8).reshape(
             (image.height, image.width, 1)
         )
-    
     return np.asarray(image.data, dtype=np.uint8).reshape(
         (image.height, image.width, 3),
     )[:, :, (2, 1, 0)]
