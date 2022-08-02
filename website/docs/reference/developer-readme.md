@@ -132,3 +132,24 @@ Publishes the library to sonatype staging repo
 ### `sonatypeRelease`
 
 Promotes the published sonatype artifact
+
+# Python Unit Tests
+
+The auto-generated python unit tests and hand code unit test  (e.g. vw/src/main/python/*.py)
+are copied by `sbt pyTestgen` into the target directory (e.g. vw/target/scala-2.12/generated/test/python).
+
+To run python unit tests on local-box one must run:
+
+* `sbt installPipPackage`
+* `sbt publishM2`
+
+Changes applied to the code base must be redeployed locally using `sbt installPipPackage` and `sbt publishM2`.
+Changes to the unit tests can be applied in the target folder, but will be overwritten by `sbt pyTestgen`.
+
+One can deploy selected projects by calling 
+
+```shell
+sbt
+project vw
+pyTestgen
+```
