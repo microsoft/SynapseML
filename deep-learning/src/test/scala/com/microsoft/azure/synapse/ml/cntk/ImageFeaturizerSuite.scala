@@ -16,7 +16,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StringType
 
-// TODO all move to onnx package
+// TODO move all to onnx package after review
 
 trait TrainedONNXModelUtils extends ImageTestUtils {
   override def beforeAll(): Unit = {
@@ -61,7 +61,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("the Image feature should work with the modelSchema") {
-    val result = resNetModel().transform(images)
+    val result = resNetModel().setHeadless(false).transform(images)
     compareToTestModel(result)
   }
 
@@ -69,7 +69,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val newImages = spark.read.image
       .load(cifarDirectory)
 
-    val result = resNetModel().transform(images) // TODO should this be using the above val?
+    val result = resNetModel().setHeadless(false).transform(newImages)
     compareToTestModel(result)
   }
 
