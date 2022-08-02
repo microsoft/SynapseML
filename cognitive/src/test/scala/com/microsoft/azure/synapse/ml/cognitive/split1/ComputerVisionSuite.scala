@@ -101,26 +101,22 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setOutputCol("features")
-
-  lazy val ai: AnalyzeImage = baseAI
-    .setImageUrlCol("url")
     .setLanguageCol("language")
     .setVisualFeatures(
-      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
+      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands")
+    )
     .setDetails(Seq("Celebrities", "Landmarks"))
+
+  def ai: AnalyzeImage = baseAI
+    .setImageUrlCol("url")
 
   lazy val bytesDF: DataFrame = BingImageSearch
     .downloadFromUrls("url", "imageBytes", 4, 10000)
     .transform(df)
     .drop("url")
 
-  lazy val bytesAI: AnalyzeImage = baseAI
+  def bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
-    .setLanguageCol("language")
-    .setVisualFeatures(
-      Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands")
-    )
-    .setDetails(Seq("Celebrities", "Landmarks"))
 
   test("full parametrization") {
     val row = (Seq("Categories"), "en", Seq("Celebrities"),
@@ -258,6 +254,7 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
     def prep(df: DataFrame) = {
       df.select("url", "ocr.analyzeResult.readResults")
     }
+
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
