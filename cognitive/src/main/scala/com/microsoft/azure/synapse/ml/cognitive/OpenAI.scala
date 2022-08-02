@@ -265,7 +265,7 @@ trait HasOpenAIParams extends HasServiceParams
   val presencePenalty: ServiceParam[Double] = new ServiceParam[Double](
     this, "presencePenalty",
     "How much to penalize new tokens based on their existing frequency in the text so far." +
-      " Decreases the model's likelihood to repeat the same line verbatim. Has minimum of -2 and maximum of 2.",
+      " Decreases the likelihood of the model to repeat the same line verbatim. Has minimum of -2 and maximum of 2.",
     isRequired = false)
 
   def getPresencePenalty: Double = getScalarParam(presencePenalty)
@@ -279,7 +279,7 @@ trait HasOpenAIParams extends HasServiceParams
   val frequencyPenalty: ServiceParam[Double] = new ServiceParam[Double](
     this, "frequencyPenalty",
     "How much to penalize new tokens based on whether they appear in the text so far." +
-      " Increases the model's likelihood to talk about new topics.",
+      " Increases the likelihood of the model to talk about new topics.",
     isRequired = false)
 
   def getFrequencyPenalty: Double = getScalarParam(frequencyPenalty)

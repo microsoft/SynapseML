@@ -23,13 +23,6 @@ object TestGen {
     }
   }
 
-  def getListOfFiles(dir: File): Unit = {
-    if (dir.exists && dir.isDirectory) {
-      val files = dir.listFiles.filter(_.isFile).toList
-      files.foreach(f => println(s"f: ${f.getName}"))
-    }
-  }
-
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
     clean(conf.testDataDir)

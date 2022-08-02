@@ -95,7 +95,7 @@ object RTestGen {
          |
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
-         |  "spark.app.name=RSparkTests",
+         |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=com.microsoft.azure:synapseml_2.12:${conf.version}",
          |  "spark.jars.repositories=https://mmlspark.azureedge.net/maven",
          |  "spark.executor.heartbeatInterval=60s",

@@ -36,6 +36,7 @@ object CodegenPlugin extends AutoPlugin {
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
+  val PyCodeGenTag = Tags.Tag("pyCodeGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
   val RCodeGenTag = Tags.Tag("rCodeGen")
   val RTestGenTag = Tags.Tag("rTestGen")
@@ -73,6 +74,7 @@ object CodegenPlugin extends AutoPlugin {
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+    val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate Python code")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
@@ -118,6 +120,15 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.TestGen $arg").value
     }
   } tag (TestGenTag)
+
+  def pyCodeGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = codegenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyCodegen $arg").value
+    }
+  } tag (RCodeGenTag)
 
   def pyTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -300,6 +311,7 @@ object CodegenPlugin extends AutoPlugin {
       val destDir = join(mergeCodeDir.value, "src", "dotnet", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
+    pyCodegen := pyCodeGenImpl.value,
     testPython := {
       installPipPackage.value
       pyTestgen.value

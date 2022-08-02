@@ -55,7 +55,7 @@ object ICECategoricalFeature {
     ICECategoricalFeature(name, numTopValues, outputColName)
   }
 
-  def fromScalaMap(inputMap: Map[String, Any]): ICECategoricalFeature = {
+  def fromMap(inputMap: Map[String, Any]): ICECategoricalFeature = {
     val name: String = inputMap.get("name").get.toString
     val numTopValues: Option[Int] = inputMap.get("numTopValues").asInstanceOf[Option[Int]]
     val outputColName: Option[String] = inputMap.get("outputColName").asInstanceOf[Option[String]]
@@ -121,7 +121,7 @@ object ICENumericFeature {
     ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
   }
 
-  def fromScalaMap(inputMap: Map[String, Any]): ICENumericFeature = {
+  def fromMap(inputMap: Map[String, Any]): ICENumericFeature = {
     val name: String = inputMap.get("name").get.toString
     val numSplits: Option[Int] = inputMap.get("numSplits").asInstanceOf[Option[Int]]
     val rangeMin: Option[Double] = inputMap.get("rangeMin").asInstanceOf[Option[Double]]

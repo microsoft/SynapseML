@@ -50,9 +50,9 @@ class TypedArrayParam[T: TypeTag](parent: Params,
       s"""${rName(v)}=list(${v.map(arg => {
         className match {
           case "com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature" =>
-            s"""invoke_static(sc, "${className}", "fromScalaMap", ${RWrappableParam.rDefaultRender(arg)})"""
+            s"""invoke_static(sc, "${className}", "fromMap", ${RWrappableParam.rDefaultRender(arg)})"""
           case "com.microsoft.azure.synapse.ml.explainers.ICENumericFeature" =>
-            s"""invoke_static(sc, "${className}", "fromScalaMap", ${RWrappableParam.rDefaultRender(arg)})"""
+            s"""invoke_static(sc, "${className}", "fromMap", ${RWrappableParam.rDefaultRender(arg)})"""
           case _ =>
             s"""invoke_new(sc, "${className}", ${rValue(v)})"""
         }
