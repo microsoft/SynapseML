@@ -77,10 +77,10 @@ trait VowpalWabbitBaseProgressive
         Row.fromSeq(inputRow.toSeq ++ trainFromRow(vw, inputRow))
       }
       catch {
-        case e: Exception =>
+        case e: Throwable =>
           close
 
-          throw new Exception(s"VW failed", e)
+          throw new RuntimeException(s"VW failed during training", e)
       }
     }
   }
