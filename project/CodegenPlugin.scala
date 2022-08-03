@@ -103,11 +103,11 @@ object CodegenPlugin extends AutoPlugin {
     println(s"condaEnvLocation: ${condaEnvLocation.value}")
     println(s"codegenDir: ${codegenDir.value}")
     val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
-    println(s"libPath: ${libPath} exists:${java.io.File.File(libPath).exists()}")
+    println(s"libPath: ${libPath} exists:${java.io.File(libPath).exists()}")
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
-    println(s"rSrcDir ${rSrcDir} exists:${java.io.File.File(rSrcDir).exists()}")
+    println(s"rSrcDir ${rSrcDir} exists:${java.io.File(rSrcDir).exists()}")
     val rTestDir = join(codegenDir.value, "test", "R")
-    println(s"rTestDir ${rTestDir} exists:${java.io.File.File(rTestDir).exists()}")
+    println(s"rTestDir ${rTestDir} exists:${java.io.File(rTestDir).exists()}")
     try {
       println("running install")
       rCmd(activateCondaEnv,
@@ -122,7 +122,7 @@ object CodegenPlugin extends AutoPlugin {
       }
     }
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    println(s"testRunner: ${testRunner} exists: ${java.io.File.File(testRunner).exists()}")
+    println(s"testRunner: ${testRunner} exists: ${java.io.File(testRunner).exists()}")
     if (rTestDir.exists()) {
       try {
         println("running Rscript")
