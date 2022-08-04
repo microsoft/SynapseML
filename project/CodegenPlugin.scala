@@ -30,7 +30,6 @@ object CodegenPlugin extends AutoPlugin {
   override def requires: Plugins = CondaPlugin
 
   def rCmd(activateCondaEnv: Seq[String], cmd: Seq[String], wd: File, libPath: String): Unit = {
-    println(s"----- wd: ${wd.getPath}")
     runCmd(activateCondaEnv ++ cmd, wd, Map("R_LIBS" -> libPath, "R_USER_LIBS" -> libPath))
   }
 
@@ -101,42 +100,16 @@ object CodegenPlugin extends AutoPlugin {
     packageR.value
     publishLocal.value
     rTestGen.value
-    println(s"condaEnvLocation: ${condaEnvLocation.value}")
-    println(s"codegenDir: ${codegenDir.value}")
     val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
-    println(s"libPath: ${libPath}")
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
-    println(s"rSrcDir ${rSrcDir}")
     val rTestDir = join(codegenDir.value, "test", "R")
-    println(s"rTestDir ${rTestDir}")
-    try {
-      println("running install")
-      rCmd(activateCondaEnv,
-        Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
-        rSrcDir.getParentFile, libPath)
-      println("ran install")
-    }
-    catch {
-      case e: Exception => {
-        println(s"Exception in activateConda: ${e.toString} (${e.getClass}")
-        throw e
-      }
-    }
+    rCmd(activateCondaEnv,
+      Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
+      rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    println(s"testRunner: ${testRunner}")
     if (rTestDir.exists()) {
-      try {
-        println("running Rscript")
-        rCmd(activateCondaEnv,
-          Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
-        println("ran Rscript")
-      }
-      catch {
-        case e: Exception => {
-          println(s"Exception in running tests: ${e.toString} (${e.getClass})}")
-          throw e
-        }
-      }
+      rCmd(activateCondaEnv,
+      Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
     }
   } tag (RInstallTag)
 
