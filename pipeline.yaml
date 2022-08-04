@@ -328,18 +328,22 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup)
           sbt installPipPackage
     - task: AzureCLI@2
       displayName: 'Test Python Code'
-      timeoutInMinutes: 40
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
+          (timeout 20m sbt "project $(PACKAGE)" coverage testPython) \
+          || (timeout 20m sbt "project $(PACKAGE)" coverage testPython) \
+          || (timeout 20m  sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -383,7 +387,7 @@ jobs:
         scriptPath: tools/dotnet/dotnetSetup.sh
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
@@ -394,8 +398,12 @@ jobs:
           sbt publishDotnetTestBase
           sbt publishLocal
           sbt "project $(PACKAGE)" publishDotnet
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
+          (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup)
+          (timeout 20m sbt "project $(PACKAGE)" coverage testDotnet) \
+          || (timeout 20m sbt "project $(PACKAGE)" coverage testDotnet) \
+          || (timeout 20m sbt "project $(PACKAGE)" coverage testDotnet)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -424,15 +432,19 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
+          (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup)
+          (timeout 20m sbt coverage testR) \
+          || (timeout 20m sbt coverage testR) \
+          || (timeout 20m sbt coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -462,7 +474,7 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test Website Samples'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
@@ -472,8 +484,12 @@ jobs:
           source activate synapseml
           sbt packagePython
           sbt publishBlob
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testWebsiteDocs)
+          (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup) \
+          || (timeout 5m sbt setup)
+          (timeout 20m sbt coverage testWebsiteDocs) \
+          || (timeout 20m sbt coverage testWebsiteDocs) \
+          || (timeout 20m sbt coverage testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
