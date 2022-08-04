@@ -299,6 +299,30 @@ class ONNXModelSuite extends TestBase
     assert(prediction.toInt == 176)
   }
 
+  test("Load ONNX Hub Model") {
+    spark
+    val name = "resnet50"
+    val hub = new ONNXHub()
+    val info = hub.getModelInfo(name)
+    val bytes = hub.load(name)
+    val model = new ONNXModel()
+      .setModelPayload(bytes)
+      .setFeedDict(Map("data" -> "features"))
+      .setFetchDict(Map("rawPrediction" -> "resnetv17_dense0_fwd"))
+      .setSoftMaxDict(Map("rawPrediction" -> "probability"))
+      .setArgMaxDict(Map("rawPrediction" -> "prediction"))
+      .setMiniBatchSize(1)
+
+    val (probability, prediction) = model.transform(testDfResNet50)
+      .select("probability", "prediction")
+      .as[(Vector, Double)]
+      .head
+
+    val top2 = argtopk(probability.toBreeze, 2).toArray
+    assert(top2 sameElements Array(176, 172))
+    assert(prediction.toInt == 176)
+  }
+
   test("ONNXModel automatic slicing based on fetch dictionary") {
     // Set the fetch dictionary to an intermediate output, and the model should automatically slice at that point.
     val intermediateOutputName = "resnetv24_pool1_fwd"

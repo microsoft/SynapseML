@@ -20,13 +20,10 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{FloatType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-import scala.collection.mutable
-import scala.collection.mutable.WrappedArray
-
 object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
-/** The <code>ImageFeaturizer</code> relies on a CNTK model to do the featurization, one can set
-  * this model using the <code>modelLocation</code> parameter. To map the nodes of the CNTK model
+/** The <code>ImageFeaturizer</code> relies on a ONNX model to do the featurization, one can set
+  * this model using the <code>setOnnxModel</code> parameter. To map the nodes of the CNTK model
   * onto the standard "layers" structure of a feed forward neural net, one needs to supply a list of
   * node names that range from the output node, back towards the input node of the CNTK Function.
   * This list does not need to be exhaustive, and is provided to you if you use a model downloaded
@@ -52,24 +49,19 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   // Parameters related to the inner model
 
-  val onnxModel: TransformerParam =
-    new TransformerParam(
-      this,
-      "onnxModel", "The internal ONNX model used in the featurizer",
-      { t => t.isInstanceOf[ONNXModel] })
-
+  val onnxModel: TransformerParam = new TransformerParam(
+    this,
+    "onnxModel",
+    "The internal ONNX model used in the featurizer",
+    { t => t.isInstanceOf[ONNXModel] })
+  setDefault(onnxModel, new ONNXModel())
   /** @group setParam */
   def setOnnxModel(value: ONNXModel): this.type = set(onnxModel, value)
-
-  val emptyOnnxModel = new ONNXModel()
-
   /** @group getParam */
-  def getOnnxModel: ONNXModel =
-    if (isDefined(onnxModel)) $(onnxModel).asInstanceOf[ONNXModel] else emptyOnnxModel
+  def getOnnxModel: ONNXModel = $(onnxModel).asInstanceOf[ONNXModel]
 
   /** @group setParam */
   def setMiniBatchSize(value: Int): this.type = set(onnxModel, getOnnxModel.setMiniBatchSize(value))
-
   /** @group getParam */
   def getMiniBatchSize: Int = getOnnxModel.getMiniBatchSize
 
@@ -86,45 +78,63 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
 
   def setModelInfo(info: ONNXModelInfo): this.type = {
     val input = info.metadata.ioPorts.get.inputs.head
-    setImageHeight(input.shape.head.right.get)
-      .setImageWidth(input.shape.apply(1).right.get)
+    val output = info.metadata.ioPorts.get.outputs.head
+    setImageHeight(input.shape.apply(2).right.get)
+      .setImageWidth(input.shape.apply(3).right.get)
       .setImageTensorName(input.name)
+      .setOutputTensorName(output.name)
       .setFeatureTensorName(info.metadata.extraPorts.get.features.head.name)
   }
 
-  def setModel(bytes: Array[Byte]): this.type = {
-    set(onnxModel, getOnnxModel.setModelPayload(bytes))
-  }
-
-  /** @group getParam */
+  /** @group setParam */
+  def setModel(bytes: Array[Byte]): this.type = set(onnxModel, getOnnxModel.setModelPayload(bytes))
   /** @group getParam */
   def getModel: Array[Byte] = getOnnxModel.getModelPayload
 
   val imageHeight: IntParam = new IntParam(
     this, "imageHeight", "Size required by model", ParamValidators.gtEq(0))
-
   /** @group setParam */
   def setImageHeight(value: Int): this.type = set(imageHeight, value)
-
   /** @group getParam */
   def getImageHeight: Int = $(imageHeight)
 
   val imageWidth: IntParam = new IntParam(
     this, "imageWidth", "Size required by model", ParamValidators.gtEq(0))
-
   /** @group setParam */
   def setImageWidth(value: Int): this.type = set(imageWidth, value)
-
   /** @group getParam */
   def getImageWidth: Int = $(imageWidth)
 
-  //TODO make nulls pass through
+  val channelNormalizationMeans: Param[Array[Double]] = new Param[Array[Double]](
+    this, "channelNormalizationMeans", "Normalization means for color channels")
+  setDefault(channelNormalizationMeans -> Array(0.485, 0.456, 0.406))
+  /** @group setParam */
+  def setChannelNormalizationMeans(value: Array[Double]): this.type = set(channelNormalizationMeans, value)
+  /** @group getParam */
+  def getChannelNormalizationMeans: Array[Double] = $(channelNormalizationMeans)
+
+  val channelNormalizationStds: DoubleArrayParam = new DoubleArrayParam(
+    this, "channelNormalizationStds", "Normalization std's for color channels")
+  setDefault(channelNormalizationStds -> Array(0.229, 0.224, 0.225))
+  /** @group setParam */
+  def setChannelNormalizationStds(value: Array[Double]): this.type = set(channelNormalizationStds, value)
+  /** @group getParam */
+  def getChannelNormalizationStds: Array[Double] = $(channelNormalizationStds)
+
+  val colorScaleFactor: DoubleParam = new DoubleParam(
+    this, "colorScaleFactor", "Color scale factor")
+  setDefault(colorScaleFactor -> 1d / 255d)
+  /** @group setParam */
+  def setColorScaleFactor(value: Double): this.type = set(colorScaleFactor, value)
+  /** @group getParam */
+  def getColorScaleFactor: Double = $(colorScaleFactor)
+
+  // TODO make nulls pass through
   val dropNa: BooleanParam =
     new BooleanParam(this, "dropNa", "Whether to drop na values before mapping")
-
+  setDefault(dropNa -> true)
   /** @group setParam */
   def setDropNa(value: Boolean): this.type = set(dropNa, value)
-
   /** @group getParam */
   def getDropNa: Boolean = $(dropNa)
 
@@ -134,10 +144,8 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     */
   val featureTensorName: Param[String] = new Param[String](this, "featureTensorName",
     "the name of the tensor to include in the fetch dict")
-
   /** @group setParam */
   def setFeatureTensorName(value: String): this.type = set(featureTensorName, value)
-
   /** @group getParam */
   def getFeatureTensorName: String = $(featureTensorName)
 
@@ -147,19 +155,17 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     */
   val outputTensorName: Param[String] = new Param[String](this, "outputTensorName",
     "the name of the tensor to include in the fetch dict")
-
+  setDefault(outputTensorName -> "")
   /** @group setParam */
   def setOutputTensorName(value: String): this.type = set(outputTensorName, value)
-
   /** @group getParam */
   def getOutputTensorName: String = $(outputTensorName)
 
   val headless: BooleanParam = new BooleanParam(this, "headless",
     "whether to use the feature tensor or the output tensor")
-
+  setDefault(headless -> true)
   /** @group setParam */
   def setHeadless(value: Boolean): this.type = set(headless, value)
-
   /** @group getParam */
   def getHeadless: Boolean = $(headless)
 
@@ -169,14 +175,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     */
   val imageTensorName: Param[String] = new Param[String](this, "imageTensorName",
     "the name of the tensor to include in the fetch dict")
-
   /** @group setParam */
   def setImageTensorName(value: String): this.type = set(imageTensorName, value)
-
   /** @group getParam */
   def getImageTensorName: String = $(imageTensorName)
 
-  setDefault(outputCol -> (uid + "_output"), dropNa -> true, headless->true)
+  setDefault(outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
@@ -188,9 +192,9 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .resize(getImageHeight, getImageWidth)
         .centerCrop(getImageHeight, getImageWidth)
         .normalize(
-          mean = Array(0.485, 0.456, 0.406),
-          std = Array(0.229, 0.224, 0.225),
-          colorScaleFactor = 1d / 255d)
+          getChannelNormalizationMeans,
+          getChannelNormalizationStds,
+          getColorScaleFactor)
         .setTensorElementType(FloatType)
         .transform(dataset)
 
@@ -222,13 +226,12 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
     })
   }
 
-  val convertOutputToVector: mutable.WrappedArray[Float] => DenseVector = (raw: mutable.WrappedArray[Float]) => {
+  val convertOutputToVector: Seq[Float] => DenseVector = (raw: Seq[Float]) => {
     new DenseVector(raw.map(_.toDouble).toArray)
   }
 
-  val convertFeaturesToVector: mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]] =>
-    DenseVector = (raw: mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]]) => {
-      new DenseVector(raw.map(_.head.head.toDouble).toArray)
+  val convertFeaturesToVector: Seq[Seq[Seq[Float]]] => DenseVector = (raw: Seq[Seq[Seq[Float]]]) => {
+    new DenseVector(raw.map(_.head.head.toDouble).toArray)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
