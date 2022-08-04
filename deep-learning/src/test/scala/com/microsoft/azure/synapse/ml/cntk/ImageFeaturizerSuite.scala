@@ -80,13 +80,19 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("Image featurizer should work with ResNet50 in greyscale") {
-    val result = resNetModel().transform(greyscaleImage)
+    val result = resNetModel()
+      .setChannelNormalizationMeans(Array(0.485))
+      .setChannelNormalizationStds(Array(0.229))
+      .transform(greyscaleImage)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
 
   test("Image featurizer should work with ResNet50 in greyscale binary") {
-    val result = resNetModel().transform(greyscaleBinary)
+    val result = resNetModel()
+      .setChannelNormalizationMeans(Array(0.485))
+      .setChannelNormalizationStds(Array(0.229))
+      .transform(greyscaleBinary)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }

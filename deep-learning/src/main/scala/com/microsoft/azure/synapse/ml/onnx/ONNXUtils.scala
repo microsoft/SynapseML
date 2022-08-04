@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.onnx
 
-import ai.onnx.proto.OnnxMl.{GraphProto, ModelProto, NodeProto, ValueInfoProto}
+import ai.onnx.proto.OnnxMl.{GraphProto, ModelProto, NodeProto, TensorShapeProto, TypeProto, ValueInfoProto}
 import ai.onnxruntime._
 import com.google.protobuf.ProtocolStringList
 import org.apache.spark.ml.linalg.SQLDataTypes._
@@ -94,7 +94,11 @@ object ONNXUtils {
     val shape: Array[Long] = tensorInfo.getShape
     // the first dimension of the shape can be -1 when multiple inputs are allowed. Setting it to the real
     // input size. Otherwise we cannot create the tensor from the 1D array buffer.
+    if (shape.tail.contains(-1))
+      throw new Exception(s"The input tensor has shape [${shape.mkString}], " +
+        s"but -1 is only allowed at the first dimension (batch size).")
     shape(0) = batchedValues.length
+
     val size = shape.product.toInt
 
     tensorInfo.`type` match {
@@ -233,6 +237,29 @@ object ONNXUtils {
     val newNodes = nodes.filter(node => nodeUsageStatus(node.getName))
     val newOutputs = newOutputNames.map(out => ValueInfoProto.newBuilder().setName(out).build())
     (newNodes, newOutputs)
+  }
+
+  /*
+   * TODO
+   */
+  private def batchify(source: ModelProto): ModelProto = {
+    val model = ModelProto.newBuilder(source)
+    val graph = GraphProto.newBuilder(model.getGraph)
+    val input = ValueInfoProto.newBuilder(graph.getInput(0))
+    val typeProto = TypeProto.newBuilder(input.getType)
+    val tensorType = TypeProto.Tensor.newBuilder(typeProto.getTensorType)
+    val shape = TensorShapeProto.newBuilder(tensorType.getShape)
+    val dim0 = TensorShapeProto.Dimension.newBuilder(shape.getDim(0))
+    if (dim0.hasDimValue && dim0.getDimValue == 1) {
+      dim0.setDimParam("N")
+      shape.setDim(0, dim0)
+      tensorType.setShape(shape)
+      typeProto.setTensorType(tensorType)
+      input.setType(typeProto)
+      graph.setInput(0, input)
+      model.setGraph(graph)
+      model.build()
+    } else source
   }
 
   /*

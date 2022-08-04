@@ -69,8 +69,8 @@ object ONNXHubJsonProtocol extends DefaultJsonProtocol {
 }
 
 object ONNXHub {
-  val DefaultRepo: String = "onnx/models:5bb96f84527f6c0cd437f36ad4b0bb7daf5ef830"
-  val AuthenticatedRepo: (String, String, String) = ("onnx", "models", "5bb96f84527f6c0cd437f36ad4b0bb7daf5ef830")
+  val DefaultRepo: String = "onnx/models:main"
+  val AuthenticatedRepo: (String, String, String) = ("onnx", "models", "main")
   val ConnectTimeout = 15000
   val ReadTimeout = 5000
 }
@@ -97,7 +97,7 @@ class ONNXHub(val modelCacheDir: Path) extends Logging {
     val repoRef = if (repo.contains(":")) {
       repo.split("/".toCharArray).apply(1).split(":".toCharArray).apply(1)
     } else {
-      "master"
+      "main"
     }
     (repoOwner, repoName, repoRef)
   }
@@ -186,24 +186,25 @@ class ONNXHub(val modelCacheDir: Path) extends Logging {
            repo: String = ONNXHub.DefaultRepo,
            opset: Option[Int] = None,
            forceReload: Boolean = false,
-           silent: Boolean = false): Array[Byte] = {
+           silent: Boolean = false,
+           allowUnsafe: Boolean = false): Array[Byte] = {
     val selectedModel = getModelInfo(model, repo, opset)
     val modelPathArr = selectedModel.modelPath.split("/".toCharArray)
     val localModelDirs: Seq[String] = modelPathArr.dropRight(1) ++
     Seq(selectedModel.metadata.modelSha.map(sha => s"${sha}_${modelPathArr.last}").getOrElse(modelPathArr.last))
 
-    val localModelPath = localModelDirs.foldLeft(getDir) { case (path, folder) => new Path(path, folder) }
+    val localModelPath = FileUtilities.join(getDir, localModelDirs: _*)
     val fs = localModelPath.getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
 
     if (forceReload || !fs.exists(localModelPath)) {
-      if (!verifyRepoRef(repo) && !silent) {
+      if (!verifyRepoRef(repo)) {
         val message = s"""The model repo specification \"$repo\"
-           | is not trusted and may contain security vulnerabilities.
-           |  Only continue if you trust this repo.""".stripMargin
-        System.err.println(message)
-        println("Continue?[y/n]")
-        if (scala.io.StdIn.readLine().toLowerCase != "y") {
-          throw new InterruptedException("User has cancelled model downloading due to security warning")
+             | is not trusted and may contain security vulnerabilities.""".stripMargin
+        if (!allowUnsafe) {
+          throw new SecurityException(message)
+        }
+        if (!silent) {
+          log.warn(message)
         }
       }
 
