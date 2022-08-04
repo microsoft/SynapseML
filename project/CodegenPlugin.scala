@@ -69,13 +69,13 @@ object CodegenPlugin extends AutoPlugin {
     val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
     val testR = TaskKey[Unit]("testR", "Run testthat on R tests")
     val rCodeGen = TaskKey[Unit]("rCodegen", "Generate R code")
-    val rTestGen = TaskKey[Unit]("rTestgen", "Generate tests")
+    val rTestGen = TaskKey[Unit]("rTestgen", "Generate R tests")
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
-    val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate Python code")
+    val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate python code")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")

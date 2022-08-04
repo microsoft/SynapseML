@@ -47,7 +47,7 @@ tryCatch({
 #  Sys.sleep(1)
   wd2 = getwd()
   print(paste(" +++ wd: ", wd2))
-  print(list.files(wd2, full.names=TRUE, recursive=TRUE)  
+  print(list.files(wd2, full.names=TRUE, recursive=TRUE))
   flush.console()
   Sys.sleep(1)
   print(paste("wd exists: ", dir.exists(wd2)))

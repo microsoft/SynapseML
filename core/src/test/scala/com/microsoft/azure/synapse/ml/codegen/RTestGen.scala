@@ -127,7 +127,7 @@ object RTestGen {
        |#  library("${name}")
        |#}
        |tryCatch({
-       |  library("${name}"))
+       |  library("${name}")
        |},
        |error = function(err) {
        |  install.packages("${name}")
