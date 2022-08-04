@@ -1,4 +1,16 @@
-library("sparklyr")
+print("attempting require")
+flush.console()
+Sys.sleep(1)
+if (!require("sparklyr")) {
+  print("attempting packages.install")
+  flush.console()
+  Sys.sleep(1)
+  packages.install("sparklyr")
+  print("attempting library")
+  flush.console()
+  Sys.sleep(1)
+  library("sparklyr")
+}
 print(spark_available_versions(show_hadoop=TRUE, show_minor=TRUE))
 flush.console()
 Sys.sleep(1)
