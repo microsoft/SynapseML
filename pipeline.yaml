@@ -28,7 +28,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   ComponentDetection.Timeout: 900
 
-# jobs:
+jobs:
 # - job: Style
 #   cancelTimeoutInMinutes: 0
 #   condition: eq(variables.runTests, 'True')
