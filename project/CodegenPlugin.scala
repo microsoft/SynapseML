@@ -102,7 +102,7 @@ object CodegenPlugin extends AutoPlugin {
     println(s"condaEnvLocation: ${condaEnvLocation.value}")
     println(s"codegenDir: ${codegenDir.value}")
     val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
-    println(s"libPath: ${libPath})
+    println(s"libPath: ${libPath}")
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
     println(s"rSrcDir ${rSrcDir}")
     val rTestDir = join(codegenDir.value, "test", "R")
