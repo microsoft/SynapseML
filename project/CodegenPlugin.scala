@@ -30,6 +30,7 @@ object CodegenPlugin extends AutoPlugin {
   override def requires: Plugins = CondaPlugin
 
   def rCmd(activateCondaEnv: Seq[String], cmd: Seq[String], wd: File, libPath: String): Unit = {
+    println(s"----- wd: ${wd.getPath}")
     runCmd(activateCondaEnv ++ cmd, wd, Map("R_LIBS" -> libPath, "R_USER_LIBS" -> libPath))
   }
 
