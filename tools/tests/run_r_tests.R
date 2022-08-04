@@ -53,7 +53,7 @@ tryCatch({
   print(paste("DESCRIPTION exists: ", file.exists(file.path(getwd(), "DESCRIPTION"))))
   dir = sparklyr::spark_install_dir()
   print(paste("spark_install_dir: ", dir))
-  list.files(dir, full.names=TRUE, recursive=TRUE)
+  print(list.files(dir, full.names=TRUE))
 #  print(paste("SPARK_HOME=", Sys.getenv("SPARK_HOME")))
   print("set wd")
   flush.console()
