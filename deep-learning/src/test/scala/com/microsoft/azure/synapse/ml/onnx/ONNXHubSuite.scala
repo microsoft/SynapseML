@@ -11,7 +11,7 @@ import java.io.FileNotFoundException
 class ONNXHubSuite extends TestBase {
 
   val name = "MNIST"
-  val repo = "onnx/models:5bb96f84527f6c0cd437f36ad4b0bb7daf5ef830"
+  val repo = "onnx/models:main"
   val opset = 7
   lazy val hub = new ONNXHub()
 

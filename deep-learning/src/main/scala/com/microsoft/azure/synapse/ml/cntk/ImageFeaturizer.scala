@@ -105,7 +105,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getImageWidth: Int = $(imageWidth)
 
-  val channelNormalizationMeans: Param[Array[Double]] = new Param[Array[Double]](
+  val channelNormalizationMeans: DoubleArrayParam = new DoubleArrayParam(
     this, "channelNormalizationMeans", "Normalization means for color channels")
   setDefault(channelNormalizationMeans -> Array(0.485, 0.456, 0.406))
   /** @group setParam */

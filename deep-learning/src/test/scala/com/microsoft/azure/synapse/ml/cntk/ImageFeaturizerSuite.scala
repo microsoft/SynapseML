@@ -33,7 +33,7 @@ trait TrainedONNXModelUtils extends ImageTestUtils {
   def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
-    .setModel("ResNet18")
+    .setModel("ResNet50")
 }
 
 class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
