@@ -2,7 +2,7 @@ library("sparklyr")
 print(spark_available_versions(show_hadoop=TRUE, show_minor=TRUE))
 #spark_install(version = "3.2.2", hadoop_version = "3.2")
 tryCatch({
-  spark_install_find(version = "3.2.2", hadoop_version = "3.2")
+  spark_install_find(version = "3.2.2", hadoop_version = "3")
 },
 error=function(err) {
   print("Installing ../../../../../../../spark-3.2.2-bin-hadoop3.2.tgz")
