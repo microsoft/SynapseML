@@ -57,6 +57,8 @@ tryCatch({
   flush.console()
   Sys.sleep(1)
   setwd(getwd())
+  print(paste("wd exists: ", dir.exists(wd2)))
+  print(paste("DESCRIPTION exists: ", file.exists(file.path(getwd(), "DESCRIPTION"))))
   print("call test")
   flush.console()
   Sys.sleep(1)
