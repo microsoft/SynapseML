@@ -100,6 +100,7 @@ object CodegenPlugin extends AutoPlugin {
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
     packageR.value
     publishLocal.value
+    rTestGen.value
     println(s"condaEnvLocation: ${condaEnvLocation.value}")
     println(s"codegenDir: ${codegenDir.value}")
     val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
