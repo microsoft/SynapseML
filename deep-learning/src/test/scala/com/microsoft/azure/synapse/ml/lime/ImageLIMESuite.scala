@@ -35,7 +35,7 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
     loc
   }
 
-  lazy val resNetTransformer: ImageFeaturizer = resNetModel().setHeadless(false)
+  lazy val resNetTransformer: ImageFeaturizer = resNetModelHeadless().setHeadless(false)
   lazy val getGreyhoundClass: UDFTransformer = new UDFTransformer()
     .setInputCol(resNetTransformer.getOutputCol)
     .setOutputCol(resNetTransformer.getOutputCol)

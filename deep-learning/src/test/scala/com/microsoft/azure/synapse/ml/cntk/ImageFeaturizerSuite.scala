@@ -30,10 +30,12 @@ trait TrainedONNXModelUtils extends ImageTestUtils {
     Stream.continually(isr.read()).takeWhile(_ != -1).map(_.toByte).toArray
   }
 
-  def resNetModel(): ImageFeaturizer = new ImageFeaturizer()
+  def resNetModelHeadless(): ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
     .setModel("ResNet50")
+
+  def resNetModelFull(): ImageFeaturizer = resNetModelHeadless().setHeadless(false)
 }
 
 class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
@@ -44,7 +46,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .readStream
       .image
       .load(cifarDirectory)
-    val resultDF = resNetModel().transform(imageDF)
+    val resultDF = resNetModelHeadless().transform(imageDF)
 
     val q1 = resultDF.writeStream
       .format("memory")
@@ -61,7 +63,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("the Image feature should work with the modelSchema") {
-    val result = resNetModel().setHeadless(false).transform(images)
+    val result = resNetModelHeadless().transform(images)
     compareToTestModel(result)
   }
 
@@ -69,18 +71,18 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val newImages = spark.read.image
       .load(cifarDirectory)
 
-    val result = resNetModel().setHeadless(false).transform(newImages)
+    val result = resNetModelHeadless().transform(newImages)
     compareToTestModel(result)
   }
 
   test("Image featurizer should work with ResNet50") {
-    val result = resNetModel().transform(images)
+    val result = resNetModelFull().transform(images)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.size == 1000)
   }
 
   test("Image featurizer should work with ResNet50 in greyscale") {
-    val result = resNetModel()
+    val result = resNetModelFull()
       .setChannelNormalizationMeans(Array(0.485))
       .setChannelNormalizationStds(Array(0.229))
       .transform(greyscaleImage)
@@ -89,7 +91,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("Image featurizer should work with ResNet50 in greyscale binary") {
-    val result = resNetModel()
+    val result = resNetModelFull()
       .setChannelNormalizationMeans(Array(0.485))
       .setChannelNormalizationStds(Array(0.229))
       .transform(greyscaleBinary)
@@ -103,7 +105,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .toDF(inputCol)
     val df = binaryImages.union(corruptImage)
 
-    val resultDF = resNetModel().transform(df)
+    val resultDF = resNetModelFull().transform(df)
     val result = resultDF.select(outputCol).collect()
     assert(result(0).getAs[DenseVector](0).size == 1000)
   }
@@ -114,7 +116,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .toDF(inputCol)
     val df = binaryImages.union(corruptImage)
 
-    val resultDF = resNetModel().transform(df)
+    val resultDF = resNetModelFull().transform(df)
     val result = resultDF.select(outputCol).collect()
     assert(result(0).getAs[DenseVector](0).size == 1000)
   }
@@ -123,7 +125,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val testImg: DataFrame = spark
       .read.image.load(s"$filesRoot/Images/Grocery/testImages/WIN_20160803_11_28_42_Pro.jpg")
       .withColumnRenamed("image", inputCol)
-    val result = resNetModel().transform(testImg)
+    val result = resNetModelFull().transform(testImg)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
     assert(resVec.argmax == 760)
   }
@@ -132,7 +134,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val images = groceryImages.withColumnRenamed(inputCol, "image").coalesce(1)
     println(images.count())
 
-    val result = resNetModel().setInputCol("image").transform(images)
+    val result = resNetModelHeadless().setInputCol("image").transform(images)
       .withColumn("foo", UDFUtils.oldUdf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
@@ -142,6 +144,6 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   val reader: MLReadable[_] = ImageFeaturizer
 
   override def testObjects(): Seq[TestObject[ImageFeaturizer]] = Seq(
-    new TestObject(resNetModel(), images)
+    new TestObject(resNetModelHeadless(), images)
   )
 }
