@@ -26,7 +26,6 @@ class TransformerParam(parent: Params, name: String, doc: String, isValid: Trans
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
        |${name}Model <- ml_stages(${name}Model)[[1]]
-       |print(paste("${name}Model:  ", ${name}Model))
        """.stripMargin
   }
 

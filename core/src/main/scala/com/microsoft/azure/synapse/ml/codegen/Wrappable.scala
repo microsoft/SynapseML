@@ -420,9 +420,9 @@ trait RWrappable extends BaseWrappable {
       val value = p.name
       p match {
         case p: ServiceParam[_] =>
-          s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
+          s"""  invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
         case p =>
-          s"""invoke("set${p.name.capitalize}", $value)"""
+          s"""  invoke("set${p.name.capitalize}", $value)"""
       }
     }.mkString(" %>%\n")
   }
@@ -437,13 +437,13 @@ trait RWrappable extends BaseWrappable {
         s"""
            |if (unfit.model)
            |    return(mod)
-           |transformer <- mod %>%
+           |transformer <- mod_parameterized %>%
            |    invoke("fit", df)
            |scala_transformer_class <- "${companionModelClassName}"
            |""".stripMargin
       case _ =>
         s"""
-           |transformer <- mod
+           |transformer <- mod_parameterized
            |scala_transformer_class <- scala_class
            |""".stripMargin
     }
@@ -469,6 +469,7 @@ trait RWrappable extends BaseWrappable {
        |    }
        |    scala_class <- "${thisStage.getClass.getName}"
        |    mod <- invoke_new(sc, scala_class, uid = uid)
+       |    mod_parameterized <- mod %>%
        |${indent(rSetterLines, 1)}
        |${indent(rExtraBodyLines, 1)}
        |    if (only.model)
