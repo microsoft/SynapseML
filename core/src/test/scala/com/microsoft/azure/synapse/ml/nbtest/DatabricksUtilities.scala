@@ -207,8 +207,13 @@ object DatabricksUtilities {
     ()
   }
 
-  def deleteCluster(clusterId: String): Unit = {
+  def terminateCluster(clusterId: String): Unit = {
     databricksPost("clusters/delete", s"""{"cluster_id":"$clusterId"}""")
+    ()
+  }
+
+  def permanentDeleteCluster(clusterId: String): Unit = {
+    databricksPost("clusters/permanent-delete", s"""{"cluster_id":"$clusterId"}""")
     ()
   }
 
@@ -376,8 +381,11 @@ abstract class DatabricksTestHelper extends TestBase {
 
   import DatabricksUtilities._
 
-  def databricksTestHelper(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+  def databricksTestHelper(clusterId: String,
+                           libraries: String,
+                           notebooks: Seq[File]): (mutable.ListBuffer[Int], Boolean) = {
     val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
+    var allSucceed: Boolean = true
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
@@ -407,21 +415,28 @@ abstract class DatabricksTestHelper extends TestBase {
           Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
         if (!result.isSuccess) {
+          allSucceed = false
           throw result.failed.get
         }
       }
     })
 
-    jobIdsToCancel
+    (jobIdsToCancel, allSucceed)
   }
 
   protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int],
                                clusterId: String,
-                               clusterName: String): Unit = {
+                               clusterName: String,
+                               allSucceed: Boolean): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     jobIdsToCancel.foreach(cancelRun)
-    deleteCluster(clusterId)
-    println(s"Deleted cluster with Id $clusterId, name $clusterName")
+    if (allSucceed) {
+      permanentDeleteCluster(clusterId)
+      println(s"Deleted cluster with Id $clusterId, name $clusterName")
+    } else {
+      terminateCluster(clusterId)
+      println(s"Terminated cluster with Id $clusterId, name $clusterName")
+    }
   }
 }
 

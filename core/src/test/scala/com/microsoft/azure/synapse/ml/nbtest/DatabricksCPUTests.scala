@@ -5,19 +5,16 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
-import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scala.language.existentials
 
 class DatabricksCPUTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, "[]")
-  val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(clusterId, Libraries, CPUNotebooks)
+  val (jobIdsToCancel: ListBuffer[Int], allSucceed: Boolean) = databricksTestHelper(clusterId, Libraries, CPUNotebooks)
 
   protected override def afterAll(): Unit = {
-    afterAllHelper(jobIdsToCancel, clusterId, ClusterName)
+    afterAllHelper(jobIdsToCancel, clusterId, ClusterName, allSucceed)
     super.afterAll()
   }
 
