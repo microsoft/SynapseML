@@ -43,6 +43,8 @@ trait HasInputCols extends Params {
   /** @group setParam */
   def setInputCols(value: Array[String]): this.type = set(inputCols, value)
 
+  def setInputCols(value: Seq[String]): this.type = setInputCols(value.toArray)
+
   /** @group getParam */
   def getInputCols: Array[String] = $(inputCols)
 }
