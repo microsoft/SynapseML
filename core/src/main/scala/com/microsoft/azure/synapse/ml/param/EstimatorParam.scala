@@ -33,6 +33,7 @@ trait PipelineStageWrappable[T <: PipelineStage]
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
        |${name}Model <- ml_stages(${name}Model)[[1]]
+       |print(paste("${name}Model:  ", ${name}Model))
        """.stripMargin
   }
 
@@ -98,6 +99,7 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
        |${name}Model <- ml_stages(${name}Model)[[1]]
+       |print(paste("${name}Model:  ", ${name}Model))
      """.stripMargin
   }
 
