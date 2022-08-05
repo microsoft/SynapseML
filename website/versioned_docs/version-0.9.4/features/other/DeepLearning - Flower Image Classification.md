@@ -60,9 +60,7 @@ basicModel = Pipeline(stages=[it, ur, dc1, lr1, dc2])
 resnet = ImageFeaturizer()\
     .setInputCol("image")\
     .setOutputCol("features")\
-    .setModelLocation(model.uri)\
-    .setLayerNames(model.layerNames)\
-    .setCutOutputLayers(1)
+    .setModel("ResNet50")
 
 dc3 = DropColumns().setCols(["image"])
 

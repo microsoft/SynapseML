@@ -3,8 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.cntk
 
+import breeze.linalg.argtopk
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils.SparkVectorCanConvertToBreeze
 import com.microsoft.azure.synapse.ml.image.ImageTestUtils
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
@@ -127,7 +129,8 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .withColumnRenamed("image", inputCol)
     val result = resNetModelFull().transform(testImg)
     val resVec = result.select(outputCol).collect()(0).getAs[DenseVector](0)
-    assert(resVec.argmax == 760)
+    val top2 = argtopk(resVec.toBreeze, 2).toArray
+    assert(top2.contains(760))
   }
 
   test("Image featurizer should work with ResNet50 and powerBI") {

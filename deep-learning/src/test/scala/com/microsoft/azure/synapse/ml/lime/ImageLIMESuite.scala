@@ -3,8 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.lime
 
+import breeze.linalg.argtopk
 import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedONNXModelUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils.SparkVectorCanConvertToBreeze
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
@@ -68,7 +70,8 @@ class ImageLIMESuite extends TransformerFuzzing[ImageLIME] with
   test("Resnet should output the correct class") {
     val resNetDF = resNetTransformer.transform(df)
     val resVec = resNetDF.select(outputCol).collect()(0).getAs[DenseVector](0)
-    assert(resVec.argmax == 172)
+    val top5 = argtopk(resVec.toBreeze, 5).toArray
+    assert(top5.contains(172))
   }
 
   test("LIME on Binary types") {
