@@ -167,7 +167,7 @@ publishDotnetTestBase := {
   tmpFile.renameTo(dotnetTestBaseProj)
   packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir,
-    "target", s"SynapseML.DotnetE2ETest.${version.value}.nupkg").getAbsolutePath
+    "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
   publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
 }
 
