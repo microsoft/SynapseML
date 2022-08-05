@@ -387,6 +387,8 @@ jobs:
           sbt publishDotnetTestBase
           sbt publishLocal
           sbt "project $(PACKAGE)" publishDotnet
+          export SBT_OPTS="-XX:+UseG1GC"
+          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
     - task: PublishTestResults@2
