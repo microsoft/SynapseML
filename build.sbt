@@ -1,12 +1,13 @@
-import java.io.{File, PrintWriter}
-import java.net.URL
+import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-
-import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
-import scala.xml.transform.{RewriteRule, RuleTransformer}
-import BuildUtils._
 import xerial.sbt.Sonatype._
+
+import java.io.{File, PrintWriter}
+import java.net.URL
+import scala.util.Using
+import scala.xml.transform.{RewriteRule, RuleTransformer}
+import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
 val sparkVersion = "3.2.2"
@@ -154,8 +155,19 @@ publishDotnetTestBase := {
   val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
   if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
   FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
+  // update the version of current dotnetTestBase assembly
+  val dotnetTestBaseProj = join(dotnetTestBaseDir, "dotnetTestBase.csproj")
+  val tmpFile = new File("tmp.txt")
+  val w = new PrintWriter(tmpFile)
+  Using(scala.io.Source.fromFile(dotnetTestBaseProj)) { reader =>
+    reader.getLines().map(_.replaceAll("CUR_VERSION", dotnetedVersion(version.value)))
+      .foreach(x => w.println(x))
+  }
+  w.close()
+  tmpFile.renameTo(dotnetTestBaseProj)
   packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
-  val packagePath = join(dotnetTestBaseDir, "target", s"SynapseML.DotnetE2ETest.0.9.1.nupkg").getAbsolutePath
+  val packagePath = join(dotnetTestBaseDir,
+    "target", s"SynapseML.DotnetE2ETest.${version.value}.nupkg").getAbsolutePath
   publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
 }
 

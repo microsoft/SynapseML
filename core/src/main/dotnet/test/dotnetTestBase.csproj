@@ -6,7 +6,7 @@
     <AssemblyName>SynapseML.DotnetE2ETest</AssemblyName>
     <IsPackable>true</IsPackable>
     <Description>SynapseML .NET Test Base</Description>
-    <Version>0.9.1</Version>
+    <Version>CUR_VERSION</Version>
   </PropertyGroup>
 
   <ItemGroup>
