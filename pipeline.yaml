@@ -320,17 +320,6 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
-      displayName: 'Install Pip Package'
-      timeoutInMinutes: 10
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt installPipPackage
-    - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
       inputs:
