@@ -320,17 +320,6 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
-      displayName: 'Install Pip Package'
-      timeoutInMinutes: 10
-      inputs:
-        azureSubscription: 'MMLSpark Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt installPipPackage
-    - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
       inputs:
@@ -339,6 +328,10 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
+          export SBT_OPTS="-XX:+UseG1GC"
+          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
+          echo "SBT_OPTS=$SBT_OPTS"
+          sbt getDatasets
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -394,6 +387,8 @@ jobs:
           sbt publishDotnetTestBase
           sbt publishLocal
           sbt "project $(PACKAGE)" publishDotnet
+          export SBT_OPTS="-XX:+UseG1GC"
+          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
     - task: PublishTestResults@2
