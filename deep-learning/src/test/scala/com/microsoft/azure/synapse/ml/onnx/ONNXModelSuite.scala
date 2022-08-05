@@ -29,12 +29,7 @@ class ONNXModelSuite extends TestBase
   with TransformerFuzzing[ONNXModel] {
 
   override def testObjects(): Seq[TestObject[ONNXModel]] = Seq(
-    new TestObject(onnxIris, testDfIrisFloat),
-//    new TestObject(onnxIris, testDfIrisDouble),
-//    new TestObject(onnxIris, testDfIrisVector),
-//    new TestObject(onnxMNIST, testDfMNIST),
-//    new TestObject(onnxAdultsIncome, testDfAdultsIncome),
-//    new TestObject(onnxResNet50, testDfResNet50)
+    new TestObject(onnxIris, testDfIrisFloat)
   )
 
   override def reader: MLReadable[_] = ONNXModel
