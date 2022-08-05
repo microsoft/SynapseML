@@ -416,21 +416,15 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rSetterLines: String = {
-   thisStage.params.map { p =>
-      val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
+    thisStage.params.map { p =>
+      val value = p.name
       p match {
-        case sp: ServiceParam[_] =>
-          val colName = sp.name + "Col"
-          getRConditionalSetterLine(colName, colName) + "\n" + getRConditionalSetterLine(sp.name, value)
-        case _ =>
-          getRConditionalSetterLine(p.name, value)
+        case p: ServiceParam[_] =>
+          s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
+        case p =>
+          s"""invoke("set${p.name.capitalize}", $value)"""
       }
-    }.mkString("\n")
-  }
-
-  private def getRConditionalSetterLine(name: String, value: String, setterSuffix: String = ""): String = {
-      s"""if (!is.null(${name})) mod <- mod %>% """ +
-        s"""invoke("set${name.capitalize}${setterSuffix}", $value)"""
+    }.mkString(" %>%\n")
   }
 
   protected def rExtraInitLines: String = {
