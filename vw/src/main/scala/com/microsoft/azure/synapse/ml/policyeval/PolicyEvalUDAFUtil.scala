@@ -20,7 +20,5 @@ object PolicyEvalUDAFUtil {
       udaf(new CressieReadInterval(false), Encoders.product[CressieReadIntervalInput]))
     spark.udf.register("cressieReadIntervalEmpirical",
       udaf(new CressieReadInterval(true), Encoders.product[CressieReadIntervalInput]))
-    spark.udf.register("bernstein",
-      udaf(new EmpiricalBernsteinCS(), Encoders.product[EmpiricalBernsteinCSInput]))
   }
 }

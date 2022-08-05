@@ -3,11 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.core.contracts.{HasWeightCol}
+import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
+import org.apache.spark.SparkContext
 import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol}
-import org.apache.spark.sql.{Row, types => T}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession, types => T}
 import org.vowpalwabbit.spark.VowpalWabbitExample
+
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 /**
   * * Base implementation for estimators that use Spark-based features (e.g. SparkML vectors)
@@ -124,6 +128,8 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
       getHashSeed,
       Seq(getFeaturesCol) ++ getAdditionalFeatures)
 
+    val outputPredictions = isDefined(predictionIdCol)
+
     StreamUtilities.using(ctx.vw.createExample()) { example =>
       for (row <- inputRows) {
         ctx.nativeIngestTime.measure {
@@ -137,6 +143,10 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
         // learn and cleanup
         ctx.learnTime.measure {
           try {
+            // collect 1-step ahead predictions
+            if (outputPredictions)
+              ctx.predictionBuffer.append(row, example.predict())
+
             example.learn()
           }
           finally {
@@ -149,5 +159,6 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
           ctx.vw.endPass()
       }
     }
+
   }
 }

@@ -7,10 +7,13 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.utils.{FaultToleranceUtils, ParamsStringBuilder, StopWatch}
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.param.{Param, StringArrayParam}
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{col, lit, spark_partition_id}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row, SparkSession}
 import org.vowpalwabbit.spark._
+
+import scala.collection.mutable.ListBuffer
 
 // structure for the diagnostics dataframe
 case class TrainingStats(partitionId: Int,
@@ -45,7 +48,7 @@ object TrainingStats {
     val perfStats = vw.getPerformanceStatistics
 
     TrainingStats(
-      TaskContext.get.partitionId,
+      TaskContext.getPartitionId(),
       args.getArgs, args.getLearningRate, args.getPowerT, args.getHashSeed, args.getNumBits,
       perfStats.getNumberOfExamplesPerPass, perfStats.getWeightedExampleSum, perfStats.getWeightedLabelSum,
       perfStats.getAverageLoss, perfStats.getBestConstant, perfStats.getBestConstantLoss,
@@ -55,27 +58,35 @@ object TrainingStats {
 }
 
 case class TrainContext(vw: VowpalWabbitNative,
-                   synchronizationSchedule: VowpalWabbitSyncSchedule,
-                   contextualBanditMetrics: ContextualBanditMetrics = new ContextualBanditMetrics,
-                   totalTime: StopWatch = new StopWatch,
-                   nativeIngestTime: StopWatch = new StopWatch,
-                   learnTime: StopWatch = new StopWatch,
-                   multipassTime: StopWatch = new StopWatch) {
+                        synchronizationSchedule: VowpalWabbitSyncSchedule,
+                        predictionBuffer: PredictionBuffer = new PredictionBufferDiscard,
+                        collectOneStepAheadPrediction: Boolean = false,
+                        contextualBanditMetrics: ContextualBanditMetrics = new ContextualBanditMetrics,
+                        totalTime: StopWatch = new StopWatch,
+                        nativeIngestTime: StopWatch = new StopWatch,
+                        learnTime: StopWatch = new StopWatch,
+                        multipassTime: StopWatch = new StopWatch) {
 
-  def result: Iterator[TrainingResult] = {
+  def result(model: Option[Array[Byte]]):
+    Iterator[TrainingResult] = {
     Seq(TrainingResult(
-      if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+      model,
       TrainingStats(vw,
         totalTime.elapsed(), nativeIngestTime.elapsed(), learnTime.elapsed(),
         multipassTime.elapsed(),
         contextualBanditMetrics.getIpsEstimate,
-        contextualBanditMetrics.getSnipsEstimate)
-      )).iterator
+        contextualBanditMetrics.getSnipsEstimate))).iterator
   }
+
+  def result: TrainingStats = TrainingStats(vw,
+    totalTime.elapsed(), nativeIngestTime.elapsed(), learnTime.elapsed(),
+    multipassTime.elapsed(),
+    contextualBanditMetrics.getIpsEstimate,
+    contextualBanditMetrics.getSnipsEstimate)
 }
+
 case class TrainingResult(model: Option[Array[Byte]],
                           stats: TrainingStats)
-
 
 /**
   * Base implementation of VowpalWabbit learners.
@@ -141,7 +152,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
             // pass data to VW native part
             totalTime.measure {
-              trainFromRows(schema, inputRows, trainContext)
+              val df = trainFromRows(schema, inputRows, trainContext)
 
               multipassTime.measure {
                 vw.endPass()
@@ -149,9 +160,13 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
                 if (getNumPasses > 1)
                   vw.performRemainingPasses()
               }
+
+              df
             }
 
-            trainContext.result
+            // only return the model for the first partition as it's already synchronized
+            val model = if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None
+            trainContext.result(model)
           }.get // this will throw if there was an exception
         } catch {
           case e: java.lang.Exception =>
@@ -205,7 +220,52 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
   def getSplitColValues: Array[String] = $(splitColValues)
   def setSplitColValues(value: Array[String]): this.type = set(splitColValues, value)
 
-  protected def trainInternalDistributedExternal(df: DataFrame): Seq[TrainingResult] = {
+  val predictionIdCol = new Param[String](this, "predictionIdCol",
+    "The ID column returned for predictions")
+  def getPredictionIdCol: String = $(predictionIdCol)
+  def setPredictionIdCol(value: String): this.type = set(predictionIdCol, value)
+
+  private def mergeTrainingResults(models: Array[Row]): TrainingResult = {
+    val vwArgs = buildCommandLineArguments(getCommandLineArgs.appendParamFlagIfNotThere("quiet").result, "")
+
+    val vwForEachPartition = models.map({ m => new VowpalWabbitNative(vwArgs, m.getAs[Array[Byte]](0))})
+    val vwMerged = try {
+      VowpalWabbitNative.mergeModels(vwForEachPartition)
+    }
+    finally {
+      for (vw <- vwForEachPartition)
+        vw.close()
+    }
+
+    try {
+      // endPass
+      // TODO: vwMerged.endPass()
+
+      TrainingResult(Some(vwMerged.getModel), TrainingStats(vwMerged))
+    }
+    finally {
+      vwMerged.close()
+    }
+  }
+
+  private def createPredicitionBuffer(schema: StructType): PredictionBuffer = {
+    // discard predictions if predicitionIdCol is not specified
+    if (!isDefined(predictionIdCol))
+      new PredictionBufferDiscard()
+    else {
+      val (predictionSchema, predictionFunc) = {
+        executeWithVowpalWabbit { vw => {
+          val schema = VowpalWabbitPrediction.getSchema(vw)
+          val func = VowpalWabbitPrediction.getPredictionFunc(vw)
+
+          (schema, func)
+        } } }
+
+      new PredictionBufferKeep(predictionSchema, predictionFunc, schema, getPredictionIdCol)
+    }
+  }
+
+  protected def trainInternalDistributedExternal[T <: VowpalWabbitBaseModel](df: DataFrame, model: T): T = {
     val schema = df.schema
 
     // iterate over splits
@@ -215,39 +275,61 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
       else
         df.select(getSplitCol).distinct().collect().map(_.get(0))
 
-    val encoder = Encoders.kryo[TrainingResult]
+    // construct buffer & schema for buffered predictions
+    val predictionBuffer = createPredicitionBuffer(schema)
+    val encoder = RowEncoder(predictionBuffer.schema)
+
     val vwArgs = buildCommandLineArguments(getCommandLineArgs.result, "")
 
     var driverModel = if (isDefined(initialModel)) Some(getInitialModel) else None
     var lastStats: Option[TrainingStats] = None
+    val predictionDFs = ListBuffer[DataFrame]()
 
-    for (split <- splits) {
-      println(s"Training on split $split")
-      val models = df.where(col(getSplitCol) === lit(split)).mapPartitions({ inputRows => {
-        // create VW instance
-        StreamUtilities.using(
-          if (driverModel.isEmpty) new VowpalWabbitNative(vwArgs)
-          else new VowpalWabbitNative(vwArgs, driverModel.get)) { vw =>
+    for (_ <- 0 until getNumPasses) {
+      for (split <- splits) {
+        // distributed p2p to each node
+        val broadcastedDriverModel = df.sparkSession.sparkContext.broadcast(driverModel)
 
-          val trainContext = TrainContext(vw, VowpalWabbitSyncSchedule.Disabled)
+        val predictionsAndModels = df.where(col(getSplitCol) === lit(split)).mapPartitions({ inputRows => {
+          val driverModel = broadcastedDriverModel.value
+          // create VW instance
+          StreamUtilities.using(
+            if (driverModel.isEmpty) new VowpalWabbitNative(vwArgs)
+            else new VowpalWabbitNative(vwArgs, driverModel.get)) { vw =>
 
-          // invoke respective training
-          trainFromRows(schema, inputRows, trainContext)
+            val trainContext = TrainContext(vw, VowpalWabbitSyncSchedule.Disabled, predictionBuffer)
 
-          // return model for split
-          trainContext.result
-        }.get
-      }})(encoder).collect
+            trainFromRows(schema, inputRows, trainContext)
 
-      // TODO: merge
-      println("TODO: merge")
-      driverModel = Some(models.flatMap(_.model).head)
+            // model, stats, predictionId, predictions
+            predictionBuffer.result(vw.getModel).iterator
+          }.get
+        }
+        })(encoder)
+           .cache() // important!!! we do not want to train twice
 
-      // TODO: merge stats
-      lastStats = Some(models.head.stats)
+        // the first row has the models - the other rows the predictions
+       val models = predictionsAndModels.mapPartitions(it => it.take(1))(encoder).collect()
+       val predictions = predictionsAndModels.mapPartitions(it => it.drop(1))(encoder)
+
+//        val models = predictionsAndModels.collect()
+
+        // TODO: enable
+        predictionDFs.append(predictions.drop(PredictionBuffer.ModelCol))
+
+        val mergedResults = mergeTrainingResults(models)
+        driverModel = mergedResults.model
+        lastStats = Some(mergedResults.stats)
+      }
+
+      // TODO: endPass
     }
 
-    Seq(TrainingResult(driverModel, lastStats.get))
+    model.setOneStepAheadPredictions(predictionDFs.reduce((l, r) => l.unionAll(r)))
+    model.setModel(driverModel.get)
+
+    model
+    // Seq(TrainingResult(driverModel, lastStats.get))
   }
 
   private def applyTrainingResultsToModel(model: VowpalWabbitBaseModel, trainingResults: Seq[TrainingResult],
@@ -286,9 +368,10 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     */
   protected def trainInternal[T <: VowpalWabbitBaseModel](dataset: Dataset[_], model: T): T = {
 
-    val trainingResults = if (isDefined(splitCol))
+    if (isDefined(splitCol)) {
       // Spark-based coordination
-      trainInternalDistributedExternal(dataset.toDF)
+      trainInternalDistributedExternal(dataset.toDF, model)
+    }
     else {
       // VW internal coordination
       val df = prepareDataSet(dataset)
@@ -297,16 +380,15 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
       // get the final command line args
       val vwArgs = getCommandLineArgs
 
-
-      if (numTasks == 1)
+      val trainingResults = if (numTasks == 1)
         trainInternal(df, vwArgs.result)
       else
         trainInternalDistributed(df, vwArgs, numTasks)
+
+      // store results in model
+      applyTrainingResultsToModel(model, trainingResults, dataset)
+
+      model
     }
-
-    // store results in model
-    applyTrainingResultsToModel(model, trainingResults, dataset)
-
-    model
   }
 }

@@ -141,6 +141,20 @@ trait VowpalWabbitBase
   }
 
   /**
+    * wrap the block w/ a VW instance that will be closed when the block is done.
+    */
+  protected def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
+    val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
+
+    val args = buildCommandLineArguments(getCommandLineArgs.result)
+
+    val vw =
+      if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+      else new VowpalWabbitNative(args, localInitialModel.get)
+
+    StreamUtilities.using(vw) { block(_) }.get
+  }
+  /**
     * initialize sync schedule. this might trigger computation (e.g. number of rows per partition)
     *
     * @param df the input dataframe used to compute the schedules' steps

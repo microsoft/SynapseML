@@ -36,9 +36,7 @@ trait VowpalWabbitBaseModel extends Params {
 
   // Model parameter
   val model = new ByteArrayParam(this, "model", "The VW model....")
-
   def setModel(v: Array[Byte]): this.type = set(model, v)
-
   def getModel: Array[Byte] = $(model)
 
   def getReadableModel: String = {
@@ -57,13 +55,17 @@ trait VowpalWabbitBaseModel extends Params {
     }
   }
 
+  val oneStepAheadPredictions = new DataFrameParam(this,
+    "oneStepAheadPredictions",
+    "1-step ahead predictions collected during training")
+  def setOneStepAheadPredictions(v: DataFrame): this.type = set(oneStepAheadPredictions, v)
+  def getOneStepAheadPredictions: DataFrame = $(oneStepAheadPredictions)
+
   // Perf stats parameter
   val performanceStatistics = new DataFrameParam(this,
     "performanceStatistics",
     "Performance statistics collected during training")
-
   def setPerformanceStatistics(v: DataFrame): this.type = set(performanceStatistics, v)
-
   def getPerformanceStatistics: DataFrame = $(performanceStatistics)
 
   def saveNativeModel(path: String): Unit = {

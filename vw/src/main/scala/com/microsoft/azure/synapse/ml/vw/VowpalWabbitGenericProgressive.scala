@@ -30,21 +30,6 @@ class VowpalWabbitGenericProgressive(override val uid: String)
 
   override protected def getInputColumns: Seq[String] = Seq(getInputCol)
 
-  /**
-    * wrap the block w/ a VW instance that will be closed when the block is done.
-    */
-  private def executeWithVowpalWabbit[T](block: VowpalWabbitNative => T): T = {
-    val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
-
-    val args = buildCommandLineArguments(getCommandLineArgs.result)
-
-    val vw =
-      if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-      else new VowpalWabbitNative(args, localInitialModel.get)
-
-    StreamUtilities.using(vw) { block(_) }.get
-  }
-
   // it's a bit annoying that we have to start/stop VW to understand the schema
   lazy val (additionalOutputSchema, predictionFunc) = {
     executeWithVowpalWabbit { vw => {

@@ -10,8 +10,10 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estima
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+
+import scala.collection.mutable.ListBuffer
 
 /**
   * This Estimator supports driving VW using VW-style examples (e.g. 0 |a b c)
@@ -43,7 +45,11 @@ class VowpalWabbitGeneric(override val uid: String)
     for (row <- inputRows) {
       // ingestion and learning is collapsed
       ctx.learnTime.measure {
-        ctx.vw.learnFromString(row.getString(featureIdx))
+        // learn + convert prediction
+        val pred = ctx.vw.learnFromString(row.getString(featureIdx))
+
+        // collect all predictions
+        ctx.predictionBuffer.append(row, pred)
       }
 
       // trigger inter-pass all reduce

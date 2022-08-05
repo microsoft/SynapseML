@@ -196,7 +196,8 @@ class VowpalWabbitContextualBandit(override val uid: String)
     schema
   }
 
-  protected override def trainFromRows(schema: StructType,
+  protected override def
+  trainFromRows(schema: StructType,
                                        inputRows: Iterator[Row],
                                        ctx: TrainContext
                                  ): Unit = {
@@ -234,7 +235,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
             loggedProbability)
 
           // Learn from the examples
-          ctx.vw.learn(examples)
+          val pred = ctx.vw.learn(examples)
+
+          // collect predictions
+          ctx.predictionBuffer.append(row, pred)
 
           // Update the IPS/SNIPS estimator
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
