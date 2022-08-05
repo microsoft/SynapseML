@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.onnx
 
-import ai.onnx.proto.OnnxMl.{GraphProto, ModelProto, NodeProto, TensorShapeProto, TypeProto, ValueInfoProto}
+import ai.onnx.proto.OnnxMl.{GraphProto, ModelProto, NodeProto, ValueInfoProto}
 import ai.onnxruntime._
 import com.google.protobuf.ProtocolStringList
 import org.apache.spark.ml.linalg.SQLDataTypes._
@@ -202,8 +202,8 @@ object ONNXUtils {
       .setModelPayload(slicedProtobufModel.toByteArray)
   }
 
-  private def findUsedNodesForOutputs(model: ModelProto, newOutputNames: Array[String])
-      : (Array[NodeProto], Array[ValueInfoProto]) = {
+  private def findUsedNodesForOutputs(model: ModelProto,
+                                      newOutputNames: Array[String]): (Array[NodeProto], Array[ValueInfoProto]) = {
     val graph = model.getGraph
     val nodes = graph.getNodeList.toArray.map(_.asInstanceOf[NodeProto])
 
@@ -240,29 +240,6 @@ object ONNXUtils {
   }
 
   /*
-   * TODO
-   */
-  private def batchify(source: ModelProto): ModelProto = {
-    val model = ModelProto.newBuilder(source)
-    val graph = GraphProto.newBuilder(model.getGraph)
-    val input = ValueInfoProto.newBuilder(graph.getInput(0))
-    val typeProto = TypeProto.newBuilder(input.getType)
-    val tensorType = TypeProto.Tensor.newBuilder(typeProto.getTensorType)
-    val shape = TensorShapeProto.newBuilder(tensorType.getShape)
-    val dim0 = TensorShapeProto.Dimension.newBuilder(shape.getDim(0))
-    if (dim0.hasDimValue && dim0.getDimValue == 1) {
-      dim0.setDimParam("N")
-      shape.setDim(0, dim0)
-      tensorType.setShape(shape)
-      typeProto.setTensorType(tensorType)
-      input.setType(typeProto)
-      graph.setInput(0, input)
-      model.setGraph(graph)
-      model.build()
-    } else source
-  }
-
-  /*
    * Construct a GraphProto from a reference graph with a given set of nodes and outputs
    */
   private def makeGraph(nodes: Array[NodeProto],
@@ -284,13 +261,13 @@ object ONNXUtils {
     model.setGraph(graph).build()
   }
 
-  implicit class AugmentedProtocolStringList(list: ProtocolStringList) {
+  private implicit class AugmentedProtocolStringList(list: ProtocolStringList) {
     def toStringArray: Array[String] = {
       list.toArray().map(_.asInstanceOf[String])
     }
   }
 
-  implicit class AugmentedNodeProto(node: NodeProto) {
+  private implicit class AugmentedNodeProto(node: NodeProto) {
     def getNodeOutputNames: Array[String] = {
       node.getOutputList.toStringArray
     }
