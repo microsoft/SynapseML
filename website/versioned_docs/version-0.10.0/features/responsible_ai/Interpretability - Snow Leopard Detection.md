@@ -180,8 +180,8 @@ model = Pipeline(
     stages=[
         StringIndexer(inputCol="labels", outputCol="index"),
         ImageFeaturizer(
-            inputCol="image", outputCol="features", cutOutputLayers=1
-        ).setModel(network),
+            inputCol="image", outputCol="features"
+        ).setModel("ResNet50"),
         LogisticRegression(maxIter=5, labelCol="index", regParam=10.0),
         UDFTransformer()
         .setUDF(udf(getIndex, DoubleType()))
