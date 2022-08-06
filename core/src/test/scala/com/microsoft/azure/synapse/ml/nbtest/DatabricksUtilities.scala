@@ -383,9 +383,8 @@ abstract class DatabricksTestHelper extends TestBase {
 
   def databricksTestHelper(clusterId: String,
                            libraries: String,
-                           notebooks: Seq[File]): (mutable.ListBuffer[Int], Boolean) = {
+                           notebooks: Seq[File]): mutable.ListBuffer[Int] = {
     val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
-    var allSucceed: Boolean = true
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
@@ -415,28 +414,21 @@ abstract class DatabricksTestHelper extends TestBase {
           Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
 
         if (!result.isSuccess) {
-          allSucceed = false
           throw result.failed.get
         }
       }
     })
 
-    (jobIdsToCancel, allSucceed)
+    jobIdsToCancel
   }
 
   protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int],
                                clusterId: String,
-                               clusterName: String,
-                               allSucceed: Boolean): Unit = {
+                               clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     jobIdsToCancel.foreach(cancelRun)
-    if (allSucceed) {
-      permanentDeleteCluster(clusterId)
-      println(s"Deleted cluster with Id $clusterId, name $clusterName")
-    } else {
-      terminateCluster(clusterId)
-      println(s"Terminated cluster with Id $clusterId, name $clusterName")
-    }
+    permanentDeleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
 
