@@ -430,6 +430,7 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
+          echo "##vso[task.setvariable JAVA_TOOL_OPTIONS=$(JAVA_TOOL_OPTIONS) -Xss1g -Xmx6g;]JAVA_TOOL_OPTIONS"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
