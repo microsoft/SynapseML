@@ -11,28 +11,32 @@ import scala.reflect.ClassTag
 
 case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                               pyTypeConverter: Option[String],
+                                              rTypeConverter: Option[String],
                                               dotnetType: String) {
 
   def this(pyType: String, typeConverterArg: String, rTypeConverterArg: String, dotnetType: String) = {
-    this(pyType, Some(typeConverterArg), dotnetType)
+    this(pyType, Some(typeConverterArg), Some(rTypeConverterArg), dotnetType)
   }
 
   def this(pyType: String, dotnetType: String) = {
-    this(pyType, None, dotnetType)
+    this(pyType, None, None, dotnetType)
   }
 
 }
 
 object DefaultParamInfo extends Logging {
-  val BooleanInfo = new ParamInfo[BooleanParam]("bool", Some("TypeConverters.toBoolean"), "bool")
-  val IntInfo = new ParamInfo[IntParam]("int", Some("TypeConverters.toInt"), "int")
-  val LongInfo = new ParamInfo[LongParam]("long", None, "long")
-  val FloatInfo = new ParamInfo[FloatParam]("float", Some("TypeConverters.toFloat"), "float")
-  val DoubleInfo = new ParamInfo[DoubleParam]("float", Some("TypeConverters.toFloat"), "double")
-  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), "string")
-  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", Some("TypeConverters.toListString"), "string[]")
-  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", Some("TypeConverters.toListFloat"), "double[]")
-  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", Some("TypeConverters.toListInt"), "int[]")
+  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical", "bool")
+  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer", "int")
+  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"), "long")
+  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double", "float")
+  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double", "double")
+  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None, "string")
+  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString",
+    "as.array", "string[]")
+  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat",
+    "as.array", "double[]")
+  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt",
+    "as.array", "int[]")
   val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list", "byte[]")
   val DoubleArrayArrayInfo = new ParamInfo[DoubleArrayArrayParam]("object", "double[][]")
   val StringStringMapInfo = new ParamInfo[StringStringMapParam]("dict", "Dictionary<string, string>")

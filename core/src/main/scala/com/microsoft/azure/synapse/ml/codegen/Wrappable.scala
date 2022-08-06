@@ -413,18 +413,26 @@ trait RWrappable extends BaseWrappable {
        |${paramDocLines}
        |#' @export
        |""".stripMargin
+
+
   }
 
   protected def rSetterLines: String = {
     thisStage.params.map { p =>
-      val value = p.name
+      val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
       p match {
-        case p: ServiceParam[_] =>
-          s"""  invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
-        case p =>
-          s"""  invoke("set${p.name.capitalize}", $value)"""
+        case sp: ServiceParam[_] =>
+          val colName = sp.name + "Col"
+          getRConditionalSetterLine(colName, colName) + "\n" + getRConditionalSetterLine(sp.name, value)
+        case _ =>
+          getRConditionalSetterLine(p.name, value)
       }
-    }.mkString(" %>%\n")
+    }.mkString("\n")
+  }
+
+  private def getRConditionalSetterLine(name: String, value: String, setterSuffix: String = ""): String = {
+    s"""if (!is.null(${name})) mod <- mod %>% """ +
+      s"""invoke("set${name.capitalize}${setterSuffix}", $value)"""
   }
 
   protected def rExtraInitLines: String = {
@@ -437,13 +445,13 @@ trait RWrappable extends BaseWrappable {
         s"""
            |if (unfit.model)
            |    return(mod)
-           |transformer <- mod_parameterized %>%
+           |transformer <- mod %>%
            |    invoke("fit", df)
            |scala_transformer_class <- "${companionModelClassName}"
            |""".stripMargin
       case _ =>
         s"""
-           |transformer <- mod_parameterized
+           |transformer <- mod
            |scala_transformer_class <- scala_class
            |""".stripMargin
     }
@@ -469,7 +477,6 @@ trait RWrappable extends BaseWrappable {
        |    }
        |    scala_class <- "${thisStage.getClass.getName}"
        |    mod <- invoke_new(sc, scala_class, uid = uid)
-       |    mod_parameterized <- mod %>%
        |${indent(rSetterLines, 1)}
        |${indent(rExtraBodyLines, 1)}
        |    if (only.model)
