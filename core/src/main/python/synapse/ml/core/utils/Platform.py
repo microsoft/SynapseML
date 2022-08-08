@@ -10,7 +10,7 @@ PLATFORM_DATABRICKS = "databricks"
 PLATFORM_UNKNOWN = "unknown"
 
 
-def current_platform():
+def CurrentPlatform():
     if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
         return PLATFORM_SYNAPSE
     elif "dbfs" in os.listdir("/"):
@@ -21,8 +21,8 @@ def current_platform():
         return PLATFORM_UNKNOWN
 
 
-def get_notebook_secret(key=""):
-    if current_platform() is PLATFORM_SYNAPSE:
+def GetNotebookSecret(key=""):
+    if CurrentPlatform() is PLATFORM_SYNAPSE:
         return getSecret(getSecret("mmlspark-build-keys", key))
     else:
         if os.environ.get("key", None) is None:
