@@ -424,7 +424,7 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
