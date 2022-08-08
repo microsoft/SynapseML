@@ -7,10 +7,12 @@ PLATFORM_SYNAPSE = "synapse"
 PLATFORM_BINDER = "binder"
 PLATFORM_DATABRICKS = "databricks"
 PLATFORM_UNKNOWN = "unknown"
+SECRET_STORE = "mmlspark-build-keys"
+SYNAPSE_PROJECT_NAME = "Microsoft.ProjectArcadia"
 
 
 def CurrentPlatform():
-    if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
+    if os.environ.get("AZURE_SERVICE", None) == SYNAPSE_PROJECT_NAME:
         return PLATFORM_SYNAPSE
     elif "dbfs" in os.listdir("/"):
         return PLATFORM_DATABRICKS
@@ -38,8 +40,20 @@ def RunningOnDatabricks():
     return False
 
 
-def PrintKeyWarning():
-    if not RunningOnSynapse():
+def GetPlatformSpecificSecret(searchKey):
+    if RunningOnSynapse():
+        from notebookutils.mssparkutils.credentials import getSecret
+
+        return getSecret(SECRET_STORE, searchKey)
+    elif RunningOnDatabricks():
+        from pyspark.sql import SparkSession
+        from pyspark.dbutils import DBUtils
+
+        spark = SparkSession.builder.getOrCreate()
+        dbutils = DBUtils(spark)
+        return dbutils.secrets.get(scope=SECRET_STORE, key=searchKey)
+    else:
         print(
-            f"Please add your environment/service specific key(s) before running the notebook"
+            "#### Please add your environment/service specific key(s) before running the notebook ####"
         )
+        return ""
