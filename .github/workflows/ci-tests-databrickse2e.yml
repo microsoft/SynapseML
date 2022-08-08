@@ -14,7 +14,7 @@ on:
 
 jobs:
   DatabricksE2E:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 0
     steps:
     - uses: actions/checkout@master
