@@ -55,4 +55,3 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
             f"and would like to manually specify your key for Azure KeyVault or Databricks Secrets,"
             f'please add the override="YOUR_KEY_HERE" to the arguments of the find_secret() method'
         )
-        return ""
