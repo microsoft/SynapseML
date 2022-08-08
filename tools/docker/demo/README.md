@@ -22,7 +22,7 @@ docker build . --build-arg SYNAPSEML_VERSION=0.10.0 -f tools/docker/demo/Dockerf
 
 # Run the image
 ```
-$ docker run -ti synapseml jupyter notebook ./
+docker run -p4040:4040 -p8888:8888  -ti synapseml jupyter notebook ./
 ```
 And then on a browser,
 - Open [localhost:8888](https://localhost:8888) to open jupyter terminal and experiment with the notebooks.

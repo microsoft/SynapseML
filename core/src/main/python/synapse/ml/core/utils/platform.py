@@ -1,22 +1,30 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 import os
-from pyspark.sql import SparkSession
+from notebookutils.mssparkutils.credentials import getSecret
+
+
+PLATFORM_SYNAPSE = "synapse"
+PLATFORM_BINDER = "binder"
+PLATFORM_DATABRICKS = "databricks"
+PLATFORM_UNKNOWN = "unknown"
 
 
 def current_platform():
     if os.environ.get("AZURE_SERVICE", None) == "Microsoft.ProjectArcadia":
-        return "synapse"
+        return PLATFORM_SYNAPSE
     elif "dbfs" in os.listdir("/"):
-        return "databricks"
+        return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
-        return "binder"
+        return PLATFORM_BINDER
     else:
-        return "unknown"
+        return PLATFORM_UNKNOWN
 
 
-def bootstrapSpark() -> SparkSession:
-    if current_platform() == "synapse":
-        return SparkSession.builder.getOrCreate()
+def get_notebook_secret(key=""):
+    if current_platform() is PLATFORM_SYNAPSE:
+        return getSecret(getSecret("mmlspark-build-keys", key))
     else:
-        return SparkSession.getActiveSession()
+        if os.environ.get("key", None) is None:
+            print("Please add your environment/service specific keys")
+        return ""

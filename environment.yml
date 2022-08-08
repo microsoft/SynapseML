@@ -32,3 +32,7 @@ dependencies:
     - petastorm>=0.11.0
     - pyarrow>=0.15.0
     - pytorch_lightning==1.5.0
+    - onnxmltools==1.7.0
+    - lightgbm==3.2.1
+    - matplotlib
+    - Pillow
