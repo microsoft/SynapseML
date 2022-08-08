@@ -1,7 +1,6 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 import os
-from notebookutils.mssparkutils.credentials import getSecret
 
 
 PLATFORM_SYNAPSE = "synapse"
@@ -21,10 +20,26 @@ def CurrentPlatform():
         return PLATFORM_UNKNOWN
 
 
-def GetNotebookSecret(key=""):
+def RunningOnSynapse():
     if CurrentPlatform() is PLATFORM_SYNAPSE:
-        return getSecret(getSecret("mmlspark-build-keys", key))
-    else:
-        if os.environ.get("key", None) is None:
-            print("Please add your environment/service specific keys")
-        return ""
+        return True
+    return False
+
+
+def RunningOnBinder():
+    if CurrentPlatform() is PLATFORM_BINDER:
+        return True
+    return False
+
+
+def RunningOnDatabricks():
+    if CurrentPlatform() is PLATFORM_DATABRICKS:
+        return True
+    return False
+
+
+def PrintKeyWarning():
+    if not RunningOnSynapse():
+        print(
+            f"Please add your environment/service specific key(s) before running the notebook"
+        )
