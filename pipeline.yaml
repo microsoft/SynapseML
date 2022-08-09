@@ -320,6 +320,17 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
+      displayName: 'Install and package deps'
+      timeoutInMinutes: 40
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          source activate synapseml
+          sbt getDatasets installPipPackage
+          sbt publishM2
+    - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
       inputs:
@@ -331,7 +342,6 @@ jobs:
           export SBT_OPTS="-XX:+UseG1GC"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
-          sbt getDatasets
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
