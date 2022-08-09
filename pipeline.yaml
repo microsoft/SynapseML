@@ -298,7 +298,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-22.04
   strategy:
     matrix:
       core:
@@ -332,7 +332,7 @@ jobs:
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
           sudo apt-get upgrade -y
-          sudo apt-get install gcc-4.7 -y
+          sudo apt-get install gcc-4.9 -y
           sudo apt-get install --only-upgrade libstdc++6 -y
     - task: AzureCLI@2
       displayName: 'Test Python Code'
