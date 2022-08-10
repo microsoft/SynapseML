@@ -3,7 +3,7 @@
 
 from pyspark import SparkContext
 
+
 def register_policyeval_udafs():
     ctx = SparkContext._active_spark_context
     ctx._jvm.com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil.registerUdafs()
-

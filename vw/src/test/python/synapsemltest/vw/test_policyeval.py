@@ -3,8 +3,8 @@ import unittest
 
 from synapse.ml.policyeval.PolicyEvalUtil import register_policyeval_udafs
 
-class VowpalWabbitPolicyEval(unittest.TestCase):
 
+class VowpalWabbitPolicyEval(unittest.TestCase):
     def test_register(self):
         register_policyeval_udafs()
 
