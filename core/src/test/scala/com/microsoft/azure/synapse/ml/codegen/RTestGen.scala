@@ -122,17 +122,10 @@ object RTestGen {
 
   def useLibrary(name: String): String = {
     s"""
-       |#if (!require("${name}")) {
-       |#  install.packages("${name}")
-       |#  library("${name}")
-       |#}
-       |tryCatch({
-       |  library("${name}")
-       |},
-       |error = function(err) {
+       |if (!require("${name}")) {
        |  install.packages("${name}")
        |  library("${name}")
-       |})
+       |}
        |""".stripMargin
   }
 
