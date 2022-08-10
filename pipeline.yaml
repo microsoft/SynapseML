@@ -413,7 +413,7 @@ jobs:
     - template: templates/codecov.yml
 
 - job: RTests
-  timeoutInMinutes: 120
+  timeoutInMinutes: 30
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
@@ -439,13 +439,13 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      timeoutInMinutes: 120
+      timeoutInMinutes: 30
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          export SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xmx4G -Xms2G"
+          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           # tests in opencv and deep-learning source R wrappers from core, so core wrappers must exist
