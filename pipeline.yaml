@@ -445,7 +445,7 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          echo "##vso[task.setvariable variable=JAVA_TOOL_OPTIONS;]-Xss1g -Xmx20g"
+          echo "##vso[task.setvariable variable=JAVA_TOOL_OPTIONS;]-Xss1g -Xms4g -Xmx12g" # stack, min heap, max heap
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testR) ###### || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
