@@ -52,63 +52,82 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
   else
     (_: Row) => 1f
 
-  // this only works well for Estimators. for Predictors the label is always going to be a Double
-  protected def createLabelSetter(schema: T.StructType): (Row, VowpalWabbitExample) => Unit = {
+  type VowpalWabbitLabelSetFunc = (Row, VowpalWabbitExample) => Unit
+
+  private def floatLabelSet(schema: T.StructType): VowpalWabbitLabelSetFunc = {
     val labelColIdx = schema.fieldIndex(getLabelCol)
     val weightGetter = getWeightGetter(schema)
 
+    (row: Row, ex: VowpalWabbitExample) => ex.setLabel(weightGetter(row), row.getFloat(labelColIdx))
+  }
+
+  private def doubleLabelSet(schema: T.StructType): VowpalWabbitLabelSetFunc = {
+    val labelColIdx = schema.fieldIndex(getLabelCol)
+    val weightGetter = getWeightGetter(schema)
+
+    (row: Row, ex: VowpalWabbitExample) => ex.setLabel(weightGetter(row), row.getDouble(labelColIdx).toFloat)
+  }
+
+  private def integerLabelSet(schema: T.StructType): VowpalWabbitLabelSetFunc = {
+    val labelColIdx = schema.fieldIndex(getLabelCol)
+    val weightGetter = getWeightGetter(schema)
+
+    (row: Row, ex: VowpalWabbitExample) => ex.setMulticlassLabel(weightGetter(row), row.getInt(labelColIdx))
+  }
+
+  private def arrayIntegerLabelSet(schema: T.StructType): VowpalWabbitLabelSetFunc = {
+    val labelColIdx = schema.fieldIndex(getLabelCol)
+
+    logWarning("Ignoring weights. MultiLabels does not support weights.")
+
+    (row: Row, ex: VowpalWabbitExample) => ex.setMultiLabels(row.getAs[Seq[Int]](labelColIdx).toArray)
+  }
+
+  private def costSensitiveLabelSet(t: T.StructType): VowpalWabbitLabelSetFunc = {
+    val costsIndex = t.fieldIndex("cost")
+    val classesIndex = t.fieldIndex("classes")
+
+    (row: Row, ex: VowpalWabbitExample) =>
+      ex.setCostSensitiveLabels(
+        row.getAs[Seq[Float]](costsIndex).toArray,
+        row.getAs[Seq[Int]](classesIndex).toArray)
+  }
+
+  private def contextualBanditLabel(t: T.StructType): VowpalWabbitLabelSetFunc = {
+    val actionIndex = t.fieldIndex("action")
+    val costIndex = t.fieldIndex("cost")
+    val probabilityIndex = t.fieldIndex("probability")
+
+    (row: Row, ex: VowpalWabbitExample) =>
+      ex.setContextualBanditLabel(
+        row.getInt(actionIndex),
+        row.getFloat(costIndex),
+        row.getFloat(probabilityIndex))
+  }
+
+  private def contextualBanditContinuousLabel(t: T.StructType): VowpalWabbitLabelSetFunc = {
+    val actionsIndex = t.fieldIndex("actions")
+    val costIndex = t.fieldIndex("costs")
+    val pdfValuesIndex = t.fieldIndex("pdfValues")
+
+    (row: Row, ex: VowpalWabbitExample) =>
+      ex.setContextualBanditContinuousLabel(
+        row.getAs[Seq[Float]](actionsIndex).toArray,
+        row.getAs[Seq[Float]](costIndex).toArray,
+        row.getAs[Seq[Float]](pdfValuesIndex).toArray)
+  }
+
+  // this only works well for Estimators. for Predictors the label is always going to be a Double
+  protected def createLabelSetter(schema: T.StructType): VowpalWabbitLabelSetFunc = {
     // match label spark types to VW labels
-
-    schema(labelColIdx).dataType match {
-      case _: T.FloatType =>
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setLabel(weightGetter(row), row.getFloat(labelColIdx))
-
-      case _: T.DoubleType =>
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setLabel(weightGetter(row), row.getDouble(labelColIdx).toFloat)
-
-      case _: T.IntegerType =>
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setMulticlassLabel(weightGetter(row), row.getInt(labelColIdx))
-
-      case t: T.ArrayType if t.elementType == T.IntegerType =>
-        logWarning("Ignoring weights. MultiLabels does not support weights.")
-
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setMultiLabels(row.getAs[Seq[Int]](labelColIdx).toArray)
-
-      case t: T.StructType if t.equals(costSensitiveLabelSchema) =>
-        val costsIndex = t.fieldIndex("cost")
-        val classesIndex = t.fieldIndex("classes")
-
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setCostSensitiveLabels(
-            row.getAs[Seq[Float]](costsIndex).toArray,
-            row.getAs[Seq[Int]](classesIndex).toArray)
-
-      case t: T.StructType if t.equals(contextualBanditLabelSchema) =>
-        val actionIndex = t.fieldIndex("action")
-        val costIndex = t.fieldIndex("cost")
-        val probabilityIndex = t.fieldIndex("probability")
-
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setContextualBanditLabel(
-            row.getInt(actionIndex),
-            row.getFloat(costIndex),
-            row.getFloat(probabilityIndex))
-
-      case t: T.StructType if t.equals(contextualBanditContinuousLabelSchema) =>
-        val actionsIndex = t.fieldIndex("actions")
-        val costIndex = t.fieldIndex("costs")
-        val pdfValuesIndex = t.fieldIndex("pdfValues")
-
-        (row: Row, ex: VowpalWabbitExample) =>
-          ex.setContextualBanditContinuousLabel(
-            row.getAs[Seq[Float]](actionsIndex).toArray,
-            row.getAs[Seq[Float]](costIndex).toArray,
-            row.getAs[Seq[Float]](pdfValuesIndex).toArray)
-
+    schema(schema.fieldIndex(getLabelCol)).dataType match {
+      case _: T.FloatType => floatLabelSet(schema)
+      case _: T.DoubleType => doubleLabelSet(schema)
+      case _: T.IntegerType => integerLabelSet(schema)
+      case t: T.ArrayType if t.elementType == T.IntegerType => arrayIntegerLabelSet(schema)
+      case t: T.StructType if t.equals(costSensitiveLabelSchema) => costSensitiveLabelSet(t)
+      case t: T.StructType if t.equals(contextualBanditLabelSchema) => contextualBanditLabel(t)
+      case t: T.StructType if t.equals(contextualBanditContinuousLabelSchema) => contextualBanditContinuousLabel(t)
       case other => throw new UnsupportedOperationException(s"Label type is not supported $other")
     }
   }

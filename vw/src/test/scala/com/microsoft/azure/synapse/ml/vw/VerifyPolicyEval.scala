@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import com.microsoft.azure.synapse.ml.policyeval.{CressieRead, CressieReadInput, CressieReadInterval, CressieReadIntervalInput, EmpiricalBernsteinCS, EmpiricalBernsteinCSInput, Ips, IpsInput, Snips, SnipsInput, PolicyEvalUDAFUtil}
+import com.microsoft.azure.synapse.ml.policyeval._
 import org.apache.spark.sql.{functions => F}
 
 class VerifyPolicyEval extends Benchmarks {

@@ -24,7 +24,7 @@ class Ips
   def zero: IpsBuffer = IpsBuffer(0, 0)
 
   def reduce(acc: IpsBuffer, x: IpsInput): IpsBuffer = {
-    val w = x.probPred / x.probLog
+    val w = x.probabilityPredicted / x.probabilityLogged
 
     IpsBuffer(
       acc.exampleCount + x.count,
@@ -49,6 +49,6 @@ class Ips
   def outputEncoder: Encoder[Float] = Encoders.scalaFloat
 }
 
-final case class IpsInput(probLog: Float, reward: Float, probPred: Float, count: Float)
+final case class IpsInput(probabilityLogged: Float, reward: Float, probabilityPredicted: Float, count: Float)
 
 final case class IpsBuffer(exampleCount: Float, weightedReward: Float)
