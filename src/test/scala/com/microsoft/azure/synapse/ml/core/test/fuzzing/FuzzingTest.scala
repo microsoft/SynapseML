@@ -221,10 +221,12 @@ class FuzzingTest extends TestBase {
   // TODO verify that model UIDs match the class names, perhaps use a Trait
 
   test("Verify all pipeline stages don't have exotic characters") {
-    val badChars = List(",", "\"", "'", ".")
+    val badNameChars = List(",", "\"", "'", ".")
+    val badDocChars = List("%", "\"", "'")
     pipelineStages.foreach { pipelineStage =>
       pipelineStage.params.foreach { param =>
-        assertOrLog(!param.name.contains(badChars), param.name)
+        assertOrLog(!param.name.contains(badNameChars), param.name)
+        assertOrLog(!param.doc.contains(badDocChars), param.doc)
       }
     }
   }

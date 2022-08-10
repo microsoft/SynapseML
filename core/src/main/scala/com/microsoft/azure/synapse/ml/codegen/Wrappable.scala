@@ -413,8 +413,6 @@ trait RWrappable extends BaseWrappable {
        |${paramDocLines}
        |#' @export
        |""".stripMargin
-
-
   }
 
   protected def rSetterLines: String = {
