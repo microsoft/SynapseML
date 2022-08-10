@@ -34,7 +34,7 @@ jobs:
       with:
         node-version: '16'
     - name: Setup Python
-      uses: actions/setup-python@v2.3.2
+      uses: actions/setup-python@v4.2.0
       with:
         python-version: 3.8.8
     - name: Set up JDK 11
