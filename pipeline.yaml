@@ -445,11 +445,11 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          echo "##vso[task.setvariable variable=_JAVA_OPTIONS;]=-Xss1g -Xmx12g"
+          echo "##vso[task.setvariable variable=_JAVA_OPTIONS;]-Xss1g -Xmx12g"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testR) ###### || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
-          echo "##vso[task.setvariable variable=_JAVA_OPTIONS;]="
+          echo "##vso[task.setvariable variable=_JAVA_OPTIONS;]"
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
