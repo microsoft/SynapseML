@@ -53,7 +53,7 @@ jobs:
       shell: bash -l {0}
       run: (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython) || (sbt "project ${{ matrix.project }}" coverage testPython)
     - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
         files: '**/python-test-*.xml'

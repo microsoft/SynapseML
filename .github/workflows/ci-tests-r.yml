@@ -48,7 +48,7 @@ jobs:
         (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
         (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
     - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
         files: '**/r-test-*.xml'
