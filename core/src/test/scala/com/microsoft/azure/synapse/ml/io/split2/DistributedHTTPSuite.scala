@@ -108,7 +108,7 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
     }(ExecutionContext.global)
   }
 
-  def sendFileRequest(url: String = url, client: CloseableHttpClient =RESTHelpers.Client): (String, Double) = {
+  def sendFileRequest(url: String = url, client: CloseableHttpClient = RESTHelpers.Client): (String, Double) = {
     val post = new HttpPost(url)
     val e = new FileEntity(FileUtilities.join(
       BuildInfo.datasetDir, "Images", "Grocery", "testImages", "WIN_20160803_11_28_42_Pro.jpg"))
@@ -302,40 +302,41 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
            |import threading
            |import time
            |
-         |exitFlag = 0
+           |exitFlag = 0
            |s = requests.Session()
            |
-         |class myThread(threading.Thread):
+           |class myThread(threading.Thread):
            |    def __init__(self, threadID):
            |        threading.Thread.__init__(self)
            |        self.threadID = threadID
            |
-         |    def run(self):
+           |    def run(self):
            |        print("Starting " + str(self.threadID))
            |        r = s.post("$url",
            |                          data={"number": 12524, "type": "issue", "action": "show"},
            |                          headers = {"content-type": "application/json"},
            |                          timeout=15)
            |
-         |        assert r.status_code==200
+           |        assert r.status_code==200
            |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
            |
-         |
-         |threads = []
+           |
+           |threads = []
            |for i in range(4):
            |    # Create new threads
            |    t = myThread(i)
            |    t.start()
            |    threads.append(t)
            |
-         |""".stripMargin
+           |""".stripMargin
 
       val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
       FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-      val processes = (1 to 50).map(_ =>
+      val processes = (1 to 50).map(_ => {
+        Runtime.getRuntime.exec("pip install requests")
         Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
-      )
+      })
 
       processes.foreach { p =>
         p.waitFor
