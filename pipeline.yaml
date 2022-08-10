@@ -448,8 +448,9 @@ jobs:
           export SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xmx4G -Xms2G"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-           # code gen for core for deps from deepLearning and opencv
-          (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
+          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]];
+            (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
+          fi
           (sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
