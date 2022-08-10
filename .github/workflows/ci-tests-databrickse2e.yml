@@ -58,7 +58,7 @@ jobs:
       shell: bash -l {0}
       run: 'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.DatabricksTests"'
     - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
         files: '**/test-reports/TEST-*.xml'
