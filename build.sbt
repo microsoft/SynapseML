@@ -370,7 +370,7 @@ lazy val vw = (project in file("vw"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.2.0"),
+    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.3.0"),
     name := "synapseml-vw"
   ): _*)
 
