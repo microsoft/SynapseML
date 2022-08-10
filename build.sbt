@@ -430,7 +430,16 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "com.azure" % "azure-storage-blob" % "12.14.4",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.6"
+      "com.azure" % "azure-ai-textanalytics" % "5.1.6",
+      "com.azure" % "azure-core" % "1.22.0",
+      "com.azure" % "azure-core-http-netty" % "1.11.2",
+      "com.azure" % "azure-storage-common" % "12.14.1",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5",
+      "io.projectreactor" % "reactor-core" % "3.4.10",
+      "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
+      "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
+      "org.reactivestreams" % "reactive-streams" % "1.0.4"
     ),
     dependencyOverrides ++= Seq(
       "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
