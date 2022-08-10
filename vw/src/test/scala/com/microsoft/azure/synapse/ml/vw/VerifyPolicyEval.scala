@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
-import com.microsoft.azure.synapse.ml.policyeval._
+import com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil
 import org.apache.spark.sql.{functions => F}
 
 class VerifyPolicyEval extends Benchmarks {
@@ -46,7 +46,7 @@ class VerifyPolicyEval extends Benchmarks {
 
     val expected = Seq(
       ("A", 2.1, 2.4, 2.4, 1.03, 33.82, 1.03, 2.73),
-      ("C", 2.7, 2.7, 2.7, 0.98, 56.18, 0.98, 2.98),
+      ("C", 2.7, 2.7, 2.7, 0.98, 56.18, 0.98, 2.98)
     ).toDF("key", "snips", "ips", "cressieRead", "cressieReadInterval_lower", "cressieReadInterval_upper",
         "cressieReadIntervalEmpirical_lower", "cressieReadIntervalEmpirical_upper")
 
