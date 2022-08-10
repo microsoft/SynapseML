@@ -448,7 +448,8 @@ jobs:
           export SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xmx4G -Xms2G"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]];
+          # tests in opencv and deep-learning source R wrappers from core, so core wrappers must exist
+          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]]; then
             (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
           fi
           (sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
