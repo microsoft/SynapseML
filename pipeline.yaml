@@ -422,7 +422,7 @@ jobs:
     - template: templates/codecov.yml
 
 - job: RTests
-  timeoutInMinutes: 30
+  timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
