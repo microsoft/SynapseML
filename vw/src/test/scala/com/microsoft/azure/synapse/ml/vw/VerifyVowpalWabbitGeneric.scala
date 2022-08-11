@@ -3,7 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
+import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
@@ -127,6 +129,121 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       .toDF("left", "right", "pdfValue")
 
     verifyResult(actual, expected)
+  }
+
+  test ("Verify VowpalWabbitGeneric using dsjson and cb_adf_explore") {
+    val df = loadDSJSON
+
+    val vw = new VowpalWabbitGeneric()
+      .setPassThroughArgs("--cb_explore_adf --dsjson")
+
+    // fit the model
+    val model = vw.fit(df)
+
+    val predictions = model
+      .setTestArgs("--dsjson")
+      .transform(df)
+
+    val actual = predictions
+      .select("predictions")
+      .limit(1)
+      .select(F.posexplode($"predictions"))
+      .select($"pos", $"col.action".alias("action"), $"col.probability".alias("probability"))
+
+    import spark.implicits._
+
+    val expected = Seq(
+        (0, 0, 0.9625),
+        (1, 2, 0.0125),
+        (2, 3, 0.0125),
+        (2, 1, 0.0125)
+    ).toDF("pos", "action", "probability")
+
+    verifyResult(expected, actual)
+  }
+
+  test ("Verify VowpalWabbitGeneric using dsjson and cb_adf") {
+    val df = loadDSJSON
+
+    val vw = new VowpalWabbitGeneric()
+      .setPassThroughArgs("--cb_adf --dsjson")
+
+    // fit the model
+    val model = vw.fit(df)
+
+    val predictions = model
+      .setTestArgs("--dsjson")
+      .transform(df)
+
+    val actual = predictions
+      .select("predictions")
+      .limit(1)
+      .select(F.posexplode($"predictions"))
+      .select(
+        $"pos",
+        $"col.action".alias("action"),
+        F.round($"col.score", 2).alias("score"))
+
+    import spark.implicits._
+
+    val expected = Seq(
+      (0, 0, -0.61),
+      (1, 1, -0.44),
+      (2, 2, -0.39),
+      (2, 3, -0.32)
+    ).toDF("pos", "action", "score")
+
+    verifyResult(expected, actual)
+  }
+
+  test ("Verify VowpalWabbitGeneric using Spark coordinated learn") {
+    val extractSchema = T.StructType(Seq(
+      T.StructField("_label_cost", T.FloatType, false),
+      T.StructField("_label_probability", T.FloatType, false),
+      T.StructField("_label_Action", T.IntegerType, false),
+      T.StructField("_labelIndex", T.IntegerType, false),
+      T.StructField("Timestamp", T.StringType, false),
+      T.StructField("EventId", T.StringType, false)
+    ))
+
+    val df = loadDSJSON
+      .repartition(2)
+      .withColumn("splitId", F.monotonically_increasing_id().mod(F.lit(2)))
+      .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("EventId", $"json.EventId")
+
+    val vw = new VowpalWabbitGeneric()
+      .setPassThroughArgs("--cb_adf --dsjson")
+      .setSplitCol("splitId")
+      .setPredictionIdCol("EventId")
+
+    // let's have the cake and eat it (model + 1-step ahead predictions)
+    val model = vw.fit(df)
+
+    val actual = model.getOneStepAheadPredictions
+      .where($"EventId".startsWith("2c53de8bf44749789"))
+      .select(F.posexplode($"predictions"))
+      .select(
+        $"pos",
+        $"col.action".alias("action"),
+        F.round($"col.score", 2).alias("score"))
+
+    import spark.implicits._
+
+    val expected = Seq(
+      (0, 0, -0.31),
+      (1, 1, -0.71),
+      (2, 3, -0.32),
+      (2, 2,  0.03)
+    ).toDF("pos", "action", "score")
+
+    verifyResult(expected, actual)
+  }
+
+  private def loadDSJSON = {
+    val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
+      "VowpalWabbit", "Train", "dsjson_cb_part1.json").toString
+    spark.read.text(fileLocation).withColumnRenamed("value", "input")
   }
 
   override def reader: MLReadable[_] = VowpalWabbitGeneric

@@ -297,7 +297,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     * Return the user-supplied splits or compute from data frame
     */
   private def computeSplits(df: DataFrame): Array[Any] =
-    if (getSplitColValues.nonEmpty)
+    if (isDefined(splitColValues) && getSplitColValues.nonEmpty)
       getSplitColValues.toArray
     else
       df.select(getSplitCol).distinct().collect().map(_.get(0))
