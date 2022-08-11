@@ -85,7 +85,7 @@ trait RWrappableParam[T] extends Param[T] {
 
   type RInnerType = T
 
-  def rValue(v: T): String = v.toString
+  def rValue(v: T): String = RWrappableParam.rDefaultRender(v, this)
 
   def rName(v: T): String = {
     name
