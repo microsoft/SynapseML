@@ -48,7 +48,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val categoricalFeatures = new ICECategoricalFeaturesParam(
     this,
     "categoricalFeatures",
-    "The list of categorical features to explain.",
+    "The list of categorical features to explain."
   )
 
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
