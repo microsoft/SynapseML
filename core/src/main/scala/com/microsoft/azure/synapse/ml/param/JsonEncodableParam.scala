@@ -60,8 +60,6 @@ class ServiceParam[T: TypeTag](parent: Params,
                               )
                               (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
-    with PythonWrappableParam[Either[T, String]]
-    with RWrappableParam[Either[T, String]]
     with WrappableParam[Either[T, String]] {
 
   type ValueType = T
@@ -194,7 +192,7 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
                                               isValid: T => Boolean = (_: T) => true)
                                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[T](parent, name, doc, isValid)
-    with PythonWrappableParam[T] with RWrappableParam[T] with WrappableParam[T] {
+    with WrappableParam[T] {
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
 
