@@ -434,8 +434,8 @@ lazy val cognitive = (project in file("cognitive"))
       "com.azure" % "azure-core" % "1.22.0",
       "com.azure" % "azure-core-http-netty" % "1.11.2",
       "com.azure" % "azure-storage-common" % "12.14.1",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.10.0",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.10.0",
       "io.projectreactor" % "reactor-core" % "3.4.10",
       "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
       "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
@@ -444,11 +444,12 @@ lazy val cognitive = (project in file("cognitive"))
     dependencyOverrides ++= Seq(
       "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
       "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
-      "com.fasterxml.jackson.core" % "jackson-core" % "2.12.5",
-      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.12.5",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5"
+      // Jackson modules can not be upgraded as BBC-VHD installs 2.10.0
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0",
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.10.0",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.10.0",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.10.0",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.10.0"
     ),
     name := "synapseml-cognitive"
   ): _*)
