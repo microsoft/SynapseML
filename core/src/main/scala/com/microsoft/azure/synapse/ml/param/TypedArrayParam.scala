@@ -11,13 +11,13 @@ import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
 
 
-class TypedArrayParam[T: TypeTag](parent: Params,
+abstract class TypedArrayParam[T: TypeTag](parent: Params,
                          name: String,
                          doc: String,
                          isValid: Seq[T] => Boolean = (_: Seq[T]) => true)
                         (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Seq[T]](parent, name, doc, isValid)
-    with DotnetWrappableParam[Seq[T]] with RWrappableParam[Seq[T]] {
+    with WrappableParam[Seq[T]] {
   type ValueType = T
 
   def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala)
