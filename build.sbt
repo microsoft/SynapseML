@@ -444,8 +444,8 @@ lazy val cognitive = (project in file("cognitive"))
     dependencyOverrides ++= Seq(
       "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
       "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
       // Jackson modules can not be upgraded as BBC-VHD installs 2.10.0
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0",
       "com.fasterxml.jackson.core" % "jackson-core" % "2.10.0",
       "com.fasterxml.jackson.core" % "jackson-annotations" % "2.10.0",
       "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.10.0",
