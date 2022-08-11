@@ -43,8 +43,8 @@ object PyTestGen {
 
   //noinspection ScalaStyle
   def generatePyPackageData(conf: CodegenConfig): Unit = {
-    if (!conf.pySrcDir.exists()) {
-      conf.pySrcDir.mkdir()
+    if (!conf.pyTestDir.exists()) {
+      conf.pyTestDir.mkdir()
     }
     writeFile(join(conf.pyTestDir,"synapsemltest", "spark.py"),
       s"""
