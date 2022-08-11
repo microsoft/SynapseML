@@ -30,7 +30,7 @@ jobs:
         secrets: 'storage-key,nexus-un,nexus-pw,pgp-private,pgp-public,pgp-pw'  # comma separated list of secret keys that need to be fetched from the Key Vault
       id: GetKeyVaultSecrets
     - name: Setup Python
-      uses: actions/setup-python@v2.3.2
+      uses: actions/setup-python@v4.2.0
       with:
         python-version: 3.8.8
     - name: Setup Miniconda

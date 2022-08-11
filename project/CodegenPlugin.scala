@@ -47,8 +47,6 @@ object CodegenPlugin extends AutoPlugin {
     val rVersion = settingKey[String]("R version")
     val genRPackageNamespace = settingKey[String]("genRPackageNamespace")
 
-    val dotnetVersion = settingKey[String]("Dotnet version")
-
     val genPackageNamespace = settingKey[String]("genPackageNamespace")
     val genTestPackageNamespace = settingKey[String]("genTestPackageNamespace")
 
@@ -201,7 +199,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        dotnetVersion.value,
+        dotnetedVersion(version.value),
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -214,7 +212,7 @@ object CodegenPlugin extends AutoPlugin {
         version.value,
         pythonizedVersion(version.value),
         rVersion.value,
-        dotnetVersion.value,
+        dotnetedVersion(version.value),
         genPackageNamespace.value
       ).toJson.compactPrint
     },
@@ -245,14 +243,6 @@ object CodegenPlugin extends AutoPlugin {
     rVersion := {
       if (version.value.contains("-")) {
         version.value.split("-".head).head
-      } else {
-        version.value
-      }
-    },
-    dotnetVersion := {
-      if (version.value.contains("-")) {
-        val versionArray = version.value.split("-".toCharArray)
-        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
       } else {
         version.value
       }
@@ -349,7 +339,7 @@ object CodegenPlugin extends AutoPlugin {
       packageDotnet.value
       val dotnetPackageName = name.value.split("-").drop(1).map(s => s.capitalize).mkString("")
       val packagePath = join(codegenDir.value, "package", "dotnet",
-        s"SynapseML.$dotnetPackageName.${dotnetVersion.value}.nupkg").absolutePath
+        s"SynapseML.$dotnetPackageName.${dotnetedVersion(version.value)}.nupkg").absolutePath
       publishDotnetAssemblyCmd(packagePath, mergeCodeDir.value)
     },
     targetDir := {

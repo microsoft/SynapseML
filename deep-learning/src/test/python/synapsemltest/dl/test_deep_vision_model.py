@@ -99,7 +99,7 @@ def test_lit_deep_vision_model(transform, get_data_path):
         pin_memory=True,
     )
 
-    epochs = 10
+    epochs = 2
     model = LitDeepVisionModel(
         backbone="resnet50",
         additional_layers_to_train=1,
