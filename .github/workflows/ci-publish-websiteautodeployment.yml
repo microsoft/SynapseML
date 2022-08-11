@@ -30,15 +30,15 @@ jobs:
         secrets: 'gh-name,gh-email,gh-token'  # comma separated list of secret keys that need to be fetched from the Key Vault
       id: GetKeyVaultSecrets
     - name: 'Install Node.js'
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: '16'
     - name: Setup Python
-      uses: actions/setup-python@v2.3.2
+      uses: actions/setup-python@v4.2.0
       with:
         python-version: 3.8.8
     - name: Set up JDK 11
-      uses: actions/setup-java@v2
+      uses: actions/setup-java@v3
       with:
         java-version: '11'
         distribution: 'temurin'
