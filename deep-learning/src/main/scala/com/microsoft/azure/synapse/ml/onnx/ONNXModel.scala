@@ -68,7 +68,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
 
   def setArgMaxDict(value: Map[String, String]): this.type = set(argMaxDict, value)
 
-  def setArgMaxDict(value: java.util.HashMap[String, String]): this.type = set(softMaxDict, value.asScala.toMap)
+  def setArgMaxDict(value: java.util.HashMap[String, String]): this.type = set(argMaxDict, value.asScala.toMap)
 
   def setArgMaxDict(k: String, v: String): this.type = set(argMaxDict, Map(k -> v))
 

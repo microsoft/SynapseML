@@ -147,6 +147,6 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   val reader: MLReadable[_] = ImageFeaturizer
 
   override def testObjects(): Seq[TestObject[ImageFeaturizer]] = Seq(
-    new TestObject(resNetModelHeadless(), images)
+    new TestObject(new ImageFeaturizer(), images)
   )
 }
