@@ -207,8 +207,13 @@ object DatabricksUtilities {
     ()
   }
 
-  def deleteCluster(clusterId: String): Unit = {
+  def terminateCluster(clusterId: String): Unit = {
     databricksPost("clusters/delete", s"""{"cluster_id":"$clusterId"}""")
+    ()
+  }
+
+  def permanentDeleteCluster(clusterId: String): Unit = {
+    databricksPost("clusters/permanent-delete", s"""{"cluster_id":"$clusterId"}""")
     ()
   }
 
@@ -376,7 +381,9 @@ abstract class DatabricksTestHelper extends TestBase {
 
   import DatabricksUtilities._
 
-  def databricksTestHelper(clusterId: String, libraries: String, notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+  def databricksTestHelper(clusterId: String,
+                           libraries: String,
+                           notebooks: Seq[File]): mutable.ListBuffer[Int] = {
     val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
 
     println("Checking if cluster is active")
@@ -420,7 +427,7 @@ abstract class DatabricksTestHelper extends TestBase {
                                clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     jobIdsToCancel.foreach(cancelRun)
-    deleteCluster(clusterId)
+    permanentDeleteCluster(clusterId)
     println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
