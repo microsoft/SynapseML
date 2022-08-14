@@ -23,8 +23,10 @@ object PyTestGen {
       try {
         ltc.makePyTestFile(conf)
       } catch {
-        case _: NotImplementedError =>
+        case err: NotImplementedError => {
+          println(s"$err")
           println(s"ERROR: Could not generate test for ${ltc.testClassName} because of Complex Parameters")
+        }
       }
     }
   }

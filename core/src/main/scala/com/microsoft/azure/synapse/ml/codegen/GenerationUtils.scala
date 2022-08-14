@@ -43,8 +43,8 @@ object GenerationUtils {
     p match {
       case pwp: PythonWrappableParam[_] =>
         pwp.pyConstructorLine(v.asInstanceOf[pwp.InnerType])
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
+      case p: ComplexParam[p] =>
+        throw new NotImplementedError(s"No translation found for complex parameter: ${p.name}")
       case _ =>
         s"""${p.name}=${PythonWrappableParam.pyDefaultRender(v, p)}"""
     }

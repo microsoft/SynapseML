@@ -22,20 +22,13 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
-/** The <code>ImageFeaturizer</code> relies on a ONNX model to do the featurization, one can set
-  * this model using the <code>setOnnxModel</code> parameter. To map the nodes of the CNTK model
-  * onto the standard "layers" structure of a feed forward neural net, one needs to supply a list of
-  * node names that range from the output node, back towards the input node of the CNTK Function.
-  * This list does not need to be exhaustive, and is provided to you if you use a model downloaded
-  * from the <code>ModelDownloader</code>, one can find this layer list in the schema of the
-  * downloaded model.
+/** The <code>ImageFeaturizer</code> relies on a ONNX model to do the featurization. One can set
+  * this model using the <code>setOnnxModel</code> parameter with a model you create yourself, or
+  * <code>setModel</code> to get a predefined named model from the ONNXHub.
   *
   * The <code>ImageFeaturizer</code> takes an input column of images (the type returned by the
-  * <code>ImageReader</code>), and automatically resizes them to fit the CMTKModel's inputs.  It
-  * then feeds them through a pre-trained CNTK model.  One can truncate the model using the <code>
-  * cutOutputLayers </code> parameter that determines how many layers to truncate from the output of
-  * the network.  For example, layer=0 means that no layers are removed, layer=2 means that the
-  * image featurizer returns the activations of the layer that is two layers from the output layer.
+  * <code>ImageReader</code>), and automatically resizes them to fit the ONNXModel's inputs.  It
+  * then feeds them through a pre-trained ONNX model.
   *
   * @param uid the uid of the image transformer
   */
