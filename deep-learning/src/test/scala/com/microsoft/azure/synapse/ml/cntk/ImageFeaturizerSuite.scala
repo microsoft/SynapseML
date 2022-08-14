@@ -147,6 +147,17 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   val reader: MLReadable[_] = ImageFeaturizer
 
   override def testObjects(): Seq[TestObject[ImageFeaturizer]] = Seq(
-    new TestObject(new ImageFeaturizer(), images)
-  )
+      new TestObject(resNetModelHeadless(), images)
+    )
+
+  // Override python objects because modelPayload of ONNXModel is a ComplexParam, which
+  // cannot be used in python.  Use simple ImageFeaturizer.
+  override def pyTestObjects(): Seq[TestObject[ImageFeaturizer]] = {
+    val testObject: ImageFeaturizer = new ImageFeaturizer()
+      .setInputCol(inputCol)
+      .setOutputCol(outputCol)
+    Seq(
+      new TestObject(testObject, images)
+    )
+  }
 }
