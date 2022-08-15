@@ -52,8 +52,12 @@ object DatabricksUtilities {
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
 
+  // Protobuf info
+  val ProtobufVersion = s"com.google.protobuf:protobuf-java:3.14.0"
+
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("maven" -> Map("coordinates" -> ProtobufVersion)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
