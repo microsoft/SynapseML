@@ -405,6 +405,9 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
+    dependencyOverrides ++= Seq(
+      "com.google.protobuf" % "protobuf-java" % "3.14.0",
+    ),
     name := "synapseml-deep-learning"
   ): _*)
 
