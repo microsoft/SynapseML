@@ -62,8 +62,7 @@ jobs:
     - template: templates/kv.yml
     - bash: |
         set -e
-        sudo apt-get install doxygen
-        sudo apt-get install graphviz -y
+        sudo apt-get install graphviz doxygen -y
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython
@@ -299,7 +298,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-22.04
   strategy:
     matrix:
       core:
@@ -320,16 +319,21 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
-      displayName: 'Install Pip Package'
-      timeoutInMinutes: 10
+      displayName: 'Install and package deps'
+      timeoutInMinutes: 40
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt installPipPackage
+          sbt getDatasets installPipPackage
+          sbt publishM2
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get upgrade -y
+          sudo apt-get install gcc-4.9 -y
+          sudo apt-get install --only-upgrade libstdc++6 -y
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
@@ -339,6 +343,9 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
+          export SBT_OPTS="-XX:+UseG1GC"
+          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
+          echo "SBT_OPTS=$SBT_OPTS"
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -394,6 +401,8 @@ jobs:
           sbt publishDotnetTestBase
           sbt publishLocal
           sbt "project $(PACKAGE)" publishDotnet
+          export SBT_OPTS="-XX:+UseG1GC"
+          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
     - task: PublishTestResults@2
