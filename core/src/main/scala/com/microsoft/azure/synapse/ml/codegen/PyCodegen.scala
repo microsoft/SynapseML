@@ -4,17 +4,14 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
-import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
-import com.microsoft.azure.synapse.ml.codegen.RCodegen.rGen
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.indent
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
 import org.apache.spark.ml.{Estimator, Model}
-import spray.json._
-
 import java.io.File
+import spray.json._
 
 object PyCodegen {
 
@@ -127,10 +124,8 @@ object PyCodegen {
 
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
-    clean(conf.packageDir)
-    rGen(conf)
+    clean(conf.pyPackageDir)
     pyGen(conf)
-    dotnetGen(conf)
   }
 
 }
