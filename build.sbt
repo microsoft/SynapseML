@@ -408,6 +408,9 @@ lazy val deepLearning = (project in file("deep-learning"))
     dependencyOverrides ++= Seq(
       "com.google.protobuf" % "protobuf-java" % "3.14.0",
     ),
+    assembly / assemblyShadeRules ++= Seq(
+      ShadeRule.rename("com.google.protobuf.**" -> "com.synapseml.protobuf.@1").inAll
+    ),
     name := "synapseml-deep-learning"
   ): _*)
 
