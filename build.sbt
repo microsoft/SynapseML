@@ -1,6 +1,7 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
+import sbtassembly.AssemblyPlugin.autoImport.ShadeRule
 import xerial.sbt.Sonatype._
 
 import java.io.{File, PrintWriter}
@@ -409,7 +410,8 @@ lazy val deepLearning = (project in file("deep-learning"))
       "com.google.protobuf" % "protobuf-java" % "3.14.0",
     ),
     assembly / assemblyShadeRules ++= Seq(
-      ShadeRule.rename("com.google.protobuf.**" -> "com.synapseml.protobuf.@1").inAll
+      ShadeRule.rename("com.google.protobuf.**" -> "synapseml.protobuf.@1").inAll,
+      ShadeRule.rename("ai.onnx.proto.**" -> "synapseml.onnx.proto.@1").inAll
     ),
     name := "synapseml-deep-learning"
   ): _*)
