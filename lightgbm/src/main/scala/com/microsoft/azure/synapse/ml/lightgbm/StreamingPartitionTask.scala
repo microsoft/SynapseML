@@ -383,6 +383,7 @@ class StreamingPartitionTask extends BasePartitionTask {
         sampledData.getRowCounts,
         sampledData.numRows,
         numRows,
+        ctx.totalRowCount,
         ctx.trainingCtx.datasetParams,
         datasetVoidPtr), "Dataset create")
 

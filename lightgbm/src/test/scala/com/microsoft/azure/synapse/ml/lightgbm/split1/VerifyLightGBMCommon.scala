@@ -129,6 +129,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
         sampledData.getRowCounts,
         numRows,
         numRows,
+        numRows,
         s"max_bin=255 bin_construct_sample_cnt=$numRows min_data_in_leaf=1 num_threads=3",
         datasetVoidPtr)
       println(s"Result code for LGBM_DatasetCreateFromSampledColumn: $resultCode")

@@ -96,6 +96,12 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
       .map(partitionId => allPartitionRowCounts(partitionId)).sum.toInt
   }
 
+  /* The total count of all rows
+   */
+  lazy val totalRowCount: Long = {
+    trainingCtx.partitionCounts.get.sum
+  }
+
   /* The starting offset of where this partition should place rows in the shared executor Dataset
    */
   lazy val streamingPartitionOffset: Int = {
