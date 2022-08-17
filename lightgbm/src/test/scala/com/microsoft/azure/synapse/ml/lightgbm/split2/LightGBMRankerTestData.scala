@@ -14,7 +14,7 @@ import org.apache.spark.sql.functions._
 //scalastyle:off magic.number
 
 /** Base class for tests for LightGBM Ranker. */
-class LightGBMRankerTestData extends Benchmarks with EstimatorFuzzing[LightGBMRanker]
+abstract class LightGBMRankerTestData extends Benchmarks with EstimatorFuzzing[LightGBMRanker]
   with LightGBMTestUtils {
 
   val queryCol = "query"

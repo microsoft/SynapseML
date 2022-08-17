@@ -19,7 +19,8 @@ import java.nio.file.{Files, Path, Paths}
 // scalastyle:off magic.number
 
 /** Base class for tests for LightGBM Classifier. */
-class LightGBMClassifierTestData extends Benchmarks with EstimatorFuzzing[LightGBMClassifier] with LightGBMTestUtils {
+abstract class LightGBMClassifierTestData extends Benchmarks
+    with EstimatorFuzzing[LightGBMClassifier] with LightGBMTestUtils {
   override def reader: MLReadable[_] = LightGBMClassifier
   override def modelReader: MLReadable[_] = LightGBMClassificationModel
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()

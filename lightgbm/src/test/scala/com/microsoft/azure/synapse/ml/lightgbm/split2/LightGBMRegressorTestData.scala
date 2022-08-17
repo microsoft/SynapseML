@@ -17,7 +17,7 @@ import org.apache.spark.sql.DataFrame
 
 /** Tests to validate the functionality of LightGBM module.
   */
-class LightGBMRegressorTestData extends Benchmarks
+abstract class LightGBMRegressorTestData extends Benchmarks
   with EstimatorFuzzing[LightGBMRegressor] with LightGBMTestUtils {
   override val startingPortIndex = 30
 
