@@ -648,6 +648,7 @@ jobs:
         PACKAGE: "vw"
   steps:
     #- template: templates/ivy_cache.yml
+    - template: templates/java_version.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
       inputs:
