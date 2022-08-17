@@ -58,6 +58,7 @@ jobs:
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
+    - template: templates/java_version.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
     - bash: |
