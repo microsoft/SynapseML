@@ -440,6 +440,32 @@ lazy val deepLearning = (project in file("deep-learning"))
       ShadeRule.rename("com.google.protobuf.**" -> "synapseml.protobuf.@1").inAll,
       ShadeRule.rename("ai.onnx.proto.**" -> "synapseml.onnx.proto.@1").inAll
     ),
+    pomExtra := (
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>com.shaded.google.protobuf</shadedPattern>
+                </relocation>
+              </relocations>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>shade</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>),
     name := "synapseml-deep-learning"
   ): _*)
 
