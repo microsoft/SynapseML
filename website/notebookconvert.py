@@ -56,8 +56,8 @@ def convert_allnotebooks_in_folder(folder, outputdir):
 
 def main():
     cur_path = os.getcwd()
-    folder = os.path.join(cur_path, "notebooks")
-    outputdir = os.path.join(cur_path, "website", "docs")
+    folder = os.path.join(cur_path, "notebooks", "features")
+    outputdir = os.path.join(cur_path, "website", "docs", "features")
     convert_allnotebooks_in_folder(folder, outputdir)
 
 
