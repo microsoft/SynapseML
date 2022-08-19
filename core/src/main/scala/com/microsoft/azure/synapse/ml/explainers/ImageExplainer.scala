@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.azure.synapse.ml.lime.{HasCellSize, HasModifier, SuperpixelTransformer}
+import com.microsoft.azure.synapse.ml.image.{HasCellSize, HasModifier, SuperpixelTransformer}
 import org.apache.spark.ml.param.shared.HasInputCol
 import org.apache.spark.sql.DataFrame
 
