@@ -29,6 +29,19 @@ case class TAResponse[T <: HasDocId](statistics: Option[TAResponseStatistics],
                                      errors: Option[Seq[TAError]],
                                      modelVersion: Option[String])
 
+case class AsyncTAResponse[T <: HasDocId](jobId: String,
+                                          lastUpdateDateTime: String,
+                                          createdDateTime: String,
+                                          expirationDateTime: String,
+                                          status: String,
+                                          errors: Seq[TAError],
+                                          results: TAResponse[T])
+
+case class UnpackedTAResponse[T <: HasDocId](statistics: Option[TAResponseStatistics],
+                                             document: Option[T],
+                                             error: Option[TAError],
+                                             modelVersion: Option[String])
+
 case class TAResponseStatistics(documentsCount: Int,
                                 validDocumentsCount: Int,
                                 erroneousDocumentsCount: Int,
@@ -47,35 +60,35 @@ object TAJSONFormat {
 }
 
 
-
-
 // SentimentV3 Schemas
 
-object SentimentResponseV3 extends SparkBindings[TAResponse[SentimentScoredDocumentV3]]
+object TextSentimentResponse extends SparkBindings[TAResponse[TextSentimentScoredDoc]]
 
-object SentimentScoredDocumentV3 extends SparkBindings[SentimentScoredDocumentV3]
+object UnpackedTextSentimentResponse extends SparkBindings[UnpackedTAResponse[TextSentimentScoredDoc]]
 
-case class SentimentScoredDocumentV3(id: String,
-                                     sentiment: String,
-                                     statistics: Option[DocumentStatistics],
-                                     confidenceScores: SentimentScoreV3,
-                                     sentences: Seq[Sentence],
-                                     warnings: Seq[TAWarning]) extends HasDocId
+object TextSentimentScoredDoc extends SparkBindings[TextSentimentScoredDoc]
 
-case class SentimentScoreV3(positive: Double, neutral: Double, negative: Double)
+case class TextSentimentScoredDoc(id: String,
+                                  sentiment: String,
+                                  statistics: Option[DocumentStatistics],
+                                  confidenceScores: SentimentScore,
+                                  sentences: Seq[Sentence],
+                                  warnings: Seq[TAWarning]) extends HasDocId
 
-case class BinarySentimentScoreV3(positive: Double, negative: Double)
+case class SentimentScore(positive: Double, neutral: Double, negative: Double)
+
+case class BinarySentimentScore(positive: Double, negative: Double)
 
 case class SentimentRelation(ref: String, relationType: String)
 
-case class SentimentTarget(confidenceScores: BinarySentimentScoreV3,
+case class SentimentTarget(confidenceScores: BinarySentimentScore,
                            length: Int,
                            offset: Int,
                            text: Option[String],
                            sentiment: String,
                            relations: Seq[SentimentRelation])
 
-case class SentimentAssessment(confidenceScores: BinarySentimentScoreV3,
+case class SentimentAssessment(confidenceScores: BinarySentimentScore,
                                length: Int,
                                offset: Int,
                                text: Option[String],
@@ -84,7 +97,7 @@ case class SentimentAssessment(confidenceScores: BinarySentimentScoreV3,
 
 case class Sentence(text: Option[String],
                     sentiment: String,
-                    confidenceScores: SentimentScoreV3,
+                    confidenceScores: SentimentScore,
                     targets: Option[Seq[SentimentTarget]],
                     assessments: Option[Seq[SentimentAssessment]],
                     offset: Int,
@@ -94,75 +107,106 @@ case class DocumentStatistics(charactersCount: Int, transactionsCount: Int)
 
 // Detect Language Schemas
 
-object DetectLanguageResponseV3 extends SparkBindings[TAResponse[DocumentLanguageV3]]
+object LanguageDetectorResponse extends SparkBindings[TAResponse[LanguageDetectorScoredDoc]]
 
-case class DocumentLanguageV3(id: String,
-                              detectedLanguage: Option[DetectedLanguageV3],
-                              warnings: Seq[TAWarning],
-                              statistics: Option[DocumentStatistics]) extends HasDocId
+object UnpackedLanguageDetectorResponse extends SparkBindings[UnpackedTAResponse[LanguageDetectorScoredDoc]]
 
-case class DetectedLanguageV3(name: String, iso6391Name: String, confidenceScore: Double)
+case class LanguageDetectorScoredDoc(id: String,
+                                     detectedLanguage: Option[DetectedLanguage],
+                                     warnings: Seq[TAWarning],
+                                     statistics: Option[DocumentStatistics]) extends HasDocId
+
+case class DetectedLanguage(name: String, iso6391Name: String, confidenceScore: Double)
 
 // Detect Entities Schemas
 
-object DetectEntitiesResponseV3 extends SparkBindings[TAResponse[DetectEntitiesScoreV3]]
+object EntityDetectorResponse extends SparkBindings[TAResponse[EntityDetectorScoredDoc]]
 
-case class DetectEntitiesScoreV3(id: String,
-                                 entities: Seq[EntityV3],
-                                 warnings: Seq[TAWarning],
-                                 statistics: Option[DocumentStatistics]) extends HasDocId
+object UnpackedEntityDetectorResponse extends SparkBindings[UnpackedTAResponse[EntityDetectorScoredDoc]]
 
-case class EntityV3(name: String,
-                    matches: Seq[MatchV3],
-                    language: String,
-                    id: Option[String],
-                    url: String,
-                    dataSource: String)
+case class EntityDetectorScoredDoc(id: String,
+                                   entities: Seq[Entity],
+                                   warnings: Seq[TAWarning],
+                                   statistics: Option[DocumentStatistics]) extends HasDocId
 
-case class MatchV3(confidenceScore: Double, text: String, offset: Int, length: Int)
+case class Entity(name: String,
+                  matches: Seq[Match],
+                  language: String,
+                  id: Option[String],
+                  url: String,
+                  dataSource: String)
+
+case class Match(confidenceScore: Double, text: String, offset: Int, length: Int)
 
 // NER Schemas
 
-object NERResponseV3 extends SparkBindings[TAResponse[NERDocV3]]
+object NERResponse extends SparkBindings[TAResponse[NERScoredDoc]]
 
+object UnpackedNERResponse extends SparkBindings[UnpackedTAResponse[NERScoredDoc]]
 
-case class NERDocV3(id: String,
-                    entities: Seq[NEREntityV3],
-                    warnings: Seq[TAWarning],
-                    statistics: Option[DocumentStatistics]) extends HasDocId
+case class NERScoredDoc(id: String,
+                        entities: Seq[NEREntity],
+                        warnings: Seq[TAWarning],
+                        statistics: Option[DocumentStatistics]) extends HasDocId
 
-case class NEREntityV3(text: String,
-                       category: String,
-                       subcategory: Option[String] = None,
-                       offset: Integer,
-                       length: Integer,
-                       confidenceScore: Double)
+case class NEREntity(text: String,
+                     category: String,
+                     subcategory: Option[String] = None,
+                     offset: Integer,
+                     length: Integer,
+                     confidenceScore: Double)
 
 // NER Pii Schemas
 
-object PIIResponseV3 extends SparkBindings[TAResponse[PIIDocV3]]
+object PIIResponse extends SparkBindings[TAResponse[PIIScoredDoc]]
 
-case class PIIDocV3(id: String,
-                    entities: Seq[PIIEntityV3],
-                    redactedText: String,
-                    warnings: Seq[TAWarning],
-                    statistics: Option[DocumentStatistics]) extends HasDocId
+object UnpackedPIIResponse extends SparkBindings[UnpackedTAResponse[PIIScoredDoc]]
 
-case class PIIEntityV3(text: String,
-                       category: String,
-                       subcategory: Option[String] = None,
-                       offset: Integer,
-                       length: Integer,
-                       confidenceScore: Double)
+case class PIIScoredDoc(id: String,
+                        entities: Seq[PIIEntity],
+                        redactedText: String,
+                        warnings: Seq[TAWarning],
+                        statistics: Option[DocumentStatistics]) extends HasDocId
+
+case class PIIEntity(text: String,
+                     category: String,
+                     subcategory: Option[String] = None,
+                     offset: Int,
+                     length: Int,
+                     confidenceScore: Double)
 
 // KeyPhrase Schemas
 
-object KeyPhraseResponseV3 extends SparkBindings[TAResponse[KeyPhraseScoreV3]]
+object KeyPhraseExtractorResponse extends SparkBindings[TAResponse[KeyPhraseScoredDoc]]
 
-case class KeyPhraseScoreV3(id: String,
-                            keyPhrases: Seq[String],
-                            warnings: Seq[TAWarning],
-                            statistics: Option[DocumentStatistics]) extends HasDocId
+object UnpackedKPEResponse extends SparkBindings[UnpackedTAResponse[KeyPhraseScoredDoc]]
+
+case class KeyPhraseScoredDoc(id: String,
+                              keyPhrases: Seq[String],
+                              warnings: Seq[TAWarning],
+                              statistics: Option[DocumentStatistics]) extends HasDocId
+
+
+object AnalyzeHealthTextResponse extends SparkBindings[AsyncTAResponse[AnalyzeHealthTextScoredDoc]]
+
+object UnpackedAHTResponse extends SparkBindings[UnpackedTAResponse[AnalyzeHealthTextScoredDoc]]
+
+case class AnalyzeHealthTextScoredDoc(id: String,
+                                      entities: Seq[HealthEntity],
+                                      relations: Seq[HealthRelation],
+                                      warnings: Seq[TAWarning],
+                                      statistics: Option[DocumentStatistics]) extends HasDocId
+
+case class HealthEntity(offset: Int,
+                        length: Int,
+                        text: String,
+                        category: String,
+                        confidenceScore: Double)
+
+case class HealthRelation(relationType: String,
+                          entities: Seq[HealthEntityRef])
+
+case class HealthEntityRef(ref: String, role: String)
 
 case class TAWarning( // Error code.
                       code: String,
