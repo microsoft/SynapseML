@@ -196,7 +196,8 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
 
   override def setLocation(v: String): this.type = {
     setSubscriptionRegion(v)
-    super.setLocation(v)
+    val domain = getLocationDomain(v)
+    setUrl(s"https://api.cognitive.microsofttranslator.$domain/" + urlPath)
   }
 
 }
