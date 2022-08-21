@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.onnx
 
 import ai.onnx.proto.OnnxMl.{GraphProto, ModelProto, NodeProto, ValueInfoProto}
 import ai.onnxruntime._
-import com.google.protobuf.ProtocolStringList
+import shade.com.google.protobuf.ProtocolStringList
 import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types._

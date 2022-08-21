@@ -17,6 +17,10 @@ ThisBuild / scalaVersion := "2.12.15"
 
 val scalaMajorVersion = 2.12
 
+//resolvers += "Local Maven Repository" at "file://" + "C:/Users/svotaw/.m2/repository"
+//resolvers += Resolver.mavenLocal
+resolvers += "Local Maven Repository" at "file:///" + "C:/Users/svotaw/.m2/repository"
+
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
   ExclusionRule("org.scalatest")
@@ -62,33 +66,6 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
     }
   }).transform(node).head
 }
-
-pomExtra := (
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>3.3.0</version>
-        <configuration>
-          <relocations>
-            <relocation>
-              <pattern>com.google.protobuf</pattern>
-              <shadedPattern>com.shaded.google.protobuf</shadedPattern>
-            </relocation>
-          </relocations>
-        </configuration>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>)
 
 pomPostProcess := pomPostFunc
 
@@ -428,44 +405,12 @@ lazy val deepLearning = (project in file("deep-learning"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
+    resolvers += "SynapseMl Blob Repository" at "https://mmlspark.blob.core.windows.net/maven/",
     libraryDependencies ++= Seq(
-      "com.google.protobuf" % "protobuf-java" % "3.14.0",
+      "com.microsoft.azure" % "synapseml-onnx_2.12" % "0.1-SNAPSHOT" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
-    dependencyOverrides ++= Seq(
-      "com.google.protobuf" % "protobuf-java" % "3.14.0",
-    ),
-    assembly / assemblyShadeRules ++= Seq(
-      ShadeRule.rename("com.google.protobuf.**" -> "synapseml.protobuf.@1").inAll,
-      ShadeRule.rename("ai.onnx.proto.**" -> "synapseml.onnx.proto.@1").inAll
-    ),
-    pomExtra := (
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
-            <version>3.3.0</version>
-            <configuration>
-              <relocations>
-                <relocation>
-                  <pattern>com.google.protobuf</pattern>
-                  <shadedPattern>com.shaded.google.protobuf</shadedPattern>
-                </relocation>
-              </relocations>
-            </configuration>
-            <executions>
-              <execution>
-                <phase>package</phase>
-                <goals>
-                  <goal>shade</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>),
     name := "synapseml-deep-learning"
   ): _*)
 
