@@ -407,7 +407,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .settings(settings ++ Seq(
     resolvers += "SynapseMl Blob Repository" at "https://mmlspark.blob.core.windows.net/maven/",
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "synapseml-onnx_2.12" % "0.1-SNAPSHOT" classifier "assembly",
+      "com.microsoft.azure" % "synapseml-onnx_2.12" % "0.2-SNAPSHOT" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
