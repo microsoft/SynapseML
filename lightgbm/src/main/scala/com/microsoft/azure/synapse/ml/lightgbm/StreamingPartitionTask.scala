@@ -374,7 +374,7 @@ class StreamingPartitionTask extends BasePartitionTask {
       ctx.measures.markSamplingStop()
 
       // Convert byte array to native memory
-      log.info(s"Creating empty dense training dataset with $numRows rows, config:${ctx.trainingCtx.datasetParams}")
+      log.info(s"Creating empty training dataset with $numRows rows, config:${ctx.trainingCtx.datasetParams}")
       // Generate the dataset for features
       val datasetVoidPtr = lightgbmlib.voidpp_handle()
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
