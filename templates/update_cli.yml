@@ -3,9 +3,6 @@ steps:
     inputs:
       versionSpec: '3.x'
       architecture: 'x64'
-  - bash: |
-      ulimit -c unlimited
-    displayName: Enable core dumping
   - task: JavaToolInstaller@0
     inputs:
       versionSpec: '8'
