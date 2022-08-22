@@ -9,8 +9,8 @@ import breeze.stats.{mean, stddev}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers._
+import com.microsoft.azure.synapse.ml.image.{Superpixel, SuperpixelData}
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-import com.microsoft.azure.synapse.ml.lime.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -158,7 +158,7 @@ class SamplerSuite extends TestBase {
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
     // import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-    // import com.microsoft.azure.synapse.ml.lime.Superpixel
+    // import com.microsoft.azure.synapse.ml.image.Superpixel
     // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
     // Superpixel.displayImage(maskedImage)
     // Thread.sleep(100000)
@@ -278,7 +278,7 @@ class SamplerSuite extends TestBase {
     // Uncomment the following lines lines to view the randomly masked image.
     // Change the RandBasis seed to see a different mask image.
     // import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-    // import com.microsoft.azure.synapse.ml.lime.Superpixel
+    // import com.microsoft.azure.synapse.ml.image.Superpixel
     // val maskedImage = ImageUtils.toBufferedImage(data, width, height, nChannels)
     // Superpixel.displayImage(maskedImage)
     // Thread.sleep(100000)
