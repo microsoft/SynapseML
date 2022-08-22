@@ -123,7 +123,7 @@ abstract class LightGBMClassifierTestData extends Benchmarks
       val df = loadBinary(fileName, labelColumnName)
       val model = baseModel
         .setNumTasks(1) // DEBUG TODO remove
-        //.setMatrixType("sparse") // DEBUG TODO remove
+        // .setMatrixType("sparse") // DEBUG TODO remove
         .setBoostingType(boostingType)
 
       if (boostingType == "rf") {
