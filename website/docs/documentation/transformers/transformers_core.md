@@ -25,11 +25,6 @@ import IO, {toc as IOTOC} from './core/_IO.md';
 <IO/>
 
 
-import SuperpixelTransformer, {toc as LIMETOC} from './core/_SuperpixelTransformer.md';
-
-<SuperpixelTransformer/>
-
-
 import Stages, {toc as StagesTOC} from './core/_Stages.md';
 
 <Stages/>
@@ -40,4 +35,4 @@ import Train, {toc as TrainTOC} from './core/_Train.md';
 <Train/>
 
 export const toc = [...ExplainersTOC, ...FeaturizeTOC, ...ImageTOC,
-...IOTOC, ...LIMETOC, ...StagesTOC, ...TrainTOC]
+...IOTOC, ...StagesTOC, ...TrainTOC]

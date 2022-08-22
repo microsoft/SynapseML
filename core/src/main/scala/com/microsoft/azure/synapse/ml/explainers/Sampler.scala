@@ -7,7 +7,7 @@ import breeze.linalg.{norm, DenseVector => BDV}
 import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.RowUtils.RowCanGetAsDouble
-import com.microsoft.azure.synapse.ml.lime.{Superpixel, SuperpixelData}
+import com.microsoft.azure.synapse.ml.image.{Superpixel, SuperpixelData}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql.Row
 
