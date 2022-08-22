@@ -31,6 +31,7 @@
 .vs
 /core/src/main/dotnet/**/bin
 /core/src/main/dotnet/**/obj
+/core/src/main/dotnet/test/dotnetTestBase.csproj
 /core/src/main/dotnet/test/SynapseMLVersion.cs
 # temp ignore these two for local tests
 /dotnetSanityCheck/**/bin
@@ -69,3 +70,14 @@ node_modules/
 .bsp
 website/.docusaurus
 null/
+
+# pytorch_lightning logs
+**/lightning_logs/*
+
+# pytest
+.pytest_cache/
+
+# python wheel
+**/build/*
+**/dist/*
+**/*.egg-info/*

@@ -90,7 +90,7 @@ object DotnetTestGen {
          |    </PackageReference>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
-         |    <PackageReference Include="SynapseML.DotnetE2ETest" Version="0.9.1" />
+         |    <PackageReference Include="SynapseML.DotnetE2ETest" Version="${conf.dotnetVersion}" />
          |    <PackageReference Include="SynapseML.$curProject" Version="${conf.dotnetVersion}" />
          |    $referenceCore
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />

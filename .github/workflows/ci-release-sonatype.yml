@@ -58,7 +58,7 @@ jobs:
       id: GetKeyVaultSecrets
     - name: Setup Python
       if: startsWith(steps.getGitTag.outputs.gittag, 'v')
-      uses: actions/setup-python@v2.3.2
+      uses: actions/setup-python@v4.2.0
       with:
         python-version: 3.8.8
     - name: Setup Miniconda
