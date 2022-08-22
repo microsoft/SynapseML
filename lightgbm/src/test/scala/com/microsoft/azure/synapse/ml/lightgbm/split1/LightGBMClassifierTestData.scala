@@ -122,6 +122,8 @@ abstract class LightGBMClassifierTestData extends Benchmarks
     boostingTypes.foreach { boostingType =>
       val df = loadBinary(fileName, labelColumnName)
       val model = baseModel
+        //.setNumTasks(2) // DEBUG TODO remove
+        //.setMatrixType("sparse") // DEBUG TODO remove
         .setBoostingType(boostingType)
 
       if (boostingType == "rf") {

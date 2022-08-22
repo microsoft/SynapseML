@@ -256,6 +256,7 @@ class StreamingPartitionTask extends BasePartitionTask {
     if (microBatchRowCount > 0) {
       // If we have only a partial micro-batch, and we have multi-class initial scores (i.e. numClass > 1),
       // we need to re-coalesce the data since it was stored column-wise based on original microBatchSize
+      log.info(s"Part ${state.ctx.partitionId}: Pushing $microBatchRowCount sparse rows at $startIndex")
       if (state.hasInitialScores && state.microBatchSize != microBatchRowCount && state.numInitScoreClasses > 1) {
         (1 until state.numInitScoreClasses).foreach { i =>  // TODO make this shared
           (0 until microBatchRowCount).foreach { j => {
@@ -364,7 +365,7 @@ class StreamingPartitionTask extends BasePartitionTask {
     val sampledRowData = ctx.trainingCtx.broadcastedSampleData.get.value
 
     // create properly formatted sampled data
-    log.info(s"Creating sample data with ${sampledRowData.length} samples")
+    log.info(s"Loading sample data from broadcast with ${sampledRowData.length} samples")
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
     val sampledData: SampledData = new SampledData(sampledRowData.length, ctx.trainingCtx.numCols)
     try {

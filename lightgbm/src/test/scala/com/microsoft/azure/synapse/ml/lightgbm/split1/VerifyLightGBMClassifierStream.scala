@@ -36,9 +36,9 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, banknoteFile, executionMode)) {
     verifyLearnerOnBinaryCsvFile(banknoteFile, "class", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, taskFile, executionMode)) {
+  /*test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, taskFile, executionMode)) {
     verifyLearnerOnBinaryCsvFile(taskFile, "TaskFailed10", 1)
-  }
+  } DEBUG TODO put back */
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, breastCancerFile, executionMode)) {
     verifyLearnerOnBinaryCsvFile(breastCancerFile, "Label", 1)
   }
