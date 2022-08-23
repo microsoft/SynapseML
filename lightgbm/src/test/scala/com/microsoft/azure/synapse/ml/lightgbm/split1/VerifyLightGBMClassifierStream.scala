@@ -62,7 +62,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit" + executionModeSuffix) {
-    val model = baseModel.setUseBarrierExecutionMode(true)
+    val model = baseModel.setUseBarrierExecutionMode(true).setMatrixType("sparse")  // DEBUG TODO remove
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(model.numLeaves, Array(5, 10))
