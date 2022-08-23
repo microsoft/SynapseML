@@ -194,8 +194,10 @@ private[ml] abstract class TextAnalyticsSDKBase[T]()
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.LanguageDetector`", since = "v0.10.1")
 object LanguageDetectorSDK extends ComplexParamsReadable[LanguageDetectorSDK]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.LanguageDetector`", since = "v0.10.1")
 class LanguageDetectorSDK(override val uid: String)
   extends TextAnalyticsSDKBase[DetectedLanguageSDK]() {
   logClass()
@@ -223,8 +225,10 @@ class LanguageDetectorSDK(override val uid: String)
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.KeyPhraseExtractor`", since = "v0.10.1")
 object KeyPhraseExtractorSDK extends ComplexParamsReadable[KeyPhraseExtractorSDK]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.KeyPhraseExtractor`", since = "v0.10.1")
 class KeyPhraseExtractorSDK(override val uid: String)
   extends TextAnalyticsSDKBase[KeyphraseSDK]() {
   logClass()
@@ -252,8 +256,10 @@ class KeyPhraseExtractorSDK(override val uid: String)
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.TextSentiment`", since = "v0.10.1")
 object TextSentimentSDK extends ComplexParamsReadable[TextSentiment]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.TextSentiment`", since = "v0.10.1")
 class TextSentimentSDK(override val uid: String)
   extends TextAnalyticsSDKBase[SentimentScoredDocumentSDK]() with HasOpinionMining {
   logClass()
@@ -282,8 +288,10 @@ class TextSentimentSDK(override val uid: String)
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.PII`", since = "v0.10.1")
 object PIISDK extends ComplexParamsReadable[PII]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.PII`", since = "v0.10.1")
 class PIISDK(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityCollectionSDK]() {
   logClass()
 
@@ -310,8 +318,10 @@ class PIISDK(override val uid: String) extends TextAnalyticsSDKBase[PIIEntityCol
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.AnalyzeHealthText`", since = "v0.10.1")
 object HealthcareSDK extends ComplexParamsReadable[HealthcareSDK]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.AnalyzeHealthText`", since = "v0.10.1")
 class HealthcareSDK(override val uid: String) extends TextAnalyticsSDKBase[HealthEntitiesResultSDK]() {
   logClass()
 
@@ -341,8 +351,10 @@ class HealthcareSDK(override val uid: String) extends TextAnalyticsSDKBase[Healt
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.EntityDetector`", since = "v0.10.1")
 object EntityDetectorSDK extends ComplexParamsReadable[EntityDetectorSDK]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.EntityDetector`", since = "v0.10.1")
 class EntityDetectorSDK(override val uid: String) extends TextAnalyticsSDKBase[LinkedEntityCollectionSDK]() {
   logClass()
 
@@ -369,8 +381,10 @@ class EntityDetectorSDK(override val uid: String) extends TextAnalyticsSDKBase[L
   }
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.NER`", since = "v0.10.1")
 object NERSDK extends ComplexParamsReadable[NERSDK]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.NER`", since = "v0.10.1")
 class NERSDK(override val uid: String) extends TextAnalyticsSDKBase[NERCollectionSDK]() {
   logClass()
 
