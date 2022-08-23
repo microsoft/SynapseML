@@ -7,9 +7,13 @@ import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import scala.collection.JavaConverters._
 // Text Analytics /analyze endpoint schemas
 
-case class TextAnalyzeInput(documents: Seq[TADocument])
+case class TextAnalyzeRequest(displayName: String,
+                              analysisInput: TextAnalyzeInput,
+                              tasks: TextAnalyzeTasks)
 
-object TextAnalyzeInput extends SparkBindings[TextAnalyzeInput]
+object TextAnalyzeRequest extends SparkBindings[TextAnalyzeRequest]
+
+case class TextAnalyzeInput(documents: Seq[TADocument])
 
 case class TextAnalyzeTask(parameters: Map[String, String]) {
   def this(parameters: java.util.HashMap[String, String]) {
@@ -27,30 +31,20 @@ case class TextAnalyzeTasks(entityRecognitionTasks: Seq[TextAnalyzeTask],
 
 object TextAnalyzeTasks extends SparkBindings[TextAnalyzeTasks]
 
-case class TextAnalyzeRequest(displayName: String,
-                              analysisInput: TextAnalyzeInput,
-                              tasks: TextAnalyzeTasks)
-
-object TextAnalyzeRequest extends SparkBindings[TextAnalyzeRequest]
-
-
-case class TextAnalyzeAPIResult[T <: HasDocId](documents: Seq[T],
-                                               errors: Seq[TAError],
-                                               modelVersion: String)
 
 case class TextAnalyzeAPIResults[T <: HasDocId](state: String,
                                                 lastUpdateDateTime: Option[String],
-                                                results: Option[TextAnalyzeAPIResult[T]])
+                                                results: Option[TAResponse[T]])
 
 case class TextAnalyzeAPITasks(completed: Int,
                                failed: Int,
                                inProgress: Int,
                                total: Int,
-                               entityRecognitionTasks: Option[Seq[TextAnalyzeAPIResults[NERDocV3]]],
-                               entityLinkingTasks: Option[Seq[TextAnalyzeAPIResults[DetectEntitiesScoreV3]]],
-                               entityRecognitionPiiTasks: Option[Seq[TextAnalyzeAPIResults[PIIDocV3]]],
-                               keyPhraseExtractionTasks: Option[Seq[TextAnalyzeAPIResults[KeyPhraseScoreV3]]],
-                               sentimentAnalysisTasks: Option[Seq[TextAnalyzeAPIResults[SentimentScoredDocumentV3]]])
+                               entityRecognitionTasks: Option[Seq[TextAnalyzeAPIResults[NERScoredDoc]]],
+                               entityLinkingTasks: Option[Seq[TextAnalyzeAPIResults[EntityDetectorScoredDoc]]],
+                               entityRecognitionPiiTasks: Option[Seq[TextAnalyzeAPIResults[PIIScoredDoc]]],
+                               keyPhraseExtractionTasks: Option[Seq[TextAnalyzeAPIResults[KeyPhraseScoredDoc]]],
+                               sentimentAnalysisTasks: Option[Seq[TextAnalyzeAPIResults[TextSentimentScoredDoc]]])
 
 // API call response
 case class TextAnalyzeResponse(status: String,
@@ -60,13 +54,10 @@ case class TextAnalyzeResponse(status: String,
 
 object TextAnalyzeResponse extends SparkBindings[TextAnalyzeResponse]
 
-case class TextAnalyzeResult[T <: HasDocId](result: Option[T],
-                                            error: Option[TAError])
+case class UnpackedTextAnalyzeResponse(entityRecognition: Option[UnpackedTAResponse[NERScoredDoc]],
+                                       entityLinking: Option[UnpackedTAResponse[EntityDetectorScoredDoc]],
+                                       pii: Option[UnpackedTAResponse[PIIScoredDoc]],
+                                       keyPhraseExtraction: Option[UnpackedTAResponse[KeyPhraseScoredDoc]],
+                                       sentimentAnalysis: Option[UnpackedTAResponse[TextSentimentScoredDoc]])
 
-case class TextAnalyzeSimplifiedResponse(entityRecognition: Option[Seq[TextAnalyzeResult[NERDocV3]]],
-                                         entityLinking: Option[Seq[TextAnalyzeResult[DetectEntitiesScoreV3]]],
-                                         entityRecognitionPii: Option[Seq[TextAnalyzeResult[PIIDocV3]]],
-                                         keyPhraseExtraction: Option[Seq[TextAnalyzeResult[KeyPhraseScoreV3]]],
-                                         sentimentAnalysis: Option[Seq[TextAnalyzeResult[SentimentScoredDocumentV3]]])
-
-object TextAnalyzeSimplifiedResponse extends SparkBindings[TextAnalyzeSimplifiedResponse]
+object UnpackedTextAnalyzeResponse extends SparkBindings[UnpackedTextAnalyzeResponse]

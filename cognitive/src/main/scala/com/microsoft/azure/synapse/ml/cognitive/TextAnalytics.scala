@@ -3,10 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.io.http.{HasHandler, SimpleHTTPTransformer}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
+import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
+import com.microsoft.azure.synapse.ml.io.http.HasHandler
+import com.microsoft.azure.synapse.ml.param.{ServiceParam, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
@@ -14,17 +14,27 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import java.net.URI
-import java.util
 import scala.collection.JavaConverters._
+import java.net.URI
 
+trait HasOpinionMining extends HasServiceParams {
+  val includeOpinionMining = new ServiceParam[Boolean](
+    this, name = "includeOpinionMining", "includeOpinionMining option")
+
+  def getIncludeOpinionMining: Boolean = $(includeOpinionMining).left.get
+
+  def setIncludeOpinionMining(v: Boolean): this.type = setScalarParam(includeOpinionMining, v)
+
+  def setIncludeOpinionMiningCol(v: String): this.type = setVectorParam(includeOpinionMining, v)
+
+  setDefault(
+    includeOpinionMining -> Left(false)
+  )
+}
 
 trait TextAnalyticsInputParams extends HasServiceParams {
   val text = new ServiceParam[Seq[String]](this, "text", "the text in the request body", isRequired = true)
@@ -50,21 +60,71 @@ trait TextAnalyticsInputParams extends HasServiceParams {
 
 }
 
-abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
-  with HasSetLinkedService with TextAnalyticsInputParams {
+trait HasModelVersion extends HasServiceParams {
+  val modelVersion = new ServiceParam[String](
+    this, name = "modelVersion", "Version of the model")
 
-  protected def innerResponseDataType: StructType =
-    responseDataType("documents").dataType match {
-      case ArrayType(idt: StructType, _) => idt
-      case _ =>
-        throw new IllegalArgumentException("response data types should have a inner type")
+  def getModelVersion: String = $(modelVersion).left.get
+
+  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
+
+  def setModelVersionCol(v: String): this.type = setVectorParam(modelVersion, v)
+
+  setDefault(
+    modelVersion -> Left("latest")
+  )
+}
+
+trait TextAnalyticsBaseParams extends HasServiceParams with HasModelVersion {
+
+  val showStats = new ServiceParam[Boolean](
+    this, name = "showStats", "Whether to include detailed statistics in the response")
+
+  def getShowStats: Boolean = $(showStats).left.get
+
+  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
+
+  def setShowStatsCol(v: String): this.type = setVectorParam(showStats, v)
+
+  val disableServiceLogs = new ServiceParam[Boolean](
+    this, name = "disableServiceLogs", "disableServiceLogs option")
+
+  def getDisableServiceLogs: Boolean = $(disableServiceLogs).left.get
+
+  def setDisableServiceLogs(v: Boolean): this.type = setScalarParam(disableServiceLogs, v)
+
+  def setDisableServiceLogsCol(v: String): this.type = setVectorParam(disableServiceLogs, v)
+
+  setDefault(
+    showStats -> Left(false),
+    disableServiceLogs -> Left(true)
+  )
+
+}
+
+private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
+  extends CognitiveServicesBaseNoHandler(uid)
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser
+    with HasSetLocation with HasBatchSize with TextAnalyticsBaseParams
+    with TextAnalyticsInputParams {
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
+    throw new NotImplementedError("Text Analytics models use the " +
+      " inputFunc method directly, this method should not be called")
+  }
+
+  protected def makeDocuments(row: Row): Seq[TADocument] = {
+    val validText = getValue(row, text)
+    val langs = getValueOpt(row, language).getOrElse(Seq.fill(validText.length)(""))
+    val validLanguages = (if (langs.length == 1) {
+      Seq.fill(validText.length)(langs.head)
+    } else {
+      langs
+    }).map(lang => Option(lang).getOrElse(""))
+    assert(validLanguages.length == validText.length)
+    validText.zipWithIndex.map { case (t, i) =>
+      TADocument(Some(validLanguages(i)), i.toString, Option(t).getOrElse(""))
     }
-
-  override protected def responseDataType: StructType = {
-    new StructType()
-      .add("documents", ArrayType(innerResponseDataType))
-      .add("errors", ArrayType(TAError.schema))
   }
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
@@ -78,107 +138,113 @@ abstract class TextAnalyticsBase(override val uid: String) extends CognitiveServ
         val post = new HttpPost(getUrl)
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
         post.setHeader("Content-Type", "application/json")
-        val texts = getValue(row, text)
-
-        val languages: Option[Seq[String]] = (getValueOpt(row, language) match {
-          case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
-          case s => s
-        })
-
-        val documents = texts.zipWithIndex.map { case (t, i) =>
-          TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
-        }
-        val json = TARequest(documents).toJson.compactPrint
+        val json = TARequest(makeDocuments(row)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
     }
   }
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+  setDefault(batchSize -> 10)
 
-  protected def reshapeToArray(schema: StructType, parameterName: String): Option[(Transformer, String, String)] = {
-    val reshapedColName = DatasetExtensions.findUnusedColumnName(parameterName, schema)
-    getVectorParamMap.get(parameterName).flatMap {
-      case c if schema(c).dataType == StringType =>
-        Some((Lambda(_.withColumn(reshapedColName, array(col(getVectorParam(parameterName))))),
-          getVectorParam(parameterName),
-          reshapedColName))
-      case _ => None
+  protected def shouldAutoBatch(schema: StructType): Boolean = {
+    ($(text), get(language)) match {
+      case (Left(_), Some(Right(b))) =>
+        schema(b).dataType.isInstanceOf[StringType]
+      case (Left(_), None) =>
+        true
+      case (Right(a), Some(Right(b))) =>
+        (schema(a).dataType, schema(b).dataType) match {
+          case (_: StringType, _: StringType) => true
+          case (_: ArrayType, _: ArrayType) => false
+          case (_: StringType, _: ArrayType) | (_: ArrayType, _: StringType) =>
+            throw new IllegalArgumentException(s"Mismatched column types. " +
+              s"Both columns $a and $b need to be StringType (for auto batching)" +
+              s" or ArrayType(StringType) (for user batching)")
+          case _ =>
+            throw new IllegalArgumentException(s"Unknown column types. " +
+              s"Both columns $a and $b need to be StringType (for auto batching)" +
+              s" or ArrayType(StringType) (for user batching)")
+        }
+      case (Right(a), _) =>
+        schema(a).dataType.isInstanceOf[StringType]
+      case _ => false
     }
   }
 
-  protected def unpackBatchUDF: UserDefinedFunction = {
-    val innerFields = innerResponseDataType.fields.filter(_.name != "id")
-    UDFUtils.oldUdf({ rowOpt: Row =>
-      Option(rowOpt).map { row =>
-        val documents = row.getSeq[Row](1).map(doc =>
-          (doc.getString(0).toInt, doc)).toMap
-        val errors = row.getSeq[Row](2).map(err => (err.getString(0).toInt, err)).toMap
-        val rows: Seq[Row] = (0 until (documents.size + errors.size)).map(i =>
-          documents.get(i)
-            .map(doc => Row.fromSeq(doc.toSeq.tail ++ Seq(None)))
-            .getOrElse(Row.fromSeq(
-              Seq.fill(innerFields.length)(None) ++ Seq(errors.get(i).map(_.getString(1)).orNull)))
-        )
-        rows
+  protected def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
+    Option(responseOpt).map { response =>
+      val stats = response.getAs[Row]("statistics")
+      val docs = response.getAs[Seq[Row]]("documents").map(doc => (doc.getString(0), doc)).toMap
+      val errors = response.getAs[Seq[Row]]("errors").map(error => (error.getString(0), error)).toMap
+      val modelVersion = response.getAs[String]("modelVersion")
+      (0 until (docs.size + errors.size)).map { i =>
+        Row.fromSeq(Seq(
+          stats,
+          docs.get(i.toString),
+          errors.get(i.toString),
+          modelVersion
+        ))
       }
-    }, ArrayType(
-      innerResponseDataType.fields.filter(_.name != "id").foldLeft(new StructType()) { case (st, f) =>
-        st.add(f.name, f.dataType)
-      }.add("error-message", StringType)
+    }
+  }
+
+  protected def postprocessResponseUdf: UserDefinedFunction = {
+    val responseType = responseDataType.asInstanceOf[StructType]
+    val outputType = ArrayType(
+      new StructType()
+        .add("statistics", responseType("statistics").dataType)
+        .add("document", responseType("documents").dataType.asInstanceOf[ArrayType].elementType)
+        .add("error", responseType("errors").dataType.asInstanceOf[ArrayType].elementType)
+        .add("modelVersion", responseType("modelVersion").dataType)
     )
-    )
+    UDFUtils.oldUdf(postprocessResponse _, outputType)
   }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic input columns: $badColumns in columns: ${schema.fieldNames.toSet}")
 
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    val batcher = if (shouldAutoBatch(schema)) {
+      Some(new FixedMiniBatchTransformer().setBatchSize(getBatchSize))
+    } else {
+      None
     }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+    val newSchema = batcher.map(_.transformSchema(schema)).getOrElse(schema)
 
-    val reshapeCols = Seq(
-      reshapeToArray(schema, "text"),
-      reshapeToArray(schema, "language")).flatten
+    val pipe = super.getInternalTransformer(newSchema)
 
-    val newColumnMapping = reshapeCols.map {
-      case (_, oldCol, newCol) => (oldCol, newCol)
-    }.toMap
+    val postprocess = new UDFTransformer()
+      .setInputCol(getOutputCol)
+      .setOutputCol(getOutputCol)
+      .setUDF(postprocessResponseUdf)
 
-    val columnsToGroup = getVectorParamMap.map { case (_, oldCol) =>
-      val newCol = newColumnMapping.getOrElse(oldCol, oldCol)
-      col(newCol).alias(oldCol)
-    }.toSeq
+    val flatten = if (shouldAutoBatch(schema)) {
+      Some(new FlattenBatch())
+    } else {
+      None
+    }
 
-    val stages = reshapeCols.map(_._1).toArray ++ Array(
-      Lambda(_.withColumn(
-        dynamicParamColName,
-        struct(columnsToGroup: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setErrorCol(getErrorCol),
-      new UDFTransformer()
-        .setInputCol(getOutputCol)
-        .setOutputCol(getOutputCol)
-        .setUDF(unpackBatchUDF),
-      new DropColumns().setCols(Array(
-        dynamicParamColName) ++ newColumnMapping.values.toArray.asInstanceOf[Array[String]])
+    NamespaceInjections.pipelineModel(
+      Array(batcher, Some(pipe), Some(postprocess), flatten).flatten
     )
-
-    NamespaceInjections.pipelineModel(stages)
   }
+
+  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+}
+
+
+private[ml] trait HasUnpackedBinding {
+  type T <: HasDocId
+
+  def unpackedResponseBinding: SparkBindings[UnpackedTAResponse[T]]
+
+}
+
+private[ml] abstract class TextAnalyticsBase(uid: String)
+  extends TextAnalyticsBaseNoBinding(uid) with HasUnpackedBinding {
+
+    protected def responseBinding: SparkBindings[TAResponse[T]]
+
+  override protected def responseDataType: DataType = responseBinding.schema
 
 }
 
@@ -190,22 +256,6 @@ trait HasLanguage extends HasServiceParams {
   def setLanguage(v: String): this.type = setScalarParam(language, v)
 }
 
-trait HasModelVersion extends HasServiceParams {
-  val modelVersion = new ServiceParam[String](this, "modelVersion",
-    "This value indicates which model will be used for scoring." +
-      " If a model-version is not specified, the API should default to the latest," +
-      " non-preview version.", isURLParam = true)
-
-  def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
-}
-
-trait HasShowStats extends HasServiceParams {
-  val showStats = new ServiceParam[Boolean](this, "showStats",
-    "if set to true, response will contain input and document level statistics.", isURLParam = true)
-
-  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
-}
-
 trait HasStringIndexType extends HasServiceParams {
   val stringIndexType = new ServiceParam[String](this, "stringIndexType",
     "Specifies the method used to interpret string offsets. " +
@@ -215,78 +265,13 @@ trait HasStringIndexType extends HasServiceParams {
   def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
 }
 
-object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
-
-class TextSentimentV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("TextSentimentV2"))
-
-  override def responseDataType: StructType = SentimentResponseV2.schema
-
-  def urlPath: String = "/text/analytics/v2.0/sentiment"
-
-}
-
-object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
-
-class LanguageDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("LanguageDetectorV2"))
-
-  override def responseDataType: StructType = DetectLanguageResponseV2.schema
-
-  def urlPath: String = "/text/analytics/v2.0/languages"
-}
-
-object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
-
-class EntityDetectorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("EntityDetectorV2"))
-
-  override def responseDataType: StructType = DetectEntitiesResponseV2.schema
-
-  def urlPath: String = "/text/analytics/v2.0/entities"
-}
-
-object NERV2 extends ComplexParamsReadable[NERV2]
-
-class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("NERV2"))
-
-  override def responseDataType: StructType = NERResponseV2.schema
-
-  def urlPath: String = "/text/analytics/v2.1/entities"
-}
-
-object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
-
-class KeyPhraseExtractorV2(override val uid: String)
-  extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("KeyPhraseExtractorV2"))
-
-  override def responseDataType: StructType = KeyPhraseResponseV2.schema
-
-  def urlPath: String = "/text/analytics/v2.0/keyPhrases"
-}
-
-trait TAV3Mixins extends HasModelVersion with HasShowStats with HasStringIndexType with BasicLogging with HasHandler
-
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
 class TextSentiment(override val uid: String)
-  extends TextAnalyticsBase(uid) with TAV3Mixins {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = TextSentimentScoredDoc
 
   def this() = this(Identifiable.randomUID("TextSentiment"))
 
@@ -296,9 +281,11 @@ class TextSentiment(override val uid: String)
 
   def setOpinionMining(v: Boolean): this.type = setScalarParam(opinionMining, v)
 
-  override def responseDataType: StructType = SentimentResponseV3.schema
+  override protected def responseBinding: TextSentimentResponse.type = TextSentimentResponse
 
-  def urlPath: String = "/text/analytics/v3.1/sentiment"
+  override def unpackedResponseBinding: UnpackedTextSentimentResponse.type = UnpackedTextSentimentResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/sentiment"
 
   override def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = { r: Row =>
     super.inputFunc(schema)(r).map { request =>
@@ -311,35 +298,44 @@ class TextSentiment(override val uid: String)
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
 class KeyPhraseExtractor(override val uid: String)
-  extends TextAnalyticsBase(uid) with TAV3Mixins {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = KeyPhraseScoredDoc
 
   def this() = this(Identifiable.randomUID("KeyPhraseExtractor"))
 
-  override def responseDataType: StructType = KeyPhraseResponseV3.schema
+  override protected def responseBinding: KeyPhraseExtractorResponse.type = KeyPhraseExtractorResponse
 
-  def urlPath: String = "/text/analytics/v3.1/keyPhrases"
+  override def unpackedResponseBinding: UnpackedKPEResponse.type = UnpackedKPEResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/keyPhrases"
 }
 
 object NER extends ComplexParamsReadable[NER]
 
 class NER(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion
-    with HasShowStats with HasStringIndexType with BasicLogging with HasHandler {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = NERScoredDoc
 
   def this() = this(Identifiable.randomUID("NER"))
 
-  override def responseDataType: StructType = NERResponseV3.schema
+  override protected def responseBinding: NERResponse.type = NERResponse
 
-  def urlPath: String = "/text/analytics/v3.1/entities/recognition/general"
+  override def unpackedResponseBinding: UnpackedNERResponse.type = UnpackedNERResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/entities/recognition/general"
 }
 
 object PII extends ComplexParamsReadable[PII]
 
 class PII(override val uid: String)
-  extends TextAnalyticsBase(uid) with TAV3Mixins {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = PIIScoredDoc
 
   def this() = this(Identifiable.randomUID("PII"))
 
@@ -353,140 +349,169 @@ class PII(override val uid: String)
 
   def setPiiCategories(v: Seq[String]): this.type = setScalarParam(piiCategories, v)
 
-  override def responseDataType: StructType = PIIResponseV3.schema
+  override protected def responseBinding: PIIResponse.type = PIIResponse
 
-  def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
+  override def unpackedResponseBinding: UnpackedPIIResponse.type = UnpackedPIIResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
 }
 
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
 class LanguageDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with HasModelVersion with HasShowStats with BasicLogging with HasHandler {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = LanguageDetectorScoredDoc
 
   def this() = this(Identifiable.randomUID("LanguageDetector"))
 
-  override def responseDataType: StructType = DetectLanguageResponseV3.schema
+  override protected def responseBinding: LanguageDetectorResponse.type = LanguageDetectorResponse
 
-  def urlPath: String = "/text/analytics/v3.1/languages"
+  override def unpackedResponseBinding: UnpackedLanguageDetectorResponse.type = UnpackedLanguageDetectorResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/languages"
 }
 
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
 class EntityDetector(override val uid: String)
-  extends TextAnalyticsBase(uid) with TAV3Mixins {
+  extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
+
+  type T = EntityDetectorScoredDoc
 
   def this() = this(Identifiable.randomUID("EntityDetector"))
 
-  override def responseDataType: StructType = DetectEntitiesResponseV3.schema
+  override protected def responseBinding: EntityDetectorResponse.type = EntityDetectorResponse
 
-  def urlPath: String = "/text/analytics/v3.1/entities/linking"
-}
+  override def unpackedResponseBinding: UnpackedEntityDetectorResponse.type = UnpackedEntityDetectorResponse
 
-
-class TextAnalyzeTaskParam(parent: Params,
-                           name: String,
-                           doc: String,
-                           isValid: Seq[TextAnalyzeTask] => Boolean = (_: Seq[TextAnalyzeTask]) => true)
-                          (@transient implicit val dataFormat: JsonFormat[TextAnalyzeTask])
-  extends JsonEncodableParam[Seq[TextAnalyzeTask]](parent, name, doc, isValid) {
-  type ValueType = TextAnalyzeTask
-
-
-  override def w(value: Seq[TextAnalyzeTask]): ParamPair[Seq[TextAnalyzeTask]] = super.w(value)
-
-  def w(value: java.util.ArrayList[util.HashMap[String, Any]]): ParamPair[Seq[TextAnalyzeTask]] =
-    super.w(value.asScala.toArray.map(hashMapToTAAnalyzeTask))
-
-  def hashMapToTAAnalyzeTask(value: util.HashMap[String, Any]): TextAnalyzeTask = {
-    if (!value.containsKey("parameters")) {
-      throw new IllegalArgumentException("Task optiosn must include 'parameters' value")
-    }
-    if (value.size() > 1) {
-      throw new IllegalArgumentException("Task options should only include 'parameters' value")
-    }
-    val valParameters = value.get("parameters").asInstanceOf[util.HashMap[String, Any]]
-    val parameters = valParameters.asScala.toMap.map { x => (x._1, x._2.toString) }
-    TextAnalyzeTask(parameters)
-  }
+  override def urlPath: String = "/text/analytics/v3.1/entities/linking"
 }
 
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
 
-class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
-  with HasSetLinkedService with BasicAsyncReply {
-
-  import TAJSONFormat._
+class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(uid)
+  with BasicAsyncReply {
+  logClass()
 
   def this() = this(Identifiable.randomUID("TextAnalyze"))
 
-  val entityRecognitionTasks = new TextAnalyzeTaskParam(
+  val includeEntityRecognition = new BooleanParam(
+    this, "includeEntityRecognition", "Whether to perform entity recognition")
+
+  def setIncludeEntityRecognition(v: Boolean): this.type = set(includeEntityRecognition, v)
+
+  def getIncludeEntityRecognition: Boolean = $(includeEntityRecognition)
+
+  val entityRecognitionParams = new StringStringMapParam(
     this,
-    "entityRecognitionTasks",
-    "the entity recognition tasks to perform on submitted documents"
+    "entityRecognitionParams",
+    "the parameters to pass to the entity recognition model"
   )
 
-  def getEntityRecognitionTasks: Seq[TextAnalyzeTask] = $(entityRecognitionTasks)
+  def getEntityRecognitionParams: Map[String, String] = $(entityRecognitionParams)
 
-  def setEntityRecognitionTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionTasks, v)
+  def setEntityRecognitionParams(v: Map[String, String]): this.type = set(entityRecognitionParams, v)
 
-  setDefault(entityRecognitionTasks -> Seq[TextAnalyzeTask]())
+  def setEntityRecognitionParams(v: java.util.HashMap[String, String]): this.type =
+    set(entityRecognitionParams, v.asScala.toMap)
 
-  val entityRecognitionPiiTasks = new TextAnalyzeTaskParam(
+  val includePii = new BooleanParam(
+    this, "includePii", "Whether to perform PII Detection")
+
+  def setIncludePii(v: Boolean): this.type = set(includePii, v)
+
+  def getIncludePii: Boolean = $(includePii)
+
+  val piiParams = new StringStringMapParam(
     this,
-    "entityRecognitionPiiTasks",
-    "the entity recognition pii tasks to perform on submitted documents"
+    "piiParams",
+    "the parameters to pass to the PII model"
   )
 
-  def getEntityRecognitionPiiTasks: Seq[TextAnalyzeTask] = $(entityRecognitionPiiTasks)
+  def getPiiParams: Map[String, String] = $(piiParams)
 
-  def setEntityRecognitionPiiTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityRecognitionPiiTasks, v)
+  def setPiiParams(v: Map[String, String]): this.type = set(piiParams, v)
 
-  setDefault(entityRecognitionPiiTasks -> Seq[TextAnalyzeTask]())
+  def setPiiParams(v: java.util.HashMap[String, String]): this.type =
+    set(piiParams, v.asScala.toMap)
 
-  val entityLinkingTasks = new TextAnalyzeTaskParam(
+  val includeEntityLinking = new BooleanParam(
+    this, "includeEntityLinking", "Whether to perform EntityLinking")
+
+  def setIncludeEntityLinking(v: Boolean): this.type = set(includeEntityLinking, v)
+
+  def getIncludeEntityLinking: Boolean = $(includeEntityLinking)
+
+  val entityLinkingParams = new StringStringMapParam(
     this,
-    "entityLinkingTasks",
-    "the entity linking tasks to perform on submitted documents"
+    "entityLinkingParams",
+    "the parameters to pass to the entityLinking model"
   )
 
-  def getEntityLinkingTasks: Seq[TextAnalyzeTask] = $(entityLinkingTasks)
+  def getEntityLinkingParams: Map[String, String] = $(entityLinkingParams)
 
-  def setEntityLinkingTasks(v: Seq[TextAnalyzeTask]): this.type = set(entityLinkingTasks, v)
+  def setEntityLinkingParams(v: Map[String, String]): this.type = set(entityLinkingParams, v)
 
-  setDefault(entityLinkingTasks -> Seq[TextAnalyzeTask]())
+  def setEntityLinkingParams(v: java.util.HashMap[String, String]): this.type =
+    set(entityLinkingParams, v.asScala.toMap)
 
-  val keyPhraseExtractionTasks = new TextAnalyzeTaskParam(
+  val includeKeyPhraseExtraction = new BooleanParam(
+    this, "includeKeyPhraseExtraction", "Whether to perform EntityLinking")
+
+  def setIncludeKeyPhraseExtraction(v: Boolean): this.type = set(includeKeyPhraseExtraction, v)
+
+  def getIncludeKeyPhraseExtraction: Boolean = $(includeKeyPhraseExtraction)
+
+  val keyPhraseExtractionParams = new StringStringMapParam(
     this,
-    "keyPhraseExtractionTasks",
-    "the key phrase extraction tasks to perform on submitted documents"
+    "keyPhraseExtractionParams",
+    "the parameters to pass to the keyPhraseExtraction model"
   )
 
-  def getKeyPhraseExtractionTasks: Seq[TextAnalyzeTask] = $(keyPhraseExtractionTasks)
+  def getKeyPhraseExtractionParams: Map[String, String] = $(keyPhraseExtractionParams)
 
-  def setKeyPhraseExtractionTasks(v: Seq[TextAnalyzeTask]): this.type = set(keyPhraseExtractionTasks, v)
+  def setKeyPhraseExtractionParams(v: Map[String, String]): this.type = set(keyPhraseExtractionParams, v)
 
-  setDefault(keyPhraseExtractionTasks -> Seq[TextAnalyzeTask]())
+  def setKeyPhraseExtractionParams(v: java.util.HashMap[String, String]): this.type =
+    set(keyPhraseExtractionParams, v.asScala.toMap)
 
-  val sentimentAnalysisTasks = new TextAnalyzeTaskParam(
+  val includeSentimentAnalysis = new BooleanParam(
+    this, "includeSentimentAnalysis", "Whether to perform SentimentAnalysis")
+
+  def setIncludeSentimentAnalysis(v: Boolean): this.type = set(includeSentimentAnalysis, v)
+
+  def getIncludeSentimentAnalysis: Boolean = $(includeSentimentAnalysis)
+
+  val sentimentAnalysisParams = new StringStringMapParam(
     this,
-    "sentimentAnalysisTasks",
-    "the sentiment analysis tasks to perform on submitted documents"
+    "sentimentAnalysisParams",
+    "the parameters to pass to the sentimentAnalysis model"
   )
 
-  def getSentimentAnalysisTasks: Seq[TextAnalyzeTask] = $(sentimentAnalysisTasks)
+  def getSentimentAnalysisParams: Map[String, String] = $(sentimentAnalysisParams)
 
-  def setSentimentAnalysisTasks(v: Seq[TextAnalyzeTask]): this.type = set(sentimentAnalysisTasks, v)
+  def setSentimentAnalysisParams(v: Map[String, String]): this.type = set(sentimentAnalysisParams, v)
 
-  setDefault(sentimentAnalysisTasks -> Seq[TextAnalyzeTask]())
+  def setSentimentAnalysisParams(v: java.util.HashMap[String, String]): this.type =
+    set(sentimentAnalysisParams, v.asScala.toMap)
 
-  override protected def responseDataType: StructType = TextAnalyzeResponse.schema
+  setDefault(
+    includeEntityRecognition -> true,
+    entityRecognitionParams -> Map[String, String]("model-version" -> "latest"),
+    includePii -> true,
+    piiParams -> Map[String, String]("model-version" -> "latest"),
+    includeEntityLinking -> true,
+    entityLinkingParams -> Map[String, String]("model-version" -> "latest"),
+    includeKeyPhraseExtraction -> true,
+    keyPhraseExtractionParams -> Map[String, String]("model-version" -> "latest"),
+    includeSentimentAnalysis -> true,
+    sentimentAnalysisParams -> Map[String, String]("model-version" -> "latest")
+  )
 
-  def urlPath: String = "/text/analytics/v3.1/analyze"
-
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+  override def urlPath: String = "/text/analytics/v3.1/analyze"
 
   override protected def modifyPollingURI(originalURI: URI): URI = {
     // async API allows up to 25 results to be submitted in a batch, but defaults to 20 results per page
@@ -507,6 +532,14 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
     )
   }
 
+  private def getTaskHelper(include: Boolean, params: Map[String, String]): Seq[TextAnalyzeTask] = {
+    Seq(if (include) {
+      Some(TextAnalyzeTask(params))
+    } else {
+      None
+    }).flatten
+  }
+
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -514,126 +547,59 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBase(uid)
       } else if (getValue(row, text).forall(Option(_).isEmpty)) {
         None
       } else {
-        import TAJSONFormat._
         val post = new HttpPost(getUrl)
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
         post.setHeader("Content-Type", "application/json")
-        val texts = getValue(row, text)
-
-        val languages: Option[Seq[String]] = (getValueOpt(row, language) match {
-          case Some(Seq(lang)) => Some(Seq.fill(texts.size)(lang))
-          case s => s
-        })
-
-        val documents = texts.zipWithIndex.map { case (t, i) =>
-          TADocument(languages.flatMap(ls => Option(ls(i))), i.toString, Option(t).getOrElse(""))
-        }
-        val displayName = "SynapseML"
-        val analysisInput = TextAnalyzeInput(documents)
         val tasks = TextAnalyzeTasks(
-          entityRecognitionTasks = getEntityRecognitionTasks,
-          entityLinkingTasks = getEntityLinkingTasks,
-          entityRecognitionPiiTasks = getEntityRecognitionPiiTasks,
-          keyPhraseExtractionTasks = getKeyPhraseExtractionTasks,
-          sentimentAnalysisTasks = getSentimentAnalysisTasks
+          entityRecognitionTasks = getTaskHelper(getIncludeEntityRecognition, getEntityRecognitionParams),
+          entityLinkingTasks = getTaskHelper(getIncludeEntityLinking, getEntityLinkingParams),
+          entityRecognitionPiiTasks = getTaskHelper(getIncludePii, getPiiParams),
+          keyPhraseExtractionTasks = getTaskHelper(getIncludeKeyPhraseExtraction, getKeyPhraseExtractionParams),
+          sentimentAnalysisTasks = getTaskHelper(getIncludeSentimentAnalysis, getSentimentAnalysisParams)
         )
-        val json = TextAnalyzeRequest(displayName, analysisInput, tasks).toJson.compactPrint
+        import TAJSONFormat._
+        val json = TextAnalyzeRequest(
+          "SynapseML", TextAnalyzeInput(makeDocuments(row)), tasks).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
     }
   }
 
-  // TODO refactor to remove duplicate from TextAnalyticsBase
-  private def getTaskRows(tasksRow: GenericRowWithSchema, taskName: String, documentIndex: Int): Option[Seq[Row]] = {
-    val namedTaskRow = tasksRow
-      .getAs[Seq[GenericRowWithSchema]](taskName)
-    if (namedTaskRow == null) {
-      None
-    } else {
-      val rows = namedTaskRow.map(inputRow => {
-        val state = inputRow.getAs[String]("state")
-        if (state == "succeeded") {
-          val result = inputRow.getAs[GenericRowWithSchema]("results")
-          val documents = result.getAs[Seq[GenericRowWithSchema]]("documents")
-          val errors = result.getAs[Seq[GenericRowWithSchema]]("errors")
-          val doc = documents.find { d => d.getAs[String]("id").toInt == documentIndex }
-          val error = errors.find { e => e.getAs[String]("id").toInt == documentIndex }
-          val resultRow = Row.fromSeq(Seq(doc, error)) // result/errors per task, per document
-          resultRow
-        } else {
-          // Task failed
-          val error = Seq(documentIndex, "Task failed")
-          val resultRow = Row.fromSeq(Seq(None, error))
-          resultRow
-        }
-      })
-      Some(rows)
+
+  private def flattenTask(tasksOpt: Seq[Row]): Option[Seq[Row]] = {
+    Option(tasksOpt).flatMap { tasks =>
+      super.postprocessResponse(tasks.head.getAs[Row]("results"))
     }
   }
 
+  override def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
+    Option(responseOpt).map { response =>
+      val tasks = response.getAs[Row]("tasks")
+      val flattenedTasks = Seq(
+        flattenTask(tasks.getAs[Seq[Row]]("entityRecognitionTasks")),
+        flattenTask(tasks.getAs[Seq[Row]]("entityLinkingTasks")),
+        flattenTask(tasks.getAs[Seq[Row]]("entityRecognitionPiiTasks")),
+        flattenTask(tasks.getAs[Seq[Row]]("keyPhraseExtractionTasks")),
+        flattenTask(tasks.getAs[Seq[Row]]("sentimentAnalysisTasks"))
+      ).map(ftOpt => ftOpt.map(_.toArray))
+      val totalDocs = flattenedTasks.flatten.head.length
 
-  private def getTaskRowsTyped[T <: HasDocId](namedTaskRow: Seq[TextAnalyzeAPIResults[T]],
-                                              documentIndex: Int): Seq[TextAnalyzeResult[T]] = {
-    namedTaskRow.map(inputRow => {
-      val state = inputRow.state
-      if (inputRow.results.isDefined && state.toLowerCase == "succeeded") {
-        val result = inputRow.results.get
-        val documents = result.documents
-        val errors = result.errors
-        val doc = documents.find { d => d.id.toInt == documentIndex }
-        val error = errors.find { e => e.id.toInt == documentIndex }
-        TextAnalyzeResult(doc, error) // result/errors per task, per document
-      } else {
-        // Task failed
-        val doc: Option[T] = None
-        TextAnalyzeResult(doc, Some(TAError(documentIndex.toString, s"Task failed with state $state")))
-      }
-    })
+      assert(flattenedTasks.flatten.forall(t => t.length == totalDocs))
+
+      val transposed = (0 until totalDocs).map(i =>
+        Row.fromSeq(flattenedTasks.map(tOpt => tOpt.map(t => t(i))))
+      )
+      transposed
+    }
   }
 
-
-  override protected def unpackBatchUDF: UserDefinedFunction = {
-    val innerResponseDataType = TextAnalyzeSimplifiedResponse.schema
-    val fromRow = TextAnalyzeResponse.makeFromRowConverter
-    val toRow = TextAnalyzeSimplifiedResponse.makeToRowConverter
-    UDFUtils.oldUdf({ rowOpt: Row =>
-      Option(rowOpt).map { row =>
-        val parsed = fromRow(row)
-        val allTasks = Seq(
-          parsed.tasks.entityRecognitionTasks,
-          parsed.tasks.entityLinkingTasks,
-          parsed.tasks.entityRecognitionPiiTasks,
-          parsed.tasks.keyPhraseExtractionTasks,
-          parsed.tasks.sentimentAnalysisTasks
-        )
-
-        val succeededTasks = allTasks
-          .flatten
-          .flatten
-          // only consider tasks that succeeded to handle 'partiallycompleted' requests
-          .filter(_.state.toLowerCase == "succeeded")
-          .filter(_.results.isDefined)
-
-        if (succeededTasks.isEmpty) {
-          Seq()
-        } else {
-          val results = succeededTasks.head.results.get
-          val docCount = results.documents.size
-          val errorCount = results.errors.size
-          (0 until (docCount + errorCount)).map(i => {
-            toRow(TextAnalyzeSimplifiedResponse(
-              parsed.tasks.entityRecognitionTasks.map(t => getTaskRowsTyped(t, i)),
-              parsed.tasks.entityLinkingTasks.map(t => getTaskRowsTyped(t, i)),
-              parsed.tasks.entityRecognitionPiiTasks.map(t => getTaskRowsTyped(t, i)),
-              parsed.tasks.keyPhraseExtractionTasks.map(t => getTaskRowsTyped(t, i)),
-              parsed.tasks.sentimentAnalysisTasks.map(t => getTaskRowsTyped(t, i))
-            ))
-          })
-        }
-      }
-    }, ArrayType(innerResponseDataType)
-    )
+  override def postprocessResponseUdf: UserDefinedFunction = {
+    UDFUtils.oldUdf(postprocessResponse _, ArrayType(UnpackedTextAnalyzeResponse.schema))
   }
+
+  def unpackedResponseBinding: UnpackedTextAnalyzeResponse.type = UnpackedTextAnalyzeResponse
+
+  override protected def responseDataType: DataType = TextAnalyzeResponse.schema
 
 }

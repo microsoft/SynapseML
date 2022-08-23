@@ -51,7 +51,7 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
   <check level="warning" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true"><parameters>
     <parameter name="maxLength">50</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfTypesChecker" enabled="true"><parameters>
-    <parameter name="maxTypes">40</parameter></parameters></check>
+    <parameter name="maxTypes">50</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfMethodsInTypeChecker" enabled="true"><parameters>
     <parameter name="maxMethods">50</parameter></parameters></check>
   <check level="warning" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true"><parameters>

@@ -8,11 +8,11 @@ import spray.json._
 
 object TranslateResponse extends SparkBindings[TranslateResponse]
 
-case class TranslateResponse(detectedLanguage: Option[DetectedLanguage],
+case class TranslateResponse(detectedLanguage: Option[TranslatorDetectedLanguage],
                              translations: Seq[Translation],
                              sourceText: Option[SourceText])
 
-case class DetectedLanguage(language: String, score: Double)
+case class TranslatorDetectedLanguage(language: String, score: Double)
 
 case class Translation(to: String,
                        text: String,
@@ -43,7 +43,7 @@ case class AlternativeDetectResponse(language: String, score: Double,
 object BreakSentenceResponse extends SparkBindings[BreakSentenceResponse]
 
 case class BreakSentenceResponse(sentLen: Seq[Int],
-                                 detectedLanguage: DetectedLanguage)
+                                 detectedLanguage: TranslatorDetectedLanguage)
 
 object TransliterateResponse extends SparkBindings[TransliterateResponse]
 
