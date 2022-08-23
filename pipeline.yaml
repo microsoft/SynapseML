@@ -610,8 +610,6 @@ jobs:
       lightgbm2:
         PACKAGE: "lightgbm.split2"
         FLAKY: "true"
-      lime:
-        PACKAGE: "lime"
       opencv:
         PACKAGE: "opencv"
       recommendation:

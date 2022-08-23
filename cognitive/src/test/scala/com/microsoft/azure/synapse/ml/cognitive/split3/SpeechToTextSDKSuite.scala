@@ -138,9 +138,9 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with SpeechToTextSDKSuiteBase {
 
-  override val testFitting = false
-
   import spark.implicits._
+
+  override val retrySerializationFuzzing: Boolean = true
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
     .setSubscriptionKey(cognitiveKey)
@@ -300,6 +300,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     Seq(new TestObject(sdk, audioDf2))
 
   override def reader: MLReadable[_] = SpeechToTextSDK
+
 }
 
 trait TranscriptionSecrets {
@@ -312,7 +313,7 @@ trait TranscriptionSecrets {
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
   with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
 
-  override val testFitting = false
+  override val retrySerializationFuzzing: Boolean = true
 
   import spark.implicits._
 
@@ -332,7 +333,6 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
       ) > jaccardThreshold
     }
   }
-
 
   test("dialogue with participants") {
     val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
