@@ -215,8 +215,10 @@ trait HasStringIndexType extends HasServiceParams {
   def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.TextSentiment`", since = "v0.10.1")
 object TextSentimentV2 extends ComplexParamsReadable[TextSentimentV2]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.TextSentiment`", since = "v0.10.1")
 class TextSentimentV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
@@ -229,8 +231,10 @@ class TextSentimentV2(override val uid: String)
 
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.LanguageDetector`", since = "v0.10.1")
 object LanguageDetectorV2 extends ComplexParamsReadable[LanguageDetectorV2]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.LanguageDetector`", since = "v0.10.1")
 class LanguageDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
@@ -242,8 +246,10 @@ class LanguageDetectorV2(override val uid: String)
   def urlPath: String = "/text/analytics/v2.0/languages"
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.EntityDetector`", since = "v0.10.1")
 object EntityDetectorV2 extends ComplexParamsReadable[EntityDetectorV2]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.EntityDetector`", since = "v0.10.1")
 class EntityDetectorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
@@ -255,8 +261,10 @@ class EntityDetectorV2(override val uid: String)
   def urlPath: String = "/text/analytics/v2.0/entities"
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.NER`", since = "v0.10.1")
 object NERV2 extends ComplexParamsReadable[NERV2]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.NER`", since = "v0.10.1")
 class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
 
@@ -267,8 +275,10 @@ class NERV2(override val uid: String) extends TextAnalyticsBase(uid) with BasicL
   def urlPath: String = "/text/analytics/v2.1/entities"
 }
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.KeyPhraseExtractor`", since = "v0.10.1")
 object KeyPhraseExtractorV2 extends ComplexParamsReadable[KeyPhraseExtractorV2]
 
+@deprecated(message = "Please use `com.microsoft.azure.synapse.ml.cognitive.KeyPhraseExtractor`", since = "v0.10.1")
 class KeyPhraseExtractorV2(override val uid: String)
   extends TextAnalyticsBase(uid) with BasicLogging with HasHandler {
   logClass()
