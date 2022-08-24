@@ -1,12 +1,12 @@
-import java.io.{File, PrintWriter}
-import java.net.URL
+import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-
-import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
-import scala.xml.transform.{RewriteRule, RuleTransformer}
-import BuildUtils._
 import xerial.sbt.Sonatype._
+
+import java.io.{File, PrintWriter}
+import java.net.URL
+import scala.xml.transform.{RewriteRule, RuleTransformer}
+import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
 val sparkVersion = "3.1.3"
@@ -22,7 +22,6 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.5",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -124,6 +123,30 @@ generatePythonDoc := {
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
 
+val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
+generateDotnetDoc := {
+  Def.sequential(
+    runTaskForAllInCompile(dotnetCodeGen),
+    runTaskForAllInCompile(mergeDotnetCode)
+  ).value
+  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
+  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
+  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
+  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
+  val fileContent =
+    s"""PROJECT_NAME = "$packageName"
+       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
+       |USE_MDFILE_AS_MAINPAGE = "README.md"
+       |RECURSIVE = YES
+       |""".stripMargin
+  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
+  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
+  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
+  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("doxygen"), dotnetSrcDir)
+}
+
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
 packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
@@ -150,7 +173,7 @@ packageSynapseML := {
          |    packages=find_namespace_packages(include=['synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -300,8 +323,8 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.14.2",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4"
+      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     name := "synapseml-cognitive"
   ): _*)
@@ -365,11 +388,11 @@ ThisBuild / scmInfo := Some(
 )
 ThisBuild / developers := List(
   Developer("mhamilton723", "Mark Hamilton",
-    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
+    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
   Developer("imatiach-msft", "Ilya Matiach",
-    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
+    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
   Developer("drdarshan", "Sudarshan Raghunathan",
-    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
+    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
 )
 
 ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
