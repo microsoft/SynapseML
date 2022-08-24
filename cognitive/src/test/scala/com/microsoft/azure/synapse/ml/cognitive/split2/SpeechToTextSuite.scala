@@ -40,9 +40,9 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
     Tuple1(audioBytes)
   ).toDF("audio")
 
-  override lazy val dfEq = new Equality[DataFrame] {
-    override def areEqual(a: DataFrame, b: Any): Boolean =
-      baseDfEq.areEqual(a.drop("audio"), b.asInstanceOf[DataFrame].drop("audio"))
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(df1.drop("audio").select("text.DisplayText"),
+      df2.drop("audio").select("text.DisplayText"))(eq)
   }
 
   override def testSerialization(): Unit = {
