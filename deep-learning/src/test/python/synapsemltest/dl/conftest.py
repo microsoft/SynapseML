@@ -8,8 +8,10 @@ import urllib
 from os.path import join
 
 import numpy as np
+import pandas as pd
 import pytest
 import torchvision.transforms as transforms
+from pyspark.ml.feature import StringIndexer
 
 IS_WINDOWS = os.name == "nt"
 delimiter = "\\" if IS_WINDOWS else "/"
@@ -17,6 +19,14 @@ dataset_dir = (
     delimiter.join([os.getcwd(), os.pardir, os.pardir, os.pardir, os.pardir])
     + delimiter
 )
+
+
+class CallbackBackend(object):
+    def run(self, fn, args=(), kwargs={}, env={}):
+        return [fn(*args, **kwargs)] * self.num_processes()
+
+    def num_processes(self):
+        return 1
 
 
 def _download_dataset():
@@ -82,3 +92,33 @@ def transform():
         ]
     )
     return transform
+
+
+def _prepare_text_data(spark):
+
+    urllib.request.urlretrieve(
+        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Corona_NLP_train.csv",
+        dataset_dir + "target/Corona_NLP_train.csv",
+    )
+    urllib.request.urlretrieve(
+        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Corona_NLP_test.csv",
+        dataset_dir + "target/Corona_NLP_test.csv",
+    )
+
+    encoding = "cp1252"
+
+    train_df = pd.read_csv(dataset_dir + "target/Corona_NLP_train.csv", encoding=encoding)
+    train_df = spark.createDataFrame(train_df)
+
+    indexer = StringIndexer(inputCol="Sentiment", outputCol="label")
+    indexer_model = indexer.fit(train_df)
+    train_df = indexer_model.transform(train_df)
+
+    test_df = pd.read_csv(dataset_dir + "target/Corona_NLP_test.csv", encoding=encoding)
+    test_df = spark.createDataFrame(test_df)
+    test_df = indexer_model.transform(test_df)
+
+    os.remove(dataset_dir + "target/Corona_NLP_train.csv")
+    os.remove(dataset_dir + "target/Corona_NLP_test.csv")
+
+    return train_df, test_df
