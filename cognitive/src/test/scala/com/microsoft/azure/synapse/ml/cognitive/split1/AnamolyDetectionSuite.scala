@@ -12,7 +12,10 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
 
 trait AnomalyKey {
-  lazy val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
+
+  lazy val anomalyKey: String = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
+  lazy val anomalyLocation = "westus2"
+
 }
 
 trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
@@ -35,7 +38,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
     ("1973-01-01T00:00:00Z", 881.0),
     ("1973-02-01T00:00:00Z", 837.0),
     ("1973-03-01T00:00:00Z", 90000.0)
-  ).toDF("timestamp","value")
+  ).toDF("timestamp", "value")
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
@@ -57,7 +60,7 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
     ("2000-01-24T08:58:00Z", 881.0),
     ("2000-01-24T08:59:00Z", 837.0),
     ("2000-01-24T09:00:00Z", 90000.0)
-  ).toDF("timestamp","value")
+  ).toDF("timestamp", "value")
     .withColumn("group", lit(1))
     .withColumn("inputs", struct(col("timestamp"), col("value")))
     .groupBy(col("group"))
@@ -65,17 +68,17 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
 
 }
 
-class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with AnomalyDetectorSuiteBase  {
+class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with AnomalyDetectorSuiteBase {
 
-  lazy val ad = new DetectLastAnomaly()
+  lazy val ad: DetectLastAnomaly = new DetectLastAnomaly()
     .setSubscriptionKey(anomalyKey)
-    .setLocation("westus2")
+    .setLocation(anomalyLocation)
     .setOutputCol("anomalies")
     .setSeriesCol("inputs")
     .setGranularity("monthly")
     .setErrorCol("errors")
 
-  test("Basic Usage"){
+  test("Basic Usage") {
     val fromRow = ADLastResponse.makeFromRowConverter
     val result = fromRow(ad.transform(df)
       .select("anomalies")
@@ -84,7 +87,7 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
     assert(result.isAnomaly)
   }
 
-  test("minutely Usage"){
+  test("minutely Usage") {
     val fromRow = ADLastResponse.makeFromRowConverter
     val result = fromRow(ad.setGranularity("minutely").transform(df2)
       .select("anomalies")
@@ -97,7 +100,7 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
     val caught = intercept[AssertionError] {
       new DetectLastAnomaly()
         .setSubscriptionKey(anomalyKey)
-        .setLocation("westus2")
+        .setLocation(anomalyLocation)
         .setOutputCol("anomalies")
         .setErrorCol("errors")
         .transform(df).collect()
@@ -113,29 +116,29 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
   override def reader: MLReadable[_] = DetectLastAnomaly
 }
 
-class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with AnomalyDetectorSuiteBase  {
+class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with AnomalyDetectorSuiteBase {
 
-  lazy val ad = new DetectAnomalies()
+  lazy val ad: DetectAnomalies = new DetectAnomalies()
     .setSubscriptionKey(anomalyKey)
-    .setLocation("westus2")
+    .setLocation(anomalyLocation)
     .setOutputCol("anomalies")
     .setSeriesCol("inputs")
     .setGranularity("monthly")
 
-  test("Basic Usage"){
+  test("Basic Usage") {
     val fromRow = ADEntireResponse.makeFromRowConverter
     val result = fromRow(ad.transform(df)
       .select("anomalies")
       .collect()
       .head.getStruct(0))
-    assert(result.isAnomaly.count({b => b}) == 2)
+    assert(result.isAnomaly.count({ b => b }) == 2)
   }
 
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new DetectAnomalies()
         .setSubscriptionKey(anomalyKey)
-        .setLocation("westus2")
+        .setLocation(anomalyLocation)
         .setOutputCol("anomalies")
         .transform(df).collect()
     }
@@ -151,7 +154,7 @@ class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with Anom
 }
 
 class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalies]
-  with AnomalyDetectorSuiteBase  {
+  with AnomalyDetectorSuiteBase {
 
   lazy val baseSeq = Seq(
     ("1972-01-01T00:00:00Z", 826.0),
@@ -173,46 +176,46 @@ class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalie
 
   import spark.implicits._
 
-  lazy val sdf: DataFrame = baseSeq.map(p => (p._1,p._2,1.0))
-    .++(baseSeq.map(p => (p._1,p._2,2.0)))
-    .toDF("timestamp","value","group")
+  lazy val sdf: DataFrame = baseSeq.map(p => (p._1, p._2, 1.0))
+    .++(baseSeq.map(p => (p._1, p._2, 2.0)))
+    .toDF("timestamp", "value", "group")
 
-  lazy val sdf2: DataFrame = baseSeq.map(p => (p._1,p._2,1.0))
-    .++(baseSeq.reverse.map(p => (p._1,p._2,2.0)))
-    .toDF("timestamp","value","group")
+  lazy val sdf2: DataFrame = baseSeq.map(p => (p._1, p._2, 1.0))
+    .++(baseSeq.reverse.map(p => (p._1, p._2, 2.0)))
+    .toDF("timestamp", "value", "group")
 
-  lazy val sdf3: DataFrame = baseSeq.map(p => (p._1,p._2,1.0))
-    .++(baseSeq.reverse.take(2).map(p => (p._1,p._2,2.0)))
-    .toDF("timestamp","value","group")
+  lazy val sdf3: DataFrame = baseSeq.map(p => (p._1, p._2, 1.0))
+    .++(baseSeq.reverse.take(2).map(p => (p._1, p._2, 2.0)))
+    .toDF("timestamp", "value", "group")
 
-  lazy val sad = new SimpleDetectAnomalies()
+  lazy val sad: SimpleDetectAnomalies = new SimpleDetectAnomalies()
     .setSubscriptionKey(anomalyKey)
-    .setLocation("westus2")
+    .setLocation(anomalyLocation)
     .setOutputCol("anomalies")
     .setGroupbyCol("group")
     .setGranularity("monthly")
 
-  test("Basic Usage"){
+  test("Basic Usage") {
     val result = sad.transform(sdf)
       .collect().head.getAs[Row]("anomalies")
     assert(!result.getBoolean(0))
   }
 
-  test("Reverse Reverse!"){
+  test("Reverse Reverse!") {
     sad.transform(sdf2)
-      .show(truncate=false)
+      .show(truncate = false)
   }
 
-  test("Error handling"){
+  test("Error handling") {
     sad.transform(sdf3)
-      .show(truncate=false)
+      .show(truncate = false)
   }
 
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new SimpleDetectAnomalies()
         .setSubscriptionKey(anomalyKey)
-        .setLocation("westus2")
+        .setLocation(anomalyLocation)
         .setOutputCol("anomalies")
         .setGroupbyCol("group")
         .transform(sdf).collect()
