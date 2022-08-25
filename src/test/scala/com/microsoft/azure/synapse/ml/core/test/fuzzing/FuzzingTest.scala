@@ -174,6 +174,11 @@ class FuzzingTest extends TestBase {
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
   }
 
+  ignore("Quick analysis of all getters and setters") {
+    JarLoadingUtils.instantiateServices[GetterSetterFuzzing[_ <: PipelineStage]]()
+      .foreach(_.testGettersAndSetters())
+  }
+
   test("Verify all stages can be tested in R") {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",

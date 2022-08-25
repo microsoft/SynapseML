@@ -390,7 +390,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getSlidingWindow: Option[Int] = get(slidingWindow)
+  def getSlidingWindow: Int = $(slidingWindow)
 
   val alignMode = new Param[String](this, "alignMode", "An optional field, indicates how " +
     "we align different variables into the same time-range which is required by the model.{Inner, Outer}")
@@ -403,7 +403,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getAlignMode: Option[String] = get(alignMode)
+  def getAlignMode: String = $(alignMode)
 
   val fillNAMethod = new Param[String](this, "fillNAMethod", "An optional field, indicates how missed " +
     "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
@@ -417,7 +417,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getFillNAMethod: Option[String] = get(fillNAMethod)
+  def getFillNAMethod: String = $(fillNAMethod)
 
   val paddingValue = new IntParam(this, "paddingValue", "optional field, is only useful" +
     " if FillNAMethod is set to Fixed.")
@@ -439,10 +439,10 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
         source,
         getStartTime,
         getEndTime,
-        getSlidingWindow,
+        get(slidingWindow),
         Option(AlignPolicy(
-          getAlignMode,
-          getFillNAMethod,
+          get(alignMode),
+          get(fillNAMethod),
           get(paddingValue))),
         get(displayName)
       ).toJson.compactPrint, ContentType.APPLICATION_JSON))
@@ -480,7 +480,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     })
   }
 
-  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
+  override def copy(extra: ParamMap): FitMultivariateAnomaly = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)

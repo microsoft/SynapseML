@@ -327,7 +327,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt getDatasets installPipPackage
+          sbt coverage getDatasets installPipPackage
           sbt publishM2
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
@@ -398,9 +398,9 @@ jobs:
         inlineScript: |
           echo "SPARK_HOME=$SPARK_HOME"
           echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-          sbt publishDotnetTestBase
+          sbt coverage publishDotnetTestBase
           sbt publishLocal
-          sbt "project $(PACKAGE)" publishDotnet
+          sbt "project $(PACKAGE)" coverage publishDotnet
           export SBT_OPTS="-XX:+UseG1GC"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)

@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.ml.param.{Param, ParamPair}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
@@ -230,6 +231,11 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     }
 
   }
+
+  override def getterSetterParamExamples(p: FitMultivariateAnomaly): Map[Param[_],Any] = Map(
+    (p.alignMode,  "Inner"),
+    (p.fillNAMethod,  "Zero")
+  )
 
   override def testSerialization(): Unit = {
     println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
