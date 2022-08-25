@@ -74,16 +74,16 @@ class RankingAdapter(override val uid: String)
 
   def this() = this(Identifiable.randomUID("RecommenderAdapter"))
 
-  /** @group getParam */
-  override def getUserCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getUserCol
-
-  /** @group getParam */
-  override def getItemCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getItemCol
-
-  /** @group getParam */
-  override def getRatingCol: String = getRecommender.asInstanceOf[Estimator[_] with RecommendationParams].getRatingCol
+  override def setRecommender(value: Estimator[_ <: Model[_]]): this.type = {
+    val v = value.asInstanceOf[Estimator[_ <: Model[_]] with RecommendationParams]
+    v.get(v.userCol).map(setUserCol)
+    v.get(v.ratingCol).map(setRatingCol)
+    v.get(v.itemCol).map(setItemCol)
+    super.setRecommender(v)
+  }
 
   def fit(dataset: Dataset[_]): RankingAdapterModel = {
+    transformSchema(dataset.schema)
     logFit({
       new RankingAdapterModel()
         .setRecommenderModel(getRecommender.fit(dataset))
@@ -94,6 +94,13 @@ class RankingAdapter(override val uid: String)
         .setRatingCol(getRatingCol)
         .setLabelCol(getLabelCol)
     })
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    // Trigger the updating of parameters
+    // in case python parameterizes the call
+    get(recommender).foreach(setRecommender)
+    super.transformSchema(schema)
   }
 
   override def copy(extra: ParamMap): RankingAdapter = {
@@ -138,8 +145,8 @@ class RankingAdapterModel private[ml](val uid: String)
       val recs = getMode match {
         case "allUsers" =>
           this.getRecommenderModel match {
-            case als: ALSModel => als.asInstanceOf[ALSModel].recommendForAllUsers(getK)
-            case sar: SARModel => sar.asInstanceOf[SARModel].recommendForAllUsers(getK)
+            case als: ALSModel => als.recommendForAllUsers(getK)
+            case sar: SARModel => sar.recommendForAllUsers(getK)
           }
         case "normal" => SparkHelpers.flatten(getRecommenderModel.transform(dataset), getK, getItemCol, getUserCol)
       }

@@ -3,9 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.cognitive
 
-import com.azure.storage.blob.sas.{BlobSasPermission, BlobServiceSasSignatureValues}
-import com.azure.storage.blob.{BlobContainerClient, BlobServiceClientBuilder}
-import com.azure.storage.common.StorageSharedKeyCredential
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
@@ -17,6 +14,7 @@ import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods._
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
@@ -25,10 +23,10 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
+import org.apache.spark.sql._
 import spray.json._
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, OutputStream, PrintWriter}
+import java.io.{BufferedOutputStream, OutputStream, PrintWriter}
 import java.net.URI
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -38,7 +36,6 @@ import scala.collection.parallel.mutable
 import scala.collection.parallel.mutable.ParHashSet
 import scala.concurrent.blocking
 import scala.language.existentials
-
 
 object MADUtils {
 
@@ -90,20 +87,27 @@ object MADUtils {
     madSend(new HttpGet(), url + modelId, key, params)
   }
 
-  private[ml] def madDelete(modelId: String, key: String, params: Map[String, String] = Map()): String = {
-    madSend(new HttpDelete(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
-      "v1.1-preview/multivariate/models/" + modelId, key, params)
+  private[ml] def madUrl(location: String): String = {
+    s"https://${location}.api.cognitive.microsoft.com/anomalydetector/v1.1-preview/multivariate/"
   }
 
-  private[ml] def madListModels(key: String, params: Map[String, String] = Map()): String = {
-    madSend(new HttpGet(), "https://westus2.api.cognitive.microsoft.com/anomalydetector/" +
-      "v1.1-preview/multivariate/models", key, params)
+  private[ml] def madDelete(modelId: String,
+                            key: String,
+                            location: String,
+                            params: Map[String, String] = Map()): String = {
+    madSend(new HttpDelete(), madUrl(location) + "models/" + modelId, key, params)
   }
 
-  private[ml] def cleanUpAllModels(key: String): Unit = {
+  private[ml] def madListModels(key: String,
+                                location: String,
+                                params: Map[String, String] = Map()): String = {
+    madSend(new HttpGet(), madUrl(location) + "models", key, params)
+  }
+
+  private[ml] def cleanUpAllModels(key: String, location: String): Unit = {
     for (modelId <- CreatedModels) {
       println(s"Deleting mvad model $modelId")
-      madDelete(modelId, key)
+      madDelete(modelId, key, location)
     }
     CreatedModels.clear()
   }
@@ -172,12 +176,11 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
         }
         status.toLowerCase() match {
           case "ready" | "failed" => resp
-          case "created" | "running" => {
+          case "created" | "running" =>
             blocking {
               Thread.sleep(getPollingDelay.toLong)
             }
             None
-          }
           case s => throw new RuntimeException(s"Received unknown status code: $s")
         }
       }
@@ -193,6 +196,8 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     }
   }
 }
+
+private case class StorageInfo(account: String, container: String, key: String, blob: String)
 
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
@@ -232,161 +237,112 @@ trait MADBase extends HasOutputCol
 
   setDefault(timestampCol -> "timestamp")
 
-  val intermediateSaveDir = new Param[String](this, "intermediateSaveDir", "Directory name " +
-    "of which you want to save the intermediate data produced while training.")
+  private def validateIntermediateSaveDir(dir: String): Boolean = {
+    if(!dir.startsWith("wasbs://") && !dir.startsWith("abfss://")) {
+      throw new IllegalArgumentException("improper HDFS loacation. Please use a wasb path such as: \n" +
+        "wasbs://[CONTAINER]@[ACCOUNT].blob.core.windows.net/[DIRECTORY]" +
+        "For more information on connecting storage accounts to spark visit " +
+        "https://docs.microsoft.com/en-us/azure/databricks/data/data-sources" +
+        "/azure/azure-storage#--access-azure-data-lake-storage-gen2-or-blob-storage-using-the-account-key"
+      )
+    }
+    true
+  }
+
+  val intermediateSaveDir = new Param[String](
+    this,
+    "intermediateSaveDir",
+    "Blob storage location in HDFS where intermediate data is saved while training.",
+    isValid = validateIntermediateSaveDir _
+  )
 
   def setIntermediateSaveDir(v: String): this.type = set(intermediateSaveDir, v)
 
   def getIntermediateSaveDir: String = $(intermediateSaveDir)
 
-  val connectionString = new Param[String](this, "connectionString", "Connection String " +
-    "for your storage account used for uploading files.")
-
-  def setConnectionString(v: String): this.type = set(connectionString, v)
-
-  def getConnectionString: Option[String] = get(connectionString)
-
-  val storageName = new Param[String](this, "storageName", "Storage Name " +
-    "for your storage account used for uploading files.")
-
-  def setStorageName(v: String): this.type = set(storageName, v)
-
-  def getStorageName: Option[String] = get(storageName)
-
-  val storageKey = new Param[String](this, "storageKey", "Storage Key " +
-    "for your storage account used for uploading files.")
-
-  def setStorageKey(v: String): this.type = set(storageKey, v)
-
-  def getStorageKey: Option[String] = get(storageKey)
-
-  val endpoint = new Param[String](this, "endpoint", "End Point " +
-    "for your storage account used for uploading files.")
-
-  def setEndpoint(v: String): this.type = set(endpoint, v)
-
-  def getEndpoint: Option[String] = get(endpoint)
-
-  val sasToken = new Param[String](this, "sasToken", "SAS Token " +
-    "for your storage account used for uploading files.")
-
-  def setSASToken(v: String): this.type = set(sasToken, v)
-
-  def getSASToken: Option[String] = get(sasToken)
-
-  val containerName = new Param[String](this, "containerName", "Container that will be " +
-    "used to upload files to.")
-
-  def setContainerName(v: String): this.type = set(containerName, v)
-
-  def getContainerName: String = $(containerName)
-
   setDefault(
     outputCol -> (this.uid + "_output"),
     errorCol -> (this.uid + "_error"))
 
-  protected def getBlobContainerClient: BlobContainerClient = {
-    if (this.get(connectionString).nonEmpty) {
-      getBlobContainerClient(getConnectionString.get, getContainerName)
-    } else if (this.get(storageName).nonEmpty && this.get(storageKey).nonEmpty &&
-      this.get(endpoint).nonEmpty && this.get(sasToken).nonEmpty) {
-      getBlobContainerClient(getStorageName.get, getStorageKey.get, getEndpoint.get,
-        getSASToken.get, getContainerName)
-    } else {
-      throw new Exception("You need to set either {connectionString, containerName} or " +
-        "{storageName, storageKey, endpoint, sasToken, containerName} in order to access the blob container")
+  private def getStorageInfo: StorageInfo = {
+    val uri = new URI(getIntermediateSaveDir)
+    val account = uri.getHost.split(".".toCharArray).head
+    val blobConfig = s"fs.azure.account.key.$account.blob.core.windows.net"
+    val adlsConfig = s"fs.azure.account.key.$account.dfs.core.windows.net"
+    val hc = SparkSession.builder().getOrCreate()
+      .sparkContext.hadoopConfiguration
+    val key = Option(hc.get(adlsConfig)).orElse(Option(hc.get(blobConfig)))
+
+    if (key.isEmpty){
+      throw new IllegalAccessError("Could not find the storage account credentials." +
+        s" Make sure your hadoopConfiguration has the" +
+        s" ''$blobConfig'' or ''$adlsConfig'' configuration set.")
     }
+
+    StorageInfo(account, uri.getUserInfo, key.get, uri.getPath.stripPrefix("/"))
   }
 
-  protected def getBlobContainerClient(storageConnectionString: String,
-                                       containerName: String): BlobContainerClient = {
-    val blobContainerClient = new BlobServiceClientBuilder()
-      .connectionString(storageConnectionString)
-      .credential(StorageSharedKeyCredential.fromConnectionString(storageConnectionString))
-      .buildClient()
-      .getBlobContainerClient(containerName.toLowerCase())
-    if (!blobContainerClient.exists()) {
-      blobContainerClient.create()
-    }
-    blobContainerClient
-  }
+  protected def blob: String = s"${getStorageInfo.blob}/$uid.zip"
 
-  protected def getBlobContainerClient(storageName: String, storageKey: String, endpoint: String,
-                                       sasToken: String, containerName: String): BlobContainerClient = {
-    val blobContainerClient = new BlobServiceClientBuilder()
-      .endpoint(endpoint)
-      .sasToken(sasToken)
-      .credential(new StorageSharedKeyCredential(storageName, storageKey))
-      .buildClient()
-      .getBlobContainerClient(containerName.toLowerCase())
-    if (!blobContainerClient.exists()) {
-      blobContainerClient.create()
-    }
-    blobContainerClient
-  }
+  protected def blobPath: Path = new Path(new URI(getIntermediateSaveDir.stripSuffix("/") + s"/$uid.zip"))
 
-  protected def blobName: String = s"$getIntermediateSaveDir/$uid.zip"
-
-  protected def upload(blobContainerClient: BlobContainerClient, df: DataFrame): String = {
+  protected def upload(df: DataFrame): String = {
     val timestampColumn = df.schema
       .find(p => p.name == getTimestampCol)
       .get
     val timestampColIdx = df.schema.indexOf(timestampColumn)
     val rows = df.collect
-    val zipTargetStream = new ByteArrayOutputStream()
-    val zipOut = new ZipOutputStream(zipTargetStream)
 
-    // loop over all features
-    for (feature <- df.schema.filter(p => p != timestampColumn).zipWithIndex) {
-      val featureIdx = df.schema.indexOf(feature._1)
-      // create zip entry. must be named series_{idx}
-      zipOut.putNextEntry(new ZipEntry(s"series_${feature._2}.csv"))
-      // write CSV
-      storeFeatureInCsv(rows, timestampColIdx, featureIdx, zipOut)
-      zipOut.closeEntry()
-    }
-    zipOut.close()
+    val storageInfo = getStorageInfo
+    val hconf = df.sparkSession.sparkContext.hadoopConfiguration
+    val fs = FileSystem.get(blobPath.toUri, hconf)
 
-    // upload zip file
-    val zipInBytes = zipTargetStream.toByteArray
-    val blobClient = blobContainerClient.getBlobClient(blobName)
-    blobClient.upload(new ByteArrayInputStream(zipInBytes), zipInBytes.length, true)
+    // Upload to Blob
+    using(new ZipOutputStream(new BufferedOutputStream(fs.create(blobPath)))) { os =>
+      // loop over all features
+      for (feature <- df.schema.filter(p => p != timestampColumn).zipWithIndex) {
+        val featureIdx = df.schema.indexOf(feature._1)
+        // create zip entry. must be named series_{idx}
+        os.putNextEntry(new ZipEntry(s"series_${feature._2}.csv"))
+        // write CSV
+        storeFeatureInCsv(rows, timestampColIdx, featureIdx, os)
+        os.closeEntry()
+      }
+    }.get
 
     // generate SAS
-    val sas = blobClient.generateSas(new BlobServiceSasSignatureValues(
-      OffsetDateTime.now().plusHours(24),
-      new BlobSasPermission().setReadPermission(true)
-    ))
-
-    s"${blobClient.getBlobUrl}?${sas}"
+    val offset = OffsetDateTime.now().plusHours(24)
+    val sas = SlimStorageClient.generateReadSAS(
+      storageInfo.account, storageInfo.container, blob, storageInfo.key, offset)
+    s"https://${storageInfo.account}.blob.core.windows.net/${storageInfo.container}/$blob?$sas"
   }
 
-  protected def storeFeatureInCsv(rows: Array[Row], timestampColIdx: Int, featureIdx: Int, out: OutputStream): Unit = {
+  protected def storeFeatureInCsv(rows: Array[Row],
+                                  timestampColIdx: Int,
+                                  featureIdx: Int,
+                                  out: OutputStream): Unit = {
     // create CSV file per feature
     val pw = new PrintWriter(out)
-
     // CSV header
     pw.println("timestamp,value")
-
     for (row <- rows) {
       // <timestamp>,<value>
       // make sure it's ISO8601. e.g. 2021-01-01T00:00:00Z
       val formattedTimestamp = convertTimeFormat("Timestamp column", row.getString(timestampColIdx))
-
       pw.print(formattedTimestamp)
       pw.write(',')
-
       // TODO: do we have to worry about locale?
       // pw.format(Locale.US, "%f", row.get(featureIdx))
       pw.println(row.get(featureIdx))
-
     }
     pw.flush()
+
   }
 
   def cleanUpIntermediateData(): Unit = {
-    val blobContainerClient = getBlobContainerClient
-    blobContainerClient.getBlobClient(blobName).delete()
+    val hconf = SparkSession.builder().getOrCreate().sparkContext.hadoopConfiguration
+    val fs = FileSystem.get(blobPath.toUri, hconf)
+    fs.delete(blobPath, false)
   }
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
@@ -397,6 +353,19 @@ trait MADBase extends HasOutputCol
       |""".stripMargin
   }
 
+  protected def submitDatasetAndJob(dataset: Dataset[_]): Map[String, JsValue] = {
+    val df = dataset.toDF().select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
+    val sasUrl = upload(df)
+
+    val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
+    val request = new HTTPRequestData(httpRequestBase.get)
+    val response = handlingFunc(Client, request)
+
+    val responseJson = IOUtils.toString(response.entity.get.content, "UTF-8")
+      .parseJson.asJsObject.fields
+
+    responseJson
+  }
 
 }
 
@@ -421,7 +390,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getSlidingWindow: Option[Int] = get(slidingWindow)
+  def getSlidingWindow: Int = $(slidingWindow)
 
   val alignMode = new Param[String](this, "alignMode", "An optional field, indicates how " +
     "we align different variables into the same time-range which is required by the model.{Inner, Outer}")
@@ -434,7 +403,7 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getAlignMode: Option[String] = get(alignMode)
+  def getAlignMode: String = $(alignMode)
 
   val fillNAMethod = new Param[String](this, "fillNAMethod", "An optional field, indicates how missed " +
     "values will be filled with. Can not be set to NotFill, when alignMode is Outer.{Previous, Subsequent," +
@@ -448,33 +417,35 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
     }
   }
 
-  def getFillNAMethod: Option[String] = get(fillNAMethod)
+  def getFillNAMethod: String = $(fillNAMethod)
 
   val paddingValue = new IntParam(this, "paddingValue", "optional field, is only useful" +
     " if FillNAMethod is set to Fixed.")
 
   def setPaddingValue(v: Int): this.type = set(paddingValue, v)
 
-  def getPaddingValue: Option[Int] = get(paddingValue)
+  def getPaddingValue: Int = $(paddingValue)
 
   val displayName = new Param[String](this, "displayName", "optional field," +
     " name of the model")
 
   def setDisplayName(v: String): this.type = set(displayName, v)
 
-  def getDisplayName: Option[String] = get(displayName)
-
-  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
-    "diagnosticsInfo for training a multivariate anomaly detection model")
-
-  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
-
-  def getDiagnosticsInfo: Option[DiagnosticsInfo] = get(diagnosticsInfo)
+  def getDisplayName: String = $(displayName)
 
   protected def prepareEntity(source: String): Option[AbstractHttpEntity] = {
-    Some(new StringEntity(MAERequest(source, getStartTime, getEndTime, getSlidingWindow,
-      Option(AlignPolicy(getAlignMode, getFillNAMethod, getPaddingValue)), getDisplayName)
-      .toJson.compactPrint, ContentType.APPLICATION_JSON))
+    Some(new StringEntity(
+      MAERequest(
+        source,
+        getStartTime,
+        getEndTime,
+        get(slidingWindow),
+        Option(AlignPolicy(
+          get(alignMode),
+          get(fillNAMethod),
+          get(paddingValue))),
+        get(displayName)
+      ).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 
   protected def prepareUrl: String = getUrl
@@ -488,51 +459,28 @@ class FitMultivariateAnomaly(override val uid: String) extends Estimator[DetectM
 
   override def fit(dataset: Dataset[_]): DetectMultivariateAnomaly = {
     logFit({
+      val response = submitDatasetAndJob(dataset)
 
-      val blobContainerClient = getBlobContainerClient
-      val df = dataset.toDF().select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
-      val sasUrl = upload(blobContainerClient, df)
+      val modelInfo = response("modelInfo").asJsObject.fields
+      val modelId = response("modelId").convertTo[String]
 
-      val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
-      val request = new HTTPRequestData(httpRequestBase.get)
-      val response = handlingFunc(Client, request)
-
-      val responseDict = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.asJsObject.fields
-
-      val modelInfoFields = responseDict("modelInfo").asJsObject.fields
-
-      if (modelInfoFields.get("status").get.asInstanceOf[JsString].value == "FAILED") {
-        val errors = modelInfoFields.get("errors").map(_.convertTo[Seq[DMAError]]).get.toJson.compactPrint
+      if (modelInfo("status").asInstanceOf[JsString].value.toLowerCase() == "failed") {
+        val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
         throw new RuntimeException(s"Caught errors during fitting: $errors")
       }
 
-      this.setDiagnosticsInfo(modelInfoFields.get("diagnosticsInfo").map(_.convertTo[DiagnosticsInfo]).get)
-
-      val modelId = responseDict.get("modelId").map(_.convertTo[String]).get
       MADUtils.CreatedModels += modelId
 
-      val simpleDetectMultivariateAnomaly = new DetectMultivariateAnomaly()
+      new DetectMultivariateAnomaly()
         .setSubscriptionKey(getSubscriptionKey)
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
         .setModelId(modelId)
-        .setContainerName(getContainerName)
         .setIntermediateSaveDir(getIntermediateSaveDir)
-
-      if (this.get(connectionString).nonEmpty) {
-        simpleDetectMultivariateAnomaly
-          .setConnectionString(getConnectionString.get)
-      } else {
-        simpleDetectMultivariateAnomaly
-          .setStorageName(getStorageName.get)
-          .setStorageKey(getStorageKey.get)
-          .setEndpoint(getEndpoint.get)
-          .setSASToken(getSASToken.get)
-      }
+        .setDiagnosticsInfo(modelInfo("diagnosticsInfo").convertTo[DiagnosticsInfo])
     })
   }
 
-  override def copy(extra: ParamMap): Estimator[DetectMultivariateAnomaly] = defaultCopy(extra)
+  override def copy(extra: ParamMap): FitMultivariateAnomaly = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     schema.add(getErrorCol, DMAError.schema)
@@ -558,13 +506,20 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
 
   def getModelId: String = $(modelId)
 
+  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
+    "diagnosticsInfo for training a multivariate anomaly detection model")
+
+  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
+
+  def getDiagnosticsInfo: DiagnosticsInfo = $(diagnosticsInfo)
+
   protected def prepareEntity(source: String): Option[AbstractHttpEntity] = {
     Some(new StringEntity(
       DMARequest(source, getStartTime, getEndTime)
         .toJson.compactPrint))
   }
 
-  protected def prepareUrl: String = getUrl + s"${getModelId}/detect"
+  protected def prepareUrl: String = getUrl + s"$getModelId/detect"
 
   //noinspection ScalaStyle
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -572,67 +527,57 @@ class DetectMultivariateAnomaly(override val uid: String) extends Model[DetectMu
 
       // check model status first
       try {
-        val responseDict = MADUtils.madGetModel(
-          this.getUrl, this.getModelId, this.getSubscriptionKey).parseJson.asJsObject.fields
+        val response = MADUtils.madGetModel(getUrl, getModelId, getSubscriptionKey)
+          .parseJson.asJsObject.fields
 
-        val modelInfoFields = responseDict("modelInfo").asJsObject.fields
-        val modelStatus = modelInfoFields("status").asInstanceOf[JsString].value.toLowerCase
+        val modelInfo = response("modelInfo").asJsObject.fields
+        val modelStatus = modelInfo("status").asInstanceOf[JsString].value.toLowerCase
         modelStatus match {
-          case "failed" => {
-            val errors = modelInfoFields.get("errors").map(_.convertTo[Seq[DMAError]]).get.toJson.compactPrint
+          case "failed" =>
+            val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
             throw new RuntimeException(s"Caught errors during fitting: $errors")
-          }
-          case "created" | "running" => {
-            throw new RuntimeException(s"model ${this.getModelId} is not ready yet")
-          }
-          case "ready" => println("model is ready for inference")
+          case "created" | "running" =>
+            throw new RuntimeException(s"model $getModelId is not ready yet")
+          case "ready" =>
+            logInfo("model is ready for inference")
         }
       } catch {
         case e: RuntimeException =>
-          throw new RuntimeException(s"Encounter error while fetching model ${this.getModelId}, " +
+          throw new RuntimeException(s"Encounter error while fetching model $getModelId, " +
             s"please double check the modelId is correct: ${e.getMessage}")
       }
 
-      val blobContainerClient = getBlobContainerClient
-      val df = dataset.select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
-        .sort(col(getTimestampCol).asc).toDF()
-      val sasUrl = upload(blobContainerClient, df)
+      val spark = dataset.sparkSession
+      val responseJson = submitDatasetAndJob(dataset)
 
-      val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
-      val request = new HTTPRequestData(httpRequestBase.get)
-      val response = handlingFunc(Client, request)
+      val summary = responseJson("summary").convertTo[DMASummary]
 
-      val responseJson = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.asJsObject.fields
-
-      val summary = responseJson.get("summary").map(_.convertTo[DMASummary]).get
-      if (summary.status == "FAILED") {
+      if (summary.status.toLowerCase() == "failed") {
         val errors = summary.errors.get.toJson.compactPrint
-        throw new RuntimeException(s"Caught errors during inference: $errors")
+        throw new RuntimeException(s"Failure during inference: $errors")
       }
 
-      val results = responseJson.get("results").get.toString()
+      val jsonDF = spark.createDataset(Seq(responseJson("results").toString()))(Encoders.STRING)
 
-      val outputDF = df.sparkSession.read
-        .json(df.sparkSession.createDataset(Seq(results))(Encoders.STRING))
-        .toDF()
+      val parsedJsonDF = spark.read.json(jsonDF).toDF()
         .sort(col("timestamp").asc)
         .withColumnRenamed("timestamp", "resultTimestamp")
 
-      val outputDF2 = if (outputDF.columns.contains("value")) {
-        outputDF.withColumn("isAnomaly", col("value.isAnomaly"))
+      val simplifiedDF = if (parsedJsonDF.columns.contains("value")) {
+        parsedJsonDF.withColumn("isAnomaly", col("value.isAnomaly"))
           .withColumnRenamed("value", getOutputCol)
       } else {
-        outputDF.withColumn(getOutputCol, lit(None))
+        parsedJsonDF.withColumn(getOutputCol, lit(None))
           .withColumn("isAnomaly", lit(None))
       }
 
-      val finalDF = if (outputDF2.columns.contains("errors")) {
-        outputDF2.withColumnRenamed("errors", getErrorCol)
+      val finalDF = if (simplifiedDF.columns.contains("errors")) {
+        simplifiedDF.withColumnRenamed("errors", getErrorCol)
       } else {
-        outputDF2.withColumn(getErrorCol, lit(None))
+        simplifiedDF.withColumn(getErrorCol, lit(None))
       }
 
+      val df = dataset.toDF()
       df.join(finalDF, df(getTimestampCol) === finalDF("resultTimestamp"), "left")
         .drop("resultTimestamp")
         .sort(col(getTimestampCol).asc)

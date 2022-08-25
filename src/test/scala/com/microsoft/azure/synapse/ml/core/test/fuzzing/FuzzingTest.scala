@@ -175,6 +175,11 @@ class FuzzingTest extends TestBase {
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
   }
 
+  ignore("Quick analysis of all getters and setters") {
+    JarLoadingUtils.instantiateServices[GetterSetterFuzzing[_ <: PipelineStage]]()
+      .foreach(_.testGettersAndSetters())
+  }
+
   // TODO verify that model UIDs match the class names, perhaps use a Trait
 
   test("Verify all pipeline stages don't have exotic characters") {
