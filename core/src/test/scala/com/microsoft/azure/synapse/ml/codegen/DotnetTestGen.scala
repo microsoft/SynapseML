@@ -114,7 +114,7 @@ object DotnetTestGen {
   }
 
   def generateLog4jPropertiesFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir, Path.of("SynapseMLtest", "Resources").toString)
+    val dir = new File(conf.dotnetTestDir, new File("SynapseMLtest", "Resources").toString)
     if (!dir.exists()) {
       dir.mkdirs()
     }
