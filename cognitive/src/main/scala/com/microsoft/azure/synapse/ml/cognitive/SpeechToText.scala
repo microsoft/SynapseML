@@ -26,8 +26,10 @@ class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("SpeechToText"))
 
-  override def setLocation(v: String): this.type =
-    setUrl(s"https://$v.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1")
+  override def setLocation(v: String): this.type = {
+    val domain = getLocationDomain(v)
+    setUrl(s"https://$v.stt.speech.microsoft.$domain/speech/recognition/conversation/cognitiveservices/v1")
+  }
 
   def urlPath: String = "/speech/recognition/conversation/cognitiveservices/v1"
 

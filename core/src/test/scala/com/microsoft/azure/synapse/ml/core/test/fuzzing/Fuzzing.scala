@@ -710,8 +710,16 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
     }
   }
 
+  val retrySerializationFuzzing = false
+
   test("Serialization Fuzzing") {
-    testSerialization()
+    if (retrySerializationFuzzing){
+      tryWithRetries() {() =>
+        testSerialization()
+      }
+    } else {
+      testSerialization()
+    }
   }
 
 }
