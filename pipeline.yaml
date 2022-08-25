@@ -33,7 +33,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
@@ -54,7 +54,7 @@ jobs:
 - job: Publish
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -94,7 +94,7 @@ jobs:
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   strategy:
     matrix:
       databricks-cpu:
@@ -143,7 +143,7 @@ jobs:
 - job: PublishDocker
   displayName: PublishDocker
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     - task: AzureCLI@2
       displayName: 'Get Docker Tag + Version'
@@ -217,7 +217,7 @@ jobs:
 - job: Release
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     - template: templates/update_cli.yml
     - bash: |
@@ -369,7 +369,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   strategy:
     matrix:
       core:
@@ -425,7 +425,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     #- template: templates/ivy_cache_2.yml
     - template: templates/update_cli.yml
@@ -463,7 +463,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -504,7 +504,7 @@ jobs:
 - job: WebsiteAutoDeployment
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
       persistCredentials: true
@@ -552,7 +552,7 @@ jobs:
   timeoutInMinutes: 80
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-20.04
   strategy:
     matrix:
       automl:
@@ -610,8 +610,6 @@ jobs:
       lightgbm2:
         PACKAGE: "lightgbm.split2"
         FLAKY: "true"
-      lime:
-        PACKAGE: "lime"
       opencv:
         PACKAGE: "opencv"
       recommendation:
@@ -626,6 +624,7 @@ jobs:
         PACKAGE: "vw"
   steps:
     #- template: templates/ivy_cache.yml
+    - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
       inputs:
@@ -643,9 +642,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (${FFMPEG:-false} && sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y && \
+          ulimit -c unlimited
+          (${FFMPEG:-false} && sudo add-apt-repository ppa:savoury1/ffmpeg4 -y && \
           sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly -y)
+          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||

@@ -101,9 +101,9 @@ trait DataFrameEquality extends Serializable {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(100, false)
+      df1.show(100, 100)
       println("df2:")
-      df2.show(100, false)
+      df2.show(100, 100)
     }
     assert(result)
   }

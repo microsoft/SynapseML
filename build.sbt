@@ -429,17 +429,8 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.14.4",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.6"
-    ),
-    dependencyOverrides ++= Seq(
-      "io.projectreactor.netty" % "reactor-netty-core" % "1.0.14",
-      "io.projectreactor.netty" % "reactor-netty-http" % "1.0.14",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.12.5",
-      "com.fasterxml.jackson.core" % "jackson-core" % "2.12.5",
-      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.12.5",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-xml" % "2.12.5",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.12.5"
+      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
     name := "synapseml-cognitive"
   ): _*)
