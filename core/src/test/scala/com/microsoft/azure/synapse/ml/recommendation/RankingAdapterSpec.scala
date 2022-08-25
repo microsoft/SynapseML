@@ -14,6 +14,7 @@ class RankingAdapterSpec extends RankingTestBase with EstimatorFuzzing[RankingAd
   override def reader: MLReadable[_] = RankingAdapter
 
   override def modelReader: MLReadable[_] = RankingAdapterModel
+
 }
 
 class RankingAdapterModelSpec extends RankingTestBase with TransformerFuzzing[RankingAdapterModel] {

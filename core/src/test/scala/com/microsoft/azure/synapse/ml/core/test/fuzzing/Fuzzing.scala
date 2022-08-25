@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
-import com.microsoft.azure.synapse.ml.codegen.CodegenConfig
+import com.microsoft.azure.synapse.ml.codegen.{CodegenConfig, DefaultParamInfo}
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -173,7 +173,8 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     saveDotnetTestData(conf)
     val testDataDirString = dotnetTestDataDir(conf).toString
     val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) =>
-      makeDotnetTests(to, i, testDataDirString) }
+      makeDotnetTests(to, i, testDataDirString)
+    }
     val stage = dotnetTestObjects().head.stage
     val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
     val importPathString = importPath.mkString(".")
@@ -518,8 +519,8 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   val retrySerializationFuzzing = false
 
   test("Serialization Fuzzing") {
-    if (retrySerializationFuzzing){
-      tryWithRetries() {() =>
+    if (retrySerializationFuzzing) {
+      tryWithRetries() { () =>
         testSerialization()
       }
     } else {
@@ -529,8 +530,65 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 
 }
 
+trait GetterSetterFuzzing[S <: PipelineStage with Params] extends TestBase with DataFrameEquality {
+  def getterSetterTestObject(): TestObject[S]
+
+  def getterSetterParamExamples(pipelineStage: S): Map[Param[_], Any] = Map()
+
+  def getterSetterParamExample(pipelineStage: S, p: Param[_]): Option[Any] = {
+    pipelineStage
+      .get(p).orElse(pipelineStage.getDefault(p))
+      .orElse(getterSetterParamExamples(pipelineStage).get(p))
+      .orElse {
+        Option(DefaultParamInfo.defaultGetParamInfo(pipelineStage, p).example)
+      }
+  }
+
+  def testGettersAndSetters(): Unit = {
+    val pipelineStage = getterSetterTestObject().stage.copy(new ParamMap()).asInstanceOf[S]
+    val methods = pipelineStage.getClass.getMethods
+    pipelineStage.params.foreach { p =>
+      val getters = methods.filter(_.getName == s"get${p.name.capitalize}").toSeq
+      val setters = methods.filter(_.getName == s"set${p.name.capitalize}").toSeq
+      val defaultValue = getterSetterParamExample(pipelineStage, p)
+      p match {
+        case sp: ServiceParam[_] =>
+          val colGetters = methods.filter(_.getName == s"get${sp.name.capitalize}Col").toSeq
+          val colSetters = methods.filter(_.getName == s"set${sp.name.capitalize}Col").toSeq
+          (colGetters, colSetters) match {
+            case (Seq(getter), Seq(setter)) =>
+              setter.invoke(pipelineStage, "foo")
+              assert(getter.invoke(pipelineStage) === "foo")
+            case _ =>
+              println(s"Could not test Service parameter column API for: ${sp.name}")
+          }
+          (getters, setters, defaultValue) match {
+            case (Seq(getter), Seq(setter), Some(Left(v))) =>
+              setter.invoke(pipelineStage, v.asInstanceOf[Object])
+              assert(getter.invoke(pipelineStage) === v)
+            case _ =>
+              println(s"Could not test Service parameter value API  ${p.name}")
+          }
+        case p: Param[_] =>
+          (getters, setters, defaultValue) match {
+            case (Seq(getter), Seq(setter), Some(v)) =>
+              setter.invoke(pipelineStage, v.asInstanceOf[Object])
+              assert(getter.invoke(pipelineStage) === v)
+            case _ =>
+              println(s"Could not test parameter ${p.name}")
+          }
+      }
+    }
+  }
+
+  test("Getters and Setters work as anticipated") {
+    testGettersAndSetters()
+  }
+
+}
+
 trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S]
-  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] {
+  with ExperimentFuzzing[S] with PyTestFuzzing[S] with DotnetTestFuzzing[S] with GetterSetterFuzzing[S] {
 
   def testObjects(): Seq[TestObject[S]]
 
@@ -541,6 +599,8 @@ trait Fuzzing[S <: PipelineStage with MLWritable] extends SerializationFuzzing[S
   def serializationTestObjects(): Seq[TestObject[S]] = testObjects()
 
   def experimentTestObjects(): Seq[TestObject[S]] = testObjects()
+
+  def getterSetterTestObject(): TestObject[S] = testObjects().head
 
 }
 

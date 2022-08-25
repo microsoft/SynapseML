@@ -7,8 +7,13 @@ import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
+import org.apache.spark.SparkException
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
+
+import java.util.concurrent.TimeoutException
+
 
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
@@ -325,6 +330,24 @@ class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint
     val results = prepResults(model2.transform(bigDF.coalesce(1)))
     assert(results.length == 25)
     assert(results(24).get.sentimentAnalysis.get.document.get.sentiment == "positive")
+  }
+
+  test("Exceeded Retries Info") {
+    val badModel = model
+      .setPollingDelay(0)
+      .setInitialPollingDelay(0)
+      .setMaxPollingRetries(1)
+
+    val results = badModel
+      .setSuppressMaxRetriesException(true)
+      .transform(df.coalesce(1))
+    assert(results.where(!col("error").isNull).count() > 0)
+
+    assertThrows[SparkException] {
+      badModel.setSuppressMaxRetriesException(false)
+        .transform(df.coalesce(1))
+        .collect()
+    }
   }
 
   override def testObjects(): Seq[TestObject[TextAnalyze]] =

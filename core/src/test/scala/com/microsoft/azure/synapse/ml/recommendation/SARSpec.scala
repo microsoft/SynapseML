@@ -80,31 +80,31 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     .csv(testFile).na.drop.cache
 
   test("tlc test sim count1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "cooc", simCount1, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 1, "cooc", simCount1, userAff))
 
   test("tlc test sim lift1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "lift", simLift1, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 1, "lift", simLift1, userAff))
 
   test("tlc test sim jac1")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 1, "jaccard", simJac1, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 1, "jaccard", simJac1, userAff))
 
   test("tlc test sim count3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "cooc", simCount3, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 3, "cooc", simCount3, userAff))
 
   test("tlc test sim lift3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "lift", simLift3, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 3, "lift", simLift3, userAff))
 
   test("tlc test sim jac3")(
-    SarTLCSpec.test_affinity_matrices(tlcSampleData, 3, "jaccard", simJac3, userAff))
+    SarTLCSpec.testAffinityMatrices(tlcSampleData, 3, "jaccard", simJac3, userAff))
 
   test("tlc test userpred count3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "cooc", simCount3, userAff, userpredCount3))
+    SarTLCSpec.testProductRecommendations(tlcSampleData, 3, "cooc", simCount3, userAff, userpredCount3))
 
   test("tlc test userpred lift3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "lift", simLift3, userAff, userpredLift3))
+    SarTLCSpec.testProductRecommendations(tlcSampleData, 3, "lift", simLift3, userAff, userpredLift3))
 
   test("tlc test userpred jac3 userid only")(
-    SarTLCSpec.test_product_recommendations(tlcSampleData, 3, "jaccard", simJac3, userAff, userpredJac3))
+    SarTLCSpec.testProductRecommendations(tlcSampleData, 3, "jaccard", simJac3, userAff, userpredJac3))
 
 }
 
@@ -132,8 +132,11 @@ object SarTLCSpec extends RankingTestBase {
   override lazy val itemColIndex = "itemID"
   //scalastyle:on field.name
 
-  def test_affinity_matrices(tlcSampleData: DataFrame, threshold: Int, similarityFunction: String, simFile: String,
-                             user_aff: String):
+  def testAffinityMatrices(tlcSampleData: DataFrame,
+                           threshold: Int,
+                           similarityFunction: String,
+                           simFile: String,
+                           user_aff: String):
   (SARModel, RecommendationIndexerModel) = {
 
     val ratings = tlcSampleData
@@ -169,11 +172,14 @@ object SarTLCSpec extends RankingTestBase {
     (model, recommendationIndexerModel)
   }
 
-  def test_product_recommendations(tlcSampleData: DataFrame, threshold: Int, similarityFunction: String,
-                                   simFile: String, user_aff: String,
-                                   userPredFile: String): Unit = {
+  def testProductRecommendations(tlcSampleData: DataFrame,
+                                 threshold: Int,
+                                 similarityFunction: String,
+                                 simFile: String,
+                                 user_aff: String,
+                                 userPredFile: String): Unit = {
 
-    val (model, recommendationIndexerModel) = test_affinity_matrices(tlcSampleData, threshold, similarityFunction,
+    val (model, recommendationIndexerModel) = testAffinityMatrices(tlcSampleData, threshold, similarityFunction,
       simFile,
       user_aff)
 

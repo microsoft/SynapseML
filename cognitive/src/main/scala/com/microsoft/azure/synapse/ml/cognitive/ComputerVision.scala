@@ -73,6 +73,11 @@ trait HasImageInput extends HasImageUrl
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
+    if (get(imageUrl).orElse(get(imageBytes)).isEmpty){
+      throw new IllegalArgumentException("Please set one of the" +
+        " imageUrl, imageUrlCol, imageBytes, imageBytesCol parameters.")
+    }
+
     { row: Row =>
       if (shouldSkip(row)) {
         None

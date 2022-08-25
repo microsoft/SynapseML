@@ -7,10 +7,10 @@ import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.typedLit
+import org.apache.spark.sql.functions.{col, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 
@@ -87,7 +87,8 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   override def reader: MLReadable[_] = OCR
 }
 
-class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveKey with Flaky {
+class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
+  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] {
 
   import spark.implicits._
 
@@ -95,6 +96,12 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null), //scalastyle:ignore null
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
+  ).toDF("url", "language")
+
+  lazy val nullDf: DataFrame = Seq(
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null), //scalastyle:ignore null
+    (null, "en")
   ).toDF("url", "language")
 
   def baseAI: AnalyzeImage = new AnalyzeImage()
@@ -117,6 +124,13 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage] with CognitiveK
 
   def bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
+
+  test("Null handling"){
+    assertThrows[IllegalArgumentException]{
+      baseAI.transform(nullDf)
+    }
+    assert(ai.transform(nullDf).where(col("features").isNull).count() == 1)
+  }
 
   test("full parametrization") {
     val row = (Seq("Categories"), "en", Seq("Celebrities"),
