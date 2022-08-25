@@ -42,8 +42,6 @@ object GenerationUtils {
 
   def pyRenderParam[T](p: Param[T], v: T): String = {
     p match {
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
       case pwp: PythonWrappableParam[_] =>
         pwp.pyConstructorLine(v.asInstanceOf[pwp.InnerType])
       case _ =>
@@ -77,8 +75,6 @@ object GenerationUtils {
 
   def rRenderParam[T](p: Param[T], v: T): String = {
     p match {
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
       case psw: PipelineStageWrappable[_] =>
         s"""${psw.name}=spark_jobj(${psw.rValue(v.asInstanceOf[psw.RInnerType])})"""
       case rp: RWrappableParam[_] =>

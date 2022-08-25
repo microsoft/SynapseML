@@ -109,12 +109,12 @@ object DotnetTestGen {
          |    <None Include="Resources/log4j.properties" CopyToOutputDirectory="PreserveNewest" />
          |  </ItemGroup>
          |</Project>
-         |""".stripMargin)
+         |""".stripMargin, StandardOpenOption.CREATE)
     // scalastyle:on line.size.limit
   }
 
   def generateLog4jPropertiesFile(conf: CodegenConfig): Unit = {
-    val dir = new File(conf.dotnetTestDir, new File("SynapseMLtest", "Resources").toString)
+    val dir = join(conf.dotnetTestDir, "SynapseMLtest", "Resources")
     if (!dir.exists()) {
       dir.mkdirs()
     }
@@ -127,7 +127,7 @@ object DotnetTestGen {
          |log4j.rootLogger=WARN, stdout
          |log4j.logger.org.apache.spark=WARN, stdout
          |log4j.logger.com.microsoft=INFO, stdout
-         |""".stripMargin)
+         |""".stripMargin, StandardOpenOption.CREATE)
   }
 
     def main(args: Array[String]): Unit = {

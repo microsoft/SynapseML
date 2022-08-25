@@ -86,6 +86,9 @@ object RTestGen {
 
     val synapseVersion = BuildInfo.version
 
+    if (!conf.rTestThatDir.exists()) {
+      conf.rTestThatDir.mkdirs()
+    }
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -104,7 +107,7 @@ object RTestGen {
          |
          |sc <- spark_connect(master = "local", version = "3.2.2", config = conf)
          |
-         |""".stripMargin)
+         |""".stripMargin, StandardOpenOption.CREATE)
 
     val library = conf.name.replaceAll("-", ".")
     writeFile(join(testsDir, "testthat.R"),
