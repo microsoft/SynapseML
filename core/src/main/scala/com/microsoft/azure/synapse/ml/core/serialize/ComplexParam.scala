@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.serialize
 
-import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, WrappableParam}
+import com.microsoft.azure.synapse.ml.param.WrappableParam
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.Serializer
 import org.apache.spark.ml.param.{Param, Params}
@@ -12,7 +12,7 @@ import org.apache.spark.sql.SparkSession
 import scala.reflect.runtime.universe.{TypeTag, typeTag}
 
 abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: String, isValid: T => Boolean)
-  extends Param[T](parent, name, doc, isValid) with DotnetWrappableParam[T] {
+  extends Param[T](parent, name, doc, isValid) with WrappableParam[T] {
 
   def ttag: TypeTag[T] = typeTag[T]
 
