@@ -129,9 +129,7 @@ class StreamingPartitionTask extends BasePartitionTask {
 
     // Now handle validation data, which comes from a broadcast-ed hardcoded array
     if (ctx.shouldCalcValidationDataset) {
-      log.info(s"DEBUG Creating validation dataset in task ${ctx.taskId} partition ${ctx.partitionId}")
       ctx.sharedState.validationDatasetState.streamingDataset = Option(generateOptValidationDataset(ctx))
-      log.info(s"DEBUG Done Creating validation dataset in task ${ctx.taskId} partition ${ctx.partitionId}")
     }
 
     // streaming does not use data state (it stores intermediate results in the context shared state),
@@ -200,7 +198,6 @@ class StreamingPartitionTask extends BasePartitionTask {
       else
         pushDenseMicroBatches(state, inputRows, startIndex, stopIndex)
     } finally {
-      log.info(s"Deleting state from ${ctx.taskId}, part ${ctx.partitionId}") // DEBUG TODO remove
       state.delete()
     }
   }
@@ -227,7 +224,7 @@ class StreamingPartitionTask extends BasePartitionTask {
       }
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetPushRowsWithMetadata(
         state.datasetPointer,
-        lightgbmlib.double_to_voidp_ptr(state.featureDataBuffer.array), // DEBUG TODO put back state.featureDataPtr,
+        state.featureDataPtr,
         lightgbmlibConstants.C_API_DTYPE_FLOAT64,
         count,
         state.numCols,
@@ -324,10 +321,6 @@ class StreamingPartitionTask extends BasePartitionTask {
         case _ => throw new Exception(row.getAs[Any](state.featureIndex).toString)
       }
 
-      /* DEBUG TODO log.info(s"Iterator row $batchRowCount count: ${sparseVector.values.length}")
-      (0 until sparseVector.values.length).foreach(i => {
-        log.info(s"  index ${sparseVector.indices(i)} value ${sparseVector.values(i)}")
-      }) */
       val rowElementCount = sparseVector.values.length
       val endIndex = rowElementCount + elementCount
       sparseVector.values.zipWithIndex.foreach { case (value, i) =>
