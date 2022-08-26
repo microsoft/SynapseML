@@ -192,9 +192,9 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     // DEBUG TODO remove numIterations and repartitions and matrix
     val Array(train, test) = taskDF.randomSplit(Array(0.8, 0.2), seed)
-    val baseModelWithLR = baseModel.setLearningRate(0.9).setNumThreads(1).setMatrixType("auto").setNumIterations(200)
-    val scoredDF1 = baseModelWithLR.fit(train.repartition(1)).transform(test)
-    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.5).fit(train.repartition(1)).transform(test)
+    val baseModelWithLR = baseModel.setLearningRate(0.9).setMatrixType("auto").setNumIterations(200)
+    val scoredDF1 = baseModelWithLR.fit(train).transform(test)
+    val scoredDF2 = baseModelWithLR.setMaxDeltaStep(0.5).fit(train).transform(test)
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
