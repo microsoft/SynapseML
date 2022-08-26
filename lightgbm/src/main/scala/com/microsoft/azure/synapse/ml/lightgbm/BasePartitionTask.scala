@@ -424,11 +424,13 @@ abstract class BasePartitionTask extends Serializable with Logging {
                                     inputRows: Iterator[Row]): PeekingIterator[Row] = {
     if (ctx.sharedState.isSparse.isDefined) new PeekingIterator(inputRows)
     else {
+      val matrixType = ctx.trainingCtx.trainingParams.executionParams.matrixType
       val (concatRowsIterator: Iterator[Row], isSparseHere: Boolean) =
         getArrayType(
           inputRows,
-          ctx.trainingCtx.trainingParams.executionParams.matrixType,
+          matrixType,
           ctx.trainingCtx.columnParams.featuresColumn)
+      log.info(s"Setting isSparse to $isSparseHere based on matrix type of $matrixType")
       val peekingIterator = new PeekingIterator(concatRowsIterator)
       // Note: the first worker gets to officially set "is sparse", other workers read it
       ctx.sharedState.linkIsSparse(isSparseHere)
