@@ -1,8 +1,6 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-// scalastyle:off file.size.limit
-
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
 import com.microsoft.azure.synapse.ml.codegen.{CodegenConfig, DefaultParamInfo}
@@ -21,6 +19,8 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import scala.util.Random
+
+// scalastyle:off file.size.limit
 
 /**
   * Class for holding test information, call by name to avoid unnecessary computations in test generations
