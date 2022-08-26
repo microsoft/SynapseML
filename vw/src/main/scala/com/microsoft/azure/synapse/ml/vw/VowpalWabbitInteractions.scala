@@ -92,5 +92,5 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
     schema.add(StructField(getOutputCol, VectorType, true))
   }
 
-  override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)
+  override def copy(extra: ParamMap): VowpalWabbitInteractions = defaultCopy(extra)
 }

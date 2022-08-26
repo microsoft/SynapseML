@@ -23,7 +23,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   *
   * @param uid
   */
-class ClassBalancer(val uid: String) extends Estimator[ClassBalancerModel]
+class ClassBalancer(override val uid: String) extends Estimator[ClassBalancerModel]
   with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable with BasicLogging {
   logClass()
 

@@ -98,7 +98,7 @@ class PageSplitter(override val uid: String)
     )
   }
 
-  override def copy(extra: ParamMap): MultiNGram =
+  override def copy(extra: ParamMap): PageSplitter =
     defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {

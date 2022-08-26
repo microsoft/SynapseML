@@ -301,7 +301,7 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath with DomainHe
 
   def setLocation(v: String): this.type = {
     val domain = getLocationDomain(v)
-    setUrl(s"https://$v.api.cognitive.microsoft.$domain/" + urlPath)
+    setUrl(s"https://$v.api.cognitive.microsoft.$domain/" + urlPath.stripPrefix("/"))
   }
 }
 
