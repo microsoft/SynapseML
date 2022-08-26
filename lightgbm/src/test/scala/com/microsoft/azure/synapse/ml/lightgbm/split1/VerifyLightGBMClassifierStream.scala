@@ -36,11 +36,8 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, banknoteFile, executionMode)) {
     verifyLearnerOnBinaryCsvFile(banknoteFile, "class", 1)
   }
-  // TODO Restore when concurrency issue resolved
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, taskFile, executionMode)) {
-    if (baseModel.getExecutionMode != LightGBMConstants.StreamingExecutionMode) {
-      verifyLearnerOnBinaryCsvFile(taskFile, "TaskFailed10", 1)
-    }
+    verifyLearnerOnBinaryCsvFile(taskFile, "TaskFailed10", 1)
   }
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, breastCancerFile, executionMode)) {
     verifyLearnerOnBinaryCsvFile(breastCancerFile, "Label", 1)

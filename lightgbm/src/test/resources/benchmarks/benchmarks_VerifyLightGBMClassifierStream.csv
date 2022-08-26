@@ -15,6 +15,10 @@ LightGBMClassifier_data_banknote_authentication.csv_gbdt,0.9842261520588615,0.1,
 LightGBMClassifier_data_banknote_authentication.csv_rf,0.945234714513145,0.1,true
 LightGBMClassifier_data_banknote_authentication.csv_dart,0.9817079729787875,0.1,true
 LightGBMClassifier_data_banknote_authentication.csv_goss,0.9845542360483628,0.1,true
+LightGBMClassifier_task.train.csv_gbdt,0.8947718416855595,0.1,true
+LightGBMClassifier_task.train.csv_rf,0.8846443439598345,0.1,true
+LightGBMClassifier_task.train.csv_dart,0.8947718416855595,0.1,true
+LightGBMClassifier_task.train.csv_goss,0.8947718416855595,0.1,true
 LightGBMClassifier_breast-cancer.train.csv_gbdt,0.9919775679936218,0.1,true
 LightGBMClassifier_breast-cancer.train.csv_rf,0.9873797314682273,0.1,true
 LightGBMClassifier_breast-cancer.train.csv_dart,0.989821341209299,0.1,true
