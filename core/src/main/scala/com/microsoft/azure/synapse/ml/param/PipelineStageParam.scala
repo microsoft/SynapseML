@@ -21,4 +21,12 @@ class PipelineStageParam(parent: Params, name: String, doc: String, isValid: Pip
 
   override private[ml] def dotnetGetter(capName: String): String =
     dotnetGetterHelper(dotnetReturnType, dotnetReturnType, capName)
+
+  override def rLoadLine(modelNum: Int): String = {
+    s"""
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
+       """.stripMargin
+  }
+
 }

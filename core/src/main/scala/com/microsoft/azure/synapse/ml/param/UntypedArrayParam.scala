@@ -6,10 +6,12 @@ package com.microsoft.azure.synapse.ml.param
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat, _}
+import org.json4s.DefaultFormats
 
 import scala.collection.JavaConverters._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
+
   implicit def anyFormat: JsonFormat[Any] =
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
