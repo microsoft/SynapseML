@@ -36,7 +36,10 @@ object CodegenPlugin extends AutoPlugin {
   val RInstallTag = Tags.Tag("rInstall")
   val TestGenTag = Tags.Tag("testGen")
   val DotnetTestGenTag = Tags.Tag("dotnetTestGen")
+  val PyCodeGenTag = Tags.Tag("pyCodeGen")
   val PyTestGenTag = Tags.Tag("pyTestGen")
+  val RCodeGenTag = Tags.Tag("rCodeGen")
+  val RTestGenTag = Tags.Tag("rTestGen")
   val DotnetCodeGenTag = Tags.Tag("dotnetCodeGen")
   val TestDotnetTag = Tags.Tag("testDotnet")
 
@@ -62,11 +65,14 @@ object CodegenPlugin extends AutoPlugin {
     val packageR = TaskKey[Unit]("packageR", "Generate roxygen docs and zip R package")
     val publishR = TaskKey[Unit]("publishR", "publish R package to blob")
     val testR = TaskKey[Unit]("testR", "Run testthat on R tests")
+    val rCodeGen = TaskKey[Unit]("rCodegen", "Generate R code")
+    val rTestGen = TaskKey[Unit]("rTestgen", "Generate R tests")
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+    val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate python code")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
     val dotnetTestGen = TaskKey[Unit]("dotnetTestgen", "Generate dotnet tests")
@@ -91,15 +97,17 @@ object CodegenPlugin extends AutoPlugin {
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {
     packageR.value
     publishLocal.value
-    val libPath = join(condaEnvLocation.value, "Lib", "R", "library").toString
+    rTestGen.value
+    val libPath = join(condaEnvLocation.value, "lib", "R", "library").toString
     val rSrcDir = join(codegenDir.value, "src", "R", genRPackageNamespace.value)
+    val rTestDir = join(codegenDir.value, "test", "R")
     rCmd(activateCondaEnv,
       Seq("R", "CMD", "INSTALL", "--no-multiarch", "--with-keep.source", genRPackageNamespace.value),
       rSrcDir.getParentFile, libPath)
     val testRunner = join("tools", "tests", "run_r_tests.R")
-    if (join(rSrcDir, "tests").exists()) {
+    if (rTestDir.exists()) {
       rCmd(activateCondaEnv,
-        Seq("Rscript", testRunner.getAbsolutePath), rSrcDir, libPath)
+      Seq("Rscript", testRunner.getAbsolutePath), rTestDir, libPath)
     }
   } tag (RInstallTag)
 
@@ -112,6 +120,15 @@ object CodegenPlugin extends AutoPlugin {
     }
   } tag (TestGenTag)
 
+  def pyCodeGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = codegenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyCodegen $arg").value
+    }
+  } tag (RCodeGenTag)
+
   def pyTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
     (Test / compile).value
@@ -120,6 +137,24 @@ object CodegenPlugin extends AutoPlugin {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
     }
   } tag (PyTestGenTag)
+
+  def rCodeGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = codegenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RCodegen $arg").value
+    }
+  } tag (RCodeGenTag)
+
+  def rTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    (Compile / compile).value
+    (Test / compile).value
+    val arg = testgenArgs.value
+    Def.task {
+      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RTestGen $arg").value
+    }
+  } tag (RTestGenTag)
 
   def dotnetTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
@@ -267,6 +302,7 @@ object CodegenPlugin extends AutoPlugin {
       val destDir = join(mergeCodeDir.value, "src", "dotnet", genPackageNamespace.value)
       FileUtils.copyDirectory(srcDir, destDir)
     },
+    pyCodegen := pyCodeGenImpl.value,
     testPython := {
       installPipPackage.value
       pyTestgen.value
@@ -275,14 +311,17 @@ object CodegenPlugin extends AutoPlugin {
         activateCondaEnv ++ Seq("python",
           "-m",
           "pytest",
-          s"--cov=${genPackageNamespace.value}",
+          //s"--cov=${genPackageNamespace.value}",
           s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
-          "--cov-report=xml",
+          //"--cov-report=xml",
           genTestPackageNamespace.value
         ),
         new File(codegenDir.value, "test/python/")
       )
     },
+    rCodeGen := rCodeGenImpl.value,
+    rTestGen := rTestGenImpl.value,
+    testR := testRImpl.value,
     dotnetCodeGen := dotnetCodeGenImpl.value,
     dotnetTestGen := dotnetTestGenImpl.value,
     testDotnet := testDotnetImpl.value,

@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import java.io.File
 import org.apache.commons.io.FileUtils
 import spray.json._
 
@@ -14,6 +15,13 @@ object TestGen {
   import CodeGenUtils._
   import DotnetTestGen._
   import PyTestGen._
+  import RTestGen._
+
+  private def copyOverrides(sourceDir: File, targetDir: File): Unit = {
+    if (toDir(sourceDir).exists()) {
+      FileUtils.copyDirectoryToDirectory(toDir(sourceDir), toDir(targetDir))
+    }
+  }
 
   def main(args: Array[String]): Unit = {
     val conf = args.head.parseJson.convertTo[CodegenConfig]
@@ -21,15 +29,16 @@ object TestGen {
     clean(conf.testDir)
     generatePythonTests(conf)
     generateDotnetTests(conf)
+    generateRTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
-    if (toDir(conf.pyTestOverrideDir).exists()) {
-      FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
-    }
-    if (toDir(conf.dotnetTestOverrideDir).exists())
-      FileUtils.copyDirectoryToDirectory(toDir(conf.dotnetTestOverrideDir), toDir(conf.dotnetTestDir))
+    generateRPackageData(conf)
+    copyOverrides(conf.pyTestOverrideDir, conf.pyTestDir)
+    copyOverrides(conf.dotnetTestOverrideDir, conf.dotnetTestDir)
+    copyOverrides(conf.rTestOverrideDir, conf.rTestDir)
     makeInitFiles(conf)
     generateDotnetTestProjFile(conf)
     generateDotnetHelperFile(conf)
   }
+
 }

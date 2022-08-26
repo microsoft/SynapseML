@@ -9,7 +9,7 @@ import org.apache.spark.sql.types.{DataType, StructType}
 
 /** Param for DataType */
 class DataTypeParam(parent: Params, name: String, doc: String, isValid: DataType => Boolean)
-  extends ComplexParam[DataType](parent, name, doc, isValid) with DotnetWrappableParam[DataType] {
+  extends ComplexParam[DataType](parent, name, doc, isValid) with WrappableParam[DataType] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: DataType) => true)

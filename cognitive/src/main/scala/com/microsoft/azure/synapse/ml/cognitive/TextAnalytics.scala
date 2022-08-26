@@ -411,6 +411,19 @@ class AnalyzeHealthText(override val uid: String)
     super.postprocessResponse(processedResponseOpt.orNull)
   }
 
+/*
+  override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
+    v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
+      s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
+*/
+
+  /*
+  override def rConstructorLine(v: Seq[TextAnalyzeTask]): String = {
+    val className =  "com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask"
+    val elements = v.map(x => s"""invoke_new(sc, "${className}", ${RWrappableParam.rDefaultRender(x.parameters)})""")
+    s"${rName(v)}=${elements}".replace("=List(", "=list(")
+  }*/
+
   override def postprocessResponseUdf: UserDefinedFunction = {
     UDFUtils.oldUdf(postprocessResponse _, ArrayType(UnpackedAHTResponse.schema))
   }

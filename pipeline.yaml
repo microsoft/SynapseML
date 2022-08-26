@@ -422,10 +422,25 @@ jobs:
     - template: templates/codecov.yml
 
 - job: RTests
+  timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
     vmImage: ubuntu-20.04
+  strategy:
+    matrix:
+      core:
+        PACKAGE: "core"
+      deep-learning:
+        PACKAGE: "deepLearning"
+      lightgbm:
+        PACKAGE: "lightgbm"
+      opencv:
+        PACKAGE: "opencv"
+      vw:
+        PACKAGE: "vw"
+      cognitive:
+        PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache_2.yml
     - template: templates/update_cli.yml
@@ -433,15 +448,20 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      timeoutInMinutes: 30
+      timeoutInMinutes: 60
       inputs:
         azureSubscription: 'MMLSpark Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
+          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testR) || (echo "retrying" && sbt coverage testR) || (echo "retrying" && sbt coverage testR)
+          # tests in opencv and deep-learning source R wrappers from core, so core wrappers must exist
+          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]]; then
+            (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
+          fi
+          (sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
