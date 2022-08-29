@@ -300,7 +300,7 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "org.apache.hadoop" % "hadoop-common" % "3.1.3" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.1,3" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.1.3" % "test",
     ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     name := "synapseml-cognitive"
   ): _*)
