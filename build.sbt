@@ -123,30 +123,6 @@ generatePythonDoc := {
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
 }
 
-val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
-generateDotnetDoc := {
-  Def.sequential(
-    runTaskForAllInCompile(dotnetCodeGen),
-    runTaskForAllInCompile(mergeDotnetCode)
-  ).value
-  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
-  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
-  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
-  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
-  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
-  val fileContent =
-    s"""PROJECT_NAME = "$packageName"
-       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
-       |USE_MDFILE_AS_MAINPAGE = "README.md"
-       |RECURSIVE = YES
-       |""".stripMargin
-  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
-  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
-  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
-  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
-  runCmd(Seq("doxygen"), dotnetSrcDir)
-}
-
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
 packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
@@ -323,8 +299,8 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-common" % "3.1.3" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.1,3" % "test",
     ).map( d => d  excludeAll (cognitiveExcludes: _*)),
     name := "synapseml-cognitive"
   ): _*)
