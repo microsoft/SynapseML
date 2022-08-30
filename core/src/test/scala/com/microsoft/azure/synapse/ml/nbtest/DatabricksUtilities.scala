@@ -210,7 +210,7 @@ object DatabricksUtilities extends HasHttpClient {
   }
 
   def deleteCluster(clusterId: String): Unit = {
-    databricksPost("clusters/delete", s"""{"cluster_id":"$clusterId"}""")
+    databricksPost("clusters/permanent-delete", s"""{"cluster_id":"$clusterId"}""")
     ()
   }
 
