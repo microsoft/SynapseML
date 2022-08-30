@@ -3,6 +3,7 @@
 
 package org.apache.spark.ml.param
 
+import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.collection.JavaConverters._
@@ -27,5 +28,21 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
   override def jsonDecode(json: String): Map[K, V] = {
     json.parseJson.convertTo[Map[K, V]]
   }
+
+}
+
+class StringStringMapParam(parent: Params, name: String, doc: String, isValid: Map[String, String] => Boolean)
+  extends MapParam[String, String](parent, name, doc, isValid) {
+
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, (_: Map[String, String]) => true)
+
+}
+
+class StringIntMapParam(parent: Params, name: String, doc: String, isValid: Map[String, Int] => Boolean)
+  extends MapParam[String, Int](parent, name, doc, isValid) {
+
+  def this(parent: Params, name: String, doc: String) =
+    this(parent, name, doc, (_: Map[String, Int]) => true)
 
 }

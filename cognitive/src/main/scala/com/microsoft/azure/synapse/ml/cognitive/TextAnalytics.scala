@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import com.microsoft.azure.synapse.ml.io.http.HasHandler
-import com.microsoft.azure.synapse.ml.param.{ServiceParam, StringStringMapParam}
+import org.apache.spark.ml.param.{ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer}
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -242,7 +242,7 @@ private[ml] trait HasUnpackedBinding {
 private[ml] abstract class TextAnalyticsBase(uid: String)
   extends TextAnalyticsBaseNoBinding(uid) with HasUnpackedBinding {
 
-    protected def responseBinding: SparkBindings[TAResponse[T]]
+  protected def responseBinding: SparkBindings[TAResponse[T]]
 
   override protected def responseDataType: DataType = responseBinding.schema
 
