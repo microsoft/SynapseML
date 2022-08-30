@@ -5,7 +5,9 @@ package org.apache.spark.ml.param
 
 import spray.json._
 import spray.json.JsonFormat
+
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
@@ -74,5 +76,18 @@ class ServiceParam[T](parent: Params,
       case Right(_) => name + "Col"
     }
   }
+
+}
+
+// Use this class if you want to extend JsonEncodableParam for Cognitive services param
+class CognitiveServiceStructParam[T: TypeTag](parent: Params,
+                                              name: String,
+                                              doc: String,
+                                              isValid: T => Boolean = (_: T) => true)
+                                             (@transient implicit val dataFormat: JsonFormat[T])
+  extends JsonEncodableParam[T](parent, name, doc, isValid)
+    with PythonWrappableParam[T] {
+
+  override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
 
 }

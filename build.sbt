@@ -289,10 +289,6 @@ lazy val vw = (project in file("vw"))
     name := "synapseml-vw"
   ): _*)
 
-val cognitiveExcludes = Seq(
-  ExclusionRule("io.netty", "netty-tcnative-boringssl-static"),
-)
-
 lazy val cognitive = (project in file("cognitive"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
@@ -301,7 +297,7 @@ lazy val cognitive = (project in file("cognitive"))
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
       "org.apache.hadoop" % "hadoop-common" % "3.1.3" % "test",
       "org.apache.hadoop" % "hadoop-azure" % "3.1.3" % "test",
-    ).map( d => d  excludeAll (cognitiveExcludes: _*)),
+    ),
     name := "synapseml-cognitive"
   ): _*)
 

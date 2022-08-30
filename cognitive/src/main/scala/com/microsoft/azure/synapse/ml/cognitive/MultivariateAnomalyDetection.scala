@@ -9,10 +9,10 @@ import com.microsoft.azure.synapse.ml.cognitive.MADJsonProtocol._
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
-import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
+import com.microsoft.azure.synapse.ml.cognitive.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
+import org.apache.spark.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods._
