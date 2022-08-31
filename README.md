@@ -2,27 +2,11 @@
 
 # Synapse Machine Learning
 
-SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
-SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of
-machine learning, analytics, and model deployment workflows.
-SynapseML adds many deep learning and data science tools to the Spark ecosystem,
-including seamless integration of Spark Machine Learning pipelines with the [Open Neural Network Exchange
-(ONNX)](https://onnx.ai),
-[LightGBM](https://github.com/Microsoft/LightGBM),
-[The Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/),
-[Vowpal Wabbit](https://vowpalwabbit.org/), and
-[OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
-for a variety of datasources.
+SynapseML (previously known as MMLSpark), is an open-source library that simplifies the creation of massively scalable machine learning (ML) pipelines. SynapseML provides simple, composable, and distributed APIs for a wide variety of different machine learning tasks such as text analytics, vision, anomaly detection, and many others. SynapseML is built on the [Apache Spark distributed computing framework](https://spark.apache.org/) and shares the same API as the [SparkML/MLLib library](https://spark.apache.org/mllib/), allowing you to seamlessly embed SynapseML models into existing Apache Spark workflows.
 
-SynapseML also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users
-can embed **any** web service into their SparkML models.
-For production grade deployment, the Spark Serving project enables high throughput,
-sub-millisecond latency web services, backed by your Spark cluster.
+With SynapseML, you can build scalable and intelligent systems to solve challenges in domains such as anomaly detection, computer vision, deep learning, text analytics, and others. SynapseML can train and evaluate models on single-node, multi-node, and elastically resizable clusters of computers. This lets you scale your work without wasting resources. SynapseML is usable across Python, R, Scala, Java, and .NET. Furthermore, its API abstracts over a wide variety of databases, file systems, and cloud data stores to simplify experiments no matter where data is located.
 
-SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
-See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/0.10.1/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/0.10.1/pyspark/index.html).
+SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
 
 | Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 |:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
