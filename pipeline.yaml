@@ -5,6 +5,7 @@ trigger:
   branches:
     include:
     - master
+    - spark3.1
   paths:
     exclude:
     - README.md
@@ -16,6 +17,7 @@ pr:
   branches:
     include:
     - master
+    - spark3.1
   paths:
     exclude:
     - README.md
