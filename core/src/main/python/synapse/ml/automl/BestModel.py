@@ -3,7 +3,7 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.automl._BestModel import _BestModel

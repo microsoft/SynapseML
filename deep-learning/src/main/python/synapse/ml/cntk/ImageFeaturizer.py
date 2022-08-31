@@ -3,12 +3,13 @@
 
 import sys
 
-if sys.version >= '3':
+if sys.version >= "3":
     basestring = str
 
 from synapse.ml.cntk._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
 from pyspark.sql import SparkSession
+
 
 @inherit_doc
 class ImageFeaturizer(_ImageFeaturizer):
@@ -18,6 +19,7 @@ class ImageFeaturizer(_ImageFeaturizer):
         SparkSession (SparkSession): The SparkSession that will be used to find the model
         ocation (str): The location of the model, either on local or HDFS
     """
+
     def setModelLocation(self, location):
         self._java_obj = self._java_obj.setModelLocation(location)
         return self

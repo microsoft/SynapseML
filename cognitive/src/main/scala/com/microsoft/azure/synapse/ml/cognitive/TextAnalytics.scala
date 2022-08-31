@@ -390,6 +390,37 @@ class EntityDetector(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/entities/linking"
 }
 
+object AnalyzeHealthText extends ComplexParamsReadable[AnalyzeHealthText]
+
+class AnalyzeHealthText(override val uid: String)
+  extends TextAnalyticsBaseNoBinding(uid)
+    with HasUnpackedBinding
+    with HasStringIndexType with BasicAsyncReply {
+  logClass()
+
+  type T = AnalyzeHealthTextScoredDoc
+
+  def this() = this(Identifiable.randomUID("AnalyzeHealthText"))
+
+  override def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
+    val processedResponseOpt = Option(responseOpt).map { response =>
+      response.getAs[Row]("results")
+    }
+    super.postprocessResponse(processedResponseOpt.orNull)
+  }
+
+  override def postprocessResponseUdf: UserDefinedFunction = {
+    UDFUtils.oldUdf(postprocessResponse _, ArrayType(UnpackedAHTResponse.schema))
+  }
+
+  def unpackedResponseBinding: UnpackedAHTResponse.type = UnpackedAHTResponse
+
+  override def urlPath: String = "/text/analytics/v3.1/entities/health/jobs"
+
+  override protected def responseDataType: DataType = AnalyzeHealthTextResponse.schema
+
+}
+
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
 
 class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(uid)

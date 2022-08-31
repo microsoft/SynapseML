@@ -13,18 +13,19 @@ from synapsemltest.spark import *
 
 
 class VowpalWabbitSpec(unittest.TestCase):
-
     def get_data(self):
         # create sample data
-        schema = StructType([StructField("label", DoubleType()),
-                              StructField("text", StringType())])
+        schema = StructType(
+            [StructField("label", DoubleType()), StructField("text", StringType())]
+        )
 
-        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame([
-            (-1.0, "mountains are nice"),
-            ( 1.0, "do you have the TPS reports ready?")], schema)
+        data = pyspark.sql.SparkSession.builder.getOrCreate().createDataFrame(
+            [(-1.0, "mountains are nice"), (1.0, "do you have the TPS reports ready?")],
+            schema,
+        )
 
         # featurize data
-        featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=['text'])
+        featurizer = VowpalWabbitFeaturizer(stringSplitInputCols=["text"])
         return featurizer.transform(data)
 
     def save_model(self, estimator):
@@ -32,7 +33,7 @@ class VowpalWabbitSpec(unittest.TestCase):
 
         # write model to file and validate it's there
         with tempfile.TemporaryDirectory() as tmpdirname:
-            modelFile = '{}/model'.format(tmpdirname)
+            modelFile = "{}/model".format(tmpdirname)
 
             model.saveNativeModel(modelFile)
 
@@ -54,6 +55,7 @@ class VowpalWabbitSpec(unittest.TestCase):
         estimator2.setInitialModel(model1)
 
         model2 = estimator2.fit(featurized_data)
+
 
 if __name__ == "__main__":
     result = unittest.main()

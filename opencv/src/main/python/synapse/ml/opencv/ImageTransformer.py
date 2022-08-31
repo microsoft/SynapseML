@@ -23,7 +23,9 @@ ImageSchema = StructType(
         StructField(ImageFields[1], IntegerType(), True),
         StructField(ImageFields[2], IntegerType(), True),
         StructField(ImageFields[3], IntegerType(), True),
-        StructField(ImageFields[4], IntegerType(), True),  # OpenCV type: CV_8U in most cases
+        StructField(
+            ImageFields[4], IntegerType(), True
+        ),  # OpenCV type: CV_8U in most cases
         StructField(ImageFields[5], BinaryType(), True),
     ]
 )  # OpenCV bytes: row-wise BGR in most cases
@@ -39,7 +41,9 @@ def toNDArray(image):
     Returns:
         array: The image as a 1-dimensional array
     """
-    return np.asarray(image.data, dtype=np.uint8).reshape((image.height, image.width, 3))[:, :, (2, 1, 0)]
+    return np.asarray(image.data, dtype=np.uint8).reshape(
+        (image.height, image.width, 3)
+    )[:, :, (2, 1, 0)]
 
 
 def toImage(array, path="", mode=16):

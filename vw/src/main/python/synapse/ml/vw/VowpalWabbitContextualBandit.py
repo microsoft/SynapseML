@@ -19,7 +19,6 @@ def to_java_params(sc, model, pyParamMap):
 
 @inherit_doc
 class VowpalWabbitContextualBandit(_VowpalWabbitContextualBandit):
-
     def setInitialModel(self, model):
         """
         Initialize the estimator with a previously trained model.
@@ -32,4 +31,3 @@ class VowpalWabbitContextualBandit(_VowpalWabbitContextualBandit):
         javaParamMaps = [to_java_params(sc, self, x) for x in param_maps]
         javaModels = self._java_obj.parallelFit(dataset._jdf, javaParamMaps)
         return [self._copyValues(self._create_model(x)) for x in javaModels]
-
