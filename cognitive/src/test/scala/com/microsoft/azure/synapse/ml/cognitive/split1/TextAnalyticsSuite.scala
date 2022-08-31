@@ -243,6 +243,38 @@ class PIISuite extends TATestBase[PII] {
 
 }
 
+class AnalyzeHealthTextSuite extends TATestBase[AnalyzeHealthText] {
+
+  import spark.implicits._
+
+  override def df: DataFrame = Seq(
+    ("en", "20mg of ibuprofen twice a day"),
+    ("en", "1tsp of Tylenol every 4 hours"),
+    ("en", "6-drops of Vitamin B-12 every evening"),
+    ("en", null),
+    ("en", "7-drops of Vitamin D every evening")
+  ).toDF("language", "text")
+
+  override def model: AnalyzeHealthText = new AnalyzeHealthText()
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
+    .setLanguage("en")
+    .setOutputCol("output")
+
+  test("Basic Usage") {
+    val results = prepResults(model.transform(df.coalesce(1)))
+    assert(results.head.get.document.get.entities.head.category == "Dosage")
+    assert(results(3).get.document.isEmpty)
+    assert(results(4).get.document.get.entities.head.category == "Dosage")
+  }
+
+  override def reader: MLReadable[_] = AnalyzeHealthText
+
+  override def testObjects(): Seq[TestObject[AnalyzeHealthText]] =
+    Seq(new TestObject[AnalyzeHealthText](model, df))
+
+}
+
 class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint {
 
   import spark.implicits._
