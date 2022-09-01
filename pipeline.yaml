@@ -329,11 +329,6 @@ jobs:
           source activate synapseml
           sbt coverage getDatasets installPipPackage
           sbt publishM2
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
-          sudo apt-get upgrade -y
-          sudo apt-get install gcc-4.9 -y
-          sudo apt-get install --only-upgrade libstdc++6 -y
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
