@@ -249,7 +249,7 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
       .withColumn("sentLen", flatten(col("result.sentLen")))
       .select("sentLen").collect()
     val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "25")
+    assert(headStr === "3")
   }
 
   override def testObjects(): Seq[TestObject[BreakSentence]] =
