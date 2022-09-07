@@ -21,9 +21,9 @@ trait TranslatorUtils extends TestBase {
 
   import spark.implicits._
 
-  lazy val textDf1: DataFrame = Seq(List("Hello, what is your name?")).toDF("text")
+  lazy val textDf1: DataFrame = Seq(List("Bye")).toDF("text")
 
-  lazy val  textDf2: DataFrame = Seq(List("Hello, what is your name?", "Bye")).toDF("text")
+  lazy val  textDf2: DataFrame = Seq(List("Good morning", "Bye")).toDF("text")
 
   lazy val textDf3: DataFrame = Seq(List("This is bullshit.")).toDF("text")
 
@@ -62,7 +62,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate multiple pieces of text with language autodetection") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "您好，您叫什么名字？\n再见")
+    assert(result1(0).getSeq(0).mkString("\n") == "早上好\n再见")
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -103,13 +103,13 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("transliteration", col("translation.transliteration.text"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "您好，您叫什么名字？")
-    assert(results.head.getSeq(1).mkString("\n") === "nín hǎo ， nín jiào shén me míng zì ？")
+    assert(results.head.getSeq(0).mkString("\n") === "再见")
+    assert(results.head.getSeq(1).mkString("\n") === "zài jiàn")
   }
 
   test("Translate to multiple languages") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "您好，您叫什么名字？\nHallo, wie heißt du?")
+    assert(result1(0).getSeq(0).mkString("\n") == "再见\nAuf Wiedersehen")
   }
 
   test("Handle profanity") {
@@ -136,8 +136,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("alignment", col("translation.alignment.proj"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "alignment").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Bonjour, quel est votre nom?")
-    assert(results.head.getSeq(1).mkString("\n") === "0:5-0:7 7:10-9:12 12:13-14:16 15:18-18:22 20:24-24:27")
+    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+    assert(results.head.getSeq(1).mkString("\n") === "0:2-0:8")
   }
 
   test("Obtain sentence boundaries") {
@@ -151,9 +151,9 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("transSentLen", flatten(col("translation.sentLen.transSentLen")))
       .withColumn("translation", col("translation.text"))
       .select("translation", "srcSentLen", "transSentLen").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Bonjour, quel est votre nom?")
-    assert(results.head.getSeq(1).mkString("\n") === "25")
-    assert(results.head.getSeq(2).mkString("\n") === "28")
+    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+    assert(results.head.getSeq(1).mkString("\n") === "3")
+    assert(results.head.getSeq(2).mkString("\n") === "9")
   }
 
   test("Translate with dynamic dictionary") {
