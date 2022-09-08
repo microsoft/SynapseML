@@ -5,6 +5,7 @@ trigger:
   branches:
     include:
     - master
+    - spark3.1
   paths:
     exclude:
     - README.md
@@ -16,6 +17,7 @@ pr:
   branches:
     include:
     - master
+    - spark3.1
   paths:
     exclude:
     - README.md
@@ -99,8 +101,6 @@ jobs:
     matrix:
       databricks-cpu:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests"
-      databricks-gpu:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
   steps:
@@ -449,6 +449,9 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
+          echo "removing ivy2 cache"
+          sudo rm -rf ~/.ivy2/cache
+          sbt publishLocal
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
