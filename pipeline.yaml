@@ -641,16 +641,6 @@ jobs:
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
-    - bash: |
-        set -e
-        curl https://archive.apache.org/dist/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz -o spark-3.1.2-bin-hadoop3.2.tgz
-        mkdir ~/bin
-        tar -xzvf spark-3.1.2-bin-hadoop3.2.tgz -C ~/bin
-        export SPARK_HOME=~/bin/spark-3.1.2-bin-hadoop3.2/
-        export PATH=$SPARK_HOME/bin:$PATH
-        echo "##vso[task.setvariable variable=SPARK_HOME]$SPARK_HOME"
-        echo "##vso[task.setvariable variable=PATH]$SPARK_HOME/bin:$PATH"
-      displayName: 'Install Apache Spark-3.1'
     - task: AzureCLI@2
       displayName: 'Setup repo'
       inputs:
