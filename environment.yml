@@ -4,7 +4,7 @@ channels:
   - default
 dependencies:
   - python=3.8.8
-  - pyspark=3.2.2
+  - pyspark=3.1.3
   - requests=2.26.0
   - pip=21.3
   - r-base=4.1.1

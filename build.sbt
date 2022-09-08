@@ -9,16 +9,17 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.2"
+val sparkVersion = "3.1.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.10"
 
 val scalaMajorVersion = 2.12
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
-  ExclusionRule("org.scalatest")
+  ExclusionRule("org.scalatest"),
+  ExclusionRule("org.json4s", s"json4s-ast_$scalaMajorVersion"),
 )
 
 val coreDependencies = Seq(
@@ -29,11 +30,11 @@ val coreDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.5",
-  "io.spray" %% "spray-json" % "1.3.5",
+  "io.spray" %% "spray-json" % "1.3.2",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
   "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
