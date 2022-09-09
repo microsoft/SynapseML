@@ -14,7 +14,22 @@ from synapse.ml.dl.DeepTextModel import DeepTextModel
 from synapse.ml.dl.LitDeepTextModel import LitDeepTextModel
 from synapse.ml.dl.utils import keywords_catch
 from synapse.ml.dl.PredictionParams import TextPredictionParams
-from transformers import AutoTokenizer
+
+_TRANSFORMERS_AVAILABLE = _module_available("transformers")
+if _TRANSFORMERS_AVAILABLE:
+    import transformers
+
+    _TRANSFORMERS_EQUAL_4_15_0 = transformers.__version__ == "4.15.0"
+    if _TRANSFORMERS_EQUAL_4_15_0:
+        from transformers import AutoTokenizer
+    else:
+        raise RuntimeError(
+            "transformers should be == 4.15.0, found: {}".format(
+                transformers.__version__
+            )
+        )
+else:
+    raise ModuleNotFoundError("module not found: transformers")
 
 
 class DeepTextClassifier(TorchEstimator, TextPredictionParams):
@@ -26,7 +41,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
     additional_layers_to_train = Param(
         Params._dummy(),
         "additional_layers_to_train",
-        "number of last layers to fine tune for the model, should be between 0 and 3",
+        "number of last layers to fine tune for the model, should be larger or equal to 0. default to 3.",
     )
 
     num_classes = Param(Params._dummy(), "num_classes", "number of target classes")
@@ -42,18 +57,28 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         "optimizer_name",
         "string representation of optimizer function for the underlying pytorch_lightning model",
     )
-    
+
+    tokenizer = Param(Params._dummy(), "tokenizer", "tokenizer")
+
     max_token_len = Param(Params._dummy(), "max_token_len", "max_token_len")
+
+    train_from_scratch = Param(
+        Params._dummy(),
+        "train_from_scratch",
+        "whether to train the model from scratch or not, if set to False then param additional_layers_to_train need to be specified.",
+    )
 
     @keywords_catch
     def __init__(
         self,
         checkpoint=None,
-        additional_layers_to_train=0,
+        additional_layers_to_train=3,  # this is needed otherwise the performance is usually bad
         num_classes=None,
         optimizer_name="adam",
         loss_name="cross_entropy",
-        max_token_len=100,
+        tokenizer=None,
+        max_token_len=128,
+        train_from_scratch=True,
         # Classifier args
         label_col="label",
         text_col="text",
@@ -106,11 +131,13 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
 
         self._setDefault(
             checkpoint=None,
-            additional_layers_to_train=0,
+            additional_layers_to_train=3,
             num_classes=None,
             optimizer_name="adam",
             loss_name="cross_entropy",
-            max_token_len=100,
+            tokenizer=None,
+            max_token_len=128,
+            train_from_scratch=True,
             feature_cols=["text"],
             label_cols=["label"],
             label_col="label",
@@ -132,6 +159,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
             loss_name=self.getLossName(),
             label_col=self.getLabelCol(),
             text_col=self.getTextCol(),
+            train_from_scratch=self.getTrainFromScratch(),
         )
         self._set(model=model)
 
@@ -165,12 +193,23 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
     def getOptimizerName(self):
         return self.getOrDefault(self.optimizer_name)
 
+    def setTokenizer(self, value):
+        return self._set(tokenizer=value)
+
+    def getTokenizer(self):
+        return self.getOrDefault(self.tokenizer)
+
     def setMaxTokenLen(self, value):
         return self._set(max_token_len=value)
 
     def getMaxTokenLen(self):
         return self.getOrDefault(self.max_token_len)
-    
+
+    def setTrainFromScratch(self, value):
+        return self._set(train_from_scratch=value)
+
+    def getTrainFromScratch(self):
+        return self.getOrDefault(self.train_from_scratch)
 
     def _update_cols(self):
         self.setFeatureCols([self.getTextCol()])
@@ -207,28 +246,33 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         return None
 
     def _update_transformation_fn(self):
-        
+
         text_col = self.getTextCol()
         label_col = self.getLabelCol()
         max_token_len = self.getMaxTokenLen()
         # load it inside to avoid `Already borrowed` error (https://github.com/huggingface/tokenizers/issues/537)
-        tokenizer = AutoTokenizer.from_pretrained(self.getCheckpoint())
+        if self.getTokenizer() is None:
+            self.setTokenizer(AutoTokenizer.from_pretrained(self.getCheckpoint()))
+        tokenizer = self.getTokenizer()
 
         def _encoding_text(row):
             text = row[text_col]
             label = row[label_col]
-            encoding = tokenizer(text,
-                                 return_token_type_ids=False,
-                                 max_length=max_token_len,
-                                 padding="max_length",
-                                 truncation=True,
-                                 return_attention_mask=True,
-                                 return_tensors="pt")
+            encoding = tokenizer(
+                text,
+                max_length=max_token_len,
+                padding="max_length",
+                truncation=True,
+                return_attention_mask=True,
+                return_tensors="pt",
+            )
             input_ids = encoding["input_ids"].flatten().numpy()
             attention_mask = encoding["attention_mask"].flatten().numpy()
-            return {"input_ids": input_ids,
-                    "attention_mask": attention_mask,
-                    "labels": torch.tensor(label, dtype=int)}
+            return {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "labels": torch.tensor(label, dtype=int),
+            }
 
         self.setTransformationFn(_encoding_text)
 
@@ -245,6 +289,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
             _metadata=metadata,
             loss=self.getLoss(),
             loss_constructors=self.getLossConstructors(),
+            tokenizer=self.getTokenizer(),
             checkpoint=self.getCheckpoint(),
             max_token_len=self.getMaxTokenLen(),
             label_col=self.getLabelCol(),

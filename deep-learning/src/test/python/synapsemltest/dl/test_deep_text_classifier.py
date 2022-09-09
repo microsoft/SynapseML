@@ -7,12 +7,13 @@ from pyspark.sql import SparkSession
 from pytorch_lightning.callbacks import ModelCheckpoint
 from synapse.ml.dl import *
 
+import pytest
 from .conftest import CallbackBackend, _prepare_text_data
 from .test_deep_vision_classifier import local_store
 from .test_deep_vision_model import MyDummyCallback
-# from .....main.python.synapse.ml.dl import *
 
 
+@pytest.mark.skip(reason="not testing this for now")
 def test_bert_base_cased():
     spark = SparkSession.builder.master("local[*]").getOrCreate()
 
@@ -23,23 +24,29 @@ def test_bert_base_cased():
     epochs = 2
     callbacks = [
         MyDummyCallback(epochs),
-        ModelCheckpoint(dirpath="target/bert_base_cased/"),
+        ModelCheckpoint(dirpath="target/bert_base_uncased/"),
     ]
 
     with local_store() as store:
 
-        checkpoint = "bert-base-cased"
+        checkpoint = "bert-base-uncased"
 
         deep_text_classifier = DeepTextClassifier(
             checkpoint=checkpoint,
             store=store,
             backend=ctx,
             callbacks=callbacks,
-            num_classes=5,
-            batch_size=64,
+            num_classes=6,
+            batch_size=16,
             epochs=epochs,
             validation=0.1,
-            text_col="OriginalTweet",
+            text_col="Text",
+            transformation_edit_fields=[
+                ("input_ids", int, None, True),
+                ("attention_mask", int, None, True),
+                ("labels", int, None, False),
+            ],
+            transformation_removed_fields=["Text", "Emotion", "label"],
         )
 
         deep_text_model = deep_text_classifier.fit(train_df)

@@ -11,11 +11,13 @@ from transformers import AutoTokenizer
 
 
 class DeepTextModel(TorchModel, TextPredictionParams):
-    
+
+    tokenizer = Param(Params._dummy(), "tokenizer", "tokenizer")
+
     checkpoint = Param(
         Params._dummy(), "checkpoint", "checkpoint of the deep text classifier"
     )
-  
+
     max_token_len = Param(Params._dummy(), "max_token_len", "max_token_len")
 
     @keywords_catch
@@ -31,7 +33,8 @@ class DeepTextModel(TorchModel, TextPredictionParams):
         loss_constructors=None,
         # diff from horovod
         checkpoint=None,
-        max_token_len=100,
+        tokenizer=None,
+        max_token_len=128,
         label_col="label",
         text_col="text",
         prediction_col="prediction",
@@ -44,7 +47,7 @@ class DeepTextModel(TorchModel, TextPredictionParams):
             loss_constructors=None,
             input_shapes=None,
             checkpoint=None,
-            max_token_len=100,
+            max_token_len=128,
             text_col="text",
             label_col="label",
             prediction_col="prediction",
@@ -57,12 +60,18 @@ class DeepTextModel(TorchModel, TextPredictionParams):
         self._set(**kwargs)
         self._update_cols()
 
+    def setTokenizer(self, value):
+        return self._set(tokenizer=value)
+
+    def getTokenizer(self):
+        return self.getOrDefault(self.tokenizer)
+
     def setCheckpoint(self, value):
         return self._set(checkpoint=value)
 
     def getCheckpoint(self):
         return self.getOrDefault(self.checkpoint)
-    
+
     def setMaxTokenLen(self, value):
         return self._set(max_token_len=value)
 
@@ -77,21 +86,22 @@ class DeepTextModel(TorchModel, TextPredictionParams):
     def get_prediction_fn(self):
         text_col = self.getTextCol()
         max_token_len = self.getMaxTokenLen()
-        tokenizer = AutoTokenizer.from_pretrained(self.getCheckpoint())
-        
+        tokenizer = self.getTokenizer()
+
         def predict_fn(model, row):
-            text = row[text_col]        
-            data = tokenizer(text,
-                             max_length=max_token_len,
-                             padding="max_length",
-                             return_token_type_ids=False,
-                             truncation=True,
-                             return_attention_mask=True,
-                             return_tensors="pt")
+            text = row[text_col]
+            data = tokenizer(
+                text,
+                max_length=max_token_len,
+                padding="max_length",
+                truncation=True,
+                return_attention_mask=True,
+                return_tensors="pt",
+            )
             with torch.no_grad():
                 outputs = model(**data)
-                pred = outputs.logits
-            
+                pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
+
             return pred
 
         return predict_fn

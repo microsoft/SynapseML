@@ -97,28 +97,26 @@ def transform():
 def _prepare_text_data(spark):
 
     urllib.request.urlretrieve(
-        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Corona_NLP_train.csv",
-        dataset_dir + "target/Corona_NLP_train.csv",
-    )
-    urllib.request.urlretrieve(
-        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Corona_NLP_test.csv",
-        dataset_dir + "target/Corona_NLP_test.csv",
+        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Emotion_classification.csv",
+        dataset_dir + "target/Emotion_classification.csv",
     )
 
-    encoding = "cp1252"
+    # encoding = "cp1252"
 
-    train_df = pd.read_csv(dataset_dir + "target/Corona_NLP_train.csv", encoding=encoding)
-    train_df = spark.createDataFrame(train_df)
+    # train_df = pd.read_csv(
+    #     dataset_dir + "target/Corona_NLP_train.csv", encoding=encoding
+    # )
+    # train_df = spark.createDataFrame(train_df)
 
-    indexer = StringIndexer(inputCol="Sentiment", outputCol="label")
-    indexer_model = indexer.fit(train_df)
-    train_df = indexer_model.transform(train_df)
+    df = pd.read_csv("/tmp/Emotion_classification.csv")
+    df = spark.createDataFrame(df)
 
-    test_df = pd.read_csv(dataset_dir + "target/Corona_NLP_test.csv", encoding=encoding)
-    test_df = spark.createDataFrame(test_df)
-    test_df = indexer_model.transform(test_df)
+    indexer = StringIndexer(inputCol="Emotion", outputCol="label")
+    indexer_model = indexer.fit(df)
+    df = indexer_model.transform(df)
 
-    os.remove(dataset_dir + "target/Corona_NLP_train.csv")
-    os.remove(dataset_dir + "target/Corona_NLP_test.csv")
+    train_df, test_df = df.randomSplit([0.85, 0.15], seed=1)
+
+    os.remove(dataset_dir + "target/Emotion_classification.csv")
 
     return train_df, test_df
