@@ -19,17 +19,20 @@ val scalaMajorVersion = 2.12
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
   ExclusionRule("org.scalatest"),
-  ExclusionRule("org.json4s", s"json4s-ast_$scalaMajorVersion"),
+  ExclusionRule("org.json4s", s"json4s-ast_$scalaMajorVersion")
 )
 
 val coreDependencies = Seq(
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "org.scalatest" %% "scalatest" % "3.0.5" % "test")
 val extraDependencies = Seq(
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.0",
+  "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-base" % "2.10.0",
+  "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-json-provider" % "2.10.0",
+  "com.fasterxml.jackson.module" % "jackson-module-jaxb-annotations" % "2.10.0",
   "org.scalactic" %% "scalactic" % "3.0.5",
   "io.spray" %% "spray-json" % "1.3.2",
   "com.jcraft" % "jsch" % "0.1.54",
