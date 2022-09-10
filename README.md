@@ -175,7 +175,7 @@ The easiest way to evaluate SynapseML is via our pre-built Docker container.  To
 do so, run the following command:
 
 ```bash
-docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release
+docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release jupyter notebook
 ```
 
 Navigate to <http://localhost:8888/> in your web browser to run the sample
