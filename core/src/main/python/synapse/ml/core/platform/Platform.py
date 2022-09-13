@@ -3,6 +3,7 @@
 import os
 
 
+PLATFORM_TRIDENT = "trident"
 PLATFORM_SYNAPSE = "synapse"
 PLATFORM_BINDER = "binder"
 PLATFORM_DATABRICKS = "databricks"
@@ -12,7 +13,9 @@ SYNAPSE_PROJECT_NAME = "Microsoft.ProjectArcadia"
 
 
 def current_platform():
-    if os.environ.get("AZURE_SERVICE", None) == SYNAPSE_PROJECT_NAME:
+    if "lakehouse" in os.listdir("/"):
+        return PLATFORM_TRIDENT
+    elif os.environ.get("AZURE_SERVICE", None) == SYNAPSE_PROJECT_NAME:
         return PLATFORM_SYNAPSE
     elif "dbfs" in os.listdir("/"):
         return PLATFORM_DATABRICKS
@@ -20,6 +23,10 @@ def current_platform():
         return PLATFORM_BINDER
     else:
         return PLATFORM_UNKNOWN
+
+
+def running_on_trident():
+    return current_platform() is PLATFORM_TRIDENT
 
 
 def running_on_synapse():
