@@ -3,7 +3,7 @@
 import os
 
 
-PLATFORM_SYNAPSE_INTERNAL = "trident"
+PLATFORM_SYNAPSE_INTERNAL = "synapse_internal"
 PLATFORM_SYNAPSE = "synapse"
 PLATFORM_BINDER = "binder"
 PLATFORM_DATABRICKS = "databricks"
