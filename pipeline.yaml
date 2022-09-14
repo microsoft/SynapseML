@@ -456,6 +456,7 @@ jobs:
           if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]]; then
             (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
           fi
+          sbt publishM2
           (sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && sbt "project $(PACKAGE)" coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
