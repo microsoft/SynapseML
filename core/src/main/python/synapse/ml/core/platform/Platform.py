@@ -19,10 +19,8 @@ def current_platform():
         cluster_type = sc.getConf().get("spark.cluster.type")
         if cluster_type == "synapse":
             return PLATFORM_SYNAPSE
-        elif cluster_type == "trident":
-            return PLATFORM_SYNAPSE_INTERNAL
         else:
-            return PLATFORM_UNKNOWN
+            return PLATFORM_SYNAPSE_INTERNAL
     elif "dbfs" in os.listdir("/"):
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
