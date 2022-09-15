@@ -35,8 +35,7 @@ object ModelEquality {
       p1 match {
         case pe1: ParamEquality[_] =>
           pe1.assertEquality(v1, v2)
-        case _ if Set("inputCol", "outputCol",
-          "errorCol", "featuresCol")(paramName) => // These usually have UIDs in them
+        case _ if Set("inputCol", "outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs
           assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length, s"$v1 != $v2")
         case _ if Set("defaultListenPort")(paramName) => // Randomly assigned ports in LightGBM
           assert(v1.asInstanceOf[Int] > 0 && v1.asInstanceOf[Int] > 0)
@@ -76,7 +75,6 @@ object ModelEquality {
 
   private def companion[T](name: String)(implicit man: Manifest[T]): T =
     Class.forName(name + "$").getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
-
 
   def assertEqual(modelClassName: String, path1: String, path2: String): Unit = {
     val companionObject = companion[MLReadable[_ <: Params]](modelClassName)

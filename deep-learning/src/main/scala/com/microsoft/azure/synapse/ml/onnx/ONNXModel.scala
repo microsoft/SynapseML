@@ -84,7 +84,7 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
     "deviceType",
     "Specify a device type the model inference runs on. Supported types are: CPU or CUDA." +
       "If not specified, auto detection will be used.",
-    ParamValidators.inArray(Array("CPU", "CUDA"))
+    {x => Set("CPU", "CUDA")(x.toUpperCase())}
   )
 
   def getDeviceType: String = $(deviceType)
@@ -295,7 +295,7 @@ object ONNXModel extends ComplexParamsReadable[ONNXModel] with Logging {
   }
 
   private[onnx] def selectGpuDevice(deviceType: Option[String]): Option[Int] = {
-    deviceType match {
+    deviceType.map(_.toUpperCase) match {
       case None | Some("CUDA") =>
         val gpuNum = TaskContext.get().resources().get("gpu").flatMap(_.addresses.map(_.toInt).headOption)
         gpuNum

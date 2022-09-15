@@ -44,7 +44,9 @@ case class CodegenConfig(name: String,
   def rSrcRoot: File = new File(srcDir, "R")
   def rSrcDir: File = new File(rSrcRoot, "synapseml/R")
   def rPackageDir: File = new File(packageDir, "R")
-  def rTestDir: File = new File(rSrcRoot, "synapseml/tests")
+  def rTestDir: File = new File(testDir, "R/tests")
+  def rTestThatDir: File = new File(rTestDir, "testthat")
+  def rTestDataDir: File = new File(testDataDir, "R")
   def rTestOverrideDir: File = new File(topDir, "src/test/R")
 
   def rSrcOverrideDir: File = new File(topDir, "src/main/R")
