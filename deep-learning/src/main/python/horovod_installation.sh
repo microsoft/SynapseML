@@ -38,7 +38,8 @@ cd horovod
 # git fetch origin refs/tags/v0.25.0:tags/v0.25.0
 # git checkout tags/v0.25.0 -b v0.25.0-branch
 # fix to this commit number until they release a new version
-git checkout -b v0.25.0-branch ab97fd15bbba3258adcdd12983f36a1cdeacbc94
+git checkout ab97fd15bbba3258adcdd12983f36a1cdeacbc94
+git checkout -b tmp-branch
 rm -rf build/ dist/
 HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 \
 /databricks/python3/bin/python setup.py bdist_wheel
