@@ -3,12 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-import com.microsoft.azure.synapse.ml.core.test.base.{SparkSessionFactory, TestBase}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.slf4j.LoggerFactory
 
 class VerifyClusterUtil extends TestBase {
   test("Verify ClusterUtil can get default number of executor cores based on master") {
-    val spark = SparkSessionFactory.getSession("verifyClusterUtil-Session")
     val log = LoggerFactory.getLogger("VerifyClusterUtil")
 
     // https://spark.apache.org/docs/latest/configuration.html

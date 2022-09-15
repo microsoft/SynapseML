@@ -25,7 +25,7 @@ function all_examples_for_type(folder, type) {
 
 function all_examples() {
   let ex_links = [
-    `features/other/AzureSearchIndex - Met Artworks.md`,
+    `features/cognitive_services/CognitiveServices - Overview.md`,
     `features/classification/Classification - Adult Census.md`,
     `features/cognitive_services/CognitiveServices - Overview.md`,
     `features/geospatial_services/GeospatialServices - Overview.md`,

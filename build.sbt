@@ -31,8 +31,8 @@ val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.5",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
-  "org.apache.httpcomponents" % "httpclient" % "4.5.6",
-  "org.apache.httpcomponents" % "httpmime" % "4.5.6",
+  "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
+  "org.apache.httpcomponents" % "httpmime" % "4.5.13",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
@@ -369,6 +369,7 @@ val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
   Test / parallelExecution := false,
+  Test / publishArtifact := true,
   assembly / test := {},
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
