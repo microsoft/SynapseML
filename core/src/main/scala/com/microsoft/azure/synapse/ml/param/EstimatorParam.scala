@@ -8,8 +8,10 @@ import com.microsoft.azure.synapse.ml.core.utils.{ModelEquality, ParamEquality}
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.{Estimator, Model, Pipeline, PipelineStage}
 
-trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappableParam[T]
-  with ParamEquality[T] with ExternalDotnetWrappableParam[T] {
+
+trait PipelineStageWrappable[T <: PipelineStage]
+  extends ParamEquality[T]
+  with ExternalWrappableParam[T] {
 
   override def pyValue(v: T): String = {
     s"""${name}Model"""
@@ -21,6 +23,17 @@ trait PipelineStageWrappable[T <: PipelineStage] extends ExternalPythonWrappable
        |${name}Model = Pipeline.load(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
        |${name}Model = ${name}Model.getStages()[0]
        |""".stripMargin
+  }
+
+  override def rValue(v: T): String = {
+    s"""${name}Model"""
+  }
+
+  override def rLoadLine(modelNum: Int): String = {
+    s"""
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
+       """.stripMargin
   }
 
   override private[ml] def dotnetTestValue(v: T): String = {
@@ -76,5 +89,16 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
 
   override private[ml] def dotnetGetter(capName: String): String =
     dotnetGetterHelper(dotnetReturnType, "JavaPipelineStage", capName)
+
+  def rValue(v: Estimator[_]): String = {
+    s"""${name}Model"""
+  }
+
+  override def rLoadLine(modelNum: Int): String = {
+    s"""
+       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
+       |${name}Model <- ml_stages(${name}Model)[[1]]
+     """.stripMargin
+  }
 
 }

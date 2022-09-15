@@ -73,6 +73,11 @@ trait HasImageInput extends HasImageUrl
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
+    if (get(imageUrl).orElse(get(imageBytes)).isEmpty){
+      throw new IllegalArgumentException("Please set one of the" +
+        " imageUrl, imageUrlCol, imageBytes, imageBytesCol parameters.")
+    }
+
     { row: Row =>
       if (shouldSkip(row)) {
         None
@@ -211,7 +216,7 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 
 trait BasicAsyncReply extends HasAsyncReply {
 
-  protected def queryForResult(key: Option[String],
+  override protected def queryForResult(key: Option[String],
                                client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
@@ -229,23 +234,25 @@ trait BasicAsyncReply extends HasAsyncReply {
     }
   }
 
-  private def getRetriesExceededHTTPResponseData(maxTries: Int) = {
+  private def getRetriesExceededData(maxTries: Int) = {
     val headers = Array[HeaderData]()
     val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" +
-          s"SynapseML: Querying for results did not complete within ${maxTries} tries" + "\"}}";
+          s"SynapseML: Querying for results did not complete within $maxTries tries" + "\"}}"
     val errorResponse = errorResponseString.getBytes()
     val entityData = EntityData(
       errorResponse,
       None,
       Some(errorResponse.length.toLong),
       Some(HeaderData("Content-Type", "application/json")),
-      false,
-      false,
-      false)
+      isChunked = false,
+      isRepeatable = false,
+      isStreaming = false)
+    //scalastyle:off magic.number
     val statusLineData = StatusLineData(
       ProtocolVersionData("1.1", 1, 1),
       418,
       s"SynapseML: Querying for results did not complete within $maxTries tries")
+    //scalastyle:on magic.number
     new HTTPResponseData(headers, Some(entityData), statusLineData, "en-us")
 
   }
@@ -272,8 +279,8 @@ trait BasicAsyncReply extends HasAsyncReply {
       if (it.hasNext) {
         it.next()
       } else {
-        if (getSuppressMaxRetriesExceededException){
-          getRetriesExceededHTTPResponseData(maxTries)
+        if (getSuppressMaxRetriesException){
+          getRetriesExceededData(maxTries)
         } else {
           throw new TimeoutException(
             s"Querying for results did not complete within $maxTries tries")
@@ -324,17 +331,17 @@ trait HasAsyncReply extends Params {
   /** @group setParam */
   def setInitialPollingDelay(value: Int): this.type = set(initialPollingDelay, value)
 
-  val suppressMaxRetriesExceededException: BooleanParam = new BooleanParam(
+  val suppressMaxRetriesException: BooleanParam = new BooleanParam(
     this,
-    "suppressMaxRetriesExceededException",
+    "suppressMaxRetriesException",
     "set true to suppress the maxumimum retries exception and report in the error column")
 
   /** @group getParam */
-  def getSuppressMaxRetriesExceededException: Boolean = $(suppressMaxRetriesExceededException)
+  def getSuppressMaxRetriesException: Boolean = $(suppressMaxRetriesException)
 
   /** @group setParam */
-  def setSuppressMaxRetriesExceededException(value: Boolean): this.type =
-      set(suppressMaxRetriesExceededException, value)
+  def setSuppressMaxRetriesException(value: Boolean): this.type =
+      set(suppressMaxRetriesException, value)
 
 
   //scalastyle:off magic.number
@@ -343,7 +350,7 @@ trait HasAsyncReply extends Params {
     maxPollingRetries -> 1000,
     pollingDelay -> 300,
     initialPollingDelay -> 300,
-    suppressMaxRetriesExceededException -> false)
+    suppressMaxRetriesException -> false)
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],

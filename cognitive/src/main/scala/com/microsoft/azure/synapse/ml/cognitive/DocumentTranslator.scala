@@ -49,7 +49,8 @@ object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
-  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging with HasSetLinkedService {
+  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging with HasSetLinkedService
+  with DomainHelper {
 
   import TranslatorJsonProtocol._
 
@@ -151,7 +152,8 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
 
   override def setServiceName(v: String): this.type = {
     super.setServiceName(v)
-    setUrl(s"https://$getServiceName.cognitiveservices.azure.com/" + urlPath)
+    val domain = getLocationDomain(v)
+    setUrl(s"https://$getServiceName.cognitiveservices.azure.$domain/" + urlPath)
   }
 
   def urlPath: String = "/translator/text/batch/v1.0/batches"

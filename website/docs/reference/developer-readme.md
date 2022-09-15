@@ -1,7 +1,7 @@
 ---
-title: Build System Commands
+title: Development Setup and Building From Source
 hide_title: true
-sidebar_label: Build System Commands
+sidebar_label: Development Setup
 description: SynapseML Development Setup
 ---
 

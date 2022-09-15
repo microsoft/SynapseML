@@ -12,7 +12,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.TripleEquals._
 import org.scalactic.{Equality, TolerantNumerics}
 
-
 trait DataFrameEquality extends Serializable {
   val epsilon = 1e-4
   @transient implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
@@ -101,9 +100,9 @@ trait DataFrameEquality extends Serializable {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(100, false)
+      df1.show(100, 100)
       println("df2:")
-      df2.show(100, false)
+      df2.show(100, 100)
     }
     assert(result)
   }
@@ -116,8 +115,9 @@ trait DataFrameEquality extends Serializable {
   */
 class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFrame => Boolean)
   extends ComplexParam[DataFrame](parent, name, doc, isValid)
-    with ExternalPythonWrappableParam[DataFrame] with ParamEquality[DataFrame] with DataFrameEquality
-    with ExternalDotnetWrappableParam[DataFrame] {
+    with ParamEquality[DataFrame]
+    with DataFrameEquality
+    with ExternalWrappableParam[DataFrame] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: DataFrame) => true)
@@ -128,6 +128,17 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
 
   override def pyLoadLine(modelNum: Int): String = {
     s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
+  }
+
+  override def rValue(v: DataFrame): String = {
+    s"""${name}DF"""
+  }
+
+  override def rLoadLine(modelNum: Int): String = {
+    s"""
+       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
+       |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
+       """.stripMargin
   }
 
   override private[ml] def dotnetTestValue(v: DataFrame): String = {

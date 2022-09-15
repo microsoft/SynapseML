@@ -2,33 +2,17 @@
 
 # Synapse Machine Learning
 
-SynapseML (previously MMLSpark) is an open source library to simplify the creation of scalable machine learning pipelines.
-SynapseML builds on [Apache Spark](https://github.com/apache/spark) and SparkML to enable new kinds of
-machine learning, analytics, and model deployment workflows.
-SynapseML adds many deep learning and data science tools to the Spark ecosystem,
-including seamless integration of Spark Machine Learning pipelines with the [Open Neural Network Exchange
-(ONNX)](https://onnx.ai),
-[LightGBM](https://github.com/Microsoft/LightGBM),
-[The Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/),
-[Vowpal Wabbit](https://vowpalwabbit.org/), and
-[OpenCV](http://www.opencv.org/). These tools enable powerful and highly-scalable predictive and analytical models
-for a variety of datasources.
+SynapseML (previously known as MMLSpark), is an open-source library that simplifies the creation of massively scalable machine learning (ML) pipelines. SynapseML provides simple, composable, and distributed APIs for a wide variety of different machine learning tasks such as text analytics, vision, anomaly detection, and many others. SynapseML is built on the [Apache Spark distributed computing framework](https://spark.apache.org/) and shares the same API as the [SparkML/MLLib library](https://spark.apache.org/mllib/), allowing you to seamlessly embed SynapseML models into existing Apache Spark workflows.
 
-SynapseML also brings new networking capabilities to the Spark Ecosystem. With the HTTP on Spark project, users
-can embed **any** web service into their SparkML models.
-For production grade deployment, the Spark Serving project enables high throughput,
-sub-millisecond latency web services, backed by your Spark cluster.
+With SynapseML, you can build scalable and intelligent systems to solve challenges in domains such as anomaly detection, computer vision, deep learning, text analytics, and others. SynapseML can train and evaluate models on single-node, multi-node, and elastically resizable clusters of computers. This lets you scale your work without wasting resources. SynapseML is usable across Python, R, Scala, Java, and .NET. Furthermore, its API abstracts over a wide variety of databases, file systems, and cloud data stores to simplify experiments no matter where data is located.
 
 SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
-See the API documentation [for
-Scala](https://mmlspark.blob.core.windows.net/docs/0.10.0/scala/index.html#package) and [for
-PySpark](https://mmlspark.blob.core.windows.net/docs/0.10.0/pyspark/index.html).
 
 | Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 |:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Build   | [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)                                                                                                                                 |
-| Version | [![Version](https://img.shields.io/badge/version-0.10.0-blue)](https://github.com/Microsoft/SynapseML/releases) [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)                                                                                                                                      |
-| Docs    | [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.10.0/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.10.0/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744) |
+| Version | [![Version](https://img.shields.io/badge/version-0.10.1-blue)](https://github.com/Microsoft/SynapseML/releases) [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)                                                                                                                                      |
+| Docs    | [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.10.1/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.10.1/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744) |
 | Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                |
 | Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/93d7ccf?labpath=notebooks%2Ffeatures) |
 
@@ -91,7 +75,7 @@ For Spark 3.2 Pools:
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.0",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.1",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true"
@@ -123,7 +107,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.10.0`
+For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.10.1`
 with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
@@ -131,7 +115,7 @@ Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12. I
 
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.10.0.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.10.1.dbc`
 
 ### Python Standalone
 
@@ -142,7 +126,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.10.0") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.10.1") \
             .getOrCreate()
 import synapse.ml
 ```
@@ -153,9 +137,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:0.10.0
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.10.0
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.10.0 MyApp.jar
+spark-shell --packages com.microsoft.azure:synapseml_2.12:0.10.1
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.10.1
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.10.1 MyApp.jar
 ```
 
 ### SBT
@@ -164,7 +148,7 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.10.0"
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.10.1"
 ```
 
 ### Apache Livy and HDInsight
@@ -178,7 +162,7 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.0",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.1",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind"
     }
 }
@@ -191,7 +175,7 @@ The easiest way to evaluate SynapseML is via our pre-built Docker container.  To
 do so, run the following command:
 
 ```bash
-docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release
+docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/release jupyter notebook
 ```
 
 Navigate to <http://localhost:8888/> in your web browser to run the sample
