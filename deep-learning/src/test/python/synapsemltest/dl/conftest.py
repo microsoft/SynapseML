@@ -101,19 +101,12 @@ def _prepare_text_data(spark):
         dataset_dir + "target/Emotion_classification.csv",
     )
 
-    # encoding = "cp1252"
-
-    # train_df = pd.read_csv(
-    #     dataset_dir + "target/Corona_NLP_train.csv", encoding=encoding
-    # )
-    # train_df = spark.createDataFrame(train_df)
-
     df = pd.read_csv("/tmp/Emotion_classification.csv")
     df = spark.createDataFrame(df)
 
     indexer = StringIndexer(inputCol="Emotion", outputCol="label")
     indexer_model = indexer.fit(df)
-    df = indexer_model.transform(df)
+    df = indexer_model.transform(df).drop("Emotion")
 
     train_df, test_df = df.randomSplit([0.85, 0.15], seed=1)
 

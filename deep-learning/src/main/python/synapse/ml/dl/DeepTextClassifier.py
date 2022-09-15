@@ -274,6 +274,14 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
                 "labels": torch.tensor(label, dtype=int),
             }
 
+        transformation_edit_fields = [
+            ("input_ids", int, None, True),
+            ("attention_mask", int, None, True),
+            ("labels", int, None, False),
+        ]
+        self.setTransformationEditFields(transformation_edit_fields)
+        transformation_removed_fields = [self.getTextCol(), self.getLabelCol()]
+        self.setTransformationRemovedFields(transformation_removed_fields)
         self.setTransformationFn(_encoding_text)
 
     def get_model_class(self):
