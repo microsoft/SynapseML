@@ -13,8 +13,9 @@ SYNAPSE_PROJECT_NAME = "Microsoft.ProjectArcadia"
 
 
 def current_platform():
-    if os.environ.get("AZURE_SERVICE", None) == SYNAPSE_PROJECT_NAME: 
+    if os.environ.get("AZURE_SERVICE", None) == SYNAPSE_PROJECT_NAME:
         from pyspark.sql import SparkSession
+
         sc = SparkSession.builder.getOrCreate().sparkContext
         cluster_type = sc.getConf().get("spark.cluster.type")
         if cluster_type == "synapse":
