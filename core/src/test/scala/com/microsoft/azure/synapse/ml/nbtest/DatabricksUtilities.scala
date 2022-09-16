@@ -65,7 +65,9 @@ object DatabricksUtilities {
 
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository))
+    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("pypi" -> Map("package" -> "transformers==4.15.0")),
+    Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
