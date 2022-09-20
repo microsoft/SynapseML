@@ -95,15 +95,13 @@ def transform():
 
 
 def _prepare_text_data(spark):
-
-    urllib.request.urlretrieve(
-        "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Emotion_classification.csv",
-        dataset_dir + "target/Emotion_classification.csv",
-    )
-
-    df = pd.read_csv("/tmp/Emotion_classification.csv")
+    if not os.path.exists(join(dataset_dir, "target/Emotion_classification.csv")):
+        urllib.request.urlretrieve(
+            "https://mmlspark.blob.core.windows.net/publicwasb/text_classification/Emotion_classification.csv",
+            dataset_dir + "target/Emotion_classification.csv",
+        )
+    df = pd.read_csv(dataset_dir + "target/Emotion_classification.csv")
     df = spark.createDataFrame(df)
-
     indexer = StringIndexer(inputCol="Emotion", outputCol="label")
     indexer_model = indexer.fit(df)
     df = indexer_model.transform(df).drop("Emotion")
