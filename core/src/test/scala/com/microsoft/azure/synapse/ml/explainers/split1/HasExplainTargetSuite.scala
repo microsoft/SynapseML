@@ -13,8 +13,14 @@ class HasExplainTargetSuite extends TestBase {
     import spark.implicits._
 
     val df = Seq(
-      (Array(1, 2, 3), Vectors.dense(1, 2, 3), Map(0 -> 1f, 1 -> 2f, 2 -> 3f), Array(0, 2))
-    ) toDF("label1", "label2", "label3", "targets")
+      (
+        Array(1, 2, 3),
+        Vectors.dense(1, 2, 3),
+        Map(0 -> 1f, 1 -> 2f, 2 -> 3f),
+        Map(0L -> 1f, 1L -> 3f, 2L -> 5f),
+        Array(0, 2)
+      )
+    ) toDF("label1", "label2", "label3", "label4", "targets")
 
     // array of Int
     val target1 = LIME.vector
@@ -39,5 +45,13 @@ class HasExplainTargetSuite extends TestBase {
 
     val Tuple1(v3) = df.select(target3).as[Tuple1[Vector]].head
     assert(v3 == Vectors.dense(1d, 3d))
+
+    // Map of Long -> Float
+    val target4 = LocalExplainer.LIME.vector
+      .setTargetCol("label4")
+      .extractTarget(df.schema, "targets")
+
+    val Tuple1(v4) = df.select(target4).as[Tuple1[Vector]].head
+    assert(v4 == Vectors.dense(1d, 5d))
   }
 }
