@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-import numpy as np
+import pytest
 import torch
 from pyspark.sql import SparkSession
 from pytorch_lightning import Trainer
@@ -14,6 +14,7 @@ from .test_deep_vision_model import MyDummyCallback
 from synapse.ml.dl import *
 
 
+@pytest.mark.skip(reason="skip this as it takes too long")
 def test_lit_deep_text_model():
     class TextDataset(Dataset):
         def __init__(self, data, tokenizer, max_token_len):
