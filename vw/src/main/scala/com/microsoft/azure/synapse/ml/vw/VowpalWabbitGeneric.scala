@@ -29,7 +29,7 @@ class VowpalWabbitGeneric(override val uid: String)
 
   def this() = this(Identifiable.randomUID("VowpalWabbitGeneric"))
 
-  setDefault(inputCol -> "input")
+  setDefault(inputCol -> "value")
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 

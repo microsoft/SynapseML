@@ -20,7 +20,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val vw = new VowpalWabbitGeneric()
       .setNumPasses(2)
 
-    val dataset = Seq("1 |a b c", "0 |d e f").toDF("input")
+    val dataset = Seq("1 |a b c", "0 |d e f").toDF("value")
 
     val classifier = vw.fit(dataset)
 
@@ -39,7 +39,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val dataset = Seq(
       "1:0 2:1 3:1 4:1 | a b c",
       "1:1 2:1 3:0 4:1 | b c d"
-    ).toDF("input")
+    ).toDF("value")
 
     val classifier = vw.fit(dataset)
 
@@ -62,7 +62,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "1 | a c e",
       "4 | b d f",
       "2 | d e f"
-    ).toDF("input")
+    ).toDF("value")
 
     val classifier = vw.fit(dataset)
 
@@ -84,21 +84,21 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "1 | a c e",
       "4 | b d f",
       "2 | d e f"
-    ).toDF("input")
+    ).toDF("value")
 
     val classifier = vw.fit(dataset)
 
     val pred = classifier
       .setTestArgs("--probabilities")
       .transform(dataset)
-      .select($"input", F.posexplode($"predictions"))
-      .withColumn("maxProb", F.max("col").over(Window.partitionBy("input")))
+      .select($"value", F.posexplode($"predictions"))
+      .withColumn("maxProb", F.max("col").over(Window.partitionBy("value")))
 
     assert(pred.where(F.expr("col < 0 and col > 1")).count() == 0, "predictions must be between 0 and 1")
 
     val predMatched = pred
       .where($"col" === $"maxProb")
-      .withColumn("label", F.substring($"input", 0, 1).cast(T.IntegerType))
+      .withColumn("label", F.substring($"value", 0, 1).cast(T.IntegerType))
       .where($"label" === $"pos" + 1)
 
     assert(predMatched.count() == 5, "Highest prob prediction must match label")
@@ -114,13 +114,13 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
       "ca 185.121:0.657567:6.20426e-05 | a b",
       "ca 772.592:0.458316:6.20426e-05 | b c",
       "ca 15140.6:0.31791:6.20426e-05 | d")
-      .toDF("input")
+      .toDF("value")
       .coalesce(1)
 
     val classifier = vw.fit(dataset)
 
     val actual = classifier.transform(dataset.limit(1))
-      .select($"input", F.posexplode($"segments"))
+      .select($"value", F.posexplode($"segments"))
       .select(F.expr("col.*"))
 
     val expected = Seq(
@@ -209,7 +209,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val df = loadDSJSON
       .repartition(2)
       .withColumn("splitId", F.monotonically_increasing_id().mod(F.lit(2)))
-      .withColumn("json", F.from_json(F.col("input"), extractSchema))
+      .withColumn("json", F.from_json(F.col("value"), extractSchema))
       .withColumn("EventId", $"json.EventId")
 
     val vw = new VowpalWabbitGeneric()
@@ -243,7 +243,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   private def loadDSJSON = {
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
       "VowpalWabbit", "Train", "dsjson_cb_part1.json").toString
-    spark.read.text(fileLocation).withColumnRenamed("value", "input")
+    spark.read.text(fileLocation)
   }
 
   override def reader: MLReadable[_] = VowpalWabbitGeneric
@@ -251,7 +251,7 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
   override def modelReader: MLReadable[_] = VowpalWabbitGenericModel
 
   override def testObjects(): Seq[TestObject[VowpalWabbitGeneric]] = {
-    val dataset = Seq("1 |a b c", "0 |d e f").toDF("input")
+    val dataset = Seq("1 |a b c", "0 |d e f").toDF("value")
     Seq(new TestObject(
       new VowpalWabbitGeneric(),
       dataset))

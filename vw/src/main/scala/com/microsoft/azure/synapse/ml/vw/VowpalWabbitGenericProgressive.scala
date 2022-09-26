@@ -14,7 +14,7 @@ import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
 /**
-  * VW-style string based input implemention of online learning with progressive (1-step ahead) output.
+  * VW-style string based input implementation of online learning with progressive (1-step ahead) output.
   */
 class VowpalWabbitGenericProgressive(override val uid: String)
   extends VowpalWabbitBaseProgressive
