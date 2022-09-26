@@ -31,7 +31,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   val minImportanceWeight = new FloatParam(
-    this, "dsJsonColumn", "Cap importance weight at this lower bound. Defaults to 0.")
+    this, "minImportanceWeight", "Clip importance weight at this lower bound. Defaults to 0.")
 
   def getMinImportanceWeight: Float = $(minImportanceWeight)
   def getMinImportanceWeight(value: Float): this.type = set(minImportanceWeight, value)
