@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -10,7 +13,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
 
 /**
-  * Emits continuous success ev? metrics for contextual bandit style predicitons and logs.
+  * Emits continuous success ev? metrics for contextual bandit style predictions and logs.
   */
 class VowpalWabbitCSETransformer(override val uid: String)
   extends Transformer

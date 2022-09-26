@@ -1,14 +1,16 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import com.microsoft.azure.synapse.ml.param.{MapParam, StringStringMapParam}
-import com.microsoft.azure.synapse.ml.vw.VowpalWabbitCBUtil.RewardsCol
+import com.microsoft.azure.synapse.ml.param.{StringStringMapParam}
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
+import org.apache.spark.sql.{DataFrame, Dataset, functions => F, types => T}
 
 class VowpalWabbitDSJsonTransformer(override val uid: String)
   extends Transformer
