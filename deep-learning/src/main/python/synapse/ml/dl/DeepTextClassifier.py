@@ -1,9 +1,5 @@
-import sys
-
-from horovod.spark.common.backend import SparkBackend
 from horovod.spark.lightning import TorchEstimator
 import torch
-from pyspark.context import SparkContext
 from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepTextModel import DeepTextModel
@@ -74,6 +70,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         loss_name="cross_entropy",
         tokenizer=None,
         max_token_len=128,
+        learning_rate=None,
         train_from_scratch=True,
         # Classifier args
         label_col="label",
@@ -133,6 +130,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
             loss_name="cross_entropy",
             tokenizer=None,
             max_token_len=128,
+            learning_rate=None,
             train_from_scratch=True,
             feature_cols=["text"],
             label_cols=["label"],
@@ -155,6 +153,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
             loss_name=self.getLossName(),
             label_col=self.getLabelCol(),
             text_col=self.getTextCol(),
+            learning_rate=self.getLearningRate(),
             train_from_scratch=self.getTrainFromScratch(),
         )
         self._set(model=model)
@@ -200,6 +199,12 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
 
     def getMaxTokenLen(self):
         return self.getOrDefault(self.max_token_len)
+
+    def setLearningRate(self, value):
+        return self._set(learning_rate=value)
+
+    def getLearningRate(self):
+        return self.getOrDefault(self.learning_rate)
 
     def setTrainFromScratch(self, value):
         return self._set(train_from_scratch=value)

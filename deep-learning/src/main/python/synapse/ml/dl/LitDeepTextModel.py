@@ -138,6 +138,7 @@ class LitDeepTextModel(pl.LightningModule):
             cur_layer -= 1
 
     def _update_learning_rate(self):
+        ## TODO: add more default values for different models
         if not self.learning_rate:
             if "bert" in self.checkpoint:
                 self.learning_rate = 5e-5
