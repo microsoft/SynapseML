@@ -1,7 +1,3 @@
-from horovod.spark.lightning import TorchEstimator
-from horovod.spark.common.backend import SparkBackend
-from pyspark.context import SparkContext
-
 import sys
 
 from horovod.spark.common.backend import SparkBackend
@@ -12,7 +8,7 @@ from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepTextModel import DeepTextModel
 from synapse.ml.dl.LitDeepTextModel import LitDeepTextModel
-from synapse.ml.dl.utils import keywords_catch
+from synapse.ml.dl.utils import keywords_catch, _get_or_create_backend
 from synapse.ml.dl.PredictionParams import TextPredictionParams
 
 _TRANSFORMERS_AVAILABLE = _module_available("transformers")
@@ -220,30 +216,9 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
 
     # override this method to provide a correct default backend
     def _get_or_create_backend(self):
-        backend = self.getBackend()
-        num_proc = self.getNumProc()
-        if backend is None:
-            if num_proc is None:
-                num_proc = self._find_num_proc()
-            backend = SparkBackend(
-                num_proc,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                prefix_output_with_timestamp=True,
-                verbose=self.getVerbose(),
-            )
-        elif num_proc is not None:
-            raise ValueError(
-                'At most one of parameters "backend" and "num_proc" may be specified'
-            )
-        return backend
-
-    def _find_num_proc(self):
-        if self.getUseGpu():
-            # set it as number of executors for now (ignoring num_gpus per executor)
-            sc = SparkContext.getOrCreate()
-            return sc._jsc.sc().getExecutorMemoryStatus().size() - 1
-        return None
+        return _get_or_create_backend(
+            self.getBackend(), self.getNumProc(), self.getVerbose()
+        )
 
     def _update_transformation_fn(self):
 

@@ -56,7 +56,7 @@ class HasImageColParam(Params):
         return self.getOrDefault(self.image_col)
 
 
-## TODO: Should I add textCols as well?
+## TODO: Potentially generalize to support multiple text columns as input
 class HasTextColParam(Params):
 
     text_col = Param(

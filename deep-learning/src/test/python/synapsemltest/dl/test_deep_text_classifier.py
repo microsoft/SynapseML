@@ -40,11 +40,6 @@ def test_bert_base_cased():
             epochs=epochs,
             validation=0.1,
             text_col="Text",
-            transformation_edit_fields=[
-                ("input_ids", int, None, True),
-                ("attention_mask", int, None, True),
-                ("labels", int, None, False),
-            ],
             transformation_removed_fields=["Text", "Emotion", "label"],
         )
 
