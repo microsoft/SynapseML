@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
 
 /**
-  * Emits continuous success ev? metrics for contextual bandit style predictions and logs.
+  * Emits continuous success experimentation metrics for contextual bandit style predictions and logs.
   */
 class VowpalWabbitCSETransformer(override val uid: String)
   extends Transformer
@@ -26,18 +26,18 @@ class VowpalWabbitCSETransformer(override val uid: String)
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("VowpalWabbitEvalTransformer"))
+  def this() = this(Identifiable.randomUID("VowpalWabbitCSETransformer"))
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   val minImportanceWeight = new FloatParam(
-    this, "dsJsonColumn", "Cap importance weight at this lower bound. Defaults to 0.")
+    this, "minImportanceWeight", "Clip importance weight at this lower bound. Defaults to 0.")
 
   def getMinImportanceWeight: Float = $(minImportanceWeight)
   def getMinImportanceWeight(value: Float): this.type = set(minImportanceWeight, value)
 
   val maxImportanceWeight = new FloatParam(
-    this, "dsJsonColumn", "Cap importance weight at this upper bound. Defaults to 100.")
+    this, "maxImportanceWeight", "Clip importance weight at this upper bound. Defaults to 100.")
 
   def getMaxImportanceWeight: Float = $(maxImportanceWeight)
   def getMaxImportanceWeight(value: Float): this.type = set(maxImportanceWeight, value)
@@ -51,17 +51,20 @@ class VowpalWabbitCSETransformer(override val uid: String)
   setDefault(minImportanceWeight -> 0, maxImportanceWeight -> 100, metricsStratificationCols -> Array.empty)
 
   // define reward independent metrics
-  val globalMetrics: Seq[Column] = Seq(
-    F.count("*").alias(ExampleCountName),
-    F.sum(F.when(F.expr(s"$ProbabilityPredictedColName > 0"), 1).otherwise(0))
-      .alias(ProbabilityPredictedNonZeroCount),
-    F.min("w").alias(MinimumImportanceWeight),
-    F.max("w").alias(MaximumImportanceWeight),
-    F.expr("avg(w)").alias(AverageImportanceWeight),
-    F.expr("avg(w * w)").alias(AverageSquaredImportanceWeight),
-    F.expr("max(w)/count(*)").alias(PropOfMaximumImportanceWeight),
-    F.expr("approx_percentile(w, array(0.25, 0.5, 0.75, 0.95))")
-      .alias(ImportanceWeightQuantiles))
+  val globalMetrics: Seq[Column] = {
+    val w = F.col("w")
+    Seq(
+      F.count("*").alias(ExampleCountName),
+      F.sum(F.when(F.col(ProbabilityPredictedColName) > 0, 1).otherwise(0))
+        .alias(ProbabilityPredictedNonZeroCount),
+      F.min("w").alias(MinimumImportanceWeight),
+      F.max("w").alias(MaximumImportanceWeight),
+      F.avg(w).alias(AverageImportanceWeight),
+      F.avg(w * w).alias(AverageSquaredImportanceWeight),
+      (F.max(w) / F.count("*")).alias(PropOfMaximumImportanceWeight),
+      F.expr("approx_percentile(w, array(0.25, 0.5, 0.75, 0.95))")
+        .alias(QuantilesOfImportanceWeight))
+  }
 
   case class RewardColumn(name: String, col: String, idx: Int) {
     def minRewardCol: String = s"min_reward_$idx"
@@ -82,30 +85,41 @@ class VowpalWabbitCSETransformer(override val uid: String)
 
   def perRewardMetrics(rewardsCol: Seq[RewardColumn],
                        minImportanceWeight: Float = 0,
-                       maxImportanceWeight: Float = 100): Seq[Column] =
+                       maxImportanceWeight: Float = 100): Seq[Column] = {
+    val countCol = F.col("count")
+    val minImportanceWeightCol = F.lit(minImportanceWeight)
+    val maxImportanceWeightCol = F.lit(maxImportanceWeight)
+
     rewardsCol
       .map({ rewardCol => {
+        val minRewardCol = F.col(rewardCol.minRewardCol)
+        val maxRewardCol = F.col(rewardCol.maxRewardCol)
+
         F.struct(
           F.first(F.col(rewardCol.minRewardCol)).alias(MinReward),
           F.first(F.col(rewardCol.maxRewardCol)).alias(MaxReward),
-          F.expr(s"snips($ProbabilityLoggedColName, ${rewardCol.col}, $ProbabilityPredictedColName, count)")
+          // multiple estimations
+          PolicyEvalUDAFUtil.Snips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+            F.col(ProbabilityPredictedColName), countCol)
             .alias(Snips),
-          F.expr(s"ips($ProbabilityLoggedColName, ${rewardCol.col}, $ProbabilityPredictedColName, count)")
+          PolicyEvalUDAFUtil.Ips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+            F.col(ProbabilityPredictedColName), countCol)
             .alias(Ips),
-          F.expr(s"cressieRead($ProbabilityLoggedColName, ${rewardCol.col}, $ProbabilityPredictedColName, count, " +
-            s"$minImportanceWeight, $maxImportanceWeight)")
+          PolicyEvalUDAFUtil.CressieRead(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol)
             .alias(CressieRead),
-          F.expr(s"cressieReadInterval($ProbabilityLoggedColName, ${rewardCol.col}, " +
-            s"$ProbabilityPredictedColName, count, " +
-            s"$minImportanceWeight, $maxImportanceWeight, ${rewardCol.minRewardCol}, ${rewardCol.maxRewardCol})")
+          PolicyEvalUDAFUtil.CressieReadInterval(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
+            minRewardCol, maxRewardCol)
             .alias(CressieReadInterval),
-          F.expr(s"cressieReadIntervalEmpirical($ProbabilityLoggedColName, ${rewardCol.col}, " +
-            s"$ProbabilityPredictedColName, count, " +
-            s"$minImportanceWeight, $maxImportanceWeight, ${rewardCol.minRewardCol}, ${rewardCol.maxRewardCol})")
-            .alias(CressieReadIntervalEmp)
+          PolicyEvalUDAFUtil.CressieReadIntervalEmpirical(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
+            minRewardCol, maxRewardCol)
+            .alias(CressieReadIntervalEmp),
         ).alias(rewardCol.name)
       }
-      })
+    })
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
@@ -158,7 +172,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
         T.StructField(AverageImportanceWeight, T.DoubleType, false),
         T.StructField(AverageSquaredImportanceWeight, T.DoubleType, false),
         T.StructField(PropOfMaximumImportanceWeight, T.DoubleType, false),
-        T.StructField(ImportanceWeightQuantiles, T.ArrayType(T.FloatType, false), false),
+        T.StructField(QuantilesOfImportanceWeight, T.ArrayType(T.FloatType, false), false),
       ) ++
       // perRewardMetric
       schema(RewardsColName).dataType.asInstanceOf[T.StructType].fields.map { f =>
@@ -196,7 +210,7 @@ object VowpalWabbitCSETransformer {
   val AverageImportanceWeight = "averageImportanceWeight"
   val AverageSquaredImportanceWeight = "averageSquaredImportanceWeight"
   val PropOfMaximumImportanceWeight = "proportionOfMaximumImportanceWeight"
-  val ImportanceWeightQuantiles = "importance weight quantiles (0.25, 0.5, 0.75, 0.95)"
+  val QuantilesOfImportanceWeight = "importance weight quantiles (0.25, 0.5, 0.75, 0.95)"
 
   val MinReward = "minReward"
   val MaxReward = "maxReward"

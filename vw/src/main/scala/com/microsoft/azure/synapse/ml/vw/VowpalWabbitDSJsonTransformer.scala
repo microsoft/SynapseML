@@ -24,13 +24,13 @@ class VowpalWabbitDSJsonTransformer(override val uid: String)
   def this() = this(Identifiable.randomUID("VowpalWabbitDSJsonTransformer"))
 
   val dsJsonColumn = new Param[String](
-    this,"dsJsonColumn", "column containing ds-json. defaults to \"value\".")
+    this,"dsJsonColumn", "Column containing ds-json. defaults to \"value\".")
 
   def getDsJsonColumn: String = $(dsJsonColumn)
   def setDsJsonColumn(value: String): this.type = set(dsJsonColumn, value)
 
   val rewards = new StringStringMapParam(
-    this, "rewards", "Extract rewards from DS json. Defaults to _label_cost.")
+    this, "rewards", "Extract bandit reward(s) from DS json. Defaults to _label_cost.")
 
   def getRewards: Map[String, String] = $(rewards)
   def setRewards(v: Map[String, String]): this.type = set(rewards, v)
