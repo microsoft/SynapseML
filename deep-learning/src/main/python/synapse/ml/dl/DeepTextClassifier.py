@@ -222,7 +222,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
     # override this method to provide a correct default backend
     def _get_or_create_backend(self):
         return _get_or_create_backend(
-            self.getBackend(), self.getNumProc(), self.getVerbose()
+            self.getBackend(), self.getNumProc(), self.getVerbose(), self.getUseGpu()
         )
 
     def _update_transformation_fn(self):
