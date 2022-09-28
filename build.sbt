@@ -33,7 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "3.0.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
