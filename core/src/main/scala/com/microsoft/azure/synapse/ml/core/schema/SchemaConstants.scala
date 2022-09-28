@@ -14,6 +14,9 @@ object SchemaConstants {
   val ScoresColumn              = "scores"
   val ScoredProbabilitiesColumn = "scored_probabilities"
 
+  val TreatmentResidualColumn   = "treatment_residual"
+  val OutcomeResidualColumn     = "outcome_residual"
+
   val ScoreModelPrefix          = "score_model"
   val MMLTag                    = "mml"      // MML metadata tag
   val MLlibTag                  = "ml_attr"  // MLlib metadata tag, see org.apache.spark.ml.attribute.AttributeKeys

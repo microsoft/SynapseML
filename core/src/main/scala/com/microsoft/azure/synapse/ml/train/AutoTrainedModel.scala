@@ -12,7 +12,7 @@ import org.apache.spark.ml.{ComplexParamsWritable, Model, PipelineModel, Transfo
 abstract class AutoTrainedModel[TrainedModel <: Model[TrainedModel]]
   extends Model[TrainedModel] with ComplexParamsWritable with HasLabelCol with HasFeaturesCol{
 
-  private def validate(t: Transformer): Boolean = {
+  def validate(t: Transformer): Boolean = {
     t match {
       case _: PipelineModel => true
       case _ => false

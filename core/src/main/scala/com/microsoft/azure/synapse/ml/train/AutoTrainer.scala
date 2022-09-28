@@ -4,14 +4,14 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasLabelCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasExcludedFeatureCols, HasFeaturesCol, HasLabelCol}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.{EstimatorParam, IntParam}
 
 /** Defines common inheritance and parameters across trainers.
   */
 trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with HasLabelCol with ComplexParamsWritable with HasFeaturesCol with Wrappable {
+  with HasLabelCol with HasExcludedFeatureCols with ComplexParamsWritable with HasFeaturesCol with Wrappable {
 
   /** Doc for model to run.
     */
@@ -21,7 +21,6 @@ trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[Trained
     * @group param
     */
   val numFeatures = new IntParam(this, "numFeatures", "Number of features to hash to")
-  setDefault(numFeatures -> 0)
 
   /** @group getParam */
   def getNumFeatures: Int = $(numFeatures)
@@ -33,7 +32,11 @@ trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[Trained
     */
   val model = new EstimatorParam(this, "model", modelDoc)
   /** @group getParam */
+
   def getModel: Estimator[_ <: Model[_]] = $(model)
   /** @group setParam */
   def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
+
+
+  setDefault(numFeatures -> 0, excludedFeatureCols -> Array.empty[String])
 }
