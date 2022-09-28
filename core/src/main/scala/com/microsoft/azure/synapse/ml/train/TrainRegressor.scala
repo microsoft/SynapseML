@@ -23,6 +23,10 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
+  val featureColumnsStr = new Param[String](this, "featureColumnsStr", "feature columns")
+  def getFeatureColumnsStr: String = $(featureColumnsStr)
+  def setFeatureColumnsStr(value: String): this.type = set(featureColumnsStr, value)
+
   /** Doc for model to run.
     */
   override def modelDoc: String = "Regressor to run"
@@ -79,11 +83,9 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
                _: FloatType |
                _: ByteType |
                _: LongType |
-               _: ShortType =>
+               _: ShortType |
+               _: StringType =>
             dataset(labelColumn).cast(DoubleType)
-          case _: StringType =>
-            throw new Exception("Invalid type: "
-              + "Regressors are not able to train on a string label column: " + labelColumn)
           case _: DoubleType =>
             dataset(labelColumn)
           case default => throw new Exception("Unknown type: " + default.typeName +
@@ -91,7 +93,8 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         }
       ).na.drop(Seq(labelColumn))
 
-      val featureColumns = convertedLabelDataset.columns.filter(col => col != labelColumn).toSeq
+      val nonFeatureColumns = labelColumn +: getExcludedFeatureCols
+      val featureColumns = convertedLabelDataset.columns.filter(col => !nonFeatureColumns.contains(col)).toSeq
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
@@ -135,9 +138,6 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
 
 /** Model produced by [[TrainRegressor]].
   * @param uid The id of the module
-  * @param labelColumn The label column
-  * @param model The trained model
-  * @param featuresColumn The features column
   */
 class TrainedRegressorModel(val uid: String)
     extends AutoTrainedModel[TrainedRegressorModel]

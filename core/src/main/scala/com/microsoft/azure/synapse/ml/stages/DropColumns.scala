@@ -38,28 +38,28 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      verifySchema(dataset.schema)
+//      verifySchema(dataset.schema)
       dataset.toDF().drop(getCols: _*)
     })
   }
 
   def transformSchema(schema: StructType): StructType = {
-    verifySchema(schema)
+//    verifySchema(schema)
     val droppedCols = getCols.toSet
     StructType(schema.fields.filter(f => !droppedCols(f.name)))
   }
 
   def copy(extra: ParamMap): DropColumns = defaultCopy(extra)
 
-  private def verifySchema(schema: StructType): Unit = {
-    val providedCols = schema.fields.map(_.name).toSet
-    val invalidCols = getCols.filter(!providedCols(_))
-
-    if (invalidCols.length > 0) {
-      throw new NoSuchElementException(
-        s"DataFrame does not contain specified columns: ${invalidCols.reduce(_ + "," + _)}")
-    }
-
-  }
+//  private def verifySchema(schema: StructType): Unit = {
+//    val providedCols = schema.fields.map(_.name).toSet
+//    val invalidCols = getCols.filter(!providedCols(_))
+//
+//    if (invalidCols.length > 0) {
+//      throw new NoSuchElementException(
+//        s"DataFrame does not contain specified columns: (${invalidCols.reduce(_ + "," + _)}), " +
+//          s"it has columns: (${providedCols.mkString(",")}")
+//    }
+//  }
 
 }
