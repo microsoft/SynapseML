@@ -54,6 +54,10 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
 
     max_token_len = Param(Params._dummy(), "max_token_len", "max_token_len")
 
+    learning_rate = Param(
+        Params._dummy(), "learning_rate", "learning rate to be used for the optimizer"
+    )
+
     train_from_scratch = Param(
         Params._dummy(),
         "train_from_scratch",
