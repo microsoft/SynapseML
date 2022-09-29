@@ -3,9 +3,9 @@ package com.microsoft.azure.synapse.ml.causal
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.param.{EstimatorParam, Param, Params}
+import com.microsoft.azure.synapse.ml.param.EstimatorParam
+import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.ml.regression.{RandomForestRegressor, Regressor}
-
 
 trait HasTreatmentCol extends Params {
   val treatment = new Param[String](this, "treatment", "treatment column")
@@ -62,7 +62,7 @@ trait LinearDMLParams extends Params with HasTreatmentCol with HasOutcomeCol wit
   }
 
   setDefault(
-    discrete_treatment -> false,
+    discrete_treatment -> true,
     treatmentModel -> new LogisticRegression(),
     outcomeModel -> new RandomForestRegressor()
   )
