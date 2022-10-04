@@ -29,10 +29,11 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-10.4"
-  val GpuPoolName = "synapseml-build-10.4-gpu"
-  val AdbRuntime = "10.4.x-scala2.12"
-  val AdbGpuRuntime = "10.4.x-gpu-ml-scala2.12"
+  val PoolName = "synapseml-build-11.2"
+  val GpuPoolName = "synapseml-build-11.2-gpu"
+  val AdbRuntime = "11.2.x-scala2.12"
+  // https://learn.microsoft.com/en-us/azure/databricks/release-notes/runtime/11.2
+  val AdbGpuRuntime = "11.2.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -63,6 +64,8 @@ object DatabricksUtilities {
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
+    Map("pypi" -> Map("package" -> "torchvision==0.12.0")),
     Map("pypi" -> Map("package" -> "transformers==4.15.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint

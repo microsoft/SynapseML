@@ -83,6 +83,12 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+    - task: MavenAuthenticate@0
+      name: mavenAuthPublicPackages
+      displayName: Authenticate SynapseML_PublicPackages
+      inputs:
+        artifactsFeeds: SynapseML_PublicPackages
+        mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
     - bash: |
         set -e
         sudo apt-get install graphviz doxygen -y
@@ -100,7 +106,16 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
+    - bash: |
+        set -e
+        sbt aetherDeploy
+      displayName: Publish to Feed
+      env:
+        ADO-FEED-TOKEN: $(ado-feed-token)
+        STORAGE-KEY: $(storage-key)
+        PUBLISH-TO-FEED: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - bash: |
         set -e
         sbt publishBadges
@@ -113,7 +128,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
 
 - job: E2E
   timeoutInMinutes: 120
@@ -149,7 +164,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -306,7 +321,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN: $(pypi-api-token)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
       displayName: 'publish python package to pypi'
     - bash: |
         set -e
@@ -321,7 +336,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
@@ -439,7 +454,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
       env:
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
