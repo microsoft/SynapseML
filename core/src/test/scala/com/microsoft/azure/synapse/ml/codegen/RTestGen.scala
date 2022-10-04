@@ -101,7 +101,7 @@ object RTestGen {
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
          |
-         |sc <- spark_connect(master = "local", version = "3.2.3", config = conf)
+         |sc <- spark_connect(master = "local", version = "3.3.0", config = conf)
          |
          |""".stripMargin, StandardOpenOption.CREATE)
 
