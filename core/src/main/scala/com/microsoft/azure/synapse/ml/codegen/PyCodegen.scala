@@ -70,7 +70,7 @@ object PyCodegen {
       // There's `Already borrowed` error found in transformers 4.16.2 when using tokenizers
       s"""extras_require={"extras": [
          |    "cmake",
-         |    "horovod==0.28.1",
+         |    "horovod==0.27.0",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
          |    "torch==1.13.1",
          |    "torchvision>=0.14.1",
