@@ -8,7 +8,7 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.3"
+val sparkVersion = "3.3.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -468,6 +468,11 @@ lazy val root = (project in file("."))
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
+    ThisBuild / credentials += Credentials(
+      "",
+      "msdata.pkgs.visualstudio.com",
+      "msdata", Secrets.adoFeedToken),
+    ThisBuild / useCoursier := false,
   ))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
