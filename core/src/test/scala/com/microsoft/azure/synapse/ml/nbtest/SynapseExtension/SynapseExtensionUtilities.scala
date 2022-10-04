@@ -84,7 +84,7 @@ object SynapseExtensionUtilities {
          |"{
          |  'Default${store}ArtifactId': '$storeId',
          |  'ExecutableFile': '$path',
-         |  'SparkVersion':'3.2',
+         |  'SparkVersion':'3.3',
          |  'SparkSettings': {
          |    'spark.jars.packages' : '$SparkMavenPackageList',
          |    'spark.jars.repositories' : '$SparkMavenRepositoryList',

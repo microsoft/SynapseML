@@ -11,11 +11,7 @@ import java.io.File
 import scala.collection.mutable.ListBuffer
 
 class DatabricksGPUTests extends DatabricksTestHelper {
-  val horovodInstallationScript: File = FileUtilities.join(
-    BuildInfo.baseDirectory.getParent, "deep-learning",
-    "src", "main", "python", "horovod_installation.sh").getCanonicalFile
-  uploadFileToDBFS(horovodInstallationScript, "/FileStore/horovod-fix-commit/horovod_installation.sh")
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, GPUInitScripts)
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, "[]")
   val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(
     clusterId, GPULibraries, GPUNotebooks)
 
