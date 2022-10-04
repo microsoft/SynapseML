@@ -513,7 +513,7 @@ jobs:
           fi
           sbt publishM2
 
-          SPARK_VERSION=3.2.4
+          SPARK_VERSION=3.3.1
           HADOOP_VERSION=3.2
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
           (timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR)
