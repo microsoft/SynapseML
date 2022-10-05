@@ -29,8 +29,8 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-10.4"
-  val GpuPoolName = "synapseml-build-10.4-gpu"
+  val PoolName = "synapseml-build-11.2"
+  val GpuPoolName = "synapseml-build-11.2-gpu"
   val AdbRuntime = "11.2.x-scala2.12"
   // https://learn.microsoft.com/en-us/azure/databricks/release-notes/runtime/11.2
   val AdbGpuRuntime = "11.2.x-gpu-ml-scala2.12"
