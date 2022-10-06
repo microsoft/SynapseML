@@ -71,3 +71,4 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
 
 def display_for_synapse_batch_mode(data):
     data.collect()
+    print(data)
