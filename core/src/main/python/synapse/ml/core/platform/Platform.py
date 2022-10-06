@@ -69,6 +69,38 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
         )
 
 
+def convert_to_spark_df(data):
+    spark = _acquire_spark_instance()
+    if isinstance(data, DataFrame):
+        return data
+
+    if isinstance(data, list):
+        # For the list that could have None column, create a schema to prevent infer schema failure
+        if len(data) > 0 and None in tuple(data[0]):
+            row = data[0]
+            keys = []
+            if hasattr(row, "__fields__"):
+                keys = row.__fields__
+            else:
+                keys = []
+                for i in range(1, len(row) + 1):
+                    keys.append("_" + str(i))
+
+            struct_list = []
+            for column in keys:
+                struct_list.append(StructField(column, StringType()))
+            schema = StructType(struct_list)
+            return spark.createDataFrame(data, schema)
+
+        return spark.createDataFrame(data)
+
+    # pylint: disable=C0415
+    import pandas
+    if isinstance(data, pandas.DataFrame):
+        return _pandas_to_spark(data)
+    return None
+
+
 def display_for_synapse_batch_mode(data):
-    data.collect()
+    convert_to_spark_df(data).collect()
     print(data)
