@@ -96,6 +96,7 @@ def convert_to_spark_df(data):
 
     # pylint: disable=C0415
     import pandas
+    
     if isinstance(data, pandas.DataFrame):
         return _pandas_to_spark(data)
     return None
