@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 import os
+from pyspark.sql import DataFrame
 
 PLATFORM_SYNAPSE_INTERNAL = "synapse_internal"
 PLATFORM_SYNAPSE = "synapse"
