@@ -68,6 +68,7 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
             f'please add the override="YOUR_KEY_HERE" to the arguments of the find_secret() method'
         )
 
+
 def display_for_synapse_batch_mode(data):
     if isinstance(data, DataFrame):
         data.collect()
