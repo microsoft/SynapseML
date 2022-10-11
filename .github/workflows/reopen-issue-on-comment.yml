@@ -20,6 +20,6 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
           https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }} \
-          -d '{"state":"open"} \
-          --fail '
+          -d '{"state":"open"}' \
+          --fail
       
