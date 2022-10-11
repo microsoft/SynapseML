@@ -5,20 +5,21 @@ on:
     types:
       - created
 
+
 jobs:
-  build:
+  create_issue:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write 
+      statuses: write
     steps:
-      - name: Reopen closed issue on comment
-        uses: octokit/request-action@v2.x
-        continue-on-error: true
-        with:
-          route: UPDATE /repos/:repository/issues/:issue
-          repository: ${{ github.repository }}
-          issue: ${{ github.event.issue.number }}
-          label: "awaiting response"
-          body: ${{ toJSON(env.REQUEST_BODY) }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REQUEST_BODY: |
-            {"state":"open"}
+      - name: Reopen Issue
+        run: |
+          curl \
+          -X PATCH \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }} \
+          -d '{"state":"open"} \
+          --fail '
+      
