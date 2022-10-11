@@ -8,17 +8,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: |
-      github.event.comment.author_association != 'OWNER' &&
-      github.event.comment.author_association != 'COLLABORATOR'
     steps:
-      - name: Remove needs-reply label
+      - name: Reopen closed issue
         uses: octokit/request-action@v2.x
         continue-on-error: true
         with:
-          route: DELETE /repos/:repository/issues/:issue/labels/:label
+          route: UPDATE /repos/:repository/issues/:issue
           repository: ${{ github.repository }}
           issue: ${{ github.event.issue.number }}
           label: "awaiting response"
+          body: ${{ toJSON(env.REQUEST_BODY) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUEST_BODY: |
+            {"state":"open"}

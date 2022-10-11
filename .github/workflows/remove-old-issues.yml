@@ -1,0 +1,18 @@
+name: Close old issues that need reply
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close old issues that need reply
+        uses: dwieeb/needs-reply@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-label: "awaiting response"
+          close-message: |
+            This issue has not been interacted with for 30 days since it was marked as "awaiting response". As such, the
+            issue is now closed. Please comment on this issue to re-open. Thanks!
