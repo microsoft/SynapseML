@@ -14,4 +14,21 @@ jobs:
             Hey @${{ github.event.pull_request.user.login }} :wave:!
             Thank you so much for contributing to our repository :raised_hands:.
             Someone from SynapseML Team will be reviewing this pull request soon.
-            We appreciate your patience and contributions :100:!
+
+            We use [semantic commit messages](https://www.conventionalcommits.org/en/v1.0.0-beta.2/) to streamline the release process.
+            Before your pull request can be merged, you should **make sure your first commit and PR title** start with a semantic prefix.
+            This helps us to create release messages and credit you for your hard work!
+
+            Examples of commit messages with semantic prefixes:
+
+              - `fix: Fix LightGBM crashes with empty partitions`
+              - `feat: Make HTTP on Spark back-offs configurable`
+              - `docs: Update Spark Serving usage`
+              - `build: Add codecov support`
+              - `perf: improve LightGBM memory usage`
+              - `refactor: make python code generation rely on classes`
+              - `style: Remove nulls from CNTKModel`
+              - `test: Add test coverage for CNTKModel`
+
+            To test your commit locally, please follow our guild on [building from source](https://microsoft.github.io/SynapseML/docs/reference/developer-readme/).
+            Check out the [developer guide](https://github.com/Microsoft/SynapseML/blob/master/CONTRIBUTING.md) for additional guidance on testing your change.
