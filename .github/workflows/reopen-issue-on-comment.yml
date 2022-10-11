@@ -1,4 +1,4 @@
-name: Remove awaiting response label
+name: Reopen closed issue on comment
 
 on:
   issue_comment:
@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Reopen closed issue
+      - name: Reopen closed issue on comment
         uses: octokit/request-action@v2.x
         continue-on-error: true
         with:
