@@ -69,7 +69,11 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
+<<<<<<< HEAD
     Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
+=======
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation_test.sh"))
+>>>>>>> 3c913eaf5 (modify databricks gpu test starting script, testing)
   ).toJson.compactPrint
 
   // Execution Params
