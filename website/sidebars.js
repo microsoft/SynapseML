@@ -143,7 +143,6 @@ module.exports = {
         'reference/dotnet-setup',
         'reference/SAR',
         'reference/cyber',
-        'reference/datasets',
         'reference/vagrant',
       ],
     },
