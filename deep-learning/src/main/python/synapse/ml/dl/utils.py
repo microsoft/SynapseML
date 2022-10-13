@@ -28,7 +28,7 @@ def keywords_catch(func):
     return wrapper
 
 
-def _get_or_create_backend(backend, num_proc, verbose, use_gpu):
+def get_or_create_backend(backend, num_proc, verbose, use_gpu):
     if backend is None:
         if num_proc is None:
             num_proc = _find_num_proc(use_gpu)

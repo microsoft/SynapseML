@@ -4,7 +4,7 @@ from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepTextModel import DeepTextModel
 from synapse.ml.dl.LitDeepTextModel import LitDeepTextModel
-from synapse.ml.dl.utils import keywords_catch, _get_or_create_backend
+from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 from synapse.ml.dl.PredictionParams import TextPredictionParams
 
 _TRANSFORMERS_AVAILABLE = _module_available("transformers")
@@ -225,7 +225,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
 
     # override this method to provide a correct default backend
     def _get_or_create_backend(self):
-        return _get_or_create_backend(
+        return get_or_create_backend(
             self.getBackend(), self.getNumProc(), self.getVerbose(), self.getUseGpu()
         )
 

@@ -36,7 +36,7 @@ class LitDeepTextModel(pl.LightningModule):
         additional_layers_to_train,
         optimizer_name,
         loss_name,
-        learning_rate,
+        learning_rate=None,
         train_from_scratch=True,
     ):
         """
