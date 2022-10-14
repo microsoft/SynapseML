@@ -11,7 +11,7 @@ import java.io.File
 import scala.collection.mutable.ListBuffer
 
 class DatabricksGPUTests extends DatabricksTestHelper {
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, GPUInitScripts)
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, "[]")
   val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(
     clusterId, GPULibraries, GPUNotebooks)
 
