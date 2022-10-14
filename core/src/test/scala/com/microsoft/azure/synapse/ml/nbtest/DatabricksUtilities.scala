@@ -64,16 +64,14 @@ object DatabricksUtilities {
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
+    Map("pypi" -> Map("package" -> "torchvision==0.12.0"))
     Map("pypi" -> Map("package" -> "transformers==4.15.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
-<<<<<<< HEAD
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
-=======
     Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation_test.sh"))
->>>>>>> 3c913eaf5 (modify databricks gpu test starting script, testing)
   ).toJson.compactPrint
 
   // Execution Params
