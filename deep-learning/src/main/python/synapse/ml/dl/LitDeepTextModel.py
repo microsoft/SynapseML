@@ -50,6 +50,7 @@ class LitDeepTextModel(pl.LightningModule):
                                             we'd better choose a positive number for better performance.
         :param optimizer_name: Name of the optimizer.
         :param loss_name: Name of the loss function.
+        :param learning_rate: Learning rate for the optimizer.
         :param train_from_scratch: Whether train the model from scratch or not. If this is set to true then
                                     additional_layers_to_train param will be ignored. Default to True.
         """
