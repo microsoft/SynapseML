@@ -58,6 +58,7 @@ object Secrets {
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
+  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-daily-password")
 
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }

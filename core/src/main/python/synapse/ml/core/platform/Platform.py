@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 import os
-
+from pyspark.sql import DataFrame
 
 PLATFORM_SYNAPSE_INTERNAL = "synapse_internal"
 PLATFORM_SYNAPSE = "synapse"
@@ -67,3 +67,9 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
             f"and would like to manually specify your key for Azure KeyVault or Databricks Secrets,"
             f'please add the override="YOUR_KEY_HERE" to the arguments of the find_secret() method'
         )
+
+
+def display_for_synapse_batch_mode(data):
+    if isinstance(data, DataFrame):
+        data.collect()
+    print(data)
