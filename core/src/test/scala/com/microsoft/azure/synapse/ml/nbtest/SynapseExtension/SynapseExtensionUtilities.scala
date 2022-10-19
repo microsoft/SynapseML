@@ -55,7 +55,7 @@ object SynapseExtensionUtilities {
     createSJDArtifact(path, "SparkJobDefinition")
   }
 
-  def updateSJDArtifact(path: String, artifactId: String, lakehouseId: String): SparkJobDefinitionArtifact = {
+  def updateSJDArtifact(path: String, artifactId: String, lakehouseId: String): Artifact = {
     val eTag = getETagFromArtifact(artifactId)
 
     val excludes: String = "org.scala-lang:scala-reflect," +
@@ -85,7 +85,7 @@ object SynapseExtensionUtilities {
          |""".stripMargin
 
     val uri = s"$BaseUri/artifacts/$artifactId"
-    patchRequest(uri, reqBody, eTag).convertTo[SparkJobDefinitionArtifact]
+    patchRequest(uri, reqBody, eTag).convertTo[Artifact]
   }
 
   def createSJDArtifact(path: String, artifactType: String): String = {
@@ -102,7 +102,7 @@ object SynapseExtensionUtilities {
          |  "artifactType": "$artifactType"
          |}
          |""".stripMargin
-    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[SparkJobDefinitionArtifact]
+    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[Artifact]
     response.objectId
   }
 
@@ -118,7 +118,7 @@ object SynapseExtensionUtilities {
          |  "artifactType": "Lakehouse"
          |}
          |""".stripMargin
-    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[SparkJobDefinitionArtifact]
+    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[Artifact]
     response.objectId
   }
 
@@ -248,9 +248,9 @@ object SynapseExtensionUtilities {
     filePath.split(File.separatorChar).last
   }
 
-  def listArtifacts(): Seq[SparkJobDefinitionArtifact] ={
+  def listArtifacts(): Seq[Artifact] ={
     val uri: String = s"$SSPHost/metadata/workspaces/$WorkspaceId/artifacts"
-    getRequest(uri).convertTo[Seq[SparkJobDefinitionArtifact]]
+    getRequest(uri).convertTo[Seq[Artifact]]
   }
 
   def getNotebookFilePath(artifactId: String, notebookBlobName: String): String =
@@ -303,8 +303,8 @@ object SynapseExtensionUtilities {
 
 object SynapseJsonProtocol extends DefaultJsonProtocol {
 
-  implicit val ApplicationFormat: RootJsonFormat[SparkJobDefinitionArtifact] =
-    jsonFormat2(SparkJobDefinitionArtifact.apply)
+  implicit val ApplicationFormat: RootJsonFormat[Artifact] =
+    jsonFormat2(Artifact.apply)
   implicit val ApplicationsFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
     jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
   implicit val SRRFormat: RootJsonFormat[WorkloadPayload] = jsonFormat3(WorkloadPayload.apply)

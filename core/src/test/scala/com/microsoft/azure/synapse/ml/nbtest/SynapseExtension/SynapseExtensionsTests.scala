@@ -9,7 +9,7 @@ import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
 class SynapseExtensionsTests extends TestBase {
@@ -81,20 +81,22 @@ class SynapseExtensionsTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
     .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
-    //.filterNot(A => A.getAbsolutePath.contains("SparkServing"))
-    //.filter(A => A.getAbsolutePath.contains("NoStreaming"))
+    .filterNot(_.getAbsolutePath.contains("Cognitive")) // Excluding CogServices notebooks until GetSecret API is avail
+    .filterNot(_.getAbsolutePath.contains("Geospatial")) // Excluding CogServices notebooks until GetSecret API is avail
+    .filterNot(_.getAbsolutePath.contains("SparkServing")) // Not testing this functionality
     .sortBy(_.getAbsolutePath)
 
   selectedPythonFiles.foreach(println)
   assert(selectedPythonFiles.length > 0)
 
-  // Clean up existing SJDs
+  // Clean up existing Artifacts in E2E test workspace
   SynapseExtensionUtilities.listArtifacts()
-    .foreach(sjd =>
+    .foreach(artifact =>
     {
-      println(s"Artifact cleanup: deleting SJD ${sjd.displayName}")
+      println(s"Artifact cleanup: deleting artifact ${artifact.displayName}")
       //TODO: Re-enable artifact cleanup. use creation timestamp in sjd response
-      //SynapseExtensionUtilities.deleteArtifact(sjd.objectId)
+      //  To only delete artifacts > some time ago
+      // SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
     })
 
   val lakehouseArtifactId = SynapseExtensionUtilities.createLakehouseArtifact()
@@ -107,7 +109,13 @@ class SynapseExtensionsTests extends TestBase {
     val artifactId = SynapseExtensionUtilities.createSJDArtifact(notebookFile.getPath)
     val notebookBlobPath = SynapseExtensionUtilities.uploadNotebookToAzure(notebookFile)
     SynapseExtensionUtilities.updateSJDArtifact(notebookBlobPath, artifactId, lakehouseArtifactId)
+    blocking {
+      Thread.sleep(3000)
+    }
     val jobInstanceId = SynapseExtensionUtilities.submitJob(artifactId)
+    blocking {
+      Thread.sleep(10000)
+    }
     test(notebookName) {
       try {
         val result = Await.ready(
