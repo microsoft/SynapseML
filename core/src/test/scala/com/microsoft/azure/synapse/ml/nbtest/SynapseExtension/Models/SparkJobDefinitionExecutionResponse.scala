@@ -4,5 +4,5 @@ case class SparkJobDefinitionExecutionResponse
 (
   statusString: String,
   artifactJobInstanceId: String,
-  serviceExceptionJson: String
+  serviceExceptionJson: Option[String]
 )

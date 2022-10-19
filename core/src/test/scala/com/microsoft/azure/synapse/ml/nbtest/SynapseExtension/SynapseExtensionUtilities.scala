@@ -6,12 +6,13 @@ import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.Models._
-import com.microsoft.azure.synapse.ml.nbtest.{SynapseJsonProtocol, SynapseUtilities}
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicNameValuePair
+import spray.json._
 
 import java.io.File
 import java.time.LocalDateTime
@@ -40,7 +41,7 @@ object SynapseExtensionUtilities {
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse-extension"
 
-  lazy val AccessToken: String = getAccessToken()
+  lazy val AccessToken: String = getAccessToken
 
   def getStorageOAuthToken: String = {
     val tokenFile = FileUtilities
@@ -71,7 +72,7 @@ object SynapseExtensionUtilities {
          |    \\"DefaultLakehouseArtifactId\\": \\"$lakehouseId\\",
          |    \\"SparkVersion\\": \\"3.2\\",
          |    \\"SparkSettings\\": {
-         |      \\"spark.jars.packages\\" : \\"com.microsoft.azure:synapseml_2.12:0.9.5-134-1604bc0e-SNAPSHOT\\",
+         |      \\"spark.jars.packages\\" : \\"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}\\",
          |      \\"spark.jars.repositories\\" : \\"https://mmlspark.azureedge.net/maven\\",
          |      \\"spark.jars.excludes\\": \\"$excludes\\",
          |      \\"spark.dynamicAllocation.enabled\\": \\"false\\",
@@ -84,7 +85,7 @@ object SynapseExtensionUtilities {
          |""".stripMargin
 
     val uri = s"$BaseUri/artifacts/$artifactId"
-    patchRequest[SparkJobDefinitionArtifact](uri, reqBody, eTag)
+    patchRequest(uri, reqBody, eTag).convertTo[SparkJobDefinitionArtifact]
   }
 
   def createSJDArtifact(path: String, artifactType: String): String = {
@@ -101,7 +102,7 @@ object SynapseExtensionUtilities {
          |  "artifactType": "$artifactType"
          |}
          |""".stripMargin
-    val response = postRequest[SparkJobDefinitionArtifact](ArtifactsUri, reqBody)
+    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[SparkJobDefinitionArtifact]
     response.objectId
   }
 
@@ -117,7 +118,7 @@ object SynapseExtensionUtilities {
          |  "artifactType": "Lakehouse"
          |}
          |""".stripMargin
-    val response = postRequest[SparkJobDefinitionArtifact](ArtifactsUri, reqBody)
+    val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[SparkJobDefinitionArtifact]
     response.objectId
   }
 
@@ -131,7 +132,7 @@ object SynapseExtensionUtilities {
     val createRequest = new HttpPost(uri)
     createRequest.setHeader("Authorization", s"$AccessToken")
 
-    val response = postRequest[SparkJobDefinitionExecutionResponse](uri)
+    val response = postRequest(uri).asJsObject().convertTo[SparkJobDefinitionExecutionResponse]
     response.artifactJobInstanceId
   }
 
@@ -172,14 +173,14 @@ object SynapseExtensionUtilities {
 
   def getJobStatus(artifactId: String, jobInstanceId: String): SparkJobDefinitionExecutionResponse = {
     val uri = s"$BaseUri/artifacts/$artifactId/jobs/$jobInstanceId"
-    val response = getRequest[SparkJobDefinitionExecutionResponse](uri)
+    val response = getRequest(uri).asJsObject().convertTo[SparkJobDefinitionExecutionResponse]
     println(s"$uri: $response")
     response
   }
 
   val TimeoutMillis: Int = 100000
 
-  def postRequest[A](uri: String, requestBody: String  = "")(implicit m: Manifest[A]): A = {
+  def postRequest(uri: String, requestBody: String  = ""): JsValue = {
     val createRequest = new HttpPost(uri)
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"$AccessToken")
@@ -193,26 +194,19 @@ object SynapseExtensionUtilities {
 
     createRequest.setConfig(requestConfig)
 
-    if (requestBody.length > 0)
+    if (requestBody.nonEmpty)
     {
 
       createRequest.setEntity(new StringEntity(requestBody))
     }
-    sendAndExtractJson[A](createRequest)
+    sendAndParseJson(createRequest)
   }
 
-  def getRequest[A](uri: String)(implicit m: Manifest[A]): A  = {
+  def getRequest(uri: String): JsValue  = {
     val getRequest = new HttpGet(uri)
     getRequest.setHeader("Content-Type", "application/json")
     getRequest.setHeader("Authorization", s"$AccessToken")
-    sendAndExtractJson[A](getRequest)
-  }
-
-  def getStorageRequest[A](uri: String)(implicit m: Manifest[A]): A  = {
-    val getRequest = new HttpGet(uri)
-    getRequest.setHeader("Content-Type", "application/json")
-    getRequest.setHeader("Authorization", s"$getStorageOAuthToken")
-    sendAndExtractJson[A](getRequest)
+    sendAndParseJson(getRequest)
   }
 
   def getETagFromArtifact(artifactId: String): String = {
@@ -232,13 +226,13 @@ object SynapseExtensionUtilities {
     safeSend(deleteRequest)
   }
 
-  def patchRequest[A](uri: String, requestBody: String, etag: String)(implicit m: Manifest[A]): A = {
+  def patchRequest(uri: String, requestBody: String, etag: String): JsValue = {
     val patchRequest = new HttpPatch(uri)
     patchRequest.setHeader("Content-Type", "application/json")
     patchRequest.setHeader("If-Match", etag)
     patchRequest.setHeader("Authorization", s"$AccessToken")
     patchRequest.setEntity(new StringEntity(requestBody))
-    sendAndExtractJson[A](patchRequest)
+    sendAndParseJson(patchRequest)
   }
 
   def uploadNotebookToAzure(notebook: File): String = {
@@ -256,7 +250,7 @@ object SynapseExtensionUtilities {
 
   def listArtifacts(): Seq[SparkJobDefinitionArtifact] ={
     val uri: String = s"$SSPHost/metadata/workspaces/$WorkspaceId/artifacts"
-    getRequest[Seq[SparkJobDefinitionArtifact]](uri)
+    getRequest(uri).convertTo[Seq[SparkJobDefinitionArtifact]]
   }
 
   def getNotebookFilePath(artifactId: String, notebookBlobName: String): String =
@@ -280,7 +274,7 @@ object SynapseExtensionUtilities {
       .sorted
   }
 
-  def getAccessToken(): String = {
+  def getAccessToken: String = {
     val createRequest = new HttpPost(s"https://login.microsoftonline.com/$TenantId/oauth2/token")
     createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
     createRequest.setEntity(
@@ -305,4 +299,14 @@ object SynapseExtensionUtilities {
       case _ => command !!
     }
   }
+}
+
+object SynapseJsonProtocol extends DefaultJsonProtocol {
+
+  implicit val ApplicationFormat: RootJsonFormat[SparkJobDefinitionArtifact] =
+    jsonFormat2(SparkJobDefinitionArtifact.apply)
+  implicit val ApplicationsFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
+    jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
+  implicit val SRRFormat: RootJsonFormat[WorkloadPayload] = jsonFormat3(WorkloadPayload.apply)
+
 }

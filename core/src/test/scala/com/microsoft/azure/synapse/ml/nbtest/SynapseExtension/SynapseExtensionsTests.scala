@@ -8,11 +8,9 @@ import org.apache.commons.io.FileUtils
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.language.existentials
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class SynapseExtensionsTests extends TestBase {
   val resourcesDirectory = new File(getClass.getResource("/").toURI)
@@ -100,8 +98,7 @@ class SynapseExtensionsTests extends TestBase {
 
   val lakehouseArtifactId = SynapseExtensionUtilities.createLakehouseArtifact()
 
-  val chunked = selectedPythonFiles.seq.grouped(9).seq//.drop(2).take(1).seq
-    .foreach(fileGroup => Future.sequence(fileGroup.seq.map(createAndExecuteSJD)))
+  selectedPythonFiles.seq.map(createAndExecuteSJD)
 
   def createAndExecuteSJD(notebookFile: File): Future[String] =
   {
