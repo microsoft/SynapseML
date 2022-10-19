@@ -84,7 +84,7 @@ class SynapseExtensionsTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("Cognitive")) // Excluding CogServices notebooks until GetSecret API is avail
     .filterNot(_.getAbsolutePath.contains("Geospatial")) // Excluding CogServices notebooks until GetSecret API is avail
     .filterNot(_.getAbsolutePath.contains("SparkServing")) // Not testing this functionality
-    .filterNot(_.getAbsolutePath.contains("ImagePipeline")) // Reenable with spark streaming fix
+    .filterNot(_.getAbsolutePath.contains("OpenCVPipelineImage")) // Reenable with spark streaming fix
     .sortBy(_.getAbsolutePath)
 
   selectedPythonFiles.foreach(println)
