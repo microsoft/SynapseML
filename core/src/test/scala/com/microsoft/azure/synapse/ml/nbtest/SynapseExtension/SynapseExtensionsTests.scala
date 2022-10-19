@@ -82,7 +82,8 @@ class SynapseExtensionsTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
     .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
     .filterNot(_.getAbsolutePath.contains("Cognitive")) // Excluding CogServices notebooks until GetSecret API is avail
-    .filterNot(_.getAbsolutePath.contains("Geospatial")) // Excluding CogServices notebooks until GetSecret API is avail
+    .filterNot(_.getAbsolutePath.contains("Geospatial"))
+    .filterNot(_.getAbsolutePath.contains("SentimentAnalysis"))
     .filterNot(_.getAbsolutePath.contains("SparkServing")) // Not testing this functionality
     .filterNot(_.getAbsolutePath.contains("OpenCVPipelineImage")) // Reenable with spark streaming fix
     .sortBy(_.getAbsolutePath)
