@@ -93,7 +93,8 @@ class SynapseExtensionsTests extends TestBase {
     .foreach(sjd =>
     {
       println(s"Artifact cleanup: deleting SJD ${sjd.displayName}")
-      SynapseExtensionUtilities.deleteArtifact(sjd.objectId)
+      //TODO: Re-enable artifact cleanup. use creation timestamp in sjd response
+      //SynapseExtensionUtilities.deleteArtifact(sjd.objectId)
     })
 
   val lakehouseArtifactId = SynapseExtensionUtilities.createLakehouseArtifact()
