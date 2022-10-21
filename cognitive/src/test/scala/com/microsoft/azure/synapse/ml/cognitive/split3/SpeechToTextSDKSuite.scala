@@ -35,8 +35,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   val profanity = "masked"
   val format = "simple"
 
-  val streamUrl = "https://bitdash-a.akamaihd.net/content/MI201109210084_1/" +
-    "m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8"
+  val streamUrl = "http://qthttp.apple.com.edgesuite.net/1010qwoeiuryfg/sl.m3u8"
 
   val jaccardThreshold = 0.9
 
@@ -249,7 +248,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
         .toDF("audio")
       dfTest(
         "detailed",
-        uriDf, text4, sdk = sdk2, threshold = .6)
+        uriDf, text4,verbose=true, sdk = sdk2, threshold = .6)
     }
   }
 
