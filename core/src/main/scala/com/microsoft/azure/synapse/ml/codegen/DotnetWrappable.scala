@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
-import com.microsoft.azure.synapse.ml.param.{ServiceParam, WrappableParam}
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, ServiceParam, WrappableParam}
 import org.apache.commons.lang.StringUtils.capitalize
 import org.apache.spark.ml._
 import org.apache.spark.ml.evaluation.Evaluator
@@ -135,7 +135,7 @@ trait DotnetWrappable extends BaseWrappable {
             |${docString.replaceFirst(sp.name, s"${sp.name} column")}
             |${sp.dotnetSetterForSrvParamCol(dotnetClassName, capName, dotnetClassWrapperName)}
             |""".stripMargin
-      case wp: WrappableParam[_] =>
+      case wp: DotnetWrappableParam[_] =>
         s"""|$docString
             |${wp.dotnetSetter(dotnetClassName, capName, dotnetClassWrapperName)}
             |""".stripMargin
@@ -161,7 +161,7 @@ trait DotnetWrappable extends BaseWrappable {
           |/// ${p.name}: ${p.doc}
           |/// </returns>""".stripMargin
     p match {
-      case wp: WrappableParam[_] =>
+      case wp: DotnetWrappableParam[_] =>
         s"""|$docString
             |${wp.dotnetGetter(capName)}
             |""".stripMargin

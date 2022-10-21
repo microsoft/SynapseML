@@ -4,19 +4,105 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable, Wrappable}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
+import scala.collection.mutable
+import scala.util.Random
+
+object LIMEUtils extends SLogging {
+
+  def randomMasks(decInclude: Double, numSlots: Int): Iterator[Array[Boolean]] =
+    new Iterator[Array[Boolean]] {
+      Random.setSeed(0)
+
+      override def hasNext: Boolean = true
+
+      override def next(): Array[Boolean] = {
+        Array.fill(numSlots) {
+          Random.nextDouble() > decInclude
+        }
+      }
+    }
+
+  def localAggregateBy(df: DataFrame, groupByCol: String, colsToSquish: Seq[String]): DataFrame = {
+    val schema = new StructType(df.schema.fields.map {
+      case field if colsToSquish.contains(field.name) => StructField(field.name, ArrayType(field.dataType))
+      case f => f
+    })
+    val encoder = RowEncoder(schema)
+    val indiciesToSquish = colsToSquish.map(df.schema.fieldIndex)
+    df.mapPartitions { it =>
+      val isEmpty = it.isEmpty
+      if (isEmpty) {
+        (Nil: Seq[Row]).toIterator
+      } else {
+        // Current Id, What we have accumulated, Previous Row
+        val accumulator = mutable.ListBuffer[Seq[Any]]()
+        var currentId: Option[Any] = None
+        var prevRow: Option[Row] = None
+
+        def returnState(accumulated: List[Seq[Any]], prevRow: Row): Row = {
+          Row.fromSeq(prevRow.toSeq.zipWithIndex.map {
+            case (_, i) if indiciesToSquish.contains(i) =>
+              accumulated.map(_.apply(indiciesToSquish.indexOf(i)))
+            case (v, _) => v
+          })
+        }
+
+        def enqueueAndMaybeReturn(row: Row): Option[Row] = {
+          val id = row.getAs[Any](groupByCol)
+          if (currentId.isEmpty) {
+            currentId = Some(id)
+            prevRow = Some(row)
+            accumulator += colsToSquish.map(row.getAs[Any])
+            None
+          } else if (id != currentId.get) {
+            val accumulated = accumulator.toList
+            accumulator.clear()
+            accumulator += colsToSquish.map(row.getAs[Any])
+            val modified = returnState(accumulated, prevRow.get)
+            currentId = Some(id)
+            prevRow = Some(row)
+            Some(modified)
+          } else {
+            prevRow = Some(row)
+            accumulator += colsToSquish.map(row.getAs[Any])
+            None
+          }
+        }
+
+        val it1 = it
+          .flatMap(row => enqueueAndMaybeReturn(row))
+          .map(r => Left(r): Either[Row, Null]) //scalastyle:ignore null
+          .++(Seq(Right(null): Either[Row, Null])) //scalastyle:ignore null
+
+        val ret = it1.map {
+          case Left(r) => r: Row
+          case Right(_) => returnState(accumulator.toList, prevRow.getOrElse {
+            logWarning("Could not get previous row in local aggregator, this is an error that should be fixed")
+            null
+          }): Row
+        }
+        ret
+      }
+
+    }(encoder)
+  }
+}
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
   self: LIMEBase =>

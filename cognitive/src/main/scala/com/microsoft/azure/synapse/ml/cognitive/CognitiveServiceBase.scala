@@ -276,7 +276,7 @@ trait HasSetLinkedServiceUsingLocation extends HasSetLinkedService with HasSetLo
   }
 }
 
-trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
+trait HasSetLocation extends Wrappable with HasURL with HasUrlPath with DomainHelper {
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
       |def setLocation(self, value):
@@ -298,8 +298,24 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath {
        |""".stripMargin
   }
 
+
   def setLocation(v: String): this.type = {
-    setUrl(s"https://$v.api.cognitive.microsoft.com/" + urlPath)
+    val domain = getLocationDomain(v)
+    setUrl(s"https://$v.api.cognitive.microsoft.$domain/" + urlPath.stripPrefix("/"))
+  }
+}
+
+trait DomainHelper {
+
+  protected def getLocationDomain(location: String): String = {
+    val usGovRegions = Array("usgovarizona", "usgovvirginia")
+    val cnVianet = Array("chinaeast2", "chinanorth")
+    val domain = location match {
+      case v if usGovRegions.contains(v) => "us"
+      case v if cnVianet.contains(v) => "cn"
+      case _ => "com"
+    }
+    domain
   }
 }
 

@@ -26,6 +26,8 @@ class TabularSHAP(override val uid: String)
 
   def setInputCols(values: Array[String]): this.type = this.set(inputCols, values)
 
+  def setInputCols(values: Seq[String]): this.type =  setInputCols(values.toArray)
+
   override protected def createSamples(df: DataFrame,
                                        idCol: String,
                                        coalitionCol: String,

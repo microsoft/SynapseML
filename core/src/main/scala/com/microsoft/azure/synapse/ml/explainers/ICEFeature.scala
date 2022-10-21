@@ -39,6 +39,7 @@ case class ICECategoricalFeature(name: String, numTopValues: Option[Int] = None,
 object ICECategoricalFeature {
   val DefaultNumTopValue: Int = 100
   implicit val JsonFormat: JsonFormat[ICECategoricalFeature] = jsonFormat3(ICECategoricalFeature.apply)
+
   def fromMap(inputMap: java.util.HashMap[String, Any]): ICECategoricalFeature = {
     val name: String = inputMap.get("name").toString
     val numTopValues: Option[Int] = inputMap.get("numTopValues") match {
@@ -50,6 +51,14 @@ object ICECategoricalFeature {
       case value: String => Some(value)
       case _ => None
     }
+
+    ICECategoricalFeature(name, numTopValues, outputColName)
+  }
+
+  def fromMap(inputMap: Map[String, Any]): ICECategoricalFeature = {
+    val name: String = inputMap.get("name").get.toString
+    val numTopValues: Option[Int] = inputMap.get("numTopValues").asInstanceOf[Option[Int]]
+    val outputColName: Option[String] = inputMap.get("outputColName").asInstanceOf[Option[String]]
 
     ICECategoricalFeature(name, numTopValues, outputColName)
   }
@@ -108,6 +117,16 @@ object ICENumericFeature {
       case value: String => Some(value)
       case _ => None
     }
+
+    ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
+  }
+
+  def fromMap(inputMap: Map[String, Any]): ICENumericFeature = {
+    val name: String = inputMap.get("name").get.toString
+    val numSplits: Option[Int] = inputMap.get("numSplits").asInstanceOf[Option[Int]]
+    val rangeMin: Option[Double] = inputMap.get("rangeMin").asInstanceOf[Option[Double]]
+    val rangeMax: Option[Double] = inputMap.get("rangeMax").asInstanceOf[Option[Double]]
+    val outputColName = inputMap.get("outputColName").asInstanceOf[Option[String]]
 
     ICENumericFeature(name, numSplits, rangeMin, rangeMax, outputColName)
   }

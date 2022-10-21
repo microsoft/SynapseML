@@ -1,0 +1,2 @@
+{:allowed-branchname-matches ["master" "release-.*"]
+ :allowed-filename-matches ["notebooks" "website"]}

@@ -16,8 +16,25 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
-
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 import scala.jdk.CollectionConverters.asScalaBufferConverter
+
+class ICENumericFeaturesParam(parent: Params,
+                              name: String,
+                              doc: String,
+                              isValid: Seq[ICENumericFeature] => Boolean = _.forall(_.validate)) extends
+  TypedArrayParam[ICENumericFeature](parent, name, doc, isValid) {
+  override private[ml] def dotnetType = "ICENumericFeature[]"
+}
+
+class ICECategoricalFeaturesParam(parent: Params,
+                                  name: String,
+                                  doc: String,
+                                  isValid: Seq[ICECategoricalFeature] => Boolean = _.forall(_.validate)) extends
+  TypedArrayParam[ICECategoricalFeature](parent, name, doc, isValid) {
+  override private[ml] def dotnetType = "ICECategoricalFeature[]"
+}
 
 
 trait ICEFeatureParams extends Params with HasNumSamples {
@@ -26,14 +43,16 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val individualKind = "individual"
   val featureKind = "feature"
 
-  val categoricalFeatures = new TypedArrayParam[ICECategoricalFeature] (
+  implicit val formats = DefaultFormats
+
+  val categoricalFeatures = new ICECategoricalFeaturesParam(
     this,
     "categoricalFeatures",
-    "The list of categorical features to explain.",
-    _.forall(_.validate)
+    "The list of categorical features to explain."
   )
 
   def setCategoricalFeatures(values: Seq[ICECategoricalFeature]): this.type = this.set(categoricalFeatures, values)
+
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
   def setCategoricalFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
@@ -41,14 +60,14 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this.setCategoricalFeatures(features)
   }
 
-  val numericFeatures = new TypedArrayParam[ICENumericFeature] (
+  val numericFeatures = new ICENumericFeaturesParam(
     this,
     "numericFeatures",
-    "The list of numeric features to explain.",
-    _.forall(_.validate)
+    "The list of numeric features to explain."
   )
 
   def setNumericFeatures(values: Seq[ICENumericFeature]): this.type = this.set(numericFeatures, values)
+
   def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
 
   def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
@@ -56,7 +75,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
     this.setNumericFeatures(features)
   }
 
-  val kind = new Param[String] (
+  val kind = new Param[String](
     this,
     "kind",
     "Whether to return the partial dependence plot (PDP) averaged across all the samples in the " +
@@ -67,25 +86,30 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   )
 
   def getKind: String = $(kind)
+
   def setKind(value: String): this.type = set(kind, value)
 
   // Output column names for PDP-feature-importance case (kind == `feature`)
-  val featureNameCol = new Param[String] (
+  val featureNameCol = new Param[String](
     this,
     "featureNameCol",
     "Output column name which corresponds to names of the features used in calculation" +
       " of PDP-based-feature-importance option (kind == `feature`)"
   )
+
   def getFeatureNameCol: String = $(featureNameCol)
+
   def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
 
-  val dependenceNameCol = new Param[String] (
+  val dependenceNameCol = new Param[String](
     this,
     "dependenceNameCol",
     "Output column name which corresponds to dependence values" +
       " of PDP-based-feature-importance option (kind == `feature`)"
   )
+
   def getDependenceNameCol: String = $(dependenceNameCol)
+
   def setDependenceNameCol(value: String): this.type = set(dependenceNameCol, value)
 
   setDefault(kind -> "individual",
@@ -159,8 +183,8 @@ class ICETransformer(override val uid: String) extends Transformer
       case `featureKind` =>
         // Output schema: number_of_features rows * 2 cols (name of the feature + corresponding dependence)
         val pdp = result.groupBy(featureName)
-        // compute the pdp for the current feature's values
-        .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
+          // compute the pdp for the current feature's values
+          .agg(Summarizer.mean(col(targetCol)).alias(dependenceCol))
         feature match {
           case _: ICENumericFeature =>
             pdp.agg(Summarizer.std(col(dependenceCol)).alias(outputColName))

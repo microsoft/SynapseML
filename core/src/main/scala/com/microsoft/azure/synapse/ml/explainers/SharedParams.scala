@@ -177,7 +177,7 @@ trait HasExplainTarget extends Params with CanValidateSchema {
         SlicerFunctions.vectorSlicer(col(getTargetCol), col(targetClassesCol))
       case ArrayType(elementType: NumericType, _) =>
         SlicerFunctions.arraySlicer(elementType)(col(getTargetCol), col(targetClassesCol))
-      case MapType(_: IntegerType, valueType: NumericType, _) =>
+      case MapType(_: IntegerType | LongType | ShortType | ByteType, valueType: NumericType, _) =>
         SlicerFunctions.mapSlicer(valueType)(col(getTargetCol), col(targetClassesCol))
       case other =>
         throw new IllegalArgumentException(

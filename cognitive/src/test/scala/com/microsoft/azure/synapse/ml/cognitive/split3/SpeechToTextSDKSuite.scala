@@ -29,14 +29,13 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   import spark.implicits._
 
   val region = "eastus"
-  lazy val resourcesDir = new File(new File(getClass.getResource("/").toURI).toString)
+  lazy val resourcesDir = new File(getClass.getResource("/").toURI)
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
   val profanity = "masked"
   val format = "simple"
 
-  val streamUrl = "https://bitdash-a.akamaihd.net/content/MI201109210084_1/" +
-    "m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8"
+  val streamUrl = "http://qthttp.apple.com.edgesuite.net/1010qwoeiuryfg/sl.m3u8"
 
   val jaccardThreshold = 0.9
 
@@ -138,9 +137,9 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with SpeechToTextSDKSuiteBase {
 
-  override val testFitting = false
-
   import spark.implicits._
+
+  override val retrySerializationFuzzing: Boolean = true
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
     .setSubscriptionKey(cognitiveKey)
@@ -249,7 +248,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
         .toDF("audio")
       dfTest(
         "detailed",
-        uriDf, text4, sdk = sdk2, threshold = .6)
+        uriDf, text4,verbose=true, sdk = sdk2, threshold = .6)
     }
   }
 
@@ -300,6 +299,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     Seq(new TestObject(sdk, audioDf2))
 
   override def reader: MLReadable[_] = SpeechToTextSDK
+
 }
 
 trait TranscriptionSecrets {
@@ -312,7 +312,7 @@ trait TranscriptionSecrets {
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
   with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
 
-  override val testFitting = false
+  override val retrySerializationFuzzing: Boolean = true
 
   import spark.implicits._
 
@@ -332,7 +332,6 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
       ) > jaccardThreshold
     }
   }
-
 
   test("dialogue with participants") {
     val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)

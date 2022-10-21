@@ -15,6 +15,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -287,6 +288,10 @@ class ONNXModelSuite extends TestBase
 
     imageTransformer.transform(imageDf).cache()
   }
+
+  override def getterSetterParamExamples(pipelineStage: ONNXModel): Map[Param[_], Any] = Map(
+    (pipelineStage.deviceType, "cpu")
+  )
 
   test("ONNXModel can infer for resnet50 model") {
     val (probability, prediction) = onnxResNet50.transform(testDfResNet50)

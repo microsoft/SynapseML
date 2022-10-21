@@ -25,9 +25,7 @@ startTime = "2021-01-01T00:00:00Z"
 endTime = "2021-01-03T01:59:00Z"
 timestampColumn = "timestamp"
 inputColumns = ["feature0", "feature1", "feature2"]
-containerName = "madtest"
-intermediateSaveDir = "intermediateData"
-connectionString = os.environ.get("MADTEST_CONNECTION_STRING", getSecret("madtest-connection-string"))
+intermediateSaveDir = "wasbs://madtest@anomalydetectiontest.blob.core.windows.net/intermediateData"
 
 fitMultivariateAnomaly = (FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -35,12 +33,10 @@ fitMultivariateAnomaly = (FitMultivariateAnomaly()
     .setOutputCol("result")
     .setStartTime(startTime)
     .setEndTime(endTime)
-    .setContainerName(containerName)
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setSlidingWindow(200)
-    .setConnectionString(connectionString))
+    .setSlidingWindow(200))
 
 # uncomment below for fitting your own dataframe
 # model = fitMultivariateAnomaly.fit(df)
@@ -57,10 +53,8 @@ val startTime: String = "2021-01-01T00:00:00Z"
 val endTime: String = "2021-01-02T12:00:00Z"
 val timestampColumn: String = "timestamp"
 val inputColumns: Array[String] = Array("feature0", "feature1", "feature2")
-val containerName: String = "madtest"
-val intermediateSaveDir: String = "intermediateData"
+val intermediateSaveDir: String = "wasbs://madtest@anomalydetectiontest.blob.core.windows.net/intermediateData"
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
-val connectionString = sys.env.getOrElse("MADTEST_CONNECTION_STRING", None)
 
 val fitMultivariateAnomaly = (new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -68,12 +62,10 @@ val fitMultivariateAnomaly = (new FitMultivariateAnomaly()
     .setOutputCol("result")
     .setStartTime(startTime)
     .setEndTime(endTime)
-    .setContainerName(containerName)
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setSlidingWindow(200)
-    .setConnectionString(connectionString))
+    .setSlidingWindow(200))
 
 val df = (spark.read.format("csv")
       .option("header", True)

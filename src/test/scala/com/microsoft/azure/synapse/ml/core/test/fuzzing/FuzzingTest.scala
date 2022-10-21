@@ -145,7 +145,6 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
       "com.microsoft.azure.synapse.ml.featurize.CleanMissingDataModel",
       "com.microsoft.azure.synapse.ml.stages.TimerModel",
-      "com.microsoft.azure.synapse.ml.featurize.DataConversion",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparametersModel",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.nn.KNNModel",
@@ -175,13 +174,64 @@ class FuzzingTest extends TestBase {
     assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
   }
 
+  ignore("Quick analysis of all getters and setters") {
+    JarLoadingUtils.instantiateServices[GetterSetterFuzzing[_ <: PipelineStage]]()
+      .foreach(_.testGettersAndSetters())
+  }
+
+  test("Verify all stages can be tested in R") {
+    val exemptions: Set[String] = Set(
+      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
+      "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
+      "com.microsoft.azure.synapse.ml.nn.ConditionalKNNModel",
+      "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
+      "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase",
+      "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
+      "com.microsoft.azure.synapse.ml.featurize.CleanMissingDataModel",
+      "com.microsoft.azure.synapse.ml.stages.TimerModel",
+      "com.microsoft.azure.synapse.ml.automl.TuneHyperparametersModel",
+      "com.microsoft.azure.synapse.ml.automl.BestModel",
+      "com.microsoft.azure.synapse.ml.nn.KNNModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
+      "com.microsoft.azure.synapse.ml.stages.ClassBalancerModel",
+      "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
+      "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
+      "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
+      "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
+      "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
+      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
+    )
+    val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
+    val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
+    val classToFuzzer: Map[Class[_], RTestFuzzing[_ <: PipelineStage]] =
+      rtestFuzzers.map(f =>
+        (Class.forName(f.getClass.getMethod("rTestObjects")
+          .getGenericReturnType.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.asInstanceOf[ParameterizedType]
+          .getActualTypeArguments.head.getTypeName),
+          f)
+      ).toMap
+    val classesWithFuzzers = classToFuzzer.keys
+    val classesWithoutFuzzers = applicableClasses.diff(classesWithFuzzers.toSet)
+    assertOrLog(classesWithoutFuzzers.isEmpty, classesWithoutFuzzers.mkString("\n"))
+  }
+
   // TODO verify that model UIDs match the class names, perhaps use a Trait
 
   test("Verify all pipeline stages don't have exotic characters") {
-    val badChars = List(",", "\"", "'", ".")
+    val badNameChars = List(",", "\"", "'", ".")
+    val badDocChars = List("%", "\"", "'")
     pipelineStages.foreach { pipelineStage =>
       pipelineStage.params.foreach { param =>
-        assertOrLog(!param.name.contains(badChars), param.name)
+        assertOrLog(!param.name.contains(badNameChars), param.name)
+        assertOrLog(!param.doc.contains(badDocChars), param.doc)
       }
     }
   }
@@ -286,5 +336,8 @@ class FuzzingTest extends TestBase {
 
   private lazy val pytestFuzzers: List[PyTestFuzzing[_ <: PipelineStage]] =
     JarLoadingUtils.instantiateServices[PyTestFuzzing[_ <: PipelineStage]]()
+
+  private lazy val rtestFuzzers: List[RTestFuzzing[_ <: PipelineStage]] =
+    JarLoadingUtils.instantiateServices[RTestFuzzing[_ <: PipelineStage]]()
 
 }

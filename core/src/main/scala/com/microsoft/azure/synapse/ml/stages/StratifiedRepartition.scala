@@ -80,5 +80,5 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
 
   def transformSchema(schema: StructType): StructType = schema
 
-  def copy(extra: ParamMap): DropColumns = defaultCopy(extra)
+  def copy(extra: ParamMap): StratifiedRepartition = defaultCopy(extra)
 }
