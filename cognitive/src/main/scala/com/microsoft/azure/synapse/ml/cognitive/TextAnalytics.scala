@@ -106,7 +106,7 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with HasCognitiveServiceInput with HasInternalJsonOutputParser
     with HasSetLocation with HasBatchSize with TextAnalyticsBaseParams
-    with TextAnalyticsInputParams {
+    with TextAnalyticsInputParams with HasSetLinkedService {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     throw new NotImplementedError("Text Analytics models use the " +
