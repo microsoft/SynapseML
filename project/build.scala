@@ -50,7 +50,11 @@ object BuildUtils {
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
-    assert(pb.start().waitFor() == 0)
+    val result = pb.start().waitFor()
+    if (result != 0) {
+      println(s"Error: result code: ${result}")
+      throw new Exception(s"Execution resulted in non-zero exit code: ${result}")
+    }
   }
 
   def condaEnvName: String = "synapseml"
@@ -60,7 +64,7 @@ object BuildUtils {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
       Seq()
-      //TODO figure out why this doesent work
+      //TODO figure out why this doesn't work
       //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
     }
   }

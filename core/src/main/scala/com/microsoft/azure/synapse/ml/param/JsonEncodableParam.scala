@@ -60,7 +60,6 @@ class ServiceParam[T: TypeTag](parent: Params,
                               )
                               (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[Either[T, String]](parent, name, doc, isValid)
-    with PythonWrappableParam[Either[T, String]]
     with WrappableParam[Either[T, String]] {
 
   type ValueType = T
@@ -75,6 +74,20 @@ class ServiceParam[T: TypeTag](parent: Params,
   }
 
   override def pyName(v: Either[T, String]): String = {
+    v match {
+      case Left(_) => name
+      case Right(_) => name + "Col"
+    }
+  }
+
+  override def rValue(v: Either[T, String]): String = {
+    v match {
+      case Left(t) => RWrappableParam.rDefaultRender(t)
+      case Right(n) => s""""$n""""
+    }
+  }
+
+  override def rName(v: Either[T, String]): String = {
     v match {
       case Left(_) => name
       case Right(_) => name + "Col"
@@ -149,7 +162,7 @@ class ServiceParam[T: TypeTag](parent: Params,
       case "TimeSeriesPoint[]" |
            "TargetInput[]" |
            "TextAndTranslation[]" |
-           "TAAnalyzeTask[]" =>
+           "TextAnalyzeTask[]" =>
         s"""|public $dotnetType Get$capName()
             |{
             |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
@@ -179,9 +192,11 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
                                               isValid: T => Boolean = (_: T) => true)
                                              (@transient implicit val dataFormat: JsonFormat[T])
   extends JsonEncodableParam[T](parent, name, doc, isValid)
-    with PythonWrappableParam[T] with WrappableParam[T] {
+    with WrappableParam[T] {
 
   override def pyValue(v: T): String = PythonWrappableParam.pyDefaultRender(v)
+
+  override def rValue(v: T): String = RWrappableParam.rDefaultRender(v)
 
   override private[ml] def dotnetTestValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
 

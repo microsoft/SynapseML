@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.io.split2
 
-import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, SparkSessionFactory, TestBase}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase.getSession
+import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
@@ -33,7 +34,7 @@ class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
     super.afterAll()
   }
 
-  override lazy val spark: SparkSession = SparkSessionFactory.getSession(s"$this", numRetries = 20).newSession()
+  override lazy val spark: SparkSession = getSession(s"$this", numRetries = 20).newSession()
 
   def baseDF(numPartitions: Int = 4,
              apiName: String = apiName,

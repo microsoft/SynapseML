@@ -65,11 +65,13 @@ node_modules/
 
 # R output
 *.Rout
+.Rhistory
 
 # Misc
 .bsp
 website/.docusaurus
 null/
+metastore_db/
 
 # pytorch_lightning logs
 **/lightning_logs/*

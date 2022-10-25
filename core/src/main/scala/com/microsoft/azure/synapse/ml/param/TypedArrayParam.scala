@@ -11,31 +11,54 @@ import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
 
 
-class TypedArrayParam[T: TypeTag](parent: Params,
+abstract class TypedArrayParam[T: TypeTag](parent: Params,
                          name: String,
                          doc: String,
                          isValid: Seq[T] => Boolean = (_: Seq[T]) => true)
                         (@transient implicit val dataFormat: JsonFormat[T])
-  extends JsonEncodableParam[Seq[T]](parent, name, doc, isValid) with DotnetWrappableParam[Seq[T]] {
+  extends JsonEncodableParam[Seq[T]](parent, name, doc, isValid)
+    with WrappableParam[Seq[T]] {
   type ValueType = T
 
   def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala)
 
   // TODO: Implement render for this
   override private[ml] def dotnetTestValue(v: Seq[T]): String = {
-    throw new NotImplementedError(s"No translation found for this TypedArrayParame: $v")
+    throw new NotImplementedError(s"No translation found for this TypedArrayParam: $v")
   }
 
   override private[ml] def dotnetTestSetterLine(v: Seq[T]): String = {
     typeOf[T].toString match {
-      case t if t == "Seq[com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature]" =>
+      case t if t == "com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature" =>
         s"""Set${dotnetName(v).capitalize}(new ICECategoricalFeature[]{${dotnetTestValue(v)}})"""
-      case t if t == "Seq[com.microsoft.azure.synapse.ml.explainers.ICENumericFeature]" =>
+      case t if t == "com.microsoft.azure.synapse.ml.explainers.ICENumericFeature" =>
         s"""Set${dotnetName(v).capitalize}(new ICENumericFeature[]{${dotnetTestValue(v)}})"""
-      case _ => throw new NotImplementedError(s"No translation found for this TypedArrayParame: $v")
+      case _ => throw new NotImplementedError(s"No translation found for this TypedArrayParam: $v")
     }
   }
 
+  override def rValue(v: Seq[T]): String = {
+    implicit val defaultFormat = seqFormat[T]
+    RWrappableParam.rDefaultRender(v)
+  }
+
+  override def rConstructorLine(v: Seq[T]): String = {
+    if (v.isEmpty) {
+      s"${rName(v)}=c()"
+    } else {
+      val className = typeOf[T].toString
+      s"""${rName(v)}=list(${v.map(arg => {
+        className match {
+          case "com.microsoft.azure.synapse.ml.explainers.ICECategoricalFeature" =>
+            s"""invoke_static(sc, "${className}", "fromMap", ${RWrappableParam.rDefaultRender(arg)})"""
+          case "com.microsoft.azure.synapse.ml.explainers.ICENumericFeature" =>
+            s"""invoke_static(sc, "${className}", "fromMap", ${RWrappableParam.rDefaultRender(arg)})"""
+          case _ =>
+            s"""invoke_new(sc, "${className}", ${rValue(v)})"""
+        }
+      }).mkString(",")})"""
+    }
+  }
 }
 
 class TypedIntArrayParam(parent: Params,

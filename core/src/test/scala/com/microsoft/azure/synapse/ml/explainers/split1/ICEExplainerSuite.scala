@@ -80,11 +80,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
 
   // Helper function which returns value from first row in a column specified by "colName".
   def getFirstValueFromOutput(output: DataFrame, colName: String): Map[_, Vector] = {
-    output.select(colName).collect().map {
-      case Row(map: Map[String, Vector]) => map
-      case Row(map: Map[Int, Vector]) => map
-      case Row(map: Map[Double, Vector]) => map
-    }.head
+    output.select(colName).collect().map(_.getAs[Map[_, Vector]](0)).head
   }
 
   test("col2 doesn't contribute to the prediction.") {

@@ -134,6 +134,8 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
       case CleanMissingData.CustomOpt =>
         // Note: All column types supported for custom value
         colsToClean.map(_ => getCustomValue)
+      case _ =>
+        Array[String]()
     }
     outputCols.zip(metrics).toMap
   }

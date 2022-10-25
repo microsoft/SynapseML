@@ -24,7 +24,7 @@ object PyTestGen {
         ltc.makePyTestFile(conf)
       } catch {
         case _: NotImplementedError =>
-          println(s"ERROR: Could not generate test for ${ltc.testClassName} because of Complex Parameters")
+          println(s"ERROR: Could not generate Python test for ${ltc.testClassName} because of Complex Parameters")
       }
     }
   }
@@ -43,10 +43,11 @@ object PyTestGen {
 
   //noinspection ScalaStyle
   def generatePyPackageData(conf: CodegenConfig): Unit = {
-    if (!conf.pyTestDir.exists()) {
-      conf.pyTestDir.mkdir()
+    val dir = join(conf.pyTestDir, "synapsemltest")
+    if (!dir.exists()) {
+      dir.mkdirs()
     }
-    writeFile(join(conf.pyTestDir,"synapsemltest", "spark.py"),
+    writeFile(join(dir, "spark.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
          |# Licensed under the MIT License. See LICENSE in project root for information.
@@ -68,7 +69,7 @@ object PyTestGen {
          |
          |sc = SQLContext(spark.sparkContext)
          |
-         |""".stripMargin)
+         |""".stripMargin, StandardOpenOption.CREATE)
   }
 
   def main(args: Array[String]): Unit = {
@@ -81,6 +82,7 @@ object PyTestGen {
     if (toDir(conf.pyTestOverrideDir).exists()){
       FileUtils.copyDirectoryToDirectory(toDir(conf.pyTestOverrideDir), toDir(conf.pyTestDir))
     }
+
     makeInitFiles(conf)
   }
 }
