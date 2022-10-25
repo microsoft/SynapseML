@@ -38,13 +38,11 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      verifySchema(dataset.schema)
       dataset.toDF().drop(getCols: _*)
     })
   }
 
   def transformSchema(schema: StructType): StructType = {
-    verifySchema(schema)
     val droppedCols = getCols.toSet
     StructType(schema.fields.filter(f => !droppedCols(f.name)))
   }
