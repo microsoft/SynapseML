@@ -48,16 +48,4 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
   }
 
   def copy(extra: ParamMap): DropColumns = defaultCopy(extra)
-
-  private def verifySchema(schema: StructType): Unit = {
-    val providedCols = schema.fields.map(_.name).toSet
-    val invalidCols = getCols.filter(!providedCols(_))
-
-    if (invalidCols.length > 0) {
-      throw new NoSuchElementException(
-        s"DataFrame does not contain specified columns: ${invalidCols.reduce(_ + "," + _)}")
-    }
-
-  }
-
 }
