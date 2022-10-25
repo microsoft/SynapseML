@@ -32,7 +32,7 @@ description: SynapseML Development Setup
     - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
     :::note
     If you're using a Windows machine, please remove
-    `horovod==0.25.0` requirement in the environment.yml file, because horovod installation only
+    `horovod` requirement in the environment.yml file, because horovod installation only
     supports Linux or macOS. Horovod is used only for namespace `synapse.ml.dl`.
     :::
 1. Install pre-commit
