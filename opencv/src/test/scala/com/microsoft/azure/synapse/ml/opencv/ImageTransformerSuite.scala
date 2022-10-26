@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.image.{UnrollBinaryImage, UnrollImage}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.hadoop.fs.Path
+import org.apache.spark.SparkException
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -171,6 +172,10 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
 
   lazy val images: DataFrame = spark.read.image.option("dropInvalid", value = true)
     .load(FileUtilities.join(fileLocation, "**").toString)
+
+  lazy val badImages: DataFrame =
+    spark.read.image.load(
+      ".\\opencv\\src\\test\\scala\\com\\microsoft\\azure\\synapse\\ml\\opencv\\cmyk_image.jpeg")
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
@@ -338,6 +343,27 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     // Validate first image first few bytes have been transformed correctly
     for (i <- bytes.indices) {
       assert(firstImageBytes(i) == bytes(i))
+    }
+  }
+
+  test("verify ignore decoding error") {
+    // Assert bad image is skipped with null
+    val tr = new ImageTransformer()
+      .setOutputCol("out")
+      .setIgnoreDecodingErrors(true)
+      .resize(height = 15, width = 10)
+
+    val preprocessed = tr.transform(badImages)
+    assert(preprocessed.count() == 1)
+    assert(preprocessed.na.drop.count() == 0)
+
+    // Assert CvException thrown with image that cannot be decoded
+    val trThrows = new ImageTransformer()
+      .setOutputCol("out")
+      .setIgnoreDecodingErrors(false)
+      .resize(height = 15, width = 10)
+    assertThrows[SparkException] {
+      trThrows.transform(badImages).collect()
     }
   }
 

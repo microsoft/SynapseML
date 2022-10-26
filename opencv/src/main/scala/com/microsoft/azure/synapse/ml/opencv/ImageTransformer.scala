@@ -455,6 +455,15 @@ class ImageTransformer(val uid: String) extends Transformer
   def getToTensor: Boolean = $(toTensor)
   def setToTensor(value: Boolean): this.type = this.set(toTensor, value)
 
+  val ignoreDecodingErrors: BooleanParam = new BooleanParam(
+    this,
+    "ignoreDecodingErrors",
+    "Whether to throw on decoding errors or just return None"
+  )
+
+  def getIgnoreDecodingErrors: Boolean = $(ignoreDecodingErrors)
+  def setIgnoreDecodingErrors(value: Boolean): this.type = this.set(ignoreDecodingErrors, value)
+
   @transient
   private lazy val validElementTypes: Array[DataType] = Array(FloatType, DoubleType)
   val tensorElementType: DataTypeParam = new DataTypeParam(
@@ -630,7 +639,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
       val convertFunc = if ($(toTensor)) {
         inputRow: Any =>
-          decodeImage(decodeMode)(inputRow) map {
+          getDecodedImage(decodeMode)(inputRow) map {
             case (_, image) =>
               processStep
                 .andThen(extractStep)
@@ -640,7 +649,7 @@ class ImageTransformer(val uid: String) extends Transformer
           }
       } else {
         inputRow: Any =>
-          decodeImage(decodeMode)(inputRow) map {
+          getDecodedImage(decodeMode)(inputRow) map {
             case (path, image) =>
               val encodeStep = encodeImage(path, _)
               processStep.andThen(encodeStep).apply(image)
@@ -654,6 +663,20 @@ class ImageTransformer(val uid: String) extends Transformer
         df.withColumn(getOutputCol, convert(df(getInputCol)))
       }
     })
+  }
+
+  private def getDecodedImage(decodeMode: String)(r: Any): Option[(String, Mat)] = {
+    try {
+      decodeImage(decodeMode)(r)
+    } catch {
+      case e: MatchError =>
+        throw e
+      case e =>
+        if (getIgnoreDecodingErrors) {
+          logWarning("Error decoding image", e)
+          None
+        } else throw e
+    }
   }
 
   private def getDecodeType(inputDataType: DataType): String = {
