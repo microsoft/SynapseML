@@ -30,6 +30,11 @@ description: SynapseML Development Setup
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
     - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
+    :::note
+    If you're using a Windows machine, please remove
+    `horovod` requirement in the environment.yml file, because horovod installation only
+    supports Linux or macOS. Horovod is used only for namespace `synapse.ml.dl`.
+    :::
 1. Install pre-commit
     - This repository uses the [pre-commit](https://pre-commit.com/index.html) tool to manage git hooks and enforce linting/coding styles.
     - The hooks are configured in [.pre-commit-config.yaml](https://github.com/microsoft/SynapseML/blob/master/environment.yml).

@@ -35,7 +35,7 @@ object AnalyzeDocument extends ComplexParamsReadable[AnalyzeDocument]
 class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
   with HasPrebuiltModelID with HasPages with HasLocale with HasAPIVersion
-  with HasImageInput with HasSetLocation with BasicLogging {
+  with HasImageInput with HasSetLocation with BasicLogging with HasSetLinkedService {
   logClass()
 
   setDefault(apiVersion -> Left("2022-01-30-preview"))
