@@ -19,7 +19,8 @@ val scalaMajorVersion = 2.12
 
 //resolvers += "Local Maven Repository" at "file://" + "C:/Users/svotaw/.m2/repository"
 //resolvers += Resolver.mavenLocal
-resolvers += "Local Maven Repository" at "file:///" + "C:/Users/svotaw/.m2/repository"
+//resolvers += "Local Maven Repository" at "file:///" + "C:/Users/svotaw/.m2/repository"
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
@@ -407,8 +408,9 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     resolvers += "SynapseMl Blob Repository" at "https://mmlspark.blob.core.windows.net/maven/",
+    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "synapseml-onnx_2.12" % "0.2-SNAPSHOT" classifier "assembly",
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.0-1-e7f9a758-20221026-1513-SNAPSHOT" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
