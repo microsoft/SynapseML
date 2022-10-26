@@ -173,6 +173,17 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def getImageTensorName: String = $(imageTensorName)
 
+  val ignoreDecodingErrors: BooleanParam = new BooleanParam(
+    this,
+    "ignoreDecodingErrors",
+    "Whether to throw on decoding errors or just return None"
+  )
+  setDefault(ignoreDecodingErrors -> false)
+  /** @group setParam */
+  def getIgnoreDecodingErrors: Boolean = $(ignoreDecodingErrors)
+  /** @group getParam */
+  def setIgnoreDecodingErrors(value: Boolean): this.type = this.set(ignoreDecodingErrors, value)
+
   setDefault(outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -182,6 +193,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
       val transformed = new ImageTransformer()
         .setInputCol(getInputCol)
         .setOutputCol(imgCol)
+        .setIgnoreDecodingErrors(getIgnoreDecodingErrors)
         .resize(getImageHeight, getImageWidth)
         .centerCrop(getImageHeight, getImageWidth)
         .normalize(

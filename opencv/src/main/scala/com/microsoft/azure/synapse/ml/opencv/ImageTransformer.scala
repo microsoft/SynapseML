@@ -458,8 +458,9 @@ class ImageTransformer(val uid: String) extends Transformer
   val ignoreDecodingErrors: BooleanParam = new BooleanParam(
     this,
     "ignoreDecodingErrors",
-    "Whether to throw on decoding errors or just return None"
+    "Whether to throw on decoding errors or just return null"
   )
+  setDefault(ignoreDecodingErrors -> false)
 
   def getIgnoreDecodingErrors: Boolean = $(ignoreDecodingErrors)
   def setIgnoreDecodingErrors(value: Boolean): this.type = this.set(ignoreDecodingErrors, value)

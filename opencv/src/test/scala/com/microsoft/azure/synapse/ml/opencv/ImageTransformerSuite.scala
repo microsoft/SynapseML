@@ -175,7 +175,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
 
   lazy val badImages: DataFrame =
     spark.read.image.load(
-      ".\\opencv\\src\\test\\scala\\com\\microsoft\\azure\\synapse\\ml\\opencv\\cmyk_image.jpeg")
+      ".//opencv//src//test//scala//com//microsoft//azure//synapse//ml//opencv//cmyk_image.jpeg")
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
