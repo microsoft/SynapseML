@@ -267,7 +267,7 @@ namespace SynapseMLtest.Utils
             bool addSynapseMLRepo = true;
             if (addSynapseMLRepo)
             {
-                return "--repositories  https://mmlspark.azureedge.net/maven";
+                return "--repositories  https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots";
             }
             return "";
         }
