@@ -110,8 +110,6 @@ class SynapseTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
     .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
-    .filterNot(_.getAbsolutePath.contains("InterpretabilityTextExplainers")) // TODO Remove when fixed
-    .filterNot(_.getAbsolutePath.contains("InterpretabilityPDPandICEexplainer")) // TODO Remove when fixed
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
