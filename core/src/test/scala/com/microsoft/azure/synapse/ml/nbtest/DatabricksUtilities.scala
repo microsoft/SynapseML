@@ -51,7 +51,7 @@ object DatabricksUtilities {
   // SynapseML info
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
-  val OnnxVersion = s"com.microsoft.azure:onnx-protobuf_$ScalaVersion:0.9.0-1-e7f9a758-20221026-1513-SNAPSHOT"
+  val OnnxVersion = s"com.microsoft.azure:onnx-protobuf_$ScalaVersion:0.9.0-1-e7f9a758-20221026-2041-SNAPSHOT"
   val OnnxRepository = "https://oss.sonatype.org/content/repositories/snapshots"
 
   // Protobuf info
