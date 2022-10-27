@@ -48,6 +48,7 @@ object PyTestGen {
     if (!dir.exists()) {
       dir.mkdirs()
     }
+    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     writeFile(join(dir, "spark.py"),
       s"""
          |# Copyright (C) Microsoft Corporation. All rights reserved.
@@ -62,7 +63,7 @@ object PyTestGen {
          |    .master("local[*]")
          |    .appName("PysparkTests")
          |    .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:" + __spark_package_version__)
-         |    .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+         |    .config("spark.jars.repositories", "$repos")
          |    .config("spark.executor.heartbeatInterval", "60s")
          |    .config("spark.sql.shuffle.partitions", 10)
          |    .config("spark.sql.crossJoin.enabled", "true")

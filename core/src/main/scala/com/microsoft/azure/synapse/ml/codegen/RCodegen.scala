@@ -53,6 +53,7 @@ object RCodegen {
           |""".stripMargin)
 
     val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
+    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     writeFile(new File(conf.rSrcDir, "package_register.R"),
       s"""|#' @import sparklyr
           |spark_dependencies <- function(spark_version, scala_version, ...) {
@@ -61,7 +62,7 @@ object RCodegen {
           |        packages = c(
           |           "com.microsoft.azure:${conf.name}_${scalaVersion}:${conf.version}"
           |        ),
-          |        repositories = c("https://mmlspark.azureedge.net/maven")
+          |        repositories = c("${repos}")
           |    )
           |}
           |

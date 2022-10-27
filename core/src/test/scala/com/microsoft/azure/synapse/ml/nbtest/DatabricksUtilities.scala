@@ -51,12 +51,15 @@ object DatabricksUtilities {
   // SynapseML info
   val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
   val Repository = "https://mmlspark.azureedge.net/maven"
+  val OnnxVersion = s"com.microsoft.azure:onnx-protobuf_$ScalaVersion:0.9.0-1-e7f9a758-20221026-1513-SNAPSHOT"
+  val OnnxRepository = "https://oss.sonatype.org/content/repositories/snapshots"
 
   // Protobuf info
   val ProtobufVersion = s"com.google.protobuf:protobuf-java:3.14.0"
 
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("maven" -> Map("coordinates" -> OnnxVersion, "repo" -> OnnxRepository)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),

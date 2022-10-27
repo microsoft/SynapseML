@@ -197,6 +197,7 @@ object SynapseUtilities {
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
     val packages: String = s"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
+    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -211,7 +212,7 @@ object SynapseUtilities {
          | "conf" :
          |     {
          |         "spark.jars.packages" : "$packages",
-         |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
+         |         "spark.jars.repositories" : "$repos",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
          |         "spark.executor.userClassPathFirst": "true"

@@ -89,6 +89,7 @@ object RTestGen {
     if (!conf.rTestThatDir.exists()) {
       conf.rTestThatDir.mkdirs()
     }
+    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -100,7 +101,7 @@ object RTestGen {
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=com.microsoft.azure:synapseml_2.12:${conf.version}",
-         |  "spark.jars.repositories=https://mmlspark.azureedge.net/maven",
+         |  "spark.jars.repositories=$repos",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
