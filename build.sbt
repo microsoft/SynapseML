@@ -410,7 +410,7 @@ lazy val deepLearning = (project in file("deep-learning"))
     resolvers += "SynapseMl Blob Repository" at "https://mmlspark.blob.core.windows.net/maven/",
     resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.0-1-e7f9a758-20221026-1513-SNAPSHOT" classifier "assembly",
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.0-1-e7f9a758-20221026-2041-SNAPSHOT" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
