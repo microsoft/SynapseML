@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
@@ -52,17 +52,13 @@ object RCodegen {
           |Config/testthat/edition: 3
           |""".stripMargin)
 
-    val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
-    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     writeFile(new File(conf.rSrcDir, "package_register.R"),
       s"""|#' @import sparklyr
           |spark_dependencies <- function(spark_version, scala_version, ...) {
           |    spark_dependency(
           |        jars = c(),
-          |        packages = c(
-          |           "com.microsoft.azure:${conf.name}_${scalaVersion}:${conf.version}"
-          |        ),
-          |        repositories = c("${repos}")
+          |        packages = c("${PackageUtils.SparkMavenPackageList}"),
+          |        repositories = c("${PackageUtils.SparkMavenRepositoryList}")
           |    )
           |}
           |

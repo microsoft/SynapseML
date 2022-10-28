@@ -3,16 +3,16 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-
-import java.io.File
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.RTestFuzzing
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
+
+import java.io.File
 
 
 object RTestGen {
@@ -61,7 +61,6 @@ object RTestGen {
           |Config/testthat/edition: 3
           |""".stripMargin)
 
-    val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
     writeFile(new File(projectDir, "synapsemltest.Rproj"),
       """
         |Version: 1.0
@@ -84,12 +83,9 @@ object RTestGen {
         |
         |""".stripMargin)
 
-    val synapseVersion = BuildInfo.version
-
     if (!conf.rTestThatDir.exists()) {
       conf.rTestThatDir.mkdirs()
     }
-    val repos = "https://mmlspark.azureedge.net/maven,https://oss.sonatype.org/content/repositories/snapshots"
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -100,8 +96,8 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=com.microsoft.azure:synapseml_2.12:${conf.version}",
-         |  "spark.jars.repositories=$repos",
+         |  "spark.jars.packages=${PackageUtils.SparkMavenPackageList}",
+         |  "spark.jars.repositories=${PackageUtils.SparkMavenRepositoryList}",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")

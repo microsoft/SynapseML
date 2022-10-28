@@ -1,7 +1,6 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-import sbtassembly.AssemblyPlugin.autoImport.ShadeRule
 import xerial.sbt.Sonatype._
 
 import java.io.{File, PrintWriter}
@@ -16,11 +15,6 @@ ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
 
 val scalaMajorVersion = 2.12
-
-//resolvers += "Local Maven Repository" at "file://" + "C:/Users/svotaw/.m2/repository"
-//resolvers += Resolver.mavenLocal
-//resolvers += "Local Maven Repository" at "file:///" + "C:/Users/svotaw/.m2/repository"
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
@@ -407,7 +401,6 @@ lazy val deepLearning = (project in file("deep-learning"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    resolvers += "SynapseMl Blob Repository" at "https://mmlspark.blob.core.windows.net/maven/",
     resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.0-1-e7f9a758-20221026-2041-SNAPSHOT" classifier "assembly",

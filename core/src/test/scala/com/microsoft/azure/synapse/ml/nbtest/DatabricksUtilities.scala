@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, PackageUtils}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
@@ -48,14 +48,11 @@ object DatabricksUtilities {
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
-  // SynapseML info
-  val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
-  val Repository = "https://mmlspark.azureedge.net/maven"
-  val OnnxVersion = s"com.microsoft.azure:onnx-protobuf_$ScalaVersion:0.9.0-1-e7f9a758-20221026-2041-SNAPSHOT"
-  val OnnxRepository = "https://oss.sonatype.org/content/repositories/snapshots"
-
-  // Protobuf info
-  val ProtobufVersion = s"com.google.protobuf:protobuf-java:3.14.0"
+  // Package info
+  val Version = PackageUtils.PackageMavenCoordinate
+  val Repository = PackageUtils.PackageRepository
+  val OnnxVersion = PackageUtils.OnnxProtobufMavenCoordinate
+  val OnnxRepository = PackageUtils.OnnxProtobufRepository
 
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
