@@ -372,7 +372,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   def normalizeChannels(means: Option[Array[Double]], stds: Option[Array[Double]], scaleFactor: Option[Double])
                        (channels: Array[Mat]): Array[Mat] = {
     val channelLength = channels.length
-    require(means.forall(channelLength == _.length))
+    val meansLength = if (means.isDefined) means.get.length else -1
+    require(means.forall(channelLength == _.length), s"channelLength: $channelLength, means length: $meansLength")
     require(stds.forall(channelLength == _.length))
 
     channels
