@@ -437,7 +437,7 @@ class ImageTransformer(val uid: String) extends Transformer
     set(stages, value.asScala.toArray.map(_.asScala.toMap))
 
   def setStages(jsonString: String): this.type = {
-    implicit val formats = DefaultFormats
+    implicit val formats: DefaultFormats.type = DefaultFormats
     this.setStages(parse(jsonString).extract[Array[Map[String, Any]]])
   }
 
@@ -642,7 +642,8 @@ class ImageTransformer(val uid: String) extends Transformer
       val convertFunc = if ($(toTensor)) {
         inputRow: Any =>
           getDecodedImage(decodeMode)(inputRow) map {
-            case (_, image) =>
+            case (path, image) =>
+              log.warn(s"Decoding image: $path")
               processStep
                 .andThen(extractStep)
                 .andThen(normalizeStep)
