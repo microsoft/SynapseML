@@ -59,12 +59,12 @@ class IsolationForestModel(override val uid: String)
 
   override def transform(data: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getInnerModel.setPredictionCol("prediction").transform(data)
+      getInnerModel.setPredictionCol(getPredictionCol).transform(data)
     )
   }
 
   override def transformSchema(schema: StructType): StructType =
-    getInnerModel.setPredictionCol("prediction").transformSchema(schema)
+    getInnerModel.setPredictionCol(getPredictionCol).transformSchema(schema)
 
 }
 
