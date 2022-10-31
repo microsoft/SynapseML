@@ -283,6 +283,7 @@ object GaussianKernel {
 
 /** Pipelined image processing. */
 object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
+  var currentImage: String = "none"
 
   override def load(path: String): ImageTransformer = super.load(path)
 
@@ -373,7 +374,9 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
                        (channels: Array[Mat]): Array[Mat] = {
     val channelLength = channels.length
     val meansLength = if (means.isDefined) means.get.length else -1
-    require(means.forall(channelLength == _.length), s"channelLength: $channelLength, means length: $meansLength")
+    require(
+      means.forall(channelLength == _.length),
+      s"channelLength: $channelLength, means length: $meansLength, path: $currentImage")
     require(stds.forall(channelLength == _.length))
 
     channels
@@ -643,7 +646,7 @@ class ImageTransformer(val uid: String) extends Transformer
         inputRow: Any =>
           getDecodedImage(decodeMode)(inputRow) map {
             case (path, image) =>
-              log.warn(s"Decoding image: $path")
+              currentImage = path
               processStep
                 .andThen(extractStep)
                 .andThen(normalizeStep)
