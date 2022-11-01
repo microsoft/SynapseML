@@ -21,10 +21,10 @@ echo "##vso[task.setvariable variable=DOTNET_WORKER_DIR]$DOTNET_WORKER_DIR"
 dotnet tool install -g sleet
 
 # Install Apache Spark-3.3
-curl https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz -o spark-3.3.0-bin-hadoop3.tgz
+curl https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz -o spark-3.3.1-bin-hadoop3.tgz
 mkdir ~/bin
 tar -xzvf spark-3.3.0-bin-hadoop3.tgz -C ~/bin
-export SPARK_HOME=~/bin/spark-3.3.0-bin-hadoop3/
+export SPARK_HOME=~/bin/spark-3.3.1-bin-hadoop3/
 export PATH=$SPARK_HOME/bin:$PATH
 echo "##vso[task.setvariable variable=SPARK_HOME]$SPARK_HOME"
 echo "##vso[task.setvariable variable=PATH]$SPARK_HOME/bin:$PATH"
