@@ -342,7 +342,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   /**
    * Extract channels from image.
    */
-  def extractChannels(channelOrder: String)(image: Mat): Array[Mat] = {
+  def extractChannels(channelOrder: String, autoConvertToColor: Boolean)(image: Mat): Array[Mat] = {
     // OpenCV channel order is BGR - reverse the order if the intended order is RGB.
     // Also remove alpha channel if nChannels is 4.
     val converted = if (image.channels == 4) {
@@ -355,6 +355,11 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
       // Reorder channel if nChannel is 3 and intended tensor channel order is RGB.
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
       Imgproc.cvtColor(image, dest, Imgproc.COLOR_BGR2RGB)
+      dest
+    } else if (image.channels == 1 && autoConvertToColor) {
+      // Duplicate channels if nChannel is 1 and user indicated to auto-convert.
+      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
+      Imgproc.cvtColor(image, dest, Imgproc.COLOR_GRAY2BGR)
       dest
     } else {
       image
@@ -523,6 +528,16 @@ class ImageTransformer(val uid: String) extends Transformer
   def getColorScaleFactor: Double = $(colorScaleFactor)
   def setColorScaleFactor(value: Double): this.type = this.set(colorScaleFactor, value)
 
+  val autoConvertToColor: BooleanParam = new BooleanParam(
+    this,
+    "autoConvertToColor",
+    "Whether to automatically convert black and white images to color"
+  )
+  setDefault(autoConvertToColor -> false)
+
+  def getAutoConvertToColor: Boolean = $(autoConvertToColor)
+  def setAutoConvertToColor(value: Boolean): this.type = this.set(autoConvertToColor, value)
+
   setDefault(
     inputCol -> "image",
     outputCol -> (uid + "_output"),
@@ -638,7 +653,7 @@ class ImageTransformer(val uid: String) extends Transformer
 
       val outputColumnSchema = if ($(toTensor)) tensorUdfSchema else imageColumnSchema
       val processStep = processImage(transforms) _
-      val extractStep = extractChannels(getTensorChannelOrder) _
+      val extractStep = extractChannels(getTensorChannelOrder, getAutoConvertToColor) _
       val normalizeStep = normalizeChannels(get(normalizeMean), get(normalizeStd), get(colorScaleFactor)) _
       val toTensorStep = convertToTensor _
 

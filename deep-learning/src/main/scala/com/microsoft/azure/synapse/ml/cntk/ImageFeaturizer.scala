@@ -19,6 +19,7 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{FloatType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
+import org.opencv.imgproc.Imgproc
 
 object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
 
@@ -184,6 +185,16 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   /** @group getParam */
   def setIgnoreDecodingErrors(value: Boolean): this.type = this.set(ignoreDecodingErrors, value)
 
+
+  val autoConvertToColor: BooleanParam = new BooleanParam(
+    this,
+    "autoConvertToColor",
+    "Whether to automatically convert black and white images to color"
+  )
+  setDefault(autoConvertToColor -> false)
+  def getAutoConvertToColor: Boolean = $(autoConvertToColor)
+  def setAutoConvertToColor(value: Boolean): this.type = this.set(autoConvertToColor, value)
+
   setDefault(outputCol -> (uid + "_output"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -196,6 +207,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setIgnoreDecodingErrors(getIgnoreDecodingErrors)
         .resize(getImageHeight, getImageWidth)
         .centerCrop(getImageHeight, getImageWidth)
+        .colorFormat(Imgproc.COLOR_BGR2GRAY)
         .normalize(
           getChannelNormalizationMeans,
           getChannelNormalizationStds,
