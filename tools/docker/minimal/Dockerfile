@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:20.04
 ARG SYNAPSEML_VERSION=0.10.2
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SPARK_VERSION=3.3.0
+ENV SPARK_VERSION=3.3.1
 ENV HADOOP_VERSION=3
 ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
 ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
@@ -33,7 +33,7 @@ RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64
 ENV PATH /opt/conda/bin:$PATH
 
 # Download and install Spark
-RUN wget https://downloads.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
     && tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
     && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
     && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
