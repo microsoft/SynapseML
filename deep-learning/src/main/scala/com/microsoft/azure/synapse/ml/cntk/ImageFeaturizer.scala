@@ -205,9 +205,9 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
         .setInputCol(getInputCol)
         .setOutputCol(imgCol)
         .setIgnoreDecodingErrors(getIgnoreDecodingErrors)
+        .setAutoConvertToColor(true)
         .resize(getImageHeight, getImageWidth)
         .centerCrop(getImageHeight, getImageWidth)
-        .colorFormat(Imgproc.COLOR_BGR2GRAY)
         .normalize(
           getChannelNormalizationMeans,
           getChannelNormalizationStds,
