@@ -419,7 +419,7 @@ class ONNXModel(override val uid: String)
       case ArrayType(_: NumericType, _) => DoubleType
       case MapType(_: NumericType, _: NumericType, _) => DoubleType
       case t => throw new IllegalArgumentException(
-        s"Input type for Softmax must be ArrayType(NumericType) or MapType(NumericType, NumericType), " +
+        s"Input type for Argmax must be ArrayType(NumericType) or MapType(NumericType, NumericType), " +
           s"but got $t instead."
       )
     }

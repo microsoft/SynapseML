@@ -104,32 +104,38 @@ object ONNXUtils {
     tensorInfo.`type` match {
       case OnnxJavaType.FLOAT =>
         val buffer = FloatBuffer.allocate(size)
-        writeNestedSeqToBuffer[Float](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Float](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.DOUBLE =>
         val buffer = DoubleBuffer.allocate(size)
-        writeNestedSeqToBuffer[Double](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Double](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT8 =>
         val buffer = ByteBuffer.allocate(size)
-        writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT16 =>
         val buffer = ShortBuffer.allocate(size)
-        writeNestedSeqToBuffer[Short](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Short](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT32 =>
         val buffer = IntBuffer.allocate(size)
-        writeNestedSeqToBuffer[Int](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Int](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT64 =>
         val buffer = LongBuffer.allocate(size)
-        writeNestedSeqToBuffer[Long](batchedValues, buffer.put(_))
+        val actualCount = writeNestedSeqToBuffer[Long](batchedValues, buffer.put(_))
+        assertBufferElementsWritten(size, actualCount)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.STRING =>
@@ -141,12 +147,22 @@ object ONNXUtils {
     }
   }
 
-  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Unit = {
-    nestedSeq.foreach {
-      case x: T => bufferWrite(x)
-      case s: Seq[_] =>
-        writeNestedSeqToBuffer(s, bufferWrite)
+  private def assertBufferElementsWritten(expected: Long, actual: Long): Unit = {
+    if (expected != actual) {
+      throw new IllegalArgumentException(s"Expected $expected batch elements but found $actual." +
+        " Possible color channel mismatch. Input images should have 3 (or 4) color channels," +
+        " or autoConvertToColor should be set to true.")
     }
+  }
+
+  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Long = {
+    nestedSeq.foldLeft(0: Long) { (cur, element) => element match {
+      case x: T =>
+        bufferWrite(x)
+        cur + 1
+      case s: Seq[_] => cur + writeNestedSeqToBuffer(s, bufferWrite)
+      case _ => cur + 0L
+    }}
   }
 
   private def writeNestedSeqToStringBuffer(nestedSeq: Seq[_], size: Int): ArrayBuffer[String] = {

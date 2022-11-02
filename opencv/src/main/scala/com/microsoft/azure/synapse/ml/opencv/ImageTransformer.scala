@@ -345,13 +345,14 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   def extractChannels(channelOrder: String, autoConvertToColor: Boolean)(image: Mat): Array[Mat] = {
     // OpenCV channel order is BGR - reverse the order if the intended order is RGB.
     // Also remove alpha channel if nChannels is 4.
+    val channelOrderIsRgb = channelOrder.toLowerCase == "rgb"
     val converted = if (image.channels == 4) {
       // remove alpha channel and order color channels if necessary
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
-      val colorConversion = if (channelOrder.toLowerCase == "rgb") Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
+      val colorConversion = if (channelOrderIsRgb) Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
       Imgproc.cvtColor(image, dest, colorConversion)
       dest
-    } else if (image.channels == 3 && channelOrder.toLowerCase == "rgb") {
+    } else if (image.channels == 3 && channelOrderIsRgb) {
       // Reorder channel if nChannel is 3 and intended tensor channel order is RGB.
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
       Imgproc.cvtColor(image, dest, Imgproc.COLOR_BGR2RGB)
@@ -359,7 +360,8 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
     } else if (image.channels == 1 && autoConvertToColor) {
       // Duplicate channels if nChannel is 1 and user indicated to auto-convert.
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
-      Imgproc.cvtColor(image, dest, Imgproc.COLOR_GRAY2BGR)
+      val colorConversion = if (channelOrderIsRgb) Imgproc.COLOR_GRAY2RGB else Imgproc.COLOR_GRAY2BGR
+      Imgproc.cvtColor(image, dest, colorConversion)
       dest
     } else {
       image
