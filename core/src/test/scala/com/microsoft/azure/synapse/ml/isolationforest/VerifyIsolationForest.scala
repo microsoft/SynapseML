@@ -59,6 +59,27 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
         s" $aurocExpectation +/- $uncert, but observed $auroc")
   }
 
+  test ("Verify predictionCol") {
+    import spark.implicits._
+
+    val df = spark.createDataset(Seq(1, 2, 3)).toDF("data")
+
+    val dfAssembled = new VectorAssembler()
+      .setInputCols(Array("data"))
+      .setOutputCol("features")
+      .transform(df)
+
+    val isf = new IsolationForest()
+      .setContamination(0.1)
+      .setScoreCol("comp_score")
+      .setPredictionCol("azerty")
+      .setMaxSamples(1)
+
+    val dfOutput = isf.fit(dfAssembled).transform(dfAssembled)
+
+    assert(dfOutput.schema.names.contains("azerty"))
+  }
+
   def loadMammographyData(): DataFrame = {
 
     val mammographyRecordSchema = Encoders.product[MammographyRecord].schema
