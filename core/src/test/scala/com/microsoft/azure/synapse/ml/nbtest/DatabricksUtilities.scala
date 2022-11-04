@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, PackageUtils}
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
@@ -48,15 +49,9 @@ object DatabricksUtilities {
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
-  // Package info
-  val Version = PackageUtils.PackageMavenCoordinate
-  val Repository = PackageUtils.PackageRepository
-  val OnnxVersion = PackageUtils.OnnxProtobufMavenCoordinate
-  val OnnxRepository = PackageUtils.OnnxProtobufRepository
-
   val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
-    Map("maven" -> Map("coordinates" -> OnnxVersion, "repo" -> OnnxRepository)),
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("maven" -> Map("coordinates" -> OnnxProtobufMavenCoordinate, "repo" -> OnnxProtobufRepository)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
@@ -68,7 +63,7 @@ object DatabricksUtilities {
 
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository))
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(

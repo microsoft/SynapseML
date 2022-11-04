@@ -8,7 +8,6 @@ if sys.version >= "3":
 
 from synapse.ml.cntk._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
-from pyspark.sql import SparkSession
 
 
 @inherit_doc
@@ -16,7 +15,7 @@ class ImageFeaturizer(_ImageFeaturizer):
     """
 
     Args:
-        SparkSession (SparkSession): The SparkSession that will be used to find the model
+        name (str): The name of the model in the OnnxHub
         location (str): The location of the model, either on local or HDFS
     """
 

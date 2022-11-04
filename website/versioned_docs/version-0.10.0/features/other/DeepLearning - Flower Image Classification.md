@@ -76,7 +76,9 @@ resnet = (
     ImageFeaturizer()
     .setInputCol("image")
     .setOutputCol("features")
-    .setModel("ResNet50")
+    .setModelLocation(model.uri)
+    .setLayerNames(model.layerNames)
+    .setCutOutputLayers(1)
 )
 
 dc3 = DropColumns().setCols(["image"])

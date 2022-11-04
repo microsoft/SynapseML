@@ -46,7 +46,7 @@ private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) exte
 }
 
 /**
- * ONNXRuntime: A wrapper around the ONNX Runtime
+ * ONNXRuntime: A wrapper around the ONNX Runtime (ORT)
  */
 object ONNXRuntime extends Logging {
   private[onnx] def createOrtSession(modelContent: Array[Byte],

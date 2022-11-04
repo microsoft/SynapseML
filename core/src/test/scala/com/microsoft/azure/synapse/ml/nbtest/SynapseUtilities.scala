@@ -5,7 +5,8 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, PackageUtils}
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{safeSend, sendAndParseJson}
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
@@ -209,8 +210,8 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "${PackageUtils.SparkMavenPackageList}",
-         |         "spark.jars.repositories" : "${PackageUtils.SparkMavenRepositoryList}",
+         |         "spark.jars.packages" : "$SparkMavenPackageList",
+         |         "spark.jars.repositories" : "$SparkMavenRepositoryList",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
          |         "spark.executor.userClassPathFirst": "true"

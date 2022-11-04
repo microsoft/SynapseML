@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
-import com.microsoft.azure.synapse.ml.core.env.PackageUtils
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import spray.json._
@@ -57,8 +57,8 @@ object RCodegen {
           |spark_dependencies <- function(spark_version, scala_version, ...) {
           |    spark_dependency(
           |        jars = c(),
-          |        packages = c("${PackageUtils.SparkMavenPackageList}"),
-          |        repositories = c("${PackageUtils.SparkMavenRepositoryList}")
+          |        packages = c("$SparkMavenPackageList"),
+          |        repositories = c("$SparkMavenRepositoryList")
           |    )
           |}
           |

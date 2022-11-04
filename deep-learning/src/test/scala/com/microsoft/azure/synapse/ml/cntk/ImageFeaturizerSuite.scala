@@ -131,11 +131,11 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
     val images = groceryImages.withColumnRenamed(inputCol, "image").coalesce(1)
     println(images.count())
 
-    val result = resNetModelHeadless().setInputCol("image").transform(images)
+    val result = resNetModelFull().setInputCol("image").transform(images)
       .withColumn("foo", UDFUtils.oldUdf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result,sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
+    PowerBIWriter.write(result, sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
   }
 
   val reader: MLReadable[_] = ImageFeaturizer

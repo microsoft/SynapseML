@@ -12,7 +12,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
-import spray.json.{DefaultJsonProtocol, RootJsonFormat, _}
+import spray.json._
 
 import java.io.BufferedInputStream
 import java.net.URL

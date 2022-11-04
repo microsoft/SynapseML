@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
-import com.microsoft.azure.synapse.ml.core.env.PackageUtils
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.PyTestFuzzing
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
@@ -62,8 +62,8 @@ object PyTestGen {
          |spark = (SparkSession.builder
          |    .master("local[*]")
          |    .appName("PysparkTests")
-         |    .config("spark.jars.packages", "${PackageUtils.SparkMavenPackageList}")
-         |    .config("spark.jars.repositories", "${PackageUtils.SparkMavenRepositoryList}")
+         |    .config("spark.jars.packages", "$SparkMavenPackageList")
+         |    .config("spark.jars.repositories", "$SparkMavenRepositoryList")
          |    .config("spark.executor.heartbeatInterval", "60s")
          |    .config("spark.sql.shuffle.partitions", 10)
          |    .config("spark.sql.crossJoin.enabled", "true")

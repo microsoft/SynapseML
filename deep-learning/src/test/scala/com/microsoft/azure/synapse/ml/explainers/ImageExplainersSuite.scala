@@ -33,7 +33,6 @@ abstract class ImageExplainersSuite extends TestBase with TrainedONNXModelUtils 
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
     .setModel("resnet18")
-    .setHeadless(false)
     .setInputCol("image")
     .setMiniBatchSize(1)
 

@@ -5,14 +5,13 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
-import com.microsoft.azure.synapse.ml.core.env.PackageUtils
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.RTestFuzzing
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
+import java.io.File
 import org.apache.commons.io.FileUtils
 import spray.json._
-
-import java.io.File
 
 
 object RTestGen {
@@ -96,8 +95,8 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=${PackageUtils.SparkMavenPackageList}",
-         |  "spark.jars.repositories=${PackageUtils.SparkMavenRepositoryList}",
+         |  "spark.jars.packages=$SparkMavenPackageList}",
+         |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
@@ -117,7 +116,6 @@ object RTestGen {
          |
          |testcheck("synapseml")
          |""".stripMargin)
-
   }
 
   def useLibrary(name: String): String = {

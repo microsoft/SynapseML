@@ -283,7 +283,6 @@ object GaussianKernel {
 
 /** Pipelined image processing. */
 object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
-  var currentImage: String = "none"
 
   override def load(path: String): ImageTransformer = super.load(path)
 
@@ -381,10 +380,9 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
                        (channels: Array[Mat]): Array[Mat] = {
     val channelLength = channels.length
     val meansLength = if (means.isDefined) means.get.length else -1
-    require(
-      means.forall(channelLength == _.length),
-      s"channelLength: $channelLength, means length: $meansLength, path: $currentImage")
-    require(stds.forall(channelLength == _.length))
+    val stdLength = if (stds.isDefined) stds.get.length else -1
+    require(means.forall(channelLength == _.length), s"channelLength: $channelLength, means length: $meansLength")
+    require(stds.forall(channelLength == _.length), s"channelLength: $channelLength, stds length: $stdLength")
 
     channels
       .zip(means.getOrElse(Array.fill(channelLength)(0d)))
@@ -663,7 +661,6 @@ class ImageTransformer(val uid: String) extends Transformer
         inputRow: Any =>
           getDecodedImage(decodeMode)(inputRow) map {
             case (path, image) =>
-              currentImage = path
               processStep
                 .andThen(extractStep)
                 .andThen(normalizeStep)
@@ -694,7 +691,7 @@ class ImageTransformer(val uid: String) extends Transformer
     } catch {
       case e: MatchError =>
         throw e
-      case e =>
+      case e: Throwable =>
         if (getIgnoreDecodingErrors) {
           logWarning("Error decoding image", e)
           None
