@@ -184,16 +184,17 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     .setOutputCol("result")
 
   test("Transliterate") {
+    def stripInvalid(str: String): String = {
+      "[^\n'A-Za-z]".r.replaceAllIn(str, "")
+    }
+
     val results = transliterate.transform(transDf)
       .withColumn("text", col("result.text"))
       .withColumn("script", col("result.script"))
       .select("text", "script").collect()
-    // TODO: we randomly get an invisible, zero-width unicode space (\uB200) at the end of the first string.
-    // This is a bandaid until we can fix the actual bug.
-    val stripUnicode = "[^\n'A-Za-z]".r
-    val stripped = stripUnicode.replaceAllIn(results.head.getSeq(0).mkString("\n"), "")
-    assert(stripped === "Kon'nichiwa\nsayonara")
-    assert(results.head.getSeq(1).mkString("\n") === "Latn\nLatn")
+
+    assert(stripInvalid(results.head.getSeq(0).mkString("\n")) === "Kon'nichiwa\nsayonara")
+    assert(stripInvalid(results.head.getSeq(1).mkString("\n")) === "Latn\nLatn")
   }
 
   test("Throw errors if required fields not set") {
