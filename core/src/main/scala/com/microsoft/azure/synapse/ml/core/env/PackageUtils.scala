@@ -12,20 +12,20 @@ object PackageUtils {
   val SparkMLRepository = "https://mmlspark.azureedge.net/maven"
   val SonatypeSnapshotsRepository = "https://oss.sonatype.org/content/repositories/snapshots"
 
-  val ScalaVersionSuffix = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
+  val ScalaVersionSuffix: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
   val PackageGroup = "com.microsoft.azure"
 
-  val PackageName = s"synapseml_${ScalaVersionSuffix}"
+  val PackageName = s"synapseml_$ScalaVersionSuffix"
   val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
-  val PackageRepository = SparkMLRepository
+  val PackageRepository: String = SparkMLRepository
 
   // If testing onnx package with snapshots repo, make sure to switch to using
   // OnnxProtobufRepository = SonatypeSnapshotsRepository and also adding it to SparkMavenRepositoryList
-  val OnnxProtobufPackageName = s"onnx-protobuf_${ScalaVersionSuffix}"
+  val OnnxProtobufPackageName = s"onnx-protobuf_$ScalaVersionSuffix"
   val OnnxProtobufVersion = "0.9.1"
   val OnnxProtobufMavenCoordinate = s"$PackageGroup:$OnnxProtobufPackageName:$OnnxProtobufVersion"
-  val OnnxProtobufRepository = SparkMLRepository
+  val OnnxProtobufRepository: String = SparkMLRepository
 
   // Note: this is also hardwired in core/src/main/dotnet/test/E2ETestUtils.cs AND website/doctest.py
   val SparkMavenPackageList = s"$PackageMavenCoordinate"

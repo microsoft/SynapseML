@@ -71,11 +71,17 @@ object ONNXHubJsonProtocol extends DefaultJsonProtocol {
 object ONNXHub {
   val DefaultRepo: String = "onnx/models:main"
   val AuthenticatedRepo: (String, String, String) = ("onnx", "models", "main")
-  val ConnectTimeout = 15000
-  val ReadTimeout = 5000
+  val DefaultConnectTimeout = 15000
+  val DefaultReadTimeout = 5000
+  val DefaultRetryCount = 3
+  val DefaultRetryTimeoutInSeconds = 600
 }
 
-class ONNXHub(val modelCacheDir: Path) extends Logging {
+class ONNXHub(val modelCacheDir: Path,
+              val connectTimeout: Int = ONNXHub.DefaultConnectTimeout,
+              val readTimeout: Int = ONNXHub.DefaultReadTimeout,
+              val retryCount: Int = ONNXHub.DefaultRetryCount,
+              val retryTimeoutInSeconds: Int = ONNXHub.DefaultRetryTimeoutInSeconds) extends Logging {
   def this() = {
     this(sys.env.get("ONNX_HOME")
       .map(oh => new Path(oh, "hub"))
@@ -117,8 +123,8 @@ class ONNXHub(val modelCacheDir: Path) extends Logging {
 
   private def toStream(url: URL) = {
     val urlCon = url.openConnection()
-    urlCon.setConnectTimeout(ONNXHub.ConnectTimeout)
-    urlCon.setReadTimeout(ONNXHub.ReadTimeout)
+    urlCon.setConnectTimeout(connectTimeout)
+    urlCon.setReadTimeout(readTimeout)
     new BufferedInputStream(urlCon.getInputStream)
   }
 
@@ -170,10 +176,10 @@ class ONNXHub(val modelCacheDir: Path) extends Logging {
 
   //noinspection ScalaStyle
   private def downloadModel(url: URL, path: Path, fs: FileSystem): Unit = {
-    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(10, "minutes")) {
+    FaultToleranceUtils.retryWithTimeout(retryCount, Duration.apply(retryTimeoutInSeconds, "sec")) {
       val urlCon = url.openConnection()
-      urlCon.setConnectTimeout(ONNXHub.ConnectTimeout)
-      urlCon.setReadTimeout(ONNXHub.ReadTimeout)
+      urlCon.setConnectTimeout(connectTimeout)
+      urlCon.setReadTimeout(readTimeout)
       using(new BufferedInputStream(urlCon.getInputStream)) { is =>
           using(fs.create(path)) { os =>
           HUtils.copyBytes(is, os, SparkContext.getOrCreate().hadoopConfiguration)

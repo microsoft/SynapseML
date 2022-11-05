@@ -8,6 +8,7 @@ import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.core.utils.ClosableIterator
 import com.microsoft.azure.synapse.ml.onnx.ONNXUtils._
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
@@ -16,34 +17,6 @@ import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
-
-//noinspection ScalaStyle
-private class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
-  override def hasNext: Boolean = delegate.hasNext
-
-  override def next(): T = {
-    val t = delegate.next()
-
-    if (!delegate.hasNext) {
-      // Cleanup the resource if there is no more rows, but iterator does not have to exhaust.
-      cleanup
-    }
-
-    t
-  }
-
-  override def finalize(): Unit = {
-    try {
-      // Make sure resource is cleaned up.
-      cleanup
-    }
-    catch {
-      case _: Throwable =>
-    }
-
-    super.finalize()
-  }
-}
 
 /**
  * ONNXRuntime: A wrapper around the ONNX Runtime (ORT)

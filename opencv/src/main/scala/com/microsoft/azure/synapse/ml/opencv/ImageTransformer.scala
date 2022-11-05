@@ -660,7 +660,7 @@ class ImageTransformer(val uid: String) extends Transformer
       val convertFunc = if ($(toTensor)) {
         inputRow: Any =>
           getDecodedImage(decodeMode)(inputRow) map {
-            case (path, image) =>
+            case (_, image) =>
               processStep
                 .andThen(extractStep)
                 .andThen(normalizeStep)

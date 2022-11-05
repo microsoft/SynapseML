@@ -12,6 +12,7 @@ import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import org.apache.commons.io.FileUtils
+import org.apache.spark.SparkException
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
@@ -82,6 +83,39 @@ class ONNXModelSuite extends TestBase
     Tuple1(Vectors.dense(4.9d, 3.0d, 1.4d, 0.2d)),
     Tuple1(Vectors.dense(5.8d, 2.7d, 5.1d, 1.9d))
   ) toDF "features"
+
+  private lazy val testDfIrisWrongShape: DataFrame = Seq(
+    Array(6.7f, 3.1f, 4.7f)  // Should be 4 values
+  ) toDF "features"
+
+  private lazy val testDfIrisWrongShape2: DataFrame = Seq(
+    Array(6.7f, 3.1f, 4.7f, 1.5f),
+    Array(6.7f, 3.1f, 4.7f)  // Should be 4 values
+  ) toDF "features"
+
+  private lazy val testDfIrisEmptyDimension: DataFrame = Seq(
+    Array[Double]()  // No dimension should be empty
+  ) toDF "features"
+
+  test("ONNXModel throws for wrong shape") {
+    val caught = intercept[SparkException] {
+      onnxIris.transform(testDfIrisWrongShape).collect()
+    }
+    assert(caught.getMessage.contains("IllegalArgumentException"))
+
+    // Test when bad shape is not first in batch
+    val caught2 = intercept[SparkException] {
+      onnxIris.transform(testDfIrisWrongShape2).collect()
+    }
+    assert(caught2.getMessage.contains("IllegalArgumentException"))
+  }
+
+  test("ONNXModel throws for empty dimension") {
+    val caught = intercept[SparkException] {
+      onnxIris.transform(testDfIrisEmptyDimension).collect()
+    }
+    assert(caught.getMessage.contains("IllegalArgumentException"))
+  }
 
   test("ONNXModel can infer observations of matching input types") {
     val predicted = onnxIris.transform(testDfIrisFloat).as[(Seq[Float], Long, Map[Long, Float])].collect()
@@ -308,7 +342,6 @@ class ONNXModelSuite extends TestBase
     spark
     val name = "resnet50"
     val hub = new ONNXHub()
-    val info = hub.getModelInfo(name)
     val bytes = hub.load(name)
     val model = new ONNXModel()
       .setModelPayload(bytes)
@@ -318,7 +351,7 @@ class ONNXModelSuite extends TestBase
       .setArgMaxDict(Map("rawPrediction" -> "prediction"))
       .setMiniBatchSize(1)
 
-    val (probability, prediction) = model.transform(testDfResNet50)
+    val (probability, _) = model.transform(testDfResNet50)
       .select("probability", "prediction")
       .as[(Vector, Double)]
       .head

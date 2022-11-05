@@ -11,6 +11,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types._
 
 import java.nio._
+import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -99,43 +100,76 @@ object ONNXUtils {
         s"but -1 is only allowed at the first dimension (batch size).")
     shape(0) = batchedValues.length
 
-    val size = shape.product.toInt
+    validateBatchShapes(batchedValues, shape)
 
+    loadTensorBuffer(env, tensorInfo, batchedValues, shape)
+  }
+
+  private def validateBatchShapes(batchedValues: Seq[_], expectedShape: Array[Long]): Unit = {
+    // Validate input shape based on first sequence in each parent
+    @tailrec
+    def validateOneShape(nestedSeq: Seq[_], currentSize: Array[Long], expectedShape: Array[Long]): Unit = {
+      if (nestedSeq.isEmpty) {
+        throw new IllegalArgumentException("Input element dimension is empty")
+      }
+      val newSize = currentSize :+ nestedSeq.length.toLong
+      nestedSeq.head match {
+        case s: Seq[_] => validateOneShape(s, newSize, expectedShape)
+        case _ =>
+          if (!util.Arrays.equals(newSize, expectedShape)) {
+            throw new IllegalArgumentException(
+              s"Input element does not match input tensor shape [${expectedShape.mkString}]." +
+              s" Found shape [${newSize.mkString}]")
+          }
+      }
+    }
+
+    batchedValues.foreach {
+      case s: Seq[_] => validateOneShape(s, Array[Long](), expectedShape.tail)
+      case _ => throw new IllegalArgumentException("Image batch is not a sequence")
+    }
+  }
+
+  private[onnx] def loadTensorBuffer(env: OrtEnvironment,
+                                     tensorInfo: TensorInfo,
+                                     batchedValues: Seq[_],
+                                     shape: Array[Long]): OnnxTensor = {
+    val size = shape.product.toInt
     tensorInfo.`type` match {
       case OnnxJavaType.FLOAT =>
         val buffer = FloatBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Float](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.DOUBLE =>
         val buffer = DoubleBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Double](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT8 =>
         val buffer = ByteBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT16 =>
         val buffer = ShortBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Short](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT32 =>
         val buffer = IntBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Int](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.INT64 =>
         val buffer = LongBuffer.allocate(size)
         val actualCount = writeNestedSeqToBuffer[Long](batchedValues, buffer.put(_))
-        assertBufferElementsWritten(size, actualCount)
+        assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
       case OnnxJavaType.STRING =>
@@ -147,11 +181,10 @@ object ONNXUtils {
     }
   }
 
-  private def assertBufferElementsWritten(expected: Long, actual: Long): Unit = {
+  private def assertBufferElementsWritten(expected: Long, actual: Long, shape: Array[Long]): Unit = {
     if (expected != actual) {
       throw new IllegalArgumentException(s"Expected $expected batch elements but found $actual." +
-        " Possible color channel mismatch. Input images should have 3 (or 4) color channels," +
-        " or autoConvertToColor should be set to true.")
+        s" Expected shape is [${shape.mkString}].")
     }
   }
 
