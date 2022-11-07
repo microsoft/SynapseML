@@ -26,9 +26,9 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test")
+  "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
-  "org.scalactic" %% "scalactic" % "3.0.5",
+  "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",

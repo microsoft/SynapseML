@@ -9,7 +9,7 @@ import org.apache.spark.SparkException
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{FloatType, IntegerType}
-import org.scalatest.Matchers.{a, thrownBy}
+import org.scalatest.matchers.should.Matchers.{a, thrownBy}
 
 class SlicerFunctionsSuite extends TestBase {
   test("SlicerFunctions UDFs can handle different types of inputs") {
