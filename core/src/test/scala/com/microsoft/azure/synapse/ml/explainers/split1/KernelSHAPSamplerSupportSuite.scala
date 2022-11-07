@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.explainers.split1
 import breeze.linalg.sum
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.explainers.KernelSHAPSamplerSupport
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 
 class KernelSHAPSamplerSupportSuite extends TestBase {
 
