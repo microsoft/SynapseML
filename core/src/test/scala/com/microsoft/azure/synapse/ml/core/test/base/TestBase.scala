@@ -14,6 +14,7 @@ import org.apache.spark.streaming.{StreamingContext, Seconds => SparkSeconds}
 import org.scalactic.Equality
 import org.scalactic.source.Position
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.concurrent.TimeLimits
 import org.scalatest.time.{Seconds, Span}
 
@@ -142,7 +143,7 @@ object TestBase extends SparkSessionManagement {
 
 }
 
-abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
 
   lazy val sparkProvider: SparkSessionManagement = TestBase
 
