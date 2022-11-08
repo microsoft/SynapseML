@@ -68,8 +68,11 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
             f'please add the override="YOUR_KEY_HERE" to the arguments of the find_secret() method'
         )
 
-
-def display_for_synapse_batch_mode(data):
-    if isinstance(data, DataFrame):
-        data.collect()
-    print(data)
+def materializing_display(data):
+    if running_on_synapse() or running_on_synapse_internal():
+        from notebookutils.visualization import display
+        if isinstance(data, DataFrame):
+            data.collect()
+        display(data)
+    else:
+        display(data)
