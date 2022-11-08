@@ -51,7 +51,6 @@ object DatabricksUtilities {
 
   val Libraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
-    Map("maven" -> Map("coordinates" -> OnnxProtobufMavenCoordinate, "repo" -> OnnxProtobufRepository)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
