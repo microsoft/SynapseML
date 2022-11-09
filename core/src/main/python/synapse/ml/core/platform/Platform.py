@@ -69,7 +69,12 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
         )
 
 
-def display_for_synapse_batch_mode(data):
-    if isinstance(data, DataFrame):
-        data.collect()
-    print(data)
+def materializing_display(data):
+    if running_on_synapse() or running_on_synapse_internal():
+        from notebookutils.visualization import display
+
+        if isinstance(data, DataFrame):
+            data.collect()
+        display(data)
+    else:
+        display(data)

@@ -94,16 +94,6 @@ class SynapseExtensionsTests extends TestBase {
   selectedPythonFiles.foreach(println)
   assert(selectedPythonFiles.length > 0)
 
-  // Clean up existing Artifacts in E2E test workspace
-  SynapseExtensionUtilities.listArtifacts()
-    .foreach(artifact =>
-    {
-      println(s"Artifact cleanup: deleting artifact ${artifact.displayName}")
-      //TODO: Re-enable artifact cleanup. use creation timestamp in sjd response
-      //  To only delete artifacts > some time ago
-      // SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
-    })
-
   val storeArtifactId = SynapseExtensionUtilities.createStoreArtifact()
 
   selectedPythonFiles.seq.map(createAndExecuteSJD)
