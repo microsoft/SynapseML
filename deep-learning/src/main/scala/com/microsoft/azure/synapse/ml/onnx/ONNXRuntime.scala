@@ -8,7 +8,7 @@ import ai.onnxruntime.OrtSession.SessionOptions
 import ai.onnxruntime.OrtSession.SessionOptions.OptLevel
 import ai.onnxruntime._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
-import com.microsoft.azure.synapse.ml.core.utils.ClosableIterator
+import com.microsoft.azure.synapse.ml.core.utils.CloseableIterator
 import com.microsoft.azure.synapse.ml.onnx.ONNXUtils._
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
@@ -100,7 +100,7 @@ object ONNXRuntime extends Logging {
         Row.fromSeq(data ++ outputBatches)
     }
 
-    new ClosableIterator[Row](results, {
+    new CloseableIterator[Row](results, {
       session.close()
       env.close()
     })

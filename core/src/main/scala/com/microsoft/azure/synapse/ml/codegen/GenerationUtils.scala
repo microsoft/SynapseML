@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PipelineStageWrappable, PythonWrappableParam}
 import com.microsoft.azure.synapse.ml.param.RWrappableParam
 import org.apache.spark.ml.param._
@@ -18,7 +17,7 @@ object GenerationUtils {
     val tailAfterHeadInUppercase = str.dropWhile(c => c.isUpper || c.isDigit)
 
     if (tailAfterHeadInUppercase.isEmpty) headInUpperCase.toLowerCase else {
-      val firstWord = if (!headInUpperCase.dropRight(1).isEmpty) {
+      val firstWord = if (headInUpperCase.dropRight(1).nonEmpty) {
         headInUpperCase.last match {
           case c if c.isDigit => headInUpperCase
           case _ => headInUpperCase.dropRight(1).toLowerCase

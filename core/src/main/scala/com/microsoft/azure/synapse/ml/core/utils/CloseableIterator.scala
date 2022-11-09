@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.core.utils
 
 //noinspection ScalaStyle
-class ClosableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
+class CloseableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
   override def hasNext: Boolean = delegate.hasNext
 
   override def next(): T = {

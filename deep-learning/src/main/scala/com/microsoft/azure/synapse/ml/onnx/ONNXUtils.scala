@@ -14,6 +14,7 @@ import java.nio._
 import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 import scala.reflect.ClassTag
@@ -251,6 +252,9 @@ object ONNXUtils {
       .setModelPayload(slicedProtobufModel.toByteArray)
   }
 
+  /*
+   * Find all nodes required to produce the given outputs
+   */
   private def findUsedNodesForOutputs(model: ModelProto,
                                       newOutputNames: Array[String]): (Array[NodeProto], Array[ValueInfoProto]) = {
     val graph = model.getGraph
@@ -268,23 +272,34 @@ object ONNXUtils {
     val outputNameToNodeMap = nodes.flatMap(node => node.getNodeOutputNames.map(name => name -> node)).toMap
 
     // Recursive method to traverse graph backwards, marking nodes as used or not
-    def markAsUsed(node: NodeProto): Unit = {
-      // If the node is already marked, skip it
-      if (!nodeUsageStatus(node.getName)) {
-        nodeUsageStatus(node.getName) = true
-        // This input might be an actual external input variable or initializer, which has no upstream node
-        // Otherwise continue up the graph chain marking other upstream nodes as used.
-        node.getNodeInputNames.foreach(in => {
-          if (outputNameToNodeMap.contains(in)) markAsUsed(outputNameToNodeMap(in))
-        })
+    @tailrec
+    def markAsUsed(nodes: Seq[NodeProto], visitedNodes: mutable.HashSet[String]): Unit = {
+      if (nodes.nonEmpty) {
+        val head = nodes.head
+        // If the node is already marked, skip it
+        val nodesToCheck = if (!visitedNodes(head.getName)) {
+          visitedNodes.add(head.getName)
+          // This input might be an actual external input variable or initializer, which has no upstream node
+          // Otherwise continue up the graph chain marking other upstream nodes as used.
+          val upstreamNodes = head.getNodeInputNames.flatMap(outputNameToNodeMap.get).toSeq
+          (nodes.tail ++ upstreamNodes).distinct
+        } else nodes.tail
+
+        markAsUsed(nodesToCheck, visitedNodes)
       }
     }
 
-    // Starting at the outputs we wish to slice at, mark all nodes as needed or not recursively
-    newOutputNames.foreach(out => markAsUsed(outputNameToNodeMap(out)))
+    def markAsUsedFrom(node: NodeProto): mutable.Set[String] = {
+      val visited = new mutable.HashSet[String]()
+      markAsUsed(Seq(node), visited)
+      visited
+    }
 
-    val newNodes = nodes.filter(node => nodeUsageStatus(node.getName))
+    // Starting at the outputs we wish to slice at, mark all nodes as needed or not recursively
+    val usedNodes = newOutputNames.map(out => markAsUsedFrom(outputNameToNodeMap(out))).reduce(_ ++ _)
+    val newNodes = nodes.filter(node => usedNodes(node.getName))
     val newOutputs = newOutputNames.map(out => ValueInfoProto.newBuilder().setName(out).build())
+
     (newNodes, newOutputs)
   }
 

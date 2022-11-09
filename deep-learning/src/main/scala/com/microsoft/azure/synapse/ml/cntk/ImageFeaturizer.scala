@@ -70,13 +70,20 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
   }
 
   def setModelInfo(info: ONNXModelInfo): this.type = {
-    val input = info.metadata.ioPorts.get.inputs.head
-    val output = info.metadata.ioPorts.get.outputs.head
-    setImageHeight(input.shape.apply(2).right.get)
-      .setImageWidth(input.shape.apply(3).right.get)
+    val ioPorts = info.metadata.ioPorts.getOrElse(throw new Exception("IO ports not defined."))
+    val input = ioPorts.inputs.head
+    val output = ioPorts.outputs.head
+    val shape = input.shape
+    if (shape.length < 4) {
+      throw new Exception("Image shape must have 4 dimensions.")
+    }
+    this
+      .setImageHeight(shape.apply(2).getOrElse(throw new Exception("Image height not defined in shape.")))
+      .setImageWidth(shape.apply(3).getOrElse(throw new Exception("Image width not defined in shape.")))
       .setImageTensorName(input.name)
       .setOutputTensorName(output.name)
-      .setFeatureTensorName(info.metadata.extraPorts.get.features.head.name)
+    info.metadata.extraPorts.foreach(port => this.setFeatureTensorName(port.features.head.name))
+    this
   }
 
   /** @group setParam */

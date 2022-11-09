@@ -42,6 +42,7 @@ class ONNXModelSuite extends TestBase
 
   override def reader: MLReadable[_] = ONNXModel
 
+  // Note that we could use OnnxHub to get models for tests, but this makes sure we test with some known binary models
   private val baseUrl = "https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/"
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
