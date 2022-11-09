@@ -58,9 +58,10 @@ object SynapseExtensionUtilities {
     createSJDArtifact(path, "SparkJobDefinition")
   }
 
-  def updateSJDArtifact(path: String, artifactId: String, lakehouseId: String): Artifact = {
+  def updateSJDArtifact(path: String, artifactId: String, storeId: String): Artifact = {
     val eTag = getETagFromArtifact(artifactId)
-
+    val store = Secrets.ArtifactStore.capitalize
+    val platform = Secrets.Platform.toUpperCase
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
@@ -72,7 +73,7 @@ object SynapseExtensionUtilities {
          |{
          |  "workloadPayload": "{
          |    \\"ExecutableFile\\": \\"$path\\",
-         |    \\"DefaultLakehouseArtifactId\\": \\"$lakehouseId\\",
+         |    \\"Default${store}ArtifactId\\": \\"$storeId\\",
          |    \\"SparkVersion\\": \\"3.2\\",
          |    \\"SparkSettings\\": {
          |      \\"spark.jars.packages\\" : \\"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}\\",
@@ -81,7 +82,7 @@ object SynapseExtensionUtilities {
          |      \\"spark.dynamicAllocation.enabled\\": \\"false\\",
          |      \\"spark.driver.userClassPathFirst\\": \\"true\\",
          |      \\"spark.executor.userClassPathFirst\\": \\"true\\",
-         |      \\"spark.executorEnv.IS_TRIDENT\\": \\"true\\"
+         |      \\"spark.executorEnv.IS_$platform\\": \\"true\\"
          |    }
          |  }"
          |}
@@ -109,16 +110,17 @@ object SynapseExtensionUtilities {
     response.objectId
   }
 
-  def createLakehouseArtifact(): String = {
+  def createStoreArtifact(): String = {
+    val store = Secrets.ArtifactStore.capitalize
     val dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
     val now = dtf.format(LocalDateTime.now)
 
     val reqBody: String =
       s"""
          |{
-         |  "displayName": "Lakehouse$now",
-         |  "description": "SynapseML Test Infra Lakehouse",
-         |  "artifactType": "Lakehouse"
+         |  "displayName": "$store$now",
+         |  "description": "SynapseML Test Infra $store",
+         |  "artifactType": "$store"
          |}
          |""".stripMargin
     val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[Artifact]
@@ -310,6 +312,6 @@ object SynapseJsonProtocol extends DefaultJsonProtocol {
     jsonFormat2(Artifact.apply)
   implicit val ApplicationsFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
     jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
-  implicit val SRRFormat: RootJsonFormat[WorkloadPayload] = jsonFormat3(WorkloadPayload.apply)
+  //implicit val SRRFormat: RootJsonFormat[WorkloadPayload] = jsonFormat3(WorkloadPayload.apply) // TODO: Delete me if possible
 
 }

@@ -104,7 +104,7 @@ class SynapseExtensionsTests extends TestBase {
       // SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
     })
 
-  val lakehouseArtifactId = SynapseExtensionUtilities.createLakehouseArtifact()
+  val storeArtifactId = SynapseExtensionUtilities.createStoreArtifact()
 
   selectedPythonFiles.seq.map(createAndExecuteSJD)
 
@@ -113,7 +113,7 @@ class SynapseExtensionsTests extends TestBase {
     val notebookName = SynapseExtensionUtilities.getBlobNameFromFilepath(notebookFile.getPath)
     val artifactId = SynapseExtensionUtilities.createSJDArtifact(notebookFile.getPath)
     val notebookBlobPath = SynapseExtensionUtilities.uploadNotebookToAzure(notebookFile)
-    SynapseExtensionUtilities.updateSJDArtifact(notebookBlobPath, artifactId, lakehouseArtifactId)
+    SynapseExtensionUtilities.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
     blocking {
       Thread.sleep(3000)
     }
