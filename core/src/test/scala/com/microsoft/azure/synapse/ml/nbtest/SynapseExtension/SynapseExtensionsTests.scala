@@ -37,7 +37,7 @@ class SynapseExtensionsTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
-    .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
+    .filterNot(_.getAbsolutePath.contains("Interpretability")) //TODO: Remove when fixed
     .filterNot(_.getAbsolutePath.contains("Cognitive")) // Excluding CogServices notebooks until GetSecret API is avail
     .filterNot(_.getAbsolutePath.contains("Geospatial"))
     .filterNot(_.getAbsolutePath.contains("SentimentAnalysis"))
