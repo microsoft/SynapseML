@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
+import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
 import com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.Models._
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities
 import org.apache.http.client.config.RequestConfig
@@ -23,7 +24,6 @@ import java.time.format.DateTimeFormatter
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
-import scala.sys.process._
 
 object SynapseExtensionUtilities {
   import SynapseJsonProtocol._
@@ -195,8 +195,7 @@ object SynapseExtensionUtilities {
 
   def postRequest(uri: String, requestBody: String  = ""): JsValue = {
     val createRequest = new HttpPost(uri)
-    createRequest.setHeader("Content-Type", "application/json")
-    createRequest.setHeader("Authorization", s"$AccessToken")
+    setRequestContentTypeAndAuthorization(createRequest)
 
     val requestConfig = RequestConfig
       .custom
@@ -209,7 +208,6 @@ object SynapseExtensionUtilities {
 
     if (requestBody.nonEmpty)
     {
-
       createRequest.setEntity(new StringEntity(requestBody))
     }
     sendAndParseJson(createRequest)
@@ -217,16 +215,14 @@ object SynapseExtensionUtilities {
 
   def getRequest(uri: String): JsValue  = {
     val getRequest = new HttpGet(uri)
-    getRequest.setHeader("Content-Type", "application/json")
-    getRequest.setHeader("Authorization", s"$AccessToken")
+    setRequestContentTypeAndAuthorization(getRequest)
     sendAndParseJson(getRequest)
   }
 
   def getETagFromArtifact(artifactId: String): String = {
     val uri = s"$BaseUri/artifacts/$artifactId"
     val getRequest = new HttpGet(uri)
-    getRequest.setHeader("Content-Type", "application/json")
-    getRequest.setHeader("Authorization", s"$AccessToken")
+    setRequestContentTypeAndAuthorization(getRequest)
     val response = safeSend(getRequest, close = false)
     val eTag = response.getFirstHeader("ETag").getElements.last.getValue
     response.close()
@@ -235,17 +231,22 @@ object SynapseExtensionUtilities {
 
   def deleteRequest(uri: String): CloseableHttpResponse = {
     val deleteRequest = new HttpDelete(uri)
-    deleteRequest.setHeader("Authorization", s"$AccessToken")
+    setRequestContentTypeAndAuthorization(deleteRequest)
     safeSend(deleteRequest)
   }
 
   def patchRequest(uri: String, requestBody: String, etag: String): JsValue = {
     val patchRequest = new HttpPatch(uri)
-    patchRequest.setHeader("Content-Type", "application/json")
+    setRequestContentTypeAndAuthorization(patchRequest)
     patchRequest.setHeader("If-Match", etag)
-    patchRequest.setHeader("Authorization", s"$AccessToken")
     patchRequest.setEntity(new StringEntity(requestBody))
     sendAndParseJson(patchRequest)
+  }
+
+  def setRequestContentTypeAndAuthorization(request: HttpRequestBase): Unit =
+  {
+    request.setHeader("Content-Type", "application/json")
+    request.setHeader("Authorization", s"$AccessToken")
   }
 
   def uploadNotebookToAzure(notebook: File): String = {
@@ -271,21 +272,6 @@ object SynapseExtensionUtilities {
     s"abfss://$WorkspaceId@lake.trident.com/$artifactId/Main/$notebookBlobName"
   }
 
-  def listPythonJobFiles(): Array[String] = {
-    Option({
-      val rootDirectory = FileUtilities
-        .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
-        .getCanonicalFile
-
-      FileUtilities.recursiveListFiles(rootDirectory)
-        .filter(_.getAbsolutePath.endsWith(".py"))
-        .filterNot(_.getAbsolutePath.contains("-"))
-        .filterNot(_.getAbsolutePath.contains(" "))
-        .map(file => file.getAbsolutePath)
-    })
-      .get
-      .sorted
-  }
 
   def getSparkJobDefinitionLink(SjdArtifactId: String): String =
   {
@@ -309,14 +295,6 @@ object SynapseExtensionUtilities {
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]
-  }
-
-  def exec(command: String): String = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command !!
-    }
   }
 }
 
