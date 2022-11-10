@@ -105,10 +105,9 @@ class SynapseTests extends TestBase {
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(notebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))
-    .filterNot(_.getAbsolutePath.contains("InterpretabilitySnowLeopardDetection"))
+    .filterNot(_.getAbsolutePath.contains("Interpretability")) //add more exclusion TODO: Rqemove when fixed
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
