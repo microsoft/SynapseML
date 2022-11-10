@@ -32,6 +32,7 @@ object SynapseExtensionUtilities {
 
   val SSPHost: String = "https://wabi-daily-us-east2-redirect.analysis.windows.net"
   val WorkspaceId: String = "8f02ac2a-92cb-4f52-975e-4d0fa4a5cafa"
+  val UxHost: String = "https://daily.powerbi.com/"
 
   val BaseUri: String = s"$SSPHost/metadata"
   val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
@@ -45,6 +46,8 @@ object SynapseExtensionUtilities {
   val StorageContainer: String = "synapse-extension"
 
   lazy val AccessToken: String = getAccessToken
+
+  val Platform = Secrets.Platform.toUpperCase
 
   def getStorageOAuthToken: String = {
     val tokenFile = FileUtilities
@@ -61,30 +64,33 @@ object SynapseExtensionUtilities {
   def updateSJDArtifact(path: String, artifactId: String, storeId: String): Artifact = {
     val eTag = getETagFromArtifact(artifactId)
     val store = Secrets.ArtifactStore.capitalize
-    val platform = Secrets.Platform.toUpperCase
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
       "org.scalatest:scalatest_2.12," +
       "org.slf4j:slf4j-api"
-      //"io.netty:netty-tcnative-boringssl-static-2.0.43.Final-," +
+
+    val workloadPayload = s"""
+         |"{
+         |  'Default${store}ArtifactId': '$storeId',
+         |  'ExecutableFile': '$path',
+         |  'SparkVersion':'3.2',
+         |  'SparkSettings': {
+         |    'spark.jars.packages' : 'com.microsoft.azure:synapseml_2.12:${BuildInfo.version}',
+         |    'spark.jars.repositories' : 'https://mmlspark.azureedge.net/maven',
+         |    'spark.jars.excludes': '$excludes',
+         |    'spark.dynamicAllocation.enabled': 'false',
+         |    'spark.driver.userClassPathFirst': 'true',
+         |    'spark.executor.userClassPathFirst': 'true',
+         |    'spark.executorEnv.IS_$Platform': 'true'
+         |   }
+         |}"
+    """.stripMargin
+
     val reqBody: String =
       s"""
          |{
-         |  "workloadPayload": "{
-         |    \\"ExecutableFile\\": \\"$path\\",
-         |    \\"Default${store}ArtifactId\\": \\"$storeId\\",
-         |    \\"SparkVersion\\": \\"3.2\\",
-         |    \\"SparkSettings\\": {
-         |      \\"spark.jars.packages\\" : \\"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}\\",
-         |      \\"spark.jars.repositories\\" : \\"https://mmlspark.azureedge.net/maven\\",
-         |      \\"spark.jars.excludes\\": \\"$excludes\\",
-         |      \\"spark.dynamicAllocation.enabled\\": \\"false\\",
-         |      \\"spark.driver.userClassPathFirst\\": \\"true\\",
-         |      \\"spark.executor.userClassPathFirst\\": \\"true\\",
-         |      \\"spark.executorEnv.IS_$platform\\": \\"true\\"
-         |    }
-         |  }"
+         |  "workloadPayload": $workloadPayload
          |}
          |""".stripMargin
 
@@ -161,10 +167,12 @@ object SynapseExtensionUtilities {
       }
       else if (state != null && Seq("Failed", "Dead", "Error").contains(state.statusString))
       {
+        println("Notebook failed: " + getSparkJobDefinitionLink(artifactId))
         throw new RuntimeException(state.statusString)
       }
       else if (state  != null && state.statusString == "Completed")
       {
+        println("Notebook completed: " + getSparkJobDefinitionLink(artifactId))
         state.statusString
       }
       else {
@@ -279,6 +287,12 @@ object SynapseExtensionUtilities {
       .sorted
   }
 
+  def getSparkJobDefinitionLink(SjdArtifactId: String): String =
+  {
+    val queryString = Platform.toLowerCase + "=1"
+    s"$UxHost/groups/$WorkspaceId/sparkjobdefinitions/$SjdArtifactId?$queryString"
+  }
+
   def getAccessToken: String = {
     val createRequest = new HttpPost(s"https://login.microsoftonline.com/$TenantId/oauth2/token")
     createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
@@ -312,6 +326,5 @@ object SynapseJsonProtocol extends DefaultJsonProtocol {
     jsonFormat2(Artifact.apply)
   implicit val ApplicationsFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
     jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
-  //implicit val SRRFormat: RootJsonFormat[WorkloadPayload] = jsonFormat3(WorkloadPayload.apply) // TODO: Delete me if possible
 
 }

@@ -15,6 +15,19 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
+class SynapseExtensionTestCleanup extends TestBase {
+  ignore("Clean up all artifacts") {
+    SynapseExtensionUtilities.listArtifacts()
+      .foreach(artifact =>
+      {
+        println(s"Artifact cleanup: deleting artifact ${artifact.displayName}")
+        //TODO: This will delete all artifacts. Us creation timestamp in sjd response
+        //  To only delete artifacts > some time ago
+        SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
+      })
+  }
+}
+
 class SynapseExtensionsTests extends TestBase {
   val resourcesDirectory = new File(getClass.getResource("/").toURI)
   val notebooksDir = new File(resourcesDirectory, "generated-notebooks")
