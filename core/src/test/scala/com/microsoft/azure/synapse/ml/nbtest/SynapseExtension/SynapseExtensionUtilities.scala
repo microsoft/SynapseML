@@ -9,7 +9,6 @@ import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
-import com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.Models._
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.entity.UrlEncodedFormEntity
@@ -193,8 +192,6 @@ object SynapseExtensionUtilities {
     println(s"$uri: $response")
     response
   }
-
-  val TimeoutMillis: Int = 100000
 
   def postRequest(uri: String, requestBody: String  = ""): JsValue = {
     val createRequest = new HttpPost(uri)
