@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedCNTKModelUtils, TrainedONNXModelUtils}
+import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedONNXModelUtils}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.onnx.ONNXModel
@@ -16,7 +16,7 @@ import org.apache.spark.sql.types.FloatType
 import java.io.File
 import java.net.URL
 
-abstract class ImageExplainersSuite extends TestBase with TrainedCNTKModelUtils with TrainedONNXModelUtils {
+abstract class ImageExplainersSuite extends TestBase with TrainedONNXModelUtils {
   lazy val greyhoundImageLocation: String = {
     val loc = "/tmp/greyhound.jpg"
     val f = new File(loc)
@@ -32,8 +32,7 @@ abstract class ImageExplainersSuite extends TestBase with TrainedCNTKModelUtils 
   lazy val resNetTransformer: ImageFeaturizer = new ImageFeaturizer()
     .setInputCol(inputCol)
     .setOutputCol(outputCol)
-    .setModel(resNet)
-    .setCutOutputLayers(0)
+    .setModel("resnet18")
     .setInputCol("image")
     .setMiniBatchSize(1)
 

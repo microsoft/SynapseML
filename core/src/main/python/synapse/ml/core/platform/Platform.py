@@ -77,4 +77,4 @@ def materializing_display(data):
             data.collect()
         display(data)
     else:
-        display(data)
+        print(data)

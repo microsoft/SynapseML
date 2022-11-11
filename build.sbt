@@ -402,6 +402,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
