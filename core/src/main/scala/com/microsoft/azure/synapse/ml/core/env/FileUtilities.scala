@@ -3,6 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.core.env
 
+import org.apache.hadoop.fs.Path
+
 import java.io.File
 import java.nio.file.{Files, StandardCopyOption}
 import scala.io.{BufferedSource, Source}
@@ -15,6 +17,10 @@ object FileUtilities {
 
   def join(base: File, folders: String*): File = {
     folders.foldLeft(base) { case (f, s) => new File(f, s) }
+  }
+
+  def join(base: Path, folders: String*): Path = {
+    folders.foldLeft(base) { case (f, s) => new Path(f, s) }
   }
 
   // Same for StandardOpenOption
