@@ -193,6 +193,7 @@ private[ml] object ModelDownloader {
   * @param localPath path to a directory that will store the models (local or HDFS)
   * @param serverURL URL of the server which supplies models ( The default URL is subject to change)
   */
+@deprecated("Please use 'OnnxModel'.", since="0.10.2")
 class ModelDownloader(val spark: SparkSession,
                       val localPath: URI,
                       val serverURL: URL = ModelDownloader.DefaultURL) extends Client {
