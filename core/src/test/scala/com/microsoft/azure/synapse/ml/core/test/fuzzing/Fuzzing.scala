@@ -190,6 +190,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
     val externalLoaderImports = conf.name match {
       case "synapseml-deep-learning" =>
         s"""using Synapse.ML.Cntk;
+           |using Synapse.ML.Onnx;
            |using Synapse.ML.Stages;
            |""".stripMargin
       case _ => ""

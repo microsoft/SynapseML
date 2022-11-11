@@ -26,9 +26,9 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test")
+  "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
-  "org.scalactic" %% "scalactic" % "3.0.5",
+  "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
@@ -402,6 +402,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
       "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),

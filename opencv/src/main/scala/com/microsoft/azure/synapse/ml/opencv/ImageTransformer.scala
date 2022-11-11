@@ -341,19 +341,26 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   /**
    * Extract channels from image.
    */
-  def extractChannels(channelOrder: String)(image: Mat): Array[Mat] = {
+  def extractChannels(channelOrder: String, autoConvertToColor: Boolean)(image: Mat): Array[Mat] = {
     // OpenCV channel order is BGR - reverse the order if the intended order is RGB.
     // Also remove alpha channel if nChannels is 4.
+    val channelOrderIsRgb = channelOrder.toLowerCase == "rgb"
     val converted = if (image.channels == 4) {
       // remove alpha channel and order color channels if necessary
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
-      val colorConversion = if (channelOrder.toLowerCase == "rgb") Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
+      val colorConversion = if (channelOrderIsRgb) Imgproc.COLOR_BGRA2RGB else Imgproc.COLOR_BGRA2BGR
       Imgproc.cvtColor(image, dest, colorConversion)
       dest
-    } else if (image.channels == 3 && channelOrder.toLowerCase == "rgb") {
+    } else if (image.channels == 3 && channelOrderIsRgb) {
       // Reorder channel if nChannel is 3 and intended tensor channel order is RGB.
       val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
       Imgproc.cvtColor(image, dest, Imgproc.COLOR_BGR2RGB)
+      dest
+    } else if (image.channels == 1 && autoConvertToColor) {
+      // Duplicate channels if nChannel is 1 and user indicated to auto-convert.
+      val dest = new Mat(image.rows, image.cols, CvType.CV_8UC3)
+      val colorConversion = if (channelOrderIsRgb) Imgproc.COLOR_GRAY2RGB else Imgproc.COLOR_GRAY2BGR
+      Imgproc.cvtColor(image, dest, colorConversion)
       dest
     } else {
       image
@@ -372,8 +379,10 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   def normalizeChannels(means: Option[Array[Double]], stds: Option[Array[Double]], scaleFactor: Option[Double])
                        (channels: Array[Mat]): Array[Mat] = {
     val channelLength = channels.length
-    require(means.forall(channelLength == _.length))
-    require(stds.forall(channelLength == _.length))
+    val meansLength = if (means.isDefined) means.get.length else -1
+    val stdLength = if (stds.isDefined) stds.get.length else -1
+    require(means.forall(channelLength == _.length), s"channelLength: $channelLength, means length: $meansLength")
+    require(stds.forall(channelLength == _.length), s"channelLength: $channelLength, stds length: $stdLength")
 
     channels
       .zip(means.getOrElse(Array.fill(channelLength)(0d)))
@@ -436,7 +445,7 @@ class ImageTransformer(val uid: String) extends Transformer
     set(stages, value.asScala.toArray.map(_.asScala.toMap))
 
   def setStages(jsonString: String): this.type = {
-    implicit val formats = DefaultFormats
+    implicit val formats: DefaultFormats.type = DefaultFormats
     this.setStages(parse(jsonString).extract[Array[Map[String, Any]]])
   }
 
@@ -454,6 +463,16 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def getToTensor: Boolean = $(toTensor)
   def setToTensor(value: Boolean): this.type = this.set(toTensor, value)
+
+  val ignoreDecodingErrors: BooleanParam = new BooleanParam(
+    this,
+    "ignoreDecodingErrors",
+    "Whether to throw on decoding errors or just return null"
+  )
+  setDefault(ignoreDecodingErrors -> false)
+
+  def getIgnoreDecodingErrors: Boolean = $(ignoreDecodingErrors)
+  def setIgnoreDecodingErrors(value: Boolean): this.type = this.set(ignoreDecodingErrors, value)
 
   @transient
   private lazy val validElementTypes: Array[DataType] = Array(FloatType, DoubleType)
@@ -508,6 +527,16 @@ class ImageTransformer(val uid: String) extends Transformer
 
   def getColorScaleFactor: Double = $(colorScaleFactor)
   def setColorScaleFactor(value: Double): this.type = this.set(colorScaleFactor, value)
+
+  val autoConvertToColor: BooleanParam = new BooleanParam(
+    this,
+    "autoConvertToColor",
+    "Whether to automatically convert black and white images to color"
+  )
+  setDefault(autoConvertToColor -> false)
+
+  def getAutoConvertToColor: Boolean = $(autoConvertToColor)
+  def setAutoConvertToColor(value: Boolean): this.type = this.set(autoConvertToColor, value)
 
   setDefault(
     inputCol -> "image",
@@ -624,13 +653,13 @@ class ImageTransformer(val uid: String) extends Transformer
 
       val outputColumnSchema = if ($(toTensor)) tensorUdfSchema else imageColumnSchema
       val processStep = processImage(transforms) _
-      val extractStep = extractChannels(getTensorChannelOrder) _
+      val extractStep = extractChannels(getTensorChannelOrder, getAutoConvertToColor) _
       val normalizeStep = normalizeChannels(get(normalizeMean), get(normalizeStd), get(colorScaleFactor)) _
       val toTensorStep = convertToTensor _
 
       val convertFunc = if ($(toTensor)) {
         inputRow: Any =>
-          decodeImage(decodeMode)(inputRow) map {
+          getDecodedImage(decodeMode)(inputRow) map {
             case (_, image) =>
               processStep
                 .andThen(extractStep)
@@ -640,7 +669,7 @@ class ImageTransformer(val uid: String) extends Transformer
           }
       } else {
         inputRow: Any =>
-          decodeImage(decodeMode)(inputRow) map {
+          getDecodedImage(decodeMode)(inputRow) map {
             case (path, image) =>
               val encodeStep = encodeImage(path, _)
               processStep.andThen(encodeStep).apply(image)
@@ -654,6 +683,20 @@ class ImageTransformer(val uid: String) extends Transformer
         df.withColumn(getOutputCol, convert(df(getInputCol)))
       }
     })
+  }
+
+  private def getDecodedImage(decodeMode: String)(r: Any): Option[(String, Mat)] = {
+    try {
+      decodeImage(decodeMode)(r)
+    } catch {
+      case e: MatchError =>
+        throw e
+      case e: Throwable =>
+        if (getIgnoreDecodingErrors) {
+          logWarning("Error decoding image", e)
+          None
+        } else throw e
+    }
   }
 
   private def getDecodeType(inputDataType: DataType): String = {
