@@ -82,17 +82,24 @@ class ONNXHub(val modelCacheDir: Path,
               val readTimeout: Int = ONNXHub.DefaultReadTimeout,
               val retryCount: Int = ONNXHub.DefaultRetryCount,
               val retryTimeoutInSeconds: Int = ONNXHub.DefaultRetryTimeoutInSeconds) extends Logging {
-  def this() = {
-    this(sys.env.get("ONNX_HOME")
+  def this(connectTimeout: Int = ONNXHub.DefaultConnectTimeout,
+           readTimeout: Int = ONNXHub.DefaultReadTimeout,
+           retryCount: Int = ONNXHub.DefaultRetryCount,
+           retryTimeoutInSeconds: Int = ONNXHub.DefaultRetryTimeoutInSeconds) = {
+    this(getDefaultCacheDir, connectTimeout, readTimeout, retryCount, retryTimeoutInSeconds)
+  }
+
+  def getDefaultCacheDir: Path = {
+    sys.env.get("ONNX_HOME")
       .map(oh => new Path(oh, "hub"))
       .orElse(sys.env.get("XDG_CACHE_HOME")
-      .map(xch => new Path(new Path(xch, "onnx"), "hub")))
+        .map(xch => new Path(new Path(xch, "onnx"), "hub")))
       .getOrElse({
         val home = new Path("placeholder")
           .getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
           .getHomeDirectory
         FileUtilities.join(home, ".cache", "onnx", "hub")
-      }))
+      })
   }
 
   def getDir: Path = modelCacheDir

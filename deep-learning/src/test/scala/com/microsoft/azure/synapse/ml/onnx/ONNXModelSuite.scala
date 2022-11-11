@@ -342,7 +342,7 @@ class ONNXModelSuite extends TestBase
   test("Load ONNX Hub Model") {
     spark
     val name = "resnet50"
-    val hub = new ONNXHub()
+    val hub = new ONNXHub(connectTimeout = 30000, readTimeout = 30000, retryCount = 5)
     val bytes = hub.load(name)
     val model = new ONNXModel()
       .setModelPayload(bytes)
