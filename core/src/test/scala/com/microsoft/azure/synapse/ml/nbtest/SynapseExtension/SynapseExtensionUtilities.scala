@@ -83,7 +83,8 @@ object SynapseExtensionUtilities {
          |    'spark.driver.userClassPathFirst': 'true',
          |    'spark.executor.userClassPathFirst': 'true',
          |    'spark.executorEnv.IS_$Platform': 'true',
-         |    'spark.sql.parquet.outputwriter': 'org.apache.spark.sql.execution.datasources.parquet.ParquetOutputWriter',
+         |    'spark.sql.parquet.outputwriter':
+         |    'org.apache.spark.sql.execution.datasources.parquet.ParquetOutputWriter',
          |    'spark.sql.parquet.vorder.enabled': 'false'
          |   }
          |}"
