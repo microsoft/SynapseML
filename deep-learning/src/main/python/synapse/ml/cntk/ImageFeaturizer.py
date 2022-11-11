@@ -8,7 +8,6 @@ if sys.version >= "3":
 
 from synapse.ml.cntk._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
-from pyspark.sql import SparkSession
 
 
 @inherit_doc
@@ -16,17 +15,16 @@ class ImageFeaturizer(_ImageFeaturizer):
     """
 
     Args:
-        SparkSession (SparkSession): The SparkSession that will be used to find the model
-        ocation (str): The location of the model, either on local or HDFS
+        name (str): The name of the model in the OnnxHub
+        location (str): The location of the model, either on local or HDFS
     """
 
     def setModelLocation(self, location):
         self._java_obj = self._java_obj.setModelLocation(location)
         return self
 
-    def setModel(self, modelSchema):
-        session = SparkSession.builder.getOrCreate()
-        self._java_obj = self._java_obj.setModel(modelSchema.toJava(session))
+    def setModel(self, name):
+        self._java_obj = self._java_obj.setModel(name)
         return self
 
     def setMiniBatchSize(self, size):
