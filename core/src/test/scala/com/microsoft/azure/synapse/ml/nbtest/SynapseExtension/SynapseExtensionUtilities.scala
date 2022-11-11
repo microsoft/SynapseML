@@ -30,15 +30,15 @@ object SynapseExtensionUtilities {
 
   val TimeoutInMillis: Int = 30 * 60 * 1000
 
-  val SSPHost: String = "https://wabi-daily-us-east2-redirect.analysis.windows.net"
+  val SSPHost: String = Secrets.SynapseInternalSspHost
   val WorkspaceId: String = "8f02ac2a-92cb-4f52-975e-4d0fa4a5cafa"
-  val UxHost: String = "https://daily.powerbi.com/"
+  val UxHost: String = Secrets.SynapseInternalUxHost
 
   val BaseUri: String = s"$SSPHost/metadata"
   val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
 
-  val TenantId: String = "pbidaily.onmicrosoft.com"
-  val AadAccessTokenResource: String = "https://analysis.windows.net/powerbi/api"
+  val TenantId: String = Secrets.SynapseInternalTenantId
+  val AadAccessTokenResource: String = Secrets.AadResource
   val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
 
   val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
@@ -291,7 +291,7 @@ object SynapseExtensionUtilities {
           ("resource", s"$AadAccessTokenResource"),
           ("client_id", s"$AadAccessTokenClientId"),
           ("grant_type", "password"),
-          ("username", s"SynapseMLE2ETestUser@pbidaily.onmicrosoft.com"),
+          ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseInternalTenantId}"),
           ("password", s"${Secrets.SynapseExtensionPassword}"),
           ("scope", "openid")
     ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")

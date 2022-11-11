@@ -61,6 +61,10 @@ object Secrets {
   lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-daily-password")
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
+  lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val SynapseInternalTenantId: String = getSecret("synapse-internal-tenant-id")
+  lazy val SynapseInternalUxHost: String = getSecret("synapse-internal-ux-host")
+  lazy val SynapseInternalSspHost: String = getSecret("synapse-internal-ssp-host")
 
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
