@@ -199,9 +199,9 @@ object SynapseExtensionUtilities {
 
     val requestConfig = RequestConfig
       .custom
-      .setSocketTimeout(TimeoutMillis)
-      .setConnectTimeout(TimeoutMillis)
-      .setConnectionRequestTimeout(TimeoutMillis)
+      .setSocketTimeout(TimeoutInMillis)
+      .setConnectTimeout(TimeoutInMillis)
+      .setConnectionRequestTimeout(TimeoutInMillis)
       .build
 
     createRequest.setConfig(requestConfig)
