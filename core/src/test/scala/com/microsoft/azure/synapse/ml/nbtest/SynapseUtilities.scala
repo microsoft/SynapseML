@@ -5,12 +5,11 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{safeSend, sendAndParseJson}
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
 import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
