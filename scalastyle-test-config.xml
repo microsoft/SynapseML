@@ -6,7 +6,7 @@
   <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true"><parameters>
     <parameter name="maxLineLength">120</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
     <parameter name="regex">.{50}</parameter></parameters>
     <customMessage>Token name is long.</customMessage></check>
   <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true"><parameters>
@@ -22,10 +22,10 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
   <check level="error" class="org.scalastyle.scalariform.NoWhitespaceBeforeLeftBracketChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.NoWhitespaceAfterLeftBracketChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.EmptyClassChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true"><parameters>
     <parameter name="tokens">COLON</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.DisallowSpaceAfterTokenChecker" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.DisallowSpaceAfterTokenChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.DisallowSpaceBeforeTokenChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ClassNamesChecker" enabled="true"><parameters>
     <parameter name="regex">^[A-Z][A-Za-z0-9]*$</parameter></parameters></check>
@@ -39,9 +39,9 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
       <parameter name="objectFieldRegex">^[A-Z][A-Za-z0-9]*$</parameter>
     </parameters>
   </check>
-  <check level="warning" class="org.scalastyle.scalariform.MethodNamesChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.MethodNamesChecker" enabled="true"><parameters>
     <parameter name="regex">^[a-z][A-Za-z0-9]*(_=)?$</parameter></parameters></check>
-  <check level="warning" class="org.scalastyle.scalariform.ClassTypeParameterChecker" enabled="false"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.ClassTypeParameterChecker" enabled="false"><parameters>
     <parameter name="regex">^[A-Z_]$</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.EqualsHashCodeChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.IllegalImportsChecker" enabled="true"><parameters>
@@ -49,21 +49,21 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
   <check level="error" class="org.scalastyle.scalariform.DeprecatedJavaChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ParameterNumberChecker" enabled="true"><parameters>
     <parameter name="maxParameters">12</parameter></parameters></check>
-  <check level="warning" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true"><parameters>
     <parameter name="maxLength">50</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfTypesChecker" enabled="true"><parameters>
     <parameter name="maxTypes">40</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfMethodsInTypeChecker" enabled="true"><parameters>
     <parameter name="maxMethods">50</parameter></parameters></check>
-  <check level="warning" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true"><parameters>
     <parameter name="maximum">10</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.PublicMethodsHaveTypeChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.UppercaseLChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ProcedureDeclarationChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.RedundantIfChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.WhileChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.ReturnChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.NullChecker" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.WhileChecker" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.ReturnChecker" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.NullChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.NoCloneChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.NoFinalizeChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.StructuralTypeChecker" enabled="true"></check>
@@ -75,5 +75,5 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
     <parameter name="java">java[.].+</parameter>
     <parameter name="other">.+</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.SimplifyBooleanExpressionChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.NotImplementedErrorUsage" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.NotImplementedErrorUsage" enabled="true"></check>
 </scalastyle>
