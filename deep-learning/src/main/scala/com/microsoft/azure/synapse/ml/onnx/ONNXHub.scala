@@ -72,8 +72,8 @@ object ONNXHubJsonProtocol extends DefaultJsonProtocol {
 object ONNXHub {
   val DefaultRepo: String = "onnx/models:main"
   val AuthenticatedRepo: (String, String, String) = ("onnx", "models", "main")
-  val DefaultConnectTimeout = 15000
-  val DefaultReadTimeout = 5000
+  val DefaultConnectTimeout = 30000
+  val DefaultReadTimeout = 30000
   val DefaultRetryCount = 3
   val DefaultRetryTimeoutInSeconds = 600
 
