@@ -6,7 +6,7 @@
   <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true"><parameters>
     <parameter name="maxLineLength">120</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
     <parameter name="regex">.{40}</parameter></parameters>
     <customMessage>Token name is long.</customMessage></check>
   <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true"><parameters>
@@ -22,10 +22,10 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
   <check level="error" class="org.scalastyle.scalariform.NoWhitespaceBeforeLeftBracketChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.NoWhitespaceAfterLeftBracketChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.EmptyClassChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true"><parameters>
     <parameter name="tokens">COLON</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.DisallowSpaceAfterTokenChecker" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.DisallowSpaceAfterTokenChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.DisallowSpaceBeforeTokenChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ClassNamesChecker" enabled="true"><parameters>
     <parameter name="regex">^[A-Z][A-Za-z0-9]*$</parameter></parameters></check>
