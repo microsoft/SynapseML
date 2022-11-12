@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
-//noinspection ScalaStyle
+// scalastyle:off cyclomatic.complexity
 object DatabricksUtilities {
 
   // ADB Info
@@ -280,7 +280,7 @@ object DatabricksUtilities {
       val (url, nbName) = getRunUrlAndNBName(runId)
       if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty &
+      while (finalState.isEmpty &  //scalastyle:ignore while
         (System.currentTimeMillis() - startTime) < timeout &
         lifeCycleState != "INTERNAL_ERROR"
       ) {

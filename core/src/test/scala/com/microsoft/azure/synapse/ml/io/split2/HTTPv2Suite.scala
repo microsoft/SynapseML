@@ -21,6 +21,7 @@ import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
+// scalastyle:off null
 class HTTPv2Suite extends TestBase with Flaky with HTTPTestUtils {
   //override val logLevel: String = "INFO"
 

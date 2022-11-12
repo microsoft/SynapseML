@@ -17,6 +17,7 @@ import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
 
+//scalastyle:off null
 class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
 
   val mockLabelColumn = "Label"
