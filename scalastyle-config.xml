@@ -55,7 +55,7 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
     <parameter name="maxTypes">50</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfMethodsInTypeChecker" enabled="true"><parameters>
     <parameter name="maxMethods">50</parameter></parameters></check>
-  <check level="warning" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true"><parameters>
+  <check level="error" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true"><parameters>
     <parameter name="maximum">10</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.PublicMethodsHaveTypeChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.MagicNumberChecker" enabled="true"><parameters>
@@ -78,5 +78,5 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
     <parameter name="java">java[.].+</parameter>
     <parameter name="other">.+</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.SimplifyBooleanExpressionChecker" enabled="true"></check>
-  <check level="warning" class="org.scalastyle.scalariform.NotImplementedErrorUsage" enabled="true"></check>
+  <check level="error" class="org.scalastyle.scalariform.NotImplementedErrorUsage" enabled="true"></check>
 </scalastyle>
