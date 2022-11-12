@@ -21,48 +21,48 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
-  *
-  * Note the behavior of the reindex and labels parameters, the parameters interact as:
-  *
-  * reindex -> false
-  * labels -> false (Empty)
-  * Assume all double values, don't use metadata, assume natural ordering
-  *
-  * reindex -> true
-  * labels -> false (Empty)
-  * Index, use natural ordering of string indexer
-  *
-  * reindex -> false
-  * labels -> true (Specified)
-  * Assume user knows indexing, apply label values. Currently only string type supported.
-  *
-  * reindex -> true
-  * labels -> true (Specified)
-  * Validate labels matches column type, try to recast to label type, reindex label column
-  *
-  * The currently supported classifiers are:
-  * Logistic Regression Classifier
-  * Decision Tree Classifier
-  * Random Forest Classifier
-  * Gradient Boosted Trees Classifier
-  * Naive Bayes Classifier
-  * Multilayer Perceptron Classifier
-  * In addition to any generic learner that inherits from Predictor.
-  */
+ *
+ * Note the behavior of the reindex and labels parameters, the parameters interact as:
+ *
+ * reindex -> false
+ * labels -> false (Empty)
+ * Assume all double values, don't use metadata, assume natural ordering
+ *
+ * reindex -> true
+ * labels -> false (Empty)
+ * Index, use natural ordering of string indexer
+ *
+ * reindex -> false
+ * labels -> true (Specified)
+ * Assume user knows indexing, apply label values. Currently only string type supported.
+ *
+ * reindex -> true
+ * labels -> true (Specified)
+ * Validate labels matches column type, try to recast to label type, reindex label column
+ *
+ * The currently supported classifiers are:
+ * Logistic Regression Classifier
+ * Decision Tree Classifier
+ * Random Forest Classifier
+ * Gradient Boosted Trees Classifier
+ * Naive Bayes Classifier
+ * Multilayer Perceptron Classifier
+ * In addition to any generic learner that inherits from Predictor.
+ */
 class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with BasicLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
   /** Doc for model to run.
-    */
+   */
   override def modelDoc: String = "Classifier to run"
 
   /** Specifies whether to reindex the given label column.
-    * See class documentation for how this parameter interacts with specified labels.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with specified labels.
+   *
+   * @group param
+   */
   val reindexLabel = new BooleanParam(this, "reindexLabel", "Re-index the label column")
   setDefault(reindexLabel -> true)
 
@@ -73,10 +73,10 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
   /** Specifies the labels metadata on the column.
-    * See class documentation for how this parameter interacts with reindex labels parameter.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with reindex labels parameter.
+   *
+   * @group param
+   */
   val labels = new StringArrayParam(this, "labels", "Sorted label values on the labels column")
 
   /** @group getParam */
@@ -86,18 +86,19 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /** Optional parameter, specifies the name of the features column passed to the learner.
-    * Must have a unique name different from the input columns.
-    * By default, set to <uid>_features.
-    *
-    * @group param
-    */
+   * Must have a unique name different from the input columns.
+   * By default, set to <uid>_features.
+   *
+   * @group param
+   */
   setDefault(featuresCol, this.uid + "_features")
 
   /** Fits the classification model.
-    *
-    * @param dataset The input dataset to train.
-    * @return The trained classification model.
-    */
+   *
+   * @param dataset The input dataset to train.
+   * @return The trained classification model.
+   */
+  //noinspection ScalaStyle
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
     logFit({
       val labelValues =
@@ -106,6 +107,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         } else {
           None
         }
+
       // Convert label column to categorical on train, remove rows with missing labels
       val (convertedLabelDataset, levels) = convertLabel(dataset, getLabelCol, labelValues)
 
@@ -152,11 +154,12 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
           numFeatures
         }
 
-      val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
+      val nonFeatureColumns = getLabelCol +: getExcludedFeatures
+      val featureColumns = convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
-        .setInputCols(featureColumns.toArray)
+        .setInputCols(featureColumns)
         .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
         .setNumFeatures(featuresToHashTo)
       val featurizedModel = featurizer.fit(convertedLabelDataset)

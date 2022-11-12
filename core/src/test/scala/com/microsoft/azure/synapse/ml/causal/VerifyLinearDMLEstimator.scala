@@ -1,0 +1,84 @@
+package com.microsoft.azure.synapse.ml.causal
+
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.ml.regression.LinearRegression
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.util.MLReadable
+
+class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
+
+  val mockLabelColumn = "Label"
+
+  val cat = "Cat"
+  val dog = "Dog"
+  val bird = "Bird"
+  private lazy val mockDataset = spark.createDataFrame(Seq(
+    (0, 1, 0.50, 0.60, dog, cat),
+    (1, 0, 0.40, 0.50, cat, dog),
+    (0, 1, 0.78, 0.99, dog, bird),
+    (1, 0, 0.12, 0.34, cat, dog),
+    (0, 1, 0.50, 0.60, dog, bird),
+    (1, 0, 0.40, 0.50, bird, dog),
+    (0, 1, 0.78, 0.99, dog, cat),
+    (1, 1, 0.12, 0.34, cat, dog),
+    (0, 0, 0.50, 0.60, dog, cat),
+    (1, 1, 0.40, 0.50, bird, dog),
+    (0, 0, 0.78, 0.99, dog, bird),
+    (1, 1, 0.12, 0.34, cat, dog),
+    (0, 1, 0.55, 0.69, dog, bird),
+    (1, 0, 0.38, 0.40, bird, dog),
+    (0, 1, 0.69, 0.88, dog, cat),
+    (1, 1, 0.16, 0.35, cat, dog),
+    (0, 0, 0.48, 0.58, dog, cat)))
+    .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5")
+
+
+  test("Get treatment effects") {
+    val ldml = new LinearDMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol(mockLabelColumn)
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("col2")
+
+    var ldmlModel = ldml.fit(mockDataset)
+    assert(ldmlModel.getAte != 0.0)
+    assert(ldmlModel.getCi.length == 2)
+  }
+
+  test("Get treatment effects with weight column") {
+    val ldml = new LinearDMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol(mockLabelColumn)
+      .setOutcomeModel(new LogisticRegression())
+      .setOutcomeCol("col1")
+      .setWeightCol("col3")
+
+    var ldmlModel = ldml.fit(mockDataset)
+    assert(ldmlModel.getAte != 0.0)
+  }
+
+  test("Get treatment effects and confidence intervals") {
+    val ldml = new LinearDMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol(mockLabelColumn)
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("col2")
+      .setMaxIter(10)
+
+    var ldmlModel = ldml.fit(mockDataset)
+    assert(ldmlModel.getCi.length == 2 && ldmlModel.getCi(0) != ldmlModel.getCi(1))
+  }
+
+
+  override def testObjects(): Seq[TestObject[LinearDMLEstimator]] =
+    Seq(new TestObject(new LinearDMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol(mockLabelColumn)
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("col2"),
+    mockDataset))
+
+  override def reader: MLReadable[_] = LinearDMLEstimator
+
+  override def modelReader: MLReadable[_] = LinearDMLModel
+}
