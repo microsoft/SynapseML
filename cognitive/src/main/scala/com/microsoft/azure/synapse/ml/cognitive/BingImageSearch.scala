@@ -55,7 +55,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
           .map {
             case (bytesOpt, row) =>
               //noinspection ScalaStyle
-              val bytes: Array[Byte] = bytesOpt.getOrElse(null)
+              val bytes: Array[Byte] = bytesOpt.getOrElse(Array())
               Row.fromSeq(row.toSeq :+ bytes)
           }
       }(encoder)

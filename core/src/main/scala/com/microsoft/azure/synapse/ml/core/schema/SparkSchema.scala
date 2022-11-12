@@ -113,8 +113,11 @@ object SparkSchema {
     */
   def getScoreValueKind(schema: StructType, modelName: String, columnName: String): String = {
     val metadata = schema(columnName).metadata
-    if (metadata == null) return null
-    getMetadataFromModule(metadata, modelName, ScoreValueKind)
+    if (metadata == null) { //scalastyle:ignore null
+      null //scalastyle:ignore null
+    } else {
+      getMetadataFromModule(metadata, modelName, ScoreValueKind)
+    }
   }
 
   /** Sets the score column kind.
@@ -160,21 +163,21 @@ object SparkSchema {
       case StructField(_, _, _, metadata) =>
         getMetadataFromModule(metadata, modelName, ScoreColumnKind) == scoreColumnKindColumn
     }
-    if (structField.isEmpty) null else structField.get.name
+    if (structField.isEmpty) null else structField.get.name  //scalastyle:ignore null
   }
 
   private def updateMetadata(metadata: Metadata, scoreColumnKindColumn: String,
                              scoreValueKindModel: String, moduleName: String): Metadata = {
     val mmltagMetadata =
       if (metadata.contains(MMLTag)) metadata.getMetadata(MMLTag)
-      else null
+      else null  //scalastyle:ignore null
     val moduleNameMetadata =
       if (mmltagMetadata != null && mmltagMetadata.contains(moduleName))
         mmltagMetadata.getMetadata(moduleName)
-      else null
+      else null  //scalastyle:ignore null
 
     val moduleMetadataBuilder = new MetadataBuilder()
-    if (mmltagMetadata != null && moduleNameMetadata != null) {
+    if (mmltagMetadata != null && moduleNameMetadata != null) {  //scalastyle:ignore null
       moduleMetadataBuilder.withMetadata(moduleNameMetadata)
     }
     moduleMetadataBuilder.putString(ScoreColumnKind, scoreColumnKindColumn)
@@ -193,12 +196,21 @@ object SparkSchema {
   }
 
   private def getMetadataFromModule(colMetadata: Metadata, moduleName: String, tag: String): String = {
-    if (!colMetadata.contains(MMLTag)) return null
-    val mlTagMetadata = colMetadata.getMetadata(MMLTag)
-    if (!mlTagMetadata.contains(moduleName)) return null
-    val modelMetadata = mlTagMetadata.getMetadata(moduleName)
-    if (!modelMetadata.contains(tag)) return null
-    modelMetadata.getString(tag)
+    if (!colMetadata.contains(MMLTag)) {
+      null  //scalastyle:ignore null
+    } else {
+      val mlTagMetadata = colMetadata.getMetadata(MMLTag)
+      if (!mlTagMetadata.contains(moduleName)) {
+        null  //scalastyle:ignore null
+      } else {
+        val modelMetadata = mlTagMetadata.getMetadata(moduleName)
+        if (!modelMetadata.contains(tag)) {
+          null  //scalastyle:ignore null
+        } else {
+          modelMetadata.getString(tag)
+        }
+      }
+    }
   }
 
   /** Find if the given column is a string */

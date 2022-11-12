@@ -137,6 +137,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
       .appendParamValueIfNotThere("epsilon", "epsilon", epsilon)
   }
 
+  //scalastyle:off
   override def transformSchema(schema: StructType): StructType = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures

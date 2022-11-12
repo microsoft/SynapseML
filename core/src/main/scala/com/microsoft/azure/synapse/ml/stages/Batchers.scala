@@ -18,7 +18,7 @@ class DynamicBufferedBatcher[T](val it: Iterator[T],
 
   private val thread: Thread = new Thread {
     override def run(): Unit = {
-      while (it.synchronized(it.hasNext)) {
+      while (it.synchronized(it.hasNext)) {  //scalastyle:ignore while
         val datum = it.synchronized(it.next())
         queue.put(datum)
       }
@@ -72,7 +72,7 @@ class FixedBufferedBatcher[T](val it: Iterator[T],
 
   private val thread: Thread = new Thread {
     override def run(): Unit = {
-      while (it.synchronized(it.hasNext)) {
+      while (it.synchronized(it.hasNext)) { //scalastyle:ignore while
         val data = it.synchronized(it.take(batchSize).toList)
         queue.put(data)
       }
@@ -140,7 +140,7 @@ class TimeIntervalBatcher[T](val it: Iterator[T],
     val start = System.currentTimeMillis()
     val buffer: ListBuffer[T] = mutable.ListBuffer()
     buffer += it.next()
-    while (
+    while ( //scalastyle:ignore while
       (System.currentTimeMillis()-start < millis) &&
         buffer.lengthCompare(maxBufferSize) < 0 &&
         it.hasNext

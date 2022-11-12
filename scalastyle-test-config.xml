@@ -7,7 +7,7 @@
     <parameter name="maxLineLength">120</parameter></parameters></check>
   <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
   <check level="warning" class="org.scalastyle.scalariform.TokenChecker" enabled="true"><parameters>
-    <parameter name="regex">.{33}</parameter></parameters>
+    <parameter name="regex">.{40}</parameter></parameters>
     <customMessage>Token name is long.</customMessage></check>
   <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true"><parameters>
     <parameter name="header">^// Copyright \(C\) Microsoft Corporation\. All rights reserved\.

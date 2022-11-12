@@ -22,6 +22,13 @@ import scala.util.{Failure, Success}
 
 case class NamespaceInfo(hash: Int, featureGroup: Char, colIdx: Int)
 
+case class TrainingTimers() {
+  val totalTime = new StopWatch
+  val nativeIngestTime = new StopWatch
+  val learnTime = new StopWatch
+  val multipassTime = new StopWatch
+}
+
 // structure for the diagnostics dataframe
 case class TrainingStats(partitionId: Int,
                          arguments: String,
@@ -194,7 +201,7 @@ trait VowpalWabbitBase extends Wrappable
         .appendParamValueIfNotThere("passes", Option(getNumPasses))
     }
 
-    val result = args.result
+    val result = args.result()
     log.warn(s"VowpalWabbit args: $result)")
 
     result
@@ -280,72 +287,15 @@ trait VowpalWabbitBase extends Wrappable
     *                    It is used to get the partition id.
     */
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: => String = "") = {
-
     val schema = df.schema
+    val args = buildCommandLineArguments(vwArgs, contextArgs)
 
     def trainIteration(inputRows: Iterator[Row],
                        localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
       // construct command line arguments
-      val args = buildCommandLineArguments(vwArgs, contextArgs)
       FaultToleranceUtils.retryWithTimeout() {
         try {
-          val totalTime = new StopWatch
-          val nativeIngestTime = new StopWatch
-          val learnTime = new StopWatch
-          val multipassTime = new StopWatch
-
-          val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-          else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
-            val trainContext = new TrainContext(vw)
-
-            val result = StreamUtilities.using(vw.createExample()) { ex =>
-              // pass data to VW native part
-              totalTime.measure {
-                trainRow(schema, inputRows, trainContext)
-
-                multipassTime.measure {
-                  vw.endPass()
-
-                  if (getNumPasses > 1)
-                    vw.performRemainingPasses()
-                }
-              }
-            }
-
-            // If the using statement failed rethrow here.
-            result match {
-              case Failure(exception) => throw exception
-              case Success(_) => Unit
-            }
-
-            // only export the model on the first partition
-            val perfStats = vw.getPerformanceStatistics
-            val args = vw.getArguments
-
-            (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
-              TrainingStats(
-                TaskContext.get.partitionId,
-                args.getArgs,
-                args.getLearningRate,
-                args.getPowerT,
-                args.getHashSeed,
-                args.getNumBits,
-                perfStats.getNumberOfExamplesPerPass,
-                perfStats.getWeightedExampleSum,
-                perfStats.getWeightedLabelSum,
-                perfStats.getAverageLoss,
-                perfStats.getBestConstant,
-                perfStats.getBestConstantLoss,
-                perfStats.getTotalNumberOfFeatures,
-                totalTime.elapsed(),
-                nativeIngestTime.elapsed(),
-                learnTime.elapsed(),
-                multipassTime.elapsed(),
-                trainContext.contextualBanditMetrics.getIpsEstimate,
-                trainContext.contextualBanditMetrics.getSnipsEstimate))
-          }.get // this will throw if there was an exception
-
-          Seq(TrainingResult(model, stats)).iterator
+          trainOneIteration(args, schema, inputRows, localInitialModel)
         } catch {
           case e: java.lang.Exception =>
             throw new Exception(s"VW failed with args: $args", e)
@@ -366,6 +316,74 @@ trait VowpalWabbitBase extends Wrappable
       df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect()
   }
 
+
+  private def trainOneIteration(args: String,
+                                schema: StructType,
+                                inputRows: Iterator[Row],
+                                localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
+    val timers = new TrainingTimers
+
+    val (model, stats) = StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
+    else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
+      val trainContext = new TrainContext(vw)
+
+      val result = StreamUtilities.using(vw.createExample()) { _ =>
+        // pass data to VW native part
+        timers.totalTime.measure {
+          trainRow(schema, inputRows, trainContext)
+
+          timers.multipassTime.measure {
+            vw.endPass()
+
+            if (getNumPasses > 1)
+              vw.performRemainingPasses()
+          }
+        }
+      }
+
+      // If the using statement failed rethrow here.
+      result match {
+        case Failure(exception) => throw exception
+        case Success(_) =>
+      }
+
+      // only export the model on the first partition
+      val perfStats = vw.getPerformanceStatistics
+      val args = vw.getArguments
+
+      (if (TaskContext.get.partitionId == 0) Some(vw.getModel) else None,
+        createTrainingStats(args, perfStats, timers, trainContext))
+    }.get // this will throw if there was an exception
+
+    Seq(TrainingResult(model, stats)).iterator
+  }
+
+  private def createTrainingStats(args: VowpalWabbitArguments,
+                                  perfStats: VowpalWabbitPerformanceStatistics,
+                                  timers: TrainingTimers,
+                                  trainContext: TrainContext) = {
+    TrainingStats(
+      TaskContext.get.partitionId,
+      args.getArgs,
+      args.getLearningRate,
+      args.getPowerT,
+      args.getHashSeed,
+      args.getNumBits,
+      perfStats.getNumberOfExamplesPerPass,
+      perfStats.getWeightedExampleSum,
+      perfStats.getWeightedLabelSum,
+      perfStats.getAverageLoss,
+      perfStats.getBestConstant,
+      perfStats.getBestConstantLoss,
+      perfStats.getTotalNumberOfFeatures,
+      timers.totalTime.elapsed(),
+      timers.nativeIngestTime.elapsed(),
+      timers.learnTime.elapsed(),
+      timers.multipassTime.elapsed(),
+      trainContext.contextualBanditMetrics.getIpsEstimate,
+      trainContext.contextualBanditMetrics.getSnipsEstimate)
+  }
+
   /**
     * Setup spanning tree and invoke training.
     *
@@ -378,7 +396,7 @@ trait VowpalWabbitBase extends Wrappable
                                          vwArgs: ParamsStringBuilder,
                                          numTasks: Int): Array[TrainingResult] = {
     // multiple partitions -> setup distributed coordination
-    val spanningTree = new ClusterSpanningTree(0, vwArgs.result.contains("--quiet"))
+    val spanningTree = new ClusterSpanningTree(0, vwArgs.result().contains("--quiet"))
 
     try {
       spanningTree.start()
@@ -401,7 +419,7 @@ trait VowpalWabbitBase extends Wrappable
         .appendParamValueIfNotThere("unique_id", Option(jobUniqueId))
         .appendParamValueIfNotThere("total", Option(numTasks))
 
-      trainInternal(df, vwArgs.result, s"--node ${TaskContext.get.partitionId}")
+      trainInternal(df, vwArgs.result(), s"--node ${TaskContext.get.partitionId}")
     } finally {
       spanningTree.stop()
     }
@@ -467,11 +485,11 @@ trait VowpalWabbitBase extends Wrappable
       dfSubset
 
     // get the final command line args
-    val vwArgs = getCommandLineArgs()
+    val vwArgs = getCommandLineArgs
 
     // call training
     val trainingResults = if (numTasks == 1)
-      trainInternal(df, vwArgs.result)
+      trainInternal(df, vwArgs.result())
     else
       trainInternalDistributed(df, vwArgs, numTasks)
 
@@ -481,7 +499,7 @@ trait VowpalWabbitBase extends Wrappable
     model
   }
 
-  private def getCommandLineArgs(): ParamsStringBuilder = {
+  private def getCommandLineArgs: ParamsStringBuilder = {
     new ParamsStringBuilder(this, prefix = "--", delimiter = " ")
       .append(getPassThroughArgs) // first so that pass through args override explicit setters (TODO reconsider)
       .appendParamValueIfNotThere("hash_seed", "hash_seed", hashSeed)

@@ -12,6 +12,7 @@ import java.util
 import java.util.{Base64, Locale}
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import scala.collection.mutable
 
 object SlimStorageClient {
 
@@ -50,10 +51,12 @@ object SlimStorageClient {
   }
 
   private def urlEncode(stringToEncode: String): String = {
-    if (stringToEncode == null) return null
-    if (stringToEncode.isEmpty) return ""
-    if (stringToEncode.contains(" ")) {
-      val outBuilder = new StringBuilder
+    if (stringToEncode == null) {
+      null  //scalastyle:ignore null
+    } else if (stringToEncode.isEmpty) {
+      ""
+    } else if (stringToEncode.contains(" ")) {
+      val outBuilder = new mutable.StringBuilder
       var startDex = 0
       for (m <- 0 until stringToEncode.length) {
         if (stringToEncode.charAt(m) == ' ') {

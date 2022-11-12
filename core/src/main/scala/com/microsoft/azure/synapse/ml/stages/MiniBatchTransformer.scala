@@ -14,7 +14,7 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.collection.mutable.WrappedArray
+import scala.collection.mutable
 
 trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
@@ -195,18 +195,18 @@ class FlattenBatch(val uid: String)
   def transpose(nestedSeq: Seq[Any]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.filter {
-      case null => false
+      case null => false //scalastyle:ignore null
       case _: Seq[Any] => true
       case _ => false
     }.head.asInstanceOf[Seq[Any]].length
 
     assert(nestedSeq.forall{
-      case null => true
+      case null => true //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
       case _ => true
     })
     (0 until innerLength).map(i => nestedSeq.map{
-      case null => null
+      case null => null //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq(i)
       case any => any
     })
@@ -223,11 +223,11 @@ class FlattenBatch(val uid: String)
             (0 until rowOfLists.length)
               .map(i => {
                 if (rowOfLists.isNullAt(i)) {
-                  null
+                  null //scalastyle:ignore null
                 } else {
                   val value = rowOfLists.get(i)
                   value match {
-                    case _: WrappedArray[_] => rowOfLists.getSeq(i)
+                    case _: mutable.WrappedArray[_] => rowOfLists.getSeq(i)
                     case _ => value
                   }
                 }
@@ -245,8 +245,8 @@ class FlattenBatch(val uid: String)
   override def transformSchema(schema: StructType): StructType = {
     StructType(schema.map(f => {
       f.dataType match {
-        case arrayField: ArrayType => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)
-        case nonArrayField => StructField(f.name, f.dataType)
+        case _: ArrayType => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)
+        case _ => StructField(f.name, f.dataType)
       }
     }))
   }

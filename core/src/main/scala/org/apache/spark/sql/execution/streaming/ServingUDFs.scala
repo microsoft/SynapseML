@@ -18,7 +18,10 @@ object ServingUDFs {
 
   private def jsonReply(c: Column) = string_to_response(to_json(c))
 
-  def makeReplyUDF(data: Column, dt: DataType, code: Column = lit(200), reason: Column = lit("Success")): Column = {
+  def makeReplyUDF(data: Column, //scalastyle:off cyclomatic.complexity
+                   dt: DataType,
+                   code: Column = lit(200), //scalastyle:ignore magic.number
+                   reason: Column = lit("Success")): Column = {
     dt match {
       case NullType => empty_response(code, reason)
       case StringType => string_to_response(data, code, reason)

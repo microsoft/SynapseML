@@ -50,7 +50,7 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
   <check level="error" class="org.scalastyle.scalariform.ParameterNumberChecker" enabled="true"><parameters>
     <parameter name="maxParameters">12</parameter></parameters></check>
   <check level="warning" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true"><parameters>
-    <parameter name="maxLength">50</parameter></parameters></check>
+    <parameter name="maxLength">60</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfTypesChecker" enabled="true"><parameters>
     <parameter name="maxTypes">50</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.NumberOfMethodsInTypeChecker" enabled="true"><parameters>
@@ -59,7 +59,7 @@ package (?:com\.microsoft\.azure\.synapse\.ml|org\.apache\.spark|com\.microsoft\
     <parameter name="maximum">10</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.PublicMethodsHaveTypeChecker" enabled="true"></check>
   <check level="warning" class="org.scalastyle.scalariform.MagicNumberChecker" enabled="true"><parameters>
-    <parameter name="ignore">-1,0,1,2,3</parameter></parameters></check>
+    <parameter name="ignore">-1,0,1,2,3,4</parameter></parameters></check>
   <check level="error" class="org.scalastyle.scalariform.UppercaseLChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.ProcedureDeclarationChecker" enabled="true"></check>
   <check level="error" class="org.scalastyle.scalariform.RedundantIfChecker" enabled="true"></check>

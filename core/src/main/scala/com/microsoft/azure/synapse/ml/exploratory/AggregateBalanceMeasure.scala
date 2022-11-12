@@ -83,7 +83,7 @@ class AggregateBalanceMeasure(override val uid: String)
 
       //noinspection ScalaStyle
       if (getVerbose)
-        featureStats.cache.show(numRows = 20, truncate = false)
+        featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
       df.unpersist
       calculateAggregateMeasures(featureStats, featureProbCol)
@@ -126,7 +126,7 @@ private[exploratory] object AggregateMetrics {
   val THEILLINDEX = "theil_l_index"
   val THEILTINDEX = "theil_t_index"
 
-  val METRICS = Seq(ATKINSONINDEX, THEILLINDEX, THEILTINDEX)
+  val METRICS: Seq[String] = Seq(ATKINSONINDEX, THEILLINDEX, THEILTINDEX)
 }
 
 //noinspection SpellCheckingInspection

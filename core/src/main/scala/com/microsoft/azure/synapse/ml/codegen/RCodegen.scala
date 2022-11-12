@@ -26,7 +26,7 @@ object RCodegen {
   }
 
   //noinspection ScalaStyle
-  def generateRPackageData(conf: CodegenConfig): Unit = {
+  def generateRPackageData(conf: CodegenConfig): Unit = { //scalastyle:ignore method.length
     // description file; need to encode version as decimal
     val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
       .format(new java.util.Date())
