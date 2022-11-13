@@ -288,14 +288,14 @@ trait VowpalWabbitBase extends Wrappable
     */
   private def trainInternal(df: DataFrame, vwArgs: String, contextArgs: => String = "") = {
     val schema = df.schema
-    val args = buildCommandLineArguments(vwArgs, contextArgs)
 
-    def trainIteration(inputRows: Iterator[Row],
-                       localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
-      // construct command line arguments
+    def trainOnWorker(inputRows: Iterator[Row],
+                      localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
+      // construct command line arguments (need to know partition id in some cases)
+      val args = buildCommandLineArguments(vwArgs, contextArgs)
       FaultToleranceUtils.retryWithTimeout() {
         try {
-          trainOneIteration(args, schema, inputRows, localInitialModel)
+          trainPartition(args, schema, inputRows, localInitialModel)
         } catch {
           case e: java.lang.Exception =>
             throw new Exception(s"VW failed with args: $args", e)
@@ -311,13 +311,13 @@ trait VowpalWabbitBase extends Wrappable
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
     // important to trigger collect() here so that the spanning tree is still up
     if (getUseBarrierExecutionMode)
-      df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect()
+      df.rdd.barrier().mapPartitions(inputRows => trainOnWorker(inputRows, localInitialModel)).collect()
     else
-      df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect()
+      df.mapPartitions(inputRows => trainOnWorker(inputRows, localInitialModel))(encoder).collect()
   }
 
 
-  private def trainOneIteration(args: String,
+  private def trainPartition(args: String,
                                 schema: StructType,
                                 inputRows: Iterator[Row],
                                 localInitialModel: Option[Array[Byte]]): Iterator[TrainingResult] = {
