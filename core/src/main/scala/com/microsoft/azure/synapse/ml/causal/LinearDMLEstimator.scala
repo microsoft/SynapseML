@@ -123,6 +123,7 @@ class LinearDMLEstimator(override val uid: String)
     })
   }
 
+  //scalastyle:off method.length
   private def trainInternal(dataset: Dataset[_]): Double = {
 
     def getModel(model: Estimator[_ <: Model[_]], labelColName: String, excludedFeatures: Array[String]) = {
