@@ -11,8 +11,8 @@ import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssemble
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.jdk.CollectionConverters._
 
@@ -27,7 +27,7 @@ class ICEExplainerSuite extends TestBase with TransformerFuzzing[ICETransformer]
     (5, "b", 5, 1)
   )).toDF("col1", "col2", "col3", "label")
 
-  lazy val data: DataFrame = dataDF.withColumn("col4", rand()*100)
+  lazy val data: DataFrame = dataDF.withColumn("col4", rand()*100)  //scalastyle:ignore magic.number
 
   lazy val pipeline: Pipeline = new Pipeline().setStages(Array(
     new StringIndexer().setInputCol("col2").setOutputCol("col2_ind"),

@@ -14,6 +14,7 @@ case class DetailedSpeechResponse(Confidence: Double,
                                   Display: String)
 
 trait SharedSpeechFields {
+  //scalastyle:off method.name
   def RecognitionStatus: String
 
   def Offset: Long
@@ -23,6 +24,7 @@ trait SharedSpeechFields {
   def DisplayText: Option[String]
 
   def NBest: Option[Seq[DetailedSpeechResponse]]
+  //scalastyle:on method.name
 }
 
 case class SpeechResponse(RecognitionStatus: String,

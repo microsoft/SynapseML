@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-//noinspection ScalaStyle
+//scalastyle:off no.finalize
 class CloseableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Iterator[T] {
   override def hasNext: Boolean = delegate.hasNext
 
@@ -30,4 +30,5 @@ class CloseableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Ite
     super.finalize()
   }
 }
+//scalastyle:on no.finalize
 

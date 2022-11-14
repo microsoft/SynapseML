@@ -15,7 +15,7 @@ import java.io.InputStream
   */
 class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback {
 
-  val stream = parseWavHeader(wavStream)
+  val stream: InputStream = parseWavHeader(wavStream)
 
   override def read(dataBuffer: Array[Byte]): Int = {
     Math.max(0, stream.read(dataBuffer, 0, dataBuffer.length))
@@ -36,13 +36,14 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
 
   //noinspection ScalaStyle
   def parseWavHeader(reader: InputStream): InputStream = {
+    //scalastyle:off magic.number
     // Tag "RIFF"
     val data = new Array[Byte](4)
     var numRead = reader.read(data, 0, 4)
     assert((numRead == 4) && (data sameElements "RIFF".getBytes), "RIFF")
 
     // Chunk size
-    val fileLength = readUInt32(reader)
+    readUInt32(reader)
 
     numRead = reader.read(data, 0, 4)
     assert((numRead == 4) && (data sameElements "WAVE".getBytes), "WAVE")
@@ -56,8 +57,8 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
     val formatTag = readUInt16(reader)
     val channels = readUInt16(reader)
     val samplesPerSec = readUInt32(reader)
-    val avgBytesPerSec = readUInt32(reader)
-    val blockAlign = readUInt16(reader)
+    readUInt32(reader)  // avgBytesPerSec
+    readUInt16(reader)  // blockAlign
     val bitsPerSample = readUInt16(reader)
     assert(formatTag == 1, "PCM") // PCM
 
@@ -76,8 +77,9 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
     numRead = reader.read(data, 0, 4)
     assert((numRead == 4) && (data sameElements "data".getBytes))
 
-    val dataLength = readUInt32(reader)
+    readUInt32(reader)  // dataLength
     reader
+    //scalastyle:on magic.number
   }
 }
 
