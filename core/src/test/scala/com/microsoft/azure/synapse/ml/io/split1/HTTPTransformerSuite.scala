@@ -114,14 +114,12 @@ class HTTPTransformerSuite extends TransformerFuzzing[HTTPTransformer]
       case ds: Dataset[_] =>
         val b = ds.toDF()
         if (a.columns !== b.columns) {
-          return false
+          false
+        } else {
+          val aSort = a.sort().collect()
+          val bSort = b.sort().collect()
+          aSort.length == bSort.length
         }
-        val aSort = a.sort().collect()
-        val bSort = b.sort().collect()
-        if (aSort.length != bSort.length) {
-          return false
-        }
-        true
     }
   }
 

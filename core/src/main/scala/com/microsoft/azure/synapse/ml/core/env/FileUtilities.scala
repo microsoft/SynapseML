@@ -39,10 +39,10 @@ object FileUtilities {
       .filter(!_.isDirectory)
   }
 
-  def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
+  def allFiles(dir: File, pred: File => Boolean = null): Array[File] = {  //scalastyle:ignore null
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
-      (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)
+      (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)  //scalastyle:ignore null
     }
     loop(dir)
   }
@@ -62,7 +62,7 @@ object FileUtilities {
   }
 
   def copyFile(from: File, toDir: File, overwrite: Boolean = false): Unit = {
-    Files.copy(from.toPath, (new File(toDir, from.getName)).toPath,
+    Files.copy(from.toPath, new File(toDir, from.getName).toPath,
                (if (overwrite) Seq(StandardCopyOption.REPLACE_EXISTING)
                 else Seq()): _*)
     ()
@@ -80,7 +80,7 @@ object FileUtilities {
       zip.putNextEntry(new ZipEntry(file.toString.substring(prefixLen).replace(java.io.File.separator, "/")))
       val in = new BufferedInputStream(new FileInputStream(file), bufferSize)
       var b = 0
-      while (b >= 0) { zip.write(data, 0, b); b = in.read(data, 0, bufferSize) }
+      while (b >= 0) { zip.write(data, 0, b); b = in.read(data, 0, bufferSize) }  //scalastyle:ignore while
       in.close()
       zip.closeEntry()
     }

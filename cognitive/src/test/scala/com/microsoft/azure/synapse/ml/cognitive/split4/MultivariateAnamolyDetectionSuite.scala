@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.ml.param.{Param, ParamPair}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
@@ -215,8 +215,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   ignore("Clean up all models") {
     var modelsLeft = true
-    //noinspection ScalaStyle
-    while (modelsLeft) {
+    while (modelsLeft) {  //scalastyle:ignore while
 
       val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
         .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements

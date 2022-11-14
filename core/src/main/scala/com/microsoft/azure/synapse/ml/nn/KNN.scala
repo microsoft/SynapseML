@@ -55,8 +55,8 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
   setDefault(featuresCol, "features")
   setDefault(valuesCol, "values")
   setDefault(outputCol, uid + "_output")
-  setDefault(k, 5)
-  setDefault(leafSize, 50)
+  setDefault(k, 5)  //scalastyle:ignore magic.number
+  setDefault(leafSize, 50)  //scalastyle:ignore magic.number
 
   override def fit(dataset: Dataset[_]): KNNModel = {
     logFit(

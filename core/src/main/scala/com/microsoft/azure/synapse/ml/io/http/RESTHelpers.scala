@@ -50,7 +50,7 @@ object RESTHelpers {
   }
 
   def safeSend(request: HttpRequestBase,
-               backoffs: List[Int] = List(100, 500, 1000),
+               backoffs: List[Int] = List(100, 500, 1000),  //scalastyle:ignore magic.number
                expectedCodes: Set[Int] = Set(),
                close: Boolean = true): CloseableHttpResponse = {
 

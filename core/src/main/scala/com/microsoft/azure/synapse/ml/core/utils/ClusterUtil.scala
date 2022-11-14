@@ -154,7 +154,7 @@ object ClusterUtil {
   }
 
   /** Returns the number of executors * number of tasks.
-    * @param dataset The dataset containing the current spark session.
+    * @param spark The current spark session.
     * @param numTasksPerExec The number of tasks per executor.
     * @return The number of executors * number of tasks.
     */
@@ -171,8 +171,8 @@ object ClusterUtil {
       //TODO make this less brittle
       val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
       master match {
-        case rx(null)  =>
-          log.info(s"Retrieved local() = 1 executor by default")
+        case rx(null) =>  //scalastyle:ignore null
+        log.info(s"Retrieved local() = 1 executor by default")
           1
         case rx("*")   =>
           log.info(s"Retrieved local(*) = ${Runtime.getRuntime.availableProcessors()} executors")

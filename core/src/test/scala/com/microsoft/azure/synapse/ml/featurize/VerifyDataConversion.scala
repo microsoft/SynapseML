@@ -38,7 +38,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   values to Timestamp.getTime()
    */
   val f = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
-  lazy val parseTimeFromString = udf((t:String)=>{new Timestamp(f.parse(t).getTime)})
+  lazy val parseTimeFromString = udf((t: String)=>{new Timestamp(f.parse(t).getTime)})
   lazy val lDF = Seq(f.parse("1986-07-27 12:48:00.123").getTime(),
     f.parse("1988-11-01 11:08:48.456").getTime(),
     f.parse("1993-08-06 15:32:00.789").getTime()).toDF("Col0")
@@ -67,7 +67,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
     val r4 = new DataConversion().setCols(Array("long")).setConvertTo("boolean").transform(r3)
     val r5 = new DataConversion().setCols(Array("float")).setConvertTo("boolean").transform(r4)
     val r6 = new DataConversion().setCols(Array("double")).setConvertTo("boolean").transform(r5)
-    val expectedRes = Seq(( true, true, true, true, true, true, true, "7", "8.0"),
+    val expectedRes = Seq((true, true, true, true, true, true, true, "7", "8.0"),
       (false, true, true, true, true, true, true, "16", "17.456"),
       (true, true, true, true, true, true, true, "100", "200.12345"))
       .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
@@ -97,7 +97,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   at the least 32 bits, so a very large number will end up being a very large negative number
   */
   test("Test convert to Byte") {
-    val expectedDF = Seq(( 1: Byte, 1: Byte, 2: Byte, 3: Byte, 4: Byte, 5: Byte, 6: Byte, 7: Byte, 8: Byte),
+    val expectedDF = Seq((1: Byte, 1: Byte, 2: Byte, 3: Byte, 4: Byte, 5: Byte, 6: Byte, 7: Byte, 8: Byte),
       (0: Byte, 9: Byte, 10: Byte, 11: Byte, 12: Byte, 14: Byte, 127: Byte, 16: Byte, 17: Byte),
       (1: Byte, -127: Byte, 89: Byte, 99: Byte, 99: Byte, 18: Byte, 20: Byte, 100: Byte, -56: Byte))
       .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
@@ -121,7 +121,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   at the least 32 bits, so a very large number will end up being a very large negative number
   */
   test("Test convert to Short") {
-    val expectedDF = Seq(( 1: Short, 1: Short, 2: Short, 3: Short, 4: Short, 5: Short, 6: Short, 7: Short, 8: Short),
+    val expectedDF = Seq((1: Short, 1: Short, 2: Short, 3: Short, 4: Short, 5: Short, 6: Short, 7: Short, 8: Short),
       (0: Short, 9: Short, 10: Short, 11: Short, 12: Short, 14: Short, 15: Short, 16: Short, 17: Short),
       (1: Short, -127: Short, 345: Short, -32669: Short, 99: Short, 18: Short, 20: Short, 100: Short, 200: Short))
       .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")

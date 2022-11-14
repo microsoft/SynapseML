@@ -19,7 +19,6 @@ import org.apache.spark.sql.types._
 
 import java.lang.{Boolean => JBoolean, Double => JDouble, Integer => JInt, Long => JLong}
 import scala.collection.JavaConverters._
-import scala.math.Ordering
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
 
@@ -156,6 +155,7 @@ class ValueIndexerModel(val uid: String)
       .setOutputCol(getOutputCol)
 
   /** Transform the input column to categorical */
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val nonNullLevels = getLevels.filter(_ != null)
@@ -173,7 +173,7 @@ class ValueIndexerModel(val uid: String)
           case (_: StringType, v) => v.asInstanceOf[String]
           case (_: BooleanType, v: Boolean) => v
           case (_: BooleanType, v) => v.asInstanceOf[Boolean]
-          case _ => throw new UnsupportedOperationException(s"Unsupported type ${l.getClass} for type ${getDataType} ")
+          case _ => throw new UnsupportedOperationException(s"Unsupported type ${l.getClass} for type $getDataType")
         }
       }
       val hasNullLevel = getLevels.length != nonNullLevels.length
@@ -193,12 +193,14 @@ class ValueIndexerModel(val uid: String)
         }
       })
       // Add the MML style and sparkML style metadata for categoricals
-      val metadata = map.toMetadata(map.toMetadata(dataset.schema(getInputCol).metadata, true), false)
+      val metadata = map.toMetadata(
+        map.toMetadata(dataset.schema(getInputCol).metadata, mmlStyle = true),
+        mmlStyle = false)
       val inputColIndex = getIndex(dataset(getInputCol))
       dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))
     })
-
   }
+  //scalastyle:on cyclomatic.complexity
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType =

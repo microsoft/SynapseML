@@ -38,8 +38,8 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
   setDefault(featuresCol, "features")
   setDefault(valuesCol, "values")
   setDefault(outputCol, uid + "_output")
-  setDefault(k, 5)
-  setDefault(leafSize, 50)
+  setDefault(k, 5)  //scalastyle:ignore magic.number
+  setDefault(leafSize, 50)  //scalastyle:ignore magic.number
   setDefault(labelCol, "labels")
   setDefault(conditionerCol, "conditioner")
 
