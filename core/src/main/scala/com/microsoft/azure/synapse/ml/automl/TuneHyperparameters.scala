@@ -131,7 +131,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     */
   private def awaitResult[T](awaitable: Awaitable[T], atMost: Duration): T = {
     try {
-      val awaitPermission = null.asInstanceOf[scala.concurrent.CanAwait]
+      val awaitPermission = null.asInstanceOf[scala.concurrent.CanAwait] //scalastyle:ignore null
       awaitable.result(atMost)(awaitPermission)
     } catch {
       case NonFatal(t) if !t.isInstanceOf[TimeoutException] =>
@@ -145,7 +145,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @param dataset The input dataset to train.
     * @return The trained classification model.
     */
-  override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
+  //scalastyle:off method.length
+  override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {  //scalastyle:ignore cyclomatic.complexity
     logFit({
       val sparkSession = dataset.sparkSession
       val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
@@ -216,6 +217,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
       new TuneHyperparametersModel(uid).setBestModel(bestModel).setBestMetric(bestMetric)
     })
   }
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): Estimator[TuneHyperparametersModel] = defaultCopy(extra)
 

@@ -11,11 +11,9 @@ import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Pipeline, _}
+import org.apache.spark.ml._
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
-
-import java.util.NoSuchElementException
 
 trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 
@@ -281,6 +279,7 @@ class TextFeaturizer(override val uid: String)
     model.getOrDefault(model.getParam(name))
   }
 
+  //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit({
       try {
@@ -345,6 +344,7 @@ class TextFeaturizer(override val uid: String)
       new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
     })
   }
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 

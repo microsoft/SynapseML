@@ -12,6 +12,7 @@ import scala.collection.JavaConverters._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
 
+  //scalastyle:off cyclomatic.complexity
   implicit def anyFormat: JsonFormat[Any] =
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
@@ -41,6 +42,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case _ => throw new IllegalArgumentException(s"Cannot deserialize ${value}")
       }
     }
+  //scalastyle:on cyclomatic.complexity
 
 }
 

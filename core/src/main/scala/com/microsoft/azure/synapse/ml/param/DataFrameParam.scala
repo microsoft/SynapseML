@@ -75,20 +75,21 @@ trait DataFrameEquality extends Serializable {
       case ds: Dataset[_] =>
         val b = ds.toDF()
         if (a.columns !== b.columns) {
-          return false
-        }
-        val (aList, bList) = if (sortInDataframeEquality) {
-          (a.sort(a.columns.sorted.map(col): _*).collect(),
-            b.sort(b.columns.sorted.map(col): _*).collect())
-        } else {
-          (a.collect(), b.collect())
-        }
-
-        if (aList.length != bList.length) {
           false
         } else {
-          aList.zip(bList).forall { case (rowA, rowB) =>
-            rowA === rowB
+          val (aList, bList) = if (sortInDataframeEquality) {
+            (a.sort(a.columns.sorted.map(col): _*).collect(),
+              b.sort(b.columns.sorted.map(col): _*).collect())
+          } else {
+            (a.collect(), b.collect())
+          }
+
+          if (aList.length != bList.length) {
+            false
+          } else {
+            aList.zip(bList).forall { case (rowA, rowB) =>
+              rowA === rowB
+            }
           }
         }
     }
@@ -100,9 +101,9 @@ trait DataFrameEquality extends Serializable {
     val result = eq.areEqual(df1, df2)
     if (!result) {
       println("df1:")
-      df1.show(100, 100)
+      df1.show(100, 100)  //scalastyle:ignore magic.number
       println("df2:")
-      df2.show(100, 100)
+      df2.show(100, 100)  //scalastyle:ignore magic.number
     }
     assert(result)
   }
@@ -127,7 +128,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
   }
 
   override def pyLoadLine(modelNum: Int): String = {
-    s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}"))"""
+    s"""${name}DF = spark.read.parquet(join(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))"""
   }
 
   override def rValue(v: DataFrame): String = {
@@ -136,7 +137,7 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
 
   override def rLoadLine(modelNum: Int): String = {
     s"""
-       |${name}Dir <- file.path(test_data_dir, "model-${modelNum}.model", "complexParams", "${name}")
+       |${name}Dir <- file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name")
        |${name}DF <- spark_dataframe(spark_read_parquet(sc, path = ${name}Dir))
        """.stripMargin
   }

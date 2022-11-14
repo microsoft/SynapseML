@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{safeSend, sendAndParseJson}
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
@@ -196,7 +197,6 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
-    val packages: String = s"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -210,8 +210,8 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "$packages",
-         |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
+         |         "spark.jars.packages" : "$SparkMavenPackageList",
+         |         "spark.jars.repositories" : "$SparkMavenRepositoryList",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
          |         "spark.executor.userClassPathFirst": "true"

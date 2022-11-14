@@ -72,7 +72,9 @@ private[ml] case class CoordinateDescentLasso(alpha: Double, maxIterations: Int,
 }
 
 //noinspection ScalaStyle
-final class LassoRegression(alpha: Double, maxIterations: Int = 1000, tol: Double = 1E-5) extends RegressionBase {
+final class LassoRegression(alpha: Double,
+                            maxIterations: Int = 1000,  //scalastyle:ignore magic.number
+                            tol: Double = 1E-5) extends RegressionBase {
   override protected def normalizeSampleWeights(sampleWeights: BDV[Double]): BDV[Double] = {
     sampleWeights * (sampleWeights.size / sum(sampleWeights))
   }

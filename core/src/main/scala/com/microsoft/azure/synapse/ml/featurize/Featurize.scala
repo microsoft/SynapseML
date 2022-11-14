@@ -83,7 +83,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
       if (version == 0) {
         originalName
       } else {
-        s"${originalName}_${uid}_${version}"
+        s"${originalName}_${uid}_$version"
       }
     }
   }
@@ -116,7 +116,8 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     * @param dataset The input dataset to train.
     * @return The featurized model.
     */
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit({
       val columnState = new ColumnState(dataset)
@@ -226,6 +227,8 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
       new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
     })
   }
+  //scalastyle:on cyclomatic.complexity
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): Estimator[PipelineModel] = {
     new Featurize()

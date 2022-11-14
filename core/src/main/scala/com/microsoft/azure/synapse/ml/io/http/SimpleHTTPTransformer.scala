@@ -92,7 +92,7 @@ class SimpleHTTPTransformer(val uid: String)
 
   setDefault(
     inputParser -> new JSONInputParser(),
-    handler -> HandlingUtils.advancedUDF(0, 50, 100, 500),
+    handler -> HandlingUtils.advancedUDF(0, 50, 100, 500),  //scalastyle:ignore magic.number
     errorCol -> (this.uid + "_errors"))
 
   def setUrl(url: String): SimpleHTTPTransformer.this.type = {

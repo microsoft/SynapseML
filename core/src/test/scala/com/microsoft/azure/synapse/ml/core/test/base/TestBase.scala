@@ -196,7 +196,7 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
   def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
     for ((t, i) <- times.zipWithIndex) {
       try {
-        return block()
+        return block()  //scalastyle:ignore return
       } catch {
         case e: Exception if (i + 1) < times.length =>
           println(s"RETRYING after $t ms:  Caught error: $e ")
@@ -220,7 +220,7 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
     withoutLogging {
       intercept[E] {
         e
-      };
+      }
       ()
     }
   }
