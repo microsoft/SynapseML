@@ -38,7 +38,7 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
   def parseWavHeader(reader: InputStream): InputStream = {
     //scalastyle:off magic.number
     // Tag "RIFF"
-    val data = new Array[Byte](4)  //scalastyle:ignore magic.number
+    val data = new Array[Byte](4)
     var numRead = reader.read(data, 0, 4)
     assert((numRead == 4) && (data sameElements "RIFF".getBytes), "RIFF")
 
@@ -69,7 +69,7 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
     // Until now we have read 16 bytes in format, the rest is cbSize and is ignored
     // for now.
     if (formatSize > 16) {
-      numRead = reader.read(new Array[Byte](formatSize - 16))
+      numRead = reader.read(new Array[Byte]((formatSize - 16).toInt))
       assert(numRead == (formatSize - 16), "could not skip extended format")
     }
     // Second Chunk, data
@@ -77,7 +77,7 @@ class WavStream(val wavStream: InputStream) extends PullAudioInputStreamCallback
     numRead = reader.read(data, 0, 4)
     assert((numRead == 4) && (data sameElements "data".getBytes))
 
-    val _ = readUInt32(reader)  // dataLength
+    readUInt32(reader)  // dataLength
     reader
     //scalastyle:on magic.number
   }

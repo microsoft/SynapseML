@@ -17,7 +17,7 @@ object FaultToleranceUtils {
     }
   }
 
-  val Backoffs: Seq[Int] = Seq(0, 100, 200, 500) //scalastyle:ignore magic.number
+  val Backoffs: Seq[Int] = Seq(0, 100, 200, 500)  //scalastyle:ignore magic.number
 
   def retryWithTimeout[T](times: Seq[Int] = Backoffs)(f: => T): T ={
     try {

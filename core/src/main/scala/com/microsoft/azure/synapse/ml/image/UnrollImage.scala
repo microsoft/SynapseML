@@ -87,7 +87,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
     Row(path, height, width, nChannels, mode, rearranged.map(_.toByte))
   }
 
-  private[ml] def unrollBI(image: BufferedImage): SVector = { //scalastyle:ignore cyclomatic.complexity
+  private[ml] def unrollBI(image: BufferedImage): SVector = {  //scalastyle:ignore cyclomatic.complexity
     val nChannels = image.getColorModel.getNumComponents
     val isGray = image.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
     val hasAlpha = image.getColorModel.hasAlpha

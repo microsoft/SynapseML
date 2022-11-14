@@ -135,7 +135,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
             targets = getValue(r, targets).asInstanceOf[Seq[Row]].map(
               row => TargetInput(Option(row.getString(0)),
                 fetchGlossaries(row),
-                row.getString(2), row.getString(3), Option(row.getString(4))))  //scalastyle:ignore magic.number
+                row.getString(2), row.getString(3), Option(row.getString(4))))
           ))).toJson.compactPrint, ContentType.APPLICATION_JSON))
   }
 

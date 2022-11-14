@@ -17,7 +17,7 @@ private case class Query(point: DenseVector[Double],
   def this(point: DenseVector[Double], bestK: Int) = this(point, norm(point), Query.createQueue(bestK))
 
   override def toString: String = {
-    s"Query with point {$point} \n " +
+    s"Query with point {$point}} \n " +
       s"and bestMatches of size of ${bestMatches.size} (bestMatch example: ${bestMatches.take(1)}})"
   }
 }

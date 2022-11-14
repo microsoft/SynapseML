@@ -311,7 +311,6 @@ abstract class SpeechSDKBase extends Transformer
                                    isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
       if (shouldSkip(row)) {
-        //noinspection ScalaStyle
         Seq(Row.fromSeq(row.toSeq :+ null))  //scalastyle:ignore null
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)

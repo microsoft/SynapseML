@@ -33,7 +33,7 @@ class FastVectorAssembler (override val uid: String)
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
   //scalastyle:off cyclomatic.complexity
-  override def transform(dataset: Dataset[_]): DataFrame = { //scalastyle:ignore method.length
+  override def transform(dataset: Dataset[_]): DataFrame = {  //scalastyle:ignore method.length
     // Schema transformation.
     val schema = dataset.schema
     var addedNumericField = false
@@ -70,7 +70,7 @@ class FastVectorAssembler (override val uid: String)
                 attr.withName(c + "_" + i)
               } else {
                 addedNumericField = true
-                null //scalastyle:ignore null
+                null  //scalastyle:ignore null
               }
             }.filter(attr => attr != null)
           } else {
@@ -143,7 +143,7 @@ object FastVectorAssembler extends DefaultParamsReadable[FastVectorAssembler] {
           }
         }
         cur += vec.size
-      case null => //scalastyle:ignore null
+      case null =>  //scalastyle:ignore null
         throw new SparkException("Values to assemble cannot be null.")
       case o =>
         throw new SparkException(s"$o of type ${o.getClass.getName} is not supported.")

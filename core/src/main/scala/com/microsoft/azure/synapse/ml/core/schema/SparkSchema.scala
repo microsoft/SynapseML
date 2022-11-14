@@ -113,11 +113,8 @@ object SparkSchema {
     */
   def getScoreValueKind(schema: StructType, modelName: String, columnName: String): String = {
     val metadata = schema(columnName).metadata
-    if (metadata == null) { //scalastyle:ignore null
-      null //scalastyle:ignore null
-    } else {
-      getMetadataFromModule(metadata, modelName, ScoreValueKind)
-    }
+    if (metadata == null) null  //scalastyle:ignore null
+    else getMetadataFromModule(metadata, modelName, ScoreValueKind)
   }
 
   /** Sets the score column kind.
@@ -196,19 +193,14 @@ object SparkSchema {
   }
 
   private def getMetadataFromModule(colMetadata: Metadata, moduleName: String, tag: String): String = {
-    if (!colMetadata.contains(MMLTag)) {
-      null  //scalastyle:ignore null
-    } else {
+    if (!colMetadata.contains(MMLTag)) null  //scalastyle:ignore null
+    else {
       val mlTagMetadata = colMetadata.getMetadata(MMLTag)
-      if (!mlTagMetadata.contains(moduleName)) {
-        null  //scalastyle:ignore null
-      } else {
+      if (!mlTagMetadata.contains(moduleName)) null  //scalastyle:ignore null
+      else {
         val modelMetadata = mlTagMetadata.getMetadata(moduleName)
-        if (!modelMetadata.contains(tag)) {
-          null  //scalastyle:ignore null
-        } else {
-          modelMetadata.getString(tag)
-        }
+        if (!modelMetadata.contains(tag)) null  //scalastyle:ignore null
+        else modelMetadata.getString(tag)
       }
     }
   }

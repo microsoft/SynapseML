@@ -195,18 +195,18 @@ class FlattenBatch(val uid: String)
   def transpose(nestedSeq: Seq[Any]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.filter {
-      case null => false //scalastyle:ignore null
+      case null => false  //scalastyle:ignore null
       case _: Seq[Any] => true
       case _ => false
     }.head.asInstanceOf[Seq[Any]].length
 
     assert(nestedSeq.forall{
-      case null => true //scalastyle:ignore null
+      case null => true  //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
       case _ => true
     })
     (0 until innerLength).map(i => nestedSeq.map{
-      case null => null //scalastyle:ignore null
+      case null => null  //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq(i)
       case any => any
     })
@@ -223,7 +223,7 @@ class FlattenBatch(val uid: String)
             (0 until rowOfLists.length)
               .map(i => {
                 if (rowOfLists.isNullAt(i)) {
-                  null //scalastyle:ignore null
+                  null  //scalastyle:ignore null
                 } else {
                   val value = rowOfLists.get(i)
                   value match {

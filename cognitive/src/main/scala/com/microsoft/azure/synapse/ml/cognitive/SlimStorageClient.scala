@@ -51,11 +51,10 @@ object SlimStorageClient {
   }
 
   private def urlEncode(stringToEncode: String): String = {
-    if (stringToEncode == null) {
-      null  //scalastyle:ignore null
-    } else if (stringToEncode.isEmpty) {
-      ""
-    } else if (stringToEncode.contains(" ")) {
+    if (stringToEncode == null) null  //scalastyle:ignore null
+    else if (stringToEncode.isEmpty) ""
+    else if (!stringToEncode.contains(" ")) URLEncoder.encode(stringToEncode, "utf8")
+    else {
       val outBuilder = new mutable.StringBuilder
       var startDex = 0
       for (m <- 0 until stringToEncode.length) {
@@ -71,8 +70,6 @@ object SlimStorageClient {
         outBuilder.append(URLEncoder.encode(stringToEncode.substring(startDex), "utf8"))
       }
       outBuilder.toString
-    } else {
-      URLEncoder.encode(stringToEncode, "utf8")
     }
   }
 

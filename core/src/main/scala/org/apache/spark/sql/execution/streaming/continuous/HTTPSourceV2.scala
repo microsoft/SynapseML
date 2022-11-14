@@ -136,8 +136,8 @@ private[streaming] object DriverServiceUtils {
                                       host: String,
                                       handler: HttpHandler): HttpServer = {
     val port: Int = StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
-    val server = HttpServer.create(new InetSocketAddress(host, port), 100) //scalastyle:ignore magic.number
-    server.setExecutor(Executors.newFixedThreadPool(100)) //scalastyle:ignore magic.number
+    val server = HttpServer.create(new InetSocketAddress(host, port), 100)  //scalastyle:ignore magic.number
+    server.setExecutor(Executors.newFixedThreadPool(100))  //scalastyle:ignore magic.number
     server.createContext(s"/$path", handler)
     server.start()
     server
@@ -208,10 +208,10 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Case
 
   val numPartitions: Int = options.getInt(HTTPSourceV2.NumPartitions, 2)
   val host: String = options.get(HTTPSourceV2.Host, "localhost")
-  val port: Int = options.getInt(HTTPSourceV2.Port, 8888) //scalastyle:ignore magic.number
+  val port: Int = options.getInt(HTTPSourceV2.Port, 8888)  //scalastyle:ignore magic.number
   val path: String = options.get(HTTPSourceV2.Path)
   val name: String = options.get(HTTPSourceV2.NAME)
-  val epochLength: Long = options.getLong(HTTPSourceV2.EpochLength, 30000) //scalastyle:ignore magic.number
+  val epochLength: Long = options.getLong(HTTPSourceV2.EpochLength, 30000)  //scalastyle:ignore magic.number
 
   val forwardingOptions: collection.Map[String, String] = options.asCaseSensitiveMap().asScala
     .filter { case (k, _) => k.startsWith("forwarding") }
@@ -318,7 +318,7 @@ private[streaming] class HTTPContinuousReader(options: CaseInsensitiveStringMap)
   }
 
   override def planInputPartitions(start: Offset): Array[InputPartition] =
-    planInputPartitions(start, null) //scalastyle:ignore null
+    planInputPartitions(start, null)  //scalastyle:ignore null
 
   override def createContinuousReaderFactory(): ContinuousPartitionReaderFactory = {
     HTTPSourceReaderFactory

@@ -54,8 +54,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
           futures, concurrency, Duration.fromNanos(timeout * 1e6.toLong))(ExecutionContext.global)
           .map {
             case (bytesOpt, row) =>
-              //noinspection ScalaStyle
-              val bytes: Array[Byte] = bytesOpt.getOrElse(Array())
+              val bytes: Array[Byte] = bytesOpt.getOrElse(null)  //scalastyle:ignore null
               Row.fromSeq(row.toSeq :+ bytes)
           }
       }(encoder)
