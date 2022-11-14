@@ -212,7 +212,9 @@ trait HasExcludedFeatures extends Params {
     *
     * @group param
     */
-  val excludedFeatures = new StringArrayParam(this, "excludedFeatureCols", "The names of the features to be excluded from training.")
+  val excludedFeatures = new StringArrayParam(this,
+    "excludedFeatures",
+    "The names of the features to be excluded from training.")
 
   /** @group setParam */
   def setExcludedFeatures(value: Array[String]): this.type = set(excludedFeatures, value)

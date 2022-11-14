@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -22,11 +25,11 @@ class ResidualTransformer(override val uid: String) extends Transformer
 
   def this() = this(Identifiable.randomUID("ComputeResidualsTransformer"))
 
-  val observedCol = new Param[String](this, "observedCol", "observed data column")
+  val observedCol = new Param[String](this, "observedCol", "observed data (label column)")
   def setObservedCol(value: String): this.type = set(param = observedCol, value = value)
   final def getObservedCol: String = getOrDefault(observedCol)
 
-  val predictedCol = new Param[String](this, "predictedCol", "predicted data column")
+  val predictedCol = new Param[String](this, "predictedCol", "predicted data (prediction or probability columns")
   def setPredictedCol(value: String): this.type = set(param = predictedCol, value = value)
   final def getPredictedCol: String = getOrDefault(predictedCol)
 
@@ -54,9 +57,10 @@ class ResidualTransformer(override val uid: String) extends Transformer
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       transformSchema(schema = dataset.schema, logging = true)
-      // Make sure the observedCol is a DoubleType
+      // Make sure the observedCol is a DoubleType or IntegerType
       val observedColType = dataset.schema(getObservedCol).dataType
-      require(observedColType == DoubleType || observedColType == IntegerType, s"observedCol must be of type DoubleType or IntegerType but got $observedColType")
+      require(observedColType == DoubleType || observedColType == IntegerType,
+        s"observedCol must be of type DoubleType or IntegerType but got $observedColType")
 
       val predictedColDataType = dataset.schema(getPredictedCol).dataType
       predictedColDataType match {

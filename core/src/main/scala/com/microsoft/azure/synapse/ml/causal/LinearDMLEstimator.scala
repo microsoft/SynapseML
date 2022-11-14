@@ -23,7 +23,7 @@ import org.apache.spark.sql.types.StructType
 import scala.concurrent.Future
 
 /** Linear Double ML estimators. The estimator follows the two stage process,
- *  where a set of nuisance functions are estimated in the first stage in a crossfitting manner
+ *  where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
  *  and a final stage estimates the average treatment effect (ATE) model.
  *  Our goal is to estimate the constant marginal ATE Theta(X)
  *
@@ -44,23 +44,16 @@ import scala.concurrent.Future
  * `\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
  * residual outcome and residual treatment.
  *
- * The nuisance function :math:`q` is a simple regression problem and user
- * can use setOutcomeModel to set an arbitrary sparkml regressor that is internally used to solve this regression problem
+ * The nuisance function :math:`q` is a simple machine learning problem and
+ * user can use setOutcomeModel to set an arbitrary sparkML model
+ * that is internally used to solve this problem
  *
- * The problem of estimating the nuisance function :math:`f` is also a regression problem and user
- * can use setTreatmentModel to set an arbitrary sparkml regressor that is internally used to solve this regression problem.
+ * The problem of estimating the nuisance function :math:`f` is also a machine learning problem and
+ * user can use setTreatmentModel to set an arbitrary sparkML model
+ * that is internally used to solve this problem.
  *
- * The input categorical treatment is one-hot encoded (excluding the lexicographically smallest treatment which is used as the baseline)
- * and the `predict_proba` method of the treatment model classifier is used to residualize the one-hot encoded treatment.
-
-      The final stage is (potentially multi-task) linear regression problem with outcomes the labels
-      :math:`\\tilde{Y}` and regressors the composite features
-      :math:`\\tilde{T}\\otimes \\phi(X) = \\mathtt{vec}(\\tilde{T}\\cdot \\phi(X)^T)`.
-      The :class:`.DML` takes as input parameter
-      ``model_final``, which is any linear sparkml regressor that is internally used to solve this
-      (multi-task) linear regression problem.
  */
-//noinspection ScalaStyle
+//noinspection ScalaDocParserErrorInspection,ScalaDocUnclosedTagWithoutParser
 class LinearDMLEstimator(override val uid: String)
   extends Estimator[LinearDMLModel] with ComplexParamsWritable
     with LinearDMLParams with BasicLogging with Wrappable {
@@ -102,7 +95,8 @@ class LinearDMLEstimator(override val uid: String)
       val ateFutures =(1 to getMaxIter).toArray.map { index =>
         Future[Option[Double]] {
           log.info(s"Executing ATE calculation on iteration: $index")
-          // If the algorithm runs over 1 iteration, do not bootstrap from dataset, otherwise, draw sample with replacement
+          // If the algorithm runs over 1 iteration, do not bootstrap from dataset,
+          // otherwise, draw sample with replacement
           val redrewDF =  if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
           val ate: Option[Double] =
             try {
@@ -110,11 +104,13 @@ class LinearDMLEstimator(override val uid: String)
               val oneAte = totalTime.measure {
                 trainInternal(redrewDF)
               }
-              log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, time elapsed: ${totalTime.elapsed() / 60000000000.0} minutes")
+              log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
+                s"time elapsed: ${totalTime.elapsed() / 60000000000.0} minutes")
               Some(oneAte)
             } catch {
               case ex: Throwable =>
-                log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. Exception details: $ex")
+                log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
+                  s"Exception details: $ex")
                 None
             }
           ate
@@ -193,7 +189,7 @@ class LinearDMLEstimator(override val uid: String)
       1. Split sample, e.g. 50/50
       2. Use the first split to fit the treatment model and the outcome model.
       3. Use the two models to fit a residual model on the second split.
-      4. Cross-fit by fitting the treatment and outcome models with the second split and the residual model with the first split.
+      4. Cross-fit treatment and outcome models with the second split, residual model with the first split.
       5. Average slopes from the two residual models.
     */
     val splits = dataset.randomSplit(getSampleSplitRatio)
@@ -239,7 +235,7 @@ class LinearDMLModel(val uid: String)
 
   def this() = this(Identifiable.randomUID("LinearDMLModel"))
 
-  var ates = new DoubleArrayParam(this, "ates", "treatment effect results for each iteration")
+  val ates = new DoubleArrayParam(this, "ates", "treatment effect results for each iteration")
   def getAtes: Array[Double] = $(ates)
   def setAtes(v: Array[Double]): this.type = set(ates, v)
 
@@ -263,8 +259,9 @@ class LinearDMLModel(val uid: String)
 
   override def copy(extra: ParamMap): LinearDMLModel = defaultCopy(extra)
 
-  //scalastyle:off
-  /** LinearDMLEstimator transform does nothing by design and isn't supposed to be called by end user. */
+  /**
+   * LinearDMLEstimator transform does nothing by design and isn't supposed to be called by end user.
+  */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       dataset.toDF()

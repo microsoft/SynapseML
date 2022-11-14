@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasWeightCol}
@@ -41,7 +44,9 @@ trait LinearDMLParams extends Params
   def getTreatmentModel: Estimator[_ <: Model[_]] = $(treatmentModel)
 
   /**
-   * Set treatment model, it could be any model derived from 'org.apache.spark.ml.regression.Regressor' or 'org.apache.spark.ml.classification.ProbabilisticClassifier'
+   * Set treatment model, it could be any model derived from
+   * 'org.apache.spark.ml.regression.Regressor' or
+   * 'org.apache.spark.ml.classification.ProbabilisticClassifier'
    *
    * @group setParam
    */
@@ -54,7 +59,9 @@ trait LinearDMLParams extends Params
   def getOutcomeModel: Estimator[_ <: Model[_]] = $(outcomeModel)
 
   /**
-   * Set outcome model, it could be any model derived from 'org.apache.spark.ml.regression.Regressor' or 'org.apache.spark.ml.classification.ProbabilisticClassifier'
+   * Set outcome model, it could be any model derived from
+   * 'org.apache.spark.ml.regression.Regressor' or
+   * 'org.apache.spark.ml.classification.ProbabilisticClassifier'
    *
    * @group setParam
    */
@@ -65,7 +72,7 @@ trait LinearDMLParams extends Params
 
   val sampleSplitRatio = new DoubleArrayParam(
     this,
-    "SampleSplitRatio",
+    "sampleSplitRatio",
     "Sample split ratio for cross-fitting. Default: [0.5, 0.5].",
     split => split.length == 2 && split.forall(_ >= 0)
   )
@@ -120,7 +127,7 @@ trait LinearDMLParams extends Params
       case _: Regressor[_, _, _] => // for continuous treatment or outcome
       case _: ProbabilisticClassifier[_, _, _] =>
       case _ => throw new Exception(
-        s"LinearDML only support Regressor and ProbabilisticClassifier as treatment or outcome model types, " +
+        s"LinearDML only supports Regressor and ProbabilisticClassifier as treatment or outcome model types, " +
           s"but got type ${value.getClass.getName}"
       )
     }
