@@ -18,7 +18,7 @@ object SpeechAPI {
   import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   def getSpeakerProfile(data: File, key: String): String = {
-    retry(List(100, 500, 1000), { () =>
+    retry(List(100, 500, 1000), { () =>  //scalastyle:ignore magic.number
       val request = RequestBuilder
         .post("https://signature.centralus.cts.speech.microsoft.com" +
           "/api/v1/Signature/GenerateVoiceSignatureFromFormData")

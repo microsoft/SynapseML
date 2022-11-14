@@ -282,7 +282,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
   override def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.Response)
 
-    def test_method: DataType = {
+    def testMethod: DataType = {
       (get(udfScala), get(udfPython)) match {
         case (Some(f), None) => StringType
         case (None, Some(f)) => f.dataType
@@ -290,7 +290,6 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
       }
     }
 
-    schema.add(getOutputCol, test_method)
+    schema.add(getOutputCol, testMethod)
   }
-
 }

@@ -47,7 +47,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
       if (labSet.nonEmpty) {
         var i = 0
         var reciprocalRank = 0.0
-        while (i < pred.length && reciprocalRank == 0.0) {
+        while (i < pred.length && reciprocalRank == 0.0) {  //scalastyle:ignore while
           if (labSet.contains(pred(i))) {
             reciprocalRank = 1.0 / (i + 1)
           }

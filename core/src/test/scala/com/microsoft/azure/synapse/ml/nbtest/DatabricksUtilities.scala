@@ -25,7 +25,6 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
-//noinspection ScalaStyle
 object DatabricksUtilities {
 
   // ADB Info
@@ -269,6 +268,7 @@ object DatabricksUtilities {
     (url, nbName)
   }
 
+  //scalastyle:off cyclomatic.complexity
   def monitorJob(runId: Integer,
                  timeout: Int,
                  interval: Int = 8000,
@@ -280,7 +280,7 @@ object DatabricksUtilities {
       val (url, nbName) = getRunUrlAndNBName(runId)
       if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty &
+      while (finalState.isEmpty &  //scalastyle:ignore while
         (System.currentTimeMillis() - startTime) < timeout &
         lifeCycleState != "INTERNAL_ERROR"
       ) {
@@ -316,6 +316,7 @@ object DatabricksUtilities {
 
     }(ExecutionContext.global)
   }
+  //scalastyle:on cyclomatic.complexity
 
   def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
     val destination: String = Folder + "/" + notebookFile.getName

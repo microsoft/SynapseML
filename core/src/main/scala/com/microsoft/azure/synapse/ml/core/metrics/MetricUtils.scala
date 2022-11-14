@@ -53,7 +53,7 @@ object MetricUtils {
   }
 
   private def getFirstModelName(colMetadata: Metadata): Option[String] = {
-    if (!colMetadata.contains(MMLTag)) null
+    if (!colMetadata.contains(MMLTag)) null  //scalastyle:ignore null
     else {
       val mlTagMetadata = colMetadata.getMetadata(MMLTag)
       val metadataKeys = MetadataUtilities.getMetadataKeys(mlTagMetadata)

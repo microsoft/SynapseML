@@ -39,6 +39,8 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
     * @param dataset The input dataset to train.
     * @return The trained regression model.
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def fit(dataset: Dataset[_]): TrainedRegressorModel = {
     logFit({
       val labelColumn = getLabelCol
@@ -117,6 +119,8 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         .setFeaturesCol(getFeaturesCol)
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   override def copy(extra: ParamMap): Estimator[TrainedRegressorModel] = {
     setModel(getModel.copy(extra))
