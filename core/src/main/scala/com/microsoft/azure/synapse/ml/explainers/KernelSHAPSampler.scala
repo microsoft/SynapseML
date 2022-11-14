@@ -40,7 +40,7 @@ private[explainers] trait KernelSHAPSamplerSupport {
     v /:/ sum(v)
   }
 
-  //noinspection ScalaStyle
+  //scalastyle:off method.length
   private[explainers] def generateSampleSizes(m: Int, numSamples: Int)
                                              (kernelWeightFunc: Int => Double): Array[(Int, Double)] = {
     assert(numSamples <= math.pow(2, m) - 2)
@@ -125,6 +125,7 @@ private[explainers] trait KernelSHAPSamplerSupport {
       result ++ allocateRemainingSamples(result.length / 2 + 1, remainingSamples, Array.empty).map(s => (s, 1.0))
     }
   }
+  //scalastyle:on method.length
 
   private[explainers] def generateCoalitions: Iterator[(BDV[Int], Double)] = {
     val (m, nSamples) = (featureSize, numSamples)

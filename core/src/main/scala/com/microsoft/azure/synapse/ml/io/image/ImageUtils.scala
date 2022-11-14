@@ -34,7 +34,11 @@ object ImageUtils {
   }
 
   def toBufferedImage(row: InternalRow): BufferedImage = {
-    toBufferedImage(row.getBinary(5), row.getInt(2), row.getInt(1), row.getInt(3))
+    toBufferedImage(
+      row.getBinary(5),  //scalastyle:ignore magic.number
+      row.getInt(2),
+      row.getInt(1),
+      row.getInt(3))
   }
 
   def toBufferedImage(row: Row): BufferedImage = {

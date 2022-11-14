@@ -320,7 +320,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
             ImageInjections.decode(path, bytes).map(_.getStruct(0))
           case (bytes: Array[Byte], "binary") =>
             //noinspection ScalaStyle
-            ImageInjections.decode(null, bytes).map(_.getStruct(0))
+            ImageInjections.decode(null, bytes).map(_.getStruct(0))  //scalastyle:ignore null
           case (row: Row, "image") =>
             Some(row)
           case (_, mode) =>

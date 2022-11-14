@@ -168,7 +168,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
     .join(filterByItemCount(dataset), $(userCol))
 
-  def splitDF(dataset: DataFrame): Array[DataFrame] = {
+  def splitDF(dataset: DataFrame): Array[DataFrame] = {  //scalastyle:ignore method.length
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
