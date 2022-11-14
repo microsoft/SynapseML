@@ -98,6 +98,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     * @param dataset The input dataset to train.
     * @return The trained classification model.
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
     logFit({
       val labelValues =
@@ -189,6 +191,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
       levels.map(l => model.setLevels(l.toArray)).getOrElse(model)
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   def getFeaturizeParams: (Boolean, Boolean, Int) = {
     var oneHotEncodeCategoricals = true

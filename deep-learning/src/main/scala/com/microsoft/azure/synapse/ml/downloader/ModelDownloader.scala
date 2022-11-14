@@ -213,7 +213,7 @@ class ModelDownloader(val spark: SparkSession,
     * @return the model schemas found in the downloader's local path
     */
   def localModels: util.Iterator[ModelSchema] =
-    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {  //scalastyle:ignore magic.number
       localModelRepo.listSchemas().iterator.asJava
     }
 
@@ -222,7 +222,7 @@ class ModelDownloader(val spark: SparkSession,
     * @return the model schemas found in remote repository accessed through the serverURL
     */
   def remoteModels: util.Iterator[ModelSchema] =
-    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(60, "seconds")) {  //scalastyle:ignore magic.number
       remoteModelRepo.listSchemas().iterator.asJava
     }
 
@@ -231,7 +231,7 @@ class ModelDownloader(val spark: SparkSession,
     * @return the new local model schema with a URI that points to the model's location (on HDFS or local)
     */
   def downloadModel(model: ModelSchema): ModelSchema = {
-    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(10, "minutes")) {
+    FaultToleranceUtils.retryWithTimeout(3, Duration.apply(10, "minutes")) {  //scalastyle:ignore magic.number
       repoTransfer(model,
         new Path(new Path(localPath), NamingConventions.canonicalModelFilename(model)).toUri,
         remoteModelRepo, localModelRepo)

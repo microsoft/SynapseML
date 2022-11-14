@@ -24,6 +24,7 @@ trait CustomSpeechKey {
   lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
 }
 
+//scalastyle:off null
 trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpeechKey {
 
   import spark.implicits._
