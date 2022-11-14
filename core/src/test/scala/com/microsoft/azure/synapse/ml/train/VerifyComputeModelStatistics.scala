@@ -26,7 +26,7 @@ import scala.util.Random
 /** Tests to validate the functionality of Evaluate Model module. */
 class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatistics] {
   val labelColumn = "Label"
-  lazy val dataset = spark.createDataFrame(Seq(
+  lazy val dataset: DataFrame = spark.createDataFrame(Seq(
     (0, 2, 0.50, 0.60, 0),
     (1, 3, 0.40, 0.50, 1),
     (0, 4, 0.78, 0.99, 2),
@@ -98,6 +98,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(evaluatedSchema == StructType(MetricConstants.RegressionColumns.map(StructField(_, DoubleType))))
   }
 
+  // scalastyle:off null
   test("Evaluate a dataset with missing values") {
     val predictionColumn = SchemaConstants.SparkPredictionColumn
     val dataset = spark.createDataFrame(sc.parallelize(Seq(
@@ -108,8 +109,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       (null, null),
       (0.0, 0.0),
       (null, 3.0))).map(values => Row(values._1, values._2)),
-      StructType(Array(StructField(labelColumn, DoubleType, true),
-        StructField(predictionColumn, DoubleType, true))))
+      StructType(Array(StructField(labelColumn, DoubleType, nullable = true),
+        StructField(predictionColumn, DoubleType, nullable = true))))
       .toDF(labelColumn, predictionColumn)
 
     val scoreModelName = SchemaConstants.ScoreModelPrefix + "_test model"
@@ -127,6 +128,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(firstRow.getDouble(2) === 1.0)
     assert(firstRow.getDouble(3) === 0.0)
   }
+  // scalastyle:on null
 
   test("Verify compute model statistics does not get stuck in a loop in catalyst") {
     val name = "AutomobilePriceRaw.csv"
@@ -182,7 +184,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   lazy val scoredDataset: DataFrame = TrainClassifierTestUtilities.trainScoreDataset(
     labelColumn, dataset, logisticRegressor)
   test("Smoke test to train classifier, score and evaluate on a dataset using all three modules") {
-    val evaluatedData = new ComputeModelStatistics().transform(scoredDataset)
+    val _ = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
     assert(evaluatedSchema == StructType(MetricConstants.ClassificationColumns.map(StructField(_, DoubleType))))

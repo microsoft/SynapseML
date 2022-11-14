@@ -21,6 +21,7 @@ trait AzureSearchKey {
   lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
+//scalastyle:off null
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   with TransformerFuzzing[AddDocuments] with CognitiveKey {
 

@@ -53,7 +53,7 @@ object MADUtils {
     }
     request.setURI(new URI(path + paramString))
 
-    retry(List(100, 500, 1000), { () =>
+    retry(List(100, 500, 1000), { () =>  //scalastyle:ignore magic.number
       request.addHeader("Ocp-Apim-Subscription-Key", key)
       request.addHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
@@ -88,7 +88,7 @@ object MADUtils {
   }
 
   private[ml] def madUrl(location: String): String = {
-    s"https://${location}.api.cognitive.microsoft.com/anomalydetector/v1.1-preview/multivariate/"
+    s"https://$location.api.cognitive.microsoft.com/anomalydetector/v1.1-preview/multivariate/"
   }
 
   private[ml] def madDelete(modelId: String,
@@ -159,7 +159,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   }
 
   //noinspection ScalaStyle
-  protected def handlingFunc(client: CloseableHttpClient,
+  protected def handlingFunc(client: CloseableHttpClient,  //scalastyle:ignore cyclomatic.complexity
                              request: HTTPRequestData): HTTPResponseData = {
     val response = HandlingUtils.advanced(getBackoffs: _*)(client, request)
     if (response.statusLine.statusCode == 201) {
@@ -311,7 +311,7 @@ trait MADBase extends HasOutputCol
     }.get
 
     // generate SAS
-    val offset = OffsetDateTime.now().plusHours(24)
+    val offset = OffsetDateTime.now().plusDays(1)
     val sas = SlimStorageClient.generateReadSAS(
       storageInfo.account, storageInfo.container, blob, storageInfo.key, offset)
     s"https://${storageInfo.account}.blob.core.windows.net/${storageInfo.container}/$blob?$sas"

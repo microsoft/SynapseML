@@ -38,7 +38,7 @@ private[ml] trait HTTPClient extends BaseClient
     .setSocketTimeout(requestTimeout)
     .build()
 
-  protected val connectionManager = {
+  protected val connectionManager: PoolingHttpClientConnectionManager = {
     val cm = new PoolingHttpClientConnectionManager()
     cm.setDefaultMaxPerRoute(Int.MaxValue) // Spark will handle the threading to avoid going over limits
     cm.setMaxTotal(Int.MaxValue)
@@ -82,7 +82,7 @@ object HandlingUtils extends SparkLogging {
     }
   }
 
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
                                   retriesLeft: Array[Int]): CloseableHttpResponse = {
@@ -136,6 +136,7 @@ object HandlingUtils extends SparkLogging {
       case e: java.net.SocketTimeoutException => keepTrying(client, request, retriesLeft, e)
     }
   }
+  //scalastyle:on cyclomatic.complexity
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
