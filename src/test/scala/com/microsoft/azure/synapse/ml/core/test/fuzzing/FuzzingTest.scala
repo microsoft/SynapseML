@@ -33,7 +33,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.causal.LinearDMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
@@ -88,7 +88,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparametersModel",
-      "com.microsoft.azure.synapse.ml.causal.LinearDMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.cntk.train.CNTKLearner",
       "com.microsoft.azure.synapse.ml.cognitive.LocalNER",
       "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
@@ -136,7 +136,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
-      "com.microsoft.azure.synapse.ml.causal.LinearDMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
@@ -186,7 +186,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
-      "com.microsoft.azure.synapse.ml.causal.LinearDMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",

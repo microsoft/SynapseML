@@ -238,7 +238,10 @@ class DoubleMLModel(val uid: String)
 
   def this() = this(Identifiable.randomUID("DoubleMLModel"))
 
-  val rawTreatmentEffects = new DoubleArrayParam(this, "rawTreatmentEffects", "raw treatment effect results for all iterations")
+  val rawTreatmentEffects = new DoubleArrayParam(
+    this,
+    "rawTreatmentEffects",
+    "raw treatment effect results for all iterations")
   def getRawTreatmentEffects: Array[Double] = $(rawTreatmentEffects)
   def setRawTreatmentEffects(v: Array[Double]): this.type = set(rawTreatmentEffects, v)
 
