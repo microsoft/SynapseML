@@ -10,6 +10,8 @@ import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
@@ -189,8 +191,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group" + UUID.randomUUID().toString
-
+  //lazy val pgName = "group" + UUID.randomUUID().toString
+  lazy val pgName = "group" + IdentifyFacesSuite.NowString
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
     Thread.sleep(500) // A little insurance
@@ -267,7 +269,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   }
 
   // Utility entrypoint, remove ignore to clean up manually
-  ignore("Clean up all personGroups") {
+ ignore("Clean up person groups") {
     PersonGroup.list().foreach { pgi =>
       PersonGroup.delete(pgi.personGroupId)
       println(s"deleted group $pgi")
@@ -277,6 +279,29 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
 
   override def reader: MLReadable[_] = IdentifyFaces
+}
+
+object IdentifyFacesSuite {
+
+  lazy val TwoDaysInMs = 1000 * 60 * 60 * 24 * 2
+  lazy val NowString = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(ZonedDateTime.now())
+  def cleanOldPersonGroups(): Unit = {
+    PersonGroup.list().foreach { pgi =>
+
+      PersonGroup.delete(pgi.personGroupId)
+      println(s"deleted group $pgi")
+    }
+  }
+
+  def listPersonGroups(): Unit = {
+    val nowInMs = NowString.toLong
+    PersonGroup.list().foreach { pgi =>
+      val pgDateInMs = pgi.personGroupId.replaceFirst("group", "").toLong
+      if (nowInMs - pgDateInMs > TwoDaysInMs) {
+        println(s"group $pgi ${pgi.personGroupId}")
+      }
+    }
+  }
 }
 
 class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {

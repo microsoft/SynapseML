@@ -5,16 +5,17 @@ package com.microsoft.azure.synapse.ml.cognitive.split4
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
+import com.microsoft.azure.synapse.ml.cognitive.split1.{AnomalyKey, IdentifyFacesSuite}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.param.{Param, ParamPair}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import spray.json.{DefaultJsonProtocol, _}
+import spray.json.{DefaultJsonProtocol, JsString, _}
 
-import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDateTime, OffsetDateTime, ZoneId, ZonedDateTime}
 
 case class MADListModelsResponse(models: Seq[MADModel],
                                  currentCount: Int,
@@ -58,6 +59,8 @@ trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
 }
 
 class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADTestUtils {
+
+  cleanOldModels()
 
   def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -213,23 +216,29 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("not ready yet"))
   }
 
-  ignore("Clean up all models") {
-    var modelsLeft = true
-    //noinspection ScalaStyle
-    while (modelsLeft) {
+  def stringToTime(dateString: String): ZonedDateTime = {
+    val tsFormat = "yyyy-MM-dd'T'HH:mm:ssz"
+    val formatter = DateTimeFormatter.ofPattern(tsFormat)
+    ZonedDateTime.parse(dateString, formatter)
+  }
 
-      val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
-        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
-        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
+  def cleanOldModels(): Unit = {
+    val smae = simpleMultiAnomalyEstimator.setLocation(anomalyLocation)
+    val url = smae.getUrl + "/"
+    val lastWeek = ZonedDateTime.now().minusDays(7)
 
-      modelsLeft = models.nonEmpty
+    val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
+      .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
+      .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
 
-      models.foreach { modelId =>
+    models.foreach { modelId =>
+      val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
+      val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
+      if (lastUpdatedTime.compareTo(lastWeek) <= 0) {
         println(s"Deleting $modelId")
         MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
       }
     }
-
   }
 
   override def getterSetterParamExamples(p: FitMultivariateAnomaly): Map[Param[_],Any] = Map(
