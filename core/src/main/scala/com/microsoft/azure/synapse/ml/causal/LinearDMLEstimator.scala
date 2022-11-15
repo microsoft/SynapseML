@@ -234,6 +234,8 @@ class LinearDMLModel(val uid: String)
   extends Model[LinearDMLModel] with LinearDMLParams with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
 
+  override protected lazy val pyInternalWrapper = true
+
   def this() = this(Identifiable.randomUID("LinearDMLModel"))
 
   val ates = new DoubleArrayParam(this, "ates", "treatment effect results for each iteration")
