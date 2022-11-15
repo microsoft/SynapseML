@@ -16,27 +16,25 @@ object SharedNotebookE2ETestUtilities {
   val ResourcesDirectory = new File(getClass.getResource("/").toURI)
   val NotebooksDir = new File(ResourcesDirectory, "generated-notebooks")
 
-  def generateNotebooks(): Unit =
-  {
+  def generateNotebooks(): Unit = {
     cleanUpGeneratedNotebooksDir()
 
     FileUtilities.recursiveListFiles(FileUtilities
-    .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
-    .getCanonicalFile)
-    .filter(_.getName.endsWith(".ipynb"))
-    .map { f =>
-      FileUtilities.copyFile(f, NotebooksDir, true)
-      val newFile = new File(NotebooksDir, f.getName)
-      val targetName = new File(NotebooksDir, f.getName.replace(" ", "").replace("-", ""))
-      newFile.renameTo(targetName)
-      targetName
-    }
+      .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
+      .getCanonicalFile)
+      .filter(_.getName.endsWith(".ipynb"))
+      .map { f =>
+        FileUtilities.copyFile(f, NotebooksDir, true)
+        val newFile = new File(NotebooksDir, f.getName)
+        val targetName = new File(NotebooksDir, f.getName.replace(" ", "").replace("-", ""))
+        newFile.renameTo(targetName)
+        targetName
+      }
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
   }
 
-  def cleanUpGeneratedNotebooksDir(): Unit =
-  {
+  def cleanUpGeneratedNotebooksDir(): Unit = {
     FileUtils.deleteDirectory(NotebooksDir)
     assert(NotebooksDir.mkdirs())
   }

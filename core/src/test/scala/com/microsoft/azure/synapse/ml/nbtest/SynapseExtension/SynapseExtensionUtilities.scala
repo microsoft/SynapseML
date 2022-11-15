@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
@@ -25,6 +26,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 
 object SynapseExtensionUtilities {
+
   import SynapseJsonProtocol._
 
   val TimeoutInMillis: Int = 30 * 60 * 1000
@@ -69,14 +71,15 @@ object SynapseExtensionUtilities {
       "org.scalatest:scalatest_2.12," +
       "org.slf4j:slf4j-api"
 
-    val workloadPayload = s"""
+    val workloadPayload =
+      s"""
          |"{
          |  'Default${store}ArtifactId': '$storeId',
          |  'ExecutableFile': '$path',
          |  'SparkVersion':'3.2',
          |  'SparkSettings': {
-         |    'spark.jars.packages' : 'com.microsoft.azure:synapseml_2.12:${BuildInfo.version}',
-         |    'spark.jars.repositories' : 'https://mmlspark.azureedge.net/maven',
+         |    'spark.jars.packages' : '$SparkMavenPackageList',
+         |    'spark.jars.repositories' : '$SparkMavenRepositoryList',
          |    'spark.jars.excludes': '$excludes',
          |    'spark.dynamicAllocation.enabled': 'false',
          |    'spark.driver.userClassPathFirst': 'true',
@@ -152,9 +155,9 @@ object SynapseExtensionUtilities {
   def monitorJob(artifactId: String, jobInstanceId: String): Future[String] = {
     Future {
       pollExecutionStatus(
-          artifactId, jobInstanceId,
-          SynapseUtilities.TimeoutInMillis,
-          System.currentTimeMillis())
+        artifactId, jobInstanceId,
+        SynapseUtilities.TimeoutInMillis,
+        System.currentTimeMillis())
     }(ExecutionContext.global)
   }
 
@@ -167,13 +170,11 @@ object SynapseExtensionUtilities {
       if ((System.currentTimeMillis() - startTime) > timeout) {
         throw new TimeoutException(s"Job $jobInstanceId timed out.")
       }
-      else if (state != null && Seq("Failed", "Dead", "Error").contains(state.statusString))
-      {
+      else if (state != null && Seq("Failed", "Dead", "Error").contains(state.statusString)) {
         println("Notebook failed: " + getSparkJobDefinitionLink(artifactId))
         throw new RuntimeException(state.statusString)
       }
-      else if (state  != null && state.statusString == "Completed")
-      {
+      else if (state != null && state.statusString == "Completed") {
         println("Notebook completed: " + getSparkJobDefinitionLink(artifactId))
         state.statusString
       }
@@ -193,7 +194,7 @@ object SynapseExtensionUtilities {
     response
   }
 
-  def postRequest(uri: String, requestBody: String  = ""): JsValue = {
+  def postRequest(uri: String, requestBody: String = ""): JsValue = {
     val createRequest = new HttpPost(uri)
     setRequestContentTypeAndAuthorization(createRequest)
 
@@ -206,14 +207,13 @@ object SynapseExtensionUtilities {
 
     createRequest.setConfig(requestConfig)
 
-    if (requestBody.nonEmpty)
-    {
+    if (requestBody.nonEmpty) {
       createRequest.setEntity(new StringEntity(requestBody))
     }
     sendAndParseJson(createRequest)
   }
 
-  def getRequest(uri: String): JsValue  = {
+  def getRequest(uri: String): JsValue = {
     val getRequest = new HttpGet(uri)
     setRequestContentTypeAndAuthorization(getRequest)
     sendAndParseJson(getRequest)
@@ -243,8 +243,7 @@ object SynapseExtensionUtilities {
     sendAndParseJson(patchRequest)
   }
 
-  def setRequestContentTypeAndAuthorization(request: HttpRequestBase): Unit =
-  {
+  def setRequestContentTypeAndAuthorization(request: HttpRequestBase): Unit = {
     request.setHeader("Content-Type", "application/json")
     request.setHeader("Authorization", s"$AccessToken")
   }
@@ -262,19 +261,17 @@ object SynapseExtensionUtilities {
     filePath.split(File.separatorChar).last
   }
 
-  def listArtifacts(): Seq[Artifact] ={
+  def listArtifacts(): Seq[Artifact] = {
     val uri: String = s"$SSPHost/metadata/workspaces/$WorkspaceId/artifacts"
     getRequest(uri).convertTo[Seq[Artifact]]
   }
 
-  def getNotebookFilePath(artifactId: String, notebookBlobName: String): String =
-  {
+  def getNotebookFilePath(artifactId: String, notebookBlobName: String): String = {
     s"abfss://$WorkspaceId@lake.trident.com/$artifactId/Main/$notebookBlobName"
   }
 
 
-  def getSparkJobDefinitionLink(SjdArtifactId: String): String =
-  {
+  def getSparkJobDefinitionLink(SjdArtifactId: String): String = {
     val queryString = Platform.toLowerCase + "=1"
     s"$UxHost/groups/$WorkspaceId/sparkjobdefinitions/$SjdArtifactId?$queryString"
   }
@@ -291,7 +288,7 @@ object SynapseExtensionUtilities {
           ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseInternalTenantId}"),
           ("password", s"${Secrets.SynapseExtensionPassword}"),
           ("scope", "openid")
-    ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
+        ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]

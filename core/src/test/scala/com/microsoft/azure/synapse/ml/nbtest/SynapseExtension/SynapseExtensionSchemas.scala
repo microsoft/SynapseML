@@ -3,14 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 
-case class Artifact
-(
+case class Artifact (
   objectId: String,
   displayName: String
 )
 
-case class SparkJobDefinitionExecutionResponse
-(
+case class SparkJobDefinitionExecutionResponse (
   statusString: String,
   artifactJobInstanceId: String,
   serviceExceptionJson: Option[String]

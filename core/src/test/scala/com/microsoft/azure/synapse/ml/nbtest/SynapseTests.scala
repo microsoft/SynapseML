@@ -63,7 +63,8 @@ class SynapseTests extends TestBase {
   val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
 
   val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
-    SynapseUtilities.uploadAndSubmitNotebook(poolName, file) }
+    SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
+  }
 
   livyBatches.foreach { livyBatch =>
     println(s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")

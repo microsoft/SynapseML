@@ -75,7 +75,7 @@ case class LivyBatch(data: LivyBatchData,
     println(s"Cancelling run $id on pool $sparkPool")
     val cancelRequest = new HttpDelete(s"${livyUrl(sparkPool)}/$id")
     cancelRequest.setHeader("Authorization", s"Bearer $SynapseToken")
-    safeSend(cancelRequest,backoffs = List(100,500,1000,10000,10000))
+    safeSend(cancelRequest, backoffs = List(100, 500, 1000, 10000, 10000))
   }
 
   def jobStatusPage: String = {
