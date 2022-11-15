@@ -31,7 +31,7 @@ object RTestGen {
     }
   }
 
-  //noinspection ScalaStyle
+  // scalastyle:off method.length
   def generateRPackageData(conf: CodegenConfig): Unit = {
     // description file; need to encode version as decimal
     val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
@@ -117,6 +117,7 @@ object RTestGen {
          |testcheck("synapseml")
          |""".stripMargin)
   }
+  // scalastyle:on method.length
 
   def useLibrary(name: String): String = {
     s"""

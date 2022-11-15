@@ -1,0 +1,16 @@
+The ``ImageFeaturizer`` relies on a ``ONNXModel`` to do the
+featurization of the image(s).  One can set this model directly using the
+onnxModel parameter, or use setModel to set a known model name that will
+be pulled from the ONNXHub.  See docs for other options to set the underlying
+model.
+
+The ``ImageFeaturizer`` takes an input column of images (the type
+returned by the ``ImageReader``), automatically resizes them to fit the
+``ONNXModel``'s inputs using an ``ImageTransformer``, and feeds them through
+a pre-trained ONNX model. Some of the ``ImageTransformer`` parameters are
+exposed on the featurizer so you can customize them.
+
+You may specify intermediate model nodes by either using the ``headless``
+parameter to automatically choose the full model output (headless = false),
+or the intermediate feature nodes as indicated by the OnnxHub manifest for that
+model (headless = true).

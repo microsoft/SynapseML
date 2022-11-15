@@ -6,7 +6,7 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-from synapse.ml.cntk._ImageFeaturizer import _ImageFeaturizer
+from synapse.ml.onnx._ImageFeaturizer import _ImageFeaturizer
 from pyspark.ml.common import inherit_doc
 
 

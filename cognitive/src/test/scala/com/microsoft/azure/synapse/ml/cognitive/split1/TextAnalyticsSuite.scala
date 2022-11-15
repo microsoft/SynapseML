@@ -12,9 +12,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 
-import java.util.concurrent.TimeoutException
-
-
+//scalastyle:off null
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
   lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
