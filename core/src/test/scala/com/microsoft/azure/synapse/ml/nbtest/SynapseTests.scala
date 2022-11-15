@@ -106,7 +106,7 @@ class SynapseTests extends TestBase {
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearning"))
+    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassifier"))
     .filterNot(_.getAbsolutePath.contains("Interpretability")) //add more exclusion TODO: Rqemove when fixed
     .sortBy(_.getAbsolutePath)
 
