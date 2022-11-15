@@ -118,7 +118,7 @@ class DoubleMLEstimator(override val uid: String)
       }
 
       val ates = awaitFutures(ateFutures).flatten
-      val dmlModel = this.copyValues(new DoubleMLModel(uid)).setAtes(ates.toArray)
+      val dmlModel = this.copyValues(new DoubleMLModel(uid)).setRawTreatmentEffects(ates.toArray)
       dmlModel
     })
   }
@@ -238,18 +238,18 @@ class DoubleMLModel(val uid: String)
 
   def this() = this(Identifiable.randomUID("DoubleMLModel"))
 
-  val ates = new DoubleArrayParam(this, "ates", "treatment effect results for each iteration")
-  def getAtes: Array[Double] = $(ates)
-  def setAtes(v: Array[Double]): this.type = set(ates, v)
+  val rawTreatmentEffects = new DoubleArrayParam(this, "rawTreatmentEffects", "raw treatment effect results for all iterations")
+  def getRawTreatmentEffects: Array[Double] = $(rawTreatmentEffects)
+  def setRawTreatmentEffects(v: Array[Double]): this.type = set(rawTreatmentEffects, v)
 
-  def getAte: Double = {
-    val finalAte =  $(ates).sum / $(ates).length
+  def getAvgTreatmentEffect: Double = {
+    val finalAte =  $(rawTreatmentEffects).sum / $(rawTreatmentEffects).length
     finalAte
   }
 
-  def getCi: Array[Double] = {
-    val ciLowerBound = percentile($(ates), 100 * (1 - getConfidenceLevel))
-    val ciUpperBound = percentile($(ates), getConfidenceLevel * 100)
+  def getConfidenceInterval: Array[Double] = {
+    val ciLowerBound = percentile($(rawTreatmentEffects), 100 * (1 - getConfidenceLevel))
+    val ciUpperBound = percentile($(rawTreatmentEffects), getConfidenceLevel * 100)
     Array(ciLowerBound, ciUpperBound)
   }
 

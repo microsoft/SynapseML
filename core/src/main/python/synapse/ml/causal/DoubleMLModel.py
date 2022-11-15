@@ -13,12 +13,14 @@ import numpy as np
 
 @inherit_doc
 class DoubleMLModel(_DoubleMLModel):
-    def getAte(self):
-        return sum(self.getAtes()) / len(self.getAtes())
+    def getAvgTreatmentEffect(self):
+        return sum(self.getRawTreatmentEffects()) / len(self.getRawTreatmentEffects())
 
-    def getCi(self):
+    def getConfidenceInterval(self):
         ciLowerBound = np.percentile(
-            self.getAtes(), 100 * (1 - self.getConfidenceLevel())
+            self.getRawTreatmentEffects(), 100 * (1 - self.getConfidenceLevel())
         )
-        ciUpperBound = np.percentile(self.getAtes(), self.getConfidenceLevel() * 100)
+        ciUpperBound = np.percentile(
+            self.getRawTreatmentEffects(), self.getConfidenceLevel() * 100
+        )
         return [ciLowerBound, ciUpperBound]

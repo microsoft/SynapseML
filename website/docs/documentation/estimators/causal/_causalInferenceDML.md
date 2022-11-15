@@ -51,8 +51,8 @@ dml = (DoubleMLEstimator()
       .setMaxIter(20))
 
 dmlModel = dml.fit(df)
-dmlModel.getAte()
-dmlModel.getCi()
+dmlModel.getAvgTreatmentEffect()
+dmlModel.getConfidenceInterval()
 ```
 
 </TabItem>
@@ -85,8 +85,8 @@ val dml = (new DoubleMLEstimator()
   .setMaxIter(20))
 
 val dmlModel = dml.fit(df)
-dmlModel.getAte
-dmlModel.getCi
+dmlModel.getAvgTreatmentEffect
+dmlModel.getConfidenceInterval
 ```
 
 </TabItem>

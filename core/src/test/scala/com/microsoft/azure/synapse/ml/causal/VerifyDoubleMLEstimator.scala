@@ -44,8 +44,8 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setOutcomeCol("col2")
 
     var ldmlModel = ldml.fit(mockDataset)
-    assert(ldmlModel.getAte != 0.0)
-    assert(ldmlModel.getCi.length == 2)
+    assert(ldmlModel.getAvgTreatmentEffect != 0.0)
+    assert(ldmlModel.getConfidenceInterval.length == 2)
   }
 
   test("Get treatment effects with weight column") {
@@ -57,7 +57,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setWeightCol("col3")
 
     var ldmlModel = ldml.fit(mockDataset)
-    assert(ldmlModel.getAte != 0.0)
+    assert(ldmlModel.getAvgTreatmentEffect != 0.0)
   }
 
   test("Get treatment effects and confidence intervals") {
@@ -69,7 +69,8 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setMaxIter(10)
 
     var ldmlModel = ldml.fit(mockDataset)
-    assert(ldmlModel.getCi.length == 2 && ldmlModel.getCi(0) != ldmlModel.getCi(1))
+    assert(ldmlModel.getConfidenceInterval.length == 2
+      && ldmlModel.getConfidenceInterval(0) != ldmlModel.getConfidenceInterval(1))
   }
 
 
