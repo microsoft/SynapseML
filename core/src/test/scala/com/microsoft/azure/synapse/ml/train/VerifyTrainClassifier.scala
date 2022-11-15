@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.featurize.ValueIndexer
 import org.apache.spark.ml.classification._
-import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics}
@@ -165,7 +165,11 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                       includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on " + fileName) {
       val fileLocation = binaryTrainFile(fileName).toString
-      val results = readAndScoreDataset(fileName, labelCol, fileLocation, includeNonProb = true, includeNaiveBayes = includeNaiveBayes)
+      val results = readAndScoreDataset(fileName,
+        labelCol,
+        fileLocation,
+        includeNonProb = true,
+        includeNaiveBayes = includeNaiveBayes)
       results.foreach { case (name, result) =>
         val probCol = if (Set(gbtName, mlpName)(name)) {
           SchemaConstants.SparkPredictionColumn
@@ -183,8 +187,12 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                           includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on multiclass " + fileName) {
       val fileLocation = multiclassTrainFile(fileName).toString
-      val results =
-        readAndScoreDataset(fileName, labelCol, fileLocation, includeNonProb = false, includeNaiveBayes = includeNaiveBayes)
+      val results = readAndScoreDataset(
+        fileName,
+        labelCol,
+        fileLocation,
+        includeNonProb = false,
+        includeNaiveBayes = includeNaiveBayes)
 
       val multiClassModelResults = results.filter(Set(lrName, dtName, rfName, nbName))
       multiClassModelResults.foreach { case (name, result) =>
