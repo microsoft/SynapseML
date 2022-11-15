@@ -42,11 +42,11 @@ class TextToSpeech(override val uid: String)
 
   val outputFormat = new ServiceParam[String](this,
     "outputFormat",
-    s"The format for the output audio can be one of ${possibleOutputFormats}",
+    s"The format for the output audio can be one of $possibleOutputFormats",
     isRequired = false,
     isValid = {
       case Left(f) =>
-        assert(possibleOutputFormats.contains(f), s"Must be one of ${possibleOutputFormats}")
+        assert(possibleOutputFormats.contains(f), s"Must be one of $possibleOutputFormats")
         true
       case Right(_) => true
     })
@@ -116,7 +116,7 @@ class TextToSpeech(override val uid: String)
         getValueOpt(row, outputFormat).foreach(format =>
           config.setSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.valueOf(format)))
 
-        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth =>
+        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth =>  //scalastyle:ignore null
           val res = synth.SpeakText(getValue(row, text))
           val error = if (res.getReason.name() == "SynthesizingAudioCompleted") {
             None

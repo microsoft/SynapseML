@@ -48,7 +48,7 @@ object CategoricalUtilities {
       } else {
         new MetadataBuilder()
       }
-    bldr.putBoolean(Ordinal, false)
+    bldr.putBoolean(Ordinal, value = false)
     bldr.putBoolean(HasNullLevels, hasNullLevels)
     dataType match {
       case DataTypes.StringType  => bldr.putStringArray(ValuesString, levels.map(_.asInstanceOf[String]))
@@ -73,7 +73,7 @@ object CategoricalUtilities {
     val metadata = schema(column).metadata
 
     if (metadata.contains(MMLTag)) {
-      val dataType: Option[DataType] = CategoricalColumnInfo.getDataType(metadata, false)
+      val dataType: Option[DataType] = CategoricalColumnInfo.getDataType(metadata, throwOnInvalid = false)
       if (dataType.isEmpty) None
       else {
         dataType.get match {
@@ -225,9 +225,11 @@ class CategoricalMap[T](val levels: Array[T],
 }
 
 /** Utilities for getting categorical column info. */
+//scalastyle:off cyclomatic.complexity
 object CategoricalColumnInfo {
   /** Gets the datatype from the column metadata.
-    * @param columnMetadata The column metadata
+    * @param metadata The column metadata
+    * @param throwOnInvalid throw an exception if invalid
     * @return The datatype
     */
   def getDataType(metadata: Metadata, throwOnInvalid: Boolean = true): Option[DataType] = {
@@ -251,6 +253,7 @@ object CategoricalColumnInfo {
     }
     validatedDataType
   }
+  //scalastyle:on cyclomatic.complexity
 
   private def getValidated(result: Option[DataType], dataType: DataType): Option[DataType] = {
     if (result.isDefined) {

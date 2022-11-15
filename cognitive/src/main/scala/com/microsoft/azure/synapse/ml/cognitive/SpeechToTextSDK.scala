@@ -39,6 +39,7 @@ import scala.language.existentials
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
+//scalastyle:off no.finalize
 private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
                                            onClose: => Unit) extends Iterator[T] with Closeable {
   var nextVar: Option[T] = None
@@ -72,6 +73,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
     nextVar.get
   }
 }
+//scalastyle:on no.finalize
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
@@ -224,11 +226,12 @@ abstract class SpeechSDKBase extends Transformer
     }
   }
 
-  private def getStream(bconf: Broadcast[SConf],
+  //scalastyle:off cyclomatic.complexity
+  private def getStream(bconf: Broadcast[SConf],  //scalastyle:ignore method.length
                         isUriAudio: Boolean,
                         row: Row,
                         dynamicParamRow: Row): (InputStream, String) = {
-    if (isUriAudio) {
+    if (isUriAudio) {  //scalastyle:ignore cyclomatic.complexity
       val uri = row.getAs[String](getAudioDataCol)
       val ffmpegCommand: Seq[String] = {
         val body = Seq("ffmpeg", "-y",
@@ -264,7 +267,7 @@ abstract class SpeechSDKBase extends Transformer
             }
             if (proc.isAlive) {
               proc.destroy()
-              proc.waitFor(10, TimeUnit.SECONDS)
+              proc.waitFor(10, TimeUnit.SECONDS)  //scalastyle:ignore magic.number
               proc.destroyForcibly()
               proc.waitFor()
               log.warn("Had to forcibly stop ffmpeg")
@@ -275,8 +278,8 @@ abstract class SpeechSDKBase extends Transformer
         (stream, "mp3")
       } else if (uri.startsWith("http")) {
         val conn = new URL(uri).openConnection
-        conn.setConnectTimeout(5000)
-        conn.setReadTimeout(5000)
+        conn.setConnectTimeout(5000)  //scalastyle:ignore magic.number
+        conn.setReadTimeout(5000)  //scalastyle:ignore magic.number
         conn.connect()
         (new BufferedInputStream(conn.getInputStream), extension)
       } else {
@@ -289,6 +292,7 @@ abstract class SpeechSDKBase extends Transformer
       (new ByteArrayInputStream(bytes), getValueOpt(dynamicParamRow, fileType).getOrElse("wav"))
     }
   }
+  //scalastyle:on cyclomatic.complexity
 
   def inputStreamToText(stream: InputStream,
                         audioFormat: String,
@@ -307,8 +311,7 @@ abstract class SpeechSDKBase extends Transformer
                                    isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
       if (shouldSkip(row)) {
-        //noinspection ScalaStyle
-        Seq(Row.fromSeq(row.toSeq :+ null))
+        Seq(Row.fromSeq(row.toSeq :+ null))  //scalastyle:ignore null
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
         val (stream, audioFileFormat) = getStream(bconf, isUriAudio, row, dynamicParamRow)
@@ -357,7 +360,7 @@ abstract class SpeechSDKBase extends Transformer
     get(endpointId).foreach(id => speechConfig.setEndpointId(id))
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
     speechConfig.setSpeechRecognitionLanguage(language)
-    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)  //scalastyle:ignore token
     speechConfig
   }
 
@@ -388,7 +391,7 @@ abstract class SpeechSDKBase extends Transformer
       val isUriAudio = df.schema(getAudioDataCol).dataType match {
         case StringType => true
         case BinaryType => false
-        case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+        case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: $t")
       }
       val toRow = responseTypeBinding.makeToRowConverter
       enrichedDf.mapPartitions(transformAudioRows(
@@ -407,7 +410,7 @@ abstract class SpeechSDKBase extends Transformer
     schema(getAudioDataCol).dataType match {
       case StringType => ()
       case BinaryType => ()
-      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: ${t}")
+      case t => throw new IllegalArgumentException(s"AudioDataCol must be String or Binary Type, got: $t")
     }
     if (getStreamIntermediateResults) {
       schema.add(getOutputCol, responseTypeBinding.schema)
@@ -480,7 +483,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Basic
       }(ExecutionContext.global)
     }
 
-    new BlockingQueueIterator[String](queue, cleanUp).map { jsonString =>
+    new BlockingQueueIterator[String](queue, cleanUp()).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[SpeechResponse]
     }
@@ -499,7 +502,7 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
   def this() = this(Identifiable.randomUID("ConversationTranscription"))
 
   /** @return text transcription of the audio */
-  def inputStreamToText(stream: InputStream,
+  def inputStreamToText(stream: InputStream,  //scalastyle:ignore method.length
                         audioFormat: String,
                         uri: URI,
                         speechKey: String,
@@ -570,11 +573,9 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
       }(ExecutionContext.global)
     }
 
-
     new BlockingQueueIterator[String](queue, cleanUp()).map { jsonString =>
       //println(jsonString)
       jsonString.parseJson.convertTo[TranscriptionResponse]
     }
   }
-
 }
