@@ -148,6 +148,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
   *
   * @param uid The id of the module
   */
+@deprecated("Please use 'OnnxModel'.", since="0.10.2")
 class UnrollImage(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
   logClass()
