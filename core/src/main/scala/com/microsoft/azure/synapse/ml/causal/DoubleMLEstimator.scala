@@ -22,7 +22,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
 import scala.concurrent.Future
 
-/** Linear Double ML estimators. The estimator follows the two stage process,
+/** Double ML estimators. The estimator follows the two stage process,
  *  where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
  *  and a final stage estimates the average treatment effect (ATE) model.
  *  Our goal is to estimate the constant marginal ATE Theta(X)
@@ -54,33 +54,33 @@ import scala.concurrent.Future
  *
  */
 //noinspection ScalaDocParserErrorInspection,ScalaDocUnclosedTagWithoutParser
-class LinearDMLEstimator(override val uid: String)
-  extends Estimator[LinearDMLModel] with ComplexParamsWritable
-    with LinearDMLParams with BasicLogging with Wrappable {
+class DoubleMLEstimator(override val uid: String)
+  extends Estimator[DoubleMLModel] with ComplexParamsWritable
+    with DoubleMLParams with BasicLogging with Wrappable {
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("LinearDMLEstimator"))
+  def this() = this(Identifiable.randomUID("DoubleMLEstimator"))
 
-  /** Fits the LinearDML model.
+  /** Fits the DoubleML model.
    *
    * @param dataset The input dataset to train.
-   * @return The trained LinearDML model, from which you can get Ate and Ci values
+   * @return The trained DoubleML model, from which you can get Ate and Ci values
    */
-  override def fit(dataset: Dataset[_]): LinearDMLModel = {
+  override def fit(dataset: Dataset[_]): DoubleMLModel = {
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
           case _ => throw new Exception("""The selected treatment model does not support sample weight,
-            but the weightCol parameter was set for the LinearDMLEstimator.
+            but the weightCol parameter was set for the DoubleMLEstimator.
             Please select a treatment model that supports sample weight.""".stripMargin)
         }
         getOutcomeModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
           case _ => throw new Exception("""The selected outcome model does not support sample weight,
-            but the weightCol parameter was set for the LinearDMLEstimator.
+            but the weightCol parameter was set for the DoubleMLEstimator.
             Please select a outcome model that supports sample weight.""".stripMargin)
         }
       }
@@ -118,7 +118,7 @@ class LinearDMLEstimator(override val uid: String)
       }
 
       val ates = awaitFutures(ateFutures).flatten
-      val dmlModel = this.copyValues(new LinearDMLModel(uid)).setAtes(ates.toArray)
+      val dmlModel = this.copyValues(new DoubleMLModel(uid)).setAtes(ates.toArray)
       dmlModel
     })
   }
@@ -212,31 +212,31 @@ class LinearDMLEstimator(override val uid: String)
     ate
   }
 
-  override def copy(extra: ParamMap): Estimator[LinearDMLModel] = {
+  override def copy(extra: ParamMap): Estimator[DoubleMLModel] = {
     defaultCopy(extra)
   }
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = {
-    LinearDMLEstimator.validateTransformSchema(schema)
+    DoubleMLEstimator.validateTransformSchema(schema)
   }
 }
 
-object LinearDMLEstimator extends ComplexParamsReadable[LinearDMLEstimator] {
+object DoubleMLEstimator extends ComplexParamsReadable[DoubleMLEstimator] {
 
   def validateTransformSchema(schema: StructType): StructType = {
     StructType(schema.fields)
   }
 }
 
-/** Model produced by [[LinearDMLEstimator]]. */
-class LinearDMLModel(val uid: String)
-  extends Model[LinearDMLModel] with LinearDMLParams with ComplexParamsWritable with Wrappable with BasicLogging {
+/** Model produced by [[DoubleMLEstimator]]. */
+class DoubleMLModel(val uid: String)
+  extends Model[DoubleMLModel] with DoubleMLParams with ComplexParamsWritable with Wrappable with BasicLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
 
-  def this() = this(Identifiable.randomUID("LinearDMLModel"))
+  def this() = this(Identifiable.randomUID("DoubleMLModel"))
 
   val ates = new DoubleArrayParam(this, "ates", "treatment effect results for each iteration")
   def getAtes: Array[Double] = $(ates)
@@ -260,10 +260,10 @@ class LinearDMLModel(val uid: String)
     percentile.evaluate(quantile)
   }
 
-  override def copy(extra: ParamMap): LinearDMLModel = defaultCopy(extra)
+  override def copy(extra: ParamMap): DoubleMLModel = defaultCopy(extra)
 
   /**
-   * LinearDMLEstimator transform does nothing by design and isn't supposed to be called by end user.
+   * DoubleMLEstimator transform does nothing by design and isn't supposed to be called by end user.
   */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
@@ -276,4 +276,4 @@ class LinearDMLModel(val uid: String)
     StructType(schema.fields)
 }
 
-object LinearDMLModel extends ComplexParamsReadable[LinearDMLModel]
+object DoubleMLModel extends ComplexParamsReadable[DoubleMLModel]

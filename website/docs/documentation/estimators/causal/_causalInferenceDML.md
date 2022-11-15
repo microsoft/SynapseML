@@ -3,7 +3,7 @@ import TabItem from '@theme/TabItem';
 import DocTable from "@theme/DocumentationTable";
 
 
-## LinearDMLEstimator
+## DoubleMLEstimator
 
 <Tabs
 defaultValue="py"
@@ -43,7 +43,7 @@ df = spark.createDataFrame([
       (1, 1, 0.16, 0.32, 11.7)], schema
 )
 
-dml = (LinearDMLEstimator()
+dml = (DoubleMLEstimator()
       .setTreatmentCol("Treatment")
       .setTreatmentModel(LogisticRegression())
       .setOutcomeCol("Outcome")
@@ -77,7 +77,7 @@ val df = (Seq(
   (1, 0, 0.12, 0.34, 3))
   .toDF("Treatment", "Outcome", "col2", "col3", "col4"))
 
-val dml = (new LinearDMLEstimator()
+val dml = (new DoubleMLEstimator()
   .setTreatmentCol("Treatment")
   .setTreatmentModel(new LogisticRegression())
   .setOutcomeCol("Outcome")
@@ -92,8 +92,8 @@ dmlModel.getCi
 </TabItem>
 </Tabs>
 
-<DocTable className="LinearDMLEstimator"
-py="synapse.ml.causal.html#module-synapse.ml.causal.LinearDMLEstimator"
-scala="com/microsoft/azure/synapse/ml/causal/LinearDMLEstimator.html"
-csharp="classSynapse_1_1ML_1_1Causal_1_1LinearDMLEstimator.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/causal/LinearDMLEstimator.scala" />
+<DocTable className="DoubleMLEstimator"
+py="synapse.ml.causal.html#module-synapse.ml.causal.DoubleMLEstimator"
+scala="com/microsoft/azure/synapse/ml/causal/DoubleMLEstimator.html"
+csharp="classSynapse_1_1ML_1_1Causal_1_1DoubleMLEstimator.html"
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/causal/DoubleMLEstimator.scala" />

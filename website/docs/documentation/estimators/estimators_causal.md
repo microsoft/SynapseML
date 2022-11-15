@@ -1,13 +1,13 @@
 ---
 title: Estimators - Causal
-sidebar_label: Causel Inference
+sidebar_label: Causal Inference
 hide_title: true
 ---
 
 # Causal Inference
 
-import LinearDMLEstimator, {toc as LinearDMLEstimatorTOC} from './causal/_causalInferenceDML.md';
+import DoubleMLEstimator, {toc as DoubleMLEstimatorTOC} from './causal/_causalInferenceDML.md';
 
-<LinearDMLEstimator/>
+<DoubleMLEstimator/>
 
-export const toc = [...LinearDMLEstimatorTOC]
+export const toc = [...DoubleMLEstimatorTOC]

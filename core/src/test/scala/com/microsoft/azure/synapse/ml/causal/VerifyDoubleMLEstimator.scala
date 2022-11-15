@@ -8,7 +8,7 @@ import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.util.MLReadable
 
-class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
+class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
 
   val mockLabelColumn = "Label"
 
@@ -37,7 +37,7 @@ class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
 
 
   test("Get treatment effects") {
-    val ldml = new LinearDMLEstimator()
+    val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
@@ -49,7 +49,7 @@ class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
   }
 
   test("Get treatment effects with weight column") {
-    val ldml = new LinearDMLEstimator()
+    val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LogisticRegression())
@@ -61,7 +61,7 @@ class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
   }
 
   test("Get treatment effects and confidence intervals") {
-    val ldml = new LinearDMLEstimator()
+    val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
@@ -73,15 +73,15 @@ class VerifyLinearDMLEstimator extends EstimatorFuzzing[LinearDMLEstimator] {
   }
 
 
-  override def testObjects(): Seq[TestObject[LinearDMLEstimator]] =
-    Seq(new TestObject(new LinearDMLEstimator()
+  override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =
+    Seq(new TestObject(new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("col2"),
     mockDataset))
 
-  override def reader: MLReadable[_] = LinearDMLEstimator
+  override def reader: MLReadable[_] = DoubleMLEstimator
 
-  override def modelReader: MLReadable[_] = LinearDMLModel
+  override def modelReader: MLReadable[_] = DoubleMLModel
 }

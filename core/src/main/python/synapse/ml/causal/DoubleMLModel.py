@@ -6,13 +6,13 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-from synapse.ml.causal._LinearDMLModel import _LinearDMLModel
+from synapse.ml.causal._DoubleMLModel import _DoubleMLModel
 from pyspark.ml.common import inherit_doc
 import numpy as np
 
 
 @inherit_doc
-class LinearDMLModel(_LinearDMLModel):
+class DoubleMLModel(_DoubleMLModel):
     def getAte(self):
         return sum(self.getAtes()) / len(self.getAtes())
 

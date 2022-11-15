@@ -36,7 +36,7 @@ trait HasOutcomeCol extends Params {
   def setOutcomeCol(value: String): this.type = set(outcomeCol, value)
 }
 
-trait LinearDMLParams extends Params
+trait DoubleMLParams extends Params
   with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
   with HasMaxIter with HasWeightCol with HasParallelismInjected {
 
@@ -127,7 +127,7 @@ trait LinearDMLParams extends Params
       case _: Regressor[_, _, _] => // for continuous treatment or outcome
       case _: ProbabilisticClassifier[_, _, _] =>
       case _ => throw new Exception(
-        s"LinearDML only supports Regressor and ProbabilisticClassifier as treatment or outcome model types, " +
+        s"DoubleMLEstimator only supports Regressor and ProbabilisticClassifier as treatment or outcome model types, " +
           s"but got type ${value.getClass.getName}"
       )
     }
