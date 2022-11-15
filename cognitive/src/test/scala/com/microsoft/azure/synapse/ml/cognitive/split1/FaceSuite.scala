@@ -191,7 +191,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  //lazy val pgName = "group" + UUID.randomUUID().toString
   lazy val pgName = "group" + IdentifyFacesSuite.NowString
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
@@ -218,6 +217,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     .select(col("detected_faces").getItem(0).getItem("faceId"))
     .collect()
     .map(r => r.getString(0)).toSeq
+
+  IdentifyFacesSuite.cleanOldGroups()
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -268,37 +269,22 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     assert(caught.getMessage.contains("faceIds"))
   }
 
-  // Utility entrypoint, remove ignore to clean up manually
- ignore("Clean up person groups") {
-    PersonGroup.list().foreach { pgi =>
-      PersonGroup.delete(pgi.personGroupId)
-      println(s"deleted group $pgi")
-    }
-  }
-
   override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
 
   override def reader: MLReadable[_] = IdentifyFaces
 }
 
 object IdentifyFacesSuite {
-
-  lazy val TwoDaysInMs = 1000 * 60 * 60 * 24 * 2
+  lazy val TwoDaysInMs = 2 * 24 * 60 * 60 * 1000
   lazy val NowString = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(ZonedDateTime.now())
-  def cleanOldPersonGroups(): Unit = {
-    PersonGroup.list().foreach { pgi =>
 
-      PersonGroup.delete(pgi.personGroupId)
-      println(s"deleted group $pgi")
-    }
-  }
-
-  def listPersonGroups(): Unit = {
+  def cleanOldGroups(): Unit = {
     val nowInMs = NowString.toLong
     PersonGroup.list().foreach { pgi =>
       val pgDateInMs = pgi.personGroupId.replaceFirst("group", "").toLong
       if (nowInMs - pgDateInMs > TwoDaysInMs) {
-        println(s"group $pgi ${pgi.personGroupId}")
+        PersonGroup.delete(pgi.personGroupId)
+        println(s"deleted group $pgi")
       }
     }
   }
