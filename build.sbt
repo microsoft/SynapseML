@@ -3,7 +3,7 @@ import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 import xerial.sbt.Sonatype._
 
-import java.io.{File, PrintWriter}
+import java.io.File
 import java.net.URL
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
@@ -485,7 +485,7 @@ testWebsiteDocs := {
   )
 }
 
-ThisBuild / sonatypeProjectHosting := Some(
+/*ThisBuild / sonatypeProjectHosting := Some(
   GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
 ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
 ThisBuild / scmInfo := Some(
@@ -511,7 +511,8 @@ ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
   Secrets.nexusPassword)
 
 pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
-pgpSecretRing := {
+pgpSecretRing := Secrets.pgpPrivateFile
+
   val temp = File.createTempFile("secret", ".asc")
   new PrintWriter(temp) {
     write(Secrets.pgpPrivate)
@@ -519,7 +520,7 @@ pgpSecretRing := {
   }
   temp
 }
-pgpPublicRing := {
+pgpPublicRing := Secrets.pgpPublicFile {
   val temp = File.createTempFile("public", ".asc")
   new PrintWriter(temp) {
     write(Secrets.pgpPublic)
@@ -531,3 +532,4 @@ ThisBuild / publishTo := sonatypePublishToBundle.value
 
 ThisBuild / dynverSonatypeSnapshots := true
 ThisBuild / dynverSeparator := "-"
+*/
