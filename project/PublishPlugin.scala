@@ -6,13 +6,13 @@ object PublishPlugin extends AutoPlugin {
   override def trigger: PluginTrigger = allRequirements
 
   object autoImport {
-    val cacheSecretsTask = TaskKey[Unit]("cacheSecrets", "cache publishing secrets")
+    val refreshCachedSecretsTask = TaskKey[Unit]("cacheSecrets", "cache publishing secrets")
   }
 
   import autoImport._
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
 
-    cacheSecretsTask := {
+    refreshCachedSecretsTask := {
       Secrets.refreshCachedSecrets()
     }
   )

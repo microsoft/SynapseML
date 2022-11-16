@@ -1,7 +1,6 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-import xerial.sbt.Sonatype._
 
 import java.io.File
 import java.net.URL
@@ -484,52 +483,3 @@ testWebsiteDocs := {
     Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
-
-/*ThisBuild / sonatypeProjectHosting := Some(
-  GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-ThisBuild / scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
-  )
-)
-ThisBuild / developers := List(
-  Developer("mhamilton723", "Mark Hamilton",
-    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
-  Developer("imatiach-msft", "Ilya Matiach",
-    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
-  Developer("drdarshan", "Sudarshan Raghunathan",
-    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
-)
-
-ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
-
-ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
-  "oss.sonatype.org",
-  Secrets.nexusUsername,
-  Secrets.nexusPassword)
-
-pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
-pgpSecretRing := Secrets.pgpPrivateFile
-
-  val temp = File.createTempFile("secret", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPrivate)
-    close()
-  }
-  temp
-}
-pgpPublicRing := Secrets.pgpPublicFile {
-  val temp = File.createTempFile("public", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPublic)
-    close()
-  }
-  temp
-}
-ThisBuild / publishTo := sonatypePublishToBundle.value
-
-ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / dynverSeparator := "-"
-*/

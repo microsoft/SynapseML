@@ -9,10 +9,9 @@ import java.util.Base64
 import scala.io.Source
 import scala.sys.process._
 
-//scalastyle:off field.name
 object Secrets {
-  private val kvName = "mmlspark-keys"
-  private val subscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
+  private val KvName = "mmlspark-keys"
+  private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
   private val PgpFileExtension = ".asc"
 
   protected def exec(command: String): String = {
@@ -26,20 +25,20 @@ object Secrets {
   // Keep overhead of setting account down
   lazy val accountString: String = {
     try {
-      exec(s"az account set -s $subscriptionID")
+      exec(s"az account set -s $SubscriptionID")
     } catch {
       case e: java.lang.RuntimeException =>
         println(s"Secret fetch error: ${e.toString}")
       case e: IOException =>
         println(s"Secret fetch error: ${e.toString}")
     }
-    subscriptionID
+    SubscriptionID
   }
 
   private def getKeyvaultSecret(secretName: String): String = {
     println(s"fetching secret: $secretName from $accountString")
     try {
-      val secretJson = exec(s"az keyvault secret show --vault-name $kvName --name $secretName")
+      val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
       secretJson.parseJson.asJsObject().fields("value").convertTo[String]
     } catch {
       case _: IOException =>
@@ -116,7 +115,7 @@ object Secrets {
      Priority order for finding secrets:
      1. Environment variable (used by pipeline which loads them from keyvault)
      2. Local cache
-     3. Load from keyvault (cached to local file)
+     3. Load from keyvault (and also cached to local file for next time)
    */
   private def findAndCacheSecret(env_var: String, name: String, suffix: String = ""): String = {
     val secret = sys.env.getOrElse(env_var, getSecretFromCacheOrKeyvault(name, suffix))
