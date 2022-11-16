@@ -11,8 +11,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 import java.time.{LocalDateTime, ZonedDateTime}
-import java.time.format.DateTimeFormatter
-import java.util.UUID
+import java.time.format.{DateTimeFormatter, DateTimeParseException}
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
@@ -275,24 +274,33 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 }
 
 object IdentifyFacesSuite {
-  val Format = "yyyyMMddHHmmssSSS"
-  lazy val TwoDaysInMs = 2 * 24 * 60 * 60 * 1000
-  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
+  val Format = "yyyyMMddHHmmssSSSz"
+  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(ZonedDateTime.now())
 
   def cleanOldGroups(): Unit = {
-    val twoDaysAgo = LocalDateTime.now().minusDays(2)
+    val twoDaysAgo = ZonedDateTime.now().minusDays(2)
     PersonGroup.list().foreach { pgi =>
       try {
         val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
+        val pgDate = ZonedDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
         if (twoDaysAgo.compareTo(pgDate) <= 0) {
           PersonGroup.delete(pgi.personGroupId)
           println(s"deleted group $pgi")
         }
       } catch {
-        case e: NumberFormatException => {}
+        // for uuid-based names
+        // TODO: once this is checked in, use cleanAllGroups to delete them; and then delete this try/catch.
+        // This might take two or three iterations due to ongoing tests.
+        case _: DateTimeParseException => {}
         case t => throw t
       }
+    }
+  }
+
+  def cleanAllGroups(): Unit = {
+    PersonGroup.list().foreach { pgi =>
+      PersonGroup.delete(pgi.personGroupId)
+      println(s"deleted group $pgi")
     }
   }
 }
