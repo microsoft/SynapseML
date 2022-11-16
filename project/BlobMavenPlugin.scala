@@ -1,10 +1,8 @@
 import java.io.File
 
-import BlobMavenPlugin.autoImport.publishBlob
 import BuildUtils.{join, uploadToBlob}
 import sbt._
 import Keys._
-import org.apache.ivy.core.IvyPatternHelper
 
 //noinspection ScalaStyle
 object BlobMavenPlugin extends AutoPlugin {
