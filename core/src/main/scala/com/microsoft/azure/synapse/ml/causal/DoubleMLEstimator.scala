@@ -96,7 +96,7 @@ class DoubleMLEstimator(override val uid: String)
         Future[Option[Double]] {
           log.info(s"Executing ATE calculation on iteration: $index")
           // If the algorithm runs over 1 iteration, do not bootstrap from dataset,
-          // otherwise, draw sample with replacement
+          // otherwise, redraw sample with replacement
           val redrewDF =  if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
           val ate: Option[Double] =
             try {
@@ -105,7 +105,7 @@ class DoubleMLEstimator(override val uid: String)
                 trainInternal(redrewDF)
               }
               log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
-                s"time elapsed: ${totalTime.elapsed() / 60000000000.0} minutes")
+                s"time elapsed: ${totalTime.elapsed() / 6e10} minutes")
               Some(oneAte)
             } catch {
               case ex: Throwable =>
@@ -154,6 +154,8 @@ class DoubleMLEstimator(override val uid: String)
       getOutcomeModel.copy(getOutcomeModel.extractParamMap()), getOutcomeCol, Array(getTreatmentCol)
     )
 
+    val treatmentResidualCol = DatasetExtensions.findUnusedColumnName(SchemaConstants.TreatmentResidualColumn, dataset)
+    val outcomeResidualCol = DatasetExtensions.findUnusedColumnName(SchemaConstants.OutcomeResidualColumn, dataset)
     val treatmentResidualVecCol = DatasetExtensions.findUnusedColumnName("treatmentResidualVec", dataset)
 
     def setUpDMLPipeline(train: Dataset[_], test: Dataset[_]): DataFrame = {
@@ -164,17 +166,17 @@ class DoubleMLEstimator(override val uid: String)
         new ResidualTransformer()
           .setObservedCol(getTreatmentCol)
           .setPredictedCol(treatmentResidualPredictionColName)
-          .setOutcomeCol(SchemaConstants.TreatmentResidualColumn)
+          .setOutcomeCol(treatmentResidualCol)
       val dropTreatmentPredictedColumns = new DropColumns().setCols(treatmentPredictionColsToDrop.toArray)
       val outcomeResidual =
         new ResidualTransformer()
           .setObservedCol(getOutcomeCol)
           .setPredictedCol(outcomeResidualPredictionColName)
-          .setOutcomeCol(SchemaConstants.OutcomeResidualColumn)
+          .setOutcomeCol(outcomeResidualCol)
       val dropOutcomePredictedColumns = new DropColumns().setCols(outcomePredictionColsToDrop.toArray)
       val treatmentResidualVA =
         new VectorAssembler()
-          .setInputCols(Array(SchemaConstants.TreatmentResidualColumn))
+          .setInputCols(Array(treatmentResidualCol))
           .setOutputCol(treatmentResidualVecCol)
           .setHandleInvalid("skip")
       val pipeline = new Pipeline().setStages(Array(
@@ -200,7 +202,7 @@ class DoubleMLEstimator(override val uid: String)
 
     // Average slopes from the two residual models.
     val regressor = new GeneralizedLinearRegression()
-      .setLabelCol(SchemaConstants.OutcomeResidualColumn)
+      .setLabelCol(outcomeResidualCol)
       .setFeaturesCol(treatmentResidualVecCol)
       .setFamily("gaussian")
       .setLink("identity")
