@@ -131,8 +131,9 @@ class TextToSpeech(override val uid: String)
         getValueOpt(row, outputFormat).foreach(format =>
           config.setSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.valueOf(format)))
 
-        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth =>  //scalastyle:ignore null
-          val res = speechGenerator(synth, getValueOpt(row, useSSML).getOrElse(false), getValueOpt(row, text).getOrElse(""))
+        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth => //scalastyle:ignore null
+          val res = speechGenerator(synth, getValueOpt(row, useSSML)
+            .getOrElse(false), getValueOpt(row, text).getOrElse(""))
           val error = if (res.getReason.name() == "SynthesizingAudioCompleted") {
             None
           } else {

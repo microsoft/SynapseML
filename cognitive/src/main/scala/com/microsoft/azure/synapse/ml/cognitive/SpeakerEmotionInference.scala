@@ -29,8 +29,7 @@ class SpeakerEmotionInference(override val uid: String)
   setDefault(
     locale -> Left("en-US"),
     voiceName -> Left("en-US-JennyNeural"),
-    text -> Left(this.uid + "_input"),
-  )
+    text -> Left(this.uid + "_text"))
 
   def urlPath: String = "cognitiveservices/v1"
 
@@ -38,8 +37,7 @@ class SpeakerEmotionInference(override val uid: String)
 
   protected val additionalHeaders: Map[String, String] = Map[String, String](
     ("X-Microsoft-OutputFormat", "textanalytics-json"),
-    ("Content-Type", "application/ssml+xml")
-  )
+    ("Content-Type", "application/ssml+xml"))
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = super.inputFunc(schema)
     .andThen(r => r.map(r => {
@@ -126,8 +124,8 @@ trait HasVoiceNameCol extends HasServiceParams {
 
 trait HasTextCol extends HasServiceParams {
   val text = new ServiceParam[String](this,
-    "input",
-    s"The text input to annotate with inferred emotion",
+    "text",
+    s"The text to annotate with inferred emotion",
     isRequired = true)
 
   def setText(v: String): this.type = setScalarParam(text, v)
