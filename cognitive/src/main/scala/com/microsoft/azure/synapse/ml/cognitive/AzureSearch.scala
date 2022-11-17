@@ -165,7 +165,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
                             prefix: Option[String]): Seq[IndexField] = {
     fields.filterNot(_.name == searchActionCol).map { sf =>
       val fullName = prefix.map(_ + sf.name).getOrElse(sf.name)
-      val (innerType, innerFields) = sparkTypeToEdmType(sf.dataType)
+      val (innerType, _) = sparkTypeToEdmType(sf.dataType)
       IndexField(
         sf.name,
         innerType,
@@ -202,7 +202,8 @@ object AzureSearchWriter extends IndexParser with SLogging {
     is.toJson.compactPrint
   }
 
-  private def prepareDF(df: DataFrame, options: Map[String, String] = Map()): DataFrame = {
+  private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
+                        options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
       "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol"
@@ -224,7 +225,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
     if (indexJsonOpt.isDefined) {
       List("keyCol", "indexName").foreach(opt =>
-        assert(options.get(opt).isEmpty, s"Cannot set both indexJson options and $opt")
+        assert(!options.contains(opt), s"Cannot set both indexJson options and $opt")
       )
     }
 
@@ -276,7 +277,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     t.substring("Collection(".length).dropRight(1)
   }
 
-  private[ml] def edmTypeToSparkType(dt: String,
+  private[ml] def edmTypeToSparkType(dt: String,  //scalastyle:ignore cyclomatic.complexity
                                      fields: Option[Seq[IndexField]]): DataType = dt match {
     case t if isEdmCollection(t) =>
       ArrayType(edmTypeToSparkType(getEdmCollectionElement(t), fields), containsNull = false)
@@ -291,7 +292,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
       StructField(f.name, edmTypeToSparkType(f.`type`, f.fields))))
   }
 
-  private def sparkTypeToEdmType(dt: DataType,
+  private def sparkTypeToEdmType(dt: DataType,  //scalastyle:ignore cyclomatic.complexity
                                  allowCollections: Boolean = true): (String, Option[Seq[IndexField]]) = {
     dt match {
       case ArrayType(it, _) if allowCollections =>

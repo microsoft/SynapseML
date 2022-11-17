@@ -3,10 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import com.microsoft.azure.synapse.ml.cntk.{ImageFeaturizer, TrainedONNXModelUtils}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
-import com.microsoft.azure.synapse.ml.onnx.ONNXModel
+import com.microsoft.azure.synapse.ml.onnx.{ImageFeaturizer, ONNXModel, TrainedONNXModelUtils}
 import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.{Pipeline, PipelineModel}

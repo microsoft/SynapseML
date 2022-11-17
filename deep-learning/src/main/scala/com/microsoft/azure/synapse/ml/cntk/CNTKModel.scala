@@ -142,6 +142,7 @@ private object CNTKModelUtils extends java.io.Serializable {
 
 object CNTKModel extends ComplexParamsReadable[CNTKModel]
 
+@deprecated("Please use 'OnnxModel'.", since="0.10.2")
 class CNTKModel(override val uid: String) extends Model[CNTKModel] with ComplexParamsWritable
   with HasMiniBatcher with HasFeedFetchDicts with Wrappable with BasicLogging {
   logClass()

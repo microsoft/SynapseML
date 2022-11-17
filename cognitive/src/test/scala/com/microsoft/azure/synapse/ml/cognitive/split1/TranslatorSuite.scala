@@ -9,12 +9,9 @@ import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, flatten, udf}
 import org.scalactic.Equality
-import scala.collection.Traversable
-
-import java.sql.Struct
-import scala.collection.mutable
 
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
@@ -39,7 +36,7 @@ trait TranslatorUtils extends TestBase {
     "or phrase</mstrans:dictionary> is a dictionary entry.")).toDF("text")
 
   lazy val textDf6: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans"),
-    (null, "zh-Hans"), ("test", null))
+    (null, "zh-Hans"), ("test", null))  //scalastyle:ignore null
     .toDF("text", "language")
 
   lazy val emptyDf: DataFrame = Seq("").toDF()
@@ -212,7 +209,7 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     assert(caught.getMessage.contains("toScript"))
   }
 
-  val stripUdf = udf {
+  val stripUdf: UserDefinedFunction = udf {
     (o: Seq[(String, String)]) => {
       o.map(t => (TransliterateSuite.stripInvalid(t._1), t._2))
     }

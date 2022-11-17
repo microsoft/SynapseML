@@ -25,19 +25,16 @@ object ResizeUtils {
   def resizeBufferedImage(width: Int, height: Int, channels: Option[Int])(image: BufferedImage): BufferedImage = {
     val imgType = channels.map(ImageUtils.channelsToType).getOrElse(image.getType)
 
-    if (image.getWidth == width &&
-      image.getHeight == height &&
-      image.getType == imgType
-    ) {
-      return image
+    if (image.getWidth == width && image.getHeight == height && image.getType == imgType) {
+      image
+    } else {
+      val resizedImage = image.getScaledInstance(width, height, JImage.SCALE_DEFAULT)
+      val bufferedImage = new BufferedImage(width, height, imgType)
+      val g = bufferedImage.createGraphics()
+      g.drawImage(resizedImage, 0, 0, null) //scalastyle:ignore null
+      g.dispose()
+      bufferedImage
     }
-
-    val resizedImage = image.getScaledInstance(width, height, JImage.SCALE_DEFAULT)
-    val bufferedImage = new BufferedImage(width, height, imgType)
-    val g = bufferedImage.createGraphics()
-    g.drawImage(resizedImage, 0, 0, null) //scalastyle:ignore null
-    g.dispose()
-    bufferedImage
   }
 
   def resizeSparkImage(width: Int, height: Int, channels: Option[Int])(image: Row): Row = {
@@ -56,6 +53,7 @@ object ResizeUtils {
 
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
+@deprecated("Please use 'OnnxModel'.", since="0.10.2")
 class ResizeImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
   logClass()

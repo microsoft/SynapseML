@@ -115,7 +115,7 @@ class TimeIntervalMiniBatchTransformerSuite
 object FlattenBatchUtils extends Serializable {
   def nullify(arr: Seq[Int]): Seq[Int] = {
     if (arr.head == 7){
-      null
+      null  //scalastyle:ignore null
     }else{
       arr
     }

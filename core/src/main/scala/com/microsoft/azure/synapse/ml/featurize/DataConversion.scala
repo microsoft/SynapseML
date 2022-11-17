@@ -67,6 +67,7 @@ class DataConversion(override val uid: String) extends Transformer
     * @param dataset The dataset to be transformed
     * @return The transformed dataset
     */
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       require(dataset != null, "No dataset supplied")
@@ -102,9 +103,10 @@ class DataConversion(override val uid: String) extends Transformer
       res
     })
   }
+  //scalastyle:on cyclomatic.complexity
 
   /** Transform the schema
-    * @param schema
+    * @param schema The input schema
     * @return modified schema
     */
   def transformSchema(schema: StructType): StructType = {
@@ -113,7 +115,7 @@ class DataConversion(override val uid: String) extends Transformer
   }
 
   /** Copy the class, with extra com.microsoft.azure.synapse.ml.core.serialize.params
-    * @param extra
+    * @param extra Extra parameters
     * @return
     */
   def copy(extra: ParamMap): DataConversion = defaultCopy(extra)

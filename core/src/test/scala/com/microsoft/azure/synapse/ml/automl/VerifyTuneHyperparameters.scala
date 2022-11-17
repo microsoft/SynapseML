@@ -92,6 +92,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
     }
   }
 
+  // scalastyle:off method.length
   def tuneDataset(fileName: String,
                   labelCol: String,
                   fileLocation: String,
@@ -150,6 +151,7 @@ class VerifyTuneHyperparameters extends Benchmarks {
       .setSeed(1234L)
       .fit(dataset)
   }
+  // scalastyle:on method.length
 
   val reader: MLReadable[_] = TuneHyperparameters
   val modelReader: MLReadable[_] = TuneHyperparametersModel

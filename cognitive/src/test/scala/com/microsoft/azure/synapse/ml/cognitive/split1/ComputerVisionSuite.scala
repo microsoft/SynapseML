@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 
 trait CognitiveKey {
-  lazy val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
+  lazy val cognitiveKey: String = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
 }
 
 trait OCRUtils extends TestBase {
@@ -41,14 +41,14 @@ trait OCRUtils extends TestBase {
 
 class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with OCRUtils {
 
-  lazy val ocr = new OCR()
+  lazy val ocr: OCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageUrlCol("url")
     .setDetectOrientation(true)
     .setOutputCol("ocr")
 
-  lazy val bytesOCR = new OCR()
+  lazy val bytesOCR: OCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
     .setLocation("eastus")
     .setImageBytesCol("imageBytes")
@@ -98,11 +98,13 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
   ).toDF("url", "language")
 
+  //scalastyle:off null
   lazy val nullDf: DataFrame = Seq(
     ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null), //scalastyle:ignore null
+    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null),
     (null, "en")
   ).toDF("url", "language")
+  //scalastyle:on null
 
   def baseAI: AnalyzeImage = new AnalyzeImage()
     .setSubscriptionKey(cognitiveKey)

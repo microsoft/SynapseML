@@ -14,6 +14,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.util.concurrent.LinkedBlockingQueue
+import scala.annotation.tailrec
 import scala.concurrent.blocking
 
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
@@ -26,7 +27,7 @@ class PartitionConsolidator(val uid: String)
 
   def this() = this(Identifiable.randomUID("PartitionConsolidator"))
 
-  val consolidatorHolder = SharedSingleton {
+  val consolidatorHolder: SharedSingleton[Consolidator[Row]] = SharedSingleton {
     new Consolidator[Row]()
   }
 
@@ -73,9 +74,11 @@ class Consolidator[T] {
     wp
   }
 
-  private def chosenIterator(it: Iterator[T], gracePeriod: Int = 1000) = {
+  private def chosenIterator(it: Iterator[T],
+                             gracePeriod: Int = 1000) = {  //scalastyle:ignore magic.number
     new Iterator[Option[T]] {
 
+      @tailrec
       private def hasNextHelper(recurse: Boolean): Boolean = {
         !buffer.isEmpty ||
           it.hasNext ||
