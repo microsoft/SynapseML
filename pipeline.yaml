@@ -77,6 +77,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
     - bash: |
         set -e
         sbt publishBadges
@@ -89,6 +90,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
 
 - job: E2E
   timeoutInMinutes: 120
@@ -121,6 +123,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -277,6 +280,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN: $(pypi-api-token)
+        SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish python package to pypi'
     - bash: |
         set -e
@@ -291,6 +295,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
