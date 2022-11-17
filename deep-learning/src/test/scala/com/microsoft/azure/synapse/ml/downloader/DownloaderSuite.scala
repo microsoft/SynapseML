@@ -8,14 +8,13 @@ import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
 import org.apache.commons.io.FileUtils
 
 import java.io.File
-import java.nio.file.Files
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.util.Random
 
 class DownloaderSuite extends TestBase {
 
-  lazy val saveDir = Files.createTempDirectory("Models-").toFile
+  lazy val saveDir = tmpDir.toFile
   lazy val d = new ModelDownloader(spark, saveDir.toURI)
 
   test("retry utility should catch flakiness"){

@@ -193,7 +193,6 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
       val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
       val parsed = dataset.toDF.withColumn(getOutputCol,
         from_json(stringEntityCol, getDataType, Map("charset" -> "UTF-8")))
-
       getPostProcessor.map(_
         .setInputCol(getOutputCol)
         .setOutputCol(getOutputCol)
