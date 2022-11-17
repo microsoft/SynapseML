@@ -59,5 +59,7 @@ object Secrets {
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
+
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
