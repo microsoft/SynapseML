@@ -14,7 +14,7 @@ import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
 class SynapseExtensionTestCleanup extends TestBase {
-  //ignore("Clean up all artifacts") {
+  ignore("Clean up all artifacts") {
     SynapseExtensionUtilities.listArtifacts()
       .foreach(artifact =>
       {
@@ -23,7 +23,7 @@ class SynapseExtensionTestCleanup extends TestBase {
         //  To only delete artifacts > some time ago
         SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
       })
-  //}
+  }
 }
 
 class SynapseExtensionsTests extends TestBase {
