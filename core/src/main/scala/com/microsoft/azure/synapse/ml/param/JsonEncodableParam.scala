@@ -108,7 +108,7 @@ class ServiceParam[T: TypeTag](parent: Params,
     }
   }
 
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
   override private[ml] def dotnetTestSetterLine(v: Either[T, String]): String = {
     v match {
       case Left(_) => typeOf[T] match {
@@ -125,8 +125,9 @@ class ServiceParam[T: TypeTag](parent: Params,
       case Right(_) => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
     }
   }
+  //scalastyle:on cyclomatic.complexity
 
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
   private[ml] def dotnetType: String = typeOf[T].toString match {
     case "String" => "string"
     case "Boolean" => "bool"
@@ -142,6 +143,7 @@ class ServiceParam[T: TypeTag](parent: Params,
     case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => "TextAndTranslation[]"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
+  //scalastyle:on cyclomatic.complexity
 
   override private[ml] def dotnetSetter(dotnetClassName: String,
                                         capName: String,

@@ -47,7 +47,7 @@ object PortForwarding {
     session.connect()
     var attempt = 0
     var foundPort: Option[Int] = None
-    while (foundPort.isEmpty && attempt <= maxRetries) {
+    while (foundPort.isEmpty && attempt <= maxRetries) {  //scalastyle:ignore while
       try {
         session.setPortForwardingR(
           bindAddress, remotePortStart + attempt, localHost, localPort)

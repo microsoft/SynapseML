@@ -5,13 +5,13 @@ package com.microsoft.azure.synapse.ml.param
 
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json._
+
 import scala.collection.JavaConverters._
-import scala.collection.immutable.Map
 
 object ArrayMapJsonProtocol extends DefaultJsonProtocol {
 
   implicit object MapJsonFormat extends JsonFormat[Map[String, Any]] {
-    //scalastyle:off cylomatic.complexity
+    //scalastyle:off cyclomatic.complexity
     def write(m: Map[String, Any]): JsValue = {
       JsObject(m.mapValues {
         case v: Int => JsNumber(v)

@@ -124,7 +124,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validSortable(t: String, s: Option[Boolean]): Try[Option[Boolean]] = {
-    if (t == "Collection(Edm.String)" && s.contains(true)) {
+    if (t == "Collection(Edm.String)" & s.contains(true)) {
       Failure(new IllegalArgumentException("Collection(Edm.String) fields cannot be sortable"))
     } else {
       Success(s)
@@ -132,7 +132,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validFacetable(t: String, s: Option[Boolean]): Try[Option[Boolean]] = {
-    if (t == "Edm.GeographyPoint" && s.contains(true)) {
+    if (t == "Edm.GeographyPoint" & s.contains(true)) {
       Failure(new IllegalArgumentException("Edm.GeographyPoint fields cannot be facetable"))
     } else {
       Success(s)
@@ -140,7 +140,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validKey(t: String, s: Option[Boolean]): Try[Option[Boolean]] = {
-    if (t != "Edm.String" && s.contains(true)) {
+    if (t != "Edm.String" & s.contains(true)) {
       Failure(new IllegalArgumentException("Only Edm.String fields can be keys"))
     } else {
       Success(s)

@@ -107,7 +107,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
           IOUtils.close(stream)
         }
 
-        val resultOpt = catchFlakiness(5)(ImageSchema.decode(origin, bytes))
+        val resultOpt = catchFlakiness(5)(ImageSchema.decode(origin, bytes))  //scalastyle:ignore magic.number
         val filteredResult = if (imageSourceOptions.dropInvalid) {
           resultOpt.toIterator
         } else {
@@ -138,7 +138,7 @@ class ImageOutputWriter(val path: String,
   private val fs = new Path(path).getFileSystem(hconf)
 
   override def write(row: InternalRow): Unit = {
-    val imgRow = row.getStruct(imageCol, 6)
+    val imgRow = row.getStruct(imageCol, 6)  //scalastyle:ignore magic.number
     val bImg = ImageUtils.toBufferedImage(imgRow)
     val nonTempPath = new Path(path).getParent
     val outputPath = new Path(nonTempPath, row.getString(pathCol))

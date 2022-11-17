@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.cognitive.split1.{AnomalyKey, IdentifyFace
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.ml.param.{Param, ParamPair}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, JsString, _}

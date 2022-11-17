@@ -175,6 +175,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
       })
   }
 
+  //scalastyle:off cyclomatic.complexity
   def toHTTPCore: HttpRequestBase = {
     val request = requestLine.method.toUpperCase match {
       case "GET" => new HttpGet()
@@ -201,7 +202,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
         "User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")))
     request
   }
-
+  //scalastyle:on cyclomatic.complexity
 }
 
 object HTTPRequestData extends SparkBindings[HTTPRequestData] {

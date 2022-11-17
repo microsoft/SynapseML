@@ -28,7 +28,9 @@ object PowerBIWriter {
 
   val Logger: Logger = LogManager.getRootLogger
 
-  private def prepareDF(df: DataFrame, url: String, options: Map[String, String] = Map()): DataFrame = {
+  private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
+                        url: String,
+                        options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "consolidate", "concurrency", "concurrentTimeout", "minibatcher",
       "maxBatchSize", "batchSize", "buffered", "maxBufferSize", "millisToWait"
@@ -44,10 +46,10 @@ object PowerBIWriter {
 
     val minibatcher = options.getOrElse("minibatcher", "fixed")
     val maxBatchSize = options.get("maxBatchSize").map(_.toInt).getOrElse(Integer.MAX_VALUE)
-    val batchSize = options.get("batchSize").map(_.toInt).getOrElse(10)
+    val batchSize = options.get("batchSize").map(_.toInt).getOrElse(10)  //scalastyle:ignore magic.number
     val isBuffered = options.get("buffered").map(_.toBoolean).getOrElse(false)
-    val maxBufferSize = options.get("maxBufferSize").map(_.toInt).getOrElse(5)
-    val millisToWait = options.get("millisToWait").map(_.toInt).getOrElse(1000)
+    val maxBufferSize = options.get("maxBufferSize").map(_.toInt).getOrElse(5)  //scalastyle:ignore magic.number
+    val millisToWait = options.get("millisToWait").map(_.toInt).getOrElse(1000)  //scalastyle:ignore magic.number
 
     val mb = minibatcher match {
       case "dynamic" =>
