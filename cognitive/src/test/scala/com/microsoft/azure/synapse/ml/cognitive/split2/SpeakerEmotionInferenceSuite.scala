@@ -44,8 +44,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
       "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' " +
         "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='en-US-JennyNeural'>" +
         "<mstts:express-as role='female' style='calm'>\"This is an example of a sentence with unmatched quotes,\"" +
-        "</mstts:express-as> she said.\"</voice></speak>\n"),
-  )
+        "</mstts:express-as> she said.\"</voice></speak>\n"))
 
   lazy val df: DataFrame = testData.map(e => e._1).toSeq.toDF("text")
 
@@ -102,8 +101,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
         """xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>""" +
         """<voice name='en-US-JennyNeural'><mstts:express-as role='male' style='calm'>"A"""" +
         """</mstts:express-as><mstts:express-as role='male' style='calm'>"B"</mstts:express-as>""" +
-        """<mstts:express-as role='male' style='calm'>"C"</mstts:express-as></voice></speak>""" + "\n")),
-  )
+        """<mstts:express-as role='male' style='calm'>"C"</mstts:express-as></voice></speak>""" + "\n")))
 
   test("formatSSML") {
     ssmlFormatTestData.map(test => {
