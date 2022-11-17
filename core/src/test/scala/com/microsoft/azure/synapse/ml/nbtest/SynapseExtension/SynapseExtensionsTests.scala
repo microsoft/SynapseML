@@ -16,8 +16,7 @@ import scala.language.existentials
 class SynapseExtensionTestCleanup extends TestBase {
   ignore("Clean up all artifacts") {
     SynapseExtensionUtilities.listArtifacts()
-      .foreach(artifact =>
-      {
+      .foreach(artifact => {
         println(s"Artifact cleanup: deleting artifact ${artifact.displayName}")
         //TODO: This will delete all artifacts. Us creation timestamp in sjd response
         //  To only delete artifacts > some time ago
@@ -52,8 +51,7 @@ class SynapseExtensionsTests extends TestBase {
 
   selectedPythonFiles.seq.map(createAndExecuteSJD)
 
-  def createAndExecuteSJD(notebookFile: File): Future[String] =
-  {
+  def createAndExecuteSJD(notebookFile: File): Future[String] = {
     val notebookName = SynapseExtensionUtilities.getBlobNameFromFilepath(notebookFile.getPath)
     val artifactId = SynapseExtensionUtilities.createSJDArtifact(notebookFile.getPath)
     val notebookBlobPath = SynapseExtensionUtilities.uploadNotebookToAzure(notebookFile)
