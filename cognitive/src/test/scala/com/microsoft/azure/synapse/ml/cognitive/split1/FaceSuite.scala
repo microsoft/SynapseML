@@ -10,7 +10,7 @@ import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-import java.time.{LocalDateTime, ZonedDateTime}
+import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatter, DateTimeParseException}
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
@@ -274,15 +274,15 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 }
 
 object IdentifyFacesSuite {
-  val Format = "yyyyMMddHHmmssSSSz"
-  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(ZonedDateTime.now())
+  val Format = "yyyyMMddHHmmssSSS"
+  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
 
   def cleanOldGroups(): Unit = {
-    val twoDaysAgo = ZonedDateTime.now().minusDays(2)
+    val twoDaysAgo = LocalDateTime.now().minusDays(2)
     PersonGroup.list().foreach { pgi =>
       try {
         val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-        val pgDate = ZonedDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
+        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
         if (twoDaysAgo.compareTo(pgDate) <= 0) {
           PersonGroup.delete(pgi.personGroupId)
           println(s"deleted group $pgi")
