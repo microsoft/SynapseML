@@ -223,9 +223,8 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
   }
 
   def cleanOldModels(): Unit = {
-    val smae = simpleMultiAnomalyEstimator.setLocation(anomalyLocation)
-    val url = smae.getUrl + "/"
-    val lastWeek = ZonedDateTime.now().minusDays(7)
+    val url = simpleMultiAnomalyEstimator.setLocation(anomalyLocation).getUrl + "/"
+    val twoDaysAgo = ZonedDateTime.now().minusDays(2)
 
     val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
       .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
@@ -234,7 +233,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     models.foreach { modelId =>
       val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
       val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
-      if (lastUpdatedTime.compareTo(lastWeek) <= 0) {
+      if (lastUpdatedTime.compareTo(twoDaysAgo) <= 0) {
         println(s"Deleting $modelId")
         MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
       }
@@ -274,4 +273,8 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
   override def reader: MLReadable[_] = FitMultivariateAnomaly
 
   override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
+}
+
+object FitMultivariateAnomalySuite {
+
 }

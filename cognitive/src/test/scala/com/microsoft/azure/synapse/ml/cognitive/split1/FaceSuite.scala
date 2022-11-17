@@ -10,7 +10,7 @@ import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-import java.time.ZonedDateTime
+import java.time.{LocalDateTime, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -275,16 +275,23 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 }
 
 object IdentifyFacesSuite {
+  val Format = "yyyyMMddHHmmssSSS"
   lazy val TwoDaysInMs = 2 * 24 * 60 * 60 * 1000
-  lazy val NowString = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(ZonedDateTime.now())
+  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
 
   def cleanOldGroups(): Unit = {
-    val nowInMs = NowString.toLong
+    val twoDaysAgo = LocalDateTime.now().minusDays(2)
     PersonGroup.list().foreach { pgi =>
-      val pgDateInMs = pgi.personGroupId.replaceFirst("group", "").toLong
-      if (nowInMs - pgDateInMs > TwoDaysInMs) {
-        PersonGroup.delete(pgi.personGroupId)
-        println(s"deleted group $pgi")
+      try {
+        val pgDateString = pgi.personGroupId.replaceFirst("group", "")
+        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
+        if (twoDaysAgo.compareTo(pgDate) <= 0) {
+          PersonGroup.delete(pgi.personGroupId)
+          println(s"deleted group $pgi")
+        }
+      } catch {
+        case e: NumberFormatException => {}
+        case t => throw t
       }
     }
   }
