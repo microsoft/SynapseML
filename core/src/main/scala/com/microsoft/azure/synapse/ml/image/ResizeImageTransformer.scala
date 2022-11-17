@@ -53,6 +53,7 @@ object ResizeUtils {
 
 object ResizeImageTransformer extends DefaultParamsReadable[ResizeImageTransformer]
 
+@deprecated("Please use 'OnnxModel'.", since="0.10.2")
 class ResizeImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
   logClass()

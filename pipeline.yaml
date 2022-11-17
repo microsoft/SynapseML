@@ -103,6 +103,9 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+      # TODO: Re-enable these when stable
+      #synapse-extension:
+      #  TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
