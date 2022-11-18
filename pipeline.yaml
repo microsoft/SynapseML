@@ -389,6 +389,11 @@ jobs:
     - task: ShellScript@2
       inputs:
         scriptPath: tools/dotnet/dotnetSetup.sh
+    - task: AzureKeyVault@1
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30

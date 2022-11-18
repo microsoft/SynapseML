@@ -65,6 +65,10 @@ object Secrets {
     dir
   }
 
+  private def cachedFile(name: String): File = {
+    BuildUtils.join(cacheDir, name)
+  }
+
   private def refreshCachedSecret(name: String): File = {
     refreshCachedSecret(name, getKeyvaultSecret(name))
   }
@@ -82,7 +86,7 @@ object Secrets {
   }
 
   private def getOrCreatePgpSecretFile(name: String, env_var: String, refresh: Boolean = false): File = {
-    val cachedSecretFile = BuildUtils.join(cacheDir, name + PgpFileExtension)
+    val cachedSecretFile = cachedFile(name + PgpFileExtension)
     if (!cachedSecretFile.exists() || refresh) {
       if (cachedSecretFile.exists()) cachedSecretFile.delete()
       findAndCacheSecret(env_var, name, PgpFileExtension) // This should make the local pgp file
@@ -96,7 +100,7 @@ object Secrets {
   }
 
   private def getSecretFromCacheOrKeyvault(name: String, suffix: String = ""): String = {
-    val cachedSecretFile = BuildUtils.join(cacheDir, name + suffix)
+    val cachedSecretFile = cachedFile(name + suffix)
     if (cachedSecretFile.exists()) {
       println(s"[info] using cached value for secret $name.")
       val i = Source.fromFile(cachedSecretFile)
@@ -118,8 +122,8 @@ object Secrets {
   private def findAndCacheSecret(env_var: String, name: String, suffix: String = ""): String = {
     val secret = sys.env.getOrElse(env_var, getSecretFromCacheOrKeyvault(name))
 
-    // In the case of PGP secrets, we need to make the file (we just re-create the file even if it was cached)
-    if (suffix == PgpFileExtension) {
+    // In the case of PGP secrets, we need to make the file
+    if (suffix == PgpFileExtension && !cachedFile(name + PgpFileExtension).exists()) {
       refreshCachedSecret(name, escapeString(secret), suffix)
     }
     secret
