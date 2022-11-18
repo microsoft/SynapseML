@@ -75,8 +75,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
     ((""""A", "B", "C"""", SpeakerEmotionInferenceResponse(true, Seq(
       SSMLConversation(0, 3, """"A"""", "male", "calm"),
       SSMLConversation(5, 8, """"B"""", "male", "calm"),
-      SSMLConversation(10, 13, """"C"""", "male", "calm"),
-    ))) ->
+      SSMLConversation(10, 13, """"C"""", "male", "calm")))) ->
       ("""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' """ +
         """xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='en-US-JennyNeural'>""" +
         """<mstts:express-as role='male' style='calm'>"A"</mstts:express-as>, """ +
@@ -85,8 +84,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
     (("""Z"A"Z"B"Z"C"Z""", SpeakerEmotionInferenceResponse(true, Seq(
       SSMLConversation(1, 4, """"A"""", "male", "calm"),
       SSMLConversation(5, 8, """"B"""", "male", "calm"),
-      SSMLConversation(9, 12, """"C"""", "male", "calm"),
-    ))) ->
+      SSMLConversation(9, 12, """"C"""", "male", "calm")))) ->
       ("""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' """ +
         """xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='en-US-JennyNeural'>Z""" +
         """<mstts:express-as role='male' style='calm'>"A"</mstts:express-as>Z<mstts:express-as role='male' """ +
@@ -95,8 +93,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
     ((""""A""B""C"""", SpeakerEmotionInferenceResponse(true, Seq(
       SSMLConversation(0, 3, """"A"""", "male", "calm"),
       SSMLConversation(3, 6, """"B"""", "male", "calm"),
-      SSMLConversation(6, 9, """"C"""", "male", "calm"),
-    ))) ->
+      SSMLConversation(6, 9, """"C"""", "male", "calm")))) ->
       ("""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' """ +
         """xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>""" +
         """<voice name='en-US-JennyNeural'><mstts:express-as role='male' style='calm'>"A"""" +
@@ -131,8 +128,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
     (""""I'm really excited!" she said, excitedly.""",
       new File(saveDir, "test4.mp3").getAbsolutePath),
     ("""She screamed "Hi," and followed up with "how are you?" before reaching for the baseball.""",
-      new File(saveDir, "test5.mp3").getAbsolutePath),
-  ).toDF("text", "filename")
+      new File(saveDir, "test5.mp3").getAbsolutePath)).toDF("text", "filename")
 
   test("integration with TTS") {
     val ssmlDF = ssmlGenerator.transform(synthesisDF)
