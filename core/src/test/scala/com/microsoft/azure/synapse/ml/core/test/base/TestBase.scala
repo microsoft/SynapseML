@@ -186,8 +186,8 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
 
   protected override def afterAll(): Unit = {
     logTime(s"Suite $this", suiteElapsed, 10000)
-    if (tmpDirCreated) {
-      FileUtils.forceDelete(tmpDir.toFile)
+    if (tmpDirCreated && tmpDir.toFile.exists) {
+        FileUtils.forceDelete(tmpDir.toFile)
     }
   }
 

@@ -3,28 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.split2
 
-import com.microsoft.azure.synapse.ml.cognitive.TextToSpeech
-import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
+import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
 import java.io.File
-import java.nio.file.Files
 
 class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveKey {
 
   import spark.implicits._
 
-  lazy val saveDir: File = Files.createTempDirectory("AudioFiles-").toFile
-
-  override def afterAll(): Unit = {
-    if (saveDir.exists()) {
-      FileUtils.forceDelete(saveDir)
-    }
-    super.afterAll()
-  }
+  lazy val saveDir: File = tmpDir.toFile
 
   def tts: TextToSpeech = new TextToSpeech()
     .setLocation("eastus")
@@ -49,8 +39,31 @@ class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveK
       .foreach(r => assert(r.getStruct(0).getString(0) === "AuthenticationFailure"))
   }
 
+  lazy val ssmlDf: DataFrame = Seq((
+    """<speak xmlns="http://www.w3.org/2001/10/synthesis" """ +
+      """xmlns:mstts="http://www.w3.org/2001/mstts" """ +
+      """xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US">""" +
+      """<voice name="en-US-JennyNeural"><mstts:express-as role='female' style='terrified'>""" +
+      """This is how I sound right now.</mstts:express-as></voice></speak>""",
+    new File(saveDir, "test1.mp3").toString)).toDF("text", "filename")
+
+  def ttsSSML: TextToSpeech = new TextToSpeech()
+    .setUseSSML(true)
+    .setLocation("eastus")
+    .setSubscriptionKey(cognitiveKey)
+    .setTextCol("text")
+    .setOutputFileCol("filename")
+    .setErrorCol("error")
+
+  test("ssml") {
+    ttsSSML.transform(ssmlDf).collect().map(
+      row => {
+        val filename = row.getAs[String]("filename")
+        assert(new File(filename).length() > 20)
+      })
+  }
+
   override def testObjects(): Seq[TestObject[TextToSpeech]] = Seq(new TestObject(tts, df))
 
   override def reader: MLReadable[_] = TextToSpeech
-
 }

@@ -66,5 +66,7 @@ object Secrets {
   lazy val SynapseInternalUxHost: String = getSecret("synapse-internal-ux-host")
   lazy val SynapseInternalSspHost: String = getSecret("synapse-internal-ssp-host")
 
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
+
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
