@@ -10,7 +10,8 @@ import org.apache.spark.sql.functions.{col, explode, lit}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-import java.util.UUID
+import java.time.LocalDateTime
+import java.time.format.{DateTimeFormatter, DateTimeParseException}
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
@@ -189,7 +190,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group" + UUID.randomUUID().toString
+  lazy val pgName = "group" + IdentifyFacesSuite.NowString
 
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
@@ -216,6 +217,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     .select(col("detected_faces").getItem(0).getItem("faceId"))
     .collect()
     .map(r => r.getString(0)).toSeq
+
+  IdentifyFacesSuite.cleanOldGroups()
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -265,18 +268,41 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     assert(caught.getMessage.contains("Missing required params"))
     assert(caught.getMessage.contains("faceIds"))
   }
+  override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
 
-  // Utility entrypoint, remove ignore to clean up manually
-  ignore("Clean up all personGroups") {
+  override def reader: MLReadable[_] = IdentifyFaces
+}
+
+object IdentifyFacesSuite {
+  val Format = "yyyyMMddHHmmssSSS"
+  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
+
+  def cleanOldGroups(): Unit = {
+    val twoDaysAgo = LocalDateTime.now().minusDays(2)
+    PersonGroup.list().foreach { pgi =>
+      try {
+        val pgDateString = pgi.personGroupId.replaceFirst("group", "")
+        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
+        if (twoDaysAgo.compareTo(pgDate) <= 0) {
+          PersonGroup.delete(pgi.personGroupId)
+          println(s"deleted group $pgi")
+        }
+      } catch {
+        // for uuid-based names
+        // TODO: once this is checked in, use cleanAllGroups to delete them; and then delete this try/catch.
+        // This might take two or three iterations due to ongoing tests.
+        case _: DateTimeParseException => {}
+        case t => throw t
+      }
+    }
+  }
+
+  def cleanAllGroups(): Unit = {
     PersonGroup.list().foreach { pgi =>
       PersonGroup.delete(pgi.personGroupId)
       println(s"deleted group $pgi")
     }
   }
-
-  override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
-
-  override def reader: MLReadable[_] = IdentifyFaces
 }
 
 class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {

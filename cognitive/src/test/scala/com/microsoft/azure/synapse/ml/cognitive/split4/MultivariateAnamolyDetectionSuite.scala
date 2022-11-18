@@ -14,7 +14,9 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
 
-import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDateTime, OffsetDateTime, ZoneId, ZonedDateTime}
+
 
 case class MADListModelsResponse(models: Seq[MADModel],
                                  currentCount: Int,
@@ -58,6 +60,8 @@ trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
 }
 
 class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADTestUtils {
+
+  cleanOldModels()
 
   def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -213,24 +217,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("not ready yet"))
   }
 
-  ignore("Clean up all models") {
-    var modelsLeft = true
-    while (modelsLeft) {  //scalastyle:ignore while
-
-      val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
-        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
-        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
-
-      modelsLeft = models.nonEmpty
-
-      models.foreach { modelId =>
-        println(s"Deleting $modelId")
-        MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
-      }
-    }
-
-  }
-
   override def getterSetterParamExamples(p: FitMultivariateAnomaly): Map[Param[_],Any] = Map(
     (p.alignMode,  "Inner"),
     (p.fillNAMethod,  "Zero")
@@ -260,6 +246,30 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def testObjects(): Seq[TestObject[FitMultivariateAnomaly]] =
     Seq(new TestObject(simpleMultiAnomalyEstimator.setSlidingWindow(200), df))
+
+  def stringToTime(dateString: String): ZonedDateTime = {
+    val tsFormat = "yyyy-MM-dd'T'HH:mm:ssz"
+    val formatter = DateTimeFormatter.ofPattern(tsFormat)
+    ZonedDateTime.parse(dateString, formatter)
+  }
+
+  def cleanOldModels(): Unit = {
+    val url = simpleMultiAnomalyEstimator.setLocation(anomalyLocation).getUrl + "/"
+    val twoDaysAgo = ZonedDateTime.now().minusDays(2)
+
+    val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
+      .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
+      .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
+
+    models.foreach { modelId =>
+      val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
+      val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
+      if (lastUpdatedTime.compareTo(twoDaysAgo) <= 0) {
+        println(s"Deleting $modelId")
+        MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
+      }
+    }
+  }
 
   override def reader: MLReadable[_] = FitMultivariateAnomaly
 
