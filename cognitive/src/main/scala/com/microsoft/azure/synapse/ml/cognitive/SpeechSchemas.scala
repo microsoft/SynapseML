@@ -59,7 +59,6 @@ object SpeechFormat extends DefaultJsonProtocol {
     jsonFormat9(TranscriptionResponse.apply)
   implicit val TranscriptionParticipantFormat: RootJsonFormat[TranscriptionParticipant] =
     jsonFormat3(TranscriptionParticipant.apply)
-
 }
 
 object SpeechSynthesisError extends SparkBindings[SpeechSynthesisError] {
@@ -69,3 +68,19 @@ object SpeechSynthesisError extends SparkBindings[SpeechSynthesisError] {
 }
 
 case class SpeechSynthesisError(errorCode: String, errorDetails: String, errorReason: String)
+
+object SpeakerEmotionInferenceError extends SparkBindings[SpeakerEmotionInferenceError]
+
+case class SpeakerEmotionInferenceError(errorCode: String, errorDetails: String)
+
+case class SSMLConversation(Begin: Int,
+                            End: Int,
+                            Content: String,
+                            Role: String,
+                            Style: String)
+
+object SSMLConversation extends SparkBindings[SSMLConversation]
+
+case class SpeakerEmotionInferenceResponse(IsValid: Boolean, Conversations: Seq[SSMLConversation])
+
+object SpeakerEmotionInferenceResponse extends SparkBindings[SpeakerEmotionInferenceResponse]

@@ -659,7 +659,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
       f.mkdir()
       f.toString
     } else {
-      Files.createTempDirectory("SavedModels-").toString
+      tmpDir.toString
     }
   }
 
