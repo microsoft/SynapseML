@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.split1
 
-import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
@@ -13,10 +12,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{col, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
-
-trait CognitiveKey {
-  lazy val cognitiveKey: String = sys.env.getOrElse("COGNITIVE_API_KEY", Secrets.CognitiveApiKey)
-}
 
 trait OCRUtils extends TestBase {
 
