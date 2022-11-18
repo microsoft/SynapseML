@@ -10,6 +10,9 @@
 
 # Converted markdowns
 /docs/features/*
+!/docs/features/causal_inference
+/docs/features/causal_inference/*
+!/docs/features/causal_inference/about.md
 !/docs/features/lightgbm
 /docs/features/lightgbm/*
 !/docs/features/lightgbm/about.md
