@@ -407,6 +407,14 @@ jobs:
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
