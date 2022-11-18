@@ -181,6 +181,9 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   import spark.implicits._
 
+  val Format = "yyyyMMddHHmmssSSS"
+  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
+
   lazy val satyaFaces = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
   )
@@ -190,7 +193,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group" + IdentifyFacesSuite.NowString
+  lazy val pgName = "group" + NowString
 
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
@@ -218,8 +221,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     .collect()
     .map(r => r.getString(0)).toSeq
 
-  IdentifyFacesSuite.cleanOldGroups()
-
   override def beforeAll(): Unit = {
     super.beforeAll()
     println(satyaFaceIds ++ bradFaceIds)
@@ -236,6 +237,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
       PersonGroup.delete(pgi.personGroupId)
       println("deleted group")
     }
+
+    cleanOldGroups()
     super.afterAll()
   }
 
@@ -270,13 +273,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   }
   override def testObjects(): Seq[TestObject[IdentifyFaces]] = Seq(new TestObject(id, df))
 
-  override def reader: MLReadable[_] = IdentifyFaces
-}
-
-object IdentifyFacesSuite {
-  val Format = "yyyyMMddHHmmssSSS"
-  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
-
   def cleanOldGroups(): Unit = {
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     PersonGroup.list().foreach { pgi =>
@@ -303,6 +299,8 @@ object IdentifyFacesSuite {
       println(s"deleted group $pgi")
     }
   }
+
+  override def reader: MLReadable[_] = IdentifyFaces
 }
 
 class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {

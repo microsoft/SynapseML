@@ -61,8 +61,6 @@ trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
 
 class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADTestUtils {
 
-  cleanOldModels()
-
   def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation(anomalyLocation)
@@ -232,6 +230,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def afterAll(): Unit = {
     MADUtils.cleanUpAllModels(anomalyKey, anomalyLocation)
+    cleanOldModels()
     super.afterAll()
   }
 
