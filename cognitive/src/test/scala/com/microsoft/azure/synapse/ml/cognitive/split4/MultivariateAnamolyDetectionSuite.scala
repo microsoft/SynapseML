@@ -213,24 +213,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("not ready yet"))
   }
 
-  ignore("Clean up all models") {
-    var modelsLeft = true
-    while (modelsLeft) {  //scalastyle:ignore while
-
-      val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
-        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
-        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
-
-      modelsLeft = models.nonEmpty
-
-      models.foreach { modelId =>
-        println(s"Deleting $modelId")
-        MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
-      }
-    }
-
-  }
-
   override def getterSetterParamExamples(p: FitMultivariateAnomaly): Map[Param[_],Any] = Map(
     (p.alignMode,  "Inner"),
     (p.fillNAMethod,  "Zero")
