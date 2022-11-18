@@ -40,7 +40,7 @@ object Secrets {
   }
 
   private def getKeyvaultSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName from $accountString")
+    println(s"[info] fetching secret: $secretName from $accountString")
     try {
       val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
       secretJson.parseJson.asJsObject().fields("value").convertTo[String]
@@ -103,30 +103,23 @@ object Secrets {
       try i.mkString finally i.close
     } else {
       println(s"[warn] could not find cached file or env var for secret $name. Fetching...")
-      val rawSecret = getKeyvaultSecret(name)
-      if (suffix != PgpFileExtension) {
-        refreshCachedSecret(name, rawSecret, suffix)
-        rawSecret
-      } else {
-        val escapedSecret = escapeString(rawSecret)
-        refreshCachedSecret(name, escapedSecret, suffix)
-        escapedSecret
-      }
+      getKeyvaultSecret(name)
     }
   }
 
   /*
      Priority order for finding secrets:
      1. Environment variable (used by pipeline which loads them from keyvault)
-     2. Local cache
+     2. Local cache (only if PGP-ring secret)
      3. Load from keyvault (and also cached to local file for next time)
+
+     If it is a PPG-ring secret, we cache it
    */
   private def findAndCacheSecret(env_var: String, name: String, suffix: String = ""): String = {
-    val secret = sys.env.getOrElse(env_var, getSecretFromCacheOrKeyvault(name, suffix))
+    val secret = sys.env.getOrElse(env_var, getSecretFromCacheOrKeyvault(name))
 
-    // If an environment variable exists (e.g., when running in pipeline), we haven't yet made the local cache file
-    // In the case of PGP secrets, we need to make the file
-    if (suffix == PgpFileExtension && sys.env.contains(env_var)) {
+    // In the case of PGP secrets, we need to make the file (we just re-create the file even if it was cached)
+    if (suffix == PgpFileExtension) {
       refreshCachedSecret(name, escapeString(secret), suffix)
     }
     secret
@@ -140,9 +133,6 @@ object Secrets {
      This will recreate all cached secrets, so only needed if secrets are changed in the keyvault
    */
   def refreshCachedSecrets(): Unit = {
-    refreshCachedSecret(NexusUsernameSecretName)
-    refreshCachedSecret(NexusPasswordSecretName)
-    refreshCachedSecret(PgpPasswordSecretName)
     getOrCreatePgpSecretFile(PgpPrivateSecretName, PgpPrivateEnvVarName, refresh = true)
     getOrCreatePgpSecretFile(PgpPublicSecretName, PgpPublicEnvVarName, refresh = true)
   }
@@ -166,6 +156,8 @@ object Secrets {
   lazy val nexusUsername: String = getSecret(NexusUsernameEnvVarName, NexusUsernameSecretName)
   lazy val nexusPassword: String = getSecret(NexusPasswordEnvVarName, NexusPasswordSecretName)
   lazy val pgpPassword: String = getSecret(PgpPasswordEnvVarName, PgpPasswordSecretName)
+  lazy val storageKey: String = getSecret(StorageKeyEnvVarName, StorageKeySecretName)
+  lazy val pypiApiToken: String = getSecret(PypiApiEnvVarName, PypiApiSecretName)
 
   lazy val pgpPrivateFile: File = getPgpSecretFile(PgpPrivateSecretName, PgpPrivateEnvVarName)
   lazy val pgpPublicFile: File = getPgpSecretFile(PgpPublicSecretName, PgpPublicEnvVarName)
@@ -180,8 +172,8 @@ object Secrets {
   val PgpPrivateEnvVarName: String = "PGP-PRIVATE"
   val PgpPublicSecretName: String = "pgp-public"
   val PgpPublicEnvVarName: String = "PGP-PUBLIC"
-
-  // TODO used?
-  lazy val storageKey: String = sys.env.getOrElse("STORAGE-KEY", getKeyvaultSecret("storage-key"))
-  lazy val pypiApiToken: String = sys.env.getOrElse("PYPI-API-TOKEN", getKeyvaultSecret("pypi-api-token"))
+  val StorageKeySecretName: String = "storage-key"
+  val StorageKeyEnvVarName: String = "STORAGE-KEY"
+  val PypiApiSecretName: String = "pypi-api-token"
+  val PypiApiEnvVarName: String = "PYPI-API-TOKEN"
 }
