@@ -48,5 +48,5 @@ dmlModel.getAvgTreatmentEffect()
 dmlModel.getConfidenceInterval()
 ```
 
-For an end to end application, check out the LightGBM [notebook
+For an end to end application, check out the DoubleMLEstimator [notebook
 example](../todo).
