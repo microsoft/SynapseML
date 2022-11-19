@@ -51,6 +51,7 @@ object Secrets {
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
@@ -58,8 +59,13 @@ object Secrets {
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
+  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-daily-password")
+  lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
+  lazy val Platform: String = getSecret("synapse-platform")
+  lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val SynapseInternalTenantId: String = getSecret("synapse-internal-tenant-id")
+  lazy val SynapseInternalUxHost: String = getSecret("synapse-internal-ux-host")
+  lazy val SynapseInternalSspHost: String = getSecret("synapse-internal-ssp-host")
 
   lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
-
-  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
 }
