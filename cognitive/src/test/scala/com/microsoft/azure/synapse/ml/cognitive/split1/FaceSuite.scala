@@ -181,8 +181,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   import spark.implicits._
 
-  val Format = "yyyyMMddHHmmssSSS"
-  lazy val NowString = DateTimeFormatter.ofPattern(Format).format(LocalDateTime.now())
+  val timeFormat = "yyyyMMddHHmmssSSS"
 
   lazy val satyaFaces = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
@@ -193,7 +192,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group" + NowString
+  lazy val pgName = "group" + DateTimeFormatter.ofPattern(timeFormat).format(LocalDateTime.now())
 
   lazy val pgId = {
     PersonGroup.create(pgName, pgName)
@@ -278,7 +277,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     PersonGroup.list().foreach { pgi =>
       try {
         val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(Format))
+        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
         if (twoDaysAgo.compareTo(pgDate) <= 0) {
           PersonGroup.delete(pgi.personGroupId)
           println(s"deleted group $pgi")
