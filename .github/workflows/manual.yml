@@ -17,25 +17,28 @@ env:
   secret_body: "Hello World!"
 
 jobs:
-  gh-set-secret:
-    runs-on: ubuntu-latest
-    steps:
-      - name: gh auth login
-        shell: bash
-        run: echo $SS_TOKEN | gh auth login --with-token
-      - name: gh secret set env
-        shell: bash
-        run: |
-          repository='${{ github.repository }}'
-          gh secret set "$secret_name" --body "$secret_body" --repo $repository
+#  gh-set-secret:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: gh auth login
+#        shell: bash
+#        run: echo $SS_TOKEN | gh auth login --with-token
+#      - name: gh secret set env
+#        shell: bash
+#        run: |
+#          repository='${{ github.repository }}'
+#          gh secret set "$secret_name" --body "$secret_body" --repo $repository
   gh-test-secret:
-    needs: [gh-set-secret]
+    #needs: [gh-set-secret]
     runs-on: ubuntu-latest
     environment:
       name: sandbox
     env:
       secret: ${{ secrets.HELLO_WORLD }}
     steps:
+      - name: gh auth login
+        shell: bash
+        run: echo $SS_TOKEN | gh auth login --with-token
       - name: echo secret
         shell: bash
         run: |
