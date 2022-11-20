@@ -5,11 +5,15 @@ jobs:
      name: Clean ACR
      runs-on: ubuntu-latest
      steps:
-       - uses: Azure/get-keyvault-secrets@v1
-         with: 
-           keyvault: 'mmlspark-keys'
-           secrets: 'clean-acr-connection-string'
-         id: getConnectionString
+       - name: Azure Login
+         uses: azure/login@v1
+         with:
+           creds: ${{ secrets.clean_acr }}
+       - name: Get connection string    
+         uses: Azure/CLI@v1
+         with:
+           inlineScript: |
+             echo connection_string=$(az keyvault secret show -vault-name mmlspark-keys --name clean-acr-connection-string) >> $GITHUB_ENV
        #- name: checkout repo content
        #  uses: actions/checkout@v2 # checkout the repo
        - name: setup python
@@ -50,7 +54,8 @@ jobs:
              pipeline = "mmlsparkacrexport3"
           
              #conn_string = sys.argv[1]
-             conn_string = ${{ steps.getConnectionString.output.clean-acr-connection-string }}
+             #conn_string = ${{ env.clean-acr-connection-string }}
+             conn_string = os.environ['clean-acr-connection-string']
           
              os.popen('az extension add --name acrtransfer')
           
