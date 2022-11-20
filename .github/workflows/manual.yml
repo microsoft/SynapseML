@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: gh auth login
         shell: bash
-        run: echo ${{ $secrets.SS_TOKEN }} | gh auth login --with-token
+        run: echo $SS_TOKEN | gh auth login --with-token
       - name: gh secret set env
         shell: bash
         run: |
