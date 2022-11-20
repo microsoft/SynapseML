@@ -444,7 +444,7 @@ object GenerateThumbnails extends ComplexParamsReadable[GenerateThumbnails] with
 class GenerateThumbnails(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasWidth with HasHeight with HasSmartCropping
-    with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with BasicLogging
+    with HasCognitiveServiceInput with HasSetLocation with BasicLogging
     with HasSetLinkedService {
   logClass()
 
@@ -453,8 +453,6 @@ class GenerateThumbnails(override val uid: String)
   override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser = {
     new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.map(_.content).orNull })
   }
-
-  override def responseDataType: DataType = BinaryType
 
   def urlPath: String = "/vision/v2.0/generateThumbnail"
 }
