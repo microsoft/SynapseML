@@ -15,7 +15,6 @@ env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Permissions: repo (all) and read:org
   secret_name: HELLO_WORLD
   secret_body: "Hello World!"
-  secret_environment: sandbox
 
 jobs:
   gh-set-secret:
@@ -28,7 +27,7 @@ jobs:
         shell: bash
         run: |
           repository='${{ github.repository }}'
-          gh secret set "$secret_name" --env "$secret_environment" --body "$secret_body" --repo $repository
+          gh secret set "$secret_name" --body "$secret_body" --repo $repository
   gh-test-secret:
     needs: [gh-set-secret]
     runs-on: ubuntu-latest
