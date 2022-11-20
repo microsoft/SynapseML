@@ -278,7 +278,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
       try {
         val pgDateString = pgi.personGroupId.replaceFirst("group", "")
         val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
-        if (twoDaysAgo.compareTo(pgDate) <= 0) {
+        if (pgDate.isBefore(twoDaysAgo)) {
           PersonGroup.delete(pgi.personGroupId)
           println(s"deleted group $pgi")
         }
