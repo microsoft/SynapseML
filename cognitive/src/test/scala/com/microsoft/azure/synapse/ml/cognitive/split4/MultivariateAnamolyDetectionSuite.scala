@@ -263,7 +263,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     models.foreach { modelId =>
       val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
       val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
-      if (lastUpdatedTime.compareTo(twoDaysAgo) <= 0) {
+      if (lastUpdatedTime.isBefore(twoDaysAgo)) {
         println(s"Deleting $modelId")
         MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
       }
