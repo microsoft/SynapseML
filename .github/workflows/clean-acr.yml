@@ -10,8 +10,8 @@ jobs:
            keyvault: 'mmlspark-keys'
            secrets: 'clean-acr-connection-string'
          id: getConnectionString
-       - name: checkout repo content
-         uses: actions/checkout@v2 # checkout the repo
+       #- name: checkout repo content
+       #  uses: actions/checkout@v2 # checkout the repo
        - name: setup python
          uses: actions/setup-python@v4
          with:
