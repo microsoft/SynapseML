@@ -10,12 +10,12 @@ jobs:
          with:
            creds: ${{ secrets.clean_acr }}
        - name: Get connection string    
-         uses: Azure/CLI@v2
+         uses: Azure/CLI@v1
          with:
            inlineScript: |
              echo clean_acr_connection_string=$(az keyvault secret show -vault-name mmlspark-keys --name clean-acr-connection-string) >> $GITHUB_ENV
-       #- name: checkout repo content
-       #  uses: actions/checkout@v2 # checkout the repo
+       - name: checkout repo content
+         uses: actions/checkout@v2 # checkout the repo
        - name: setup python
          uses: actions/setup-python@v4
          with:
