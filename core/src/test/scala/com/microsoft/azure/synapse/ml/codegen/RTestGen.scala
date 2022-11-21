@@ -3,14 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-
-import java.io.File
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.RTestFuzzing
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
+import java.io.File
 import org.apache.commons.io.FileUtils
 import spray.json._
 
@@ -32,7 +31,7 @@ object RTestGen {
     }
   }
 
-  //noinspection ScalaStyle
+  // scalastyle:off method.length
   def generateRPackageData(conf: CodegenConfig): Unit = {
     // description file; need to encode version as decimal
     val today = new java.text.SimpleDateFormat("yyyy-MM-dd")
@@ -61,7 +60,6 @@ object RTestGen {
           |Config/testthat/edition: 3
           |""".stripMargin)
 
-    val scalaVersion = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
     writeFile(new File(projectDir, "synapsemltest.Rproj"),
       """
         |Version: 1.0
@@ -84,8 +82,6 @@ object RTestGen {
         |
         |""".stripMargin)
 
-    val synapseVersion = BuildInfo.version
-
     if (!conf.rTestThatDir.exists()) {
       conf.rTestThatDir.mkdirs()
     }
@@ -99,8 +95,8 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=com.microsoft.azure:synapseml_2.12:${conf.version}",
-         |  "spark.jars.repositories=https://mmlspark.azureedge.net/maven",
+         |  "spark.jars.packages=$SparkMavenPackageList",
+         |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
@@ -120,8 +116,8 @@ object RTestGen {
          |
          |testcheck("synapseml")
          |""".stripMargin)
-
   }
+  // scalastyle:on method.length
 
   def useLibrary(name: String): String = {
     s"""

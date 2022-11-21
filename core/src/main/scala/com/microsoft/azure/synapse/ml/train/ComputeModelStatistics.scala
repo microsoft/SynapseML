@@ -70,6 +70,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     * @param dataset the dataset to calculate the metrics for
     * @return DataFrame whose columns contain the calculated metrics
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val (modelName, labelColumnName, scoreValueKind) =
@@ -167,6 +169,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],

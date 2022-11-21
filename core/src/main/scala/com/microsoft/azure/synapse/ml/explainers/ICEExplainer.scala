@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.param.TypedArrayParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
-import org.apache.spark.ml.param.{ParamMap, ParamValidators, Params, _}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.json4s._
-import org.json4s.jackson.JsonMethods._
+
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 
 class ICENumericFeaturesParam(parent: Params,
@@ -43,7 +43,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   val individualKind = "individual"
   val featureKind = "feature"
 
-  implicit val formats = DefaultFormats
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   val categoricalFeatures = new ICECategoricalFeaturesParam(
     this,
@@ -137,6 +137,7 @@ class ICETransformer(override val uid: String) extends Transformer
 
   def this() = this(Identifiable.randomUID("ICETransformer"))
 
+  //scalastyle:off method.length
   private def calcDependence(df: DataFrame, idCol: String, targetClassesColumn: String,
                              feature: ICEFeature, values: Array[_], dependenceCol: String,
                              featureNamesCol: String): DataFrame = {
@@ -201,6 +202,7 @@ class ICETransformer(override val uid: String) extends Transformer
         }
     }
   }
+  //scalastyle:on method.length
 
 
   def transform(ds: Dataset[_]): DataFrame = {

@@ -24,8 +24,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.parsing.json.JSONObject
 
 
@@ -33,9 +33,9 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
-    while (waited < maxTimeWaited) {
+    while (waited < maxTimeWaited) {  //scalastyle:ignore while
       if (!server.isActive) throw server.exception.get
-      if (server.recentProgress.length > 1) return
+      if (server.recentProgress.length > 1) return  //scalastyle:ignore return
       Thread.sleep(checkEvery.toLong)
       waited += checkEvery
     }
@@ -55,7 +55,7 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
     assert(targetCode === res.getStatusLine.getStatusCode)
     val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
-      null
+      null  //scalastyle:ignore null
     } else {
       new BasicResponseHandler().handleResponse(res)
     }
@@ -138,9 +138,9 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
     } / xs.size)
   }
 
-  lazy val requestDuration = Duration(10, TimeUnit.SECONDS)
+  lazy val requestDuration: FiniteDuration = Duration(10, TimeUnit.SECONDS)
 
-  lazy implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+  lazy implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
   def assertLatency(responsesWithLatencies: Seq[(String, Double)], cutoff: Double): Unit = {
     val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
@@ -214,7 +214,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
+      (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
   }
@@ -238,7 +238,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
+      (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
 
@@ -255,7 +255,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 10).map(i => sendFileRequest())
+      val responsesWithLatencies = (1 to 10).map(_ => sendFileRequest())
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
       val meanLatency = mean(latencies)
@@ -277,7 +277,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 10).map(i =>
+      val responsesWithLatencies = (1 to 10).map(_ =>
         sendFileRequest()
       )
 
@@ -365,7 +365,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequestAsync(Map("foo" -> 1, "bar" -> "here")))
+      (1 to 20).map(_ => sendJsonRequestAsync(Map("foo" -> 1, "bar" -> "here")))
         .foreach { f =>
           val resp = Await.result(f, Duration(10, TimeUnit.SECONDS))
           assert(resp === "27")

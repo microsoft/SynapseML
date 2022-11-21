@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.cognitive.split3
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -24,6 +23,7 @@ trait CustomSpeechKey {
   lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
 }
 
+//scalastyle:off null
 trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpeechKey {
 
   import spark.implicits._

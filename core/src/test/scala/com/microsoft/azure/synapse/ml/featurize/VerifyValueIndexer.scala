@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.schema.{CategoricalColumnInfo, Catego
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.collection.immutable.Seq
 
@@ -15,16 +15,16 @@ trait ValueIndexerUtilities extends TestBase {
   import spark.implicits._
 
   /** sample dataframe */
-  protected lazy val df = Seq[(Int, Long, Double, Boolean, String)](
+  protected lazy val df: DataFrame = Seq[(Int, Long, Double, Boolean, String)](
     (-3, 24L, 0.32534, true, "piano"),
     (1, 5L, 5.67, false, "piano"),
     (-3, 5L, 0.32534, false, "guitar"))
     .toDF("int", "long", "double", "bool", "string")
 
   /** sample dataframe with Null values*/
-  protected lazy val nullDF = Seq[(String, java.lang.Integer, java.lang.Double)](
-    ("Alice", null, 44.3),
-    (null, 60, null),
+  protected lazy val nullDF: DataFrame = Seq[(String, java.lang.Integer, java.lang.Double)](
+    ("Alice", null, 44.3), //scalastyle:ignore null
+    (null, 60, null), //scalastyle:ignore null
     ("Josh", 25, Double.NaN),
     ("Bob", 25, 77.7),
     ("Fred", 55, Double.NaN),
@@ -40,7 +40,7 @@ class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[I
   private val testName = col + "_noncat"
 
   test("Test: Going to Categorical and Back") {
-    for (mmlStyle <- List(false, true)) {
+    for (mmlStyle <- List(false, true)) { // TODO this is not used?
       val df1 = new IndexToValue().setInputCol(newName).setOutputCol(testName).transform(df2)
       df1.select(col, testName).collect.foreach(row => assert(row(0) == row(1), "two columns should be the same"))
     }
@@ -54,6 +54,7 @@ class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[I
 }
 
 /** Tests to validate the functionality of Train Classifier module. */
+//scalastyle:off null
 class VerifyValueIndexer extends ValueIndexerUtilities with EstimatorFuzzing[ValueIndexer] {
 
   /** test CategoricalMap for different undelying types */
@@ -78,7 +79,7 @@ class VerifyValueIndexer extends ValueIndexerUtilities with EstimatorFuzzing[Val
     val col = "string"
     val trueLevels = df.select("string").collect().map(_(0).toString).distinct.sorted
 
-    for (mmlStyle <- List(false, true)) {
+    for (mmlStyle <- List(false, true)) { // TODO this is not used?
       val newName = col + "_cat"
       val df2 = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(df).transform(df)
 
