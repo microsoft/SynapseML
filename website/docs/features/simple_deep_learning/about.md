@@ -26,13 +26,13 @@ Coordinate: com.microsoft.azure:synapseml_2.12:SYNAPSEML_SCALA_VERSION
 Repository: https://mmlspark.azureedge.net/maven
 ```
 :::note
-If you install the jar package, you need to follow the first two cell of this [sample](./DeepLearning%20-%20Deep%20Vision%20Classifier.md/#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
+If you install the jar package, you need to follow the first two cell of this [sample](./DeepLearning%20-%20Deep%20Vision%20Classification.md/#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
 to make horovod recognizing our module.
 :::
 
 ## 3. Try our sample notebook
 
-You could follow the rest of this [sample](./DeepLearning%20-%20Deep%20Vision%20Classifier.md) and have a try on your own dataset.
+You could follow the rest of this [sample](./DeepLearning%20-%20Deep%20Vision%20Classification.md) and have a try on your own dataset.
 
 Supported models (`backbone` parameter for `DeepVisionClassifer`) should be string format of [torchvision supported models](https://github.com/pytorch/vision/blob/v0.12.0/torchvision/models/__init__.py);
 You could also check by running `backbone in torchvision.models.__dict__`.
