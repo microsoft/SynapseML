@@ -97,7 +97,7 @@ object Superpixel {
   def copyImage(source: BufferedImage): BufferedImage = {
     val b = new BufferedImage(source.getWidth, source.getHeight, source.getType)
     val g = b.getGraphics
-    g.drawImage(source, 0, 0, null)
+    g.drawImage(source, 0, 0, null)  //scalastyle:ignore null
     g.dispose()
     b
   }
@@ -156,7 +156,14 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
 
   private val start: Long = System.currentTimeMillis
   // get the image pixels
-  private val pixels: Array[Int] = image.getRGB(0, 0, width, height, null, 0, width)
+  private val pixels: Array[Int] = image.getRGB(
+    0,
+    0,
+    width,
+    height,
+    null,  //scalastyle:ignore null
+    0,
+    width)
   // create and fill lookup tables
   util.Arrays.fill(distances, Integer.MAX_VALUE)
   util.Arrays.fill(labels, -1)
@@ -176,7 +183,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
   // loop until all clusters are stable!
   var loops = 0
   var pixelChangedCluster = true
-  while (pixelChangedCluster && loops < maxClusteringLoops) {
+  while (pixelChangedCluster && loops < maxClusteringLoops) {  //scalastyle:ignore while
     pixelChangedCluster = false
     loops += 1
     // for each cluster center C
@@ -224,7 +231,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
         val id2 = labels(x + 1 + y * width)
         val id3 = labels(x + (y + 1) * width)
         if (id1 != id2 || id1 != id3) {
-          result.setRGB(x, y, 0x000000)
+          result.setRGB(x, y, 0x000000)  //scalastyle:ignore magic.number
         }
         else {
           result.setRGB(x, y, image.getRGB(x, y))
@@ -242,7 +249,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
     var xstart: Double = 0
     var id = 0
     var y = cellSize / 2
-    while (y < height) {
+    while (y < height) {  //scalastyle:ignore while
       // alternate clusters x-position to create nice hexagon grid
       if (even) {
         xstart = cellSize / 2.0
@@ -252,7 +259,7 @@ class Superpixel(image: BufferedImage, cellSize: Double, modifier: Double) exten
         even = true
       }
       var x = xstart
-      while (x < width) {
+      while (x < width) {  //scalastyle:ignore while
         val pos = (x + y * width).toInt
         val c = new Cluster(id, reds(pos), greens(pos), blues(pos), x.toInt, y.toInt, cellSize, modifier)
         temp.append(c)

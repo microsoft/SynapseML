@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.param._
 import org.apache.spark.internal.Logging
-import org.apache.spark.ml.PipelineStage
 import org.apache.spark.ml.param._
 
 import scala.reflect.ClassTag
@@ -63,9 +62,9 @@ object DefaultParamInfo extends Logging {
   val UntypedArrayInfo = new ParamInfo[UntypedArrayParam](
     "object", "object[]", Array(1.0, 2.0))
   val UnknownInfo = new ParamInfo[Param[_]](
-    "object", "object", null)
+    "object", "object", null)  //scalastyle:ignore null
 
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
   def getGeneralParamInfo(dataType: Param[_]): ParamInfo[_] = {
     dataType match {
       case _: BooleanParam => BooleanInfo
@@ -89,6 +88,7 @@ object DefaultParamInfo extends Logging {
         UnknownInfo
       }
     }
+    //scalastyle:on cyclomatic.complexity
   }
 
   def defaultGetParamInfo(stage: Params, p: Param[_]): ParamInfo[_] = {

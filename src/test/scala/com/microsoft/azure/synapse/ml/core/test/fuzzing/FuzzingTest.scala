@@ -3,15 +3,24 @@
 
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
+import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
+import java.io.File
+import java.nio.file.{FileSystems, Files}
+import scala.collection.JavaConverters._
 import java.lang.reflect.ParameterizedType
+import java.nio.charset.MalformedInputException
 import scala.language.existentials
+import scala.io.Source
+import scala.util.matching.Regex
 
 /** Tests to validate fuzzing of modules. */
 class FuzzingTest extends TestBase {
@@ -312,6 +321,56 @@ class FuzzingTest extends TestBase {
         }
       }
     }
+  }
+
+  test("Scan codebase for secrets") {
+    val excludedFiles = List(
+      ".png",
+      ".jpg",
+      ".jpeg")
+    val excludedDirs = List(
+      ".git",
+      ".idea",
+      "target",
+      ".docusaurus",
+      "node_modules",
+      s"website${File.separator}build"
+    )
+
+    val regexps: List[Regex] = using(Source.fromURL(Secrets.SecretRegexpFile)) { s =>
+      s.getLines().toList.map(_.r)
+    }.get
+
+    val allFiles = Files.walk(BuildInfo.baseDirectory.getParentFile.toPath)
+      .iterator().asScala.map(_.toFile)
+      .filterNot(f => excludedDirs.exists(dir => f.toString.contains(dir)))
+      .toList
+
+    val nameIssues = allFiles.flatMap {
+      case f if regexps.flatMap(_.findFirstMatchIn(f.toString)).nonEmpty =>
+        Some(s"Bad file name: ${f.toString}")
+      case _ =>
+        None
+    }
+    val contentsIssue = allFiles.filter(_.isFile)
+      .filterNot(f => excludedFiles.exists(end => f.toString.endsWith(end)))
+      .flatMap { f =>
+        println(f)
+        try {
+          val lines = using(Source.fromFile(f)) { s => s.getLines().toList }.get
+          lines.zipWithIndex.flatMap { case (l, i) =>
+            if (regexps.flatMap(_.findFirstMatchIn(l)).nonEmpty) {
+              Some(s"Line $i of file ${f.toString} contains secrets")
+            } else {
+              None
+            }
+          }
+        } catch {
+          case _: MalformedInputException => List()
+        }
+      }
+    val allIssues = nameIssues ++ contentsIssue
+    assert(allIssues.isEmpty, allIssues.mkString("\n"))
   }
 
   private def assertOrLog(condition: Boolean, hint: String = "",

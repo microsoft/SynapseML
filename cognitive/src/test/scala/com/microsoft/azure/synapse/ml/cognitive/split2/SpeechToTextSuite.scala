@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.split2
 
-import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
+import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.{SpeechResponse, SpeechToText}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils

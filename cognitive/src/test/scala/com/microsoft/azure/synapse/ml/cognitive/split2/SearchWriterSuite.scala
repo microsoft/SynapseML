@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.cognitive.split2
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.split1.CognitiveKey
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
@@ -21,6 +20,7 @@ trait AzureSearchKey {
   lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
 }
 
+//scalastyle:off null
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   with TransformerFuzzing[AddDocuments] with CognitiveKey {
 

@@ -14,6 +14,7 @@ import org.apache.spark.streaming.{StreamingContext, Seconds => SparkSeconds}
 import org.scalactic.Equality
 import org.scalactic.source.Position
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.concurrent.TimeLimits
 import org.scalatest.time.{Seconds, Span}
 
@@ -142,7 +143,7 @@ object TestBase extends SparkSessionManagement {
 
 }
 
-abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
 
   lazy val sparkProvider: SparkSessionManagement = TestBase
 
@@ -185,8 +186,8 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   protected override def afterAll(): Unit = {
     logTime(s"Suite $this", suiteElapsed, 10000)
-    if (tmpDirCreated) {
-      FileUtils.forceDelete(tmpDir.toFile)
+    if (tmpDirCreated && tmpDir.toFile.exists) {
+        FileUtils.forceDelete(tmpDir.toFile)
     }
   }
 
@@ -195,7 +196,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
     for ((t, i) <- times.zipWithIndex) {
       try {
-        return block()
+        return block()  //scalastyle:ignore return
       } catch {
         case e: Exception if (i + 1) < times.length =>
           println(s"RETRYING after $t ms:  Caught error: $e ")
@@ -219,7 +220,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
     withoutLogging {
       intercept[E] {
         e
-      };
+      }
       ()
     }
   }
