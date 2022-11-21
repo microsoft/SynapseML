@@ -50,5 +50,5 @@ for repo in repos:
             conn_string, container_name=container, blob_name=target_blob).exists()
         if backup_exists:
             print("Deleting {}".format(image))
-            #result = os.system(f"az acr repository delete --name {acr} --image {image} --yes")
-            #assert result == 0
+            result = os.system(f"az acr repository delete --name {acr} --image {image} --yes")
+            assert result == 0
