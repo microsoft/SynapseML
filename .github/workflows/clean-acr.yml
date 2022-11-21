@@ -1,0 +1,44 @@
+# Notes: To access key vault and grab the connection string, we first need a service principal.
+# We need to add that service principal as a Reader in the RBAC for the key vault in question,
+# as well as adding it with Get and List permissions in the key vault's access policies.
+# Then we need to store that service principal's info as a GitHub secret.
+# We then use that secret here as the credentials for logging into Azure.
+# Instructions are here: https://learn.microsoft.com/en-us/azure/developer/github/github-key-vault
+# In our case, the service principal is called synapseml-clean-acr.
+# The github secret is a repository secret called clean_acr.
+# It is backed up in the mmlspark-keys vault by secret clean-acr-github-actions-info.
+# The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
+
+name: Clean ACR
+
+on:
+  schedule:
+    - cron: "0 1 * * 0" # every sunday at 1am
+    
+jobs:
+  clean-acr:
+     name: Clean ACR
+     runs-on: ubuntu-latest
+     steps:
+       - name: Azure Login
+         uses: azure/login@v1
+         with:
+           creds: ${{ secrets.clean_acr }}
+       # TODO: The docs say that Azure/get-keyvault-secrets@v1 is deprecated but are vague on what to use instead.
+       # Keep an eye on how this continues to work.
+       - name: Get connection string
+         uses: Azure/get-keyvault-secrets@v1
+         with:
+           keyvault: "mmlspark-keys"
+           secrets: "clean-acr-connection-string"
+         id: getSecret
+       - name: checkout repo content
+         uses: actions/checkout@v2 # checkout the repo
+       - name: setup python
+         uses: actions/setup-python@v4
+         with:
+           python-version: '3.x'
+       - run: pip install azure-storage-blob azure-identity
+       - name: execute clean acr
+         run: python .github/workflows/scripts/clean-acr.py "${{ steps.getSecret.outputs.clean-acr-connection-string }}"
+         shell: sh
