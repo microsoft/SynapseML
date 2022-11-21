@@ -17,7 +17,7 @@ jobs:
        - name: Get connection string
          uses: Azure/get-keyvault-secrets@v1
          with:
-           keyvault: "maniehtestkv"
+           keyvault: "mmlspark-keys"
            secrets: "clean-acr-connection-string"
          id: getSecret
        - name: checkout repo content
