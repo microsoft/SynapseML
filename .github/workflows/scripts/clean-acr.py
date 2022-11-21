@@ -43,8 +43,7 @@ for repo in repos:
         backup_exists = BlobClient.from_connection_string(
             conn_string, container_name=container, blob_name=target_blob).exists()
         if not backup_exists:
-            p = os.popen(f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}")
-            print(f"result: {p.returncode}") 
+            os.popen(f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}")
             print("Transferred {}".format(target_blob))
         else:
             print("Skipped existing {}".format(image))
