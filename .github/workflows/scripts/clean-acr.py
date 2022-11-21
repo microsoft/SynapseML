@@ -4,7 +4,6 @@ from azure.storage.blob import BlobClient
 from azure.identity import DefaultAzureCredential
 import sys
 import subprocess
-from tqdm import tqdm
 
 credential = DefaultAzureCredential()
 """
