@@ -26,15 +26,13 @@ rg = "marhamil-mmlspark"
 pipeline = "mmlsparkacrexport3"
 
 conn_string = sys.argv[1]
-print(f"cs.length: {len(conn_string)}")
 
-os.popen('az extension add --name acrtransfer')
+os.system('az extension add --name acrtransfer')
 
-repos = json.loads(os.popen(
-    'az acr repository list -n {}'.format(acr)).read())
+repos = json.loads(os.popen(f"az acr repository list -n {acr}").read())
 for repo in repos:
     tags = json.loads(os.popen(
-            'az acr repository show-tags -n {} --repository {} --orderby time_desc'.format(acr, repo)).read())
+            f"az acr repository show-tags -n {acr} --repository {repo} --orderby time_desc").read())
 
     for tag in tqdm(tags):
         target_blob = repo + "/" + tag + ".tar"
@@ -43,7 +41,8 @@ for repo in repos:
         backup_exists = BlobClient.from_connection_string(
             conn_string, container_name=container, blob_name=target_blob).exists()
         if not backup_exists:
-            os.popen(f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}")
+            result = os.system(f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}")
+            assert result == 0
             print("Transferred {}".format(target_blob))
         else:
             print("Skipped existing {}".format(image))
@@ -52,5 +51,5 @@ for repo in repos:
             conn_string, container_name=container, blob_name=target_blob).exists()
         if backup_exists:
             print("Deleting {}".format(image))
-            #result = os.system("az acr repository delete --name {} --image {} --yes".format(acr, image))
+            #result = os.system(f"az acr repository delete --name {acr} --image {image} --yes")
             #assert result == 0

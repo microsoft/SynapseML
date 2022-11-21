@@ -1,3 +1,14 @@
+# Notes: To access key vault and grab the connection string, we first need a service principal.
+# We need to add that service principal as a Reader in the RBAC for the key vault in question,
+# as well as adding it with Get and List permissions in the key vault's access policies.
+# Then we need to store that service principal's info as a GitHub secret.
+# We then use that secret here as the credentials for logging into Azure.
+# Instructions are here: https://learn.microsoft.com/en-us/azure/developer/github/github-key-vault
+# In our case, the service principal is called synapseml-clean-acr.
+# The github secret is a repository secret called clean_acr.
+# It is backed up in the mmlspark-keys vault by secret clean-acr-github-actions-info.
+# The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
+
 name: Clean ACR
 on: workflow_dispatch
 jobs:
@@ -9,11 +20,8 @@ jobs:
          uses: azure/login@v1
          with:
            creds: ${{ secrets.clean_acr }}
-       #- name: Get connection string    
-       #  uses: Azure/CLI@v1
-       #  with:
-       #    inlineScript: |
-       #      echo connection_string=$(az keyvault secret show --vault-name maniehtestkv --name clean-acr-connection-string --query) >> $GITHUB_ENV
+       # TODO: The docs say that Azure/get-keyvault-secrets@v1 is deprecated but are vague on what to use instead.
+       # Keep an eye on how this continues to work.
        - name: Get connection string
          uses: Azure/get-keyvault-secrets@v1
          with:
@@ -30,5 +38,3 @@ jobs:
        - name: execute clean acr
          run: python .github/workflows/scripts/clean-acr.py "${{ steps.getSecret.outputs.clean-acr-connection-string }}"
          shell: sh
-
-         #run: python .github/workflows/scripts/clean-acr.py ${{ env.connection_string }}
