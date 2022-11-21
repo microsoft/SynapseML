@@ -25,64 +25,64 @@ jobs:
          uses: jannekem/run-python-script-action@v1
          with:
            script: |
-           import os
-           import json
-           from azure.storage.blob import BlobClient
-           from azure.identity import DefaultAzureCredential
-           import sys
-           import subprocess
-           from tqdm import tqdm
+             import os
+             import json
+             from azure.storage.blob import BlobClient
+             from azure.identity import DefaultAzureCredential
+             import sys
+             import subprocess
+             from tqdm import tqdm
           
-           credential = DefaultAzureCredential()
-           """
-           run this if sas expires and place result in keyvault under secret name 
+             credential = DefaultAzureCredential()
+             """
+             run this if sas expires and place result in keyvault under secret name 
           
-            IMPORT_SAS=?$(az storage container generate-sas \
-              --name acrbackup \
-              --account-name mmlspark \
-              --expiry 2023-01-01 \
-              --permissions rawdl \
-              --https-only \
-              --output tsv)
-              echo $IMPORT_SAS
-           """
+              IMPORT_SAS=?$(az storage container generate-sas \
+                --name acrbackup \
+                --account-name mmlspark \
+                --expiry 2023-01-01 \
+                --permissions rawdl \
+                --https-only \
+                --output tsv)
+                echo $IMPORT_SAS
+             """
 
-           acr = "mmlsparkmcr"
-           container = "acrbackup"
-           rg = "marhamil-mmlspark"
-           pipeline = "mmlsparkacrexport3"
+             acr = "mmlsparkmcr"
+             container = "acrbackup"
+             rg = "marhamil-mmlspark"
+             pipeline = "mmlsparkacrexport3"
           
-           #conn_string = sys.argv[1]
-           #conn_string = ${{ env.clean-acr-connection-string }}
-           conn_string = os.environ['clean-acr-connection-string']
+             #conn_string = sys.argv[1]
+             #conn_string = ${{ env.clean-acr-connection-string }}
+             conn_string = os.environ['clean-acr-connection-string']
           
-           os.popen('az extension add --name acrtransfer')
+             os.popen('az extension add --name acrtransfer')
           
-           repos = json.loads(os.popen(
-               'az acr repository list -n {}'.format(acr)).read())
-               for repo in repos:
-                   tags = json.loads(os.popen(
-                           'az acr repository show-tags -n {} --repository {} --orderby time_desc'.format(acr, repo)).read())
+             repos = json.loads(os.popen(
+                 'az acr repository list -n {}'.format(acr)).read())
+             for repo in repos:
+                 tags = json.loads(os.popen(
+                         'az acr repository show-tags -n {} --repository {} --orderby time_desc'.format(acr, repo)).read())
           
-               for tag in tqdm(tags):
-                   target_blob = repo + "/" + tag + ".tar"
-                   image = repo + ":" + tag
+             for tag in tqdm(tags):
+                 target_blob = repo + "/" + tag + ".tar"
+                 image = repo + ":" + tag
           
-               backup_exists = BlobClient.from_connection_string(
-                   conn_string, container_name=container, blob_name=target_blob).exists()
-               if not backup_exists:
-                   subprocess.run(["sudo", "az", "acr", "pipeline-run", "create", "--resource-group", rg,
-                                 "--registry", acr, "--pipeline", pipeline, "--name", str(abs(hash(target_blob))),
-                                 "--pipeline-type", "export", "--storage-blob", target_blob, "-a", image])
-                   print("Transferred {}".format(target_blob))
-               else:
-                   print("Skipped existing {}".format(image))
+             backup_exists = BlobClient.from_connection_string(
+                 conn_string, container_name=container, blob_name=target_blob).exists()
+             if not backup_exists:
+                 subprocess.run(["sudo", "az", "acr", "pipeline-run", "create", "--resource-group", rg,
+                               "--registry", acr, "--pipeline", pipeline, "--name", str(abs(hash(target_blob))),
+                               "--pipeline-type", "export", "--storage-blob", target_blob, "-a", image])
+                 print("Transferred {}".format(target_blob))
+             else:
+                 print("Skipped existing {}".format(image))
           
-               """
-               backup_exists = BlobClient.from_connection_string(
-                   conn_string, container_name=container, blob_name=target_blob).exists()
-               if backup_exists:
-                   print("Deleting {}".format(image))
-                   result = os.system("az acr repository delete --name {} --image {} --yes".format(acr, image))
-                   assert result == 0
-               """
+             """
+             backup_exists = BlobClient.from_connection_string(
+                 conn_string, container_name=container, blob_name=target_blob).exists()
+             if backup_exists:
+                 print("Deleting {}".format(image))
+                 result = os.system("az acr repository delete --name {} --image {} --yes".format(acr, image))
+                 assert result == 0
+             """
