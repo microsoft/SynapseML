@@ -82,6 +82,7 @@ class LitDeepTextModel(pl.LightningModule):
 
     def _check_params(self):
         try:
+            # TODO: Add other types of models here
             self.model = AutoModelForSequenceClassification.from_pretrained(
                 self.checkpoint, num_labels=self.num_labels
             )

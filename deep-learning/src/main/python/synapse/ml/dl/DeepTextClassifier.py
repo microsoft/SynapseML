@@ -220,7 +220,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
             train_from_scratch=self.getTrainFromScratch(),
         )
         self._set(model=model)
-        
+
         return super()._fit(dataset)
 
     # override this method to provide a correct default backend
