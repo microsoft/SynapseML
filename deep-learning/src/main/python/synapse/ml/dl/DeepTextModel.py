@@ -58,7 +58,6 @@ class DeepTextModel(TorchModel, TextPredictionParams):
 
         kwargs = self._kwargs
         self._set(**kwargs)
-        self._update_cols()
 
     def setTokenizer(self, value):
         return self._set(tokenizer=value)
@@ -111,6 +110,7 @@ class DeepTextModel(TorchModel, TextPredictionParams):
         return None
 
     def _transform(self, df):
+        self._update_cols()
         output_df = super()._transform(df)
         argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
         pred_df = output_df.withColumn(
