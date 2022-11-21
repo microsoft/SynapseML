@@ -39,21 +39,21 @@ for repo in repos:
         target_blob = repo + "/" + tag + ".tar"
         image = repo + ":" + tag
   
-      backup_exists = BlobClient.from_connection_string(
-          conn_string, container_name=container, blob_name=target_blob).exists()
-      if not backup_exists:
-          subprocess.run(["sudo", "az", "acr", "pipeline-run", "create", "--resource-group", rg,
-                        "--registry", acr, "--pipeline", pipeline, "--name", str(abs(hash(target_blob))),
-                        "--pipeline-type", "export", "--storage-blob", target_blob, "-a", image])
-          print("Transferred {}".format(target_blob))
-      else:
-          print("Skipped existing {}".format(image))
-    
-      """
-      backup_exists = BlobClient.from_connection_string(
-          conn_string, container_name=container, blob_name=target_blob).exists()
-      if backup_exists:
-          print("Deleting {}".format(image))
-          result = os.system("az acr repository delete --name {} --image {} --yes".format(acr, image))
-          assert result == 0
-      """
+        backup_exists = BlobClient.from_connection_string(
+            conn_string, container_name=container, blob_name=target_blob).exists()
+        if not backup_exists:
+            subprocess.run(["sudo", "az", "acr", "pipeline-run", "create", "--resource-group", rg,
+                          "--registry", acr, "--pipeline", pipeline, "--name", str(abs(hash(target_blob))),
+                          "--pipeline-type", "export", "--storage-blob", target_blob, "-a", image])
+            print("Transferred {}".format(target_blob))
+        else:
+            print("Skipped existing {}".format(image))
+      
+        """
+        backup_exists = BlobClient.from_connection_string(
+            conn_string, container_name=container, blob_name=target_blob).exists()
+        if backup_exists:
+            print("Deleting {}".format(image))
+            result = os.system("az acr repository delete --name {} --image {} --yes".format(acr, image))
+            assert result == 0
+        """
