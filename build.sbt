@@ -430,7 +430,7 @@ lazy val cognitive = (project in file("cognitive"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.24.1",
+      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.24.2@jar",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
       "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
