@@ -26,6 +26,7 @@ rg = "marhamil-mmlspark"
 pipeline = "mmlsparkacrexport3"
 
 conn_string = sys.argv[1]
+print(f"cs.length: {conn_string}")
 
 os.popen('az extension add --name acrtransfer')
 
