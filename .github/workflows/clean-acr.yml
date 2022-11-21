@@ -13,7 +13,7 @@ name: Clean ACR
 
 on:
   schedule:
-    - cron: 0 0 * * 0 # every sunday at midnight
+    - cron: "0 1 * * 0" # every sunday at 1am
     
 jobs:
   clean-acr:
