@@ -56,8 +56,6 @@ class DeepVisionModel(TorchModel, PredictionParams):
 
         kwargs = self._kwargs
         self._set(**kwargs)
-        self._update_transform_fn()
-        self._update_cols()
 
     def setTransformFn(self, value):
         return self._set(transform_fn=value)
@@ -116,6 +114,9 @@ class DeepVisionModel(TorchModel, PredictionParams):
         return None
 
     def _transform(self, df):
+        self._update_transform_fn()
+        self._update_cols()
+        
         output_df = super()._transform(df)
         argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
         pred_df = output_df.withColumn(

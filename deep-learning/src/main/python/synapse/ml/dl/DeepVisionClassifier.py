@@ -142,23 +142,6 @@ class DeepVisionClassifier(TorchEstimator, PredictionParams):
         kwargs = self._kwargs
         self._set(**kwargs)
 
-        self._update_input_shapes()
-        self._update_cols()
-        self._update_transformation_fn()
-
-        model = LitDeepVisionModel(
-            backbone=self.getBackbone(),
-            additional_layers_to_train=self.getAdditionalLayersToTrain(),
-            num_classes=self.getNumClasses(),
-            input_shape=self.getInputShapes()[0],
-            optimizer_name=self.getOptimizerName(),
-            loss_name=self.getLossName(),
-            label_col=self.getLabelCol(),
-            image_col=self.getImageCol(),
-            dropout_aux=self.getDropoutAUX(),
-        )
-        self._set(model=model)
-
     def setBackbone(self, value):
         return self._set(backbone=value)
 
@@ -213,6 +196,24 @@ class DeepVisionClassifier(TorchEstimator, PredictionParams):
         self.setLabelCols([self.getLabelCol()])
 
     def _fit(self, dataset):
+
+        self._update_input_shapes()
+        self._update_cols()
+        self._update_transformation_fn()
+
+        model = LitDeepVisionModel(
+            backbone=self.getBackbone(),
+            additional_layers_to_train=self.getAdditionalLayersToTrain(),
+            num_classes=self.getNumClasses(),
+            input_shape=self.getInputShapes()[0],
+            optimizer_name=self.getOptimizerName(),
+            loss_name=self.getLossName(),
+            label_col=self.getLabelCol(),
+            image_col=self.getImageCol(),
+            dropout_aux=self.getDropoutAUX(),
+        )
+        self._set(model=model)
+
         return super()._fit(dataset)
 
     # override this method to provide a correct default backend
