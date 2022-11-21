@@ -9,11 +9,17 @@ jobs:
          uses: azure/login@v1
          with:
            creds: ${{ secrets.clean_acr }}
-       - name: Get connection string    
-         uses: Azure/CLI@v1
+       #- name: Get connection string    
+       #  uses: Azure/CLI@v1
+       #  with:
+       #    inlineScript: |
+       #      echo connection_string=$(az keyvault secret show --vault-name maniehtestkv --name clean-acr-connection-string --query) >> $GITHUB_ENV
+       - name: Get connection string
+         uses: Azure/get-keyvault-secrets@v1
          with:
-           inlineScript: |
-             echo connection_string=$(az keyvault secret show --vault-name maniehtestkv --name clean-acr-connection-string --query) >> $GITHUB_ENV
+           keyvault: "maniehtestkv"
+           secrets: "clean-acr-connection-string"
+         id: getSecret
        - name: checkout repo content
          uses: actions/checkout@v2 # checkout the repo
        - name: setup python
@@ -22,5 +28,7 @@ jobs:
            python-version: '3.x'
        - run: pip install azure-storage-blob azure-identity tqdm
        - name: execute clean acr
-         run: python .github/workflows/scripts/clean-acr.py ${{ env.connection_string }}
+         run: python .github/workflows/scripts/clean-acr.py ${{ steps.getSecret.outputs.clean-acr-connection-string }}
          shell: sh
+
+         #run: python .github/workflows/scripts/clean-acr.py ${{ env.connection_string }}
