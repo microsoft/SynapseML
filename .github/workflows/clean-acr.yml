@@ -22,5 +22,5 @@ jobs:
            python-version: '3.x'
        - run: pip install azure-storage-blob azure-identity tqdm
        - name: execute clean acr
-         run: python ${{ env.DEVOPS_DIR }}/.github/workflows/scripts/clean-acr.py ${{ env.clean_acr_connection_string }}
+         run: python scripts/clean-acr.py ${{ env.clean_acr_connection_string }}
          shell: sh
