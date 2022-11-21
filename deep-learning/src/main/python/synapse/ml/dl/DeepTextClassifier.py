@@ -146,6 +146,22 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         kwargs = self._kwargs
         self._set(**kwargs)
 
+        self._update_cols()
+        self._update_transformation_fn()
+
+        model = LitDeepTextModel(
+            checkpoint=self.getCheckpoint(),
+            additional_layers_to_train=self.getAdditionalLayersToTrain(),
+            num_labels=self.getNumClasses(),
+            optimizer_name=self.getOptimizerName(),
+            loss_name=self.getLossName(),
+            label_col=self.getLabelCol(),
+            text_col=self.getTextCol(),
+            learning_rate=self.getLearningRate(),
+            train_from_scratch=self.getTrainFromScratch(),
+        )
+        self._set(model=model)
+
     def setCheckpoint(self, value):
         return self._set(checkpoint=value)
 
@@ -205,22 +221,6 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         self.setLabelCols([self.getLabelCol()])
 
     def _fit(self, dataset):
-        self._update_cols()
-        self._update_transformation_fn()
-
-        model = LitDeepTextModel(
-            checkpoint=self.getCheckpoint(),
-            additional_layers_to_train=self.getAdditionalLayersToTrain(),
-            num_labels=self.getNumClasses(),
-            optimizer_name=self.getOptimizerName(),
-            loss_name=self.getLossName(),
-            label_col=self.getLabelCol(),
-            text_col=self.getTextCol(),
-            learning_rate=self.getLearningRate(),
-            train_from_scratch=self.getTrainFromScratch(),
-        )
-        self._set(model=model)
-
         return super()._fit(dataset)
 
     # override this method to provide a correct default backend
