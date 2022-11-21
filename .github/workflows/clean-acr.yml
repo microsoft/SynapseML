@@ -34,7 +34,7 @@ jobs:
          uses: actions/setup-python@v4
          with:
            python-version: '3.x'
-       - run: pip install azure-storage-blob azure-identity tqdm
+       - run: pip install azure-storage-blob azure-identity
        - name: execute clean acr
          run: python .github/workflows/scripts/clean-acr.py "${{ steps.getSecret.outputs.clean-acr-connection-string }}"
          shell: sh

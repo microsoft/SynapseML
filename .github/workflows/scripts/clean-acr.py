@@ -34,7 +34,7 @@ for repo in repos:
     tags = json.loads(os.popen(
             f"az acr repository show-tags -n {acr} --repository {repo} --orderby time_desc").read())
 
-    for tag in tqdm(tags):
+    for tag in tags:
         target_blob = repo + "/" + tag + ".tar"
         image = repo + ":" + tag
   
