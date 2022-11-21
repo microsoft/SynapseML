@@ -42,13 +42,13 @@ for repo in repos:
         if not backup_exists:
             result = os.system(f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}")
             assert result == 0
-            print("Transferred {}".format(target_blob))
+            print(f"Transferred {target_blob}")
         else:
-            print("Skipped existing {}".format(image))
+            print(f"Skipped existing {image}")
       
         backup_exists = BlobClient.from_connection_string(
             conn_string, container_name=container, blob_name=target_blob).exists()
         if backup_exists:
-            print("Deleting {}".format(image))
+            print(f"Deleting {image}")
             result = os.system(f"az acr repository delete --name {acr} --image {image} --yes")
             assert result == 0
