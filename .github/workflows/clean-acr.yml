@@ -10,7 +10,11 @@
 # The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
 
 name: Clean ACR
-on: workflow_dispatch
+
+on:
+  schedule:
+    - cron: 0 0 * * 0 # every sunday at midnight
+    
 jobs:
   clean-acr:
      name: Clean ACR
