@@ -118,17 +118,18 @@ class LitDeepVisionModel(pl.LightningModule):
 
         # The Lightning checkpoint also saves the arguments passed into the LightningModule init
         # under the "hyper_parameters" key in the checkpoint.
-        self.save_hyperparameters(
-            "backbone",
-            "additional_layers_to_train",
-            "num_classes",
-            "input_shape",
-            "optimizer_name",
-            "loss_name",
-            "label_col",
-            "image_col",
-            "dropout_aux",
-        )
+        # TODO: Add this back after upgrading pytorch_lightning to a version that includes fix
+        # self.save_hyperparameters(
+        #     "backbone",
+        #     "additional_layers_to_train",
+        #     "num_classes",
+        #     "input_shape",
+        #     "optimizer_name",
+        #     "loss_name",
+        #     "label_col",
+        #     "image_col",
+        #     "dropout_aux",
+        # )
 
     def _check_params(self):
         # TORCHVISION

@@ -116,7 +116,7 @@ class DeepVisionModel(TorchModel, PredictionParams):
     def _transform(self, df):
         self._update_transform_fn()
         self._update_cols()
-        
+
         output_df = super()._transform(df)
         argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
         pred_df = output_df.withColumn(
