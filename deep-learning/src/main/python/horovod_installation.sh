@@ -8,6 +8,8 @@ set -eu
 # Install prerequisite libraries that horovod depends on
 pip install pytorch-lightning==1.5.0
 pip install torchvision==0.12.0
+pip install transformers==4.15.0
+pip install petastorm>=0.12.0
 
 # Remove Outdated Signing Key:
 sudo apt-key del 7fa2af80
@@ -32,9 +34,12 @@ libcusparse-dev-11-0=11.1.1.245-1
 
 git clone --recursive https://github.com/horovod/horovod.git
 cd horovod
-# fix version 0.25.0
-git fetch origin refs/tags/v0.25.0:tags/v0.25.0
-git checkout tags/v0.25.0 -b v0.25.0-branch
+# # fix version 0.25.0
+# git fetch origin refs/tags/v0.25.0:tags/v0.25.0
+# git checkout tags/v0.25.0 -b v0.25.0-branch
+# fix to this commit number until they release a new version
+git checkout ab97fd15bbba3258adcdd12983f36a1cdeacbc94
+git checkout -b tmp-branch
 rm -rf build/ dist/
 HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 \
 /databricks/python3/bin/python setup.py bdist_wheel

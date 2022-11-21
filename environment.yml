@@ -35,3 +35,5 @@ dependencies:
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
+    - transformers==4.15.0
+    - huggingface-hub>=0.8.1

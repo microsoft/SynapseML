@@ -34,6 +34,9 @@ object DotnetCodegen {
     if (!projectDir.exists()){
       projectDir.mkdirs()
     }
+    val newtonsoftDep = if(curProject == "DeepLearning") {
+      s"""<PackageReference Include="Newtonsoft.Json" Version="13.0.1" />""".stripMargin
+    } else ""
     // TODO: update SynapseML.DotnetBase version whenever we upload a new one
     writeFile(new File(projectDir, s"${curProject}ProjectSetup.csproj"),
       s"""<Project Sdk="Microsoft.NET.Sdk">
@@ -52,6 +55,7 @@ object DotnetCodegen {
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
          |    <PackageReference Include="SynapseML.DotnetBase" Version="0.9.1" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+         |    $newtonsoftDep
          |  </ItemGroup>
          |
          |  <ItemGroup>

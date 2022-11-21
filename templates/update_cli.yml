@@ -1,7 +1,7 @@
 steps:
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.8.X'
+      versionSpec: '3.8'
       architecture: 'x64'
   - task: JavaToolInstaller@0
     inputs:

@@ -15,6 +15,7 @@ from pyspark.sql.types import DoubleType
 from pytorch_lightning.callbacks import ModelCheckpoint
 from synapse.ml.dl import *
 
+from .conftest import CallbackBackend
 from .test_deep_vision_model import MyDummyCallback
 
 
@@ -62,14 +63,6 @@ def generate_data(spark, train_folder, test_folder):
     ).withColumn("label", col("label").cast(DoubleType()))
 
     return train_df, test_df
-
-
-class CallbackBackend(object):
-    def run(self, fn, args=(), kwargs={}, env={}):
-        return [fn(*args, **kwargs)] * self.num_processes()
-
-    def num_processes(self):
-        return 1
 
 
 @pytest.mark.skip(reason="not testing this for now")
