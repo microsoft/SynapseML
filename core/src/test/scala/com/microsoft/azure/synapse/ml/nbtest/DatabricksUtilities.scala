@@ -61,11 +61,13 @@ object DatabricksUtilities {
 
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
-    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository))
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("pypi" -> Map("package" -> "transformers==4.15.0")),
+    Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation.sh"))
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
   ).toJson.compactPrint
 
   // Execution Params

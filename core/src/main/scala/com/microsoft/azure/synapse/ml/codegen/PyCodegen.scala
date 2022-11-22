@@ -57,12 +57,16 @@ object PyCodegen {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
+      // There's `Already borrowed` error found in transformers 4.16.2 when using tokenizers
       s"""extras_require={"extras": [
          |    "cmake",
          |    "horovod==0.25.0",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
          |    "torch==1.11.0",
-         |    "torchvision>=0.12.0"
+         |    "torchvision>=0.12.0",
+         |    "transformers==4.15.0",
+         |    "petastorm>=0.12.0",
+         |    "huggingface-hub>=0.8.1",
          |]},
          |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""

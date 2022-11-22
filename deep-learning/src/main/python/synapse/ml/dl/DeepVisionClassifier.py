@@ -12,8 +12,8 @@ from pyspark.ml.param.shared import Param, Params
 from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
-from synapse.ml.dl.utils import keywords_catch
-from synapse.ml.dl.PredictionParams import PredictionParams
+from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
+from synapse.ml.dl.PredictionParams import VisionPredictionParams
 
 _HOROVOD_AVAILABLE = _module_available("horovod")
 if _HOROVOD_AVAILABLE:
@@ -28,7 +28,7 @@ else:
     raise ModuleNotFoundError("module not found: horovod")
 
 
-class DeepVisionClassifier(TorchEstimator, PredictionParams):
+class DeepVisionClassifier(TorchEstimator, VisionPredictionParams):
 
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
@@ -217,30 +217,9 @@ class DeepVisionClassifier(TorchEstimator, PredictionParams):
 
     # override this method to provide a correct default backend
     def _get_or_create_backend(self):
-        backend = self.getBackend()
-        num_proc = self.getNumProc()
-        if backend is None:
-            if num_proc is None:
-                num_proc = self._find_num_proc()
-            backend = SparkBackend(
-                num_proc,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                prefix_output_with_timestamp=True,
-                verbose=self.getVerbose(),
-            )
-        elif num_proc is not None:
-            raise ValueError(
-                'At most one of parameters "backend" and "num_proc" may be specified'
-            )
-        return backend
-
-    def _find_num_proc(self):
-        if self.getUseGpu():
-            # set it as number of executors for now (ignoring num_gpus per executor)
-            sc = SparkContext.getOrCreate()
-            return sc._jsc.sc().getExecutorMemoryStatus().size() - 1
-        return None
+        return get_or_create_backend(
+            self.getBackend(), self.getNumProc(), self.getVerbose(), self.getUseGpu()
+        )
 
     def _update_transformation_fn(self):
         if self.getTransformationFn() is None:
@@ -258,23 +237,18 @@ class DeepVisionClassifier(TorchEstimator, PredictionParams):
                 )
                 self.setTransformFn(transform)
 
-            def _create_transform_row(image_col, label_col, transform):
-                def _transform_row(row):
-                    path = row[image_col]
-                    label = row[label_col]
-                    image = Image.open(path).convert("RGB")
-                    image = transform(image).numpy()
-                    return {image_col: image, label_col: label}
+            image_col = self.getImageCol()
+            label_col = self.getLabelCol()
+            transform = self.getTransformFn()
 
-                return _transform_row
+            def _transform_row(row):
+                path = row[image_col]
+                label = row[label_col]
+                image = Image.open(path).convert("RGB")
+                image = transform(image).numpy()
+                return {image_col: image, label_col: label}
 
-            self.setTransformationFn(
-                _create_transform_row(
-                    self.getImageCol(),
-                    self.getLabelCol(),
-                    self.getTransformFn(),
-                )
-            )
+            self.setTransformationFn(_transform_row)
 
     def get_model_class(self):
         return DeepVisionModel
