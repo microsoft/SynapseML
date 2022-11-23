@@ -94,11 +94,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.1/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.2/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.1/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.2/scala/index.html',
             },
           ],
         },
