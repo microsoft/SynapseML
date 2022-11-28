@@ -6,13 +6,8 @@ package com.microsoft.azure.synapse.ml.opencv
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.image.{UnrollBinaryImage, UnrollImage}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
-import com.microsoft.azure.synapse.ml.param.DataFrameEquality
-import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkException
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.opencv.core.{CvType, Mat, MatOfByte}
@@ -71,7 +66,7 @@ trait OpenCVTestUtils {
     (jframe, panel)
   }
 
-  protected val firstBytes = Map(
+  protected val firstBytes: Map[String, Array[Double]] = Map(
     "00001.png" -> Array(235.0, 231.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0),
     "00002.png" -> Array(222.0, 218.0, 194.0, 186.0, 222.0, 236.0, 238.0, 241.0, 243.0, 245.0),
     "00000.png" -> Array(49.0, 47.0, 51.0, 53.0, 46.0, 41.0, 47.0, 45.0, 44.0, 41.0),
@@ -79,91 +74,9 @@ trait OpenCVTestUtils {
     "00005.png" -> Array(83.0, 61.0, 26.0, 36.0, 65.0, 67.0, 58.0, 54.0, 63.0, 65.0),
     "00003.png" -> Array(149.0, 187.0, 193.0, 205.0, 202.0, 183.0, 181.0, 180.0, 182.0, 189.0)
   )
-
-}
-
-class UnrollImageSuite extends TransformerFuzzing[UnrollImage] with OpenCVTestUtils with DataFrameEquality {
-
-  lazy val filesRoot: File =  BuildInfo.datasetDir
-  lazy val imagePath: String = FileUtilities.join(filesRoot,"Images", "CIFAR").toString
-  lazy val images: DataFrame = spark.read.image.load(imagePath)
-
-  test("roll and unroll") {
-    val imageCollection = images.select("image").collect().map(_.getAs[Row](0))
-    imageCollection.foreach(row =>
-      assert(row ===
-        UnrollImage.roll(
-          UnrollImage.unroll(row).toArray.map(_.toInt),
-          row.getString(0),
-          row.getInt(1),
-          row.getInt(2),
-          row.getInt(3),
-          row.getInt(4)
-        )
-      )
-    )
-  }
-
-  test("unroll") {
-    assert(images.count() == 6)
-
-    val unroll = new UnrollImage().setOutputCol("result")
-    val unrolled = unroll.transform(images).select("image.origin", "result").collect
-
-    unrolled.foreach(row => {
-      val path = new Path(row.getString(0))
-      val expected = firstBytes(path.getName)
-      val result = row(1).asInstanceOf[DenseVector].toArray
-
-      val length = result.length
-      if (length != 3072) throw new Exception(s"array length should be 3072, not $length ")
-
-      assert(result.slice(0, 10) === expected)
-    })
-  }
-
-  override def testObjects(): Seq[TestObject[UnrollImage]] =
-    Seq(new TestObject(new UnrollImage().setOutputCol("result"), images))
-
-  override def reader: UnrollImage.type = UnrollImage
-}
-
-class UnrollBinaryImageSuite extends TransformerFuzzing[UnrollBinaryImage]
-  with OpenCVTestUtils with DataFrameEquality {
-
-  lazy val filesRoot: File = BuildInfo.datasetDir
-  lazy val imagePath: String = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
-  lazy val images: DataFrame = spark.read.image.load(imagePath)
-  lazy val binaryImages: DataFrame = spark.read.binary.load(imagePath)
-    .withColumn("image", col("value.bytes"))
-
-  test("unroll did not change") {
-    assert(
-      new UnrollImage().setOutputCol("result")
-        .transform(images).select("result") ===
-        new UnrollBinaryImage().setOutputCol("result")
-          .transform(binaryImages).select("result")
-    )
-  }
-
-  // This is needed for some small 256!=0 issue in unroll.
-  // It only happens at one place throughout the tests though
-  override implicit lazy val dvEq: Equality[DenseVector] = (a: DenseVector, b: Any) => b match {
-    case bArr: DenseVector =>
-      a.values.zip(bArr.values).map {
-        case (x, y) if doubleEq.areEqual(x, y) => 0
-        case _ => 0
-      }.sum <= 1
-  }
-
-  override def testObjects(): Seq[TestObject[UnrollBinaryImage]] =
-    Seq(new TestObject(new UnrollBinaryImage().setOutputCol("result"), binaryImages))
-
-  override def reader: UnrollBinaryImage.type = UnrollBinaryImage
 }
 
 class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with OpenCVTestUtils {
-
   //TODO this is needed to stop the build from freezing
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     //noinspection NameBooleanParameters
@@ -176,32 +89,6 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   lazy val badImages: DataFrame =
     spark.read.image.load(
       ".//opencv//src//test//scala//com//microsoft//azure//synapse//ml//opencv//cmyk_image.jpg")
-
-  test("general workflow") {
-    //assert(images.count() == 30) //TODO this does not work on build machine for some reason
-
-    val tr = new ImageTransformer()
-      .setOutputCol("out")
-      .resize(height = 15, width = 10)
-
-    val preprocessed = tr.transform(images)
-
-    val outSizes = preprocessed.select(preprocessed("out.height"), preprocessed("out.width")).collect
-
-    outSizes.foreach { row: Row =>
-      assert(row.getInt(0) == 15 && row.getInt(1) == 10, "output images have incorrect size")
-    }
-
-    val unroll = new UnrollImage()
-      .setInputCol(tr.getOutputCol)
-      .setOutputCol("final")
-
-    unroll.transform(preprocessed)
-      .select("final")
-      .collect().foreach(row =>
-      assert(row.getAs[DenseVector](0).toArray.length == 10 * 15 * 3, "unrolled image is incorrect"))
-
-  }
 
   test("binary file input") {
     val binaries = spark.read.binary.load(FileUtilities.join(fileLocation, "**").toString)
@@ -250,7 +137,6 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   }
 
   test("crop") {
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .resize(height = 100, width = 200)
