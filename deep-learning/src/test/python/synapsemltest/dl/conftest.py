@@ -8,8 +8,10 @@ import urllib
 from os.path import join
 
 import numpy as np
+import pandas as pd
 import pytest
 import torchvision.transforms as transforms
+from pyspark.ml.feature import StringIndexer
 
 IS_WINDOWS = os.name == "nt"
 delimiter = "\\" if IS_WINDOWS else "/"
@@ -17,6 +19,14 @@ dataset_dir = (
     delimiter.join([os.getcwd(), os.pardir, os.pardir, os.pardir, os.pardir])
     + delimiter
 )
+
+
+class CallbackBackend(object):
+    def run(self, fn, args=(), kwargs={}, env={}):
+        return [fn(*args, **kwargs)] * self.num_processes()
+
+    def num_processes(self):
+        return 1
 
 
 def _download_dataset():
@@ -82,3 +92,20 @@ def transform():
         ]
     )
     return transform
+
+
+def _prepare_text_data(spark):
+    df = (
+        spark.read.format("csv")
+        .option("header", "true")
+        .load(
+            "wasbs://publicwasb@mmlspark.blob.core.windows.net/text_classification/Emotion_classification.csv"
+        )
+    )
+    indexer = StringIndexer(inputCol="Emotion", outputCol="label")
+    indexer_model = indexer.fit(df)
+    df = indexer_model.transform(df).drop("Emotion")
+
+    train_df, test_df = df.randomSplit([0.85, 0.15], seed=1)
+
+    return train_df, test_df

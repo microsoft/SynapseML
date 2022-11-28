@@ -19,8 +19,6 @@ import scala.collection.Iterator.iterate
 
 trait BaseWrappable extends Params {
 
-  import com.microsoft.azure.synapse.ml.codegen.DefaultParamInfo._
-
   protected val thisStage: Params = this
 
   protected lazy val copyrightLines: String =
@@ -283,7 +281,7 @@ trait PythonWrappable extends BaseWrappable {
 
   }
 
-  //noinspection ScalaStyle
+  //scalastyle:off method.length
   protected def pythonClass(): String = {
     s"""|$copyrightLines
         |
@@ -352,12 +350,13 @@ trait PythonWrappable extends BaseWrappable {
         |${indent(pyAdditionalMethods, 1)}
         """.stripMargin
   }
+  //scalastyle:on method.length
 
   def makePyFile(conf: CodegenConfig): Unit = {
     val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
     val srcFolders = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml").split(".".toCharArray)
-    val srcDir = FileUtilities.join((Seq(conf.pySrcDir.toString) ++ srcFolders.toSeq): _*)
+    val srcDir = FileUtilities.join(Seq(conf.pySrcDir.toString) ++ srcFolders.toSeq: _*)
     srcDir.mkdirs()
     Files.write(
       FileUtilities.join(srcDir, pyClassName + ".py").toPath,
@@ -401,7 +400,7 @@ trait RWrappable extends BaseWrappable {
     s"""
        |#' $classNameHelper
        |#'
-       |${paramDocLines}
+       |$paramDocLines
        |#' @export
        |""".stripMargin
   }
@@ -420,8 +419,8 @@ trait RWrappable extends BaseWrappable {
   }
 
   private def getRConditionalSetterLine(name: String, value: String, setterSuffix: String = ""): String = {
-    s"""if (!is.null(${name})) mod <- mod %>% """ +
-      s"""invoke("set${name.capitalize}${setterSuffix}", $value)"""
+    s"""if (!is.null($name)) mod <- mod %>% """ +
+      s"""invoke("set${name.capitalize}$setterSuffix", $value)"""
   }
 
   protected def rExtraInitLines: String = {
@@ -436,7 +435,7 @@ trait RWrappable extends BaseWrappable {
            |    return(mod)
            |transformer <- mod %>%
            |    invoke("fit", df)
-           |scala_transformer_class <- "${companionModelClassName}"
+           |scala_transformer_class <- "$companionModelClassName"
            |""".stripMargin
       case _ =>
         s"""
@@ -455,7 +454,7 @@ trait RWrappable extends BaseWrappable {
        |    x,
        |${indent(rParamsArgs, 1)}
        |${indent(rExtraInitLines, 1)}
-       |    uid=random_string("${rFuncName}"),
+       |    uid=random_string("$rFuncName"),
        |    ...)
        |{
        |   if (unfit.model) {

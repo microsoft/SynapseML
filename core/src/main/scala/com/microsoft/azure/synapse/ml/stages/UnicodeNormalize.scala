@@ -56,7 +56,7 @@ class UnicodeNormalize(val uid: String) extends Transformer
       require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
       val normalizeFunc = (value: String) =>
-        if (value == null) null
+        if (value == null) null  //scalastyle:ignore null
         else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
       val f = if (getLower)

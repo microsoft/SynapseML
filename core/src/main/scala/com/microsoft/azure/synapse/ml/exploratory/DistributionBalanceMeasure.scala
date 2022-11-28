@@ -87,7 +87,7 @@ class DistributionBalanceMeasure(override val uid: String)
 
       //noinspection ScalaStyle
       if (getVerbose)
-        featureStats.cache.show(numRows = 20, truncate = false)
+        featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
       // TODO (for v2): Introduce a referenceDistribution function param for user to override the uniform distribution
       val referenceDistribution = uniformDistribution
@@ -160,8 +160,14 @@ private[exploratory] object DistributionMetrics {
   val CHISQUAREDTESTSTATISTIC = "chi_sq_stat"
   val CHISQUAREDPVALUE = "chi_sq_p_value"
 
-  val METRICS = Seq(KLDIVERGENCE, JSDISTANCE, INFNORMDISTANCE, TOTALVARIATIONDISTANCE, WASSERSTEINDISTANCE,
-    CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
+  val METRICS: Seq[String] = Seq(
+    KLDIVERGENCE,
+    JSDISTANCE,
+    INFNORMDISTANCE,
+    TOTALVARIATIONDISTANCE,
+    WASSERSTEINDISTANCE,
+    CHISQUAREDTESTSTATISTIC,
+    CHISQUAREDPVALUE)
 }
 
 //noinspection SpellCheckingInspection

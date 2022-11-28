@@ -5,9 +5,10 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{safeSend, sendAndParseJson}
+import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
 import org.apache.http.client.entity.UrlEncodedFormEntity
 import org.apache.http.client.methods._
@@ -21,7 +22,6 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.postfixOps
-import scala.sys.process._
 
 case class LivyBatchData(id: Int,
                          state: String,
@@ -75,7 +75,7 @@ case class LivyBatch(data: LivyBatchData,
     println(s"Cancelling run $id on pool $sparkPool")
     val cancelRequest = new HttpDelete(s"${livyUrl(sparkPool)}/$id")
     cancelRequest.setHeader("Authorization", s"Bearer $SynapseToken")
-    safeSend(cancelRequest,backoffs = List(100,500,1000,10000,10000))
+    safeSend(cancelRequest, backoffs = List(100, 500, 1000, 10000, 10000))
   }
 
   def jobStatusPage: String = {
@@ -143,17 +143,6 @@ object SynapseUtilities {
     s"$WorkspaceRoot/livyApi/versions/2019-11-01-preview/sparkPools/$sparkPool/batches"
   }
 
-  def listPythonJobFiles(): Seq[String] = {
-    val rootDirectory = FileUtilities
-      .join(BuildInfo.baseDirectory.getParent, "notebooks/features")
-      .getCanonicalFile
-
-    FileUtilities.recursiveListFiles(rootDirectory)
-      .filter(_.getAbsolutePath.endsWith(".py"))
-      .map(file => file.getAbsolutePath)
-      .sorted
-  }
-
   def getQueuedJobs(poolName: String): Applications = {
     val uri: String =
       WorkspaceRoot +
@@ -196,7 +185,6 @@ object SynapseUtilities {
       "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
-    val packages: String = s"com.microsoft.azure:synapseml_2.12:${BuildInfo.version}"
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""
@@ -210,8 +198,8 @@ object SynapseUtilities {
          | "numExecutors" : 2,
          | "conf" :
          |     {
-         |         "spark.jars.packages" : "$packages",
-         |         "spark.jars.repositories" : "https://mmlspark.azureedge.net/maven",
+         |         "spark.jars.packages" : "$SparkMavenPackageList",
+         |         "spark.jars.repositories" : "$SparkMavenRepositoryList",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
          |         "spark.executor.userClassPathFirst": "true"
@@ -224,14 +212,6 @@ object SynapseUtilities {
     createRequest.setHeader("Authorization", s"Bearer $SynapseToken")
     createRequest.setEntity(new StringEntity(livyPayload))
     LivyBatch(sendAndParseJson(createRequest).convertTo[LivyBatchData], runName, poolName)
-  }
-
-  def exec(command: String): String = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command !!
-    }
   }
 
   private def bigDataPoolBicepPayload(bigDataPoolName: String,
