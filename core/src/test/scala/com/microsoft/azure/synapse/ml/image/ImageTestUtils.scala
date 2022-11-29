@@ -44,6 +44,14 @@ trait ImageTestUtils extends TestBase {
         0.12380804, 3.8639085, -4.79466800, -2.41463420, -5.17418430))).toDF
   }
 
+  def testImages(spark: SparkSession): DataFrame = {
+    val images = spark.read.image.load(imagePath)
+
+    val unroll = new UnrollImage().setInputCol("image").setOutputCol(inputCol)
+
+    unroll.transform(images).select(inputCol)
+  }
+
   def makeFakeData(spark: SparkSession, rows: Int, size: Int, outputDouble: Boolean = false): DataFrame = {
     import spark.implicits._
     if (outputDouble) {

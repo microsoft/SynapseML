@@ -1,0 +1,6 @@
+Converts the representation of an m * n pixel image to an m * n vector
+of double.
+
+The parameter "inputCol" indicates the column containing the image; its
+default name is "image".  The default name for "outputCol", which holds
+the resultant vector is "<uid>_output".
