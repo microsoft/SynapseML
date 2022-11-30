@@ -131,12 +131,12 @@ class VerifyLightGBMRegressor extends Benchmarks
   }
 
   test("Verify LightGBM Regressor categorical parameter") {
-    val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed.toLong)
+    val Array(train, test) = flareDF.randomSplit(Array(0.8, 0.2), seed)
     val model = baseModel.setCategoricalSlotNames(flareDF.columns.filter(_.startsWith("c_")))
     val metric = regressionEvaluator.evaluate(model.fit(train).transform(test))
 
     // Verify we get good result
-    assert(metric < 0.6)
+    assert(metric < 0.62)
   }
 
   test("Verify LightGBM Regressor with bad column names fails early") {

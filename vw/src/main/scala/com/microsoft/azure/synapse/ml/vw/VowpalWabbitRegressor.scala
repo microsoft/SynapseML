@@ -54,9 +54,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    logPredict(
-      throw new NotImplementedError("Not implement")
-    )
+    throw new NotImplementedError("Not implement")
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
