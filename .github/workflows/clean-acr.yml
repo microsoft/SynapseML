@@ -40,6 +40,8 @@ jobs:
          uses: azure/CLI@v1
          with:
            inlineScript: |
+             python -m venv acr-env
+             source acr-env/bin/activate
              pip install --upgrade pip
              pip install azure-storage-blob azure-identity azure-keyvault-secrets
              python .github/workflows/scripts/clean-acr.py mmlspark-keys clean-acr-connection-string
