@@ -24,7 +24,7 @@ container = "acrbackup"
 rg = "marhamil-mmlspark"
 pipeline = "mmlsparkacrexport3"
 
-conn_string = os.environ("CLEAN_ACR_CONNECTION_STRING")
+conn_string = os.environ["CLEAN_ACR_CONNECTION_STRING"]
 
 os.system("az extension add --name acrtransfer")
 
