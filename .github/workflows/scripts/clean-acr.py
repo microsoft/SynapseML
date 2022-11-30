@@ -1,7 +1,7 @@
 import os
 import json
-from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobClient
+from azure.identity import DefaultAzureCredential
 import sys
 import subprocess
 from azure.keyvault.secrets import SecretClient
@@ -29,7 +29,7 @@ pipeline = "mmlsparkacrexport3"
 keyvaultName = sys.argv[1]
 secretName = sys.argv[2]
 kvUri = f"https://{keyvaultName}.vault.azure.net"
-kvClient = SecretClient(vault_url=kvUrl, credenial=DefaultAzureCredentials())
+kvClient = SecretClient(vault_url=kvUri, credenial=DefaultAzureCredentials())
 conn_string = client.get_secret(secretName)
 
 os.system("az extension add --name acrtransfer")
