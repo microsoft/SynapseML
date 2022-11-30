@@ -9,9 +9,9 @@ dependencies:
   - r-base=4.1.1
   - r-sparklyr=1.7.6
   - r-devtools=2.4.2
-  - pyarrow>=0.15.0
-  - numpy>=1.19.3
   - pip:
+    - pyarrow>=0.15.0
+    - numpy>=1.19.3
     - pyspark==3.2.3
     - wheel
     - sphinx==4.2.0
