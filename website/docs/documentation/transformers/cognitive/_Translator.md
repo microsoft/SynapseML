@@ -44,7 +44,7 @@ translate = (Translate()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.Translate
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -119,7 +119,7 @@ transliterate = (Transliterate()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.Transliterate
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -191,7 +191,7 @@ detect = (Detect()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.Detect
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -259,7 +259,7 @@ breakSentence = (BreakSentence()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.BreakSentence
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -330,7 +330,7 @@ dictionaryLookup = (DictionaryLookup()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.DictionaryLookup
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -404,7 +404,7 @@ dictionaryExamples = (DictionaryExamples()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.{DictionaryExamples, TextAndTranslation}
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -468,7 +468,7 @@ documentTranslator = (DocumentTranslator()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator
 import spark.implicits._
 
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)

@@ -84,7 +84,7 @@ AzureSearchWriter.writeToAzureSearch(df,
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.search.{AddDocuments, AzureSearchWriter}
 import spark.implicits._
 
 val azureSearchKey = sys.env.getOrElse("AZURE_SEARCH_KEY", None)
