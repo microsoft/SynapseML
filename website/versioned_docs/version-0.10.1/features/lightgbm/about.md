@@ -57,7 +57,7 @@ model = LightGBMRegressor(application='quantile',
 For an end to end application, check out the LightGBM [notebook
 example](../LightGBM%20-%20Overview).
 
-### Arguments
+### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
 In python, you can use the properties as shown above, or in Scala use the
@@ -74,13 +74,15 @@ need to set some parameters that SyanpseML does not expose a setter for, use
 passThroughArgs. This is just a free string that you can use to add extra parameters
 to the command SynapseML sends to configure LightGBM.
 
+In python:
 ```python
 from synapse.ml.lightgbm import LightGBMClassifier
-model = LightGBMClassifier(passThroughArgs="force_row_wise=true",
+model = LightGBMClassifier(passThroughArgs="force_row_wise=true min_sum_hessian_in_leaf=2e-3",
                            numIterations=100,
                            numLeaves=31).fit(train)
 ```
 
+In Scala:
 ```scala
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassifier
 val classifier = new LightGBMClassifier()
