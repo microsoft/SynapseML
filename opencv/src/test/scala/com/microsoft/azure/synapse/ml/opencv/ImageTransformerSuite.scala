@@ -71,7 +71,7 @@ trait OpenCVTestUtils {
     (jframe, panel)
   }
 
-  protected val firstBytes = Map(
+  protected val firstBytes: Map[String, Array[Double]] = Map(
     "00001.png" -> Array(235.0, 231.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0, 232.0),
     "00002.png" -> Array(222.0, 218.0, 194.0, 186.0, 222.0, 236.0, 238.0, 241.0, 243.0, 245.0),
     "00000.png" -> Array(49.0, 47.0, 51.0, 53.0, 46.0, 41.0, 47.0, 45.0, 44.0, 41.0),
@@ -79,7 +79,6 @@ trait OpenCVTestUtils {
     "00005.png" -> Array(83.0, 61.0, 26.0, 36.0, 65.0, 67.0, 58.0, 54.0, 63.0, 65.0),
     "00003.png" -> Array(149.0, 187.0, 193.0, 205.0, 202.0, 183.0, 181.0, 180.0, 182.0, 189.0)
   )
-
 }
 
 class UnrollImageSuite extends TransformerFuzzing[UnrollImage] with OpenCVTestUtils with DataFrameEquality {
@@ -163,7 +162,6 @@ class UnrollBinaryImageSuite extends TransformerFuzzing[UnrollBinaryImage]
 }
 
 class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with OpenCVTestUtils {
-
   //TODO this is needed to stop the build from freezing
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     //noinspection NameBooleanParameters
@@ -250,7 +248,6 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   }
 
   test("crop") {
-
     val tr = new ImageTransformer()
       .setOutputCol("out")
       .resize(height = 100, width = 200)
