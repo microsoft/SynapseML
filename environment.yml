@@ -4,7 +4,6 @@ channels:
   - default
 dependencies:
   - python=3.8.8
-  - pyspark=3.2.2
   - requests=2.26.0
   - pip=21.3
   - r-base=4.1.1
@@ -13,6 +12,7 @@ dependencies:
   - pyarrow>=0.15.0
   - numpy>=1.19.3
   - pip:
+    - pyspark==3.2.3
     - wheel
     - sphinx==4.2.0
     - sphinx_paramlinks==0.5.2
