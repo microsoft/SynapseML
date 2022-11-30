@@ -596,19 +596,37 @@ jobs:
         PACKAGE: "geospatial"
       onnx:
         PACKAGE: "onnx"
-      cognitive1:
-        PACKAGE: "cognitive.split1"
+      anomaly:
+        PACKAGE: "cognitive.anomaly"
         FLAKY: "true"
-      cognitive2:
-        PACKAGE: "cognitive.split2"
+      bing:
+        PACKAGE: "cognitive.bing"
+        FLAKY: "true"
+      face:
+        PACKAGE: "cognitive.face"
+        FLAKY: "true"
+      form:
+        PACKAGE: "cognitive.form"
+        FLAKY: "true"
+      openai:
+        PACKAGE: "cognitive.openai"
+        FLAKY: "true"
+      search:
+        PACKAGE: "cognitive.search"
         FFMPEG: "true"
         FLAKY: "true"
-      cognitive3:
-        PACKAGE: "cognitive.split3"
+      speech:
+        PACKAGE: "cognitive.speech"
         FFMPEG: "true"
         FLAKY: "true"
-      cognitive4:
-        PACKAGE: "cognitive.split4"
+      text:
+        PACKAGE: "cognitive.text"
+        FLAKY: "true"
+      translate:
+        PACKAGE: "cognitive.translate"
+        FLAKY: "true"
+      vision:
+        PACKAGE: "cognitive.vision"
         FLAKY: "true"
       core:
         PACKAGE: "core"
