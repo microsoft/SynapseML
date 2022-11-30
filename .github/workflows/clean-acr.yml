@@ -18,8 +18,6 @@ name: Clean ACR
 on:
   workflow_dispatch:
    
-env:
-  
 jobs:
   clean-acr:
      name: Clean ACR
