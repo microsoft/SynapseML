@@ -29,10 +29,11 @@ jobs:
          uses: actions/setup-python@v4
          with:
            python-version: '3.x'
-       - run: |
-         pip install azure-storage-blob
-         pip install azure-identity
-         pip install azure-keyvault-secrets
+       - name: pip install
+         run: |
+           pip install azure-storage-blob
+           pip install azure-identity
+           pip install azure-keyvault-secrets
        - name: Azure Login
          uses: azure/login@v1
          with:
