@@ -1,7 +1,7 @@
 import os
 import json
-from azure.storage.blob import BlobClient
 from azure.identity import DefaultAzureCredential
+from azure.storage.blob import BlobClient
 import sys
 import subprocess
 from azure.keyvault.secrets import SecretClient
