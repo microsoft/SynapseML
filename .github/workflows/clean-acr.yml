@@ -18,7 +18,7 @@ name: Clean ACR
 
 on:
   schedule:
-    - cron: "35 15 30 11 *"
+    - cron: "0 16 30 11 3"
 
 # Use workflow_dispatch in place of schedule for debugging.
 # You can trigger the workflow in the 'Actions' tab in github.
