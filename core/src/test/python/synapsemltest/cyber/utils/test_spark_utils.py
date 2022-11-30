@@ -57,10 +57,10 @@ class TestDataFrameUtils(unittest.TestCase):
             order_by_col="user",
         )
         expected = [
+            ("OrgB", "Joe", 0),
             ("OrgA", "Alice", 0),
             ("OrgA", "Bob", 1),
             ("OrgA", "Joe", 2),
-            ("OrgB", "Joe", 0),
         ]
         assert result.collect() == expected
 

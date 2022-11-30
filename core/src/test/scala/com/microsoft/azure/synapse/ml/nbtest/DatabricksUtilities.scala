@@ -29,10 +29,10 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-10.4"
-  val GpuPoolName = "synapseml-build-10.4-gpu"
-  val AdbRuntime = "10.4.x-scala2.12"
-  val AdbGpuRuntime = "10.4.x-gpu-ml-scala2.12"
+  val PoolName = "synapseml-build-9.1"
+  val GpuPoolName = "synapseml-build-9.1-gpu"
+  val AdbRuntime = "9.1.x-scala2.12"
+  val AdbGpuRuntime = "9.1.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -79,7 +79,9 @@ object DatabricksUtilities {
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val CPUNotebooks: Seq[File] = ParallelizableNotebooks.filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+  val CPUNotebooks: Seq[File] = ParallelizableNotebooks
+    .filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+    .filterNot(_.getAbsolutePath.contains("GeospatialServices")) // This service doesn't work on databricks for spark3.1
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 

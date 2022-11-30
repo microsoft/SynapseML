@@ -104,7 +104,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
         val bytes = try {
           IOUtils.toByteArray(stream)
         } finally {
-          IOUtils.close(stream)
+          IOUtils.closeQuietly(stream)
         }
 
         val resultOpt = catchFlakiness(5)(ImageSchema.decode(origin, bytes))  //scalastyle:ignore magic.number
