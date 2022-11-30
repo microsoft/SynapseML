@@ -27,21 +27,15 @@ jobs:
          uses: azure/login@v1
          with:
            creds: ${{ secrets.clean_acr }}
-       - name: Get connection string
-         uses: azure/CLI@v1
-         with:
-           inlineScript: |
-             CLEAN_ACR_CONNECTION_STRING=$(az keyvault secret show --vault-name mmlspark-keys --name clean-acr-connection-string --query value)
-             CLEAN_ACR_CONNECTION_STRING=${CLEAN_ACR_CONNECTION_STRING//\"}
        - name: checkout repo content
          uses: actions/checkout@v3 # checkout the repo
        - name: setup python
          uses: actions/setup-python@v4
          with:
            python-version: '3.x'
-       - run: pip install azure-storage-blob azure-identity
-       - name: execute clean acr
-         run: python .github/workflows/scripts/clean-acr.py
-         env:
-           CLEAN_ACR_CONNECTION_STRING: ${ CLEAN_ACR_CONNECTION_STRING }
-         shell: sh
+       - run: pip install azure-storage-blob azure-identity azure-keyvault-secrets
+       - name: Execute clean-acr.py
+         uses: azure/CLI@v1
+         with:
+           inlineScript: |
+             python .github/workflows/scripts/clean-acr.py mmlspark-keys clean-acr-connection-string
