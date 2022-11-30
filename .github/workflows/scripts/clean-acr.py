@@ -30,7 +30,7 @@ keyvaultName = sys.argv[1]
 secretName = sys.argv[2]
 kvUri = f"https://{keyvaultName}.vault.azure.net"
 kvClient = SecretClient(vault_url=kvUri, credential=DefaultAzureCredential())
-conn_string = client.get_secret(secretName)
+conn_string = kvClient.get_secret(secretName)
 
 os.system("az extension add --name acrtransfer")
 
