@@ -7,11 +7,13 @@ dependencies:
   - pyspark=3.1.3
   - requests=2.26.0
   - pip=21.3
-  - r-base=4.1.1
-  - r-sparklyr=1.7.5
-  - r-devtools=2.4.2
+  - r-base
+  - r-sparklyr
+  - r-devtools
   - pyarrow>=0.15.0
   - numpy>=1.19.3
+  - azure-storage-blob
+  - Pillow
   - pip:
     - wheel
     - sphinx==4.2.0
@@ -23,7 +25,6 @@ dependencies:
     - nbconvert
     - ipython
     - pytest-codeblocks
-    - azure-storage-blob
     - twine
     - jupyter
     - mlflow
@@ -34,4 +35,3 @@ dependencies:
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
     - matplotlib
-    - Pillow
