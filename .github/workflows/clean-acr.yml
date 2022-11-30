@@ -1,3 +1,5 @@
+name: Clean ACR
+
 # Notes: To access key vault and grab the connection string, we first need a service principal.
 # We need to add that service principal as a Reader in the RBAC for the key vault in question,
 # as well as adding it with Get and List permissions in the key vault's access policies.
@@ -9,12 +11,13 @@
 # It is backed up in the mmlspark-keys vault by secret clean-acr-github-actions-info.
 # The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
 
-name: Clean ACR
-
+# normal usage
 #on:
 #  schedule:
 #    - cron: "0 1 * * 0" # every sunday at 1am
 
+# use this for debugging; you can trigger the workflow in the 'Actions' tab in github.
+# Apparently, this file be in the master branch to get the 'Run workflow' button.
 on:
   workflow_dispatch:
    
