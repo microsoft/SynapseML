@@ -188,7 +188,6 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
       .withColumn("text", col("result.text"))
       .withColumn("script", col("result.script"))
       .select("text", "script").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Kon'nichiwa\nsayonara")
     assert(results.head.getSeq(1).mkString("\n") === "Latn\nLatn")
   }
 
