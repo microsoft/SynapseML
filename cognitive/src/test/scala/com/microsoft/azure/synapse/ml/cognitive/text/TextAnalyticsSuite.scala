@@ -10,6 +10,7 @@ import org.apache.spark.SparkException
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
+import org.scalactic.{Equality, TolerantNumerics}
 
 //scalastyle:off null
 trait TextEndpoint {
@@ -279,6 +280,8 @@ class AnalyzeHealthTextSuite extends TATestBase[AnalyzeHealthText] {
 class TextAnalyzeSuite extends TransformerFuzzing[TextAnalyze] with TextEndpoint {
 
   import spark.implicits._
+
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1e-3)
 
   def df: DataFrame = Seq(
     ("en", "I had a wonderful trip to Seattle last week and visited Microsoft."),
