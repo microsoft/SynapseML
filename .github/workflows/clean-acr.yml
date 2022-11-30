@@ -41,5 +41,6 @@ jobs:
            python-version: '3.x'
        - run: pip install azure-storage-blob azure-identity
        - name: execute clean acr
-         run: CLEAN_ACR_CONNECTION_STRING=${{ CLEAN_ACR_CONNECTION_STRING }} python .github/workflows/scripts/clean-acr.py
+         run: python .github/workflows/scripts/clean-acr.py
+         env: CLEAN_ACR_CONNECTION_STRING=${ CLEAN_ACR_CONNECTION_STRING }
          shell: sh
