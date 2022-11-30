@@ -1,10 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split2
+package com.microsoft.azure.synapse.ml.cognitive.speech
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.{SpeechResponse, SpeechToText}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable

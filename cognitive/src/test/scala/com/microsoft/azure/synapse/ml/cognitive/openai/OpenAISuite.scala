@@ -1,10 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split1
+package com.microsoft.azure.synapse.ml.cognitive.openai
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable

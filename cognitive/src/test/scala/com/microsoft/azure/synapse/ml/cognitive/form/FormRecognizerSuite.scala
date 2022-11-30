@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split1
+package com.microsoft.azure.synapse.ml.cognitive.form
 
-import com.microsoft.azure.synapse.ml.cognitive.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.cognitive.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
@@ -28,7 +29,7 @@ object TrainCustomModelProtocol extends DefaultJsonProtocol {
   implicit val TrainCustomModelEnc: RootJsonFormat[TrainCustomModelSchema] = jsonFormat3(TrainCustomModelSchema)
 }
 
-import com.microsoft.azure.synapse.ml.cognitive.split1.TrainCustomModelProtocol._
+import com.microsoft.azure.synapse.ml.cognitive.form.TrainCustomModelProtocol._
 
 case class TrainCustomModelSchema(source: String, sourceFilter: SourceFilter, useLabelFile: Boolean)
 

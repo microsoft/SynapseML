@@ -1,9 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split1
+package com.microsoft.azure.synapse.ml.cognitive.vision
 
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.bing.BingImageSearch
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}

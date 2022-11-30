@@ -1,11 +1,10 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.cognitive.split4
+package com.microsoft.azure.synapse.ml.cognitive.anomaly
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.split1.AnomalyKey
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -15,7 +14,7 @@ import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
 
 import java.time.format.DateTimeFormatter
-import java.time.{LocalDateTime, OffsetDateTime, ZoneId, ZonedDateTime}
+import java.time.{OffsetDateTime, ZonedDateTime}
 
 
 case class MADListModelsResponse(models: Seq[MADModel],
