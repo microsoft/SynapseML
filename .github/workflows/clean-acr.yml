@@ -11,7 +11,6 @@ name: Clean ACR
 # It is backed up in the mmlspark-keys vault by secret clean-acr-github-actions-info.
 # The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
 
-# Normal usage
 on:
   schedule:
     - cron: "0 1 * * 0" # every sunday at 1am
