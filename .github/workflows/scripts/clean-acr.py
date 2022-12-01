@@ -4,6 +4,8 @@ from azure.storage.blob import BlobClient
 from azure.identity import DefaultAzureCredential
 import sys
 import subprocess
+from azure.keyvault.secrets import SecretClient
+from azure.identity import DefaultAzureCredential
 
 credential = DefaultAzureCredential()
 """
@@ -24,7 +26,11 @@ container = "acrbackup"
 rg = "marhamil-mmlspark"
 pipeline = "mmlsparkacrexport3"
 
-conn_string = sys.argv[1]
+keyvaultName = sys.argv[1]
+secretName = sys.argv[2]
+kvUri = f"https://{keyvaultName}.vault.azure.net"
+kvClient = SecretClient(vault_url=kvUri, credential=DefaultAzureCredential())
+conn_string = kvClient.get_secret(secretName).value
 
 os.system("az extension add --name acrtransfer")
 
