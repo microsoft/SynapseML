@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 import os
+import logging
 from pyspark.sql import DataFrame
 
 PLATFORM_SYNAPSE_INTERNAL = "synapse_internal"
@@ -18,6 +19,7 @@ def current_platform():
 
         sc = SparkSession.builder.getOrCreate().sparkContext
         cluster_type = sc.getConf().get("spark.cluster.type")
+        logging.info(f"cluster type in spark context: {cluster_type}")
         if cluster_type == "synapse":
             return PLATFORM_SYNAPSE
         else:
@@ -27,6 +29,7 @@ def current_platform():
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
         return PLATFORM_BINDER
     else:
+        logging.warning("unknown platform")
         return PLATFORM_UNKNOWN
 
 
@@ -54,6 +57,10 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
         from notebookutils.mssparkutils.credentials import getSecret
 
         return getSecret(keyvault, secret_name)
+    elif running_on_synapse_internal():
+        raise RuntimeError(
+            "find_secret method not supported in synapse_internal yet"
+        )
     elif running_on_databricks():
         from pyspark.sql import SparkSession
         from pyspark.dbutils import DBUtils
