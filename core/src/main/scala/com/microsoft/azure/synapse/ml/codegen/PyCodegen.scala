@@ -5,13 +5,15 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.indent
+import com.microsoft.azure.synapse.ml.codegen.PyCodegen.pyGen
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
 import org.apache.spark.ml.{Estimator, Model}
-import java.io.File
 import spray.json._
+
+import java.io.File
 
 object PyCodegen {
 
@@ -30,11 +32,15 @@ object PyCodegen {
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
-    val importStrings =
+    val importStrings = if (packageFolder == "/cognitive") {
+      dir.listFiles.filter(_.isDirectory).sorted
+        .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n").mkString("")
+    } else {
       dir.listFiles.filter(_.isFile).sorted
         .map(_.getName)
         .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
         .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n").mkString("")
+    }
     val initFile = new File(dir, "__init__.py")
     if (packageFolder != "") {
       writeFile(initFile, conf.packageHelp(importStrings))
@@ -52,8 +58,12 @@ object PyCodegen {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
     }
-    val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
-    val requireList = if(conf.name.contains("deep-learning")) {
+    val extraPackage = if (conf.name.endsWith("core")) {
+      " + [\"mmlspark\"]"
+    } else {
+      ""
+    }
+    val requireList = if (conf.name.contains("deep-learning")) {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
@@ -132,4 +142,18 @@ object PyCodegen {
     pyGen(conf)
   }
 
+}
+
+object testPyCodegen extends App {
+  val Config = CodegenConfig("synapseml-cognitive",
+    Some("synapseml-cognitive_2.12-0.10.2-12-9612f6d9-20221201-1333-SNAPSHOT.jar"),
+    "D:\\\\repos\\\\SynapseML\\\\cognitive",
+    "D:\\repos\\SynapseML\\cognitive\\target\\scala-2.12",
+    "0.10.2-12-9612f6d9-20221201-1333-SNAPSHOT",
+    "0.10.2.dev1",
+    "0.10.2",
+    "0.10.2-rc129612f6d9202212011333",
+    "synapse")
+
+  pyGen(Config)
 }
