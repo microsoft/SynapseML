@@ -28,8 +28,7 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
-  "org.json4s" %% "json4s-ast" % "3.7.0-M11",
-  "org.scalactic" %% "scalactic" % "3.0.5",
+  "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.2",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents" % "httpclient" % "4.5.6",
@@ -37,6 +36,7 @@ val extraDependencies = Seq(
   "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
+dependencyOverrides += "org.json4s" %% "json4s-ast" % "3.7.0-M5"
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
