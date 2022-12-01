@@ -17,7 +17,7 @@ val scalaMajorVersion = 2.12
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
-  ExclusionRule("org.scalatest"),
+  ExclusionRule("org.scalatest")
 )
 
 val coreDependencies = Seq(
@@ -432,8 +432,8 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-common" % "3.2.0" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.2.0" % "test",
     ),
     name := "synapseml-cognitive"
   ): _*)

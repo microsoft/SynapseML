@@ -13,7 +13,6 @@ dependencies:
   - pyarrow>=0.15.0
   - numpy>=1.19.3
   - pip:
-    - pyspark==3.2.3
     - wheel
     - sphinx==4.2.0
     - sphinx_paramlinks==0.5.2
