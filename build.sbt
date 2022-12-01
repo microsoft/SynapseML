@@ -8,10 +8,10 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.3"
+val sparkVersion = "3.1.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.10"
 
 val scalaMajorVersion = 2.12
 
@@ -21,6 +21,7 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.5",
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
@@ -28,13 +29,14 @@ val coreDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.2.14",
-  "io.spray" %% "spray-json" % "1.3.5",
+  "io.spray" %% "spray-json" % "1.3.2",
   "com.jcraft" % "jsch" % "0.1.54",
-  "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
-  "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "org.apache.httpcomponents" % "httpclient" % "4.5.6",
+  "org.apache.httpcomponents" % "httpmime" % "4.5.6",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.0.0" % "1.0.1"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
+dependencyOverrides += "org.json4s" %% "json4s-ast" % "3.7.0-M5"
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
@@ -429,8 +431,8 @@ lazy val cognitive = (project in file("cognitive"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-common" % "3.2.0" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.2.0" % "test",
     ),
     name := "synapseml-cognitive"
   ): _*)

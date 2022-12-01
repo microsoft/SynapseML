@@ -15,7 +15,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import spray.json._
 
-import java.io.BufferedInputStream
+import java.io.{BufferedInputStream, ByteArrayOutputStream, DataInput, EOFException}
 import java.net.URL
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -198,11 +198,25 @@ class ONNXHub(val modelCacheDir: Path,
       urlCon.setConnectTimeout(connectTimeout)
       urlCon.setReadTimeout(readTimeout)
       using(new BufferedInputStream(urlCon.getInputStream)) { is =>
-          using(fs.create(path)) { os =>
+        using(fs.create(path)) { os =>
           HUtils.copyBytes(is, os, SparkContext.getOrCreate().hadoopConfiguration)
         }
       }
     }
+  }
+
+  private def readFullyToByteArray(in: DataInput): Array[Byte] = {
+    val baos = new ByteArrayOutputStream()
+    // scalastyle:off
+    try {
+      while (true) {
+        baos.write(in.readByte())
+      }
+    } catch {
+      case eof: EOFException => println("")
+    }
+    // scalastyle:on
+    baos.toByteArray
   }
 
   def load(model: String,
@@ -214,14 +228,15 @@ class ONNXHub(val modelCacheDir: Path,
     val selectedModel = getModelInfo(model, repo, opset)
     val modelPathArr = selectedModel.modelPath.split("/".toCharArray)
     val localModelDirs: Seq[String] = modelPathArr.dropRight(1) ++
-    Seq(selectedModel.metadata.modelSha.map(sha => s"${sha}_${modelPathArr.last}").getOrElse(modelPathArr.last))
+      Seq(selectedModel.metadata.modelSha.map(sha => s"${sha}_${modelPathArr.last}").getOrElse(modelPathArr.last))
 
     val localModelPath = FileUtilities.join(getDir, localModelDirs: _*)
     val fs = localModelPath.getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
 
     if (forceReload || !fs.exists(localModelPath)) {
       if (!verifyRepoRef(repo)) {
-        val message = s"""The model repo specification \"$repo\"
+        val message =
+          s"""The model repo specification \"$repo\"
              | is not trusted and may contain security vulnerabilities.""".stripMargin
         if (!allowUnsafe) {
           throw new SecurityException(message)
@@ -239,13 +254,13 @@ class ONNXHub(val modelCacheDir: Path,
       logInfo(s"Using cached $model model from $localModelPath")
     }
 
-    val modelBytes = HUtils.readFullyToByteArray(fs.open(localModelPath))
+    val modelBytes = readFullyToByteArray(fs.open(localModelPath))
 
     selectedModel.metadata.modelSha.foreach { trueSha =>
       val downloadedSha = DigestUtils.sha256Hex(modelBytes)
       assert(downloadedSha == trueSha,
         s"Cached model has SHA256 $downloadedSha but checksum should be $trueSha, " +
-        "the model download might have failed. use forceReload to re-download model."
+          "the model download might have failed. use forceReload to re-download model."
       )
     }
     modelBytes

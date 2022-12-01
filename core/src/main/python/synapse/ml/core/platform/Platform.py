@@ -18,10 +18,9 @@ def current_platform():
 
         sc = SparkSession.builder.getOrCreate().sparkContext
         cluster_type = sc.getConf().get("spark.cluster.type")
-        if cluster_type == "synapse":
-            return PLATFORM_SYNAPSE
-        else:
-            return PLATFORM_SYNAPSE_INTERNAL
+        print(f"cluster type in spark context: {cluster_type}")
+        # Synapse_Internal doesn't contain spark3.1 runtime
+        return PLATFORM_SYNAPSE
     elif "dbfs" in os.listdir("/"):
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
@@ -54,6 +53,8 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
         from notebookutils.mssparkutils.credentials import getSecret
 
         return getSecret(keyvault, secret_name)
+    elif running_on_synapse_internal():
+        raise RuntimeError("find_secret method not supported in synapse_internal yet")
     elif running_on_databricks():
         from pyspark.sql import SparkSession
         from pyspark.dbutils import DBUtils
