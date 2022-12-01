@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils.indent
-import com.microsoft.azure.synapse.ml.codegen.PyCodegen.pyGen
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServices
 import org.apache.commons.io.FileUtils
@@ -142,18 +141,4 @@ object PyCodegen {
     pyGen(conf)
   }
 
-}
-
-object testPyCodegen extends App {
-  val Config = CodegenConfig("synapseml-cognitive",
-    Some("synapseml-cognitive_2.12-0.10.2-12-9612f6d9-20221201-1333-SNAPSHOT.jar"),
-    "D:\\\\repos\\\\SynapseML\\\\cognitive",
-    "D:\\repos\\SynapseML\\cognitive\\target\\scala-2.12",
-    "0.10.2-12-9612f6d9-20221201-1333-SNAPSHOT",
-    "0.10.2.dev1",
-    "0.10.2",
-    "0.10.2-rc129612f6d9202212011333",
-    "synapse")
-
-  pyGen(Config)
 }
