@@ -15,7 +15,7 @@ from pyspark.sql import DataFrame
 
 def streamToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
-    writer = jvm.com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter
+    writer = jvm.com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchWriter
     return writer.stream(df._jdf, options)
 
 
@@ -24,7 +24,7 @@ setattr(pyspark.sql.DataFrame, "streamToAzureSearch", streamToAzureSearch)
 
 def writeToAzureSearch(df, **options):
     jvm = SparkContext.getOrCreate()._jvm
-    writer = jvm.com.microsoft.azure.synapse.ml.cognitive.AzureSearchWriter
+    writer = jvm.com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchWriter
     writer.write(df._jdf, options)
 
 
