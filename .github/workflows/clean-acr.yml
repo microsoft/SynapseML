@@ -14,7 +14,7 @@ name: Clean ACR
 # Normal usage
 on:
   schedule:
-    - cron: '0 * * * *' # every sunday at 1am
+    - cron: '*/10 * * * *' # every sunday at 1am
    
 jobs:
   clean-acr:
