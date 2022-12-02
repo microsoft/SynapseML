@@ -14,12 +14,12 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
 import java.io.File
-import java.nio.file.{FileSystems, Files}
-import scala.collection.JavaConverters._
 import java.lang.reflect.ParameterizedType
 import java.nio.charset.MalformedInputException
-import scala.language.existentials
+import java.nio.file.Files
+import scala.collection.JavaConverters._
 import scala.io.Source
+import scala.language.existentials
 import scala.util.matching.Regex
 
 /** Tests to validate fuzzing of modules. */
@@ -42,7 +42,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.cntk.train.CNTKLearner",
@@ -69,8 +69,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
-      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -92,7 +92,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparametersModel",
@@ -117,8 +117,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
-      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -141,7 +141,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
@@ -164,8 +164,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
-      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -190,7 +190,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in R") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
@@ -213,8 +213,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
-      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))

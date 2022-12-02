@@ -47,7 +47,7 @@ fitMultivariateAnomaly = (FitMultivariateAnomaly()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.anomaly.FitMultivariateAnomaly
 
 val startTime: String = "2021-01-01T00:00:00Z"
 val endTime: String = "2021-01-02T12:00:00Z"

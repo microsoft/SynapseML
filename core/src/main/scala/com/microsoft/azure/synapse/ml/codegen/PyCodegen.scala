@@ -10,8 +10,9 @@ import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils.instantiateServ
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils._
 import org.apache.spark.ml.{Estimator, Model}
-import java.io.File
 import spray.json._
+
+import java.io.File
 
 object PyCodegen {
 
@@ -30,11 +31,15 @@ object PyCodegen {
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
-    val importStrings =
+    val importStrings = if (packageFolder == "/cognitive") {
+      dir.listFiles.filter(_.isDirectory).sorted
+        .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n").mkString("")
+    } else {
       dir.listFiles.filter(_.isFile).sorted
         .map(_.getName)
         .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
         .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n").mkString("")
+    }
     val initFile = new File(dir, "__init__.py")
     if (packageFolder != "") {
       writeFile(initFile, conf.packageHelp(importStrings))
@@ -52,8 +57,12 @@ object PyCodegen {
     if (!conf.pySrcDir.exists()) {
       conf.pySrcDir.mkdir()
     }
-    val extraPackage = if (conf.name.endsWith("core")){" + [\"mmlspark\"]"}else{""}
-    val requireList = if(conf.name.contains("deep-learning")) {
+    val extraPackage = if (conf.name.endsWith("core")) {
+      " + [\"mmlspark\"]"
+    } else {
+      ""
+    }
+    val requireList = if (conf.name.contains("deep-learning")) {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {

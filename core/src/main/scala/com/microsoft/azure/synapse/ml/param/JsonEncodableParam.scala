@@ -138,9 +138,9 @@ class ServiceParam[T: TypeTag](parent: Params,
     case "Seq[Int]" => "int[]"
     case "Seq[Seq[Int]]" => "int[][]"
     case "Array[Byte]" => "byte[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint]" => "TimeSeriesPoint[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TargetInput]" => "TargetInput[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation]" => "TextAndTranslation[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.anomaly.TimeSeriesPoint]" => "TimeSeriesPoint[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.translate.TargetInput]" => "TargetInput[]"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation]" => "TextAndTranslation[]"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
   //scalastyle:on cyclomatic.complexity
@@ -212,8 +212,8 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   private[ml] def dotnetType: String = typeOf[T].toString match {
     // TODO: fix DiagnosticsInfo on dotnet side
-    case "com.microsoft.azure.synapse.ml.cognitive.DiagnosticsInfo" => "object"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" => "TextAnalyzeTask[]"
+    case "com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo" => "object"
+    case "Seq[com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask]" => "TextAnalyzeTask[]"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
 }
