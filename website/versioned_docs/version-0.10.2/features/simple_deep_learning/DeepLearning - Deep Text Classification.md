@@ -5,7 +5,7 @@ status: stable
 ---
 ## Deep Learning - Deep Text Classifier
 
-### Environment Setup
+### Environment Setup on databricks
 
 
 ```python
