@@ -20,18 +20,20 @@
     "@docusaurus/theme-classic": "^2.2.0",
     "@docusaurus/theme-search-algolia": "^2.2.0",
     "ansi-html-community": "^0.0.8",
-    "caniuse-lite": "^1.0.30001359",
-    "classnames": "^2.2.6",
+    "caniuse-lite": "^1.0.30001435",
+    "classnames": "^2.3.2",
     "glob-parent": "^6.0.1",
     "got": "^11.8.5",
     "hast-util-is-element": "1.1.0",
-    "node": "^16.14",
+    "loader-utils": "^3.2.1",
+    "node": "^16.18.1",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
-    "react-player": "^2.7.2",
+    "react-player": "^2.11.0",
     "reading-time": "^1.2.0",
     "rehype-katex": "4",
-    "remark-math": "3"
+    "remark-math": "3",
+    "trim": "^0.0.3"
   },
   "resolutions": {
     "@docusaurus/core/**/set-value": "^4.0.1",
@@ -43,7 +45,9 @@
     "@docusaurus/**/nth-check": "^2.0.1",
     "yarn-audit-fix/**/ansi-regex": "^5.0.1",
     "@docusaurus/**/ansi-regex": "^5.0.1",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "minimatch": "^3.0.5",
+    "got": "^11.8.5"
   },
   "browserslist": {
     "production": [
