@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.face
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.vision.HasImageUrl
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -19,7 +19,7 @@ object DetectFace extends ComplexParamsReadable[DetectFace]
 
 class DetectFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
   logClass()
 
@@ -98,7 +98,7 @@ object FindSimilarFace extends ComplexParamsReadable[FindSimilarFace]
 class FindSimilarFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
   logClass()
 
@@ -188,7 +188,7 @@ object GroupFaces extends ComplexParamsReadable[GroupFaces]
 class GroupFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasFaceIds with HasSetLocation
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging with HasSetLinkedService {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with SynapseMLLogging with HasSetLinkedService {
   logClass()
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
@@ -210,7 +210,7 @@ object IdentifyFaces extends ComplexParamsReadable[IdentifyFaces]
 class IdentifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasMaxNumOfCandidatesReturned with HasFaceIds
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
   logClass()
 
@@ -279,7 +279,7 @@ object VerifyFaces extends ComplexParamsReadable[VerifyFaces]
 
 class VerifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
   logClass()
 

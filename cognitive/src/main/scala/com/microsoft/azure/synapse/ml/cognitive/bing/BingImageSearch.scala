@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.bing
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.commons.io.IOUtils
@@ -66,7 +66,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
 
 class BingImageSearch(override val uid: String)
   extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging with HasSetLinkedService {
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with SynapseMLLogging with HasSetLinkedService {
   logClass()
 
   override protected lazy val pyInternalWrapper = true

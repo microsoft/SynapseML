@@ -11,7 +11,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.onnx.ONNXRuntime._
 import com.microsoft.azure.synapse.ml.onnx.ONNXUtils._
 import com.microsoft.azure.synapse.ml.param.{ByteArrayParam, StringStringMapParam}
@@ -147,7 +147,7 @@ class ONNXModel(override val uid: String)
     with ComplexParamsWritable
     with ONNXModelParams
     with Wrappable
-    with BasicLogging {
+    with SynapseMLLogging {
 
   override protected lazy val pyInternalWrapper = true
 

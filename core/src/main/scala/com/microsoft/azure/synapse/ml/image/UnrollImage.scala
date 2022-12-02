@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -167,7 +167,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
   * @param uid The id of the module
   */
 class UnrollImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   import UnrollImage._
@@ -202,7 +202,7 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   * @param uid The id of the module
   */
 class UnrollBinaryImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
   import UnrollImage._
 

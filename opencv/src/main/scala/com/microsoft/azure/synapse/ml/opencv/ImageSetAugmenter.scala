@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.opencv
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.param._
@@ -16,7 +16,7 @@ import org.apache.spark.sql.types._
 object ImageSetAugmenter extends DefaultParamsReadable[ImageSetAugmenter]
 
 class ImageSetAugmenter(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable with BasicLogging {
+  with HasInputCol with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ImageSetAugmenter"))

@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.core.utils.CastUtilities._
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
@@ -49,7 +49,7 @@ import scala.collection.JavaConverters._
   * Multilayer Perceptron Classifier
   * In addition to any generic learner that inherits from Predictor.
   */
-class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with BasicLogging {
+class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
@@ -292,7 +292,7 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
-  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
+  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))

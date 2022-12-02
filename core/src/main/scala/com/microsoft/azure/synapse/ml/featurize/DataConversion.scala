@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.featurize
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -20,7 +20,7 @@ import java.sql.Timestamp
   * @param uid The id of the module
   */
 class DataConversion(override val uid: String) extends Transformer
-  with Wrappable with DefaultParamsWritable with BasicLogging {
+  with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DataConversion"))

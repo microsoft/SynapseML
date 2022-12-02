@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.explainers
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TypedArrayParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
@@ -131,7 +132,9 @@ class ICETransformer(override val uid: String) extends Transformer
   with HasModel
   with ICEFeatureParams
   with Wrappable
-  with ComplexParamsWritable {
+  with ComplexParamsWritable
+  with SynapseMLLogging {
+  logClass()
 
   override protected lazy val pyInternalWrapper = true
 
@@ -206,43 +209,47 @@ class ICETransformer(override val uid: String) extends Transformer
 
 
   def transform(ds: Dataset[_]): DataFrame = {
-    transformSchema(ds.schema)
-    val df = ds.toDF
-    val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
-    val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
-    val dfWithId = df
-      .withColumn(idCol, monotonically_increasing_id())
-      .withColumn(targetClasses, get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
+    logTransform {
+      transformSchema(ds.schema)
+      val df = ds.toDF
+      val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
+      val targetClasses = DatasetExtensions.findUnusedColumnName("targetClasses", df)
+      val dfWithId = df
+        .withColumn(idCol, monotonically_increasing_id())
+        .withColumn(targetClasses, get(targetClassesCol).map(col).getOrElse(lit(getTargetClasses)))
 
-    // Collect feature values for all features from original dataset - dfWithId
-    val (categoricalFeatures, numericFeatures) = (getCategoricalFeatures, getNumericFeatures)
+      // Collect feature values for all features from original dataset - dfWithId
+      val (categoricalFeatures, numericFeatures) = (getCategoricalFeatures, getNumericFeatures)
 
-    // If numSamples is specified, randomly pick numSamples instances from the input dataset
-    val sampled: Dataset[Row] = get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
+      // If numSamples is specified, randomly pick numSamples instances from the input dataset
+      val sampled: Dataset[Row] = get(numSamples).map(dfWithId.orderBy(rand()).limit).getOrElse(dfWithId).cache
 
-    // Collect values from the input dataframe and create dependenceDF from them
-    val features = categoricalFeatures ++ numericFeatures
-    val dependenceDfs: Seq[DataFrame] = features.map {
-      case f: ICECategoricalFeature =>
-        (f, collectCategoricalValues(dfWithId, f))
-      case f: ICENumericFeature =>
-        (f, collectSplits(dfWithId, f))
-    }.map {
-      case (f, values) =>
-        calcDependence(sampled, idCol, targetClasses, f, values, getDependenceNameCol, getFeatureNameCol)
-    }
+      // Collect values from the input dataframe and create dependenceDF from them
+      val features = categoricalFeatures ++ numericFeatures
+      val dependenceDfs: Seq[DataFrame] = features.map {
+        case f: ICECategoricalFeature =>
+          (f, collectCategoricalValues(dfWithId, f))
+        case f: ICENumericFeature =>
+          (f, collectSplits(dfWithId, f))
+      }.map {
+        case (f, values) =>
+          calcDependence(sampled, idCol, targetClasses, f, values, getDependenceNameCol, getFeatureNameCol)
+      }
 
-    // In the case of ICE, the function will return the initial df with columns corresponding to each feature to explain
-    // In the case of PDP the function will return df with a shape (1 row * number of features to explain)
+      // In the case of ICE, the function will return the initial
+      // df with columns corresponding to each feature to explain
+      // In the case of PDP the function will return
+      // df with a shape (1 row * number of features to explain)
 
-    getKind.toLowerCase match {
-      case `individualKind` =>
-        dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
-          .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
-      case `averageKind` =>
-        dependenceDfs.reduce(_ crossJoin _)
-      case `featureKind` =>
-        dependenceDfs.reduce(_ union _).orderBy(desc(getDependenceNameCol))
+      getKind.toLowerCase match {
+        case `individualKind` =>
+          dependenceDfs.reduceOption(_.join(_, Seq(idCol), "inner"))
+            .map(sampled.join(_, Seq(idCol), "inner").drop(idCol)).get
+        case `averageKind` =>
+          dependenceDfs.reduce(_ crossJoin _)
+        case `featureKind` =>
+          dependenceDfs.reduce(_ union _).orderBy(desc(getDependenceNameCol))
+      }
     }
   }
 

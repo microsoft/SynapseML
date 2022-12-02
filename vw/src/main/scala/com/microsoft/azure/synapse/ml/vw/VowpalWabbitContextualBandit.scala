@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.utils.ParamsStringBuilder
 import com.microsoft.azure.synapse.ml.io.http.SharedVariable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param._
@@ -106,7 +106,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   extends Predictor[Row, VowpalWabbitContextualBandit, VowpalWabbitContextualBanditModel]
     with VowpalWabbitContextualBanditBase
     with HasParallelismInjected
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -308,7 +308,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
     with VowpalWabbitBaseModel
     with VowpalWabbitContextualBanditBase
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitContextualBanditModel"))

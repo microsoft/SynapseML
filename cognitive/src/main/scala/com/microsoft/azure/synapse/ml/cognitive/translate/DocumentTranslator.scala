@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.cognitive.search.HasServiceName
 import com.microsoft.azure.synapse.ml.cognitive.vision.BasicAsyncReply
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.{HTTPResponseData, HeaderValues}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
@@ -52,7 +52,7 @@ object DocumentTranslator extends ComplexParamsReadable[DocumentTranslator]
 
 class DocumentTranslator(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasServiceName
-  with Wrappable with DocumentTranslatorAsyncReply with BasicLogging with HasSetLinkedService
+  with Wrappable with DocumentTranslatorAsyncReply with SynapseMLLogging with HasSetLinkedService
   with DomainHelper {
 
   import TranslatorJsonProtocol._

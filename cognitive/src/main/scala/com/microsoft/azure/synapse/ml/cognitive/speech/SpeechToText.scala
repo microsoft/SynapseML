@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive.speech
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -21,7 +21,7 @@ import scala.language.existentials
 object SpeechToText extends ComplexParamsReadable[SpeechToText] with Serializable
 
 class SpeechToText(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with BasicLogging
+  with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
   with HasSetLinkedServiceUsingLocation {
   logClass()
 

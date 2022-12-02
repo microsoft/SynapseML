@@ -4,14 +4,14 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+class Cacher(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   val disable = new BooleanParam(this,

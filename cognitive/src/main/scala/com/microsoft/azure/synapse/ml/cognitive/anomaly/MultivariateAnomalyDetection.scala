@@ -13,7 +13,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -204,7 +204,7 @@ private case class StorageInfo(account: String, container: String, key: String, 
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
-  with HasErrorCol with BasicLogging {
+  with HasErrorCol with SynapseMLLogging {
 
   private def convertTimeFormat(name: String, v: String): String = {
     try {

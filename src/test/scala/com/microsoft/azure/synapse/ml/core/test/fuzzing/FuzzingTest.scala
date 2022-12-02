@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCo
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
@@ -319,6 +320,25 @@ class FuzzingTest extends TestBase {
             case None =>
           }
         }
+      }
+    }
+  }
+
+  test("Verify correct use of logging APIs") {
+    val exemptions = Set[String](
+      "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
+      "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
+      "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
+      "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase"
+    )
+    val clazz = classOf[SynapseMLLogging]
+
+    pipelineStages.foreach { stage =>
+      if (!exemptions(stage.getClass.getName)) {
+        assertOrLog(SynapseMLLogging.LoggedClasses(stage.getClass.toString),
+          stage.getClass.getName + " does not call logClass in the constructor")
+        assertOrLog(clazz.isAssignableFrom(stage.getClass),
+          stage.getClass.getName + " needs to extend " + clazz.getName)
       }
     }
   }

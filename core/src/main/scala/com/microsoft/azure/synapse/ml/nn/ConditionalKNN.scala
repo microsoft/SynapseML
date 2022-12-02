@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.nn
 
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.core.contracts.HasLabelCol
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ConditionalBallTreeParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
@@ -30,7 +30,7 @@ trait ConditionalKNNParams extends KNNParams with HasLabelCol {
 object ConditionalKNN extends DefaultParamsReadable[ConditionalKNN]
 
 class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNModel]
-  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with BasicLogging {
+  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ConditionalKNN"))
@@ -71,7 +71,7 @@ private[ml] object KNNFuncHolder {
 }
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
-  with ComplexParamsWritable with ConditionalKNNParams with BasicLogging {
+  with ComplexParamsWritable with ConditionalKNNParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ConditionalKNNModel"))

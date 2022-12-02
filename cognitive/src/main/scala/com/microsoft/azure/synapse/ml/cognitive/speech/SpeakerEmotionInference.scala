@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.cognitive.speech
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.http.client.methods.HttpRequestBase
@@ -22,7 +22,7 @@ object SpeakerEmotionInference extends ComplexParamsReadable[SpeakerEmotionInfer
 class SpeakerEmotionInference(override val uid: String)
   extends CognitiveServicesBase(uid)
     with HasLocaleCol with HasVoiceNameCol with HasTextCol with HasSetLocation
-    with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicLogging {
+    with HasCognitiveServiceInput with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID(classOf[SpeakerEmotionInference].getSimpleName))
