@@ -7,7 +7,7 @@ import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.Transformer
@@ -138,7 +138,7 @@ abstract class LIMEBase(override val uid: String)
   extends LocalExplainer
     with LIMEParams
     with Wrappable
-    with BasicLogging {
+    with SynapseMLLogging {
 
   private def getSampleWeightUdf: UserDefinedFunction = {
     val kernelWidth = this.getKernelWidth

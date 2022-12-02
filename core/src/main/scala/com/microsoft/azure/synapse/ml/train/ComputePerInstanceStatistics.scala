@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -43,7 +43,7 @@ trait CPISParams extends Wrappable with DefaultParamsWritable
   * - log_loss
   */
 class ComputePerInstanceStatistics(override val uid: String) extends Transformer
-  with CPISParams with BasicLogging {
+  with CPISParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ComputePerInstanceStatistics"))

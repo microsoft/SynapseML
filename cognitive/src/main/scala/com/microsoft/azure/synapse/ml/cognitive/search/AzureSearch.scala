@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase,
   HasCognitiveServiceInput, HasInternalJsonOutputParser, HasServiceParams}
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.io.powerbi.StreamMaterializer
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, HasBatchSize, Lambda}
 import org.apache.http.Consts
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
@@ -87,7 +87,7 @@ trait HasServiceName extends HasServiceParams {
 class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasActionCol with HasServiceName with HasIndexName with HasBatchSize
-  with BasicLogging {
+  with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("AddDocuments"))

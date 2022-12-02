@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SparkBindings}
 import com.microsoft.azure.synapse.ml.core.utils.OsUtils
 import com.microsoft.azure.synapse.ml.io.http.HasURL
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
@@ -78,7 +78,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with BasicLogging
+  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with SynapseMLLogging
   with HasSetLinkedServiceUsingLocation {
 
   type ResponseType <: SharedSpeechFields
@@ -421,7 +421,7 @@ abstract class SpeechSDKBase extends Transformer
   }
 }
 
-class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with BasicLogging {
+class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with SynapseMLLogging {
   logClass()
 
   override type ResponseType = SpeechResponse
@@ -493,7 +493,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Basic
 
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
-class ConversationTranscription(override val uid: String) extends SpeechSDKBase with BasicLogging {
+class ConversationTranscription(override val uid: String) extends SpeechSDKBase with SynapseMLLogging {
   logClass()
 
   override type ResponseType = TranscriptionResponse

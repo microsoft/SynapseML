@@ -30,24 +30,24 @@ object SynapseExtensionUtilities {
 
   val TimeoutInMillis: Int = 30 * 60 * 1000
 
-  val SSPHost: String = Secrets.SynapseInternalSspHost
-  val WorkspaceId: String = "8f02ac2a-92cb-4f52-975e-4d0fa4a5cafa"
-  val UxHost: String = Secrets.SynapseInternalUxHost
+  lazy val SSPHost: String = Secrets.SynapseInternalSspHost
+  lazy val WorkspaceId: String = "8f02ac2a-92cb-4f52-975e-4d0fa4a5cafa"
+  lazy val UxHost: String = Secrets.SynapseInternalUxHost
 
-  val BaseUri: String = s"$SSPHost/metadata"
-  val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
+  lazy val BaseUri: String = s"$SSPHost/metadata"
+  lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
 
-  val TenantId: String = Secrets.SynapseInternalTenantId
-  val AadAccessTokenResource: String = Secrets.AadResource
-  val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
+  lazy val TenantId: String = Secrets.SynapseInternalTenantId
+  lazy val AadAccessTokenResource: String = Secrets.AadResource
+  lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
 
-  val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
-  val StorageAccount: String = "mmlsparkbuildsynapse"
-  val StorageContainer: String = "synapse-extension"
+  lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
+  lazy val StorageAccount: String = "mmlsparkbuildsynapse"
+  lazy val StorageContainer: String = "synapse-extension"
 
   lazy val AccessToken: String = getAccessToken
 
-  val Platform = Secrets.Platform.toUpperCase
+  lazy val Platform = Secrets.Platform.toUpperCase
 
   def createSJDArtifact(path: String): String = {
     createSJDArtifact(path, "SparkJobDefinition")

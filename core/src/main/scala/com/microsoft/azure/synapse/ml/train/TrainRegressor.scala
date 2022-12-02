@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.train
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.{SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
@@ -18,7 +18,7 @@ import org.apache.spark.sql.types._
 import java.util.UUID
 
 /** Trains a regression model. */
-class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with BasicLogging {
+class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
@@ -145,7 +145,7 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
   */
 class TrainedRegressorModel(val uid: String)
     extends AutoTrainedModel[TrainedRegressorModel]
-      with Wrappable with BasicLogging {
+      with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainedRegressorModel"))

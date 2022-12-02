@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.form
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.DataTypeParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
@@ -41,7 +41,7 @@ object FormOntologyLearner extends DefaultParamsReadable[FormOntologyLearner] {
 }
 
 class FormOntologyLearner(override val uid: String) extends Estimator[FormOntologyTransformer]
-  with BasicLogging with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
+  with SynapseMLLogging with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
   logClass()
 
   def this() = this(Identifiable.randomUID("FormOntologyLearner"))
@@ -86,7 +86,7 @@ class FormOntologyLearner(override val uid: String) extends Estimator[FormOntolo
 object FormOntologyTransformer extends ComplexParamsReadable[FormOntologyTransformer]
 
 class FormOntologyTransformer(override val uid: String) extends Model[FormOntologyTransformer]
-  with BasicLogging with ComplexParamsWritable with HasInputCol with HasOutputCol with Wrappable {
+  with SynapseMLLogging with ComplexParamsWritable with HasInputCol with HasOutputCol with Wrappable {
   logClass()
 
   val ontology: DataTypeParam = new DataTypeParam(

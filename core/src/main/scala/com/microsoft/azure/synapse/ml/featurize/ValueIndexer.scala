@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.CategoricalMap
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
@@ -55,7 +55,7 @@ object NullOrdering {
   * Similar to StringIndexer except it can be used on any value types.
   */
 class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel]
-  with ValueIndexerParams with BasicLogging {
+  with ValueIndexerParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexer"))
@@ -105,7 +105,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
 
 /** Model produced by [[ValueIndexer]]. */
 class ValueIndexerModel(val uid: String)
-  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable with BasicLogging {
+  extends Model[ValueIndexerModel] with ValueIndexerParams with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ValueIndexerModel"))

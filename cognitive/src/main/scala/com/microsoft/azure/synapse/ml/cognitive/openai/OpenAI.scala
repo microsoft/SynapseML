@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.{GenerationUtils, Wrappable}
 import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput,
   HasInternalJsonOutputParser, HasServiceParams}
 import com.microsoft.azure.synapse.ml.io.http._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
@@ -312,7 +312,7 @@ object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 
 class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAIParams with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with BasicLogging {
+  with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("OpenAPICompletion"))

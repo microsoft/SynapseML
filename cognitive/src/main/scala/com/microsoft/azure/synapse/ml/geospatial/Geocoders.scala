@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.geospatial
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.io.http.{CustomInputParser, HTTPInputParser, HasURL, HeaderValues}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.Lambda
 import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
@@ -27,7 +27,8 @@ object AddressGeocoder extends ComplexParamsReadable[AddressGeocoder]
 class AddressGeocoder(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid) with HasServiceParams
     with HasSubscriptionKey with HasURL with HasAddressInput
-    with HasInternalJsonOutputParser with MapsAsyncReply with BasicLogging {
+    with HasInternalJsonOutputParser with MapsAsyncReply with SynapseMLLogging {
+  logClass()
 
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>
@@ -74,8 +75,9 @@ object ReverseAddressGeocoder extends ComplexParamsReadable[ReverseAddressGeocod
 
 class ReverseAddressGeocoder(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
-    with HasInternalJsonOutputParser with MapsAsyncReply with BasicLogging with HasServiceParams
+    with HasInternalJsonOutputParser with MapsAsyncReply with SynapseMLLogging with HasServiceParams
     with HasSubscriptionKey with HasURL with HasLatLonPairInput {
+  logClass()
 
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>

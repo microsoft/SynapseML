@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.featurize.text.TextFeaturizer
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
 import org.apache.spark.ml.feature.{OneHotEncoder, SQLTransformer, VectorAssembler}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -33,7 +33,7 @@ object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with BasicLogging {
+  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("Featurize"))

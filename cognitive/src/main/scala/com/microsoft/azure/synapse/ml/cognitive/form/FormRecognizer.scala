@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.form
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.text.HasModelVersion
 import com.microsoft.azure.synapse.ml.cognitive.vision.{BasicAsyncReply, HasImageInput, ReadLine}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
@@ -187,7 +187,7 @@ object FormsFlatteners {
 object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout]
 
 class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasPages {
+  with SynapseMLLogging with HasPages {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeLayout"))
@@ -220,7 +220,7 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
 object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts]
 
 class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasPages with HasTextDetails with HasLocale {
+  with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeReceipts"))
@@ -234,7 +234,7 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
 object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards]
 
 class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasPages with HasTextDetails with HasLocale {
+  with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeBusinessCards"))
@@ -248,7 +248,7 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
 object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices]
 
 class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasPages with HasTextDetails with HasLocale {
+  with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeInvoices"))
@@ -262,7 +262,7 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
 object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments]
 
 class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasPages with HasTextDetails {
+  with SynapseMLLogging with HasPages with HasTextDetails {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeIDDocuments"))
@@ -277,7 +277,7 @@ object ListCustomModels extends ComplexParamsReadable[ListCustomModels]
 
 class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasSetLocation with HasSetLinkedService with BasicLogging {
+  with HasSetLocation with HasSetLinkedService with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ListCustomModels"))
@@ -302,7 +302,7 @@ object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
 
 class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
-  with HasSetLocation with HasSetLinkedService with BasicLogging with HasModelID {
+  with HasSetLocation with HasSetLinkedService with SynapseMLLogging with HasModelID {
   logClass()
 
   def this() = this(Identifiable.randomUID("GetCustomModel"))
@@ -330,7 +330,7 @@ class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid
 object AnalyzeCustomModel extends ComplexParamsReadable[AnalyzeCustomModel]
 
 class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(uid)
-  with BasicLogging with HasTextDetails with HasModelID {
+  with SynapseMLLogging with HasTextDetails with HasModelID {
   logClass()
 
   def this() = this(Identifiable.randomUID("AnalyzeCustomModel"))
