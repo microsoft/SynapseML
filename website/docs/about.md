@@ -10,7 +10,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # SynapseML
 
-SynapseML is an ecosystem of tools aimed towards expanding the distributed computing framework
+SynapseML  is an ecosystem of tools aimed towards expanding the distributed computing framework
 [Apache Spark](https://github.com/apache/spark) in several new directions.
 SynapseML adds many deep learning and data science tools to the Spark ecosystem,
 including seamless integration of Spark Machine Learning pipelines with [Microsoft Cognitive Toolkit
