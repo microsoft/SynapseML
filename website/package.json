@@ -25,8 +25,7 @@
     "glob-parent": "^6.0.1",
     "got": "^11.8.5",
     "hast-util-is-element": "1.1.0",
-    "loader-utils": "^2.0.4",
-    "minimatch": "^3.1.2",
+    "loader-utils": "^3.2.1",
     "node": "^16.18.1",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
@@ -47,7 +46,8 @@
     "yarn-audit-fix/**/ansi-regex": "^5.0.1",
     "@docusaurus/**/ansi-regex": "^5.0.1",
     "node-fetch": "^2.6.7",
-    "trim": "^0.0.3"
+    "minimatch": "^3.0.5",
+    "got": "^11.8.5"
   },
   "browserslist": {
     "production": [
