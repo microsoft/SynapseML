@@ -43,7 +43,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("col2")
 
-    var ldmlModel = ldml.fit(mockDataset)
+    val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getAvgTreatmentEffect != 0.0)
     assert(ldmlModel.getConfidenceInterval.length == 2)
   }
@@ -56,7 +56,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setOutcomeCol("col1")
       .setWeightCol("col3")
 
-    var ldmlModel = ldml.fit(mockDataset)
+    val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getAvgTreatmentEffect != 0.0)
   }
 
@@ -68,7 +68,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setOutcomeCol("col2")
       .setMaxIter(10)
 
-    var ldmlModel = ldml.fit(mockDataset)
+    val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getConfidenceInterval.length == 2
       && ldmlModel.getConfidenceInterval(0) != ldmlModel.getConfidenceInterval(1))
   }

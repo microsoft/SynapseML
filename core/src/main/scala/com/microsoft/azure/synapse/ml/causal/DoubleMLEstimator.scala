@@ -16,10 +16,11 @@ import org.apache.spark.ml.classification.ProbabilisticClassifier
 import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
-import org.apache.spark.ml.param.shared.HasWeightCol
+import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
+
 import scala.concurrent.Future
 
 /** Double ML estimators. The estimator follows the two stage process,
@@ -118,6 +119,9 @@ class DoubleMLEstimator(override val uid: String)
       }
 
       val ates = awaitFutures(ateFutures).flatten
+      if (ates.isEmpty) {
+        throw new Exception("ATE calculation failed on all iterations. Please check the log for details.")
+      }
       val dmlModel = this.copyValues(new DoubleMLModel(uid)).setRawTreatmentEffects(ates.toArray)
       dmlModel
     })
@@ -132,33 +136,57 @@ class DoubleMLEstimator(override val uid: String)
           new TrainClassifier()
             .setModel(model)
             .setLabelCol(labelColName)
-            .setExcludedFeatures(excludedFeatures),
-          classifier.getProbabilityCol,
-          Seq(classifier.getPredictionCol, classifier.getProbabilityCol, classifier.getRawPredictionCol)
+            .setNonFeatureCols(excludedFeatures),
+          classifier.getProbabilityCol
         )
         case regressor: Regressor[_, _, _] => (
           new TrainRegressor()
             .setModel(model)
             .setLabelCol(labelColName)
-            .setExcludedFeatures(excludedFeatures),
-          regressor.getPredictionCol,
-          Seq(regressor.getPredictionCol)
+            .setNonFeatureCols(excludedFeatures),
+          regressor.getPredictionCol
         )
       }
     }
 
-    val (treatmentEstimator, treatmentResidualPredictionColName, treatmentPredictionColsToDrop) = getModel(
-      getTreatmentModel.copy(getTreatmentModel.extractParamMap()), getTreatmentCol, Array(getOutcomeCol)
+    def getPredictedCols(model: Estimator[_ <: Model[_]]): Array[String] = {
+      val rawPredictionCol = model match {
+        case rp: HasRawPredictionCol => Some(rp.getRawPredictionCol)
+        case _ => None
+      }
+
+      val predictionCol = model match {
+        case p: HasPredictionCol => Some(p.getPredictionCol)
+        case _ => None
+      }
+
+      val probabilityCol = model match {
+        case pr: HasProbabilityCol => Some(pr.getProbabilityCol)
+        case _ => None
+      }
+
+      (rawPredictionCol :: predictionCol :: probabilityCol :: Nil).flatten.toArray
+    }
+
+    val (treatmentEstimator, treatmentResidualPredictionColName) = getModel(
+      getTreatmentModel.copy(getTreatmentModel.extractParamMap()),
+      getTreatmentCol,
+      Array(getOutcomeCol)
     )
-    val (outcomeEstimator, outcomeResidualPredictionColName, outcomePredictionColsToDrop) = getModel(
-      getOutcomeModel.copy(getOutcomeModel.extractParamMap()), getOutcomeCol, Array(getTreatmentCol)
+    val treatmentPredictionColsToDrop = getPredictedCols(getTreatmentModel)
+
+    val (outcomeEstimator, outcomeResidualPredictionColName) = getModel(
+      getOutcomeModel.copy(getOutcomeModel.extractParamMap()),
+      getOutcomeCol,
+      Array(getTreatmentCol)
     )
+    val outcomePredictionColsToDrop = getPredictedCols(getOutcomeModel)
 
     val treatmentResidualCol = DatasetExtensions.findUnusedColumnName(SchemaConstants.TreatmentResidualColumn, dataset)
     val outcomeResidualCol = DatasetExtensions.findUnusedColumnName(SchemaConstants.OutcomeResidualColumn, dataset)
     val treatmentResidualVecCol = DatasetExtensions.findUnusedColumnName("treatmentResidualVec", dataset)
 
-    def setUpDMLPipeline(train: Dataset[_], test: Dataset[_]): DataFrame = {
+    def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
       val treatmentModel = treatmentEstimator.fit(train)
       val outcomeModel = outcomeEstimator.fit(train)
 
@@ -166,13 +194,13 @@ class DoubleMLEstimator(override val uid: String)
         new ResidualTransformer()
           .setObservedCol(getTreatmentCol)
           .setPredictedCol(treatmentResidualPredictionColName)
-          .setOutcomeCol(treatmentResidualCol)
+          .setOutputCol(treatmentResidualCol)
       val dropTreatmentPredictedColumns = new DropColumns().setCols(treatmentPredictionColsToDrop.toArray)
       val outcomeResidual =
         new ResidualTransformer()
           .setObservedCol(getOutcomeCol)
           .setPredictedCol(outcomeResidualPredictionColName)
-          .setOutcomeCol(outcomeResidualCol)
+          .setOutputCol(outcomeResidualCol)
       val dropOutcomePredictedColumns = new DropColumns().setCols(outcomePredictionColsToDrop.toArray)
       val treatmentResidualVA =
         new VectorAssembler()
@@ -197,8 +225,8 @@ class DoubleMLEstimator(override val uid: String)
     */
     val splits = dataset.randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
-    val treatmentEffectDFV1 = setUpDMLPipeline(train, test)
-    val treatmentEffectDFV2 = setUpDMLPipeline(test, train)
+    val residualsDF1 = calculateResiduals(train, test)
+    val residualsDF2 = calculateResiduals(test, train)
 
     // Average slopes from the two residual models.
     val regressor = new GeneralizedLinearRegression()
@@ -207,10 +235,11 @@ class DoubleMLEstimator(override val uid: String)
       .setFamily("gaussian")
       .setLink("identity")
       .setFitIntercept(false)
-    val (lrmV1, lrmV2) = (regressor.fit(treatmentEffectDFV1), regressor.fit(treatmentEffectDFV2))
-    Seq(train, test).foreach(_.unpersist)
 
-    val ate = Seq(lrmV1, lrmV2).map(_.coefficients(0)).sum / 2
+    val coefficients = Array(residualsDF1, residualsDF2).map(regressor.fit).map(_.coefficients(0))
+    val ate = coefficients.sum / coefficients.length
+
+    Seq(train, test).foreach(_.unpersist)
     ate
   }
 

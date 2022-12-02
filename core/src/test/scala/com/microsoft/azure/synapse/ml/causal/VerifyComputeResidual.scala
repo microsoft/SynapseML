@@ -43,7 +43,7 @@ class VerifyComputeResidual extends TransformerFuzzing[ResidualTransformer] {
     val computeResiduals = new ResidualTransformer()
       .setObservedCol("label")
       .setPredictedCol("prediction")
-      .setOutcomeCol("diff")
+      .setOutputCol("diff")
 
     val processedDF = computeResiduals.transform(mockDataset)
 

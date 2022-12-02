@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.functions.vector_to_array
@@ -19,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
  *  for regression, we compute residual as "observed - prediction"
  */
 class ResidualTransformer(override val uid: String) extends Transformer
-  with HasOutcomeCol with DefaultParamsWritable with Wrappable with BasicLogging {
+  with HasOutputCol with DefaultParamsWritable with Wrappable with BasicLogging {
 
   logClass()
 
@@ -46,13 +47,13 @@ class ResidualTransformer(override val uid: String) extends Transformer
   override def transformSchema(schema: StructType): StructType =
     StructType(
       schema.fields :+ StructField(
-        name = $(outcomeCol),
+        name = $(outputCol),
         dataType = DoubleType,
         nullable = false
       )
     )
 
-  setDefault(observedCol -> "label", predictedCol -> "prediction", outcomeCol -> "residual", classIndex -> 1)
+  setDefault(observedCol -> "label", predictedCol -> "prediction", outputCol -> "residual", classIndex -> 1)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
@@ -66,12 +67,12 @@ class ResidualTransformer(override val uid: String) extends Transformer
       predictedColDataType match {
         case SQLDataTypes.VectorType =>
           // For probability vector, compute the residual as "observed - probability($index)"
-          dataset.withColumn(getOutcomeCol,
+          dataset.withColumn(getOutputCol,
             col(getObservedCol) - vector_to_array(col(getPredictedCol))(getClassIndex)
           )
         case _: NumericType =>
           // For prediction numeric, compute residual as "observed - prediction"
-          dataset.withColumn(getOutcomeCol,
+          dataset.withColumn(getOutputCol,
             col(getObservedCol) - col(getPredictedCol)
           )
         case _ =>

@@ -92,8 +92,9 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         }
       ).na.drop(Seq(labelColumn))
 
-      val nonFeatureColumns = getLabelCol +: getExcludedFeatures
-      val featureColumns = convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
+      val nonFeatureColumns = getLabelCol +: getNonFeatureCols
+      val allFeatureColumns = if(isDefined(featureCols)) getFeatureCols else convertedLabelDataset.columns
+      val featureColumns = allFeatureColumns.filterNot(nonFeatureColumns.contains)
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
