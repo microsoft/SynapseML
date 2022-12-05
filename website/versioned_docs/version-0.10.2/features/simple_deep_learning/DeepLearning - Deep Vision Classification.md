@@ -5,7 +5,8 @@ status: stable
 ---
 ## Deep Learning - Deep Vision Classifier
 
-### Environment Setup -- reinstall horovod based on new version of pytorch
+### Environment Setup on databricks
+### -- reinstall horovod based on new version of pytorch
 
 
 ```python

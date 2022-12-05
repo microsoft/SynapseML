@@ -40,7 +40,7 @@ entity.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.EntityDetector
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -106,7 +106,7 @@ keyPhrase.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.KeyPhraseExtractor
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -178,7 +178,7 @@ language.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.LanguageDetector
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -245,7 +245,7 @@ ner.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.NER
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -312,7 +312,7 @@ pii.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.PII
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -382,7 +382,7 @@ sentiment.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.text.TextSentiment
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)

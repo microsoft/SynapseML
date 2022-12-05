@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.UDFParam
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
@@ -21,7 +21,7 @@ object Lambda extends ComplexParamsReadable[Lambda] with Serializable {
   }
 }
 
-class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable with BasicLogging {
+class Lambda(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("Lambda"))

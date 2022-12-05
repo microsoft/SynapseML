@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.StringIntMapParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes._
@@ -19,7 +19,8 @@ import scala.collection.JavaConverters._
 
 object EnsembleByKey extends DefaultParamsReadable[EnsembleByKey]
 
-class EnsembleByKey(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+class EnsembleByKey(val uid: String) extends Transformer
+  with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("EnsembleByKey"))

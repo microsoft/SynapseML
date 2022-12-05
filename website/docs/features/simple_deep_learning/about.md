@@ -3,6 +3,10 @@ title: Deep Vision Classification on Databricks
 sidebar_label: Deep Vision Classification on Databricks
 ---
 
+:::note
+This is for databricks 10.4.x-gpu-ml-scala2.12 runtime
+:::
+
 ## 1. Re-install horovod using our prepared script
 
 We build on top of torchvision, horovod and pytorch_lightning, so we need to reinstall horovod by building on specific versions of those packages.

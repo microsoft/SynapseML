@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
@@ -322,7 +322,7 @@ trait DomainHelper {
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with ConcurrencyParams with HasOutputCol
   with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasErrorCol with BasicLogging {
+  with HasSubscriptionKey with HasErrorCol with SynapseMLLogging {
 
   setDefault(
     outputCol -> (this.uid + "_output"),

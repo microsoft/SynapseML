@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.nn
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.BallTreeParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
@@ -47,7 +47,7 @@ trait KNNParams extends HasFeaturesCol with Wrappable with HasOutputCol {
 }
 
 class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
-  with DefaultParamsWritable with OptimizedKNNFitting with BasicLogging {
+  with DefaultParamsWritable with OptimizedKNNFitting with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("KNN"))
@@ -77,7 +77,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 }
 
 class KNNModel(val uid: String) extends Model[KNNModel]
-  with ComplexParamsWritable with KNNParams with BasicLogging {
+  with ComplexParamsWritable with KNNParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("KNNModel"))

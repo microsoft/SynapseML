@@ -15,7 +15,8 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 trait LightGBMExecutionParams extends Wrappable {
   val passThroughArgs = new Param[String](this, "passThroughArgs",
     "Direct string to pass through to LightGBM library (appended with other explicitly set params). " +
-      "Will override any parameters given with explicit setters. Can include multiple parameters in one string.")
+      "Will override any parameters given with explicit setters. Can include multiple parameters in one string. " +
+      "e.g., force_row_wise=true")
   setDefault(passThroughArgs->"")
   def getPassThroughArgs: String = $(passThroughArgs)
   def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)

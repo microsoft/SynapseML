@@ -4,13 +4,13 @@
 package org.apache.spark.sql.types.injections
 
 import breeze.linalg.{DenseVector => BDV}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.nn._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
-trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
+trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
 
@@ -47,7 +47,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with BasicLogging {
 
 }
 
-trait OptimizedKNNFitting extends KNNParams with BasicLogging {
+trait OptimizedKNNFitting extends KNNParams with SynapseMLLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
 
