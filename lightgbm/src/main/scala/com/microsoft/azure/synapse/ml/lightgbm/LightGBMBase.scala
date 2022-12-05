@@ -313,7 +313,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                     execNumThreads,
                     getExecutionMode,
                     getMicroBatchSize,
-                    getUseSingleDatasetMode)
+                    getUseSingleDatasetMode,
+                    getMaxStreamingOMPThreads)
   }
 
   /**

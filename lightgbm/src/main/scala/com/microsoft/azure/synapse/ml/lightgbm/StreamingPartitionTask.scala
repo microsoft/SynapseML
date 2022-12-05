@@ -383,13 +383,14 @@ class StreamingPartitionTask extends BasePartitionTask {
         datasetVoidPtr), "Dataset create")
 
       val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
+      val maxOmpThreads = ctx.trainingCtx.trainingParams.executionParams.maxStreamingOMPThreads
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(datasetPtr,
                                                                    ctx.trainingCtx.hasWeightsAsInt,
                                                                    ctx.trainingCtx.hasInitialScoresAsInt,
                                                                    ctx.trainingCtx.hasGroupsAsInt,
                                                                    ctx.trainingCtx.trainingParams.getNumClass,
                                                                    ctx.executorPartitionCount,
-                                                              16),  // TODO make configurable
+                                                                   maxOmpThreads),
                              "LGBM_DatasetInitStreaming")
 
       val dataset = new LightGBMDataset(datasetPtr)
