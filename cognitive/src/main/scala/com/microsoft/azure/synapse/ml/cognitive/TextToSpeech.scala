@@ -7,8 +7,10 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.{HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.BasicLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import com.microsoft.cognitiveservices.speech.{SpeechConfig, SpeechSynthesisCancellationDetails,
-  SpeechSynthesisOutputFormat, SpeechSynthesizer}
+import com.microsoft.cognitiveservices.speech.{
+  SpeechConfig, SpeechSynthesisCancellationDetails,
+  SpeechSynthesisOutputFormat, SpeechSynthesisResult, SpeechSynthesizer
+}
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.spark.ml.param.{Param, ParamMap}
@@ -42,11 +44,11 @@ class TextToSpeech(override val uid: String)
 
   val outputFormat = new ServiceParam[String](this,
     "outputFormat",
-    s"The format for the output audio can be one of ${possibleOutputFormats}",
+    s"The format for the output audio can be one of $possibleOutputFormats",
     isRequired = false,
     isValid = {
       case Left(f) =>
-        assert(possibleOutputFormats.contains(f), s"Must be one of ${possibleOutputFormats}")
+        assert(possibleOutputFormats.contains(f), s"Must be one of $possibleOutputFormats")
         true
       case Right(_) => true
     })
@@ -61,7 +63,6 @@ class TextToSpeech(override val uid: String)
     "locale",
     s"The locale of the input text",
     isRequired = true)
-
 
   def setLocale(v: String): this.type = setScalarParam(locale, v)
 
@@ -106,6 +107,20 @@ class TextToSpeech(override val uid: String)
 
   def getOutputFileCol: String = $(outputFileCol)
 
+  val useSSML = new ServiceParam[Boolean](this,
+    "useSSML",
+    s"whether to interpret the provided text input as SSML (Speech Synthesis Markup Language). " +
+      "The default value is false.",
+    isRequired = false)
+
+  def setUseSSML(v: Boolean): this.type = setScalarParam(useSSML, v)
+
+  def setUseSSMLCol(v: String): this.type = setVectorParam(useSSML, v)
+
+  def speechGenerator(synth: SpeechSynthesizer, shouldUseSSML: Boolean, txt: String): SpeechSynthesisResult = {
+    if (shouldUseSSML) synth.SpeakSsml(txt) else synth.SpeakText(txt)
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     val hconf = new SerializableConfiguration(dataset.sparkSession.sparkContext.hadoopConfiguration)
     val toRow = SpeechSynthesisError.makeToRowConverter
@@ -116,8 +131,9 @@ class TextToSpeech(override val uid: String)
         getValueOpt(row, outputFormat).foreach(format =>
           config.setSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.valueOf(format)))
 
-        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth =>
-          val res = synth.SpeakText(getValue(row, text))
+        val (errorOpt, data) = using(new SpeechSynthesizer(config, null)) { synth => //scalastyle:ignore null
+          val res = speechGenerator(synth, getValueOpt(row, useSSML)
+            .getOrElse(false), getValueOpt(row, text).getOrElse(""))
           val error = if (res.getReason.name() == "SynthesizingAudioCompleted") {
             None
           } else {

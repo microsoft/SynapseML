@@ -91,7 +91,8 @@ object CodegenPlugin extends AutoPlugin {
   override lazy val globalSettings: Seq[Setting[_]] = Seq(
     Global / concurrentRestrictions ++= Seq(
       Tags.limit(RInstallTag, 1), Tags.limit(TestGenTag, 1), Tags.limit(DotnetTestGenTag, 1),
-      Tags.limit(DotnetCodeGenTag, 1), Tags.limit(TestDotnetTag, 1))
+      Tags.limit(DotnetCodeGenTag, 1), Tags.limit(TestDotnetTag, 1)),
+    Global / excludeLintKeys += publishMavenStyle
   )
 
   def testRImpl: Def.Initialize[Task[Unit]] = Def.task {

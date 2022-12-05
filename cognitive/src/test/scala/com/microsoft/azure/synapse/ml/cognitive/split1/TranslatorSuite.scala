@@ -9,7 +9,9 @@ import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, flatten}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.{col, flatten, udf}
+import org.scalactic.Equality
 
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
@@ -34,7 +36,7 @@ trait TranslatorUtils extends TestBase {
     "or phrase</mstrans:dictionary> is a dictionary entry.")).toDF("text")
 
   lazy val textDf6: DataFrame = Seq(("Hi, this is Synapse!", "zh-Hans"),
-    (null, "zh-Hans"), ("test", null))
+    (null, "zh-Hans"), ("test", null))  //scalastyle:ignore null
     .toDF("text", "language")
 
   lazy val emptyDf: DataFrame = Seq("").toDF()
@@ -188,8 +190,9 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
       .withColumn("text", col("result.text"))
       .withColumn("script", col("result.script"))
       .select("text", "script").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Kon'nichiwa\nsayonara")
-    assert(results.head.getSeq(1).mkString("\n") === "Latn\nLatn")
+
+    assert(TransliterateSuite.stripInvalid(results.head.getSeq(0).mkString("\n")) === "Kon'nichiwa\nsayonara")
+    assert(TransliterateSuite.stripInvalid(results.head.getSeq(1).mkString("\n")) === "Latn\nLatn")
   }
 
   test("Throw errors if required fields not set") {
@@ -206,10 +209,28 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     assert(caught.getMessage.contains("toScript"))
   }
 
+  val stripUdf: UserDefinedFunction = udf {
+    (o: Seq[(String, String)]) => {
+      o.map(t => (TransliterateSuite.stripInvalid(t._1), t._2))
+    }
+  }
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    val column = "result"
+    super.assertDFEq(
+      df1.withColumn(column, stripUdf(col(column))),
+      df2.withColumn(column, stripUdf(col(column))))(eq)
+  }
+
   override def testObjects(): Seq[TestObject[Transliterate]] =
     Seq(new TestObject(transliterate, transDf))
 
   override def reader: MLReadable[_] = Transliterate
+}
+
+object TransliterateSuite {
+  private def stripInvalid(str: String): String = {
+    "[^\n'A-Za-z]".r.replaceAllIn(str, "")
+  }
 }
 
 class DetectSuite extends TransformerFuzzing[Detect]

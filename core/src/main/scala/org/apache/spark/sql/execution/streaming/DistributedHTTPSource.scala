@@ -18,6 +18,7 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.Executors
 import javax.annotation.concurrent.GuardedBy
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.collection.{immutable, mutable}
 
@@ -40,7 +41,7 @@ class MultiChannelMap[K, V](var nLists: Int) {
     nLists = n
     if (n > oldNLists) {
       lists.append(new mutable.ListBuffer[(K, V)]())
-    } else if (n < nLists) {
+    } else if (n < nLists) { // TODO this is always false?
       val listsToDisperse = lists.slice(0, oldNLists - n)
       lists.remove(0, oldNLists - n)
       listsToDisperse.flatten.foreach(p => addToNextList(p._1, p._2))
@@ -165,26 +166,26 @@ class JVMSharedServer(name: String, host: String,
     }
   }
 
-  //scalastyle:off magic.number
+  @tailrec
   private def tryCreateServer(host: String, startingPort: Int, triesLeft: Int): (HttpServer, Int) = {
     if (triesLeft == 0) {
       throw new java.net.BindException("Could not find open ports in the range," +
         " try increasing the number of ports to try")
     }
     try {
-      val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
+      val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort),
+                            100)  //scalastyle:ignore magic.number
       (server, startingPort)
     } catch {
       case _: java.net.BindException =>
         tryCreateServer(host, startingPort + 1, triesLeft - 1)
     }
   }
-  //scalastyle:on magic.number
 
   @GuardedBy("this")
   private val (server, serverPort) = tryCreateServer(host, port, maxAttempts)
   server.createContext(s"/$name", new RequestHandler)
-  server.setExecutor(Executors.newFixedThreadPool(100))
+  server.setExecutor(Executors.newFixedThreadPool(100))  //scalastyle:ignore magic.number
   server.start()
 
   val address: String = server.getAddress.getHostString + ":" + serverPort
@@ -281,7 +282,7 @@ class DistributedHTTPSource(name: String,
       s.updateCurrentBatch(currentOffset.offset)
       s.getRequests(startOrdinal, endOrdinal)
         .map{ case (id, request) =>
-          Row.fromSeq(Seq(Row(null, id, null), toRow(request)))
+          Row.fromSeq(Seq(Row(null, id, null), toRow(request)))  //scalastyle:ignore null
         }.toIterator
     }(RowEncoder(HTTPSourceV2.Schema))
   }

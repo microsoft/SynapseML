@@ -62,7 +62,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
 
   private def getAllInputCols = getInputCols ++ getStringSplitInputCols
 
-  private def getFeaturizer(name: String,
+  private def getFeaturizer(name: String,  //scalastyle:ignore cyclomatic.complexity
                             dataType: DataType,
                             nullable: Boolean,
                             idx: Int,
@@ -88,10 +88,10 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   }
 
   private def getNumericFeaturizer[T](prefixName: String,
-                                                                       nullable: Boolean,
-                                                                       idx: Int,
-                                                                       namespaceHash: Int,
-                                                                       zero: T)(implicit n: Numeric[T]): Featurizer = {
+                                      nullable: Boolean,
+                                      idx: Int,
+                                      namespaceHash: Int,
+                                      zero: T)(implicit n: Numeric[T]): Featurizer = {
     if (nullable)
       new NullableNumericFeaturizer[T](idx, prefixName, namespaceHash, getMask, n)
     else
@@ -150,26 +150,17 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     logTransform[DataFrame]({
       if (getPreserveOrderNumBits + getNumBits > 30)
         throw new IllegalArgumentException(
-          s"Number of bits used for hashing (${getNumBits} and " +
-            s"number of bits used for order preserving (${getPreserveOrderNumBits}) must be less than 30")
-
+          s"Number of bits used for hashing ($getNumBits and " +
+            s"number of bits used for order preserving ($getPreserveOrderNumBits) must be less than 30")
       val maxFeaturesForOrdering = 1 << getPreserveOrderNumBits
-
       val inputColsList = getAllInputCols
       val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
-
       val fieldSubset = dataset.schema.fields
         .filter(f => inputColsList.contains(f.name))
-
       val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
         .map { case (field, idx) => getFeaturizer(field.name, field.dataType, field.nullable, idx, namespaceHash) }
 
-      // TODO: list types
-      // BinaryType
-      // CalendarIntervalType
-      // DateType
-      // NullType
-      // TimestampType
+      // TODO: list types - BinaryType, CalendarIntervalType, DateType, NullType, TimestampType
 
       val mode = udf((r: Row) => {
         val indices = mutable.ArrayBuilder.make[Int]
@@ -186,23 +177,21 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
 
         val indicesArray = indices.result
         if (getPreserveOrderNumBits > 0) {
-          var idxPrefixBits = 30 - getPreserveOrderNumBits
+          val idxPrefixBits = 30 - getPreserveOrderNumBits
 
           if (indicesArray.length > maxFeaturesForOrdering)
             throw new IllegalArgumentException(
               s"Too many features ${indicesArray.length} for " +
-                s"number of bits used for order preserving (${getPreserveOrderNumBits})")
+                s"number of bits used for order preserving ($getPreserveOrderNumBits)")
 
-          // prefix every feature index with a counter value
-          // will be stripped when passing to VW
-          for (i <- 0 until indicesArray.length) {
+          // prefix every feature index with a counter value; will be stripped when passing to VW
+          for (i <- indicesArray.indices) {
             val idxPrefix = i << idxPrefixBits
             indicesArray(i) = indicesArray(i) | idxPrefix
           }
         }
 
-        // if we use the highest order bits to preserve the ordering
-        // the maximum index size is larger
+        // if we use the highest order bits to preserve the ordering, the maximum index size is larger
         val size = if (getPreserveOrderNumBits > 0) 1 << 30 else 1 << getNumBits
 
         // sort by indices and remove duplicate values
@@ -226,6 +215,6 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       if (!fieldNames.contains(f))
         throw new IllegalArgumentException(s"missing input column $f")
 
-    schema.add(StructField(getOutputCol, VectorType, true))
+    schema.add(StructField(getOutputCol, VectorType, nullable = true))
   }
 }

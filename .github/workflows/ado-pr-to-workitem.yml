@@ -19,5 +19,5 @@ jobs:
         ado_wit: 'Task'
         ado_active_state: 'In Progress'
         ado_close_state: 'Done'
-        ado_area_path: 'A365\\Trident\\DataScience\\SynapseML\\Community'
+        ado_area_path: '${{ secrets.ADO_AREA_PATH }}'
         debug: true
