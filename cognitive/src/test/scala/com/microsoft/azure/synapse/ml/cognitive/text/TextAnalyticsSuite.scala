@@ -41,7 +41,8 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
     "Hello World",
     "Bonjour tout le monde",
     "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
-    ":) :( :D"
+    ":) :( :D",
+    "日本国（にほんこく、にっぽんこく、英: Japan）、または日本（にほん、にっぽん）は、東アジアに位置する民主制国家 [1]。首都は東京都[注 2][2][3]。"
   ).toDF("text")
 
   override def model: LanguageDetector = new LanguageDetector()
@@ -56,6 +57,19 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
     assert(langs(1) == "French")
   }
 
+  def versionModel: LanguageDetector = new LanguageDetector()
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
+    .setModelVersion("2021-11-20")
+    .setOutputCol("output")
+
+  test("Set Model Version"){
+    val results = prepResults(versionModel.transform(df))
+    val langs = results.map(_.get.document.get.detectedLanguage.get.name)
+    assert(langs.head == "English")
+    assert(langs(1) == "French")
+    assert(langs(4) == "Japan")
+  }
   override def reader: MLReadable[_] = LanguageDetector
 
   override def testObjects(): Seq[TestObject[LanguageDetector]] =
