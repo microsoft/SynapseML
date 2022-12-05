@@ -65,13 +65,11 @@ trait TextAnalyticsInputParams extends HasServiceParams {
 
 trait HasModelVersion extends HasServiceParams {
   val modelVersion = new ServiceParam[String](
-    this, name = "modelVersion", "Version of the model")
+    this, name = "modelVersion", "Version of the model", isURLParam = true)
 
-  def getModelVersion: String = $(modelVersion).left.get
+  def getModelVersion: String = getScalarParam(modelVersion)
 
   def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
-
-  def setModelVersionCol(v: String): this.type = setVectorParam(modelVersion, v)
 
   setDefault(
     modelVersion -> Left("latest")
