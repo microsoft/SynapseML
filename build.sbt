@@ -412,7 +412,7 @@ lazy val lightgbm = (project in file("lightgbm"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.210"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
     name := "synapseml-lightgbm"
   ): _*)
 

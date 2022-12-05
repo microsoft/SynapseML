@@ -388,7 +388,8 @@ class StreamingPartitionTask extends BasePartitionTask {
                                                                    ctx.trainingCtx.hasInitialScoresAsInt,
                                                                    ctx.trainingCtx.hasGroupsAsInt,
                                                                    ctx.trainingCtx.trainingParams.getNumClass,
-                                                                   ctx.executorPartitionCount),
+                                                                   ctx.executorPartitionCount,
+                                                              16),  // TODO make configurable
                              "LGBM_DatasetInitStreaming")
 
       val dataset = new LightGBMDataset(datasetPtr)
