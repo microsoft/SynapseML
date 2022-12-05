@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive.form
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.text.HasModelVersion
 import com.microsoft.azure.synapse.ml.cognitive.vision.{BasicAsyncReply, HasImageInput, ReadLine}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -21,7 +20,7 @@ import spray.json._
 
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
-  with HasImageInput with HasSetLocation with HasSetLinkedService with HasModelVersion {
+  with HasImageInput with HasSetLocation with HasSetLinkedService {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
