@@ -65,7 +65,9 @@ trait TextAnalyticsInputParams extends HasServiceParams {
 
 trait HasModelVersion extends HasServiceParams {
   val modelVersion = new ServiceParam[String](
-    this, name = "modelVersion", "Version of the model", isURLParam = true)
+    this, name = "modelVersion", "Version of the model", isURLParam = true) {
+    override val payloadName: String = "model-version"
+  }
 
   def getModelVersion: String = getScalarParam(modelVersion)
 
@@ -136,7 +138,7 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
         None
       } else {
         import TAJSONFormat._
-        val post = new HttpPost(getUrl)
+        val post = new HttpPost(prepareUrl(row))
         getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
         post.setHeader("Content-Type", "application/json")
         val json = TARequest(makeDocuments(row)).toJson.compactPrint
@@ -243,7 +245,7 @@ private[ml] trait HasUnpackedBinding {
 private[ml] abstract class TextAnalyticsBase(uid: String)
   extends TextAnalyticsBaseNoBinding(uid) with HasUnpackedBinding {
 
-    protected def responseBinding: SparkBindings[TAResponse[T]]
+  protected def responseBinding: SparkBindings[TAResponse[T]]
 
   override protected def responseDataType: DataType = responseBinding.schema
 
@@ -412,11 +414,11 @@ class AnalyzeHealthText(override val uid: String)
     super.postprocessResponse(processedResponseOpt.orNull)
   }
 
-/*
-  override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
-    v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
-      s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
-*/
+  /*
+    override private[ml] def dotnetTestValue(v: Seq[TextAnalyzeTask]): String =
+      v.map(x => s"new TextAnalyzeTask(new Dictionary<string, string>" +
+        s"${DotnetWrappableParam.dotnetDefaultRender(x.parameters)})").mkString(",")
+  */
 
   /*
   override def rConstructorLine(v: Seq[TextAnalyzeTask]): String = {

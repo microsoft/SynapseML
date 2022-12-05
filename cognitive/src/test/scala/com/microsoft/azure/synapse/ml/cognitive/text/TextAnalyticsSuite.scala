@@ -68,7 +68,7 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
     val langs = results.map(_.get.document.get.detectedLanguage.get.name)
     assert(langs.head == "English")
     assert(langs(1) == "French")
-    assert(langs(4) == "Japan")
+    assert(langs(4) == "Japanese")
   }
   override def reader: MLReadable[_] = LanguageDetector
 
