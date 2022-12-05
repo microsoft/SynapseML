@@ -7,11 +7,12 @@ sidebar_label: About
 ## Causal Inference on Apache Spark
 
 ### What is Causal Inference?
-One challenge that machine learning tries to solve is to help decision-makings in policy and business nowadays. 
-For example, if we give customers a discount (treatment), how much longer will they stay (outcome). 
-Traditionally, people use prediction model to understand correlation, but going from prediction to a decision is not always straightforward, 
-correlation is not causation, it's very common that some confounding features influence both the probability of treatment and the outcome, 
-creating additional non-causal correlation. 
+One challenge that has taken the spotlight in recent years is using machine learning to drive decision makings in policy and business. 
+Often, businesses and policymakers would like to study whether an incentive or intervention will lead to a desired outcome and by how much.
+For example, if we give customers a discount (treatment), how much more will they purchase in the future (outcome). 
+Traditionally, people use correlation analysis or prediction model to understand correlated factors, but going from prediction to an 
+impactful decision is not always straightforward as correlation does not imply causation. In many cases, confounding variables influence 
+both the probability of treatment and the outcome, introducing additional additional non-causal correlation. 
 
 Causal inference helps to bridge the gap between prediction and decision-making. 
 
@@ -23,13 +24,14 @@ Causal inference helps to bridge the gap between prediction and decision-making.
 | Confounders (W) | Current gaming habits, past purchases, customer location, platform |
 
 ### Causal Inference and Double machine learning
-The gold standard approach to answering isolating causal questions is to run an experiment that randomly assigns
-the treatment to some customers. 
+The gold standard approach to isolating causal questions is to run an experiment that randomly assigns the treatment to some customers. 
 Randomization eliminates any relationship between the confounders and the probability of treatment,
-so any differences between treated and untreated customers can only reflect the causal treatment effect.
-But it has limitations, some treatments experiments are impossible or cost prohibitive, and some users may not comply with their assignment in experiments.
+so any differences between treated and untreated customers can only reflect the direct causal causal effect of the treatment on the outcome (treatment effect).
+However, in many cases, treatments experiments are either impossible or cost prohibitive. 
+As a result, we look toward causal inference methods that allow us to estimate the treatment effect using observational data.
 
-The SynapseML causal package implements a technique "Double machine learning", which can be used to get treatment effect estimation via machine learning based approaches.
+The SynapseML causal package implements a technique "Double machine learning", which can be used to estimate the average treatment effect via machine learning models.
+Unlike regression-based approaches which make strict parametric assumptions, this machine learning-based approach allows us to model non-linear      relationships between the confounders, treatment, and outcome.
 
 ### Usage
 In PySpark, you can run the `DoubleMLEstimator` via:
@@ -49,4 +51,4 @@ dmlModel.getConfidenceInterval()
 ```
 
 For an end to end application, check out the DoubleMLEstimator [notebook
-example](../todo).
+example](../Effects%20of%20Outreach%20Efforts).
