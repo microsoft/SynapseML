@@ -12,7 +12,7 @@ Often, businesses and policymakers would like to study whether an incentive or i
 For example, if we give customers a discount (treatment), how much more will they purchase in the future (outcome). 
 Traditionally, people use correlation analysis or prediction model to understand correlated factors, but going from prediction to an 
 impactful decision is not always straightforward as correlation does not imply causation. In many cases, confounding variables influence 
-both the probability of treatment and the outcome, introducing additional additional non-causal correlation. 
+both the probability of treatment and the outcome, introducing additional non-causal correlation. 
 
 Causal inference helps to bridge the gap between prediction and decision-making. 
 
@@ -26,7 +26,7 @@ Causal inference helps to bridge the gap between prediction and decision-making.
 ### Causal Inference and Double machine learning
 The gold standard approach to isolating causal questions is to run an experiment that randomly assigns the treatment to some customers. 
 Randomization eliminates any relationship between the confounders and the probability of treatment,
-so any differences between treated and untreated customers can only reflect the direct causal causal effect of the treatment on the outcome (treatment effect).
+so any differences between treated and untreated customers can only reflect the direct causal effect of the treatment on the outcome (treatment effect).
 However, in many cases, treatments experiments are either impossible or cost prohibitive. 
 As a result, we look toward causal inference methods that allow us to estimate the treatment effect using observational data.
 
