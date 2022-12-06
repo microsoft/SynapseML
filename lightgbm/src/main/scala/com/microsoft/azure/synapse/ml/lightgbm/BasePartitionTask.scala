@@ -396,7 +396,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
   }
 
   /**
-    * Generate the final validation dataset for this task.  This should only be run be tasks that will participate in
+    * Generate the final validation dataset for this task.  This should only be run by tasks that will participate in
     * the training rounds, i.e. in useSingleDataset mode it will only be 1 task/executor.
     * @param ctx The training context.
     * @param dataState Any intermediate data state (used mainly by bulk execution mode).
