@@ -23,6 +23,8 @@ case class ClassifierTrainParams(passThroughArgs: Option[String],
                                  numClass: Int = 1) extends BaseTrainParams {
   val isBinary: Boolean = objectiveParams.objective == LightGBMConstants.BinaryObjective
 
+  override def getNumClass(): Int = { numClass }
+
   override def appendSpecializedParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
     sb.appendParamValueIfNotThere("num_class", if (!isBinary) Option(numClass) else None)

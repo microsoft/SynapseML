@@ -313,7 +313,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                     execNumThreads,
                     getExecutionMode,
                     getMicroBatchSize,
-                    getUseSingleDatasetMode)
+                    getUseSingleDatasetMode,
+                    getMaxStreamingOMPThreads)
   }
 
   /**
@@ -477,7 +478,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
 
     val numInitScoreClasses =
-      if (get(initScoreCol).isEmpty) 0
+      if (get(initScoreCol).isEmpty) 1
       else if (dataframe.schema(getInitScoreCol).dataType == VectorType)
         firstRow.getAs[DenseVector](getInitScoreCol).size
       else 1
@@ -504,7 +505,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // Get the row counts per partition
     measures.markRowCountsStart()
     // Get an array where the index is implicitly the partition id
-    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, getLabelCol)
+    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe)
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
@@ -584,8 +585,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                       dataframe: DataFrame,
                                       measures: InstrumentationMeasures): LightGBMBooster = {
     // Create the object that will manage the mapPartitions function
-    // TODO next PR, add in StreamingPartitionTask
-    val workerTaskHandler: BasePartitionTask = new BulkPartitionTask()
+    val workerTaskHandler: BasePartitionTask =
+      if (ctx.isStreaming) new StreamingPartitionTask()
+      else new BulkPartitionTask()
     val mapPartitionsFunc = workerTaskHandler.mapPartitionTask(ctx)(_)
 
     val encoder = Encoders.kryo[PartitionResult]
@@ -626,10 +628,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                    batchIndex: Int,
                                    numTasksPerExecutor: Int,
                                    networkManager: NetworkManager): TrainingContext = {
-    if (trainParams.executionParams.executionMode != LightGBMConstants.BulkExecutionMode) {
-      throw new Exception("Only bulk execution mode supported for now")
-    }
-
     val networkParams = NetworkParams(
       getDefaultListenPort,
       networkManager.host,

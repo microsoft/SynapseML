@@ -67,7 +67,7 @@ trait LightGBMExecutionParams extends Wrappable {
 
   val microBatchSize = new IntParam(this, "microBatchSize",
     "Specify how many elements are sent in a streaming micro-batch.")
-  setDefault(microBatchSize -> 1)
+  setDefault(microBatchSize -> 100)
   def getMicroBatchSize: Int = $(microBatchSize)
   def setMicroBatchSize(value: Int): this.type = set(microBatchSize, value)
 
@@ -117,6 +117,14 @@ trait LightGBMExecutionParams extends Wrappable {
   setDefault(numThreads -> 0)
   def getNumThreads: Int = $(numThreads)
   def setNumThreads(value: Int): this.type = set(numThreads, value)
+
+  val maxStreamingOMPThreads = new IntParam(this,
+    "maxStreamingOMPThreads",
+    "Maximum number of OpenMP threads used by a LightGBM thread. Used only for thread-safe buffer allocation." +
+      " Use -1 to use OpenMP default, but in a Spark environment it's best to set a fixed value.")
+  setDefault(maxStreamingOMPThreads -> 16)
+  def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
+  def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to dataset handling.
