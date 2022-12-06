@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.{HasNonFeatureCols, HasFeatureCols, HasFeaturesCol, HasLabelCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCols, HasLabelCol}
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
 import org.apache.spark.ml.param.{IntParam, Param}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
@@ -12,7 +12,7 @@ import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 /** Defines common inheritance and parameters across trainers.
  */
 trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with HasLabelCol with HasFeatureCols with HasNonFeatureCols with ComplexParamsWritable with HasFeaturesCol with Wrappable {
+  with HasLabelCol with HasInputCols with ComplexParamsWritable with HasFeaturesCol with Wrappable {
 
   /** Doc for model to run.
    */
@@ -38,5 +38,5 @@ trait AutoTrainer[TrainedModel <: Model[TrainedModel]] extends Estimator[Trained
   /** @group setParam */
   def setModel(value: Estimator[_ <: Model[_]]): this.type = set(model, value)
 
-  setDefault(numFeatures -> 0, nonFeatureCols -> Array.empty[String])
+  setDefault(numFeatures -> 0)
 }

@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaConstants}
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import org.apache.spark.annotation.DeveloperApi
@@ -57,7 +57,7 @@ import scala.concurrent.Future
 //noinspection ScalaDocParserErrorInspection,ScalaDocUnclosedTagWithoutParser
 class DoubleMLEstimator(override val uid: String)
   extends Estimator[DoubleMLModel] with ComplexParamsWritable
-    with DoubleMLParams with BasicLogging with Wrappable {
+    with DoubleMLParams with SynapseMLLogging with Wrappable {
 
   logClass()
 
@@ -130,20 +130,18 @@ class DoubleMLEstimator(override val uid: String)
   //scalastyle:off method.length
   private def trainInternal(dataset: Dataset[_]): Double = {
 
-    def getModel(model: Estimator[_ <: Model[_]], labelColName: String, excludedFeatures: Array[String]) = {
+    def getModel(model: Estimator[_ <: Model[_]], labelColName: String) = {
       model match {
         case classifier: ProbabilisticClassifier[_, _, _] => (
           new TrainClassifier()
             .setModel(model)
-            .setLabelCol(labelColName)
-            .setNonFeatureCols(excludedFeatures),
+            .setLabelCol(labelColName),
           classifier.getProbabilityCol
         )
         case regressor: Regressor[_, _, _] => (
           new TrainRegressor()
             .setModel(model)
-            .setLabelCol(labelColName)
-            .setNonFeatureCols(excludedFeatures),
+            .setLabelCol(labelColName),
           regressor.getPredictionCol
         )
       }
@@ -170,15 +168,13 @@ class DoubleMLEstimator(override val uid: String)
 
     val (treatmentEstimator, treatmentResidualPredictionColName) = getModel(
       getTreatmentModel.copy(getTreatmentModel.extractParamMap()),
-      getTreatmentCol,
-      Array(getOutcomeCol)
+      getTreatmentCol
     )
     val treatmentPredictionColsToDrop = getPredictedCols(getTreatmentModel)
 
     val (outcomeEstimator, outcomeResidualPredictionColName) = getModel(
       getOutcomeModel.copy(getOutcomeModel.extractParamMap()),
-      getOutcomeCol,
-      Array(getTreatmentCol)
+      getOutcomeCol
     )
     val outcomePredictionColsToDrop = getPredictedCols(getOutcomeModel)
 
@@ -187,8 +183,8 @@ class DoubleMLEstimator(override val uid: String)
     val treatmentResidualVecCol = DatasetExtensions.findUnusedColumnName("treatmentResidualVec", dataset)
 
     def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
-      val treatmentModel = treatmentEstimator.fit(train)
-      val outcomeModel = outcomeEstimator.fit(train)
+      val treatmentModel = treatmentEstimator.setInputCols(train.columns.filterNot(_ == getOutcomeCol)).fit(train)
+      val outcomeModel = outcomeEstimator.setInputCols(train.columns.filterNot(_ == getTreatmentCol)).fit(train)
 
       val treatmentResidual =
         new ResidualTransformer()
@@ -262,7 +258,7 @@ object DoubleMLEstimator extends ComplexParamsReadable[DoubleMLEstimator] {
 
 /** Model produced by [[DoubleMLEstimator]]. */
 class DoubleMLModel(val uid: String)
-  extends Model[DoubleMLModel] with DoubleMLParams with ComplexParamsWritable with Wrappable with BasicLogging {
+  extends Model[DoubleMLModel] with DoubleMLParams with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true

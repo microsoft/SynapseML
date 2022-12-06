@@ -155,9 +155,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
           numFeatures
         }
 
-      val nonFeatureColumns = getLabelCol +: getNonFeatureCols
-      val allFeatureColumns = if(isDefined(featureCols)) getFeatureCols else convertedLabelDataset.columns
-      val featureColumns = allFeatureColumns.filterNot(nonFeatureColumns.contains)
+      val nonFeatureColumns = getLabelCol
+      val featureColumns = convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)

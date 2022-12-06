@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.functions.vector_to_array
 import org.apache.spark.ml.linalg.SQLDataTypes
@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
  *  for regression, we compute residual as "observed - prediction"
  */
 class ResidualTransformer(override val uid: String) extends Transformer
-  with HasOutputCol with DefaultParamsWritable with Wrappable with BasicLogging {
+  with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
 
   logClass()
 
