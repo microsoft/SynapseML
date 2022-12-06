@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -16,7 +16,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.mutable
 
-trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
+trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with SynapseMLLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.head.length
@@ -53,7 +53,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
 object DynamicMiniBatchTransformer extends DefaultParamsReadable[DynamicMiniBatchTransformer]
 
 class DynamicMiniBatchTransformer(val uid: String)
-    extends MiniBatchBase with BasicLogging {
+    extends MiniBatchBase with SynapseMLLogging {
   logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
@@ -77,7 +77,7 @@ class DynamicMiniBatchTransformer(val uid: String)
 object TimeIntervalMiniBatchTransformer extends DefaultParamsReadable[TimeIntervalMiniBatchTransformer]
 
 class TimeIntervalMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase with BasicLogging {
+  extends MiniBatchBase with SynapseMLLogging {
   logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
@@ -151,7 +151,7 @@ trait HasBatchSize extends Params {
 }
 
 class FixedMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase with HasBatchSize with BasicLogging {
+  extends MiniBatchBase with HasBatchSize with SynapseMLLogging {
   logClass()
 
   val maxBufferSize: Param[Int] = new IntParam(
@@ -187,7 +187,7 @@ class FixedMiniBatchTransformer(val uid: String)
 object FlattenBatch extends DefaultParamsReadable[FlattenBatch]
 
 class FlattenBatch(val uid: String)
-    extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+    extends Transformer with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))

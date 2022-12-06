@@ -14,7 +14,7 @@ class DatabricksGPUTests extends DatabricksTestHelper {
   val horovodInstallationScript: File = FileUtilities.join(
     BuildInfo.baseDirectory.getParent, "deep-learning",
     "src", "main", "python", "horovod_installation.sh").getCanonicalFile
-  uploadFileToDBFS(horovodInstallationScript, "/FileStore/horovod/horovod_installation.sh")
+  uploadFileToDBFS(horovodInstallationScript, "/FileStore/horovod-fix-commit/horovod_installation.sh")
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, GPUInitScripts)
   val jobIdsToCancel: ListBuffer[Int] = databricksTestHelper(
     clusterId, GPULibraries, GPUNotebooks)

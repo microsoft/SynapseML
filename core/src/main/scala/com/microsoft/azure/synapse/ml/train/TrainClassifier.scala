@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.core.utils.CastUtilities._
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
@@ -21,35 +21,35 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
- *
- * Note the behavior of the reindex and labels parameters, the parameters interact as:
- *
- * reindex -> false
- * labels -> false (Empty)
- * Assume all double values, don't use metadata, assume natural ordering
- *
- * reindex -> true
- * labels -> false (Empty)
- * Index, use natural ordering of string indexer
- *
- * reindex -> false
- * labels -> true (Specified)
- * Assume user knows indexing, apply label values. Currently only string type supported.
- *
- * reindex -> true
- * labels -> true (Specified)
- * Validate labels matches column type, try to recast to label type, reindex label column
- *
- * The currently supported classifiers are:
- * Logistic Regression Classifier
- * Decision Tree Classifier
- * Random Forest Classifier
- * Gradient Boosted Trees Classifier
- * Naive Bayes Classifier
- * Multilayer Perceptron Classifier
- * In addition to any generic learner that inherits from Predictor.
- */
-class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with BasicLogging {
+  *
+  * Note the behavior of the reindex and labels parameters, the parameters interact as:
+  *
+  * reindex -> false
+  * labels -> false (Empty)
+  * Assume all double values, don't use metadata, assume natural ordering
+  *
+  * reindex -> true
+  * labels -> false (Empty)
+  * Index, use natural ordering of string indexer
+  *
+  * reindex -> false
+  * labels -> true (Specified)
+  * Assume user knows indexing, apply label values. Currently only string type supported.
+  *
+  * reindex -> true
+  * labels -> true (Specified)
+  * Validate labels matches column type, try to recast to label type, reindex label column
+  *
+  * The currently supported classifiers are:
+  * Logistic Regression Classifier
+  * Decision Tree Classifier
+  * Random Forest Classifier
+  * Gradient Boosted Trees Classifier
+  * Naive Bayes Classifier
+  * Multilayer Perceptron Classifier
+  * In addition to any generic learner that inherits from Predictor.
+  */
+class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
@@ -295,7 +295,7 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
-  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
+  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))

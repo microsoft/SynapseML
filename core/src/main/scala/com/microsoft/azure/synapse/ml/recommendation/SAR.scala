@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import breeze.linalg.{CSCMatrix => BSM}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{RecommendationParams, Constants => C}
@@ -34,7 +34,7 @@ import scala.language.existentials
   * @param uid The id of the module
   */
 class SAR(override val uid: String) extends Estimator[SARModel]
-  with SARParams with DefaultParamsWritable with BasicLogging {
+  with SARParams with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   /** @group getParam */

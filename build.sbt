@@ -1,15 +1,14 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-import xerial.sbt.Sonatype._
 
-import java.io.{File, PrintWriter}
+import java.io.File
 import java.net.URL
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.2"
+val sparkVersion = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -403,7 +402,6 @@ lazy val deepLearning = (project in file("deep-learning"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
-      "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
@@ -413,7 +411,7 @@ lazy val lightgbm = (project in file("lightgbm"))
   .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
     name := "synapseml-lightgbm"
   ): _*)
 
@@ -484,50 +482,3 @@ testWebsiteDocs := {
     Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
-
-ThisBuild / sonatypeProjectHosting := Some(
-  GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-ThisBuild / scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
-  )
-)
-ThisBuild / developers := List(
-  Developer("mhamilton723", "Mark Hamilton",
-    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
-  Developer("imatiach-msft", "Ilya Matiach",
-    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
-  Developer("drdarshan", "Sudarshan Raghunathan",
-    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
-)
-
-ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
-
-ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
-  "oss.sonatype.org",
-  Secrets.nexusUsername,
-  Secrets.nexusPassword)
-
-pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
-pgpSecretRing := {
-  val temp = File.createTempFile("secret", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPrivate)
-    close()
-  }
-  temp
-}
-pgpPublicRing := {
-  val temp = File.createTempFile("public", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPublic)
-    close()
-  }
-  temp
-}
-ThisBuild / publishTo := sonatypePublishToBundle.value
-
-ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / dynverSeparator := "-"

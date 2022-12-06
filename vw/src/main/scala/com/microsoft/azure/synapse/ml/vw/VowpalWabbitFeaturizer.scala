@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.vw.featurizer._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
@@ -23,7 +23,7 @@ object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturiz
 
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
-  with Wrappable with ComplexParamsWritable with BasicLogging
+  with Wrappable with ComplexParamsWritable with SynapseMLLogging
 {
   logClass()
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))

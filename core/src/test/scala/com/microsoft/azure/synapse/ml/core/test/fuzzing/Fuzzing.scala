@@ -191,8 +191,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       .split(".".toCharArray).map(capitalize).mkString(".")
     val externalLoaderImports = conf.name match {
       case "synapseml-deep-learning" =>
-        s"""using Synapse.ML.Cntk;
-           |using Synapse.ML.Onnx;
+        s"""using Synapse.ML.Onnx;
            |using Synapse.ML.Stages;
            |""".stripMargin
       case _ => ""
@@ -616,6 +615,8 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
 
 trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
 
+  def ignoreExperimentFuzzing: Boolean = false
+
   def experimentTestObjects(): Seq[TestObject[S]]
 
   def runExperiment(s: S, fittingDF: DataFrame, transformingDF: DataFrame): DataFrame = {
@@ -639,7 +640,7 @@ trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   }
 
   test("Experiment Fuzzing") {
-    testExperiments()
+    if (!ignoreExperimentFuzzing) testExperiments()
   }
 
 }
@@ -659,11 +660,12 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
       f.mkdir()
       f.toString
     } else {
-      Files.createTempDirectory("SavedModels-").toString
+      tmpDir.toString
     }
   }
 
   val ignoreEstimators: Boolean = false
+  def ignoreSerializationFuzzing: Boolean = false
 
   private def testSerializationHelper(path: String,
                                       stage: PipelineStage with MLWritable,
@@ -719,12 +721,14 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   val retrySerializationFuzzing = false
 
   test("Serialization Fuzzing") {
-    if (retrySerializationFuzzing) {
-      tryWithRetries() { () =>
+    if (!ignoreSerializationFuzzing) {
+      if (retrySerializationFuzzing) {
+        tryWithRetries() { () =>
+          testSerialization()
+        }
+      } else {
         testSerialization()
       }
-    } else {
-      testSerialization()
     }
   }
 

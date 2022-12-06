@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
   BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
@@ -38,7 +38,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   */
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMBase[LightGBMRegressionModel] with BasicLogging {
+    with LightGBMBase[LightGBMRegressionModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
@@ -97,7 +97,7 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
@@ -127,9 +127,7 @@ class LightGBMRegressionModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logPredict(
-      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
-    )
+    getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)

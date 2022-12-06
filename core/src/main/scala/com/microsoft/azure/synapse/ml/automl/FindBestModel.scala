@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.automl
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml._
@@ -50,7 +50,8 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging {
+class FindBestModel(override val uid: String) extends Estimator[BestModel]
+  with FindBestModelParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
@@ -137,7 +138,7 @@ trait HasBestModel extends Params {
 
 /** Model produced by [[FindBestModel]]. */
 class BestModel(val uid: String) extends Model[BestModel]
-  with ComplexParamsWritable with Wrappable with HasBestModel with BasicLogging {
+  with ComplexParamsWritable with Wrappable with HasBestModel with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("BestModel"))

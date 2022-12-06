@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.{UDFParam, UDPyFParam}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
@@ -25,7 +25,7 @@ object UDFTransformer extends ComplexParamsReadable[UDFTransformer] with Seriali
   * udf applied to the input column
   */
 class UDFTransformer(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable
-  with HasInputCol with HasInputCols with HasOutputCol with BasicLogging {
+  with HasInputCol with HasInputCols with HasOutputCol with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("UDFTransformer"))
