@@ -590,8 +590,6 @@ jobs:
     matrix:
       automl:
         PACKAGE: "automl"
-      cntk:
-        PACKAGE: "cntk"
       geospatial:
         PACKAGE: "geospatial"
       onnx:
@@ -630,8 +628,6 @@ jobs:
         FLAKY: "true"
       core:
         PACKAGE: "core"
-      downloader:
-        PACKAGE: "downloader"
       explainers1:
         PACKAGE: "explainers.split1"
       explainers2:
