@@ -202,7 +202,8 @@ object SynapseUtilities {
          |         "spark.jars.repositories" : "$SparkMavenRepositoryList",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.driver.userClassPathFirst": "true",
-         |         "spark.executor.userClassPathFirst": "true"
+         |         "spark.executor.userClassPathFirst": "true",
+         |         "spark.sql.parquet.enableVectorizedReader":"false"
          |     }
          | }
       """.stripMargin

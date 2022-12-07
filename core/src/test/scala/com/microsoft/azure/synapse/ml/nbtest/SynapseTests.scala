@@ -44,7 +44,6 @@ class SynapseTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification"))
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification"))
