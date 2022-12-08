@@ -229,7 +229,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def afterAll(): Unit = {
     MADUtils.cleanUpAllModels(anomalyKey, anomalyLocation)
-    cleanOldModels()
     super.afterAll()
   }
 
@@ -240,6 +239,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
       "org.apache.hadoop.fs.azure.SimpleKeyProvider")
     hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
+    cleanOldModels()
   }
 
   override def testObjects(): Seq[TestObject[FitMultivariateAnomaly]] =
