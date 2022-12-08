@@ -280,7 +280,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
     // scalastyle:off while
     do {
-      PersonGroup.list(top = Option("500")).foreach { pgi =>
+      PersonGroup.list(top = Some("500")).foreach { pgi =>
         try {
           val pgDateString = pgi.personGroupId.replaceFirst("group", "")
           val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
@@ -309,7 +309,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     // scalastyle:off while
     do {
       groupDeleted = false
-      PersonGroup.list(top=Option("500")).foreach { pgi =>
+      PersonGroup.list(top=Some("500")).foreach { pgi =>
         PersonGroup.delete(pgi.personGroupId)
         println(s"Deleted group $pgi")
         groupDeleted = true
