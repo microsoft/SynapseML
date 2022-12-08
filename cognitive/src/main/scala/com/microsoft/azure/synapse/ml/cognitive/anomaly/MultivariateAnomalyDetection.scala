@@ -103,7 +103,7 @@ object MADUtils {
   private[ml] def madListModels(key: String,
                                 location: String,
                                 params: Map[String, String] = Map()): String = {
-    madSend(new HttpGet(), madUrl(location) + "models", key, params)
+    madSend(new HttpGet(), madUrl(location) + "models?$top=500", key, params)
   }
 
   private[ml] def cleanUpAllModels(key: String, location: String): Unit = {
