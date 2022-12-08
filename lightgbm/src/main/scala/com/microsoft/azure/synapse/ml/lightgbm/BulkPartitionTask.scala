@@ -50,12 +50,20 @@ class BulkPartitionTask extends BasePartitionTask {
     PartitionDataState(Option(aggregatedColumns), aggregatedValidationColumns)
   }
 
-  protected def generateFinalDatasetInternal(ctx: PartitionTaskContext,
+  protected def getTrainingDatasetInternal(ctx: PartitionTaskContext,
+                                           dataState: PartitionDataState): LightGBMDataset = {
+    generateDataset(ctx, dataState.aggregatedTrainingData.get, None)
+  }
+
+  protected def getValidationDatasetInternal(ctx: PartitionTaskContext,
                                              dataState: PartitionDataState,
-                                             forValidation: Boolean,
-                                             referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
-    val ac = if (forValidation) dataState.aggregatedValidationData.get
-             else dataState.aggregatedTrainingData.get
+                                             referenceDataset: LightGBMDataset): LightGBMDataset = {
+    generateDataset(ctx, dataState.aggregatedValidationData.get, Option(referenceDataset))
+  }
+
+  protected def generateDataset(ctx: PartitionTaskContext,
+                                ac: BaseAggregatedColumns,
+                                referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
     try {
       val datasetInner: LightGBMDataset = ac.generateDataset(ctx, referenceDataset)
       ctx.trainingCtx.columnParams.groupColumn.foreach(_ => datasetInner.addGroupColumn(ac.getGroups))

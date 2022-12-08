@@ -10,10 +10,12 @@ coverage:
     project:
       default: off
       scala:
-        flags: scala
+        flags:
+          - scala
         target: auto
       python:
-        flags: python
+        flags:
+          - python
         target: auto
     patch:
       default: off
