@@ -1,0 +1,2 @@
+#!/usr/bin/bash
+python3 convert_notebooks.py --input_path "../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb" --output_dir "../documentation/" --owner 'microsoft' --repo 'SynapseML' --service 'cognitive-search'
