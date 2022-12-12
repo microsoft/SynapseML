@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.language
 
-import com.microsoft.azure.synapse.ml.cognitive.text.TextEndpoint
+import com.microsoft.azure.synapse.ml.cognitive.text.{SentimentAssessment, TextEndpoint}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, map}
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.functions.{col, flatten, map}
 import org.scalactic.{Equality, TolerantNumerics}
 
 class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
@@ -178,14 +178,16 @@ class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
 
 class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
 
+  import spark.implicits._
+
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1e-3)
 
-  def df: DataFrame = spark.createDataFrame(Seq(
+  def df: DataFrame = Seq(
     Tuple1(Array("Hello world")),
     Tuple1(Array("Bonjour tout le monde", "Hola mundo", "Tumhara naam kya hai?")),
     Tuple1(Array("你好")),
     Tuple1(Array("日本国（にほんこく、にっぽんこく、英"))
-  )).toDF("text")
+  ).toDF("text")
 
   def model: AnalyzeText = new AnalyzeText()
     .setSubscriptionKey(textKey)
@@ -339,10 +341,22 @@ class SentimentAnalysisSuite extends TransformerFuzzing[AnalyzeText] with TextEn
       .withColumn("documents", col("response.documents"))
       .withColumn("sentiment", col("documents.sentiment"))
       .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
-    val result1 = result.collect()
-    assert(result1.head.getAs[String]("sentiment") == "positive")
-    assert(result1(1).getAs[String]("sentiment") == "negative")
-    assert(result1.head.getAs[Int]("validDocumentsCount") == 1)
+      .collect()
+    assert(result.head.getAs[String]("sentiment") == "positive")
+    assert(result(1).getAs[String]("sentiment") == "negative")
+    assert(result.head.getAs[Int]("validDocumentsCount") == 1)
+  }
+
+  test("Opinion Mining") {
+    val result = model.setOpinionMining(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("sentiment", col("documents.sentiment"))
+      .withColumn("assessments", flatten(col("documents.sentences.assessments")))
+      .collect()
+    assert(result.head.getAs[String]("sentiment") == "positive")
+    assert(result(1).getAs[String]("sentiment") == "negative")
+    val fromRow = SentimentAssessment.makeFromRowConverter
+    assert(result.head.getAs[Seq[Row]]("assessments").map(fromRow).head.sentiment == "positive")
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
