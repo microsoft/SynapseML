@@ -39,6 +39,26 @@ class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoi
     assert(entities.contains("Bill Gates"))
   }
 
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("entityNames", map(col("documents.id"), col("documents.entities.name")))
+    val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
+    assert(entities.contains("Microsoft"))
+    assert(entities.contains("Bill Gates"))
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("entityNames", map(col("documents.id"), col("documents.entities.name")))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+    val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
+    assert(entities.contains("Microsoft"))
+    assert(entities.contains("Bill Gates"))
+    assert(result.head.getAs[Int]("validDocumentsCount") == 1)
+  }
+
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
     Seq(new TestObject[AnalyzeText](model, df))
 
@@ -72,6 +92,26 @@ class EntityRecognitionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
     assert(entities.contains("Microsoft"))
     assert(entities.contains("Bill Gates"))
+  }
+
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("entityNames", map(col("documents.id"), col("documents.entities.text")))
+    val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
+    assert(entities.contains("Microsoft"))
+    assert(entities.contains("Bill Gates"))
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("entityNames", map(col("documents.id"), col("documents.entities.text")))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+    val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
+    assert(entities.contains("Microsoft"))
+    assert(entities.contains("Bill Gates"))
+    assert(result.head.getAs[Int]("validDocumentsCount") == 1)
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
@@ -110,6 +150,26 @@ class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
     assert(keyPhrases.contains("Text Analytics"))
   }
 
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("keyPhrases", col("documents.keyPhrases"))
+    val keyPhrases = result.collect()(1).getAs[Seq[String]]("keyPhrases")
+    assert(keyPhrases.contains("Azure Cognitive Services"))
+    assert(keyPhrases.contains("Text Analytics"))
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("keyPhrases", col("documents.keyPhrases"))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+    val keyPhrases = result.collect()(1).getAs[Seq[String]]("keyPhrases")
+    assert(keyPhrases.contains("Azure Cognitive Services"))
+    assert(keyPhrases.contains("Text Analytics"))
+    assert(result.head.getAs[Int]("validDocumentsCount") == 1)
+  }
+
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
     Seq(new TestObject[AnalyzeText](model, df))
 
@@ -143,6 +203,28 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     assert(detectedLanguages.contains("French"))
     assert(detectedLanguages.contains("Spanish"))
     assert(detectedLanguages.contains("Dutch"))
+  }
+
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("detectedLanguage", col("documents.detectedLanguage.name"))
+    val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
+    assert(detectedLanguages.contains("French"))
+    assert(detectedLanguages.contains("Spanish"))
+    assert(detectedLanguages.contains("Dutch"))
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("detectedLanguage", col("documents.detectedLanguage.name"))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+    val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
+    assert(detectedLanguages.contains("French"))
+    assert(detectedLanguages.contains("Spanish"))
+    assert(detectedLanguages.contains("Dutch"))
+    assert(result.collect()(1).getAs[Seq[Int]]("validDocumentsCount") == Seq(3, 3, 3))
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
@@ -183,6 +265,32 @@ class PIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
     assert(!redactedText.contains("111000025"))
   }
 
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("redactedText", col("documents.redactedText"))
+      .withColumn("entities", col("documents.entities.text"))
+      .collect()
+    val entities = result.head.getAs[Seq[String]]("entities")
+    assert(entities.contains("859-98-0987"))
+    val redactedText = result(1).getAs[String]("redactedText")
+    assert(!redactedText.contains("111000025"))
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("redactedText", col("documents.redactedText"))
+      .withColumn("entities", col("documents.entities.text"))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+      .collect()
+    val entities = result.head.getAs[Seq[String]]("entities")
+    assert(entities.contains("859-98-0987"))
+    val redactedText = result(1).getAs[String]("redactedText")
+    assert(!redactedText.contains("111000025"))
+    assert(result.head.getAs[Int]("validDocumentsCount") == 1)
+  }
+
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
     Seq(new TestObject[AnalyzeText](model, df))
 
@@ -215,6 +323,26 @@ class SentimentAnalysisSuite extends TransformerFuzzing[AnalyzeText] with TextEn
       .collect()
     assert(result.head.getAs[String]("sentiment") == "positive")
     assert(result(1).getAs[String]("sentiment") == "negative")
+  }
+
+  test("api-version 2022-10-01-preview") {
+    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("sentiment", col("documents.sentiment"))
+      .collect()
+    assert(result.head.getAs[String]("sentiment") == "positive")
+    assert(result(1).getAs[String]("sentiment") == "negative")
+  }
+
+  test("Show stats") {
+    val result = model.setShowStats(true).transform(df)
+      .withColumn("documents", col("response.documents"))
+      .withColumn("sentiment", col("documents.sentiment"))
+      .withColumn("validDocumentsCount", col("response.statistics.validDocumentsCount"))
+    val result1 = result.collect()
+    assert(result1.head.getAs[String]("sentiment") == "positive")
+    assert(result1(1).getAs[String]("sentiment") == "negative")
+    assert(result1.head.getAs[Int]("validDocumentsCount") == 1)
   }
 
   override def testObjects(): Seq[TestObject[AnalyzeText]] =
