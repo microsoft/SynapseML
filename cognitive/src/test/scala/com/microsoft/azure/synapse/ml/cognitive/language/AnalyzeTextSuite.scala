@@ -235,7 +235,7 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
   override def reader: MLReadable[_] = AnalyzeText
 }
 
-class PIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+class AnalyzeTextPIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
 
   import spark.implicits._
 
