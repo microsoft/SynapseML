@@ -606,6 +606,9 @@ jobs:
       form:
         PACKAGE: "cognitive.form"
         FLAKY: "true"
+      language:
+        PACKAGE: "cognitive.language"
+        FLAKY: "true"
       openai:
         PACKAGE: "cognitive.openai"
         FLAKY: "true"
