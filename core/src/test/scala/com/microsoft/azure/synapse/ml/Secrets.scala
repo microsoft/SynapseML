@@ -59,13 +59,14 @@ object Secrets {
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
-  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-daily-password")
+  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-dxt-password")
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
-  lazy val SynapseInternalTenantId: String = getSecret("synapse-internal-tenant-id")
-  lazy val SynapseInternalUxHost: String = getSecret("synapse-internal-ux-host")
-  lazy val SynapseInternalSspHost: String = getSecret("synapse-internal-ssp-host")
+  lazy val SynapseExtensionTenantId: String = getSecret("synapse-extension-dxt-tenant-id")
+  lazy val SynapseExtensionUxHost: String = getSecret("synapse-extension-dxt-ux-host")
+  lazy val SynapseExtensionSspHost: String = getSecret("synapse-extension-dxt-ssp-host")
+  lazy val SynapseExtensionWorkspaceId: String = getSecret("synapse-extension-dxt-workspace-id")
 
   lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }
