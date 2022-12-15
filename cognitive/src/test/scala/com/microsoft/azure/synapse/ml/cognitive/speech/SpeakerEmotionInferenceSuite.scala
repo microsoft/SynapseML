@@ -34,7 +34,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
     ("\"I'm shouting excitedly!\" she shouted excitedly.",
       "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' " +
         "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='en-US-JennyNeural'>" +
-        "<mstts:express-as role='female' style='cheerful'>\"I'm shouting excitedly!\"</mstts:express-as> she shouted " +
+        "<mstts:express-as role='female' style='excited'>\"I'm shouting excitedly!\"</mstts:express-as> she shouted " +
         "excitedly.</voice></speak>\n"),
     ("This text has no quotes in it, so isValid should be false",
       "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' " +

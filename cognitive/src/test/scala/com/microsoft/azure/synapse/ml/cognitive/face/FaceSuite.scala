@@ -12,6 +12,7 @@ import org.scalactic.Equality
 
 import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import scala.util.matching.Regex
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
@@ -222,6 +223,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   override def beforeAll(): Unit = {
     super.beforeAll()
+    cleanOldGroups()
     println(satyaFaceIds ++ bradFaceIds)
     PersonGroup.train(pgId)
     tryWithRetries() { () =>
@@ -237,7 +239,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
       println("deleted group")
     }
 
-    cleanOldGroups()
     super.afterAll()
   }
 
@@ -274,29 +275,47 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   def cleanOldGroups(): Unit = {
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
-    PersonGroup.list().foreach { pgi =>
-      try {
-        val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-        val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
-        if (pgDate.isBefore(twoDaysAgo)) {
-          PersonGroup.delete(pgi.personGroupId)
-          println(s"deleted group $pgi")
+    var groupDeleted: Boolean = false
+    val uuidPattern = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+    // scalastyle:off while
+    do {
+      PersonGroup.list(top = Some("500")).foreach { pgi =>
+        try {
+          val pgDateString = pgi.personGroupId.replaceFirst("group", "")
+          val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
+          if (pgDate.isBefore(twoDaysAgo)) {
+            PersonGroup.delete(pgi.personGroupId)
+            println(s"Deleted group $pgi")
+          }
+        } catch {
+          // for uuid-based names
+          // TODO: delete this after we can be assured that everyone has updated
+          case _: DateTimeParseException => {
+            if ((uuidPattern findFirstIn pgi.personGroupId).isDefined) {
+              PersonGroup.delete(pgi.personGroupId)
+              println(s"Deleted group $pgi")
+            }
+          }
+          case t: Throwable => throw t
         }
-      } catch {
-        // for uuid-based names
-        // TODO: once this is checked in, use cleanAllGroups to delete them; and then delete this try/catch.
-        // This might take two or three iterations due to ongoing tests.
-        case _: DateTimeParseException => {}
-        case t => throw t
       }
-    }
+    } while (groupDeleted)
+    // scalastyle:on while
   }
 
   def cleanAllGroups(): Unit = {
-    PersonGroup.list().foreach { pgi =>
-      PersonGroup.delete(pgi.personGroupId)
-      println(s"deleted group $pgi")
-    }
+    var groupDeleted: Boolean = false
+    // scalastyle:off while
+    do {
+      groupDeleted = false
+      PersonGroup.list(top=Some("500")).foreach { pgi =>
+        PersonGroup.delete(pgi.personGroupId)
+        println(s"Deleted group $pgi")
+        groupDeleted = true
+      }
+    } while (groupDeleted)
+    // scalastyle:on while
   }
 
   override def reader: MLReadable[_] = IdentifyFaces
