@@ -15,6 +15,8 @@ import spray.json.{DefaultJsonProtocol, _}
 
 import java.time.format.DateTimeFormatter
 import java.time.{OffsetDateTime, ZonedDateTime}
+import scala.collection.mutable.HashSet
+import scala.util.control.Breaks.{break, breakable}
 
 
 case class MADListModelsResponse(models: Seq[MADModel],
@@ -229,7 +231,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def afterAll(): Unit = {
     MADUtils.cleanUpAllModels(anomalyKey, anomalyLocation)
-    cleanOldModels()
     super.afterAll()
   }
 
@@ -240,6 +241,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
       "org.apache.hadoop.fs.azure.SimpleKeyProvider")
     hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
+    cleanOldModels()
   }
 
   override def testObjects(): Seq[TestObject[FitMultivariateAnomaly]] =
@@ -254,19 +256,32 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
   def cleanOldModels(): Unit = {
     val url = simpleMultiAnomalyEstimator.setLocation(anomalyLocation).getUrl + "/"
     val twoDaysAgo = ZonedDateTime.now().minusDays(2)
+    val modelSet: HashSet[String] = HashSet()
+    var modelDeleted: Boolean = false
 
-    val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
-      .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
-      .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
-
-    models.foreach { modelId =>
-      val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
-      val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
-      if (lastUpdatedTime.isBefore(twoDaysAgo)) {
-        println(s"Deleting $modelId")
-        MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
+    // madListModels doesn't necessarily return all models, so just in case,
+    // if we delete any models, we loop around to see if there are more to check.
+    // scalastyle:off while
+    do {
+      modelDeleted = false
+      val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
+        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
+        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
+      models.foreach { modelId =>
+        if (!modelSet.contains(modelId)) {
+          modelSet += modelId
+          val lastUpdated =
+            MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
+          val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
+          if (lastUpdatedTime.isBefore(twoDaysAgo)) {
+            println(s"Deleting $modelId")
+            MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
+            modelDeleted = true
+          }
+        }
       }
-    }
+    } while (modelDeleted)
+    // scalastyle:on while
   }
 
   override def reader: MLReadable[_] = FitMultivariateAnomaly
