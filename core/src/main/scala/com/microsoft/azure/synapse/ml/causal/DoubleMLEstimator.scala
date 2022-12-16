@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaCons
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
+import jdk.jfr.Experimental
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline}
@@ -293,8 +294,10 @@ class DoubleMLModel(val uid: String)
   override def copy(extra: ParamMap): DoubleMLModel = defaultCopy(extra)
 
   /**
-   * DoubleMLEstimator transform does nothing by design and isn't supposed to be called by end user.
+   * :: Experimental ::
+   * DoubleMLEstimator transform  function is still experimental, and its behavior could change in the future.
   */
+  @Experimental
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       dataset.toDF()
