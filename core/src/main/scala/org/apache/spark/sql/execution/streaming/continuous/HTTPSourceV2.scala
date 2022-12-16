@@ -98,7 +98,7 @@ private[streaming] object HTTPOffset {
   }
 
   def increment(offset: HTTPOffset): HTTPOffset = {
-    HTTPOffset(offset.partitionToValue.mapValues(v => v + 1))
+    HTTPOffset(offset.partitionToValue.mapValues(v => v + 1).toMap)
   }
 
 }
@@ -235,7 +235,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Case
 
   override def latestOffset: Offset = {
     if (endOffset == currentOffset) {
-      endOffset = HTTPOffset(endOffset.partitionToValue.mapValues(i => i + 1))
+      endOffset = HTTPOffset(endOffset.partitionToValue.mapValues(i => i + 1).toMap)
     }
     endOffset
   }

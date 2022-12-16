@@ -32,7 +32,7 @@ object SuperpixelData {
   }
 
   def fromSuperpixel(sp: Superpixel): SuperpixelData = {
-    SuperpixelData(sp.clusters.map(_.pixels))
+    SuperpixelData(sp.clusters.map(_.pixels.toSeq))
   }
 
 }

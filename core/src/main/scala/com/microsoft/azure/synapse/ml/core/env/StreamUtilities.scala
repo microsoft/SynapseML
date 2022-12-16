@@ -82,7 +82,7 @@ object StreamUtilities {
 
     def hasNext: Boolean = nextValue.isDefined
 
-    def next: (String, Array[Byte]) = {
+    def next(): (String, Array[Byte]) = {
       val result = nextValue.get
       nextValue = getNext
       result

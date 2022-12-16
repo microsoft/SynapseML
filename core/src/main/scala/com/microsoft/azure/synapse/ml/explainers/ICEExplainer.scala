@@ -19,7 +19,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.json4s._
 
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters._
 
 class ICENumericFeaturesParam(parent: Params,
                               name: String,
@@ -57,7 +57,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getCategoricalFeatures: Seq[ICECategoricalFeature] = $(categoricalFeatures)
 
   def setCategoricalFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
-    val features: Seq[ICECategoricalFeature] = values.asScala.map(f => ICECategoricalFeature.fromMap(f))
+    val features: Seq[ICECategoricalFeature] = values.asScala.map(f => ICECategoricalFeature.fromMap(f)).toSeq
     this.setCategoricalFeatures(features)
   }
 
@@ -72,7 +72,7 @@ trait ICEFeatureParams extends Params with HasNumSamples {
   def getNumericFeatures: Seq[ICENumericFeature] = $(numericFeatures)
 
   def setNumericFeaturesPy(values: java.util.List[java.util.HashMap[String, Any]]): this.type = {
-    val features: Seq[ICENumericFeature] = values.asScala.map(ICENumericFeature.fromMap)
+    val features: Seq[ICENumericFeature] = values.asScala.map(ICENumericFeature.fromMap).toSeq
     this.setNumericFeatures(features)
   }
 

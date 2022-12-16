@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
+import scala.reflect.ClassTag
 
 /** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
@@ -27,7 +28,7 @@ object DatasetExtensions {
       * @return The sequence of values in the column.
       */
     def getColAs[T](colName: String): Seq[T] = {
-      df.select(colName).collect.map(_.getAs[T](0))
+      df.select(colName).collect.toSeq.map(_.getAs[T](0))
     }
 
     /** Gets the spark sparse vector column.

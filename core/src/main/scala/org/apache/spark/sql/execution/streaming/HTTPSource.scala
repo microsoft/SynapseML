@@ -101,7 +101,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
       }
     }
     val rawBatch = if (rawList.nonEmpty) {
-      sqlContext.sparkContext.parallelize(rawList)
+      sqlContext.sparkContext.parallelize(rawList.toSeq)
     } else {
       sqlContext.sparkContext.emptyRDD[InternalRow]
     }
