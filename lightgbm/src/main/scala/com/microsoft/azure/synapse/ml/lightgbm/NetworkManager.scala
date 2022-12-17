@@ -63,7 +63,7 @@ object NetworkManager {
     val driverServerSocket = new ServerSocket(driverListenPort)
     // Set timeout on socket
     val duration = Duration(timeout, SECONDS)
-    if (duration.isFinite()) {
+    if (duration.isFinite) {
       driverServerSocket.setSoTimeout(duration.toMillis.toInt)
     }
 
