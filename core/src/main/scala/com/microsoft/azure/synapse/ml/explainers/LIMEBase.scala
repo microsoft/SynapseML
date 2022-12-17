@@ -178,7 +178,7 @@ abstract class LIMEBase(override val uid: String)
 
     val modelOutput = scored.withColumn(explainTargetCol, this.extractTarget(scored.schema, targetClasses))
 
-    val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
+    val f: (Long, Iterator[Row]) => (Long, Seq[Vector], Vector) = {
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
@@ -197,7 +197,9 @@ abstract class LIMEBase(override val uid: String)
         val metrics = BDV(lassoResults.map(_.rSquared): _*)
 
         (id, coefficientsMatrix, metrics.toSpark)
-    }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
+    }
+    val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups(f)
+      .toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }

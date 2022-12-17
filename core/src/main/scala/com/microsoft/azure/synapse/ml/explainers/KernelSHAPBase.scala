@@ -67,7 +67,7 @@ abstract class KernelSHAPBase(override val uid: String)
       .groupBy(col(idCol), col(coalitionCol))
       .agg(Summarizer.mean(col(targetCol)).alias(targetCol), mean(weightCol).alias(weightCol))
 
-    val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
+    val f: (Long, Iterator[Row]) => (Long, Seq[Vector], Vector) = {
       case (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
@@ -88,7 +88,9 @@ abstract class KernelSHAPBase(override val uid: String)
         val coefficientsMatrix = wlsResults.map(r => Vectors.dense(r.intercept, r.coefficients.toArray: _*))
         val metrics = BDV(wlsResults.map(_.rSquared): _*)
         (id, coefficientsMatrix, metrics.toSpark)
-    }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
+    }
+    val fitted = coalitionScores.groupByKey[Long]{ row: Row => row.getAs[Long](idCol)}
+      .mapGroups[(Long, Seq[Vector], Vector)](f).toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
   }
