@@ -15,8 +15,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-import scala.collection.JavaConverters._
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 
 /**
  * ONNXRuntime: A wrapper around the ONNX Runtime (ORT)

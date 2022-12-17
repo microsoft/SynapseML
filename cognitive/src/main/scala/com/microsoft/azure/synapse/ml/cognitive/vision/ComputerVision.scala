@@ -486,7 +486,7 @@ class AnalyzeImage(override val uid: String)
 
   def setVisualFeatures(v: Seq[String]): this.type = setScalarParam(visualFeatures, v)
 
-  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala)
+  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala.toSeq)
 
   def setVisualFeaturesCol(v: String): this.type = setVectorParam(visualFeatures, v)
 

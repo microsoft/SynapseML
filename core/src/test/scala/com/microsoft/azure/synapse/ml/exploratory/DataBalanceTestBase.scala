@@ -114,13 +114,14 @@ case class DistributionMetricsCalculator(obsFeatureProbabilities: Array[Double],
   val numFeatures: Double = obsFeatureProbabilities.length
   val refFeatureProbabilities: Array[Double] = Array.fill(numFeatures.toInt)(1d / numFeatures)
 
-  val absDiffObsRef: Array[Double] = (obsFeatureProbabilities, refFeatureProbabilities).zipped.map((a, b) => abs(a - b))
+  val absDiffObsRef: Array[Double] = (obsFeatureProbabilities, refFeatureProbabilities).zipped
+    .map((a, b) => abs(a - b)).toArray
 
   val klDivergence: Double = entropy(obsFeatureProbabilities, Some(refFeatureProbabilities))
   val jsDistance: Double = {
     val averageObsRef = (obsFeatureProbabilities, refFeatureProbabilities).zipped.map((a, b) => (a + b) / 2d)
-    val entropyRefAvg = entropy(refFeatureProbabilities, Some(averageObsRef))
-    val entropyObsAvg = entropy(obsFeatureProbabilities, Some(averageObsRef))
+    val entropyRefAvg = entropy(refFeatureProbabilities, Some(averageObsRef.toArray))
+    val entropyObsAvg = entropy(obsFeatureProbabilities, Some(averageObsRef.toArray))
     sqrt((entropyRefAvg + entropyObsAvg) / 2d)
   }
   val infNormDistance: Double = absDiffObsRef.max

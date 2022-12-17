@@ -41,17 +41,17 @@ class FastVectorAssembler (override val uid: String)
     // Propagate only nominal (categorical) attributes (others only slow down the code)
     val attrs: Array[Attribute] = $(inputCols).flatMap { c =>
       val field = schema(c)
-      field.dataType match {
+      (field.dataType match {
         case _: NumericType | BooleanType =>
           val attr = Attribute.fromStructField(field)
           if (attr.isNominal) {
             if (addedNumericField) {
               throw new SparkException("Categorical columns must precede all others, column out of order: " + c)
             }
-            Some(attr.withName(c))
+            Array(attr.withName(c))
           } else {
             addedNumericField = true
-            None
+            Array()
           }
         case _: VectorUDT =>
           val group = AttributeGroup.fromStructField(field)
@@ -75,11 +75,11 @@ class FastVectorAssembler (override val uid: String)
             }.filter(attr => attr != null)
           } else {
             addedNumericField = true
-            None
+            Array()
           }
         case otherType =>
           throw new SparkException(s"FastVectorAssembler does not support the $otherType type")
-      }
+      }): Array[Attribute]
     }
     val metadata = new AttributeGroup($(outputCol), attrs).toMetadata()
 

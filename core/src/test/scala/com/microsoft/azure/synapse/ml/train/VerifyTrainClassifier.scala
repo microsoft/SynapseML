@@ -229,6 +229,7 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
       .mapValues(creator => creator.setLabelCol(labelColumnName))
       .filterKeys(!modelsToExclude(_))
       .mapValues(trainScoreDataset(labelColumnName, dataset, _))
+      .toMap
   }
 
   /** Get the auc and area over PR for the scored dataset.

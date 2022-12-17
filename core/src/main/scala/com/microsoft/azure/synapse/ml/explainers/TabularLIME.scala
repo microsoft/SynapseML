@@ -14,6 +14,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 
+import scala.collection.parallel.mutable.ParArray
+
 class TabularLIME(override val uid: String)
   extends LIMEBase(uid)
     with HasInputCols
@@ -97,7 +99,7 @@ class TabularLIME(override val uid: String)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
     val countCol = DatasetExtensions.findUnusedColumnName("count", df)
     val maxFeatureMembers: Int = 1000
-    val categoryFeatureStats = categoryFeatures.par.map {
+    val categoryFeatureStats = ParArray.handoff(categoryFeatures).map {
       feature =>
         val freqMap = df.groupBy(feature)
           .agg(count("*").cast(DoubleType).alias(countCol))

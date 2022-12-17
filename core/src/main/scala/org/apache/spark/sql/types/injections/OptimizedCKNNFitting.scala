@@ -14,7 +14,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
 
   private def fitGeneric[V, L](dataset: Dataset[_]): ConditionalKNNModel = {
 
-    val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect()
+    val kvlTriples = dataset.toDF().select(getFeaturesCol, getValuesCol, getLabelCol).collect().toIndexedSeq
       .map { row =>
         val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)
@@ -22,7 +22,7 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
         (bdv, value, label)
       }
     val ballTree = ConditionalBallTree(
-      kvlTriples.map(_._1), kvlTriples.map(_._2), kvlTriples.map(_._3), getLeafSize)
+      kvlTriples.map(_._1), kvlTriples.map(_._2), kvlTriples.toIndexedSeq.map(_._3), getLeafSize)
     new ConditionalKNNModel()
       .setFeaturesCol(getFeaturesCol)
       .setValuesCol(getValuesCol)
@@ -51,7 +51,7 @@ trait OptimizedKNNFitting extends KNNParams with SynapseMLLogging {
 
   private def fitGeneric[V](dataset: Dataset[_]): KNNModel = {
 
-    val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect()
+    val kvlTuples = dataset.toDF().select(getFeaturesCol, getValuesCol).collect().toIndexedSeq
       .map { row =>
         val bdv = new BDV(row.getAs[Vector](getFeaturesCol).toDense.values)
         val value = row.getAs[V](getValuesCol)

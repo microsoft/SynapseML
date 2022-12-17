@@ -30,8 +30,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.{SparkContext, TaskContext}
 
 import java.util
-import scala.collection.JavaConverters._
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 
 trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts {
 

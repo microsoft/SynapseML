@@ -193,7 +193,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
 
     get(categoricalSlotIndexes)
       .getOrElse(Array.empty[Int])
-      .union(categoricalIndexes).distinct
+      .union(categoricalIndexes).distinct.toArray
   }
 
   def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
