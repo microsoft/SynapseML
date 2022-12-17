@@ -7,6 +7,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.io.IOException
+import scala.language.postfixOps
 import scala.sys.process._
 
 object Secrets {

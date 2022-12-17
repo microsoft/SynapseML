@@ -9,6 +9,7 @@ import org.apache.commons.io.FileUtils
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
+import scala.language.postfixOps
 import scala.sys.process._
 
 
