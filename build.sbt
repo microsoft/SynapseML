@@ -11,7 +11,8 @@ val condaEnvName = "synapseml"
 val sparkVersion = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / crossScalaVersions := Seq("2.12.15", "2.13.10")
+ThisBuild / scalaVersion := crossScalaVersions.value.head
 
 val scalaMajorVersion = 2.12
 
@@ -32,6 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
+  "com.chuusai" %% "shapeless" % "2.3.4",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
@@ -384,7 +386,13 @@ ThisBuild / publishMavenStyle := true
 lazy val core = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
-    libraryDependencies ++= dependencies,
+    resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
+    libraryDependencies ++= dependencies ++ (CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, major)) if major <= 12 =>
+        Seq()
+      case _ =>
+        Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4")
+    }),
     buildInfoKeys ++= Seq[BuildInfoKey](
       datasetDir,
       version,
