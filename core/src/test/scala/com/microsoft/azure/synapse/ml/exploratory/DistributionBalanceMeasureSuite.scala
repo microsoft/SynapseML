@@ -37,10 +37,10 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
       .transform(sensitiveFeaturesDf)
 
   private def actualFeature1: Map[String, Double] =
-    METRICS zip actual.filter(col("FeatureName") === feature1)
+    METRICS.zip(actual.filter(col("FeatureName") === feature1)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
   private def expectedFeature1 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature1))
     .select(featureProbCol, featureCountCol)
@@ -72,10 +72,10 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
   }
 
   private def actualFeature2: Map[String, Double] =
-    METRICS zip actual.filter(col("FeatureName") === feature2)
+    METRICS.zip(actual.filter(col("FeatureName") === feature2)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
   private def expectedFeature2 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature2))
     .select(featureProbCol, featureCountCol)
