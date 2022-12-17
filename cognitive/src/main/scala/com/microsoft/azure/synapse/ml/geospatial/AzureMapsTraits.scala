@@ -12,7 +12,7 @@ import com.microsoft.azure.synapse.ml.io.http.{HasURL, _}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.CloseableHttpClient
-import spray.json.DefaultJsonProtocol.{DoubleJsonFormat, StringJsonFormat, seqFormat}
+import spray.json.DefaultJsonProtocol.{DoubleJsonFormat, StringJsonFormat, immSeqFormat, seqFormat}
 
 import java.net.URI
 import java.util.concurrent.TimeoutException

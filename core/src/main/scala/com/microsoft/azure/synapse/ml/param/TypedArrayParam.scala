@@ -39,7 +39,7 @@ abstract class TypedArrayParam[T: TypeTag](parent: Params,
 
   override def rValue(v: Seq[T]): String = {
     implicit val defaultFormat = seqFormat[T]
-    RWrappableParam.rDefaultRender(v)
+    RWrappableParam.rDefaultRender(v)(format)
   }
 
   override def rConstructorLine(v: Seq[T]): String = {
