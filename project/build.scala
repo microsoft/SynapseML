@@ -82,9 +82,9 @@ object BuildUtils {
     runCmd(Seq("dotnet", "pack", "--output", outputDir), workDir)
 
   def publishDotnetAssemblyCmd(packagePath: String,
-                               sleetConfigDir: File): Unit =
+                               sleetConfigFile: File): Unit =
     runCmd(
-      Seq("sleet", "push", packagePath, "--config", join(sleetConfigDir, "sleet.json").getAbsolutePath,
+      Seq("sleet", "push", packagePath, "--config", sleetConfigFile.getAbsolutePath,
         "--source", "SynapseMLNuget", "--force")
     )
 
