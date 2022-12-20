@@ -64,9 +64,9 @@ jobs:
         set -e
         sudo apt-get install graphviz doxygen -y
         source activate synapseml
-        sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
-        sbt publishSigned
+        sbt +packagePython
+        sbt +publishBlob +publishDocs +publishR +publishPython
+        sbt +publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts
@@ -272,6 +272,7 @@ jobs:
     - bash: |
         set -e
         source activate synapseml
+        sbt +installPipPackage
         sbt publishPypi
       condition: startsWith(variables['tag'], 'v')
       env:
