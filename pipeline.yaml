@@ -23,6 +23,13 @@ pr:
     - CODEOWNERS
     - .github
 
+schedules:
+  - cron: "0 0 * * *"
+    displayName: Daily midnight build
+    branches:
+      include:
+        - main
+
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
@@ -105,8 +112,8 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#       synapse-internal:
-#         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
+       synapse-internal:
+         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
