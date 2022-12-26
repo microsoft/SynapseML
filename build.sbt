@@ -382,7 +382,7 @@ val settings = Seq(
 ThisBuild / publishMavenStyle := true
 
 lazy val core = (project in file("core"))
-  .enablePlugins(BuildInfoPlugin && SbtPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
     libraryDependencies ++= dependencies,
     buildInfoKeys ++= Seq[BuildInfoKey](
@@ -397,7 +397,6 @@ lazy val core = (project in file("core"))
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
@@ -408,7 +407,6 @@ lazy val deepLearning = (project in file("deep-learning"))
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
@@ -416,7 +414,6 @@ lazy val lightgbm = (project in file("lightgbm"))
   ): _*)
 
 lazy val vw = (project in file("vw"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
@@ -424,7 +421,6 @@ lazy val vw = (project in file("vw"))
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
@@ -436,7 +432,6 @@ lazy val cognitive = (project in file("cognitive"))
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
@@ -452,7 +447,7 @@ lazy val root = (project in file("."))
     vw % "test->test;compile->compile",
     lightgbm % "test->test;compile->compile",
     opencv % "test->test;compile->compile")
-  .enablePlugins(ScalaUnidocPlugin && SbtPlugin)
+  .enablePlugins(ScalaUnidocPlugin)
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",

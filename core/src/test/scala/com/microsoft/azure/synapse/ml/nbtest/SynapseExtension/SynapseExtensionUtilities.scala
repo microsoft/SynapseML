@@ -30,14 +30,14 @@ object SynapseExtensionUtilities {
 
   val TimeoutInMillis: Int = 30 * 60 * 1000
 
-  lazy val SSPHost: String = Secrets.SynapseInternalSspHost
-  lazy val WorkspaceId: String = "8f02ac2a-92cb-4f52-975e-4d0fa4a5cafa"
-  lazy val UxHost: String = Secrets.SynapseInternalUxHost
+  lazy val SSPHost: String = Secrets.SynapseExtensionSspHost
+  lazy val WorkspaceId: String = Secrets.SynapseExtensionWorkspaceId
+  lazy val UxHost: String = Secrets.SynapseExtensionUxHost
 
   lazy val BaseUri: String = s"$SSPHost/metadata"
   lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
 
-  lazy val TenantId: String = Secrets.SynapseInternalTenantId
+  lazy val TenantId: String = Secrets.SynapseExtensionTenantId
   lazy val AadAccessTokenResource: String = Secrets.AadResource
   lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
 
@@ -271,7 +271,7 @@ object SynapseExtensionUtilities {
           ("resource", s"$AadAccessTokenResource"),
           ("client_id", s"$AadAccessTokenClientId"),
           ("grant_type", "password"),
-          ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseInternalTenantId}"),
+          ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseExtensionTenantId}"),
           ("password", s"${Secrets.SynapseExtensionPassword}"),
           ("scope", "openid")
         ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
@@ -282,10 +282,15 @@ object SynapseExtensionUtilities {
 }
 
 object SynapseJsonProtocol extends DefaultJsonProtocol {
+  implicit object LocalDateTimeFormat extends RootJsonFormat[LocalDateTime] {
+    def write(dt: LocalDateTime): JsValue = JsString(dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    def read(value: JsValue): LocalDateTime =
+      LocalDateTime.parse(value.toString().replaceAll("^\"+|\"+$", ""),
+        DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+  }
 
-  implicit val ApplicationFormat: RootJsonFormat[Artifact] =
-    jsonFormat2(Artifact.apply)
-  implicit val ApplicationsFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
+  implicit val ArtifactFormat: RootJsonFormat[Artifact] =
+    jsonFormat3(Artifact.apply)
+  implicit val SparkJobDefinitionExecutionResponseFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
     jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
-
 }

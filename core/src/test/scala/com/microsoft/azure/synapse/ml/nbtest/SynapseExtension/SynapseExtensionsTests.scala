@@ -8,21 +8,22 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities
 
 import java.io.File
+import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
 class SynapseExtensionTestCleanup extends TestBase {
-  ignore("Clean up all artifacts") {
     SynapseExtensionUtilities.listArtifacts()
       .foreach(artifact => {
-        println(s"Artifact cleanup: deleting artifact ${artifact.displayName}")
-        //TODO: This will delete all artifacts. Us creation timestamp in sjd response
-        //  To only delete artifacts > some time ago
-        SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
+        if (artifact.lastUpdatedDate.isBefore(LocalDateTime.now().minusDays(3))) {
+
+          println(s"Artifact cleanup: deleting artifact ${artifact.displayName}.")
+          println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
+          SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
+        }
       })
-  }
 }
 
 class SynapseExtensionsTests extends TestBase {

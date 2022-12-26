@@ -23,15 +23,16 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
 
   def this() = this(Identifiable.randomUID("TrainRegressor"))
 
+
   /** Doc for model to run.
-    */
+   */
   override def modelDoc: String = "Regressor to run"
 
   /** Optional parameter, specifies the name of the features column passed to the learner.
-    * Must have a unique name different from the input columns.
-    * By default, set to <uid>_features.
-    * @group param
-    */
+   * Must have a unique name different from the input columns.
+   * By default, set to <uid>_features.
+   * @group param
+   */
   setDefault(featuresCol, this.uid + "_features")
 
   /** Fits the regression model.
@@ -81,11 +82,9 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
                _: FloatType |
                _: ByteType |
                _: LongType |
-               _: ShortType =>
+               _: ShortType |
+               _: StringType =>
             dataset(labelColumn).cast(DoubleType)
-          case _: StringType =>
-            throw new Exception("Invalid type: "
-              + "Regressors are not able to train on a string label column: " + labelColumn)
           case _: DoubleType =>
             dataset(labelColumn)
           case default => throw new Exception("Unknown type: " + default.typeName +
@@ -93,11 +92,12 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         }
       ).na.drop(Seq(labelColumn))
 
-      val featureColumns = convertedLabelDataset.columns.filter(col => col != labelColumn).toSeq
+      val nonFeatureColumns = getLabelCol
+      val featureColumns = convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
-        .setInputCols(featureColumns.toArray)
+        .setInputCols(featureColumns)
         .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
         .setNumFeatures(featuresToHashTo)
 
@@ -138,11 +138,8 @@ object TrainRegressor extends ComplexParamsReadable[TrainRegressor] {
 }
 
 /** Model produced by [[TrainRegressor]].
-  * @param uid The id of the module
-  * @param labelColumn The label column
-  * @param model The trained model
-  * @param featuresColumn The features column
-  */
+ * @param uid The id of the module
+ */
 class TrainedRegressorModel(val uid: String)
     extends AutoTrainedModel[TrainedRegressorModel]
       with Wrappable with SynapseMLLogging {
