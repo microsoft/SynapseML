@@ -160,7 +160,7 @@ trait HasAADToken extends HasServiceParams {
   def getAadTokenCol: String = getVectorParam(aadToken)
 }
 
-trait HasCustomDomain extends Wrappable with HasURL with HasUrlPath {
+trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.cognitiveservices.azure.com/" + urlPath.stripPrefix("/"))
   }
@@ -394,7 +394,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   with ConcurrencyParams with HasOutputCol
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol
-  with HasAADToken with HasCustomDomain
+  with HasAADToken with HasCustomCogServiceDomain
   with SynapseMLLogging {
 
   setDefault(
