@@ -300,7 +300,6 @@ trait PythonWrappable extends BaseWrappable {
         |from pyspark.ml.common import inherit_doc
         |from synapse.ml.core.schema.Utils import *
         |from pyspark.ml.param import TypeConverters
-        |from synapse.ml.core.platform import running_on_synapse_internal
         |from synapse.ml.core.schema.TypeConversionUtils import generateTypeConverter, complexTypeConverter
         |$pyExtraEstimatorImports
         |
@@ -343,11 +342,7 @@ trait PythonWrappable extends BaseWrappable {
         |        return from_java(java_stage, module_name)
         |
         |    def _transform(self, dataset: DataFrame) -> DataFrame:
-        |        if running_on_synapse_internal():
-        |            from trident_token_library_wrapper import PyTridentTokenLibrary
-        |            aad_token = PyTridentTokenLibrary.get_access_token("pbi")
-        |            self.setAadToken(aad_token)
-        |            # TODO: Set default endpoint here
+        |        # TODO: Set default aad token and endpoint here if running on synapse internal
         |        return super()._transform(dataset)
         |
         |${indent(pyParamsSetters, 1)}
