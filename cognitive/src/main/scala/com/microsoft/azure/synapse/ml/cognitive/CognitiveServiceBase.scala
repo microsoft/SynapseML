@@ -133,7 +133,6 @@ trait HasSubscriptionKey extends HasServiceParams {
   def getSubscriptionKey: String = getScalarParam(subscriptionKey)
 
   def setSubscriptionKey(v: String): this.type = {
-    println("WARNING: Please use setSubscriptionKey together with setLocation for authentication")
     setScalarParam(subscriptionKey, v)
   }
 
@@ -149,7 +148,6 @@ trait HasAADToken extends HasServiceParams {
   )
 
   def setAadToken(v: String): this.type = {
-    println("WARNING: Please use setAadToken together with setEndpoint/setServiceName for authentication")
     setScalarParam(aadToken, v)
   }
 
