@@ -71,7 +71,7 @@ val classifier = new LightGBMClassifier()
 ```
 
 LightGBM has far more parameters than SynapseML exposes. For cases where you
-need to set some parameters that SyanpseML does not expose a setter for, use
+need to set some parameters that SynapseML does not expose a setter for, use
 passThroughArgs. This is just a free string that you can use to add extra parameters
 to the command SynapseML sends to configure LightGBM.
 
