@@ -294,6 +294,7 @@ trait PythonWrappable extends BaseWrappable {
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+        |from synapse.ml.core.platform import running_on_synapse_internal
         |from synapse.ml.core.serialize.java_params_patch import *
         |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
         |from pyspark.ml.evaluation import JavaEvaluator
@@ -340,10 +341,6 @@ trait PythonWrappable extends BaseWrappable {
         |        module_name=$pyClassName.__module__
         |        module_name=module_name.rsplit(".", 1)[0] + ".$classNameHelper"
         |        return from_java(java_stage, module_name)
-        |
-        |    def _transform(self, dataset: DataFrame) -> DataFrame:
-        |        # TODO: Set default aad token and endpoint here if running on synapse internal
-        |        return super()._transform(dataset)
         |
         |${indent(pyParamsSetters, 1)}
         |

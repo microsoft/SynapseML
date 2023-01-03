@@ -175,6 +175,14 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |def setEndpoint(self, value):
       |    self._java_obj = self._java_obj.setEndpoint(value)
       |    return self
+      |
+      |def _transform(self, dataset: DataFrame) -> DataFrame:
+      |    if running_on_synapse_internal():
+      |        from synapse.ml.mlflow import get_mlflow_env_config
+      |        mlflow_env_configs = get_mlflow_env_config()
+      |        self.setAadToken(mlflow_env_configs.driver_aad_token)
+      |        self.setEndpoint(mlflow_env_configs.workload_endpoint + "/cognitive/api/")
+      |    return super()._transform(dataset)
       |""".stripMargin
   }
 
