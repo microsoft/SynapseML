@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaCons
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
-import jdk.jfr.Experimental
+import org.apache.spark.annotation.Experimental
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline}
