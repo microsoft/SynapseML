@@ -14,9 +14,9 @@ description: Learn how to use the ONNX model transformer to run inference for an
 SynapseML now includes a Spark transformer to bring an trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
 
 ## ONNXHub
-While you can use a local model if you have one, many popular existing models are provided through the ONNXHub. You can simply use
-a model's name (e.g. "MNIST") and download the bytes of the model, as well as some metadata about the model. You can also list
-available models, optionally filtering by name or tags. You can also point to your own custom hub uri if you have one.
+Although you can use your own local model, many popular existing models are provided through the ONNXHub. You can use
+a model's ONNXHub name (for example "MNIST") and download the bytes of the model, and some metadata about the model. You can also list
+available models, optionally filtering by name or tags.
 
 ```scala
     // List models
@@ -50,7 +50,7 @@ available models, optionally filtering by name or tags. You can also point to yo
     val onnx = new ONNXModel().setModelLocation("/path/to/model.onnx")
     ```
    
-    Optionally, create the model fom the ONNXHub as described above.
+    Optionally, create the model from the ONNXHub.
 
     ```scala
     val onnx = new ONNXModel().setModelPayload(hub.load("MNIST"))
@@ -66,7 +66,7 @@ available models, optionally filtering by name or tags. You can also point to yo
     | Parameter         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Default Value                                  |
     |:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------|
     | feedDict          | Map the ONNX model's expected input node names to the input DataFrame's column names. Make sure the input DataFrame's column schema matches with the corresponding input's shape of the ONNX model. For example, an image classification model may have an input node of shape `[1, 3, 224, 224]` with type Float. It is assumed that the first dimension (1) is the batch size. Then the input DataFrame's corresponding column's type should be `ArrayType(ArrayType(ArrayType(FloatType)))`. | None                                           |
-    | fetchDict         | Map the output DataFrame's column names to the ONNX model's output node names. Note that if you put outputs that are intermediate in the model, transform will automatically slice at those outputs.                                                                                                                                                                                                                                                                                            | None                                           |
+    | fetchDict         | Map the output DataFrame's column names to the ONNX model's output node names. NOTE: If you put outputs that are intermediate in the model, transform will automatically slice at those outputs. See the section on Slicing.                                                                                                                                                                                                                                                                    | None                                           |
     | miniBatcher       | Specify the MiniBatcher to use.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `FixedMiniBatchTransformer` with batch size 10 |
     | softMaxDict       | A map between output DataFrame columns, where the value column will be computed from taking the softmax of the key column. If the 'rawPrediction' column contains logits outputs, then one can set softMaxDict to `Map("rawPrediction" -> "probability")` to obtain the probability outputs.                                                                                                                                                                                                    | None                                           |
     | argMaxDict        | A map between output DataFrame columns, where the value column will be computed from taking the argmax of the key column. This can be used to convert probability or logits output to the predicted label.                                                                                                                                                                                                                                                                                      | None                                           |
@@ -76,15 +76,18 @@ available models, optionally filtering by name or tags. You can also point to yo
 4. Call `transform` method to run inference on the input DataFrame.
 
 ## Model Slicing
-If you wish to observe or use intermediate nodes of a model, you can slice the model at known outputs, keeping only parts of
-the model that are needed for those nodes. This will generate a new model that you can save and/or use to transform.
+By default, an ONNX model is treated as a black box with inputs and outputs. 
+If you want to use intermediate nodes of a model, you can slice the model at particular nodes. This will create a new model,
+keeping only parts of the model that are needed for those nodes. This new model's outputs will be the outputs from
+the intermediate nodes. You can save the sliced model and use it to transform just like any other ONNXModel.
 
-This feature is used under the covers by the ImageFeaturizer, which uses ONNX models. The OnnxHub manifest entry for each model includes which intermediate nodes
-should be used for featurization, so the ImageFeaturizer will automatically pull the correct outputs to slice at.
+This slicing feature is used implicitly by the ImageFeaturizer, which uses ONNX models. The OnnxHub manifest entry for each model
+includes which intermediate node outputs should be used for featurization, so the ImageFeaturizer will automatically slice at the correct nodes.
 
 The below example shows how to perform the slicing manually with a direct ONNXModel.
 
 ```scala
+    // create a df: Dataframe with image data
     val hub = new ONNXHub()
     val info = hub.getModelInfo("resnet50")
     val bytes = hub.load(name)
@@ -96,7 +99,7 @@ The below example shows how to perform the slicing manually with a direct ONNXMo
       //   -- or --
       // .sliceAtOutput(intermediateOutputName) // manual slicing
 
-    val slicedModelDf = slicedModel.transform({YOUR_DATAFRAME})
+    val slicedModelDf = slicedModel.transform(df)
 ```
 
 ## Example
