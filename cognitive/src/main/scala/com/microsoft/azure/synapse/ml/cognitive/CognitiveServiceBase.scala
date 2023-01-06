@@ -143,19 +143,21 @@ trait HasSubscriptionKey extends HasServiceParams {
 }
 
 trait HasAADToken extends HasServiceParams {
-  val aadToken = new ServiceParam[String](
-    this, "aadToken", "AAD Token used for authentication"
+  // scalastyle:off field.name
+  val AADToken = new ServiceParam[String](
+    this, "AADToken", "AAD Token used for authentication"
   )
+  // scalastyle:on field.name
 
-  def setAadToken(v: String): this.type = {
-    setScalarParam(aadToken, v)
+  def setAADToken(v: String): this.type = {
+    setScalarParam(AADToken, v)
   }
 
-  def getAadToken: String = getScalarParam(aadToken)
+  def getAADToken: String = getScalarParam(AADToken)
 
-  def setAadTokenCol(v: String): this.type = setVectorParam(aadToken, v)
+  def setAADTokenCol(v: String): this.type = setVectorParam(AADToken, v)
 
-  def getAadTokenCol: String = getVectorParam(aadToken)
+  def getAADTokenCol: String = getVectorParam(AADToken)
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -180,7 +182,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    if running_on_synapse_internal():
       |        from synapse.ml.mlflow import get_mlflow_env_config
       |        mlflow_env_configs = get_mlflow_env_config()
-      |        self.setAadToken(mlflow_env_configs.driver_aad_token)
+      |        self.setAADToken(mlflow_env_configs.driver_aad_token)
       |        self.setEndpoint(mlflow_env_configs.workload_endpoint + "/cognitive/api/")
       |    return super()._transform(dataset)
       |""".stripMargin
@@ -272,7 +274,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         if (getValueOpt(row, subscriptionKey).nonEmpty) {
           req.setHeader(subscriptionKeyHeaderName, getValue(row, subscriptionKey))
         } else {
-          getValueOpt(row, aadToken).foreach(s =>
+          getValueOpt(row, AADToken).foreach(s =>
             req.setHeader(aadHeaderName, "Bearer " + s)
           )
         }
