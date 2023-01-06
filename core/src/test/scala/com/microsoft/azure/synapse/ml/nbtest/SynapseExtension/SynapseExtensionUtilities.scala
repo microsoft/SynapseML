@@ -22,24 +22,61 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 
 object SynapseExtensionUtilities {
 
   import SynapseJsonProtocol._
 
-  val TimeoutInMillis: Int = 30 * 60 * 1000
+  object Environment extends Enumeration {
+    type Environment = Value
+    val EDog, Daily, DXT, MSIT = Value
+    def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
+  }
 
-  lazy val SSPHost: String = Secrets.SynapseExtensionSspHost
-  lazy val WorkspaceId: String = Secrets.SynapseExtensionWorkspaceId
-  lazy val UxHost: String = Secrets.SynapseExtensionUxHost
+  object Resource extends Enumeration {
+    type Resource = Value
+    val SSPHost, WorkspaceId, UxHost, TenantId, Password = Value
+    def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
+  }
+
+  val TimeoutInMillis: Int = 30 * 60 * 1000
 
   lazy val BaseUri: String = s"$SSPHost/metadata"
   lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
 
-  lazy val TenantId: String = Secrets.SynapseExtensionTenantId
   lazy val AadAccessTokenResource: String = Secrets.AadResource
   lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
+
+  lazy val EdogResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionEdogSspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionEdogWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionEdogUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionEdogTenantId,
+    Resource.Password -> Secrets.SynapseExtensionEdogPassword)
+
+  lazy val DailyResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionDailySspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionDailyWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionDailyUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionDailyTenantId,
+    Resource.Password -> Secrets.SynapseExtensionDailyPassword)
+
+  lazy val DxtResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionDxtSspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionDxtWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionDxtUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionDxtTenantId,
+    Resource.Password -> Secrets.SynapseExtensionDxtPassword)
+
+  val DefaultEnvironment = Environment.Daily
+  val ResourceMap = getResources(DefaultEnvironment)
+  val SSPHost: String = ResourceMap(Resource.SSPHost)
+  val WorkspaceId: String = ResourceMap(Resource.WorkspaceId)
+  val UxHost: String = ResourceMap(Resource.UxHost)
+  val TenantId: String = ResourceMap(Resource.TenantId)
+  val Password: String = ResourceMap(Resource.Password)
 
   lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
   lazy val StorageAccount: String = "mmlsparkbuildsynapse"
@@ -271,13 +308,36 @@ object SynapseExtensionUtilities {
           ("resource", s"$AadAccessTokenResource"),
           ("client_id", s"$AadAccessTokenClientId"),
           ("grant_type", "password"),
-          ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseExtensionTenantId}"),
-          ("password", s"${Secrets.SynapseExtensionPassword}"),
+          ("username", s"SynapseMLE2ETestUser@$TenantId"),
+          ("password", s"$Password"),
           ("scope", "openid")
         ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]
+  }
+
+  def getResources(defaultEnv: Environment.Value): HashMap[Resource.Value, String] = {
+    val environment = getWorkingEnvironment(defaultEnv)
+    environment match {
+      case Environment.EDog => EdogResources
+      case Environment.Daily => DailyResources
+      case Environment.DXT => DxtResources
+    }
+  }
+
+  def getWorkingEnvironment(defaultEnv: Environment.Value): Environment.Value = {
+    val undefined = ""
+    val varName = "SYNAPSE_ENVIRONMENT"
+    val userEnv = sys.env.get(varName).getOrElse(undefined)
+    val envValue = Environment.withNameOpt(userEnv)
+    if (userEnv != undefined && envValue == None) {
+      println(s"WARNING: value of $varName ($userEnv) is not recognized")
+    }
+    val result = if (envValue != None) envValue.get else defaultEnv
+    println(s"Using environment ${result.toString}")
+
+    result
   }
 }
 
