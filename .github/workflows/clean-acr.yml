@@ -18,8 +18,8 @@ name: Clean ACR
 # Use workflow_dispatch in place of schedule for debugging.
 # You can trigger the workflow in the 'Actions' tab in github.
 # Apparently, this file must be in the master branch to get the 'Run workflow' button.
-on:
-  workflow_dispatch:
+#on:
+#  workflow_dispatch:
    
 jobs:
   clean-acr:
