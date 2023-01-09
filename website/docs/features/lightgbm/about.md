@@ -133,26 +133,23 @@ the native LightGBM execution code. Datasets can either be created per partition
 per executor (useSingleDatasetMode=true). Generally, one Dataset per executor is more efficient since it reduces LightGBM network size and complexity during training or fitting. It also avoids using slow network protocols on partitions
 that are actually on the same executor node.
 
-For the loading of partition data into Datasets, SyanpseML can do it in either a "streaming" or "bulk" execution mode. This mode
-doesn't affect training, just how data is put into Datasets. It can, however, affect memory usage and overall
-fit/transform time. 
+SyanpseML has two modes, "streaming" and "bulk", that control how data is transferred from Spark to LightGBM.
+This mode does not affect training but can affect memory usage fit/transform time.
 
 #### Bulk Execution mode
-"Bulk" mode is older and requires accumulating all data in executor memory before creating Datasets. This original mode can cause
+The "Bulk" mode requires accumulating all data in executor memory before creating Datasets. This mode can cause
 OOM errors for large data, especially since the data must be accumulated in its original double-format size.
-For now, "bulk" mode is the default since "streaming" is new, but SynapseML will eventually make streaming the default once
-it has seen more usage.
+For now, "bulk" mode is the default since "streaming" is new, but SynapseML will eventually make streaming the default.
 
 #### Streaming Execution Mode
-SynapseML worked with the native LightGBM team to create more efficient LightGBM APIs that work more like common
-streaming APIs and thus don't require loading extra copies of the data into memory. Data is passed directly
-from partitions to Datasets in small "micro-batches", similar to Spark streaming. You can adjust the micro-batch size.
-Smaller sizes reduce memory overhead, but larger sizes avoid as much marshaling back and forth across the native boundary. The default
-100, which still uses far less memory than bulk mode since only 100 rows of data will be loaded at a time. If you have
-a small number of columns, you could increase the batch size, and conversely if
-you have a large number of columns you could decrease it.
+The "streaming" execution mode uses new LightGBM APIs that don't require loading extra copies of the data into memory. In particular, data is passed directly
+from partitions to Datasets in small "micro-batches", similar to Spark streaming. The `microBatchSize` parameter controls the size of these micro-batches.
+Smaller micro-batch sizes reduce memory overhead, but larger sizes avoid overhead from repeatedly transferring data to the native layer. The default
+100, uses far less memory than bulk mode since only 100 rows of data will be loaded at a time. If your dataset has
+few columns, you can increase the batch size. Alternatively, if
+your dataset has a large number of columns you can decrease the micro-batch size to avoid OOM issues.
 
-Also, the new streaming APIs developed for SynapseML are thread-safe, and allow all partitions in the same executor
+These new streaming APIs in LightGBM are thread-safe, and allow all partitions in the same executor
 to push data into a shared Dataset in parallel. Because of this, streaming mode always uses the more efficient
 "useSingleDatasetMode=true", creating only one Dataset per executor.
 
