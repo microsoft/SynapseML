@@ -134,7 +134,7 @@ per executor (useSingleDatasetMode=true). Generally, one Dataset per executor is
 that are actually on the same executor node.
 
 SyanpseML has two modes, "streaming" and "bulk", that control how data is transferred from Spark to LightGBM.
-This mode does not affect training but can affect memory usage fit/transform time.
+This mode doesn't affect training but can affect memory usage fit/transform time.
 
 #### Bulk Execution mode
 The "Bulk" mode requires accumulating all data in executor memory before creating Datasets. This mode can cause
