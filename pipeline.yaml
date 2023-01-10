@@ -72,8 +72,8 @@ jobs:
       displayName: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
+        NEXUS-UN: $(sonatype-un)
+        NEXUS-PW: $(sonatype-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
@@ -85,8 +85,8 @@ jobs:
       displayName: Publish Badges
       env:
         STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
+        NEXUS-UN: $(sonatype-un)
+        NEXUS-PW: $(sonatype-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
@@ -120,8 +120,8 @@ jobs:
       displayName: Publish Blob Artifacts
       env:
         STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
+        NEXUS-UN: $(sonatype-un)
+        NEXUS-PW: $(sonatype-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
@@ -276,8 +276,8 @@ jobs:
       condition: startsWith(variables['tag'], 'v')
       env:
         STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
+        NEXUS-UN: $(sonatype-un)
+        NEXUS-PW: $(sonatype-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
@@ -292,8 +292,8 @@ jobs:
       condition: startsWith(variables['tag'], 'v')
       env:
         STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
+        NEXUS-UN: $(sonatype-un)
+        NEXUS-PW: $(sonatype-pw)
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
