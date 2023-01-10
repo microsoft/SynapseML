@@ -68,7 +68,6 @@ object Secrets {
   lazy val SynapseExtensionSspHost: String = getSecret("synapse-extension-dxt-ssp-host")
   lazy val SynapseExtensionWorkspaceId: String = getSecret("synapse-extension-dxt-workspace-id")
   lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
-  lazy val TenantId: String = getSecret("tenantId")
   lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
   lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
