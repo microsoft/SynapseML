@@ -1,9 +1,7 @@
 import os
 import json
 from azure.storage.blob import BlobClient
-from azure.identity import DefaultAzureCredential
 import sys
-import subprocess
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 
@@ -14,10 +12,12 @@ run this if sas expires and place result in keyvault under secret name
  IMPORT_SAS=?$(az storage container generate-sas \
    --name acrbackup \
    --account-name mmlspark \
-   --expiry 2023-01-01 \
+   --expiry 2024-01-01 \
    --permissions rawdl \
    --https-only \
-   --output tsv)
+   --output tsv \
+   --auth-mode key \
+   --account-key <key>)
    echo $IMPORT_SAS
 """
 
@@ -50,9 +50,9 @@ for repo in repos:
             conn_string, container_name=container, blob_name=target_blob
         ).exists()
         if not backup_exists:
-            result = os.system(
-                f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} --name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
-            )
+            cmd = f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} " + \
+                f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
+            result = os.system(cmd)
             assert result == 0
             print(f"Transferred {target_blob}")
         else:
