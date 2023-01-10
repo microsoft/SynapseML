@@ -51,7 +51,7 @@ object SlimStorageClient {
   }
 
   private def urlEncode(stringToEncode: String): String = {
-    if (stringToEncode == null) null  //scalastyle:ignore null
+    if (stringToEncode == null) null //scalastyle:ignore null
     else if (stringToEncode.isEmpty) ""
     else if (!stringToEncode.contains(" ")) URLEncoder.encode(stringToEncode, "utf8")
     else {
