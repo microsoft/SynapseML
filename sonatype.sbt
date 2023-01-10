@@ -24,8 +24,8 @@ ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob
 
 ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
   "oss.sonatype.org",
-  Secrets.nexusUsername,
-  Secrets.nexusPassword)
+  Secrets.sonatypeUsername,
+  Secrets.sonatypePassword)
 
 pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
 pgpSecretRing := Secrets.pgpPrivateFile

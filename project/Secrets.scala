@@ -159,6 +159,8 @@ object Secrets {
 
   lazy val nexusUsername: String = getSecret(NexusUsernameEnvVarName, NexusUsernameSecretName)
   lazy val nexusPassword: String = getSecret(NexusPasswordEnvVarName, NexusPasswordSecretName)
+  lazy val sonatypeUsername: String = getSecret(NexusUsernameEnvVarName, SonatypeUsernameSecretName)
+  lazy val sonatypePassword: String = getSecret(NexusPasswordEnvVarName, SonatypePasswordSecretName)
   lazy val pgpPassword: String = getSecret(PgpPasswordEnvVarName, PgpPasswordSecretName)
   lazy val storageKey: String = getSecret(StorageKeyEnvVarName, StorageKeySecretName)
   lazy val pypiApiToken: String = getSecret(PypiApiEnvVarName, PypiApiSecretName)
@@ -170,6 +172,8 @@ object Secrets {
   val NexusUsernameEnvVarName: String = "NEXUS-UN"
   val NexusPasswordSecretName: String = "nexus-pw"
   val NexusPasswordEnvVarName: String = "NEXUS-PW"
+  val SonatypeUsernameSecretName: String = "sonatype-un"
+  val SonatypePasswordSecretName: String = "sonatype-pw"
   val PgpPasswordSecretName: String = "pgp-pw"
   val PgpPasswordEnvVarName: String = "PGP-PW"
   val PgpPrivateSecretName: String = "pgp-private"
