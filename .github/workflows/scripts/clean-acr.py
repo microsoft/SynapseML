@@ -50,8 +50,10 @@ for repo in repos:
             conn_string, container_name=container, blob_name=target_blob
         ).exists()
         if not backup_exists:
-            cmd = f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} " + \
-                f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
+            cmd = (
+                f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} "
+                + f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
+            )
             result = os.system(cmd)
             assert result == 0
             print(f"Transferred {target_blob}")
