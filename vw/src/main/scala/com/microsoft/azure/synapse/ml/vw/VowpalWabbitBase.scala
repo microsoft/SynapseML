@@ -184,7 +184,7 @@ trait VowpalWabbitBase
         .appendParamValueIfNotThere("passes", Option(getNumPasses))
     }
 
-    val result = args.result
+    val result = args.result()
     log.warn(s"VowpalWabbit args: $result)")
 
     result

@@ -76,7 +76,7 @@ private object TrainUtils extends Serializable {
 
   def updateOneIteration(state: PartitionTaskTrainingState, log: Logger): Unit = {
     try {
-      log.debug("LightGBM running iteration: " + state.iteration)
+      log.info(s"LightGBM task starting iteration ${state.iteration}")
       val fobj = state.ctx.trainingParams.objectiveParams.fobj
       if (fobj.isDefined) {
         val (gradient, hessian) = fobj.get.getGradient(
@@ -107,7 +107,6 @@ private object TrainUtils extends Serializable {
         state.learningRate = newLearningRate
       }
 
-      log.info(s"LightGBM task starting iteration ${state.iteration}")
       updateOneIteration(state, log)
 
       val trainEvalResults: Option[Map[String, Double]] =

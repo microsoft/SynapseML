@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils
 import com.microsoft.azure.synapse.ml.lightgbm.params._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -25,7 +25,7 @@ import scala.math.min
 import scala.util.matching.Regex
 
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with BasicLogging {
+  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
 
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
@@ -313,7 +313,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                     execNumThreads,
                     getExecutionMode,
                     getMicroBatchSize,
-                    getUseSingleDatasetMode)
+                    getUseSingleDatasetMode,
+                    getMaxStreamingOMPThreads)
   }
 
   /**
@@ -477,7 +478,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     }
 
     val numInitScoreClasses =
-      if (get(initScoreCol).isEmpty) 0
+      if (get(initScoreCol).isEmpty) 1
       else if (dataframe.schema(getInitScoreCol).dataType == VectorType)
         firstRow.getAs[DenseVector](getInitScoreCol).size
       else 1
@@ -584,8 +585,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                       dataframe: DataFrame,
                                       measures: InstrumentationMeasures): LightGBMBooster = {
     // Create the object that will manage the mapPartitions function
-    // TODO next PR, add in StreamingPartitionTask
-    val workerTaskHandler: BasePartitionTask = new BulkPartitionTask()
+    val workerTaskHandler: BasePartitionTask =
+      if (ctx.isStreaming) new StreamingPartitionTask()
+      else new BulkPartitionTask()
     val mapPartitionsFunc = workerTaskHandler.mapPartitionTask(ctx)(_)
 
     val encoder = Encoders.kryo[PartitionResult]
@@ -626,10 +628,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                    batchIndex: Int,
                                    numTasksPerExecutor: Int,
                                    networkManager: NetworkManager): TrainingContext = {
-    if (trainParams.executionParams.executionMode != LightGBMConstants.BulkExecutionMode) {
-      throw new Exception("Only bulk execution mode supported for now")
-    }
-
     val networkParams = NetworkParams(
       getDefaultListenPort,
       networkManager.host,

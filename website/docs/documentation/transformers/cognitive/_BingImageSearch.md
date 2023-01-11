@@ -55,7 +55,7 @@ pipeline.transform(bingParameters).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.bing.BingImageSearch
 import spark.implicits._
 
 val bingSearchKey = sys.env.getOrElse("BING_SEARCH_KEY", None)

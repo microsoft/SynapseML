@@ -35,7 +35,7 @@ object Secrets {
   }
 
   private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName from $AccountString")
+    println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
@@ -51,6 +51,7 @@ object Secrets {
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
@@ -58,6 +59,14 @@ object Secrets {
   lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
+  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-dxt-password")
+  lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
+  lazy val Platform: String = getSecret("synapse-platform")
+  lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val SynapseExtensionTenantId: String = getSecret("synapse-extension-dxt-tenant-id")
+  lazy val SynapseExtensionUxHost: String = getSecret("synapse-extension-dxt-ux-host")
+  lazy val SynapseExtensionSspHost: String = getSecret("synapse-extension-dxt-ssp-host")
+  lazy val SynapseExtensionWorkspaceId: String = getSecret("synapse-extension-dxt-workspace-id")
 
-  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

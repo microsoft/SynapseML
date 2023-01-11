@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.vw.featurizer._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
@@ -24,7 +24,7 @@ import scala.collection.mutable
   */
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
-  with Wrappable with ComplexParamsWritable with BasicLogging
+  with Wrappable with ComplexParamsWritable with SynapseMLLogging
 {
   logClass()
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
@@ -63,7 +63,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
 
   private def getAllInputCols = getInputCols ++ getStringSplitInputCols
 
-  private def getFeaturizer(name: String,
+  private def getFeaturizer(name: String,  //scalastyle:ignore cyclomatic.complexity
                             dataType: DataType,
                             nullable: Boolean,
                             idx: Int,
@@ -200,13 +200,10 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
         throw new IllegalArgumentException(
           s"Number of bits used for hashing ($getNumBits and " +
             s"number of bits used for order preserving ($getPreserveOrderNumBits) must be less than 30")
-
       val inputColsList = getAllInputCols
       val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
-
       val fieldSubset = dataset.schema.fields
         .filter(f => inputColsList.contains(f.name))
-
       val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
         .map { case (field, idx) => getFeaturizer(field.name, field.dataType, field.nullable, idx, namespaceHash) }
 

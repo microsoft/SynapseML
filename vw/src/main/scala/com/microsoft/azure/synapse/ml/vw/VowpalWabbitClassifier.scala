@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
@@ -26,7 +26,7 @@ class VowpalWabbitClassifier(override val uid: String)
   extends ProbabilisticClassifier[Row, VowpalWabbitClassifier, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseSpark
     with ComplexParamsWritable
-    with BasicLogging {
+    with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -92,7 +92,7 @@ object VowpalWabbitClassifier extends ComplexParamsReadable[VowpalWabbitClassifi
 class VowpalWabbitClassificationModel(override val uid: String)
   extends ProbabilisticClassificationModel[Row, VowpalWabbitClassificationModel]
     with VowpalWabbitBaseModelSpark
-    with ComplexParamsWritable with Wrappable with BasicLogging {
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitClassificationModel"))

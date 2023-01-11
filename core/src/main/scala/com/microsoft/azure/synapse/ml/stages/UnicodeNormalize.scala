@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -20,7 +20,7 @@ object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]
 /** <code>UnicodeNormalize</code> takes a dataframe and normalizes the unicode representation.
   */
 class UnicodeNormalize(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("UnicodeNormalize"))
@@ -56,7 +56,7 @@ class UnicodeNormalize(val uid: String) extends Transformer
       require(inputIndex != -1, s"Input column $getInputCol does not exist")
 
       val normalizeFunc = (value: String) =>
-        if (value == null) null
+        if (value == null) null  //scalastyle:ignore null
         else Normalizer.normalize(value, Normalizer.Form.valueOf(getForm))
 
       val f = if (getLower)

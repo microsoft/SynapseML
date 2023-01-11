@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
@@ -56,7 +56,7 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
 
 /** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer
-  with ComputeModelStatisticsParams with BasicLogging {
+  with ComputeModelStatisticsParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
@@ -70,6 +70,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     * @param dataset the dataset to calculate the metrics for
     * @return DataFrame whose columns contain the calculated metrics
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val (modelName, labelColumnName, scoreValueKind) =
@@ -167,6 +169,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],

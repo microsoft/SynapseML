@@ -4,8 +4,6 @@
 package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.ColumnParams
-import com.microsoft.ml.lightgbm.{doubleChunkedArray, floatChunkedArray}
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.StructType
@@ -15,7 +13,7 @@ object DatasetUtils {
   case class CardinalityTriplet[T](groupCounts: List[Int], currentValue: T, currentCount: Int)
 
   def countCardinality[T](input: Seq[T]): Array[Int] = {
-    val default: T = null.asInstanceOf[T]
+    val default: T = null.asInstanceOf[T]  //scalastyle:ignore null
 
     val cardinalityTriplet = input.foldLeft(CardinalityTriplet(List.empty[Int], default, 0)) {
       case (listValue: CardinalityTriplet[T], currentValue) =>
@@ -55,7 +53,7 @@ object DatasetUtils {
     } else if (matrixType == "dense") {
       (rowsIter, false)
     } else {
-      throw new Exception(s"Invalid parameter matrix type specified: ${matrixType}")
+      throw new Exception(s"Invalid parameter matrix type specified: $matrixType")
     }
   }
 

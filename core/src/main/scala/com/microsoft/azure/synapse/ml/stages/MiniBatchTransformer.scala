@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -14,9 +14,9 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.collection.mutable.WrappedArray
+import scala.collection.mutable
 
-trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with BasicLogging {
+trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappable with SynapseMLLogging {
   def transpose(nestedSeq: Seq[Seq[Any]]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.head.length
@@ -53,7 +53,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
 object DynamicMiniBatchTransformer extends DefaultParamsReadable[DynamicMiniBatchTransformer]
 
 class DynamicMiniBatchTransformer(val uid: String)
-    extends MiniBatchBase with BasicLogging {
+    extends MiniBatchBase with SynapseMLLogging {
   logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
@@ -77,7 +77,7 @@ class DynamicMiniBatchTransformer(val uid: String)
 object TimeIntervalMiniBatchTransformer extends DefaultParamsReadable[TimeIntervalMiniBatchTransformer]
 
 class TimeIntervalMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase with BasicLogging {
+  extends MiniBatchBase with SynapseMLLogging {
   logClass()
 
   val maxBatchSize: Param[Int] = new IntParam(
@@ -151,7 +151,7 @@ trait HasBatchSize extends Params {
 }
 
 class FixedMiniBatchTransformer(val uid: String)
-  extends MiniBatchBase with HasBatchSize with BasicLogging {
+  extends MiniBatchBase with HasBatchSize with SynapseMLLogging {
   logClass()
 
   val maxBufferSize: Param[Int] = new IntParam(
@@ -187,7 +187,7 @@ class FixedMiniBatchTransformer(val uid: String)
 object FlattenBatch extends DefaultParamsReadable[FlattenBatch]
 
 class FlattenBatch(val uid: String)
-    extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+    extends Transformer with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))
@@ -195,18 +195,18 @@ class FlattenBatch(val uid: String)
   def transpose(nestedSeq: Seq[Any]): Seq[Seq[Any]] = {
 
     val innerLength = nestedSeq.filter {
-      case null => false
+      case null => false  //scalastyle:ignore null
       case _: Seq[Any] => true
       case _ => false
     }.head.asInstanceOf[Seq[Any]].length
 
     assert(nestedSeq.forall{
-      case null => true
+      case null => true  //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
       case _ => true
     })
     (0 until innerLength).map(i => nestedSeq.map{
-      case null => null
+      case null => null  //scalastyle:ignore null
       case innerSeq: Seq[Any] => innerSeq(i)
       case any => any
     })
@@ -223,11 +223,11 @@ class FlattenBatch(val uid: String)
             (0 until rowOfLists.length)
               .map(i => {
                 if (rowOfLists.isNullAt(i)) {
-                  null
+                  null  //scalastyle:ignore null
                 } else {
                   val value = rowOfLists.get(i)
                   value match {
-                    case _: WrappedArray[_] => rowOfLists.getSeq(i)
+                    case _: mutable.WrappedArray[_] => rowOfLists.getSeq(i)
                     case _ => value
                   }
                 }
@@ -245,8 +245,8 @@ class FlattenBatch(val uid: String)
   override def transformSchema(schema: StructType): StructType = {
     StructType(schema.map(f => {
       f.dataType match {
-        case arrayField: ArrayType => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)
-        case nonArrayField => StructField(f.name, f.dataType)
+        case _: ArrayType => StructField(f.name, f.dataType.asInstanceOf[ArrayType].elementType)
+        case _ => StructField(f.name, f.dataType)
       }
     }))
   }

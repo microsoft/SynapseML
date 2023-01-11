@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, SharedSingleton}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
@@ -14,6 +14,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.util.concurrent.LinkedBlockingQueue
+import scala.annotation.tailrec
 import scala.concurrent.blocking
 
 object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator]
@@ -21,12 +22,12 @@ object PartitionConsolidator extends DefaultParamsReadable[PartitionConsolidator
 class PartitionConsolidator(val uid: String)
   extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("PartitionConsolidator"))
 
-  val consolidatorHolder = SharedSingleton {
+  val consolidatorHolder: SharedSingleton[Consolidator[Row]] = SharedSingleton {
     new Consolidator[Row]()
   }
 
@@ -73,9 +74,11 @@ class Consolidator[T] {
     wp
   }
 
-  private def chosenIterator(it: Iterator[T], gracePeriod: Int = 1000) = {
+  private def chosenIterator(it: Iterator[T],
+                             gracePeriod: Int = 1000) = {  //scalastyle:ignore magic.number
     new Iterator[Option[T]] {
 
+      @tailrec
       private def hasNextHelper(recurse: Boolean): Boolean = {
         !buffer.isEmpty ||
           it.hasNext ||

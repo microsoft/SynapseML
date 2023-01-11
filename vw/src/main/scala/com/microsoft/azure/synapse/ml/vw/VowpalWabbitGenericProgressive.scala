@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -19,7 +19,7 @@ import org.vowpalwabbit.spark.VowpalWabbitNative
 class VowpalWabbitGenericProgressive(override val uid: String)
   extends VowpalWabbitBaseProgressive
     with HasInputCol
-    with BasicLogging {
+    with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitGenericProgressive"))

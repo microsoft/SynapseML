@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.ml.util._
@@ -19,7 +19,7 @@ import org.apache.spark.sql.types.DoubleType
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseSpark
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -45,7 +45,7 @@ object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
     with VowpalWabbitBaseModelSpark
-    with ComplexParamsWritable with Wrappable with BasicLogging {
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
@@ -60,9 +60,7 @@ class VowpalWabbitRegressionModel(override val uid: String)
   }
 
   override def predict(features: Row): Double = {
-    logPredict(
-      throw new NotImplementedError("Not implement")
-    )
+    throw new NotImplementedError("Not implement")
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

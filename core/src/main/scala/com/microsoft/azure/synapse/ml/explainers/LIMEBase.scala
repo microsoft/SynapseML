@@ -4,10 +4,10 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import breeze.linalg.{*, DenseMatrix => BDM, DenseVector => BDV}
-import com.microsoft.azure.synapse.ml.codegen.{DotnetWrappable, PythonWrappable, Wrappable}
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.Transformer
@@ -38,6 +38,7 @@ object LIMEUtils extends SLogging {
       }
     }
 
+  //scalastyle:off method.length
   def localAggregateBy(df: DataFrame, groupByCol: String, colsToSquish: Seq[String]): DataFrame = {
     val schema = new StructType(df.schema.fields.map {
       case field if colsToSquish.contains(field.name) => StructField(field.name, ArrayType(field.dataType))
@@ -87,14 +88,14 @@ object LIMEUtils extends SLogging {
 
         val it1 = it
           .flatMap(row => enqueueAndMaybeReturn(row))
-          .map(r => Left(r): Either[Row, Null]) //scalastyle:ignore null
-          .++(Seq(Right(null): Either[Row, Null])) //scalastyle:ignore null
+          .map(r => Left(r): Either[Row, Null])  //scalastyle:ignore null
+          .++(Seq(Right(null): Either[Row, Null]))  //scalastyle:ignore null
 
         val ret = it1.map {
           case Left(r) => r: Row
           case Right(_) => returnState(accumulator.toList, prevRow.getOrElse {
             logWarning("Could not get previous row in local aggregator, this is an error that should be fixed")
-            null
+            null  //scalastyle:ignore null
           }): Row
         }
         ret
@@ -102,6 +103,7 @@ object LIMEUtils extends SLogging {
 
     }(encoder)
   }
+  //scalastyle:on method.length
 }
 
 trait LIMEParams extends HasNumSamples with HasMetricsCol {
@@ -136,7 +138,7 @@ abstract class LIMEBase(override val uid: String)
   extends LocalExplainer
     with LIMEParams
     with Wrappable
-    with BasicLogging {
+    with SynapseMLLogging {
 
   private def getSampleWeightUdf: UserDefinedFunction = {
     val kernelWidth = this.getKernelWidth

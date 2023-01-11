@@ -42,10 +42,13 @@ class DropColumnsSuite extends TestBase with TransformerFuzzing[DropColumns] {
 
   test("Invalid column specified") {
     try {
-      new DropColumns().setCol("four").transform(makeBasicDF())
-      fail()
+        val df = makeBasicDF()
+        new DropColumns().setCol("four").transform(df)
+        val result = new DropColumns().setCol("four").transform(df)
+        assert(df.schema == result.schema)
     } catch {
-      case _: NoSuchElementException =>
+      case _: Exception =>
+        fail("DropColumns should not throw when for invalid column input")
     }
   }
 

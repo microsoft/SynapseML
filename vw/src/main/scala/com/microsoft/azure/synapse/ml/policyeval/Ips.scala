@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
@@ -16,7 +16,7 @@ import org.apache.spark.sql.{Encoder, Encoders}
 class Ips
   extends Aggregator[IpsInput, IpsBuffer, Float]
     with Serializable
-    with BasicLogging {
+    with SynapseMLLogging {
   override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
   logClass()

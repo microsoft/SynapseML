@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -21,6 +21,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import java.awt.Color
 import java.awt.color.ColorSpace
 import java.awt.image.BufferedImage
+import java.awt.{Image => JImage}
 import scala.math.round
 
 object UnrollImage extends DefaultParamsReadable[UnrollImage] {
@@ -56,7 +57,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
 
   private[ml] def roll(values: SVector, originalImage: Row): Row = {
     roll(
-      values.toArray.map(d => math.max(0, math.min(255, round(d))).toInt),
+      values.toArray.map(d => math.max(0, math.min(255, round(d))).toInt), //scalastyle:ignore magic.number
       originalImage.getString(0),
       originalImage.getInt(1),
       originalImage.getInt(2),
@@ -87,7 +88,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
     Row(path, height, width, nChannels, mode, rearranged.map(_.toByte))
   }
 
-  private[ml] def unrollBI(image: BufferedImage): SVector = {
+  private[ml] def unrollBI(image: BufferedImage): SVector = {  //scalastyle:ignore cyclomatic.complexity
     val nChannels = image.getColorModel.getNumComponents
     val isGray = image.getColorModel.getColorSpace.getType == ColorSpace.TYPE_GRAY
     val hasAlpha = image.getColorModel.hasAlpha
@@ -132,11 +133,28 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
     val biOpt = ImageUtils.safeRead(bytes)
     biOpt.map { bi =>
       (height, width) match {
-        case (Some(h), Some(w)) => unrollBI(ResizeUtils.resizeBufferedImage(w, h, nChannels)(bi))
+        case (Some(h), Some(w)) => unrollBI(resizeBufferedImage(w, h, nChannels)(bi))
         case (None, None) => unrollBI(bi)
         case _ =>
           throw new IllegalArgumentException("Height and width must either both be specified or unspecified")
       }
+    }
+  }
+
+  private[ml] def resizeBufferedImage(width: Int,
+                                      height: Int,
+                                      channels: Option[Int])(image: BufferedImage): BufferedImage = {
+    val imgType = channels.map(ImageUtils.channelsToType).getOrElse(image.getType)
+
+    if (image.getWidth == width && image.getHeight == height && image.getType == imgType) {
+      image
+    } else {
+      val resizedImage = image.getScaledInstance(width, height, JImage.SCALE_DEFAULT)
+      val bufferedImage = new BufferedImage(width, height, imgType)
+      val g = bufferedImage.createGraphics()
+      g.drawImage(resizedImage, 0, 0, null) //scalastyle:ignore null
+      g.dispose()
+      bufferedImage
     }
   }
 
@@ -149,7 +167,7 @@ object UnrollImage extends DefaultParamsReadable[UnrollImage] {
   * @param uid The id of the module
   */
 class UnrollImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   import UnrollImage._
@@ -184,7 +202,7 @@ object UnrollBinaryImage extends DefaultParamsReadable[UnrollBinaryImage]
   * @param uid The id of the module
   */
 class UnrollBinaryImage(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
   import UnrollImage._
 

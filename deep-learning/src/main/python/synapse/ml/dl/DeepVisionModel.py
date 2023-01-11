@@ -6,14 +6,14 @@ import torch
 import torchvision.transforms as transforms
 from horovod.spark.lightning import TorchModel
 from PIL import Image
-from synapse.ml.dl.PredictionParams import PredictionParams
+from synapse.ml.dl.PredictionParams import VisionPredictionParams
 from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql.functions import col, udf
 from pyspark.sql.types import DoubleType
 from synapse.ml.dl.utils import keywords_catch
 
 
-class DeepVisionModel(TorchModel, PredictionParams):
+class DeepVisionModel(TorchModel, VisionPredictionParams):
 
     transform_fn = Param(
         Params._dummy(),
@@ -56,8 +56,6 @@ class DeepVisionModel(TorchModel, PredictionParams):
 
         kwargs = self._kwargs
         self._set(**kwargs)
-        self._update_transform_fn()
-        self._update_cols()
 
     def setTransformFn(self, value):
         return self._set(transform_fn=value)
@@ -93,29 +91,29 @@ class DeepVisionModel(TorchModel, PredictionParams):
     def get_prediction_fn(self):
         input_shape = self.getInputShapes()[0]
         image_col = self.getImageCol()
+        transform = self.getTransformFn()
 
-        def _create_predict_fn(transform):
-            def predict_fn(model, row):
-                if type(row[image_col]) == str:
-                    image = Image.open(row[image_col]).convert("RGB")
-                    data = torch.tensor(transform(image).numpy()).reshape(input_shape)
-                else:
-                    data = torch.tensor([row[image_col]]).reshape(input_shape)
+        def predict_fn(model, row):
+            if type(row[image_col]) == str:
+                image = Image.open(row[image_col]).convert("RGB")
+                data = torch.tensor(transform(image).numpy()).reshape(input_shape)
+            else:
+                data = torch.tensor([row[image_col]]).reshape(input_shape)
 
-                with torch.no_grad():
-                    pred = model(data)
+            with torch.no_grad():
+                pred = model(data)
 
-                return pred
+            return pred
 
-            return predict_fn
-
-        return _create_predict_fn(self.getTransformFn())
+        return predict_fn
 
     # pytorch_lightning module has its own optimizer configuration
     def getOptimizer(self):
         return None
 
     def _transform(self, df):
+        self._update_transform_fn()
+        self._update_cols()
         output_df = super()._transform(df)
         argmax = udf(lambda v: float(np.argmax(v)), returnType=DoubleType())
         pred_df = output_df.withColumn(

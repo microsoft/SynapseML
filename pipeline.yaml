@@ -77,6 +77,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
     - bash: |
         set -e
         sbt publishBadges
@@ -89,6 +90,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
 
 - job: E2E
   timeoutInMinutes: 120
@@ -103,6 +105,8 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+#       synapse-internal:
+#         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -121,6 +125,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -277,6 +282,7 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN: $(pypi-api-token)
+        SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish python package to pypi'
     - bash: |
         set -e
@@ -291,6 +297,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
+        SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
@@ -384,6 +391,11 @@ jobs:
     - task: ShellScript@2
       inputs:
         scriptPath: tools/dotnet/dotnetSetup.sh
+    - task: AzureKeyVault@1
+      condition: startsWith(variables['tag'], 'v')
+      inputs:
+        azureSubscription: 'MMLSpark Build'
+        keyVaultName: mmlspark-keys
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
@@ -402,6 +414,8 @@ jobs:
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
+      env:
+        SYNAPSEML_ENABLE_PUBLISH: true
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -576,30 +590,47 @@ jobs:
     matrix:
       automl:
         PACKAGE: "automl"
-      cntk:
-        PACKAGE: "cntk"
       geospatial:
         PACKAGE: "geospatial"
       onnx:
         PACKAGE: "onnx"
-      cognitive1:
-        PACKAGE: "cognitive.split1"
+      anomaly:
+        PACKAGE: "cognitive.anomaly"
         FLAKY: "true"
-      cognitive2:
-        PACKAGE: "cognitive.split2"
+      bing:
+        PACKAGE: "cognitive.bing"
+        FLAKY: "true"
+      face:
+        PACKAGE: "cognitive.face"
+        FLAKY: "true"
+      form:
+        PACKAGE: "cognitive.form"
+        FLAKY: "true"
+      language:
+        PACKAGE: "cognitive.language"
+        FLAKY: "true"
+      openai:
+        PACKAGE: "cognitive.openai"
+        FLAKY: "true"
+      search:
+        PACKAGE: "cognitive.search"
         FFMPEG: "true"
         FLAKY: "true"
-      cognitive3:
-        PACKAGE: "cognitive.split3"
+      speech:
+        PACKAGE: "cognitive.speech"
         FFMPEG: "true"
         FLAKY: "true"
-      cognitive4:
-        PACKAGE: "cognitive.split4"
+      text:
+        PACKAGE: "cognitive.text"
+        FLAKY: "true"
+      translate:
+        PACKAGE: "cognitive.translate"
+        FLAKY: "true"
+      vision:
+        PACKAGE: "cognitive.vision"
         FLAKY: "true"
       core:
         PACKAGE: "core"
-      downloader:
-        PACKAGE: "downloader"
       explainers1:
         PACKAGE: "explainers.split1"
       explainers2:

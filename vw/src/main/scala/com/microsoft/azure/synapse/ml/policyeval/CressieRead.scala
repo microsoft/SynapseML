@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.policyeval
 import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.spark.ml.util.Identifiable
@@ -18,7 +18,7 @@ import org.apache.spark.sql.{Encoder, Encoders}
 class CressieRead
   extends Aggregator[CressieReadInput, CressieReadBuffer, Double]
     with Serializable
-    with BasicLogging {
+    with SynapseMLLogging {
   override val uid: String = Identifiable.randomUID("BanditEstimatorCressieRead")
 
   logClass()

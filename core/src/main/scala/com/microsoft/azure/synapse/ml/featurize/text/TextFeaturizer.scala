@@ -5,17 +5,15 @@ package com.microsoft.azure.synapse.ml.featurize.text
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{Pipeline, _}
+import org.apache.spark.ml._
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
-
-import java.util.NoSuchElementException
 
 trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
 
@@ -194,7 +192,7 @@ object TextFeaturizer extends DefaultParamsReadable[TextFeaturizer]
   */
 class TextFeaturizer(override val uid: String)
   extends Estimator[PipelineModel]
-    with TextFeaturizerParams with HasInputCol with HasOutputCol with BasicLogging {
+    with TextFeaturizerParams with HasInputCol with HasOutputCol with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TextFeaturizer"))
@@ -281,6 +279,7 @@ class TextFeaturizer(override val uid: String)
     model.getOrDefault(model.getParam(name))
   }
 
+  //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit({
       try {
@@ -345,6 +344,7 @@ class TextFeaturizer(override val uid: String)
       new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
     })
   }
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 

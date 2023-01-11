@@ -87,7 +87,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     val vw = new VowpalWabbitClassifier()
       .setPassThroughArgs("-a")
 
-    val model = vw.fit(dataset.limit(10))
+    vw.fit(dataset.limit(10))
   }
 
   test("Verify VowpalWabbit Classifier can be run with TrainValidationSplit") {

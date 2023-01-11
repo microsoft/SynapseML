@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -22,7 +22,7 @@ class VowpalWabbitGeneric(override val uid: String)
   extends Estimator[VowpalWabbitGenericModel]
     with VowpalWabbitBaseLearner
     with HasInputCol
-    with BasicLogging {
+    with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -88,7 +88,7 @@ class VowpalWabbitGenericModel(override val uid: String)
   extends Model[VowpalWabbitGenericModel]
     with VowpalWabbitBaseModel
     with HasInputCol
-    with ComplexParamsWritable with Wrappable with BasicLogging {
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true

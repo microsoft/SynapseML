@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
@@ -24,7 +25,6 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
-//noinspection ScalaStyle
 object DatabricksUtilities {
 
   // ADB Info
@@ -48,12 +48,8 @@ object DatabricksUtilities {
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
-  // SynapseML info
-  val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
-  val Repository = "https://mmlspark.azureedge.net/maven"
-
   val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
@@ -65,11 +61,13 @@ object DatabricksUtilities {
 
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository))
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("pypi" -> Map("package" -> "transformers==4.15.0")),
+    Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod/horovod_installation.sh"))
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
   ).toJson.compactPrint
 
   // Execution Params
@@ -272,6 +270,7 @@ object DatabricksUtilities {
     (url, nbName)
   }
 
+  //scalastyle:off cyclomatic.complexity
   def monitorJob(runId: Integer,
                  timeout: Int,
                  interval: Int = 8000,
@@ -283,7 +282,7 @@ object DatabricksUtilities {
       val (url, nbName) = getRunUrlAndNBName(runId)
       if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty &
+      while (finalState.isEmpty &  //scalastyle:ignore while
         (System.currentTimeMillis() - startTime) < timeout &
         lifeCycleState != "INTERNAL_ERROR"
       ) {
@@ -319,6 +318,7 @@ object DatabricksUtilities {
 
     }(ExecutionContext.global)
   }
+  //scalastyle:on cyclomatic.complexity
 
   def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
     val destination: String = Folder + "/" + notebookFile.getName

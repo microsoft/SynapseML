@@ -16,7 +16,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.scalactic.{Equality, TolerantNumerics}
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 
 import java.nio.file.{Files, Paths}
 import javax.imageio.ImageIO

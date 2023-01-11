@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.scalatest.Matchers.convertNumericToPlusOrMinusWrapper
+import org.scalactic.Tolerance.convertNumericToPlusOrMinusWrapper
 
 class VerifyKahanSum extends TestBase {
   private val large = Math.pow(2, 50)

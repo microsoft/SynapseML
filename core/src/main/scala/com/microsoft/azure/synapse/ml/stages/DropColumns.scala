@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -18,7 +18,7 @@ object DropColumns extends DefaultParamsReadable[DropColumns]
   *
   */
 
-class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+class DropColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DropColumns"))
@@ -38,28 +38,14 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      verifySchema(dataset.schema)
       dataset.toDF().drop(getCols: _*)
     })
   }
 
   def transformSchema(schema: StructType): StructType = {
-    verifySchema(schema)
     val droppedCols = getCols.toSet
     StructType(schema.fields.filter(f => !droppedCols(f.name)))
   }
 
   def copy(extra: ParamMap): DropColumns = defaultCopy(extra)
-
-  private def verifySchema(schema: StructType): Unit = {
-    val providedCols = schema.fields.map(_.name).toSet
-    val invalidCols = getCols.filter(!providedCols(_))
-
-    if (invalidCols.length > 0) {
-      throw new NoSuchElementException(
-        s"DataFrame does not contain specified columns: ${invalidCols.reduce(_ + "," + _)}")
-    }
-
-  }
-
 }

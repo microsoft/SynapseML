@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.io.http
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TransformerParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, FlattenBatch, HasMiniBatcher, Lambda}
 import org.apache.commons.io.IOUtils
@@ -64,7 +64,7 @@ object ErrorUtils extends Serializable {
 
 class SimpleHTTPTransformer(val uid: String)
   extends Transformer with ConcurrencyParams with HasMiniBatcher with HasHandler
-    with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol with BasicLogging {
+    with HasInputCol with HasOutputCol with ComplexParamsWritable with HasErrorCol with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -92,7 +92,7 @@ class SimpleHTTPTransformer(val uid: String)
 
   setDefault(
     inputParser -> new JSONInputParser(),
-    handler -> HandlingUtils.advancedUDF(0, 50, 100, 500),
+    handler -> HandlingUtils.advancedUDF(0, 50, 100, 500),  //scalastyle:ignore magic.number
     errorCol -> (this.uid + "_errors"))
 
   def setUrl(url: String): SimpleHTTPTransformer.this.type = {

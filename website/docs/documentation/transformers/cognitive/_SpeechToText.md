@@ -42,9 +42,9 @@ stt.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
-import spark.implicits._
+import com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToText
 import org.apache.commons.compress.utils.IOUtils
+import spark.implicits._
 import java.net.URL
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -113,7 +113,7 @@ speech_to_text.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK
 import spark.implicits._
 import org.apache.commons.compress.utils.IOUtils
 import java.net.URL

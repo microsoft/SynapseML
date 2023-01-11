@@ -35,7 +35,9 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
       // copy sub part
       var i = start
       var j = ysStart // i for chars; j for bytes
-      while (i < end) { // fill ys with bytes
+
+      // fill ys with bytes
+      while (i < end) { //scalastyle:ignore while
         val c = str.charAt(i)
         if (c < 0x80) {
           ys(j) = c.toByte

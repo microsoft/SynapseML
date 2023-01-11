@@ -21,6 +21,8 @@ import java.nio.file.Files
 import scala.util.Random
 
 // scalastyle:off file.size.limit
+// scalastyle:off method.length
+// scalastyle:off cyclomatic.complexity
 
 /**
   * Class for holding test information, call by name to avoid unnecessary computations in test generations
@@ -189,7 +191,7 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
       .split(".".toCharArray).map(capitalize).mkString(".")
     val externalLoaderImports = conf.name match {
       case "synapseml-deep-learning" =>
-        s"""using Synapse.ML.Cntk;
+        s"""using Synapse.ML.Onnx;
            |using Synapse.ML.Stages;
            |""".stripMargin
       case _ => ""
@@ -315,7 +317,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
       instantiateModel(fullParamMap)
     } catch {
       case _: NotImplementedError =>
-        println(s"could not generate full Python test for ${stageName}, resorting to partial test")
+        println(s"could not generate full Python test for $stageName, resorting to partial test")
         instantiateModel(partialParamMap)
     }
   }
@@ -491,7 +493,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
       instantiateModel(fullParamMap)
     } catch {
       case _: NotImplementedError =>
-        println(s"could not generate full R test for ${stageName}, resorting to partial test")
+        println(s"could not generate full R test for $stageName, resorting to partial test")
         instantiateModel(partialParamMap)
     }
   }
@@ -540,10 +542,10 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     }
 
     s"""
-       |test_that("${stageName}_constructor_${num}", {
+       |test_that("${stageName}_constructor_$num", {
        |  ${indent(rTestInstantiateModel(stage, num), 1)}
        |
-       |  ${indent(s"""assert_correspondence_${stageName}(model, "r-constructor-model-$num.model", $num)""", 1)}
+       |  ${indent(s"""assert_correspondence_$stageName(model, "r-constructor-model-$num.model", $num)""", 1)}
        |
        |  ${indent(fittingTest, 1)}
        |
@@ -564,15 +566,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val stageJar = stage.getClass.getProtectionDomain().getCodeSource().getLocation().toString.split("/").last
     val stageProject = stageJar.replaceFirst("^synapseml-([^_]+)_.*", "$1")
     val stageSrcDir = conf.rSrcDir.toString.replaceFirst("^(.*)/[^/]+(/target/.*)", "$1/" + stageProject + "$2")
-    val srcFile = FileUtilities.join(stageSrcDir, s"ml_${stageName}.R")
+    val srcFile = FileUtilities.join(stageSrcDir, s"ml_$stageName.R")
     val srcPath = srcFile.toString.replaceAllLiterally("\\", "\\\\")
     val testDir = rTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")
     val testContent =
       s"""
-         |source("${srcPath}")
-         |test_data_dir <- "${testDir}"
+         |source("$srcPath")
+         |test_data_dir <- "$testDir"
          |
-         |assert_correspondence_${stageName} <- function(model, name, num) {
+         |assert_correspondence_$stageName <- function(model, name, num) {
          |   modelDirectory <- file.path(test_data_dir, name)
          |   # Passing overwrite=TRUE to ml_save causes it to call a non-existent method named overwrite.
          |   # Additionally, the method 'unlink' called with recursive=TRUE reports success even when it fails, so...
@@ -613,6 +615,8 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
 
 trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality {
 
+  def ignoreExperimentFuzzing: Boolean = false
+
   def experimentTestObjects(): Seq[TestObject[S]]
 
   def runExperiment(s: S, fittingDF: DataFrame, transformingDF: DataFrame): DataFrame = {
@@ -636,7 +640,7 @@ trait ExperimentFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   }
 
   test("Experiment Fuzzing") {
-    testExperiments()
+    if (!ignoreExperimentFuzzing) testExperiments()
   }
 
 }
@@ -656,11 +660,12 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
       f.mkdir()
       f.toString
     } else {
-      Files.createTempDirectory("SavedModels-").toString
+      tmpDir.toString
     }
   }
 
   val ignoreEstimators: Boolean = false
+  def ignoreSerializationFuzzing: Boolean = false
 
   private def testSerializationHelper(path: String,
                                       stage: PipelineStage with MLWritable,
@@ -716,12 +721,14 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   val retrySerializationFuzzing = false
 
   test("Serialization Fuzzing") {
-    if (retrySerializationFuzzing) {
-      tryWithRetries() { () =>
+    if (!ignoreSerializationFuzzing) {
+      if (retrySerializationFuzzing) {
+        tryWithRetries() { () =>
+          testSerialization()
+        }
+      } else {
         testSerialization()
       }
-    } else {
-      testSerialization()
     }
   }
 

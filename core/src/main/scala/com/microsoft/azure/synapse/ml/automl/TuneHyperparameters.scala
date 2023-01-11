@@ -7,7 +7,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
 import com.microsoft.azure.synapse.ml.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
@@ -36,7 +36,7 @@ import scala.util.control.NonFatal
   * Currently supports cross validation with random grid search.
   */
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
-  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with BasicLogging {
+  with Wrappable with ComplexParamsWritable with HasEvaluationMetric with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
@@ -131,7 +131,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     */
   private def awaitResult[T](awaitable: Awaitable[T], atMost: Duration): T = {
     try {
-      val awaitPermission = null.asInstanceOf[scala.concurrent.CanAwait]
+      val awaitPermission = null.asInstanceOf[scala.concurrent.CanAwait] //scalastyle:ignore null
       awaitable.result(atMost)(awaitPermission)
     } catch {
       case NonFatal(t) if !t.isInstanceOf[TimeoutException] =>
@@ -145,7 +145,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     * @param dataset The input dataset to train.
     * @return The trained classification model.
     */
-  override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {
+  //scalastyle:off method.length
+  override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {  //scalastyle:ignore cyclomatic.complexity
     logFit({
       val sparkSession = dataset.sparkSession
       val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
@@ -216,6 +217,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
       new TuneHyperparametersModel(uid).setBestModel(bestModel).setBestMetric(bestMetric)
     })
   }
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): Estimator[TuneHyperparametersModel] = defaultCopy(extra)
 
@@ -228,7 +230,7 @@ object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 /** Model produced by [[TuneHyperparameters]]. */
 class TuneHyperparametersModel(val uid: String)
   extends Model[TuneHyperparametersModel] with ComplexParamsWritable
-    with Wrappable with HasBestModel with BasicLogging {
+    with Wrappable with HasBestModel with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TuneHyperparametersModel"))

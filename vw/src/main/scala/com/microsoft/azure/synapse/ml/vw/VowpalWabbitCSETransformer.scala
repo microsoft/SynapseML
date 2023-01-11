@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil
 import org.apache.spark.ml.param.{FloatParam, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
@@ -17,7 +17,7 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types =
   */
 class VowpalWabbitCSETransformer(override val uid: String)
   extends Transformer
-    with BasicLogging
+    with SynapseMLLogging
     with Wrappable
     with ComplexParamsWritable {
 

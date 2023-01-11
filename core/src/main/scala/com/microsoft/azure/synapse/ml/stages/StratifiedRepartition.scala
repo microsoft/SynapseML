@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasLabelCol
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.RangePartitioner
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
@@ -29,7 +29,7 @@ object StratifiedRepartition extends DefaultParamsReadable[DropColumns]
   * at least one instance of each label to be present on each partition.
   */
 class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
-  with DefaultParamsWritable with HasLabelCol with HasSeed with BasicLogging {
+  with DefaultParamsWritable with HasLabelCol with HasSeed with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("StratifiedRepartition"))

@@ -172,6 +172,7 @@ object SarTLCSpec extends RankingTestBase {
     (model, recommendationIndexerModel)
   }
 
+  // scalastyle:off method.length
   def testProductRecommendations(tlcSampleData: DataFrame,
                                  threshold: Int,
                                  similarityFunction: String,
@@ -242,4 +243,5 @@ object SarTLCSpec extends RankingTestBase {
     (11 to 20).foreach(i => assert("%.3f".format(row(0).getFloat(i)) == "%.3f".format(answer(0).getString(i).toFloat)))
     ()
   }
+  // scalastyle:on method.length
 }
