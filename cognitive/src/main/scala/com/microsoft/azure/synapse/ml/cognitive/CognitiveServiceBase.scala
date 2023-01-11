@@ -23,6 +23,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
 
 import java.net.URI
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.reflect.internal.util.ScalaClassLoader
@@ -275,7 +276,11 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
           req.setHeader(subscriptionKeyHeaderName, getValue(row, subscriptionKey))
         } else {
           getValueOpt(row, AADToken).foreach(s =>
-            req.setHeader(aadHeaderName, "Bearer " + s)
+            {
+              req.setHeader(aadHeaderName, "Bearer " + s)
+              // this is required for internal workload
+              req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+            }
           )
         }
         req.setHeader("Content-Type", contentType(row))
