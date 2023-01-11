@@ -294,6 +294,7 @@ trait PythonWrappable extends BaseWrappable {
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+        |from synapse.ml.core.platform import running_on_synapse_internal
         |from synapse.ml.core.serialize.java_params_patch import *
         |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
         |from pyspark.ml.evaluation import JavaEvaluator
