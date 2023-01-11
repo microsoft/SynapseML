@@ -10,6 +10,6 @@ Synapse Machine Learning expands the distributed computing framework [Apache Spa
 
 <!--truncate-->
 
-SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Microsoft Cognitive Services. Finally, the Spark Serving project enables high throughput, submillisecond latency web services, backed by your Spark cluster.
+SynapseML also brings new networking capabilities to the Spark ecosystem. With the HTTP on Spark project, users can embed any web service into their SparkML models and use their Spark clusters for massive networking workflows. In this vein, SynapseML provides easy to use SparkML transformers for a wide variety of Azure Cognitive Services. Finally, the Spark Serving project enables high throughput, submillisecond latency web services, backed by your Spark cluster.
 
-Visit the SynapseML Github repository to learn more.
+Visit the SynapseML GitHub repository to learn more.
