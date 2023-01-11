@@ -30,6 +30,8 @@ class AddressGeocoder(override val uid: String)
     with HasInternalJsonOutputParser with MapsAsyncReply with SynapseMLLogging {
   logClass()
 
+  def urlPath: String = ""
+
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -78,6 +80,8 @@ class ReverseAddressGeocoder(override val uid: String)
     with HasInternalJsonOutputParser with MapsAsyncReply with SynapseMLLogging with HasServiceParams
     with HasSubscriptionKey with HasURL with HasLatLonPairInput {
   logClass()
+
+  def urlPath: String = ""
 
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>
