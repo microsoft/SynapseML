@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.anomaly
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
@@ -78,6 +79,25 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
     .setErrorCol("errors")
 
   test("Basic Usage") {
+    val fromRow = ADLastResponse.makeFromRowConverter
+    val result = fromRow(ad.transform(df)
+      .select("anomalies")
+      .collect()
+      .head.getStruct(0))
+    assert(result.isAnomaly)
+  }
+
+  test("Basic usage with AAD auth") {
+    val aadToken = getAccessToken(Secrets.ServicePrincipalClientId,
+      Secrets.ServiceConnectionSecret,
+      "https://cognitiveservices.azure.com/")
+    val ad = new DetectLastAnomaly()
+      .setAADToken(aadToken)
+      .setCustomServiceName("synapseml-ad-custom")
+      .setOutputCol("anomalies")
+      .setSeriesCol("inputs")
+      .setGranularity("monthly")
+      .setErrorCol("errors")
     val fromRow = ADLastResponse.makeFromRowConverter
     val result = fromRow(ad.transform(df)
       .select("anomalies")
