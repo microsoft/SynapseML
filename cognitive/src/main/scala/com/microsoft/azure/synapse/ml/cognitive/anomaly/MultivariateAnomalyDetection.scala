@@ -519,7 +519,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
 
   def getModelId: String = $(modelId)
 
-  val topContributorCount = new Param[Int](this, "topContributorCount", "This is a number" +
+  val topContributorCount = new IntParam(this, "topContributorCount", "This is a number" +
     " that you could specify N from 1 to 30, which will give you the details of top N contributed variables " +
     "in the anomaly results. For example, if you have 100 variables in the model, but you only care the top " +
     "five contributed variables in detection results, then you should fill this field with 5. The default" +
