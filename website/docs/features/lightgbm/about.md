@@ -159,7 +159,7 @@ You can explicitly specify Execution Mode and MicroBatch size as parameters.
         .setExecutionMode("streaming")
         .setMicroBatchSize(100)
         .setLabelCol(labelColumn)
-        .setObjective(binaryObjective)
+        .setObjective("binary")
         .setUseBarrierExecutionMode(true)
     ...
     <train classifier>
