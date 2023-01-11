@@ -34,6 +34,13 @@ object Secrets {
     SubscriptionID
   }
 
+  def getSynapseExtensionSecret(envName: String, secretType: String): String = {
+    val secretKey = s"synapse-extension-$envName-$secretType"
+    println(s"[info] fetching secret: $secretKey from $AccountString")
+    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
+    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+  }
+
   private def getSecret(secretName: String): String = {
     println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
@@ -60,26 +67,9 @@ object Secrets {
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
-  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
-
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
-  lazy val SynapseExtensionEdogPassword: String = getSecret("synapse-extension-edog-password")
-  lazy val SynapseExtensionEdogTenantId: String = getSecret("synapse-extension-edog-tenant-id")
-  lazy val SynapseExtensionEdogUxHost: String = getSecret("synapse-extension-edog-ux-host")
-  lazy val SynapseExtensionEdogSspHost: String = getSecret("synapse-extension-edog-ssp-host")
-  lazy val SynapseExtensionEdogWorkspaceId: String = getSecret("synapse-extension-edog-workspace-id")
 
-  lazy val SynapseExtensionDailyPassword: String = getSecret("synapse-extension-daily-password")
-  lazy val SynapseExtensionDailyTenantId: String = getSecret("synapse-extension-daily-tenant-id")
-  lazy val SynapseExtensionDailyUxHost: String = getSecret("synapse-extension-daily-ux-host")
-  lazy val SynapseExtensionDailySspHost: String = getSecret("synapse-extension-daily-ssp-host")
-  lazy val SynapseExtensionDailyWorkspaceId: String = getSecret("synapse-extension-daily-workspace-id")
-
-  lazy val SynapseExtensionDxtPassword: String = getSecret("synapse-extension-dxt-password")
-  lazy val SynapseExtensionDxtTenantId: String = getSecret("synapse-extension-dxt-tenant-id")
-  lazy val SynapseExtensionDxtUxHost: String = getSecret("synapse-extension-dxt-ux-host")
-  lazy val SynapseExtensionDxtSspHost: String = getSecret("synapse-extension-dxt-ssp-host")
-  lazy val SynapseExtensionDxtWorkspaceId: String = getSecret("synapse-extension-dxt-workspace-id")
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

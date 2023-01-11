@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getSynapseExtensionSecret
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
@@ -22,7 +23,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 
 object SynapseExtensionUtilities {
@@ -31,13 +31,7 @@ object SynapseExtensionUtilities {
 
   object Environment extends Enumeration {
     type Environment = Value
-    val EDog, Daily, DXT, MSIT = Value
-    def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
-  }
-
-  object Resource extends Enumeration {
-    type Resource = Value
-    val SSPHost, WorkspaceId, UxHost, TenantId, Password = Value
+    val Dev, Daily, Weekly = Value
     def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
   }
 
@@ -49,34 +43,20 @@ object SynapseExtensionUtilities {
   lazy val AadAccessTokenResource: String = Secrets.AadResource
   lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
 
-  lazy val EdogResources = HashMap(
-    Resource.SSPHost -> Secrets.SynapseExtensionEdogSspHost,
-    Resource.WorkspaceId -> Secrets.SynapseExtensionEdogWorkspaceId,
-    Resource.UxHost -> Secrets.SynapseExtensionEdogUxHost,
-    Resource.TenantId -> Secrets.SynapseExtensionEdogTenantId,
-    Resource.Password -> Secrets.SynapseExtensionEdogPassword)
-
-  lazy val DailyResources = HashMap(
-    Resource.SSPHost -> Secrets.SynapseExtensionDailySspHost,
-    Resource.WorkspaceId -> Secrets.SynapseExtensionDailyWorkspaceId,
-    Resource.UxHost -> Secrets.SynapseExtensionDailyUxHost,
-    Resource.TenantId -> Secrets.SynapseExtensionDailyTenantId,
-    Resource.Password -> Secrets.SynapseExtensionDailyPassword)
-
-  lazy val DxtResources = HashMap(
-    Resource.SSPHost -> Secrets.SynapseExtensionDxtSspHost,
-    Resource.WorkspaceId -> Secrets.SynapseExtensionDxtWorkspaceId,
-    Resource.UxHost -> Secrets.SynapseExtensionDxtUxHost,
-    Resource.TenantId -> Secrets.SynapseExtensionDxtTenantId,
-    Resource.Password -> Secrets.SynapseExtensionDxtPassword)
-
   val DefaultEnvironment = Environment.Daily
-  val ResourceMap = getResources(DefaultEnvironment)
-  val SSPHost: String = ResourceMap(Resource.SSPHost)
-  val WorkspaceId: String = ResourceMap(Resource.WorkspaceId)
-  val UxHost: String = ResourceMap(Resource.UxHost)
-  val TenantId: String = ResourceMap(Resource.TenantId)
-  val Password: String = ResourceMap(Resource.Password)
+  val SynapseEnvironment = getWorkingEnvironment(DefaultEnvironment)
+
+  val EnvironmentString = SynapseEnvironment match {
+    case Environment.Dev => "dev"
+    case Environment.Daily => "daily"
+    case Environment.Weekly => "weekly"
+  }
+
+  val SSPHost: String = getSynapseExtensionSecret(EnvironmentString, "ssp-host")
+  val WorkspaceId: String = getSynapseExtensionSecret(EnvironmentString, "workspace-id")
+  val UxHost: String = getSynapseExtensionSecret(EnvironmentString, "ux-host")
+  val TenantId: String = getSynapseExtensionSecret(EnvironmentString, "tenant-id")
+  val Password: String = getSynapseExtensionSecret(EnvironmentString, "password")
 
   lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
   lazy val StorageAccount: String = "mmlsparkbuildsynapse"
@@ -315,15 +295,6 @@ object SynapseExtensionUtilities {
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]
-  }
-
-  def getResources(defaultEnv: Environment.Value): HashMap[Resource.Value, String] = {
-    val environment = getWorkingEnvironment(defaultEnv)
-    environment match {
-      case Environment.EDog => EdogResources
-      case Environment.Daily => DailyResources
-      case Environment.DXT => DxtResources
-    }
   }
 
   def getWorkingEnvironment(defaultEnv: Environment.Value): Environment.Value = {
