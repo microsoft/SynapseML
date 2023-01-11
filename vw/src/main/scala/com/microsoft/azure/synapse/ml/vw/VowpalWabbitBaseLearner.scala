@@ -235,7 +235,9 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
     val vwMerged = try {
       // need to pass null if we don't have a base model
+      // scalastyle:off null
       VowpalWabbitNative.mergeModels(vwBase.getOrElse(null), vwForEachPartition)
+      // scalastyle:on null
     }
     finally {
       for (vw <- vwForEachPartition)

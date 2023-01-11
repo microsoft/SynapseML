@@ -43,6 +43,7 @@ class KahanSumAggregator
   *       https://stackoverflow.com/questions/4753629/how-do-i-make-a-class-generic-for-all-numeric-types
   */
 final case class KahanSum(sum: Double = 0, c: Double = 0) {
+  // scalastyle:off method.name
   def +(x: Double): KahanSum = {
     val newSum = sum + x
 

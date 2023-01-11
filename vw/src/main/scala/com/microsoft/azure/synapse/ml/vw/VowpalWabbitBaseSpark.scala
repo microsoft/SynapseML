@@ -117,6 +117,7 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
         row.getAs[Seq[Float]](pdfValuesIndex).toArray)
   }
 
+  // scalastyle:off cyclomatic.complexity
   // this only works well for Estimators. for Predictors the label is always going to be a Double
   protected def createLabelSetter(schema: T.StructType): VowpalWabbitLabelSetFunc = {
     // match label spark types to VW labels
@@ -131,6 +132,7 @@ trait VowpalWabbitBaseSpark extends VowpalWabbitBaseLearner
       case other => throw new UnsupportedOperationException(s"Label type is not supported $other")
     }
   }
+  // scalastyle:on cyclomatic.complexity
 
   protected override def getInputColumns: Seq[String] =
     Seq(getFeaturesCol, getLabelCol) ++

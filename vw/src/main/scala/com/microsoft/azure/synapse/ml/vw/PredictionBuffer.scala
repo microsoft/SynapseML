@@ -9,10 +9,9 @@ import org.apache.spark.sql.types.{BinaryType, StructField, StructType}
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Collects
+  * Collects predictions.
   */
 abstract class PredictionBuffer extends Serializable {
-
 
   protected val modelField = StructField(PredictionBuffer.ModelCol, BinaryType, nullable=true)
 
@@ -45,6 +44,7 @@ class PredictionBufferKeep(predictionSchema: StructType,
 
   val predictions = ListBuffer[Row]()
 
+  // scalastyle:off null
   def append(inputRow: Row, prediction: Object): Unit = {
     predictions.append(Row.fromSeq(
       Seq(null, // model
@@ -60,7 +60,7 @@ class PredictionBufferKeep(predictionSchema: StructType,
     Row.fromSeq(model +: (0 to predictionSchema.length).map({ _ => null})) +:
       predictions
   }
-
+  // scalastyle:on null
 
   def schema: StructType = {
     val predictionIdField = inputSchema(predictionIdIdx)

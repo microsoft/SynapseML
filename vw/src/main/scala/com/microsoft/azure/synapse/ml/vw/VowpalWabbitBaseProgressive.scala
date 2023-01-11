@@ -12,6 +12,7 @@ import org.vowpalwabbit.spark.VowpalWabbitNative
 
 import java.util.UUID
 
+// scalastyle:off no.finalize
 /**
   * VowpalWabbit is focused on online learning. In these settings it is common
   * to operate in progressive validation using a 1-step ahead approach.

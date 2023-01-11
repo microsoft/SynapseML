@@ -77,48 +77,49 @@ class VowpalWabbitCSETransformer(override val uid: String)
       .dataType.asInstanceOf[T.StructType]
       .fields
       .zipWithIndex
-      .map({ case (rewardField, idx) =>
+      .map({ case (rewardField: T.StructField, idx: Int) =>
         RewardColumn(rewardField.name, s"$RewardsColName.${rewardField.name}", idx)
       })
       .toSeq
 
-
-  def perRewardMetrics(rewardsCol: Seq[RewardColumn],
-                       minImportanceWeight: Float = 0,
-                       maxImportanceWeight: Float = 100): Seq[Column] = {
+  private def rewardColumnToStruct(rewardCol: RewardColumn,
+                                   minImportanceWeight: Float,
+                                   maxImportanceWeight: Float): Column = {
     val countCol = F.col("count")
     val minImportanceWeightCol = F.lit(minImportanceWeight)
     val maxImportanceWeightCol = F.lit(maxImportanceWeight)
 
-    rewardsCol
-      .map({ rewardCol => {
-        val minRewardCol = F.col(rewardCol.minRewardCol)
-        val maxRewardCol = F.col(rewardCol.maxRewardCol)
+    val minRewardCol = F.col(rewardCol.minRewardCol)
+    val maxRewardCol = F.col(rewardCol.maxRewardCol)
 
-        F.struct(
-          F.first(F.col(rewardCol.minRewardCol)).alias(MinReward),
-          F.first(F.col(rewardCol.maxRewardCol)).alias(MaxReward),
-          // multiple estimations
-          PolicyEvalUDAFUtil.Snips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
-            F.col(ProbabilityPredictedColName), countCol)
-            .alias(Snips),
-          PolicyEvalUDAFUtil.Ips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
-            F.col(ProbabilityPredictedColName), countCol)
-            .alias(Ips),
-          PolicyEvalUDAFUtil.CressieRead(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
-            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol)
-            .alias(CressieRead),
-          PolicyEvalUDAFUtil.CressieReadInterval(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
-            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
-            minRewardCol, maxRewardCol)
-            .alias(CressieReadInterval),
-          PolicyEvalUDAFUtil.CressieReadIntervalEmpirical(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
-            F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
-            minRewardCol, maxRewardCol)
-            .alias(CressieReadIntervalEmp),
-        ).alias(rewardCol.name)
-      }
-    })
+    F.struct(
+      F.first(F.col(rewardCol.minRewardCol)).alias(MinReward),
+      F.first(F.col(rewardCol.maxRewardCol)).alias(MaxReward),
+      // multiple estimations
+      PolicyEvalUDAFUtil.Snips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+        F.col(ProbabilityPredictedColName), countCol)
+        .alias(Snips),
+      PolicyEvalUDAFUtil.Ips(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+        F.col(ProbabilityPredictedColName), countCol)
+        .alias(Ips),
+      PolicyEvalUDAFUtil.CressieRead(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+        F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol)
+        .alias(CressieRead),
+      PolicyEvalUDAFUtil.CressieReadInterval(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+        F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
+        minRewardCol, maxRewardCol)
+        .alias(CressieReadInterval),
+      PolicyEvalUDAFUtil.CressieReadIntervalEmpirical(F.col(ProbabilityLoggedColName), F.col(rewardCol.col),
+        F.col(ProbabilityPredictedColName), countCol, minImportanceWeightCol, maxImportanceWeightCol,
+        minRewardCol, maxRewardCol)
+        .alias(CressieReadIntervalEmp))
+      .alias(rewardCol.name)
+  }
+
+  def perRewardMetrics(rewardsCol: Seq[RewardColumn],
+                       minImportanceWeight: Float,
+                       maxImportanceWeight: Float): Seq[Column] = {
+    rewardsCol.map(rewardColumnToStruct(_, minImportanceWeight, maxImportanceWeight))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -130,7 +131,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
 
       // calculate min/max for each reward
       val minMaxes = rewardsCol
-        .flatMap({ rewardCol =>
+        .flatMap({ rewardCol: RewardColumn =>
           Seq(F.min(rewardCol.col).alias(rewardCol.minRewardCol),
             F.max(rewardCol.col).alias(rewardCol.maxRewardCol))
         })
@@ -159,6 +160,29 @@ class VowpalWabbitCSETransformer(override val uid: String)
     })
   }
 
+  private def perRewardSchema(f: T.StructField): T.StructField = {
+    T.StructField(f.name,
+      T.StructType(Seq(
+        T.StructField(MinReward, T.FloatType, false),
+        T.StructField(MaxReward, T.FloatType, false),
+        T.StructField(Snips, T.FloatType, false),
+        T.StructField(Ips, T.FloatType, false),
+        T.StructField(Snips, T.FloatType, false),
+        T.StructField(CressieRead, T.DoubleType, false),
+        T.StructField(CressieReadInterval,
+          T.StructType(Seq(
+            T.StructField("lower", T.DoubleType, false),
+            T.StructField("upper", T.DoubleType, false))),
+          true),
+        T.StructField(CressieReadIntervalEmp,
+          T.StructType(Seq(
+            T.StructField("lower", T.DoubleType, false),
+            T.StructField("upper", T.DoubleType, false))),
+          true)
+      )),
+      false)
+  }
+
   override def transformSchema(schema: StructType): StructType =
     T.StructType(
       // groupBy
@@ -172,33 +196,9 @@ class VowpalWabbitCSETransformer(override val uid: String)
         T.StructField(AverageImportanceWeight, T.DoubleType, false),
         T.StructField(AverageSquaredImportanceWeight, T.DoubleType, false),
         T.StructField(PropOfMaximumImportanceWeight, T.DoubleType, false),
-        T.StructField(QuantilesOfImportanceWeight, T.ArrayType(T.FloatType, false), false),
-      ) ++
+        T.StructField(QuantilesOfImportanceWeight, T.ArrayType(T.FloatType, false), false)) ++
       // perRewardMetric
-      schema(RewardsColName).dataType.asInstanceOf[T.StructType].fields.map { f =>
-        T.StructField(f.name,
-          T.StructType(Seq(
-            T.StructField(MinReward, T.FloatType, false),
-            T.StructField(MaxReward, T.FloatType, false),
-            T.StructField(Snips, T.FloatType, false),
-            T.StructField(Ips, T.FloatType, false),
-            T.StructField(Snips, T.FloatType, false),
-            T.StructField(CressieRead, T.DoubleType, false),
-            T.StructField(CressieReadInterval,
-              T.StructType(Seq(
-                T.StructField("lower", T.DoubleType, false),
-                T.StructField("upper", T.DoubleType, false),
-              )),
-              true),
-            T.StructField(CressieReadIntervalEmp,
-              T.StructType(Seq(
-                T.StructField("lower", T.DoubleType, false),
-                T.StructField("upper", T.DoubleType, false),
-              )),
-              true)
-          )),
-          false)
-      }
+      schema(RewardsColName).dataType.asInstanceOf[T.StructType].fields.map(perRewardSchema)
     )
 }
 
