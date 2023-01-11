@@ -35,7 +35,7 @@ object SynapseExtensionUtilities {
     def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
   }
 
-  val TimeoutInMillis: Int = 30 * 60 * 1000
+  lazy val TimeoutInMillis: Int = 30 * 60 * 1000
 
   lazy val BaseUri: String = s"$SSPHost/metadata"
   lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
@@ -43,20 +43,20 @@ object SynapseExtensionUtilities {
   lazy val AadAccessTokenResource: String = Secrets.AadResource
   lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
 
-  val DefaultEnvironment = Environment.Daily
-  val SynapseEnvironment = getWorkingEnvironment(DefaultEnvironment)
+  lazy val DefaultEnvironment = Environment.Daily
+  lazy val SynapseEnvironment = getWorkingEnvironment(DefaultEnvironment)
 
-  val EnvironmentString = SynapseEnvironment match {
+  lazy val EnvironmentString = SynapseEnvironment match {
     case Environment.Dev => "dev"
     case Environment.Daily => "daily"
     case Environment.Weekly => "weekly"
   }
 
-  val SSPHost: String = getSynapseExtensionSecret(EnvironmentString, "ssp-host")
-  val WorkspaceId: String = getSynapseExtensionSecret(EnvironmentString, "workspace-id")
-  val UxHost: String = getSynapseExtensionSecret(EnvironmentString, "ux-host")
-  val TenantId: String = getSynapseExtensionSecret(EnvironmentString, "tenant-id")
-  val Password: String = getSynapseExtensionSecret(EnvironmentString, "password")
+  lazy val SSPHost: String = getSynapseExtensionSecret(EnvironmentString, "ssp-host")
+  lazy val WorkspaceId: String = getSynapseExtensionSecret(EnvironmentString, "workspace-id")
+  lazy val UxHost: String = getSynapseExtensionSecret(EnvironmentString, "ux-host")
+  lazy val TenantId: String = getSynapseExtensionSecret(EnvironmentString, "tenant-id")
+  lazy val Password: String = getSynapseExtensionSecret(EnvironmentString, "password")
 
   lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
   lazy val StorageAccount: String = "mmlsparkbuildsynapse"
