@@ -70,6 +70,8 @@ object Secrets {
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
+  lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
   lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }
