@@ -118,8 +118,10 @@ object SynapseUtilities {
 
   import SynapseJsonProtocol._
 
-  lazy val SynapseToken: String = getAccessToken("https://dev.azuresynapse.net/")
-  lazy val ArmToken: String = getAccessToken("https://management.azure.com/")
+  lazy val SynapseToken: String = getAccessToken(ClientId, Secrets.SynapseSpnKey,
+    "https://dev.azuresynapse.net/")
+  lazy val ArmToken: String = getAccessToken(ClientId, Secrets.SynapseSpnKey,
+    "https://management.azure.com/")
 
   val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
   val Folder = s"build_${BuildInfo.version}/scripts"
@@ -315,15 +317,15 @@ object SynapseUtilities {
     safeSend(deleteRequest)
   }
 
-  def getAccessToken(reqResource: String): String = {
+  def getAccessToken(clientId: String, clientSecret: String, reqResource: String): String = {
     val createRequest = new HttpPost(s"https://login.microsoftonline.com/$TenantId/oauth2/token")
     createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
     createRequest.setEntity(
       new UrlEncodedFormEntity(
         List(
           ("grant_type", "client_credentials"),
-          ("client_id", s"$ClientId"),
-          ("client_secret", s"${Secrets.SynapseSpnKey}"),
+          ("client_id", clientId),
+          ("client_secret", clientSecret),
           ("resource", reqResource)
         ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
     )
