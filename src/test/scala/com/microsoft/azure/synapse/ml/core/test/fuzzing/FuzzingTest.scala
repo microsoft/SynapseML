@@ -353,7 +353,8 @@ class FuzzingTest extends TestBase {
     val exemptions = Set[String](
       // MVAD doesn't support aad token for now
       "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.FitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       // TO BE VERIFIED
       "com.microsoft.azure.synapse.ml.cognitive.speech.ConversationTranscription",
       "com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK",
