@@ -60,7 +60,7 @@ with mlflow.start_run():
 
     featurize = (Featurize()
     .setOutputCol("features")
-    .setInputCols(featureColumns)
+    .setInputCols(feature_columns)
     .setOneHotEncodeCategoricals(True)
     .setNumFeatures(4096))
 
