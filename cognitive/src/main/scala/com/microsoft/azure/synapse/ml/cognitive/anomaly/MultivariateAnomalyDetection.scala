@@ -453,10 +453,10 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
         dataSchema,
         getStartTime,
         getEndTime,
-        Option(getOrDefault(slidingWindow)),
+        get(slidingWindow).orElse(getDefault(slidingWindow)),
         Option(AlignPolicy(
-          Option(getOrDefault(alignMode)),
-          Option(getOrDefault(fillNAMethod)),
+          get(alignMode).orElse(getDefault(alignMode)),
+          get(fillNAMethod).orElse(getDefault(fillNAMethod)),
           get(paddingValue))),
         get(displayName)
       ).toJson.compactPrint, ContentType.APPLICATION_JSON))
