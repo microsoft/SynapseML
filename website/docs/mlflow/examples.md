@@ -5,7 +5,7 @@ description: Examples using SynapseML with MLflow
 
 ## Prerequisites
 
-If you're using Databricks, please install mlflow with below command:
+If you're using Databricks, install mlflow with this command:
 ```
 # run this so that mlflow is installed on workers besides driver
 %pip install mlflow
@@ -97,14 +97,9 @@ with mlflow.start_run():
 
 ## Cognitive Services
 
-Note: Cognitive Services are not supported direct save/load by mlflow for now, so we need to wrap it as a PipelineModel manually.
-
-The [feature request](https://github.com/mlflow/mlflow/issues/5216) to support them (Transformers in general) has been under progress, please vote for the issue if you'd like.
-
 ```python
 import mlflow
 from synapse.ml.cognitive import *
-from pyspark.ml import PipelineModel
 
 with mlflow.start_run():
 
@@ -115,7 +110,7 @@ with mlflow.start_run():
     ("The cognitive services on spark aint bad", "en-US"),
     ], ["text", "language"])
 
-    sentiment = (TextSentiment()
+    sentiment_model = (TextSentiment()
                 .setSubscriptionKey(text_key)
                 .setLocation("eastus")
                 .setTextCol("text")
@@ -123,10 +118,8 @@ with mlflow.start_run():
                 .setErrorCol("error")
                 .setLanguageCol("language"))
 
-    display(sentiment.transform(df))
+    display(sentiment_model.transform(df))
 
-    # Wrap it as a stage in the PipelineModel
-    sentiment_model = PipelineModel(stages=[sentiment])
     mlflow.spark.save_model(sentiment_model, "sentiment_model")
     mlflow.spark.log_model(sentiment_model, "sentiment_model")
 

@@ -12,7 +12,7 @@ We also learn how to use Jupyter notebooks for developing and running the model.
 
 ### Prerequisites
 
--   You have installed the SynapseML package, either as a Docker image or on a
+-   You've installed the SynapseML package, either as a Docker image or on a
     Spark cluster,
 -   You have basic knowledge of Python language,
 -   You have basic understanding of machine learning concepts: training, testing,
@@ -32,7 +32,7 @@ title.
 
 ### Importing Packages and Starting the Spark Application
 
-At this point, the notebook is not yet running a Spark application.  In the
+At this point, the notebook isn't running a Spark application yet.  In the
 first cell, let's import some needed packages
 
 ```python
@@ -85,14 +85,14 @@ from pyspark.ml.classification import LogisticRegression
 model = TrainClassifier(model=LogisticRegression(), labelCol=" income").fit(train)
 ```
 
-Note that `TrainClassifier` implicitly handles string-valued columns and
+`TrainClassifier` implicitly handles string-valued columns and
 binarizes the label column.
 
 ### Scoring and Evaluating the Model
 
 Finally, let's score the model against the test set, and use
-`synapse.ml.ComputeModelStatistics` class to compute metrics — accuracy, AUC,
-precision, recall — from the scored data.
+`synapse.ml.ComputeModelStatistics` class to compute metrics—accuracy, AUC,
+precision, recall—from the scored data.
 
 ```python
 from synapse.ml.train import ComputeModelStatistics
