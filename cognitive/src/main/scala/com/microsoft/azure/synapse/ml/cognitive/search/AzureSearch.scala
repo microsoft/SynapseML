@@ -92,6 +92,8 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("AddDocuments"))
 
+  def urlPath: String = ""
+
   setDefault(actionCol -> "@search.action")
 
   override val subscriptionKeyHeaderName = "api-key"

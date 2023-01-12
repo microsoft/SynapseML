@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.cognitive.{HasAADToken, HasSubscriptionKey}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -342,6 +343,27 @@ class FuzzingTest extends TestBase {
       if (!exemptions(stage.getClass.getName)) {
         assertOrLog(SynapseMLLogging.LoggedClasses(stage.getClass.toString),
           stage.getClass.getName + " does not call logClass in the constructor")
+        assertOrLog(clazz.isAssignableFrom(stage.getClass),
+          stage.getClass.getName + " needs to extend " + clazz.getName)
+      }
+    }
+  }
+
+  test("Verify all classes extending HasSubscriptionKey also extend HasAADToken") {
+    val exemptions = Set[String](
+      // MVAD doesn't support aad token for now
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.FitMultivariateAnomaly",
+      // TO BE VERIFIED
+      "com.microsoft.azure.synapse.ml.cognitive.speech.ConversationTranscription",
+      "com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK",
+      "com.microsoft.azure.synapse.ml.cognitive.speech.TextToSpeech"
+    )
+    val subClazz = classOf[HasSubscriptionKey]
+    val clazz = classOf[HasAADToken]
+
+    pipelineStages.foreach { stage =>
+      if (!exemptions(stage.getClass.getName) && subClazz.isAssignableFrom(stage.getClass)) {
         assertOrLog(clazz.isAssignableFrom(stage.getClass),
           stage.getClass.getName + " needs to extend " + clazz.getName)
       }
