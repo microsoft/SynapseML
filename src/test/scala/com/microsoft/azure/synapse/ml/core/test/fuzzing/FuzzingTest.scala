@@ -352,9 +352,8 @@ class FuzzingTest extends TestBase {
   test("Verify all classes extending HasSubscriptionKey also extend HasAADToken") {
     val exemptions = Set[String](
       // MVAD doesn't support aad token for now
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleFitMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleFitMultivariateAnomaly",
       // TO BE VERIFIED
       "com.microsoft.azure.synapse.ml.cognitive.speech.ConversationTranscription",
       "com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK",
