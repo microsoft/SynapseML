@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive.anomaly
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -12,8 +11,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
 
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{OffsetDateTime, ZonedDateTime}
 import scala.collection.mutable.HashSet
 
 
@@ -69,17 +68,6 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-
-  test("Blob client SAS Url generation is correct") {
-    val blobName = "intermediateData/some_file.csv"
-    val offset = OffsetDateTime.parse("2022-08-22T18:52:02.853001800-04:00")
-    val exampleSas = "sv=2020-10-02&se=2022-08-22T22%3A52%3A02Z&sr=b&sp=r&" +
-      "sig=ECIwvPFBjiB4HHz%2B4z3D8nEomDtZZ9B7vAiLiT7VACg%3D"
-
-    val sas1 = SlimStorageClient.generateReadSAS(
-      storageAccount, "madtest", blobName, storageKey, offset)
-    assert(exampleSas == sas1)
-  }
 
   test("SimpleMultiAnomalyEstimator basic usage") {
     val smae = simpleMultiAnomalyEstimator.setSlidingWindow(50)

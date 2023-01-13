@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.anomaly
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.cognitive._
-import MADJsonProtocol._
+import com.microsoft.azure.synapse.ml.cognitive.anomaly.MADJsonProtocol._
 import com.microsoft.azure.synapse.ml.cognitive.vision.HasAsyncReply
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
@@ -28,7 +28,6 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json._
 
-import java.io.{BufferedOutputStream, PrintWriter}
 import java.net.URI
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeoutException
@@ -36,6 +35,18 @@ import scala.collection.parallel.mutable
 import scala.collection.parallel.mutable.ParHashSet
 import scala.concurrent.blocking
 import scala.language.existentials
+
+private[ml] case class RemoteIteratorWrapper[T](underlying: org.apache.hadoop.fs.RemoteIterator[T])
+  extends scala.collection.AbstractIterator[T] with scala.collection.Iterator[T] {
+  def hasNext: Boolean = underlying.hasNext
+
+  def next(): T = underlying.next()
+}
+
+private[ml] object Conversions {
+  implicit def remoteIterator2ScalaIterator[T](underlying: org.apache.hadoop.fs.RemoteIterator[T]):
+  scala.collection.Iterator[T] = RemoteIteratorWrapper[T](underlying)
+}
 
 object MADUtils {
 
@@ -228,8 +239,6 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   //scalastyle:on cyclomatic.complexity
 }
 
-private case class StorageInfo(account: String, container: String, key: String, blob: String)
-
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
@@ -295,26 +304,6 @@ trait MADBase extends HasOutputCol
     outputCol -> (this.uid + "_output"),
     errorCol -> (this.uid + "_error"))
 
-  private def getStorageInfo: StorageInfo = {
-    val uri = new URI(getIntermediateSaveDir)
-    val account = uri.getHost.split(".".toCharArray).head
-    val blobConfig = s"fs.azure.account.key.$account.blob.core.windows.net"
-    val adlsConfig = s"fs.azure.account.key.$account.dfs.core.windows.net"
-    val hc = SparkSession.builder().getOrCreate()
-      .sparkContext.hadoopConfiguration
-    val key = Option(hc.get(adlsConfig)).orElse(Option(hc.get(blobConfig)))
-
-    if (key.isEmpty) {
-      throw new IllegalAccessError("Could not find the storage account credentials." +
-        s" Make sure your hadoopConfiguration has the" +
-        s" ''$blobConfig'' or ''$adlsConfig'' configuration set.")
-    }
-
-    StorageInfo(account, uri.getUserInfo, key.get, uri.getPath.stripPrefix("/"))
-  }
-
-  protected def blob: String = s"${getStorageInfo.blob}/$uid.csv"
-
   protected def blobPath: Path = new Path(new URI(getIntermediateSaveDir.stripSuffix("/") + s"/$uid.csv"))
 
   protected def upload(df: DataFrame): String = {
@@ -324,34 +313,28 @@ trait MADBase extends HasOutputCol
     )
     val formatDf = df.withColumn(getTimestampCol, convertTimeFormatUdf(col(getTimestampCol)))
       .sort(col(getTimestampCol).asc)
-    val storageInfo = getStorageInfo
-    val hconf = df.sparkSession.sparkContext.hadoopConfiguration
-    val fs = FileSystem.get(blobPath.toUri, hconf)
 
-    val rows = formatDf.collect()
-    if (rows.length > 0) {
-      val headers = rows(0).schema.fields.map(_.name).mkString(",")
-      using(new BufferedOutputStream(fs.create(blobPath))) { os =>
-        // create CSV file
-        val pw = new PrintWriter(os)
-        // CSV header
-        pw.println(headers)
-        for (row <- rows) {
-          pw.println(row.mkString(","))
-        }
-        pw.flush()
-      }.get
-    }
+    formatDf.write.mode("overwrite").format("csv").option("header", "true")
+      .save(blobPath.toString)
 
     // MVAD doesn't support SAS url anymore, you need to add authentication of storage account
     // with anomaly detector's managed identity
-    s"https://${storageInfo.account}.blob.core.windows.net/${storageInfo.container}/$blob"
+    val hconf = SparkSession.builder().getOrCreate().sparkContext.hadoopConfiguration
+    val fs = FileSystem.get(blobPath.toUri, hconf)
+    import Conversions._
+    val filePath = fs.listFiles(blobPath, true)
+      .filter(file => file.getPath.toString.contains("part-00000"))
+      .toSeq.head.getPath.toString
+    val uri = new URI(getIntermediateSaveDir)
+    val account = uri.getHost.split(".".toCharArray).head
+    val container = uri.getUserInfo
+    s"https://$account.blob.core.windows.net/$container/${filePath.split("/").drop(3).mkString("/")}"
   }
 
   def cleanUpIntermediateData(): Unit = {
     val hconf = SparkSession.builder().getOrCreate().sparkContext.hadoopConfiguration
     val fs = FileSystem.get(blobPath.toUri, hconf)
-    fs.delete(blobPath, false)
+    fs.delete(blobPath, true)
   }
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
@@ -364,9 +347,9 @@ trait MADBase extends HasOutputCol
 
   protected def submitDatasetAndJob(dataset: Dataset[_]): Map[String, JsValue] = {
     val df = dataset.toDF().select((Array(getTimestampCol) ++ getInputCols).map(col): _*)
-    val sasUrl = upload(df)
+    val url = upload(df)
 
-    val httpRequestBase = prepareRequest(prepareEntity(sasUrl).get)
+    val httpRequestBase = prepareRequest(prepareEntity(url).get)
     val request = new HTTPRequestData(httpRequestBase.get)
     val response = handlingFunc(Client, request)
 
@@ -509,7 +492,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
   with MADBase with HasHandler {
   logClass()
 
-  def this() = this(Identifiable.randomUID("DetectMultivariateAnomaly"))
+  def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
 
   def urlPath: String = "anomalydetector/v1.1/multivariate/models/"
 
