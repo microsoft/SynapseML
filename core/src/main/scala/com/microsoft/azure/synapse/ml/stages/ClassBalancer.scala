@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -24,7 +24,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   * @param uid
   */
 class ClassBalancer(override val uid: String) extends Estimator[ClassBalancerModel]
-  with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable with BasicLogging {
+  with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ClassBalancer"))
@@ -65,7 +65,7 @@ class ClassBalancer(override val uid: String) extends Estimator[ClassBalancerMod
 object ClassBalancer extends DefaultParamsReadable[ClassBalancer]
 
 class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
-  with ComplexParamsWritable with Wrappable with HasInputCol with HasOutputCol with BasicLogging {
+  with ComplexParamsWritable with Wrappable with HasInputCol with HasOutputCol with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ClassBalancerModel"))

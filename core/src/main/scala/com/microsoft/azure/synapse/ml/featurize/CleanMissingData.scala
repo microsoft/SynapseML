@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.featurize
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCols}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
@@ -49,7 +49,7 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   * `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
@@ -145,7 +145,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 /** Model produced by [[CleanMissingData]]. */
 class CleanMissingDataModel(val uid: String)
   extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
-    with HasInputCols with HasOutputCols with BasicLogging {
+    with HasInputCols with HasOutputCols with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingDataModel"))

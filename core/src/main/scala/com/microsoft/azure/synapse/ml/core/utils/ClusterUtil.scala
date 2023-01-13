@@ -7,6 +7,7 @@ import java.net.InetAddress
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
+import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.slf4j.Logger
 
@@ -40,12 +41,11 @@ object ClusterUtil {
   /** Get number of rows per partition of a dataframe.  Note that this will execute a full
     * distributed Spark app query.
     * @param df The dataframe.
-    * @param labelCol The name of the label column.  Used just to only load a known single column.
     * @return The number of rows per partition (where partitionId is the array index).
     */
-  def getNumRowsPerPartition(df: DataFrame, labelCol: String): Array[Long] = {
+  def getNumRowsPerPartition(df: DataFrame): Array[Long] = {
     val indexedRowCounts: Array[(Int, Long)] = df
-      .select(labelCol)
+      .select(typedLit(0.toByte))
       .rdd
       .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
       .collect()

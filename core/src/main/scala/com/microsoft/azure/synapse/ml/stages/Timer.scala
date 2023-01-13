@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.{PipelineStageParam, TransformerParam}
 import org.apache.spark.ml._
 import org.apache.spark.ml.param.{BooleanParam, ParamMap}
@@ -54,7 +54,7 @@ trait TimerParams extends Wrappable {
 }
 
 class Timer(val uid: String) extends Estimator[TimerModel]
-  with TimerParams with ComplexParamsWritable with BasicLogging {
+  with TimerParams with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("Timer"))
@@ -92,7 +92,7 @@ class Timer(val uid: String) extends Estimator[TimerModel]
 object TimerModel extends ComplexParamsReadable[TimerModel]
 
 class TimerModel(val uid: String)
-  extends Model[TimerModel] with TimerParams with ComplexParamsWritable with BasicLogging {
+  extends Model[TimerModel] with TimerParams with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TimerModel"))

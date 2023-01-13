@@ -4,7 +4,7 @@
 from pyspark.ml.param import Param, Params, TypeConverters
 
 
-class PredictionParams(Params):
+class HasLabelColParam(Params):
 
     label_col = Param(
         Params._dummy(),
@@ -13,25 +13,9 @@ class PredictionParams(Params):
         typeConverter=TypeConverters.toString,
     )
 
-    image_col = Param(
-        Params._dummy(),
-        "image_col",
-        "image column name.",
-        typeConverter=TypeConverters.toString,
-    )
-
-    prediction_col = Param(
-        Params._dummy(),
-        "prediction_col",
-        "prediction column name.",
-        typeConverter=TypeConverters.toString,
-    )
-
     def __init__(self):
-        super(PredictionParams, self).__init__()
-        self._setDefault(
-            label_col="label", image_col="image", prediction_col="prediction"
-        )
+        super(HasLabelColParam, self).__init__()
+        self._setDefault(label_col="label")
 
     def setLabelCol(self, value):
         """
@@ -45,6 +29,20 @@ class PredictionParams(Params):
         """
         return self.getOrDefault(self.label_col)
 
+
+class HasImageColParam(Params):
+
+    image_col = Param(
+        Params._dummy(),
+        "image_col",
+        "image column name.",
+        typeConverter=TypeConverters.toString,
+    )
+
+    def __init__(self):
+        super(HasImageColParam, self).__init__()
+        self._setDefault(image_col="image")
+
     def setImageCol(self, value):
         """
         Sets the value of :py:attr:`image_col`.
@@ -57,6 +55,47 @@ class PredictionParams(Params):
         """
         return self.getOrDefault(self.image_col)
 
+
+## TODO: Potentially generalize to support multiple text columns as input
+class HasTextColParam(Params):
+
+    text_col = Param(
+        Params._dummy(),
+        "text_col",
+        "text column name.",
+        typeConverter=TypeConverters.toString,
+    )
+
+    def __init__(self):
+        super(HasTextColParam, self).__init__()
+        self._setDefault(text_col="text")
+
+    def setTextCol(self, value):
+        """
+        Sets the value of :py:attr:`text_col`.
+        """
+        return self._set(text_col=value)
+
+    def getTextCol(self):
+        """
+        Gets the value of text_col or its default value.
+        """
+        return self.getOrDefault(self.text_col)
+
+
+class HasPredictionColParam(Params):
+
+    prediction_col = Param(
+        Params._dummy(),
+        "prediction_col",
+        "prediction column name.",
+        typeConverter=TypeConverters.toString,
+    )
+
+    def __init__(self):
+        super(HasPredictionColParam, self).__init__()
+        self._setDefault(prediction_col="prediction")
+
     def setPredictionCol(self, value):
         """
         Sets the value of :py:attr:`prediction_col`.
@@ -68,3 +107,13 @@ class PredictionParams(Params):
         Gets the value of prediction_col or its default value.
         """
         return self.getOrDefault(self.prediction_col)
+
+
+class VisionPredictionParams(HasLabelColParam, HasImageColParam, HasPredictionColParam):
+    def __init__(self):
+        super(VisionPredictionParams, self).__init__()
+
+
+class TextPredictionParams(HasLabelColParam, HasTextColParam, HasPredictionColParam):
+    def __init__(self):
+        super(TextPredictionParams, self).__init__()

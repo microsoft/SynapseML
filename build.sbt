@@ -1,15 +1,14 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
-import xerial.sbt.Sonatype._
 
-import java.io.{File, PrintWriter}
+import java.io.File
 import java.net.URL
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.2"
+val sparkVersion = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -383,7 +382,7 @@ val settings = Seq(
 ThisBuild / publishMavenStyle := true
 
 lazy val core = (project in file("core"))
-  .enablePlugins(BuildInfoPlugin && SbtPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
     libraryDependencies ++= dependencies,
     buildInfoKeys ++= Seq[BuildInfoKey](
@@ -398,27 +397,23 @@ lazy val core = (project in file("core"))
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
-      "com.microsoft.cntk" % "cntk" % "2.4",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
     name := "synapseml-lightgbm"
   ): _*)
 
 lazy val vw = (project in file("vw"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
@@ -426,7 +421,6 @@ lazy val vw = (project in file("vw"))
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
@@ -438,7 +432,6 @@ lazy val cognitive = (project in file("cognitive"))
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
@@ -454,7 +447,7 @@ lazy val root = (project in file("."))
     vw % "test->test;compile->compile",
     lightgbm % "test->test;compile->compile",
     opencv % "test->test;compile->compile")
-  .enablePlugins(ScalaUnidocPlugin && SbtPlugin)
+  .enablePlugins(ScalaUnidocPlugin)
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
@@ -484,50 +477,3 @@ testWebsiteDocs := {
     Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
-
-ThisBuild / sonatypeProjectHosting := Some(
-  GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-ThisBuild / scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
-  )
-)
-ThisBuild / developers := List(
-  Developer("mhamilton723", "Mark Hamilton",
-    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
-  Developer("imatiach-msft", "Ilya Matiach",
-    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
-  Developer("drdarshan", "Sudarshan Raghunathan",
-    "synapseml-support@microsoft.com", url("https://github.com/drdarshan"))
-)
-
-ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
-
-ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
-  "oss.sonatype.org",
-  Secrets.nexusUsername,
-  Secrets.nexusPassword)
-
-pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
-pgpSecretRing := {
-  val temp = File.createTempFile("secret", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPrivate)
-    close()
-  }
-  temp
-}
-pgpPublicRing := {
-  val temp = File.createTempFile("public", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPublic)
-    close()
-  }
-  temp
-}
-ThisBuild / publishTo := sonatypePublishToBundle.value
-
-ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / dynverSeparator := "-"

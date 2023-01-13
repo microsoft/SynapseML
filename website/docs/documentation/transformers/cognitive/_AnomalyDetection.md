@@ -61,7 +61,7 @@ dla.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectLastAnomaly
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, collect_list, lit, sort_array, struct}
 
@@ -163,7 +163,7 @@ da.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectAnomalies
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
@@ -274,7 +274,7 @@ sda.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectAnomalies
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)

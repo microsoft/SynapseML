@@ -131,11 +131,11 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
 
   override val testFitting: Boolean = true
 
-  verifyMultiClassCSV("abalone.csv", "Rings", 2, true)
+  verifyMultiClassCSV("abalone.csv", "Rings", 2, includeNaiveBayes = true)
   // Has multiple columns with the same name.  Spark doesn't seem to be able to handle that yet.
   // verifyLearnerOnMulticlassCsvFile("arrhythmia.csv",               "Arrhythmia")
-  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, false)
-  verifyMultiClassCSV("CarEvaluation.csv", "Col7", 2, true)
+  verifyMultiClassCSV("BreastTissue.csv", "Class", 2, includeNaiveBayes = false)
+  verifyMultiClassCSV("CarEvaluation.csv", "Col7", 2, includeNaiveBayes = true)
   // Getting "code generation" exceeded max size limit error
   // verifyLearnerOnMulticlassCsvFile("mnist.train.csv",              "Label")
   // This works with 2.0.0, but on 2.1.0 it looks like it loops infinitely while leaking memory
@@ -143,17 +143,17 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   // This takes way too long for a gated build.  Need to make it something like a p3 test case.
   // verifyLearnerOnMulticlassCsvFile("Seattle911.train.csv",         "Event Clearance Group")
 
-  verifyBinaryCSV("PimaIndian.csv", "Diabetes mellitus", 2, true)
-  verifyBinaryCSV("data_banknote_authentication.csv", "class", 2, false)
-  verifyBinaryCSV("task.train.csv", "TaskFailed10", 2, true)
-  verifyBinaryCSV("breast-cancer.train.csv", "Label", 1, true)
-  verifyBinaryCSV("random.forest.train.csv", "#Malignant", 2, true)
-  verifyBinaryCSV("transfusion.csv", "Donated", 2, true)
+  verifyBinaryCSV("PimaIndian.csv", "Diabetes mellitus", 2, includeNaiveBayes = true)
+  verifyBinaryCSV("data_banknote_authentication.csv", "class", 2, includeNaiveBayes = false)
+  verifyBinaryCSV("task.train.csv", "TaskFailed10", 2, includeNaiveBayes = true)
+  verifyBinaryCSV("breast-cancer.train.csv", "Label", 1, includeNaiveBayes = true)
+  verifyBinaryCSV("random.forest.train.csv", "#Malignant", 2, includeNaiveBayes = true)
+  verifyBinaryCSV("transfusion.csv", "Donated", 2, includeNaiveBayes = true)
   // verifyLearnerOnBinaryCsvFile("au2_10000.csv", "class", 1)
-  verifyBinaryCSV("breast-cancer-wisconsin.csv", "Class", 2, true)
-  verifyBinaryCSV("fertility_Diagnosis.train.csv", "Diagnosis", 2, false)
-  verifyBinaryCSV("bank.train.csv", "y", 2, false)
-  verifyBinaryCSV("TelescopeData.csv", " Class", 2, false)
+  verifyBinaryCSV("breast-cancer-wisconsin.csv", "Class", 2, includeNaiveBayes = true)
+  verifyBinaryCSV("fertility_Diagnosis.train.csv", "Diagnosis", 2, includeNaiveBayes = false)
+  verifyBinaryCSV("bank.train.csv", "y", 2, includeNaiveBayes = false)
+  verifyBinaryCSV("TelescopeData.csv", " Class", 2, includeNaiveBayes = false)
 
   test("Compare benchmark results file to generated file") {
     verifyBenchmarks()
@@ -165,7 +165,11 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                       includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on " + fileName) {
       val fileLocation = binaryTrainFile(fileName).toString
-      val results = readAndScoreDataset(fileName, labelCol, fileLocation, true, includeNaiveBayes)
+      val results = readAndScoreDataset(fileName,
+        labelCol,
+        fileLocation,
+        includeNonProb = true,
+        includeNaiveBayes = includeNaiveBayes)
       results.foreach { case (name, result) =>
         val probCol = if (Set(gbtName, mlpName)(name)) {
           SchemaConstants.SparkPredictionColumn
@@ -183,8 +187,12 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
                           includeNaiveBayes: Boolean): Unit = {
     test("Verify classifier can be trained and scored on multiclass " + fileName) {
       val fileLocation = multiclassTrainFile(fileName).toString
-      val results =
-        readAndScoreDataset(fileName, labelCol, fileLocation, false, includeNaiveBayes)
+      val results = readAndScoreDataset(
+        fileName,
+        labelCol,
+        fileLocation,
+        includeNonProb = false,
+        includeNaiveBayes = includeNaiveBayes)
 
       val multiClassModelResults = results.filter(Set(lrName, dtName, rfName, nbName))
       multiClassModelResults.foreach { case (name, result) =>
@@ -204,11 +212,11 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
     // TODO: Add other file types for testing
     // TODO move this to new CSV reader
     val dataset: DataFrame =
-      spark.read.format("com.databricks.spark.csv")
-        .option("header", "true").option("inferSchema", "true")
-        .option("treatEmptyValuesAsNulls", "false")
-        .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
-        .load(fileLocation)
+    spark.read.format("com.databricks.spark.csv")
+      .option("header", "true").option("inferSchema", "true")
+      .option("treatEmptyValuesAsNulls", "false")
+      .option("delimiter", if (fileName.endsWith(".csv")) "," else "\t")
+      .load(fileLocation)
 
     val modelsToExclude = List(
       if (!includeNaiveBayes) List(nbName) else Nil,
@@ -224,12 +232,12 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   }
 
   /** Get the auc and area over PR for the scored dataset.
-    *
-    * @param scoredDataset    The scored dataset to evaluate.
-    * @param labelColumn      The label column.
-    * @param predictionColumn The prediction column.
-    * @return The AUC for the scored dataset.
-    */
+   *
+   * @param scoredDataset    The scored dataset to evaluate.
+   * @param labelColumn      The label column.
+   * @param predictionColumn The prediction column.
+   * @return The AUC for the scored dataset.
+   */
   def evalAUC(name: String,
               scoredDataset: DataFrame,
               labelColumn: String,
@@ -256,12 +264,12 @@ class VerifyTrainClassifier extends Benchmarks with EstimatorFuzzing[TrainClassi
   }
 
   /** Get the accuracy and f1-score from multiclass data.
-    *
-    * @param scoredDataset    The scored dataset to evaluate.
-    * @param labelColumn      The label column.
-    * @param predictionColumn The prediction column.
-    * @return The AUC for the scored dataset.
-    */
+   *
+   * @param scoredDataset    The scored dataset to evaluate.
+   * @param labelColumn      The label column.
+   * @param predictionColumn The prediction column.
+   * @return The AUC for the scored dataset.
+   */
   def evalMulticlass(name: String,
                      scoredDataset: DataFrame,
                      labelColumn: String,

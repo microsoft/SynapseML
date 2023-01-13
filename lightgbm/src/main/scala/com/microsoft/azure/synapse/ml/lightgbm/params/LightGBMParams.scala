@@ -15,7 +15,8 @@ import org.apache.spark.ml.util.DefaultParamsWritable
 trait LightGBMExecutionParams extends Wrappable {
   val passThroughArgs = new Param[String](this, "passThroughArgs",
     "Direct string to pass through to LightGBM library (appended with other explicitly set params). " +
-      "Will override any parameters given with explicit setters. Can include multiple parameters in one string.")
+      "Will override any parameters given with explicit setters. Can include multiple parameters in one string. " +
+      "e.g., force_row_wise=true")
   setDefault(passThroughArgs->"")
   def getPassThroughArgs: String = $(passThroughArgs)
   def setPassThroughArgs(value: String): this.type = set(passThroughArgs, value)
@@ -66,7 +67,7 @@ trait LightGBMExecutionParams extends Wrappable {
 
   val microBatchSize = new IntParam(this, "microBatchSize",
     "Specify how many elements are sent in a streaming micro-batch.")
-  setDefault(microBatchSize -> 1)
+  setDefault(microBatchSize -> 100)
   def getMicroBatchSize: Int = $(microBatchSize)
   def setMicroBatchSize(value: Int): this.type = set(microBatchSize, value)
 
@@ -116,6 +117,14 @@ trait LightGBMExecutionParams extends Wrappable {
   setDefault(numThreads -> 0)
   def getNumThreads: Int = $(numThreads)
   def setNumThreads(value: Int): this.type = set(numThreads, value)
+
+  val maxStreamingOMPThreads = new IntParam(this,
+    "maxStreamingOMPThreads",
+    "Maximum number of OpenMP threads used by a LightGBM thread. Used only for thread-safe buffer allocation." +
+      " Use -1 to use OpenMP default, but in a Spark environment it's best to set a fixed value.")
+  setDefault(maxStreamingOMPThreads -> 16)
+  def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
+  def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)
 }
 
 /** Defines common parameters across all LightGBM learners related to dataset handling.

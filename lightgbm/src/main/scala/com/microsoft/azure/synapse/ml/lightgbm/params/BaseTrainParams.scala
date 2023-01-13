@@ -20,6 +20,8 @@ abstract class BaseTrainParams extends Serializable {
   def seedParams: SeedParams
   def categoricalParams: CategoricalParams
 
+  def getNumClass: Int = 1
+
   override def toString: String = {
     // Note: passing `isProvideTrainingMetric` to LightGBM as a config parameter won't work,
     // Fetch and print training metrics in `TrainUtils.scala` through JNI.
@@ -174,13 +176,15 @@ case class DartModeParams(dropRate: Double,
   * @param executionMode How to execute the LightGBM training.
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
+  * @param maxStreamingOMPThreads Maximum number of streaming mode OpenMP threads per Spark Task thread.
   */
 case class ExecutionParams(chunkSize: Int,
                            matrixType: String,
                            numThreads: Int,
                            executionMode: String,
                            microBatchSize: Int,
-                           useSingleDatasetMode: Boolean) extends ParamGroup {
+                           useSingleDatasetMode: Boolean,
+                           maxStreamingOMPThreads: Int) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder = {
     sb.appendParamValueIfNotThere("num_threads", Option(numThreads))
   }

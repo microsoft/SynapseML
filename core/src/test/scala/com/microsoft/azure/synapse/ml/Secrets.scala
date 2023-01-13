@@ -34,8 +34,15 @@ object Secrets {
     SubscriptionID
   }
 
+  def getSynapseExtensionSecret(envName: String, secretType: String): String = {
+    val secretKey = s"synapse-extension-$envName-$secretType"
+    println(s"[info] fetching secret: $secretKey from $AccountString")
+    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
+    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+  }
+
   private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName from $AccountString")
+    println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
@@ -51,6 +58,7 @@ object Secrets {
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
@@ -59,5 +67,11 @@ object Secrets {
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
   lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
-  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
+  lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
+  lazy val Platform: String = getSecret("synapse-platform")
+  lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
+  lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
+
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

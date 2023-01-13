@@ -127,6 +127,7 @@ module.exports = {
         'documentation/estimators/estimators_core',
         'documentation/estimators/estimators_lightgbm',
         'documentation/estimators/estimators_vw',
+        'documentation/estimators/estimators_causal',
       ],
     },
     {
