@@ -314,7 +314,9 @@ trait MADBase extends HasOutputCol
     val formatDf = df.withColumn(getTimestampCol, convertTimeFormatUdf(col(getTimestampCol)))
       .sort(col(getTimestampCol).asc)
 
-    formatDf.write.mode("overwrite").format("csv").option("header", "true")
+    formatDf.coalesce(1)
+      .write.mode("overwrite").format("csv")
+      .option("header", "true")
       .save(blobPath.toString)
 
     // MVAD doesn't support SAS url anymore, you need to add authentication of storage account
