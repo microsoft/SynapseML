@@ -263,6 +263,23 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   protected def contentType: Row => String = { _ => "application/json" }
 
+  protected def addHeaders(req: HttpRequestBase,
+                           subscriptionKey: Option[String],
+                           aadToken: Option[String],
+                           contentType: String): Unit = {
+    if (subscriptionKey.nonEmpty){
+      req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
+    } else {
+      aadToken.foreach(s =>
+      {
+        req.setHeader(aadHeaderName, "Bearer " + s)
+        // this is required for internal workload
+        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    }
+    req.setHeader("Content-Type", contentType)
+  }
+
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
@@ -272,18 +289,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        if (getValueOpt(row, subscriptionKey).nonEmpty) {
-          req.setHeader(subscriptionKeyHeaderName, getValue(row, subscriptionKey))
-        } else {
-          getValueOpt(row, AADToken).foreach(s =>
-            {
-              req.setHeader(aadHeaderName, "Bearer " + s)
-              // this is required for internal workload
-              req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-            }
-          )
-        }
-        req.setHeader("Content-Type", contentType(row))
+        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
