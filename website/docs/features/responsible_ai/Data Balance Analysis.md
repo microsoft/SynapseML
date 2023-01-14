@@ -19,7 +19,7 @@ Fairness-related harms include:
 * **Quality of service harms**: When an AI system does not work as well for one group of people as it does for another.
 * **Stereotyping harms**: When an AI system makes unfair generalizations about groups of people and reinforces negative stereotypes.
 * **Demeaning harms**: When an AI system is actively derogatory or offensive.
-* **Over- and underrepresentation harms**: When an AI system over- or underrepresents some groups of people or may even erase some groups entirely.
+* **Over- and underrepresentation harms**: When an AI system over- or under represents some groups of people or may even erase some groups entirely.
 
 **Note**: *Because fairness in AI is fundamentally a sociotechnical challenge, it's often impossible to fully “de-bias” an AI system. Instead, teams tasked with developing and deploying AI systems must work to identify, measure, and mitigate fairness-related harms as much as possible. Data Balance Analysis is a tool to help do so, in combination with others.*
 
@@ -93,7 +93,7 @@ Data Balance Analysis currently supports three transformers in the `synapse.ml.e
     distribution_balance_measures.show(truncate=False)
     ```
 
-5. Create a `AggregateBalanceMeasure` transformer and and call `setSensitiveCols` to set the list of sensitive features. Then, call the `transform` method with your dataset and visualize the resulting dataframe.
+5. Create a `AggregateBalanceMeasure` transformer and call `setSensitiveCols` to set the list of sensitive features. Then, call the `transform` method with your dataset and visualize the resulting dataframe.
 
     For example:
 
