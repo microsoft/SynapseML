@@ -13,8 +13,6 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.collection.mutable.ListBuffer
-
 /**
   * This Estimator supports driving VW using VW-style examples (e.g. 0 |a b c)
   */

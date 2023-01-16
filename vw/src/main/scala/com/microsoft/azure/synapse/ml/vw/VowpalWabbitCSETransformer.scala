@@ -46,7 +46,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
     this, "metricsStratificationCols", "Optional list of column names to stratify rewards by.")
 
   def getMetricsStratificationCols: Array[String] = $(metricsStratificationCols)
-  def getMetricsStratificationCols(value: Array[String]): this.type = set(metricsStratificationCols, value)
+  def setMetricsStratificationCols(value: Array[String]): this.type = set(metricsStratificationCols, value)
 
   setDefault(minImportanceWeight -> 0, maxImportanceWeight -> 100, metricsStratificationCols -> Array.empty)
 

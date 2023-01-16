@@ -302,7 +302,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     if (isDefined(splitColValues) && getSplitColValues.nonEmpty)
       getSplitColValues.toArray
     else
-      df.select(getSplitCol).distinct().collect().map(_.get(0))
+      df.select(getSplitCol).distinct().orderBy(getSplitCol).collect().map(_.get(0))
 
   protected def trainDistributedExternal[T <: VowpalWabbitBaseModel](df: DataFrame, model: T): T = {
     val schema = df.schema
