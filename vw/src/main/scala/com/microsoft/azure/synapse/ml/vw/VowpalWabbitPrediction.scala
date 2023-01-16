@@ -4,57 +4,38 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructField, StructType}
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitNative
 import org.vowpalwabbit.spark.prediction.ScalarPrediction
 import vowpalWabbit.responses.{ActionProbs, ActionScores, DecisionScores, Multilabels, PDF, PDFValue}
+
+import scala.reflect.runtime.universe.TypeTag
 
 /**
   * Provide schemas and accessor functions for almost all VW prediction types.
   */
 object VowpalWabbitPrediction {
-  val SchemaMap = Map(
-    "prediction_type_t::scalars" -> Seq(StructField("predictions", ArrayType(FloatType), nullable = false)),
-    "prediction_type_t::multiclass" -> Seq(StructField("prediction", IntegerType, nullable = false)),
-    "prediction_type_t::prob" -> Seq(StructField("prediction", FloatType, nullable = false)),
-    "prediction_type_t::multilabels" -> Seq(StructField("prediction", ArrayType(IntegerType), nullable = false)),
-    "prediction_type_t::scalar" -> Seq(
-      StructField("prediction", FloatType, nullable = false),
-      StructField("confidence", FloatType, nullable = false)),
-    "prediction_type_t::action_scores" -> Seq(
-      StructField("predictions", ArrayType(StructType(Seq(
-        StructField("action", IntegerType, nullable = false),
-        StructField("score", FloatType, nullable = false)
-      ))))
-    ),
-    "prediction_type_t::action_probs" -> Seq(
-      StructField("predictions", ArrayType(StructType(Seq(
-        StructField("action", IntegerType, nullable = false),
-        StructField("probability", FloatType, nullable = false)
-      ))))
-    ),
-    "prediction_type_t::decision_probs" -> Seq(
-      StructField("predictions",
-        ArrayType(
-          ArrayType(
-            StructType(Seq(
-              StructField("action", IntegerType, nullable = false),
-              StructField("score", FloatType, nullable = false)
-            )))))),
-    "prediction_type_t::action_pdf_value" -> Seq(
-      StructField("action", FloatType, nullable = false),
-      StructField("pdf", FloatType, nullable = false)
-    ),
-    "prediction_type_t::pdf" -> Seq(
-      StructField("segments", ArrayType(
-        StructType(Seq(
-          StructField("left", FloatType, nullable = false),
-          StructField("right", FloatType, nullable = false),
-          StructField("pdfValue", FloatType, nullable = false)
-        )))))
-    )
+  private def toStructType[T: TypeTag] = ExpressionEncoder[T]().resolveAndBind().schema
 
-  def getSchema(vw: VowpalWabbitNative): StructType = StructType(SchemaMap(vw.getOutputPredictionType))
+  private val SchemaMap = {
+    import VowpalWabbitSchema.Predictions._
+
+    Map(
+      "prediction_type_t::scalars" -> toStructType[Scalars],
+      "prediction_type_t::multiclass" -> toStructType[Multiclass],
+      "prediction_type_t::prob" -> toStructType[Prob],
+      "prediction_type_t::multilabels" -> toStructType[Multilabels],
+      "prediction_type_t::scalar" -> toStructType[Scalar],
+      "prediction_type_t::action_scores" -> toStructType[ActionScores],
+      "prediction_type_t::action_probs" -> toStructType[ActionProbs],
+      "prediction_type_t::decision_probs" -> toStructType[DecisionProbs],
+      "prediction_type_t::action_pdf_value" -> toStructType[ActionPDFValue],
+      "prediction_type_t::pdf" -> toStructType[PDF]
+    )
+  }
+
+  def getSchema(vw: VowpalWabbitNative): StructType = SchemaMap(vw.getOutputPredictionType)
 
   type VowpalWabbitPredictionToSeqFunc = Object => Seq[Any]
 
