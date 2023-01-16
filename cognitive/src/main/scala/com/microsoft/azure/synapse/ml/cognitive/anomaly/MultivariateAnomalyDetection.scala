@@ -334,6 +334,8 @@ trait MADBase extends HasOutputCol
     val formatDf = df.withColumn(getTimestampCol, convertTimeFormatUdf(col(getTimestampCol)))
       .sort(col(getTimestampCol).asc)
 
+    val storageInfo = getStorageInfo
+
     formatDf.coalesce(1)
       .write.mode("overwrite").format("csv")
       .option("header", "true")
@@ -347,7 +349,6 @@ trait MADBase extends HasOutputCol
     val filePath = fs.listFiles(blobPath, true)
       .filter(file => file.getPath.toString.contains("part-00000"))
       .toSeq.head.getPath.toString
-    val storageInfo = getStorageInfo
     s"https://${storageInfo.account}.blob.core.windows.net/${storageInfo.container}/" +
       s"${filePath.split("/").drop(3).mkString("/")}"
   }
