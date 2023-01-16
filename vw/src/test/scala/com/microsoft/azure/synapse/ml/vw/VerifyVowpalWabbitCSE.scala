@@ -23,7 +23,7 @@ class VerifyVowpalWabbitCSETransformer extends Benchmarks with TransformerFuzzin
     val predictions = Seq(
       Row("e1", Row(0.0f), 0.8f, 1, Seq(Row(1, 8f), Row(0, 5f), Row(2, 5f))),
       Row("e2", Row(1.0f), 0.2f, 0, Seq(Row(0, 5f), Row(0, 3f))),
-      Row("e3", Row(0.0f), 0.5f, 0, Seq(Row(1, 3f), Row(0, 1f))),
+      Row("e3", Row(0.0f), 0.5f, 0, Seq(Row(1, 3f), Row(0, 1f)))
     )
 
     val predictionSchema = new T.StructType()
