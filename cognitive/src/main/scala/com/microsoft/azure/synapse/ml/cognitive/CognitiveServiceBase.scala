@@ -266,7 +266,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def addHeaders(req: HttpRequestBase,
                            subscriptionKey: Option[String],
                            aadToken: Option[String],
-                           contentType: String): Unit = {
+                           contentType: String,
+                           addContentType: Boolean = true): Unit = {
     if (subscriptionKey.nonEmpty){
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
     } else {
@@ -277,7 +278,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
       })
     }
-    req.setHeader("Content-Type", contentType)
+    if (addContentType) req.setHeader("Content-Type", contentType)
   }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {

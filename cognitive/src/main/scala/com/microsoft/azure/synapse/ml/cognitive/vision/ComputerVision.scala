@@ -75,7 +75,7 @@ trait HasImageInput extends HasImageUrl
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
-    if (get(imageUrl).orElse(get(imageBytes)).isEmpty){
+    if (get(imageUrl).orElse(get(imageBytes)).isEmpty) {
       throw new IllegalArgumentException("Please set one of the" +
         " imageUrl, imageUrlCol, imageBytes, imageBytesCol parameters.")
     }
@@ -86,7 +86,8 @@ trait HasImageInput extends HasImageUrl
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
+        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken),
+          "", addContentType = false)
         req match {
           case er: HttpEntityEnclosingRequestBase =>
             rowToEntity(row).foreach(er.setEntity)
@@ -218,8 +219,8 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 trait BasicAsyncReply extends HasAsyncReply {
 
   override protected def queryForResult(key: Option[String],
-                               client: CloseableHttpClient,
-                               location: URI): Option[HTTPResponseData] = {
+                                        client: CloseableHttpClient,
+                                        location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
     key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
@@ -238,7 +239,7 @@ trait BasicAsyncReply extends HasAsyncReply {
   private def getRetriesExceededData(maxTries: Int) = {
     val headers = Array[HeaderData]()
     val errorResponseString = "{\"error\": { \"code\": \"418\", \"message\": \"" +
-          s"SynapseML: Querying for results did not complete within $maxTries tries" + "\"}}"
+      s"SynapseML: Querying for results did not complete within $maxTries tries" + "\"}}"
     val errorResponse = errorResponseString.getBytes()
     val entityData = EntityData(
       errorResponse,
@@ -280,7 +281,7 @@ trait BasicAsyncReply extends HasAsyncReply {
       if (it.hasNext) {
         it.next()
       } else {
-        if (getSuppressMaxRetriesException){
+        if (getSuppressMaxRetriesException) {
           getRetriesExceededData(maxTries)
         } else {
           throw new TimeoutException(
@@ -292,7 +293,9 @@ trait BasicAsyncReply extends HasAsyncReply {
     }
   }
 
-  protected def modifyPollingURI(originalURI: URI): URI = { originalURI }
+  protected def modifyPollingURI(originalURI: URI): URI = {
+    originalURI
+  }
 }
 
 trait HasAsyncReply extends Params {
@@ -342,7 +345,7 @@ trait HasAsyncReply extends Params {
 
   /** @group setParam */
   def setSuppressMaxRetriesException(value: Boolean): this.type =
-      set(suppressMaxRetriesException, value)
+    set(suppressMaxRetriesException, value)
 
 
   //scalastyle:off magic.number
@@ -491,7 +494,7 @@ class AnalyzeImage(override val uid: String)
 
   val details = new ServiceParam[Seq[String]](
     this, "details", "what visual feature types to return",
-    { _ => true},
+    { _ => true },
     isURLParam = true,
     toValueString = { seq => seq.mkString(",") }
   )
@@ -506,7 +509,7 @@ class AnalyzeImage(override val uid: String)
 
   val descriptionExclude = new ServiceParam[Seq[String]](
     this, "descriptionExclude", "Whether to exclude certain parts of the model in the description",
-    { _ => true},
+    { _ => true },
     isURLParam = true,
     toValueString = { seq => seq.mkString(",") }
   )
