@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getSynapseExtensionSecret
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
@@ -28,18 +29,34 @@ object SynapseExtensionUtilities {
 
   import SynapseJsonProtocol._
 
-  val TimeoutInMillis: Int = 30 * 60 * 1000
+  object Environment extends Enumeration {
+    type Environment = Value
+    val Dev, Daily, Weekly = Value
+    def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
+  }
 
-  lazy val SSPHost: String = Secrets.SynapseExtensionSspHost
-  lazy val WorkspaceId: String = Secrets.SynapseExtensionWorkspaceId
-  lazy val UxHost: String = Secrets.SynapseExtensionUxHost
+  lazy val TimeoutInMillis: Int = 30 * 60 * 1000
 
   lazy val BaseUri: String = s"$SSPHost/metadata"
   lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
 
-  lazy val TenantId: String = Secrets.SynapseExtensionTenantId
   lazy val AadAccessTokenResource: String = Secrets.AadResource
   lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
+
+  lazy val DefaultEnvironment = Environment.Daily
+  lazy val SynapseEnvironment = getWorkingEnvironment(DefaultEnvironment)
+
+  lazy val EnvironmentString = SynapseEnvironment match {
+    case Environment.Dev => "dev"
+    case Environment.Daily => "daily"
+    case Environment.Weekly => "weekly"
+  }
+
+  lazy val SSPHost: String = getSynapseExtensionSecret(EnvironmentString, "ssp-host")
+  lazy val WorkspaceId: String = getSynapseExtensionSecret(EnvironmentString, "workspace-id")
+  lazy val UxHost: String = getSynapseExtensionSecret(EnvironmentString, "ux-host")
+  lazy val TenantId: String = getSynapseExtensionSecret(EnvironmentString, "tenant-id")
+  lazy val Password: String = getSynapseExtensionSecret(EnvironmentString, "password")
 
   lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
   lazy val StorageAccount: String = "mmlsparkbuildsynapse"
@@ -271,13 +288,27 @@ object SynapseExtensionUtilities {
           ("resource", s"$AadAccessTokenResource"),
           ("client_id", s"$AadAccessTokenClientId"),
           ("grant_type", "password"),
-          ("username", s"SynapseMLE2ETestUser@${Secrets.SynapseExtensionTenantId}"),
-          ("password", s"${Secrets.SynapseExtensionPassword}"),
+          ("username", s"SynapseMLE2ETestUser@$TenantId"),
+          ("password", s"$Password"),
           ("scope", "openid")
         ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]
+  }
+
+  def getWorkingEnvironment(defaultEnv: Environment.Value): Environment.Value = {
+    val undefined = ""
+    val varName = "SYNAPSE_ENVIRONMENT"
+    val userEnv = sys.env.get(varName).getOrElse(undefined)
+    val envValue = Environment.withNameOpt(userEnv)
+    if (userEnv != undefined && envValue == None) {
+      println(s"WARNING: value of $varName ($userEnv) is not recognized")
+    }
+    val result = if (envValue != None) envValue.get else defaultEnv
+    println(s"Using environment ${result.toString}")
+
+    result
   }
 }
 
