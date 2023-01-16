@@ -19,7 +19,7 @@ Fairness-related harms include:
 * **Quality of service harms**: When an AI system does not work as well for one group of people as it does for another.
 * **Stereotyping harms**: When an AI system makes unfair generalizations about groups of people and reinforces negative stereotypes.
 * **Demeaning harms**: When an AI system is actively derogatory or offensive.
-* **Over- and underrepresentation harms**: When an AI system over- or underrepresents some groups of people or may even erase some groups entirely.
+* **Over/underrepresentation harms**: When an AI system over/underrepresents some groups of people or may even erase some groups entirely.
 
 **Note**: *Because fairness in AI is fundamentally a sociotechnical challenge, it's often impossible to fully “de-bias” an AI system. Instead, teams tasked with developing and deploying AI systems must work to identify, measure, and mitigate fairness-related harms as much as possible. Data Balance Analysis is a tool to help do so, in combination with others.*
 
@@ -93,7 +93,7 @@ Data Balance Analysis currently supports three transformers in the `synapse.ml.e
     distribution_balance_measures.show(truncate=False)
     ```
 
-5. Create a `AggregateBalanceMeasure` transformer and and call `setSensitiveCols` to set the list of sensitive features. Then, call the `transform` method with your dataset and visualize the resulting dataframe.
+5. Create a `AggregateBalanceMeasure` transformer and call `setSensitiveCols` to set the list of sensitive features. Then, call the `transform` method with your dataset and visualize the resulting dataframe.
 
     For example:
 
@@ -124,8 +124,8 @@ Note: Many of these metrics were influenced by this paper [Measuring Model Biase
 
 | Association Metric                                 | Family                            | Description                                                                                                                                                                                                                                | Interpretation/Formula                                                                                                 | Reference                                                                    |
 |----------------------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| Statistical Parity                                 | Fairness                          | Proportion of each segment of a protected class (gender, for example) that should receive the positive outcome at equal rates.                                                                                                             | Closer to zero means better parity. $DP = P(Y \vert A = "Male") - P(Y \vert A = "Female")$.                            | [Link](https://en.wikipedia.org/wiki/Fairness_%28machine_learning%29)        |
-| Pointwise Mutual Information (PMI), normalized PMI | Entropy                           | The PMI of a pair of feature values (ex: Gender=Male and Gender=Female) quantifies the discrepancy between the probability of their coincidence given their joint distribution and their individual distributions (assuming independence). | Range (normalized) $[-1, 1]$. -1 for no co-occurences. 0 for co-occurences at random. 1 for complete co-occurences.    | [Link](https://en.wikipedia.org/wiki/Pointwise_mutual_information)           |
+| Statistical Parity                                 | Fairness                          | Proportion of each segment of a protected class (gender, for example) that should receive the positive outcome at equal rates.                                                                                                             | Closer to zero means better parity. $DP = P(Y \vert A = Male) - P(Y \vert A = Female)$.                            | [Link](https://en.wikipedia.org/wiki/Fairness_%28machine_learning%29)        |
+| Pointwise Mutual Information (PMI), normalized PMI | Entropy                           | The PMI of a pair of feature values (ex: Gender=Male and Gender=Female) quantifies the discrepancy between the probability of their coincidence given their joint distribution and their individual distributions (assuming independence). | Range (normalized) $[-1, 1]$. -1 for no co-occurrences. 0 for co-occurrences at random. 1 for complete co-occurrences.    | [Link](https://en.wikipedia.org/wiki/Pointwise_mutual_information)           |
 | Sorensen-Dice Coefficient (SDC)                    | Intersection-over-Union           | Used to gauge the similarity of two samples. Related to F1 score.                                                                                                                                                                          | Equals twice the number of elements common to both sets divided by the sum of the number of elements in each set.      | [Link](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) |
 | Jaccard Index                                      | Intersection-over-Union           | Similar to SDC, gauges the similarity and diversity of sample sets.                                                                                                                                                                        | Equals the size of the intersection divided by the size of the union of the sample sets.                               | [Link](https://en.wikipedia.org/wiki/Jaccard_index)                          |
 | Kendall Rank Correlation                           | Correlation and Statistical Tests | Used to measure the ordinal association between two measured quantities.                                                                                                                                                                   | High when observations have a similar rank and low when observations have a dissimilar rank between the two variables. | [Link](https://en.wikipedia.org/wiki/Kendall_rank_correlation_coefficient)   |
@@ -143,9 +143,11 @@ For example, let's assume we have a dataset with nine rows and a Gender column, 
 * "Other" appears twice
 
 Assuming the uniform distribution:
+
 $$
 ReferenceCount \coloneqq  \frac{numRows}{numFeatureValues}
 $$
+
 $$
 ReferenceProbability \coloneqq  \frac{1}{numFeatureValues}
 $$
