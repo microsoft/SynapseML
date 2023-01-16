@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil
 import org.apache.spark.ml.param.{FloatParam, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
 
@@ -202,7 +202,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
     )
 }
 
-object VowpalWabbitCSETransformer {
+object VowpalWabbitCSETransformer extends ComplexParamsReadable[VowpalWabbitCSETransformer] {
   val ExampleCountName = "exampleCount"
   val ProbabilityPredictedNonZeroCount = "probPredNonZeroCount"
   val MinimumImportanceWeight = "minimumImportanceWeight"
