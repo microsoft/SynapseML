@@ -63,9 +63,7 @@ object Secrets {
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
-  lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
-  lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")

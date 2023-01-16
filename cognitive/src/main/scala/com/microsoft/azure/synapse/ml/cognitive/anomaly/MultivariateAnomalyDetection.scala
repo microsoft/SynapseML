@@ -239,6 +239,8 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   //scalastyle:on cyclomatic.complexity
 }
 
+private case class StorageInfo(account: String, container: String, key: String, blob: String)
+
 trait MADBase extends HasOutputCol
   with MADHttpRequest with HasSetLocation with HasInputCols
   with ComplexParamsWritable with Wrappable
@@ -304,6 +306,24 @@ trait MADBase extends HasOutputCol
     outputCol -> (this.uid + "_output"),
     errorCol -> (this.uid + "_error"))
 
+  private def getStorageInfo: StorageInfo = {
+    val uri = new URI(getIntermediateSaveDir)
+    val account = uri.getHost.split(".".toCharArray).head
+    val blobConfig = s"fs.azure.account.key.$account.blob.core.windows.net"
+    val adlsConfig = s"fs.azure.account.key.$account.dfs.core.windows.net"
+    val hc = SparkSession.builder().getOrCreate()
+      .sparkContext.hadoopConfiguration
+    val key = Option(hc.get(adlsConfig)).orElse(Option(hc.get(blobConfig)))
+
+    if (key.isEmpty){
+      throw new IllegalAccessError("Could not find the storage account credentials." +
+        s" Make sure your hadoopConfiguration has the" +
+        s" ''$blobConfig'' or ''$adlsConfig'' configuration set.")
+    }
+
+    StorageInfo(account, uri.getUserInfo, key.get, uri.getPath.stripPrefix("/"))
+  }
+
   protected def blobPath: Path = new Path(new URI(getIntermediateSaveDir.stripSuffix("/") + s"/$uid.csv"))
 
   protected def upload(df: DataFrame): String = {
@@ -327,10 +347,9 @@ trait MADBase extends HasOutputCol
     val filePath = fs.listFiles(blobPath, true)
       .filter(file => file.getPath.toString.contains("part-00000"))
       .toSeq.head.getPath.toString
-    val uri = new URI(getIntermediateSaveDir)
-    val account = uri.getHost.split(".".toCharArray).head
-    val container = uri.getUserInfo
-    s"https://$account.blob.core.windows.net/$container/${filePath.split("/").drop(3).mkString("/")}"
+    val storageInfo = getStorageInfo
+    s"https://${storageInfo.account}.blob.core.windows.net/${storageInfo.container}/" +
+      s"${filePath.split("/").drop(3).mkString("/")}"
   }
 
   def cleanUpIntermediateData(): Unit = {

@@ -37,7 +37,6 @@ object MADListModelsProtocol extends DefaultJsonProtocol {
 
 trait StorageCredentials {
 
-  lazy val connectionString: String = sys.env.getOrElse("STORAGE_CONNECTION_STRING", Secrets.MADTestConnectionString)
   lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", Secrets.MADTestStorageKey)
   lazy val storageAccount = "anomalydetectiontest"
   lazy val containerName = "madtest"
