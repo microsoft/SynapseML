@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.ParamMap

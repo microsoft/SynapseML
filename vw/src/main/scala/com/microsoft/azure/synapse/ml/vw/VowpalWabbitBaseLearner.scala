@@ -258,8 +258,8 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     }
   }
 
-  private def createPredicitionBuffer(schema: StructType): PredictionBuffer = {
-    // discard predictions if predicitionIdCol is not specified
+  private def createPredictionBuffer(schema: StructType): PredictionBuffer = {
+    // discard predictions if predictionIdCol is not specified
     if (!isDefined(predictionIdCol))
       new PredictionBufferDiscard()
     else {
@@ -311,7 +311,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val splits = computeSplits(df)
 
     // construct buffer & schema for buffered predictions
-    val predictionBuffer = createPredicitionBuffer(schema)
+    val predictionBuffer = createPredictionBuffer(schema)
     val encoder = RowEncoder(predictionBuffer.schema)
 
     // always include preserve perf counters to make sure all information is retained in serialized model for
