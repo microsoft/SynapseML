@@ -9,7 +9,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row, functions => F, types => T}
 
 class VerifyVowpalWabbitCSETransformer extends Benchmarks with TransformerFuzzing[VowpalWabbitCSETransformer] {
-  test ("Verify VowpaWabbitCSETransformer") {
+  test ("Verify VowpalWabbitCSETransformer") {
     val df = new VowpalWabbitCSETransformer().transform(dataset)
 
     val row = df.collect().head

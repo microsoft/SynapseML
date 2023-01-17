@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil
-import org.apache.spark.ml.param.{FloatParam, ParamMap, StringArrayParam}
+import org.apache.spark.ml.param.{DoubleParam, FloatParam, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -30,17 +30,17 @@ class VowpalWabbitCSETransformer(override val uid: String)
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  val minImportanceWeight = new FloatParam(
+  val minImportanceWeight = new DoubleParam(
     this, "minImportanceWeight", "Clip importance weight at this lower bound. Defaults to 0.")
 
-  def getMinImportanceWeight: Float = $(minImportanceWeight)
-  def getMinImportanceWeight(value: Float): this.type = set(minImportanceWeight, value)
+  def getMinImportanceWeight: Double = $(minImportanceWeight)
+  def setMinImportanceWeight(value: Double): this.type = set(minImportanceWeight, value)
 
-  val maxImportanceWeight = new FloatParam(
+  val maxImportanceWeight = new DoubleParam(
     this, "maxImportanceWeight", "Clip importance weight at this upper bound. Defaults to 100.")
 
-  def getMaxImportanceWeight: Float = $(maxImportanceWeight)
-  def getMaxImportanceWeight(value: Float): this.type = set(maxImportanceWeight, value)
+  def getMaxImportanceWeight: Double = $(maxImportanceWeight)
+  def setMaxImportanceWeight(value: Double): this.type = set(maxImportanceWeight, value)
 
   val metricsStratificationCols = new StringArrayParam(
     this, "metricsStratificationCols", "Optional list of column names to stratify rewards by.")
@@ -83,8 +83,8 @@ class VowpalWabbitCSETransformer(override val uid: String)
       .toSeq
 
   private def rewardColumnToStruct(rewardCol: RewardColumn,
-                                   minImportanceWeight: Float,
-                                   maxImportanceWeight: Float): Column = {
+                                   minImportanceWeight: Double,
+                                   maxImportanceWeight: Double): Column = {
     val countCol = F.col("count")
     val minImportanceWeightCol = F.lit(minImportanceWeight)
     val maxImportanceWeightCol = F.lit(maxImportanceWeight)
@@ -117,8 +117,8 @@ class VowpalWabbitCSETransformer(override val uid: String)
   }
 
   def perRewardMetrics(rewardsCol: Seq[RewardColumn],
-                       minImportanceWeight: Float,
-                       maxImportanceWeight: Float): Seq[Column] = {
+                       minImportanceWeight: Double,
+                       maxImportanceWeight: Double): Seq[Column] = {
     rewardsCol.map(rewardColumnToStruct(_, minImportanceWeight, maxImportanceWeight))
   }
 
