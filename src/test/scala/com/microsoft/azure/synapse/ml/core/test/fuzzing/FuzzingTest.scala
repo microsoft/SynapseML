@@ -74,7 +74,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -123,7 +123,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -171,7 +171,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -221,7 +221,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -352,8 +352,8 @@ class FuzzingTest extends TestBase {
   test("Verify all classes extending HasSubscriptionKey also extend HasAADToken") {
     val exemptions = Set[String](
       // MVAD doesn't support aad token for now
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.FitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleFitMultivariateAnomaly",
       // TO BE VERIFIED
       "com.microsoft.azure.synapse.ml.cognitive.speech.ConversationTranscription",
       "com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK",

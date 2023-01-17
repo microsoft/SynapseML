@@ -211,8 +211,6 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
   }
 
   private[ml] def dotnetType: String = typeOf[T].toString match {
-    // TODO: fix DiagnosticsInfo on dotnet side
-    case "com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo" => "object"
     case "Seq[com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask]" => "TextAnalyzeTask[]"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
