@@ -597,6 +597,8 @@ jobs:
     matrix:
       automl:
         PACKAGE: "automl"
+      causal:
+        PACKAGE: "causal"
       geospatial:
         PACKAGE: "geospatial"
       onnx:
