@@ -206,6 +206,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
       "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
       "com.microsoft.azure.synapse.ml.nn.ConditionalKNNModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
