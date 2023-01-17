@@ -28,7 +28,7 @@ schedules:
     displayName: Daily midnight build
     branches:
       include:
-        - main
+        - master
 
 variables:
   runTests: True
