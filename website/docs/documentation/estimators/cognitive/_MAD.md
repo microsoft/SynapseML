@@ -5,7 +5,7 @@ import DocTable from "@theme/DocumentationTable";
 
 
 
-## FitMultivariateAnomaly
+## SimpleFitMultivariateAnomaly
 
 <Tabs
 defaultValue="py"
@@ -27,7 +27,7 @@ timestampColumn = "timestamp"
 inputColumns = ["feature0", "feature1", "feature2"]
 intermediateSaveDir = "wasbs://madtest@anomalydetectiontest.blob.core.windows.net/intermediateData"
 
-fitMultivariateAnomaly = (FitMultivariateAnomaly()
+simpleFitMultivariateAnomaly = (SimpleFitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation("westus2")
     .setOutputCol("result")
@@ -36,11 +36,11 @@ fitMultivariateAnomaly = (FitMultivariateAnomaly()
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setSlidingWindow(200))
+    .setSlidingWindow(50))
 
 # uncomment below for fitting your own dataframe
-# model = fitMultivariateAnomaly.fit(df)
-# fitMultivariateAnomaly.cleanUpIntermediateData()
+# model = simpleFitMultivariateAnomaly.fit(df)
+# simpleFitMultivariateAnomaly.cleanUpIntermediateData()
 ```
 
 </TabItem>
@@ -56,7 +56,7 @@ val inputColumns: Array[String] = Array("feature0", "feature1", "feature2")
 val intermediateSaveDir: String = "wasbs://madtest@anomalydetectiontest.blob.core.windows.net/intermediateData"
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
 
-val fitMultivariateAnomaly = (new FitMultivariateAnomaly()
+val simpleFitMultivariateAnomaly = (new SimpleFitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation("westus2")
     .setOutputCol("result")
@@ -65,13 +65,13 @@ val fitMultivariateAnomaly = (new FitMultivariateAnomaly()
     .setIntermediateSaveDir(intermediateSaveDir)
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
-    .setSlidingWindow(200))
+    .setSlidingWindow(50))
 
 val df = (spark.read.format("csv")
       .option("header", True)
       .load("wasbs://datasets@mmlspark.blob.core.windows.net/MAD/mad_example.csv"))
 
-val model = fitMultivariateAnomaly.fit(df)
+val model = simpleFitMultivariateAnomaly.fit(df)
 
 val result = (model
       .setStartTime(startTime)
@@ -83,15 +83,15 @@ val result = (model
 
 result.show()
 
-fitMultivariateAnomaly.cleanUpIntermediateData()
+simpleFitMultivariateAnomaly.cleanUpIntermediateData()
 model.cleanUpIntermediateData()
 ```
 
 </TabItem>
 </Tabs>
 
-<DocTable className="FitMultivariateAnomaly"
-py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.FitMultivariateAnomaly"
-scala="com/microsoft/azure/synapse/ml/cognitive/FitMultivariateAnomaly.html"
-csharp="classSynapse_1_1ML_1_1Cognitive_1_1FitMultivariateAnomaly.html"
+<DocTable className="SimpleFitMultivariateAnomaly"
+py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SimpleFitMultivariateAnomaly"
+scala="com/microsoft/azure/synapse/ml/cognitive/SimpleFitMultivariateAnomaly.html"
+csharp="classSynapse_1_1ML_1_1Cognitive_1_1SimpleFitMultivariateAnomaly.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/MultivariateAnomalyDetection.scala" />

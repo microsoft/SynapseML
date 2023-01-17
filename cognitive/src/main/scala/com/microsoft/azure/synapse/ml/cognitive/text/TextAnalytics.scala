@@ -167,8 +167,7 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
       } else {
         import TAJSONFormat._
         val post = new HttpPost(prepareUrl(row))
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-        post.setHeader("Content-Type", "application/json")
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         val json = TARequest(makeDocuments(row)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
@@ -600,8 +599,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(u
         None
       } else {
         val post = new HttpPost(getUrl)
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-        post.setHeader("Content-Type", "application/json")
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         val tasks = TextAnalyzeTasks(
           entityRecognitionTasks = getTaskHelper(getIncludeEntityRecognition, getEntityRecognitionParams),
           entityLinkingTasks = getTaskHelper(getIncludeEntityLinking, getEntityLinkingParams),

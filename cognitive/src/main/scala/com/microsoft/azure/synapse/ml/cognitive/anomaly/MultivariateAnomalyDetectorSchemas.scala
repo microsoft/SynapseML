@@ -9,15 +9,16 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 // DMA stands for DetectMultivariateAnomaly
 object DMARequest extends SparkBindings[DMARequest]
 
-case class DMARequest(source: String,
+case class DMARequest(dataSource: String,
                       startTime: String,
-                      endTime: String)
+                      endTime: String,
+                      topContributorCount: Option[Int])
 
 object DMAResponse extends SparkBindings[DMAResponse]
 
 case class DMAResponse(resultId: String,
                        summary: DMASummary,
-                       results: Seq[DMAResult])
+                       results: Option[Seq[DMAResult]])
 
 case class DMASummary(status: String,
                       errors: Option[Seq[DMAError]],
@@ -31,27 +32,32 @@ case class DMAError(code: String, message: String)
 case class DMAVariableState(variable: Option[String],
                             filledNARatio: Option[Double],
                             effectiveCount: Option[Int],
-                            startTime: Option[String],
-                            endTime: Option[String],
-                            errors: Option[Seq[DMAError]])
+                            firstTimestamp: Option[String],
+                            lastTimestamp: Option[String])
 
-case class DMASetupInfo(source: String,
+case class DMASetupInfo(dataSource: String,
+                        topContributorCount: Option[Int],
                         startTime: String,
                         endTime: String)
 
 case class DMAResult(timestamp: String, value: Option[DMAValue], errors: Option[Seq[DMAError]])
 
-case class DMAValue(contributors: Option[Seq[DMAContributor]],
-                    isAnomaly: Boolean,
-                    severity: Double,
-                    score: Double)
+case class DMAValue(interpretation: Option[Seq[Interpretation]],
+                    isAnomaly: Option[Boolean],
+                    severity: Option[Double],
+                    score: Option[Double])
 
-case class DMAContributor(contributionScore: Option[Double], variable: Option[String])
+case class Interpretation(variable: Option[String],
+                          contributionScore: Option[Double],
+                          correlationChanges: Option[CorrelationChanges])
+
+case class CorrelationChanges(changedVariables: Option[Seq[String]])
 
 // MAE stands for MultivariateAnomalyEstimator
 object MAERequest extends SparkBindings[MAERequest]
 
-case class MAERequest(source: String,
+case class MAERequest(dataSource: String,
+                      dataSchema: String,
                       startTime: String,
                       endTime: String,
                       slidingWindow: Option[Int],
@@ -67,7 +73,8 @@ case class MAEResponse(modelId: String,
 
 case class MAEModelInfo(slidingWindow: Option[Int],
                         alignPolicy: Option[AlignPolicy],
-                        source: String,
+                        dataSource: String,
+                        dataSchema: String,
                         startTime: String,
                         endTime: String,
                         displayName: Option[String],
@@ -85,17 +92,18 @@ case class ModelState(epochIds: Option[Seq[Int]],
                       latenciesInSeconds: Option[Seq[Double]])
 
 object MADJsonProtocol extends DefaultJsonProtocol {
-  implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat3(DMARequest.apply)
+  implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat4(DMARequest.apply)
   implicit val EEnc: RootJsonFormat[DMAError] = jsonFormat2(DMAError.apply)
-  implicit val VSEnc: RootJsonFormat[DMAVariableState] = jsonFormat6(DMAVariableState.apply)
+  implicit val VSEnc: RootJsonFormat[DMAVariableState] = jsonFormat5(DMAVariableState.apply)
   implicit val MSEnc: RootJsonFormat[ModelState] = jsonFormat4(ModelState.apply)
   implicit val DIEnc: RootJsonFormat[DiagnosticsInfo] = jsonFormat2(DiagnosticsInfo.apply)
   implicit val APEnc: RootJsonFormat[AlignPolicy] = jsonFormat3(AlignPolicy.apply)
-  implicit val MAEReqEnc: RootJsonFormat[MAERequest] = jsonFormat6(MAERequest.apply)
-  implicit val DMAContributorEnc: RootJsonFormat[DMAContributor] = jsonFormat2(DMAContributor.apply)
+  implicit val MAEReqEnc: RootJsonFormat[MAERequest] = jsonFormat7(MAERequest.apply)
+  implicit val CorrelationChangesEnc: RootJsonFormat[CorrelationChanges] = jsonFormat1(CorrelationChanges.apply)
+  implicit val InterpretationEnc: RootJsonFormat[Interpretation] = jsonFormat3(Interpretation.apply)
   implicit val DMAValueEnc: RootJsonFormat[DMAValue] = jsonFormat4(DMAValue.apply)
   implicit val DMAResEnc: RootJsonFormat[DMAResult] = jsonFormat3(DMAResult.apply)
-  implicit val DMASetupInfoEnc: RootJsonFormat[DMASetupInfo] = jsonFormat3(DMASetupInfo.apply)
+  implicit val DMASetupInfoEnc: RootJsonFormat[DMASetupInfo] = jsonFormat4(DMASetupInfo.apply)
   implicit val DMASummaryEnc: RootJsonFormat[DMASummary] = jsonFormat4(DMASummary.apply)
-  implicit val MAEModelInfoEnc: RootJsonFormat[MAEModelInfo] = jsonFormat9(MAEModelInfo.apply)
+  implicit val MAEModelInfoEnc: RootJsonFormat[MAEModelInfo] = jsonFormat10(MAEModelInfo.apply)
 }
