@@ -86,8 +86,7 @@ trait HasImageInput extends HasImageUrl
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken),
-          "", addContentType = false)
+        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken))
         req match {
           case er: HttpEntityEnclosingRequestBase =>
             rowToEntity(row).foreach(er.setEntity)
