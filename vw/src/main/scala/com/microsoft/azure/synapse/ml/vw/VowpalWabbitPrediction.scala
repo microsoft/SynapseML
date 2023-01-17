@@ -19,19 +19,19 @@ object VowpalWabbitPrediction {
   private def toStructType[T: TypeTag] = ExpressionEncoder[T]().resolveAndBind().schema
 
   private val SchemaMap = {
-    import VowpalWabbitSchema.Predictions._
+    import VowpalWabbitSchema.Predictions
 
     Map(
-      "prediction_type_t::scalars" -> toStructType[Scalars],
-      "prediction_type_t::multiclass" -> toStructType[Multiclass],
-      "prediction_type_t::prob" -> toStructType[Prob],
-      "prediction_type_t::multilabels" -> toStructType[Multilabels],
-      "prediction_type_t::scalar" -> toStructType[Scalar],
-      "prediction_type_t::action_scores" -> toStructType[ActionScores],
-      "prediction_type_t::action_probs" -> toStructType[ActionProbs],
-      "prediction_type_t::decision_probs" -> toStructType[DecisionProbs],
-      "prediction_type_t::action_pdf_value" -> toStructType[ActionPDFValue],
-      "prediction_type_t::pdf" -> toStructType[PDF]
+      "prediction_type_t::scalars" -> toStructType[Predictions.Scalars],
+      "prediction_type_t::multiclass" -> toStructType[Predictions.Multiclass],
+      "prediction_type_t::prob" -> toStructType[Predictions.Prob],
+      "prediction_type_t::multilabels" -> toStructType[Predictions.Multilabels],
+      "prediction_type_t::scalar" -> toStructType[Predictions.Scalar],
+      "prediction_type_t::action_scores" -> toStructType[Predictions.ActionScores],
+      "prediction_type_t::action_probs" -> toStructType[Predictions.ActionProbs],
+      "prediction_type_t::decision_probs" -> toStructType[Predictions.DecisionProbs],
+      "prediction_type_t::action_pdf_value" -> toStructType[Predictions.ActionPDFValue],
+      "prediction_type_t::pdf" -> toStructType[Predictions.PDF]
     )
   }
 
