@@ -11,6 +11,7 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, functions => F, types => T}
+import scala.jdk.CollectionConverters.mapAsScalaMapConverter
 
 class VowpalWabbitDSJsonTransformer(override val uid: String)
   extends Transformer
@@ -34,6 +35,7 @@ class VowpalWabbitDSJsonTransformer(override val uid: String)
 
   def getRewards: Map[String, String] = $(rewards)
   def setRewards(v: Map[String, String]): this.type = set(rewards, v)
+  def setRewards(value: java.util.HashMap[String, String]): this.type = set(rewards, value.asScala.toMap)
 
   setDefault(dsJsonColumn -> "value",
     rewards -> Map("reward" -> "_label_cost"))
