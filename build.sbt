@@ -40,7 +40,8 @@ dependencyOverrides += "org.json4s" %% "json4s-ast" % "3.7.0-M5"
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
-val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajorVersion", "org.scala-lang")
+val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajorVersion", "org.scala-lang",
+  s"jackson-module-scala_$scalaMajorVersion")
 // skip dependency elements with a scope
 
 def pomPostFunc(node: XmlNode): scala.xml.Node = {
@@ -379,7 +380,10 @@ val settings = Seq(
   assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
-  sbtPlugin := false
+  sbtPlugin := false,
+  assembly / assemblyShadeRules ++= Seq(
+    ShadeRule.rename("com.fasterxml.jackson.module.**" -> "shade.com.fasterxml.jackson.module.@1").inAll
+  )
 )
 ThisBuild / publishMavenStyle := true
 
