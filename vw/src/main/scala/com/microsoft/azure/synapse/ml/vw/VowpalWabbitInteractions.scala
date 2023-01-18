@@ -89,7 +89,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
           throw new IllegalArgumentException("column " + f + " must be of type Vector but is " + fieldType.typeName)
       }
 
-    schema.add(StructField(getOutputCol, VectorType, true))
+    schema.add(StructField(getOutputCol, VectorType, nullable = true))
   }
 
   override def copy(extra: ParamMap): VowpalWabbitInteractions = defaultCopy(extra)

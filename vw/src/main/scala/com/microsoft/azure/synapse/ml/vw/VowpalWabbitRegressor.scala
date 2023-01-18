@@ -11,12 +11,14 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.DoubleType
 
-object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
-
+/**
+  * VowpalWabbit exposed as SparkML regressor.
+  */
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
-    with VowpalWabbitBase
+    with VowpalWabbitBaseSpark
     with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
@@ -38,9 +40,11 @@ class VowpalWabbitRegressor(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
 
+object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
+
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
@@ -50,6 +54,8 @@ class VowpalWabbitRegressionModel(override val uid: String)
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
+      .withColumn($(rawPredictionCol),
+        col(vowpalWabbitPredictionCol).getField("prediction").cast(DoubleType))
       .withColumn($(predictionCol), col($(rawPredictionCol)))
   }
 

@@ -81,7 +81,7 @@ class ContextualBanditMetrics extends Serializable {
   }
 }
 
-trait VowpalWabbitContextualBanditBase extends VowpalWabbitBase {
+trait VowpalWabbitContextualBanditBase extends VowpalWabbitBaseSpark {
 
   override protected lazy val pyInternalWrapper = true
 
@@ -205,9 +205,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
     schema
   }
 
-  protected override def trainRow(schema: StructType,
-                                  inputRows: Iterator[Row],
-                                  ctx: TrainContext
+  protected override def
+  trainFromRows(schema: StructType,
+                                       inputRows: Iterator[Row],
+                                       ctx: TrainContext
                                  ): Unit = {
     val allActionFeatureColumns = Seq(getFeaturesCol) ++ getAdditionalFeatures
     val allSharedFeatureColumns = Seq(getSharedCol) ++ getAdditionalSharedFeatures
@@ -225,7 +226,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
     val exampleStack = new ExampleStack(ctx.vw)
 
     for (row <- inputRows) {
-      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, ctx.vw, exampleStack,
+      VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, exampleStack,
         examples => {
           // It's one-based but we need to skip the shared example anyway
           val selectedActionIdx = row.getInt(chosenActionColIdx)
@@ -243,7 +244,10 @@ class VowpalWabbitContextualBandit(override val uid: String)
             loggedProbability)
 
           // Learn from the examples
-          ctx.vw.learn(examples)
+          val pred = ctx.vw.learn(examples)
+
+          // collect predictions
+          ctx.predictionBuffer.append(row, pred)
 
           // Update the IPS/SNIPS estimator
           val prediction: ActionProbs = examples(0).getPrediction.asInstanceOf[ActionProbs]
@@ -306,7 +310,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
 //noinspection ScalaStyle
 class VowpalWabbitContextualBanditModel(override val uid: String)
   extends PredictionModel[Row, VowpalWabbitContextualBanditModel]
-    with VowpalWabbitBaseModel
+    with VowpalWabbitBaseModelSpark
     with VowpalWabbitContextualBanditBase
     with ComplexParamsWritable with SynapseMLLogging {
   logClass()
@@ -338,7 +342,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
       val sharedNamespaceInfos = VowpalWabbitUtil.generateNamespaceInfos(schema, getHashSeed, allSharedFeatureColumns)
 
       val predictUDF = udf { (row: Row) =>
-        VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, vw, exampleStack.get,
+        VowpalWabbitUtil.prepareMultilineExample(row, actionNamespaceInfos, sharedNamespaceInfos, exampleStack.get,
           examples => {
             vw.predict(examples)
               .asInstanceOf[vowpalWabbit.responses.ActionProbs]

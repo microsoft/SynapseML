@@ -64,6 +64,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
       "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
@@ -122,6 +123,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
+      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
@@ -164,6 +168,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.nn.KNNModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
       "com.microsoft.azure.synapse.ml.stages.ClassBalancerModel",
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
@@ -203,6 +208,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
       "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
       "com.microsoft.azure.synapse.ml.nn.ConditionalKNNModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
@@ -291,6 +297,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBandit", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressor", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGeneric", // HasFeaturesCol is part of spark's base class
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericProgressive", // HasFeaturesCol is part of spark's base
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassifier", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressor", // HasFeaturesCol is part of spark's base class
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRanker", // HasFeaturesCol is part of spark's base class
