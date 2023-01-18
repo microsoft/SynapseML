@@ -7,10 +7,13 @@ import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import com.microsoft.cognitiveservices.speech.SpeechSynthesisCancellationDetails
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
+case class Word(Duration: Long, Offset: Long, Word: String)
+
 case class DetailedSpeechResponse(Confidence: Double,
                                   Lexical: String,
                                   ITN: String,
                                   MaskedITN: String,
+                                  Words: Option[Seq[Word]],
                                   Display: String)
 
 trait SharedSpeechFields {
@@ -52,8 +55,10 @@ object TranscriptionResponse extends SparkBindings[TranscriptionResponse]
 case class TranscriptionParticipant(name: String, language: String, signature: String)
 
 object SpeechFormat extends DefaultJsonProtocol {
+  implicit val WordFormat: RootJsonFormat[Word] =
+    jsonFormat3(Word.apply)
   implicit val DetailedSpeechResponseFormat: RootJsonFormat[DetailedSpeechResponse] =
-    jsonFormat5(DetailedSpeechResponse.apply)
+    jsonFormat6(DetailedSpeechResponse.apply)
   implicit val SpeechResponseFormat: RootJsonFormat[SpeechResponse] = jsonFormat6(SpeechResponse.apply)
   implicit val TranscriptionResponseFormat: RootJsonFormat[TranscriptionResponse] =
     jsonFormat9(TranscriptionResponse.apply)
