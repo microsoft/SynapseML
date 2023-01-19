@@ -11,8 +11,8 @@ One challenge that has taken the spotlight in recent years is using machine lear
 Often, businesses and policymakers would like to study whether an incentive or intervention will lead to a desired outcome and by how much.
 For example, if we give customers a discount (treatment), how much more will they purchase in the future (outcome). 
 Traditionally, people use correlation analysis or prediction model to understand correlated factors, but going from prediction to an 
-impactful decision is not always straightforward as correlation does not imply causation. In many cases, confounding variables influence 
-both the probability of treatment and the outcome, introducing additional non-causal correlation. 
+impactful decision isn't always straightforward as correlation doesn't imply causation. In many cases, confounding variables influence 
+both the probability of treatment and the outcome, introducing more non-causal correlation. 
 
 Causal inference helps to bridge the gap between prediction and decision-making. 
 
@@ -31,7 +31,7 @@ However, in many cases, treatments experiments are either impossible or cost pro
 As a result, we look toward causal inference methods that allow us to estimate the treatment effect using observational data.
 
 The SynapseML causal package implements a technique "Double machine learning", which can be used to estimate the average treatment effect via machine learning models.
-Unlike regression-based approaches which make strict parametric assumptions, this machine learning-based approach allows us to model non-linear      relationships between the confounders, treatment, and outcome.
+Unlike regression-based approaches that make strict parametric assumptions, this machine learning-based approach allows us to model non-linear      relationships between the confounders, treatment, and outcome.
 
 ### Usage
 In PySpark, you can run the `DoubleMLEstimator` via:
