@@ -23,6 +23,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
 
 import java.net.URI
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.reflect.internal.util.ScalaClassLoader
@@ -132,12 +133,84 @@ trait HasSubscriptionKey extends HasServiceParams {
 
   def getSubscriptionKey: String = getScalarParam(subscriptionKey)
 
-  def setSubscriptionKey(v: String): this.type = setScalarParam(subscriptionKey, v)
+  def setSubscriptionKey(v: String): this.type = {
+    setScalarParam(subscriptionKey, v)
+  }
 
   def getSubscriptionKeyCol: String = getVectorParam(subscriptionKey)
 
   def setSubscriptionKeyCol(v: String): this.type = setVectorParam(subscriptionKey, v)
 
+}
+
+trait HasAADToken extends HasServiceParams {
+  // scalastyle:off field.name
+  val AADToken = new ServiceParam[String](
+    this, "AADToken", "AAD Token used for authentication"
+  )
+  // scalastyle:on field.name
+
+  def setAADToken(v: String): this.type = {
+    setScalarParam(AADToken, v)
+  }
+
+  def getAADToken: String = getScalarParam(AADToken)
+
+  def setAADTokenCol(v: String): this.type = setVectorParam(AADToken, v)
+
+  def getAADTokenCol: String = getVectorParam(AADToken)
+}
+
+trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
+  def setCustomServiceName(v: String): this.type = {
+    setUrl(s"https://$v.cognitiveservices.azure.com/" + urlPath.stripPrefix("/"))
+  }
+
+  def setEndpoint(v: String): this.type = {
+    setUrl(v + urlPath.stripPrefix("/"))
+  }
+
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
+    """def setCustomServiceName(self, value):
+      |    self._java_obj = self._java_obj.setCustomServiceName(value)
+      |    return self
+      |
+      |def setEndpoint(self, value):
+      |    self._java_obj = self._java_obj.setEndpoint(value)
+      |    return self
+      |
+      |def _transform(self, dataset: DataFrame) -> DataFrame:
+      |    if running_on_synapse_internal():
+      |        from synapse.ml.mlflow import get_mlflow_env_config
+      |        mlflow_env_configs = get_mlflow_env_config()
+      |        self.setAADToken(mlflow_env_configs.driver_aad_token)
+      |        self.setEndpoint(mlflow_env_configs.workload_endpoint + "/cognitive/api/")
+      |    return super()._transform(dataset)
+      |""".stripMargin
+  }
+
+  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
+    s"""/// <summary>
+       |/// Sets value for service name
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// Service name of the cognitive service if it's custom domain
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
+       |public $dotnetClassName SetCustomServiceName(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setCustomServiceName\", value));
+       |
+       |/// <summary>
+       |/// Sets value for endpoint
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// Endpoint of the cognitive service
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
+       |public $dotnetClassName SetEndpoint(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setEndpoint\", value));
+       |""".stripMargin
+  }
 }
 
 object URLEncodingUtils {
@@ -153,7 +226,7 @@ object URLEncodingUtils {
   }
 }
 
-trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
+trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken {
 
   protected def paramNameToPayloadName(p: Param[_]): String = p match {
     case p: ServiceParam[_] => p.payloadName
@@ -186,7 +259,25 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
 
   protected val subscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
 
+  protected val aadHeaderName = "Authorization"
+
   protected def contentType: Row => String = { _ => "application/json" }
+
+  protected def addHeaders(req: HttpRequestBase,
+                           subscriptionKey: Option[String],
+                           aadToken: Option[String],
+                           contentType: String = ""): Unit = {
+    if (subscriptionKey.nonEmpty) {
+      req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
+    } else {
+      aadToken.foreach(s => {
+        req.setHeader(aadHeaderName, "Bearer " + s)
+        // this is required for internal workload
+        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    }
+    if (contentType != "") req.setHeader("Content-Type", contentType)
+  }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
@@ -197,9 +288,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey {
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        getValueOpt(row, subscriptionKey).foreach(
-          req.setHeader(subscriptionKeyHeaderName, _))
-        req.setHeader("Content-Type", contentType(row))
+        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
@@ -322,7 +411,9 @@ trait DomainHelper {
 abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transformer
   with ConcurrencyParams with HasOutputCol
   with HasURL with ComplexParamsWritable
-  with HasSubscriptionKey with HasErrorCol with SynapseMLLogging {
+  with HasSubscriptionKey with HasErrorCol
+  with HasAADToken with HasCustomCogServiceDomain
+  with SynapseMLLogging {
 
   setDefault(
     outputCol -> (this.uid + "_output"),

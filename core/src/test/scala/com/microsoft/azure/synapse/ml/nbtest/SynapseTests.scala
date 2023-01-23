@@ -46,9 +46,9 @@ class SynapseTests extends TestBase {
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification"))
-    .filterNot(_.getAbsolutePath.contains("Interpretability")) //add more exclusion TODO: Remove when fixed
+    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("Interpretability"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length

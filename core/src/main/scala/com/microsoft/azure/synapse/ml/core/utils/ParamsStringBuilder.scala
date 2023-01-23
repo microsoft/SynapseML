@@ -32,7 +32,7 @@ import org.apache.spark.ml.param._
   * @param prefix Optional prefix to put before parameter names (e.g. "--").  Defaults to none.
   * @param delimiter Optional delimiter to put between names and values (e.g. "="). Defaults to "=".
   */
-class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: String) {
+class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: String) extends Serializable {
 
   // A StringBuilder is a relatively inefficient way to implement this (e.g. HashTable would be better),
   // but it is simple to interpret/maintain and not on a critical perf path.

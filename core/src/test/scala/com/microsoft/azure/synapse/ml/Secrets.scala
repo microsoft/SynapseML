@@ -34,6 +34,13 @@ object Secrets {
     SubscriptionID
   }
 
+  def getSynapseExtensionSecret(envName: String, secretType: String): String = {
+    val secretKey = s"synapse-extension-$envName-$secretType"
+    println(s"[info] fetching secret: $secretKey from $AccountString")
+    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
+    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+  }
+
   private def getSecret(secretName: String): String = {
     println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
@@ -56,17 +63,13 @@ object Secrets {
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
-  lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
-  lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
-  lazy val SynapseExtensionPassword: String = getSecret("synapse-extension-dxt-password")
+
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
-  lazy val SynapseExtensionTenantId: String = getSecret("synapse-extension-dxt-tenant-id")
-  lazy val SynapseExtensionUxHost: String = getSecret("synapse-extension-dxt-ux-host")
-  lazy val SynapseExtensionSspHost: String = getSecret("synapse-extension-dxt-ssp-host")
-  lazy val SynapseExtensionWorkspaceId: String = getSecret("synapse-extension-dxt-workspace-id")
+  lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
+  lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
   lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

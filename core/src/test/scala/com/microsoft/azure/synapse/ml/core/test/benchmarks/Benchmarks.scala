@@ -119,6 +119,9 @@ object DatasetUtils {
   def multiclassTrainFile(name: String): File =
     FileUtilities.join(BuildInfo.datasetDir,"Multiclass","Train", name)
 
+  def multiclassTestFile(name: String): File =
+    FileUtilities.join(BuildInfo.datasetDir,"Multiclass","Test", name)
+
   def regressionTrainFile(name: String): File =
     FileUtilities.join(BuildInfo.datasetDir,"Regression","Train", name)
 

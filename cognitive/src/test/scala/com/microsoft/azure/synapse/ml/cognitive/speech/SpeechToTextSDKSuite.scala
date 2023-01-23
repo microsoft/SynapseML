@@ -33,7 +33,9 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
   val profanity = "masked"
+  val wordLevelTimestamps = false
   val format = "simple"
+
 
   val streamUrl = "http://qthttp.apple.com.edgesuite.net/1010qwoeiuryfg/sl.m3u8"
 
@@ -82,8 +84,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   def speechTest(format: String, audioBytes: Array[Byte], expectedText: String): Assertion = {
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
-      "wav",
-      uri, cognitiveKey, profanity, language, format, None, Seq())
+      "wav", uri, cognitiveKey, profanity, wordLevelTimestamps, language, format, None, Seq())
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -170,6 +171,13 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     speechTest("detailed", bytes1, text1)
   }
 
+  test("Word level timing") {
+    val resultSeq = extractResults(
+      sdk.setFormat("detailed").setWordLevelTimestamps(true).transform(audioDf1),
+      sdk.getStreamIntermediateResults)
+    assert(resultSeq.head.NBest.get.head.Words.get.length > 1)
+  }
+
   ignore("Detailed audioBytesToText 2") {
     speechTest("detailed", bytes2, text2)
   }
@@ -248,7 +256,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
         .toDF("audio")
       dfTest(
         "detailed",
-        uriDf, text4,verbose=true, sdk = sdk2, threshold = .6)
+        uriDf, text4, verbose = true, sdk = sdk2, threshold = .6)
     }
   }
 

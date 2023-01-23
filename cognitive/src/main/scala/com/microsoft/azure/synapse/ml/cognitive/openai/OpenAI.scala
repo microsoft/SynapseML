@@ -317,6 +317,8 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
   def this() = this(Identifiable.randomUID("OpenAPICompletion"))
 
+  def urlPath: String = ""
+
   override protected def prepareUrlRoot: Row => String = { row =>
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/completions"
   }
