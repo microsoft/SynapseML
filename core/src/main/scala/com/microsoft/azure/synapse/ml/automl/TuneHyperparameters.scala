@@ -112,6 +112,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
           catch {
             case _: NoSuchMethodError => c.get.getMethod(funcNameOld)
             case _: NoSuchMethodException => c.get.getMethod(funcNameOld)
+            case _: NoSuchElementException => c.get.getMethod(funcNameOld)
           }
         }
         val executorService = method.invoke(c.get).asInstanceOf[ExecutorService]
