@@ -105,7 +105,7 @@ rootGenDir := {
 }
 
 // scalastyle:off line.size.limit
-val genSleetConfig = TaskKey[Unit]("genSleetConfig",
+val genSleetConfig = TaskKey[File]("genSleetConfig",
   "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
 genSleetConfig := {
   val fileContent =
@@ -125,13 +125,13 @@ genSleetConfig := {
   val sleetJsonFile = join(rootGenDir.value, "sleet.json")
   if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
   FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+  sleetJsonFile
 }
 // scalastyle:on line.size.limit
 
 val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
   "generate dotnet test helper file with current library version and publish E2E test base")
 publishDotnetTestBase := {
-  genSleetConfig.value
   val fileContent =
     s"""// Licensed to the .NET Foundation under one or more agreements.
        |// The .NET Foundation licenses this file to you under the MIT license.
@@ -204,7 +204,7 @@ publishDotnetTestBase := {
   packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir,
     "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
-  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
+  publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
