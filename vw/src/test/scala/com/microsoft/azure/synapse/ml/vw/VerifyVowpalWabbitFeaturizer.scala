@@ -15,7 +15,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[VowpalWabbitFeaturizer] {
 
-  lazy val defaultMask = (1 << 30) - 1
+  private lazy val defaultMask = (1 << 30) - 1
 
   case class Sample1(str: String, seq: Seq[String])
 
@@ -23,7 +23,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
 
   case class Input2[T, S](in1: T, in2: S)
 
-  lazy val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
+  private lazy val namespaceFeatures = VowpalWabbitMurmur.hash("features", 0)
 
   test("Verify order preserving") {
     val featurizer1 = new VowpalWabbitFeaturizer()
@@ -204,7 +204,7 @@ class VerifyVowpalWabbitFeaturizer extends TestBase with TransformerFuzzing[Vowp
     val newSchema = new VowpalWabbitFeaturizer()
       .setInputCols(Array("data"))
       .setOutputCol("features")
-      .transformSchema(new StructType(Array(StructField("data", DataTypes.DoubleType, true))))
+      .transformSchema(new StructType(Array(StructField("data", DataTypes.DoubleType, nullable = true))))
 
     assert(newSchema.fields(1).name == "features")
     assert(newSchema.fields(1).dataType.typeName == "vector")

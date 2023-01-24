@@ -64,7 +64,7 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2021-12-10.tgz"
+val datasetName = "datasets-2022-08-09.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -416,7 +416,7 @@ lazy val lightgbm = (project in file("lightgbm"))
 lazy val vw = (project in file("vw"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
+    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.3.0"),
     name := "synapseml-vw"
   ): _*)
 

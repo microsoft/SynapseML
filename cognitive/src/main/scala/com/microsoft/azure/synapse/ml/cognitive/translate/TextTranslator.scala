@@ -79,6 +79,8 @@ trait HasToLanguage extends HasServiceParams {
 
 trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with HasSubscriptionRegion {
 
+  override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
+
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -108,9 +110,8 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
         }
 
         val post = new HttpPost(base + appended)
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
-        post.setHeader("Content-Type", "application/json; charset=UTF-8")
 
         val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
@@ -213,6 +214,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
+  override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
+
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -244,9 +247,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
         }
 
         val post = new HttpPost(base + appended)
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
-        post.setHeader("Content-Type", "application/json; charset=UTF-8")
 
         val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
@@ -498,6 +500,8 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
 
   def urlPath: String = "dictionary/examples"
 
+  override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
+
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
@@ -528,9 +532,8 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           }
 
           val post = new HttpPost(base + appended)
-          getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
+          addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
           getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
-          post.setHeader("Content-Type", "application/json; charset=UTF-8")
 
           val json = textAndTranslations.head.getClass.getTypeName match {
             case "com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation" => textAndTranslations.map(

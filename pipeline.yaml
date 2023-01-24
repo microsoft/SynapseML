@@ -28,7 +28,7 @@ schedules:
     displayName: Daily midnight build
     branches:
       include:
-        - main
+        - master
 
 variables:
   runTests: True
@@ -597,6 +597,8 @@ jobs:
     matrix:
       automl:
         PACKAGE: "automl"
+      causal:
+        PACKAGE: "causal"
       geospatial:
         PACKAGE: "geospatial"
       onnx:

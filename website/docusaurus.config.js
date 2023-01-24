@@ -15,7 +15,7 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.10.0",
+    version: "0.10.2",
   },
   stylesheets: [
     {

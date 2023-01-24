@@ -14,8 +14,10 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.cognitiveservices.speech._
 import com.microsoft.cognitiveservices.speech.audio._
-import com.microsoft.cognitiveservices.speech.transcription.{Conversation, ConversationTranscriber,
-  ConversationTranscriptionEventArgs, Participant}
+import com.microsoft.cognitiveservices.speech.transcription.{
+  Conversation, ConversationTranscriber,
+  ConversationTranscriptionEventArgs, Participant
+}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
@@ -126,6 +128,14 @@ abstract class SpeechSDKBase extends Transformer
 
   def setFileTypeCol(v: String): this.type = setVectorParam(fileType, v)
 
+  val wordLevelTimestamps = new ServiceParam[Boolean](
+    this, "wordLevelTimestamps", "Whether to request timestamps foe each indivdual word")
+
+  def setWordLevelTimestamps(v: Boolean): this.type = setScalarParam(wordLevelTimestamps, v)
+
+  def setWordLevelTimestampsCol(v: String): this.type = setVectorParam(wordLevelTimestamps, v)
+
+
   val language = new ServiceParam[String](this, "language",
     """
       |Identifies the spoken language that is being recognized.
@@ -200,10 +210,10 @@ abstract class SpeechSDKBase extends Transformer
 
   def urlPath: String = "/sts/v1.0/issuetoken"
 
-
   setDefault(language -> Left("en-us"))
   setDefault(profanity -> Left("Masked"))
   setDefault(format -> Left("Simple"))
+  setDefault(wordLevelTimestamps -> Left(false))
 
   protected def makeEventHandler[T](f: (Any, T) => Unit): EventHandler[T] = {
     new EventHandler[T] {
@@ -228,11 +238,11 @@ abstract class SpeechSDKBase extends Transformer
   }
 
   //scalastyle:off cyclomatic.complexity
-  private def getStream(bconf: Broadcast[SConf],  //scalastyle:ignore method.length
+  private def getStream(bconf: Broadcast[SConf], //scalastyle:ignore method.length
                         isUriAudio: Boolean,
                         row: Row,
                         dynamicParamRow: Row): (InputStream, String) = {
-    if (isUriAudio) {  //scalastyle:ignore cyclomatic.complexity
+    if (isUriAudio) { //scalastyle:ignore cyclomatic.complexity
       val uri = row.getAs[String](getAudioDataCol)
       val ffmpegCommand: Seq[String] = {
         val body = Seq("ffmpeg", "-y",
@@ -268,7 +278,7 @@ abstract class SpeechSDKBase extends Transformer
             }
             if (proc.isAlive) {
               proc.destroy()
-              proc.waitFor(10, TimeUnit.SECONDS)  //scalastyle:ignore magic.number
+              proc.waitFor(10, TimeUnit.SECONDS) //scalastyle:ignore magic.number
               proc.destroyForcibly()
               proc.waitFor()
               log.warn("Had to forcibly stop ffmpeg")
@@ -279,8 +289,8 @@ abstract class SpeechSDKBase extends Transformer
         (stream, "mp3")
       } else if (uri.startsWith("http")) {
         val conn = new URL(uri).openConnection
-        conn.setConnectTimeout(5000)  //scalastyle:ignore magic.number
-        conn.setReadTimeout(5000)  //scalastyle:ignore magic.number
+        conn.setConnectTimeout(5000) //scalastyle:ignore magic.number
+        conn.setReadTimeout(5000) //scalastyle:ignore magic.number
         conn.connect()
         (new BufferedInputStream(conn.getInputStream), extension)
       } else {
@@ -300,6 +310,7 @@ abstract class SpeechSDKBase extends Transformer
                         uri: URI,
                         speechKey: String,
                         profanity: String,
+                        wordLevelTimestamps: Boolean,
                         language: String,
                         format: String,
                         defaultAudioFormat: Option[String],
@@ -312,7 +323,7 @@ abstract class SpeechSDKBase extends Transformer
                                    isUriAudio: Boolean)(rows: Iterator[Row]): Iterator[Row] = {
     rows.flatMap { row =>
       if (shouldSkip(row)) {
-        Seq(Row.fromSeq(row.toSeq :+ null))  //scalastyle:ignore null
+        Seq(Row.fromSeq(row.toSeq :+ null)) //scalastyle:ignore null
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
         val (stream, audioFileFormat) = getStream(bconf, isUriAudio, row, dynamicParamRow)
@@ -322,6 +333,7 @@ abstract class SpeechSDKBase extends Transformer
           new URI(getUrl),
           getValue(dynamicParamRow, subscriptionKey),
           getValue(dynamicParamRow, profanity),
+          getValue(dynamicParamRow, wordLevelTimestamps),
           getValue(dynamicParamRow, language),
           getValue(dynamicParamRow, format),
           getValueOpt(dynamicParamRow, fileType),
@@ -355,13 +367,17 @@ abstract class SpeechSDKBase extends Transformer
                       speechKey: String,
                       language: String,
                       profanity: String,
+                      wordLevelTimestamps: Boolean,
                       format: String): SpeechConfig = {
     val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
     assert(speechConfig != null)
     get(endpointId).foreach(id => speechConfig.setEndpointId(id))
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)
     speechConfig.setSpeechRecognitionLanguage(language)
-    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format)  //scalastyle:ignore token
+    if (wordLevelTimestamps) {
+      speechConfig.requestWordLevelTimestamps()
+    }
+    speechConfig.setProperty(PropertyId.SpeechServiceResponse_OutputFormatOption, format) //scalastyle:ignore token
     speechConfig
   }
 
@@ -436,13 +452,14 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Synap
                         uri: URI,
                         speechKey: String,
                         profanity: String,
+                        wordLevelTimestamps: Boolean,
                         language: String,
                         format: String,
                         defaultAudioFormat: Option[String],
                         participants: Seq[TranscriptionParticipant]
                        ): Iterator[SpeechResponse] = {
 
-    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, format)
+    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, wordLevelTimestamps, format)
     val pullStream = getPullStream(stream, audioFormat, defaultAudioFormat)
     val audioConfig = AudioConfig.fromStreamInput(pullStream)
     val recognizer = new SpeechRecognizer(speechConfig, audioConfig)
@@ -477,7 +494,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Synap
       val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
       Future {
         blocking {
-          Thread.sleep((timeLimit + 20)*1000)
+          Thread.sleep((timeLimit + 20) * 1000)
         }
         queue.put(None)
         cleanUp()
@@ -503,17 +520,18 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
   def this() = this(Identifiable.randomUID("ConversationTranscription"))
 
   /** @return text transcription of the audio */
-  def inputStreamToText(stream: InputStream,  //scalastyle:ignore method.length
+  def inputStreamToText(stream: InputStream, //scalastyle:ignore method.length
                         audioFormat: String,
                         uri: URI,
                         speechKey: String,
                         profanity: String,
+                        wordLevelTimestamps: Boolean,
                         language: String,
                         format: String,
                         defaultAudioFormat: Option[String],
                         participants: Seq[TranscriptionParticipant]
                        ): Iterator[TranscriptionResponse] = {
-    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, format)
+    val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, wordLevelTimestamps, format)
     speechConfig.setProperty("ConversationTranscriptionInRoomAndOnline", "true")
     speechConfig.setServiceProperty("transcriptionMode",
       "RealTimeAndAsync", ServicePropertyChannel.UriQueryParameter)
@@ -567,7 +585,7 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
       val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
       Future {
         blocking {
-          Thread.sleep((timeLimit + 20)*1000)
+          Thread.sleep((timeLimit + 20) * 1000)
         }
         queue.put(None)
         cleanUp()

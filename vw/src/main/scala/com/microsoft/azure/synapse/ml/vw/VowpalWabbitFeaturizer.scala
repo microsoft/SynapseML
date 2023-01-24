@@ -19,8 +19,9 @@ import org.vowpalwabbit.spark.VowpalWabbitMurmur
 
 import scala.collection.mutable
 
-object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
-
+/**
+  * Exposes VW-style featurizer using hashing to SparkML eco system.
+  */
 class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
   with Wrappable with ComplexParamsWritable with SynapseMLLogging
@@ -146,13 +147,59 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     }
   }
 
+  private def featurizeRow(featurizers: Array[Featurizer]): Row => org.apache.spark.ml.linalg.Vector = {
+    val maxFeaturesForOrdering = 1 << getPreserveOrderNumBits
+
+    r: Row =>
+    {
+      val indices = mutable.ArrayBuilder.make[Int]
+      val values = mutable.ArrayBuilder.make[Double]
+
+      // educated guess on size
+      indices.sizeHint(featurizers.length)
+      values.sizeHint(featurizers.length)
+
+      // apply all featurizers
+      for (f <- featurizers)
+        if (!r.isNullAt(f.fieldIdx))
+          f.featurize(r, indices, values)
+
+      val indicesArray = indices.result
+      if (getPreserveOrderNumBits > 0) {
+        val idxPrefixBits = 30 - getPreserveOrderNumBits
+
+        if (indicesArray.length > maxFeaturesForOrdering)
+          throw new IllegalArgumentException(
+            s"Too many features ${indicesArray.length} for " +
+              s"number of bits used for order preserving ($getPreserveOrderNumBits)")
+
+        // prefix every feature index with a counter value
+        // will be stripped when passing to VW
+        for (i <- indicesArray.indices) {
+          val idxPrefix = i << idxPrefixBits
+          indicesArray(i) = indicesArray(i) | idxPrefix
+        }
+      }
+
+      // if we use the highest order bits to preserve the ordering the maximum index size is larger
+      val size = if (getPreserveOrderNumBits > 0) 1 << 30 else 1 << getNumBits
+
+      // sort by indices and remove duplicate values
+      // Warning:
+      //   - due to SparseVector limitations (which doesn't allow duplicates) we need filter
+      //   - VW command line allows for duplicate features with different values (just updates twice)
+      val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(indicesArray, values.result, getSumCollisions)
+
+      Vectors.sparse(size, indicesSorted, valuesSorted)
+    }
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       if (getPreserveOrderNumBits + getNumBits > 30)
         throw new IllegalArgumentException(
           s"Number of bits used for hashing ($getNumBits and " +
             s"number of bits used for order preserving ($getPreserveOrderNumBits) must be less than 30")
-      val maxFeaturesForOrdering = 1 << getPreserveOrderNumBits
       val inputColsList = getAllInputCols
       val namespaceHash: Int = VowpalWabbitMurmur.hash(this.getOutputCol, this.getSeed)
       val fieldSubset = dataset.schema.fields
@@ -160,48 +207,9 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       val featurizers: Array[Featurizer] = fieldSubset.zipWithIndex
         .map { case (field, idx) => getFeaturizer(field.name, field.dataType, field.nullable, idx, namespaceHash) }
 
-      // TODO: list types - BinaryType, CalendarIntervalType, DateType, NullType, TimestampType
-
-      val mode = udf((r: Row) => {
-        val indices = mutable.ArrayBuilder.make[Int]
-        val values = mutable.ArrayBuilder.make[Double]
-
-        // educated guess on size
-        indices.sizeHint(featurizers.length)
-        values.sizeHint(featurizers.length)
-
-        // apply all featurizers
-        for (f <- featurizers)
-          if (!r.isNullAt(f.fieldIdx))
-            f.featurize(r, indices, values)
-
-        val indicesArray = indices.result
-        if (getPreserveOrderNumBits > 0) {
-          val idxPrefixBits = 30 - getPreserveOrderNumBits
-
-          if (indicesArray.length > maxFeaturesForOrdering)
-            throw new IllegalArgumentException(
-              s"Too many features ${indicesArray.length} for " +
-                s"number of bits used for order preserving ($getPreserveOrderNumBits)")
-
-          // prefix every feature index with a counter value; will be stripped when passing to VW
-          for (i <- indicesArray.indices) {
-            val idxPrefix = i << idxPrefixBits
-            indicesArray(i) = indicesArray(i) | idxPrefix
-          }
-        }
-
-        // if we use the highest order bits to preserve the ordering, the maximum index size is larger
-        val size = if (getPreserveOrderNumBits > 0) 1 << 30 else 1 << getNumBits
-
-        // sort by indices and remove duplicate values
-        // Warning:
-        //   - due to SparseVector limitations (which doesn't allow duplicates) we need filter
-        //   - VW command line allows for duplicate features with different values (just updates twice)
-        val (indicesSorted, valuesSorted) = VectorUtils.sortAndDistinct(indicesArray, values.result, getSumCollisions)
-
-        Vectors.sparse(size, indicesSorted, valuesSorted)
-      })
+      // TODO: list types
+      // BinaryType, CalendarIntervalType, DateType, NullType, TimestampType
+      val mode = udf(featurizeRow(featurizers))
 
       dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
     })
@@ -218,3 +226,5 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
     schema.add(StructField(getOutputCol, VectorType, nullable = true))
   }
 }
+
+object VowpalWabbitFeaturizer extends ComplexParamsReadable[VowpalWabbitFeaturizer]
