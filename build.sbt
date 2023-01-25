@@ -39,7 +39,8 @@ val dependencies = coreDependencies ++ extraDependencies
 
 def txt(e: Elem, label: String): String = "\"" + e.child.filter(_.label == label).flatMap(_.text).mkString + "\""
 
-val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajorVersion", "org.scala-lang")
+val omittedDeps = Set(s"spark-core_$scalaMajorVersion", s"spark-mllib_$scalaMajorVersion", "org.scala-lang",
+  "com.fasterxml.jackson.core:jackson-databind")
 // skip dependency elements with a scope
 
 def pomPostFunc(node: XmlNode): scala.xml.Node = {
