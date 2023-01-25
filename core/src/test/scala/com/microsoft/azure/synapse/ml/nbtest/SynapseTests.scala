@@ -44,11 +44,11 @@ class SynapseTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    //.filter(_.getAbsolutePath.contains("HyperParameterTuning"))
+    //.filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     //.filterNot(_.getAbsolutePath.contains("IsolationForest"))
     //.filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
     //.filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
-    //.filterNot(_.getAbsolutePath.contains("Interpretability"))
+    .filter(_.getAbsolutePath.contains("Interpretability"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
