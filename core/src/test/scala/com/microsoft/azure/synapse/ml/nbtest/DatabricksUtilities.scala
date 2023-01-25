@@ -65,7 +65,7 @@ object DatabricksUtilities {
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.12.0"))
+    Map("pypi" -> Map("package" -> "torchvision==0.12.0")),
     Map("pypi" -> Map("package" -> "transformers==4.15.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
   ).toJson.compactPrint
