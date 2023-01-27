@@ -60,8 +60,9 @@ example](../LightGBM%20-%20Overview).
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
-In python, you can use the properties as shown above, or in Scala use the
-fluent setters.
+In python, you can use property-value pairs, or in Scala use
+fluent setters. Examples of both are shown in this section.
+
 ```scala
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassifier
 val classifier = new LightGBMClassifier()
@@ -70,8 +71,8 @@ val classifier = new LightGBMClassifier()
 ```
 
 LightGBM has far more parameters than SynapseML exposes. For cases where you
-need to set some parameters that SyanpseML does not expose a setter for, use
-passThroughArgs. This is just a free string that you can use to add extra parameters
+need to set some parameters that SynapseML doesn't expose a setter for, use
+passThroughArgs. This argument is just a free string that you can use to add extra parameters
 to the command SynapseML sends to configure LightGBM.
 
 In python:
@@ -94,10 +95,10 @@ val classifier = new LightGBMClassifier()
 For formatting options and specific argument documentation, see
 [LightGBM docs](https://lightgbm.readthedocs.io/en/v3.3.2/Parameters.html). Some
 parameters SynapseML will set specifically for the Spark distributed environment and
-should not be changed. Some parameters are for cli mode only, and will not work within
-Spark.
+shouldn't be changed. Some parameters are for CLI mode only, and won't work within
+Spark. 
 
-Note that you can mix passThroughArgs and explicit args, as shown above. SynapseML will
+You can mix passThroughArgs and explicit args, as shown in the example. SynapseML will
 merge them to create one argument string to send to LightGBM. If you set a parameter in
 both places, the passThroughArgs will take precedence.
 
@@ -121,7 +122,7 @@ and can be tuned with [SparkML's cross
 validators](https://spark.apache.org/docs/latest/ml-tuning.html).
 
 Models built can be saved as SparkML pipeline with native LightGBM model
-using `saveNativeModel()`. Additionally, they are fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
+using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
@@ -129,9 +130,9 @@ can be converted to PMML format through the
 
 By default LightGBM uses regular spark paradigm for launching tasks and communicates with the driver to coordinate task execution.
 The driver thread aggregates all task host:port information and then communicates the full list back to the workers in order for NetworkInit to be called.
-This requires the driver to know how many tasks there are, and if the expected number of tasks is different from actual this will cause the initialization to deadlock.
-There is a new UseBarrierExecutionMode flag, which when activated uses the barrier() stage to block all tasks.
-The barrier execution mode simplifies the logic to aggregate host:port information across all tasks.
+This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number will cause the initialization to deadlock.
+To avoid this issue, use the `UseBarrierExecutionMode` flag, to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
+Barrier execution mode simplifies the logic to aggregate `host:port` information across all tasks.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
 
     val lgbm = new LightGBMClassifier()

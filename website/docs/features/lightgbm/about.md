@@ -60,7 +60,7 @@ example](../LightGBM%20-%20Overview).
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
-In python, you can use the property-value pairs, or in Scala use the
+In python, you can use property-value pairs, or in Scala use
 fluent setters. Examples of both are shown in this section.
 
 ```scala
@@ -168,7 +168,7 @@ You can explicitly specify Execution Mode and MicroBatch size as parameters.
 
 By default LightGBM uses regular spark paradigm for launching tasks and communicates with the driver to coordinate task execution.
 The driver thread aggregates all task host:port information and then communicates the full list back to the workers in order for NetworkInit to be called.
-This procedure requires the driver to know how many tasks there are, and if the expected number of tasks is different from actual it will cause the initialization to deadlock.
+This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number will cause the initialization to deadlock.
 To avoid this issue, use the `UseBarrierExecutionMode` flag, to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
 Barrier execution mode simplifies the logic to aggregate `host:port` information across all tasks.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
