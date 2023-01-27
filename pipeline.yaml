@@ -33,20 +33,16 @@ schedules:
 parameters:
   - name: runSynapseExtensionE2ETests
     displayName: Run Synapse Extension E2E Tests
-    type: bool
+    type: boolean
     default: false
-    values:
-      - windows-latest
-      - ubuntu-latest
-      - macOS-latest
   - name: SYNAPSE_ENVIRONMENT
-      displayName: Synapse Extension E2E Test Environment
-      type: string
-      default: weekly
-      values:
-        - dev
-        - daily
-        - weekly
+    displayName: Synapse Extension E2E Test Environment
+    type: string
+    default: weekly
+    values:
+      - dev
+      - daily
+      - weekly
 
 variables:
   runTests: True
