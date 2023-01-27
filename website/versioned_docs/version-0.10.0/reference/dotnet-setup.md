@@ -20,9 +20,9 @@ To start building .NET apps, you need to download and install the .NET SDK (Soft
 Download and install the [.NET Core SDK](https://dotnet.microsoft.com/en-us/download/dotnet/3.1).
 Installing the SDK adds the dotnet toolchain to your PATH.
 
-Once you've installed the .NET Core SDK, open a new command prompt or terminal and run `dotnet`.
+Once you've installed the .NET Core SDK, open a new command prompt or terminal. Then run `dotnet`.
 
-If the command runs and prints out information about how to use dotnet, can move to the next step.
+If the command runs and prints information about how to use dotnet, you can move to the next step.
 If you receive a `'dotnet' is not recognized as an internal or external command` error, make sure
 you opened a new command prompt or terminal before running the command.
 
@@ -82,7 +82,7 @@ Extract Microsoft.Spark.Worker and remember the location.
 [Download winutils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe).
 Then, copy WinUtils into C:\bin\spark-3.2.0-bin-hadoop3.2\bin.
 :::note
-If you are using a different version of Hadoop, which is annotated at the end of your Spark install folder name, select the version of WinUtils that's compatible with your version of Hadoop.
+If you're using a different version of Hadoop, select the version of WinUtils that's compatible with your version of Hadoop. You can see the Hadoop version at the end of your Spark install folder name.
 :::
 
 ### 6. Set DOTNET_WORKER_DIR and check dependencies
@@ -119,7 +119,7 @@ The `dotnet` command creates a new application of type console for you. The -o p
 named `SynapseMLApp` where your app is stored and populates it with the required files.
 The `cd SynapseMLApp` command changes the directory to the app directory you created.
 
-### 2. Install Nuget package
+### 2. Install NuGet package
 
 To use .NET for Apache Spark in an app, install the Microsoft.Spark package.
 In your command prompt or terminal, run the following command:
@@ -127,7 +127,7 @@ In your command prompt or terminal, run the following command:
 dotnet add package Microsoft.Spark --version 2.1.1
 ```
 :::note
-This tutorial uses Microsoft.Spark 2.1.1 version as SynapseML 0.10.0 depends on it.
+This tutorial uses Microsoft.Spark version 2.1.1 as SynapseML 0.10.0 depends on it.
 Change to corresponding version if necessary.
 :::
 
@@ -142,7 +142,7 @@ dotnet add package SynapseML.Cognitive --version 0.10.0
 The `dotnet nuget add` command adds SynapseML's resolver to the source, so that our package can be found.
 
 ### 3. Write your app
-Open Program.cs file in Visual Studio Code, or any text editor, and replace all of the code with the following:
+Open Program.cs in Visual Studio Code, or any text editor. Replace its contents with this code:
 ```csharp
 using System;
 using System.Collections.Generic;
@@ -206,9 +206,8 @@ Create a [TextSentiment](https://mmlspark.blob.core.windows.net/docs/0.10.0/dotn
 instance, set corresponding subscription key and other configurations. Then, apply transformation to the dataframe,
 which analyzes the sentiment based on each row, and stores result into output column.
 
-The result of the transformation is stored in another DataFrame. Note that at this point, no operations have taken place because
-.NET for Apache Spark lazily evaluates the data. It's not until the Show method is called to display the contents of the words
-transformed DataFrame to the console that the operations defined in the lines above execute. Once you no longer need the Spark
+The result of the transformation is stored in another DataFrame. At this point, no operations have taken place because
+.NET for Apache Spark lazily evaluates the data. The operation defined by the call to model.Transform doesn't execute until the Show method is called to display the contents of the transformed DataFrame to the console. Once you no longer need the Spark
 session, use the Stop method to stop your session.
 
 ### 4. Run your .NET App
@@ -216,7 +215,7 @@ Run the following command to build your application:
 ```powershell
 dotnet build
 ```
-Navigate to your build output directory (In windows for example you could run `cd bin\Debug\net5.0`).
+Navigate to your build output directory. For example, in Windows you could run `cd bin\Debug\net5.0`.
 Use the spark-submit command to submit your application to run on Apache Spark.
 ```powershell
 spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:0.10.0 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
@@ -224,7 +223,7 @@ spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.
 `--packages com.microsoft.azure:synapseml_2.12:0.10.0` specifies the dependency on synapseml_2.12 version 0.10.0;
 `microsoft-spark-3-2_2.12-2.1.1.jar` specifies Microsoft.Spark version 2.1.1 and Spark version 3.2
 :::note
-This command assumes you have downloaded Apache Spark and added it to your PATH environment variable to be able to use spark-submit.
+This command assumes you have downloaded Apache Spark and added it to your PATH environment variable so that you can use spark-submit.
 Otherwise, you'd have to use the full path (for example, C:\bin\apache-spark\bin\spark-submit or ~/spark/bin/spark-submit).
 :::
 

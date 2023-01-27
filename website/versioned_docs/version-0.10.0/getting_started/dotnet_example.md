@@ -5,19 +5,19 @@ description: A simple example about classification with LightGBMClassifier using
 ---
 
 :::note
-Make sure you have followed [.NET installation](../reference/dotnet-setup.md) guidance before jumping into below example.
+Make sure you have followed the guidance in [.NET installation](../reference/dotnet-setup.md) before jumping into this example.
 :::
 
 ## Classification with LightGBMClassifier
 
-Install nuget packages by running following command:
+Install NuGet packages by running following command:
 ```powershell
 dotnet add package Microsoft.Spark --version 2.1.1
 dotnet add package SynapseML.Lightgbm --version 0.10.0
 dotnet add package SynapseML.Core --version 0.10.0
 ```
 
-Update your main program's code with below:
+Use the following code in your main program file:
 ```csharp
 using System;
 using System.Collections.Generic;
@@ -89,12 +89,12 @@ namespace SynapseMLApp
 }
 ```
 
-Run `dotnet build` to build the project. Then nevigate to build output directory, and run following command:
+Run `dotnet build` to build the project. Then navigate to build output directory, and run following command:
 ```powershell
 spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:0.10.0,org.apache.hadoop:hadoop-azure:3.3.1 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
 ```
 :::note
-Here we added two packages, synapseml_2.12 for SynapseML's scala source, and hadoop-azure for supporting reading files from adls.
+Here we added two packages: synapseml_2.12 for SynapseML's scala source, and hadoop-azure to support reading files from ADLS.
 :::
 
 Expected output:
