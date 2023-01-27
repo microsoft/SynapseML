@@ -28,12 +28,12 @@ this process:
 
 -   Preferably, get started by tackling existing issues to get yourself acquainted
     with the library source and the process.
--   Open an issue, or comment on an existing issue to discuss your contribution
-    and design, to ensure your contribution is a good fit and doesn't duplicate
-    on-going work.
+-   To ensure your contribution is a good fit and doesn't duplicate
+    on-going work, open an issue or comment on an existing issue. In it, discuss
+    your contribution and design.
 -   Any algorithm you're planning to contribute should be well known and accepted
     for production use, and backed by research papers.
--   Algorithms should be highly scalable and suitable for very large datasets.
+-   Algorithms should be highly scalable and suitable for massive datasets.
 -   All contributions need to comply with the MIT License.  Contributors external
     to Microsoft need to sign CLA.
 
@@ -56,7 +56,7 @@ this process:
 -   Set up build environment.  Use a Linux machine or VM (we use Ubuntu, but other
     distros should work too).
 -   Test your code locally.
--   Add tests using ScalaTests — unit tests are required.
+-   Add tests using ScalaTests. Unit tests are required.
 -   A sample notebook is required as an end-to-end test.
 
 #### Implement documentation
@@ -71,11 +71,11 @@ this process:
 
 -   In most cases, you should squash your commits into one.
 -   Open a pull request, and link it to the discussion issue you created earlier.
--   An SynapseML core team member will trigger a build to test your changes.
+-   A SynapseML core team member will trigger a build to test your changes.
 -   Fix any build failures.  (The pull request will have comments from the build
     with useful links.)
 -   Wait for code reviews from core team members and others.
--   Fix issues found in code review and re-iterate.
+-   Fix issues found in code review and reiterate.
 
 #### Build and check-in
 

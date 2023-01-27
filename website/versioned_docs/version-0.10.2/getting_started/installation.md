@@ -43,7 +43,7 @@ installed via pip with `pip install pyspark`.
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            # Please use 0.10.2 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+            # Use 0.10.2 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
             .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.10.2") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
@@ -57,7 +57,7 @@ your `build.sbt`:
 
 ```scala
 resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-// Please use 0.10.2 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+// Use 0.10.2 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
 libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "0.10.2"
 
 ```
