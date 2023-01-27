@@ -89,7 +89,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 
 - For Spark 3.3 Pools:
 
-```json
+```bash
 %%configure -f
 {
   "name": "synapseml",
@@ -105,7 +105,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 
 - For Spark 3.2 Pools:
 
-```json
+```bash
 %%configure -f
 {
   "name": "synapseml",
@@ -121,7 +121,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 
 - For Spark 3.1 Pools:
 
-```json
+```bash
 %%configure -f
 {
   "name": "synapseml",
@@ -193,7 +193,7 @@ To install SynapseML from within a Jupyter notebook served by Apache Livy the fo
 
 Excluding certain packages from the library may be necessary due to current issues with Livy 0.5.
 
-```json
+```bash
 %%configure -f
 {
     "name": "synapseml",
@@ -216,8 +216,7 @@ docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/releas
 Navigate to <http://localhost:8888/> in your web browser to run the sample
 notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
-> To read the EULA for using the docker image, run \\
-> `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
+> To read the EULA for using the docker image, run `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
 
 ### R
 
