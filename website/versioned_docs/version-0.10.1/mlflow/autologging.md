@@ -17,8 +17,8 @@ For example:
 3. Call `mlflow.pyspark.ml.autolog()` before your training code to enable autologging for all supported models.
 
 Note:
-1. If you want to support autologging of additional PySpark models not in the log_model_allowlist file, you can add models to the file.
-2. If you've enabled autologging, then please don't write explicit `with mlflow.start_run()` as it might cause multiple runs for one single model or one run for multiple models.
+1. If you want to support autologging of PySpark models not present in the log_model_allowlist file, you can add such models to the file.
+2. If you've enabled autologging, then don't write explicit `with mlflow.start_run()` as it might cause multiple runs for one single model or one run for multiple models.
 
 
 ## Configuration process in Databricks as an example
@@ -29,7 +29,7 @@ Note:
 ```
 spark.mlflow.pysparkml.autolog.logModelAllowlistFile /dbfs/FileStore/PATH_TO_YOUR/log_model_allowlist.txt
 ```
-4. Run the following before your training code, you can also customize corresponding [parameters](https://www.mlflow.org/docs/latest/python_api/mlflow.pyspark.ml.html#mlflow.pyspark.ml.autolog) by passing arguments to `autolog`.
+4. Run the following call before your training code executes. You can also customize corresponding [parameters](https://www.mlflow.org/docs/latest/python_api/mlflow.pyspark.ml.html#mlflow.pyspark.ml.autolog) by passing arguments to `autolog`.
 ```
 mlflow.pyspark.ml.autolog()
 ```
@@ -78,5 +78,5 @@ test_df = spark.createDataFrame([
 display(cnnm.transform(test_df))
 ```
 
-This should log one run with a ConditionalKNNModel artifact and its parameters.
+This code should log one run with a ConditionalKNNModel artifact and its parameters.
 <img src="https://mmlspark.blob.core.windows.net/graphics/autologgingRunSample.png" width="1200" />

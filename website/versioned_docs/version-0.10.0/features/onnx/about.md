@@ -11,7 +11,7 @@ description: Learn how to use the ONNX model transformer to run inference for an
 
 [ONNX](https://onnx.ai/) is an open format to represent both deep learning and traditional machine learning models. With ONNX, AI developers can more easily move models between state-of-the-art tools and choose the combination that is best for them.
 
-SynapseML now includes a Spark transformer to bring an trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
+SynapseML now includes a Spark transformer to bring a trained ONNX model to Apache Spark, so you can run inference on your data with Spark's large-scale data processing power.
 
 ## Usage
 
@@ -23,7 +23,7 @@ SynapseML now includes a Spark transformer to bring an trained ONNX model to Apa
     val onnx = new ONNXModel().setModelLocation("/path/to/model.onnx")
     ```
 
-2. Use ONNX visualization tool (e.g. [Netron](https://netron.app/)) to inspect the ONNX model's input and output nodes.
+2. Use ONNX visualization tool (for example, [Netron](https://netron.app/)) to inspect the ONNX model's input and output nodes.
 
     ![Screenshot that illustrates an ONNX model's input and output nodes](https://mmlspark.blob.core.windows.net/graphics/ONNXModelInputsOutputs.png)
 
