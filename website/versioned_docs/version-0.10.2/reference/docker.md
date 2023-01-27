@@ -52,7 +52,7 @@ docker run -it --rm \
 ```
 
 In this example, backslashes are for readability; you
-can enter it as one long if you like.  In PowerShell, the `myfiles` local
+can enter the command as one long line if you like.  In PowerShell, the `myfiles` local
 path and line breaks looks a little different:
 
     docker run -it --rm `
@@ -169,8 +169,8 @@ When running in this mode, you can use
 
 Another useful `docker` command is `exec`, which runs a command in the context
 of an _existing_ active container.  To use it, you specify the container name
-and the command to run.  For example, with a detached container named my-synapseml,
-you can use
+and the command to run.  For example, with an already running detached container
+named my-synapseml, you can use
 
 ```bash
 docker exec -it my-synapseml bash
