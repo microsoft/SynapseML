@@ -23,7 +23,7 @@ can embed **any** web service into their SparkML models. In this vein, SynapseML
 SparkML transformers for a wide variety of [Azure Cognitive Services](https://azure.microsoft.com/en-us/services/cognitive-services/). For production grade deployment, the Spark Serving project enables high throughput,
 submillisecond latency web services, backed by your Spark cluster.
 
-SynapseML requires Scala 2.12, Spark 3.0+, and Python 3.6+.
+SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.8+.
 See the API documentation [for
 Scala](https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html#package) and [for
 PySpark](https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html).
