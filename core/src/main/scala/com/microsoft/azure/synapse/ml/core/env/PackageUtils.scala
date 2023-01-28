@@ -18,7 +18,6 @@ object PackageUtils {
 
   val PackageName = s"synapseml_$ScalaVersionSuffix"
   val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
-  private val BreezeCoordinate = "org.scalanlp:breeze_2.12:1.2"
   val PackageRepository: String = SparkMLRepository
 
   // If testing onnx package with snapshots repo, make sure to switch to using
@@ -29,6 +28,6 @@ object PackageUtils {
   private val OnnxProtobufRepository: String = SparkMLRepository
 
   // Note: this is also hardwired in core/src/main/dotnet/test/E2ETestUtils.cs AND website/doctest.py
-  val SparkMavenPackageList = Array(PackageMavenCoordinate, BreezeCoordinate).mkString(",")
+  val SparkMavenPackageList = PackageMavenCoordinate
   val SparkMavenRepositoryList = s"$PackageRepository"
 }
