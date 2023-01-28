@@ -28,6 +28,6 @@ object PackageUtils {
   private val OnnxProtobufRepository: String = SparkMLRepository
 
   // Note: this is also hardwired in core/src/main/dotnet/test/E2ETestUtils.cs AND website/doctest.py
-  val SparkMavenPackageList = PackageMavenCoordinate
+  val SparkMavenPackageList = s"$PackageMavenCoordinate"
   val SparkMavenRepositoryList = s"$PackageRepository"
 }
