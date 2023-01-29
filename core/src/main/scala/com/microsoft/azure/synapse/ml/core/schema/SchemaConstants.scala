@@ -18,6 +18,9 @@ object SchemaConstants {
   val MMLTag                    = "mml"      // MML metadata tag
   val MLlibTag                  = "ml_attr"  // MLlib metadata tag, see org.apache.spark.ml.attribute.AttributeKeys
 
+  val TreatmentResidualColumn   = "treatment_residual"
+  val OutcomeResidualColumn     = "outcome_residual"
+
   /** The following tags are used in Metadata representation of categorical data
     * do not change them or use them directly
     * (see org.apache.spark.ml.attribute.AttributeKeys for the first three)

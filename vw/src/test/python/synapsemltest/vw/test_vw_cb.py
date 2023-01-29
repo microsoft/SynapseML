@@ -207,7 +207,7 @@ class VowpalWabbitSpec(unittest.TestCase):
             .setPassThroughArgs("--cb_explore_adf --epsilon 0.2 --quiet")
             .setUseBarrierExecutionMode(False)
         )
-        estimator2.setInitialModel(model1)
+        estimator2.setInitialModel(model1.getNativeModel())
 
         estimator2.fit(featurized_data)
 

@@ -23,6 +23,13 @@ pr:
     - CODEOWNERS
     - .github
 
+schedules:
+  - cron: "0 0 * * *"
+    displayName: Daily midnight build
+    branches:
+      include:
+        - master
+
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
@@ -105,8 +112,8 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-      #synapse-INTERNAL:
-      #  TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
+      synapse-internal:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -590,6 +597,8 @@ jobs:
     matrix:
       automl:
         PACKAGE: "automl"
+      causal:
+        PACKAGE: "causal"
       geospatial:
         PACKAGE: "geospatial"
       onnx:
@@ -605,6 +614,9 @@ jobs:
         FLAKY: "true"
       form:
         PACKAGE: "cognitive.form"
+        FLAKY: "true"
+      language:
+        PACKAGE: "cognitive.language"
         FLAKY: "true"
       openai:
         PACKAGE: "cognitive.openai"

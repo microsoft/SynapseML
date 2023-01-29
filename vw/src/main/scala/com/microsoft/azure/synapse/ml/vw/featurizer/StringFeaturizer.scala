@@ -39,7 +39,7 @@ private[ml] class StringFeaturizer(override val fieldIdx: Int,
                 indices: mutable.ArrayBuilder[Int],
                 values: mutable.ArrayBuilder[Double]): Unit = {
 
-    if (value != null && !value.isEmpty) {
+    if (value != null && value.nonEmpty) {
       indices += mask & hasher.hash(value, namespaceHash)
       values += 1.0
     }

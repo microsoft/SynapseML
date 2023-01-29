@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.text
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.RootJsonFormat
 
+// scalastyle:off number.of.types
 // General Text Analytics Schemas
 
 case class TADocument(language: Option[String], id: String, text: String)
@@ -79,6 +80,8 @@ case class SentimentScore(positive: Double, neutral: Double, negative: Double)
 
 case class BinarySentimentScore(positive: Double, negative: Double)
 
+object BinarySentimentScore extends SparkBindings[BinarySentimentScore]
+
 case class SentimentRelation(ref: String, relationType: String)
 
 case class SentimentTarget(confidenceScores: BinarySentimentScore,
@@ -94,6 +97,8 @@ case class SentimentAssessment(confidenceScores: BinarySentimentScore,
                                text: Option[String],
                                sentiment: String,
                                isNegated: Boolean)
+
+object SentimentAssessment extends SparkBindings[SentimentAssessment]
 
 case class Sentence(text: Option[String],
                     sentiment: String,

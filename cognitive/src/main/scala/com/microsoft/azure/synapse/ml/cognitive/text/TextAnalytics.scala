@@ -105,11 +105,39 @@ trait TextAnalyticsBaseParams extends HasServiceParams with HasModelVersion {
 
 }
 
+trait TextAnalyticsAutoBatch extends TextAnalyticsInputParams {
+
+  protected def shouldAutoBatch(schema: StructType): Boolean = {
+    ($(text), get(language)) match {
+      case (Left(_), Some(Right(b))) =>
+        schema(b).dataType.isInstanceOf[StringType]
+      case (Left(_), None) =>
+        true
+      case (Right(a), Some(Right(b))) =>
+        (schema(a).dataType, schema(b).dataType) match {
+          case (_: StringType, _: StringType) => true
+          case (_: ArrayType, _: ArrayType) => false
+          case (_: StringType, _: ArrayType) | (_: ArrayType, _: StringType) =>
+            throw new IllegalArgumentException(s"Mismatched column types. " +
+              s"Both columns $a and $b need to be StringType (for auto batching)" +
+              s" or ArrayType(StringType) (for user batching)")
+          case _ =>
+            throw new IllegalArgumentException(s"Unknown column types. " +
+              s"Both columns $a and $b need to be StringType (for auto batching)" +
+              s" or ArrayType(StringType) (for user batching)")
+        }
+      case (Right(a), _) =>
+        schema(a).dataType.isInstanceOf[StringType]
+      case _ => false
+    }
+  }
+}
+
 private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with HasCognitiveServiceInput with HasInternalJsonOutputParser
     with HasSetLocation with HasBatchSize with TextAnalyticsBaseParams
-    with TextAnalyticsInputParams with HasSetLinkedService {
+    with TextAnalyticsAutoBatch with HasSetLinkedService {
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     throw new NotImplementedError("Text Analytics models use the " +
@@ -139,8 +167,7 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
       } else {
         import TAJSONFormat._
         val post = new HttpPost(prepareUrl(row))
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-        post.setHeader("Content-Type", "application/json")
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         val json = TARequest(makeDocuments(row)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
@@ -149,31 +176,6 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
   }
 
   setDefault(batchSize -> 10)
-
-  protected def shouldAutoBatch(schema: StructType): Boolean = {
-    ($(text), get(language)) match {
-      case (Left(_), Some(Right(b))) =>
-        schema(b).dataType.isInstanceOf[StringType]
-      case (Left(_), None) =>
-        true
-      case (Right(a), Some(Right(b))) =>
-        (schema(a).dataType, schema(b).dataType) match {
-          case (_: StringType, _: StringType) => true
-          case (_: ArrayType, _: ArrayType) => false
-          case (_: StringType, _: ArrayType) | (_: ArrayType, _: StringType) =>
-            throw new IllegalArgumentException(s"Mismatched column types. " +
-              s"Both columns $a and $b need to be StringType (for auto batching)" +
-              s" or ArrayType(StringType) (for user batching)")
-          case _ =>
-            throw new IllegalArgumentException(s"Unknown column types. " +
-              s"Both columns $a and $b need to be StringType (for auto batching)" +
-              s" or ArrayType(StringType) (for user batching)")
-        }
-      case (Right(a), _) =>
-        schema(a).dataType.isInstanceOf[StringType]
-      case _ => false
-    }
-  }
 
   protected def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
     Option(responseOpt).map { response =>
@@ -597,8 +599,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(u
         None
       } else {
         val post = new HttpPost(getUrl)
-        getValueOpt(row, subscriptionKey).foreach(post.setHeader("Ocp-Apim-Subscription-Key", _))
-        post.setHeader("Content-Type", "application/json")
+        addHeaders(post, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken), contentType(row))
         val tasks = TextAnalyzeTasks(
           entityRecognitionTasks = getTaskHelper(getIncludeEntityRecognition, getEntityRecognitionParams),
           entityLinkingTasks = getTaskHelper(getIncludeEntityLinking, getEntityLinkingParams),

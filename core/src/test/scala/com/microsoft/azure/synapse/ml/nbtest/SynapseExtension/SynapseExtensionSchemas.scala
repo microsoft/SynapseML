@@ -3,9 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 
+import java.time.LocalDateTime
+
 case class Artifact (
   objectId: String,
-  displayName: String
+  displayName: String,
+  lastUpdatedDate: LocalDateTime
 )
 
 case class SparkJobDefinitionExecutionResponse (

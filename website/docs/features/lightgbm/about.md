@@ -60,8 +60,8 @@ example](../LightGBM%20-%20Overview).
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
-In python, you can use the properties as shown above, or in Scala use the
-fluent setters.
+In python, you can use property-value pairs, or in Scala use
+fluent setters. Examples of both are shown in this section.
 
 ```scala
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassifier
@@ -71,8 +71,8 @@ val classifier = new LightGBMClassifier()
 ```
 
 LightGBM has far more parameters than SynapseML exposes. For cases where you
-need to set some parameters that SyanpseML does not expose a setter for, use
-passThroughArgs. This is just a free string that you can use to add extra parameters
+need to set some parameters that SynapseML doesn't expose a setter for, use
+passThroughArgs. This argument is just a free string that you can use to add extra parameters
 to the command SynapseML sends to configure LightGBM.
 
 In python:
@@ -95,10 +95,10 @@ val classifier = new LightGBMClassifier()
 For formatting options and specific argument documentation, see
 [LightGBM docs](https://lightgbm.readthedocs.io/en/v3.3.2/Parameters.html). Some
 parameters SynapseML will set specifically for the Spark distributed environment and
-should not be changed. Some parameters are for cli mode only, and will not work within
+shouldn't be changed. Some parameters are for CLI mode only, and won't work within
 Spark. 
 
-Note that you can mix passThroughArgs and explicit args, as shown above. SynapseML will
+You can mix passThroughArgs and explicit args, as shown in the example. SynapseML will
 merge them to create one argument string to send to LightGBM. If you set a parameter in
 both places, the passThroughArgs will take precedence.
 
@@ -122,17 +122,55 @@ and can be tuned with [SparkML's cross
 validators](https://spark.apache.org/docs/latest/ml-tuning.html).
 
 Models built can be saved as SparkML pipeline with native LightGBM model
-using `saveNativeModel()`. Additionally, they are fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
+using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
+
+### Execution Mode
+
+SynapseML must pass data from Spark partitions to LightGBM Datasets before turning over control to
+the native LightGBM execution code. Datasets can either be created per partition (useSingleDatasetMode=false), or
+per executor (useSingleDatasetMode=true). Generally, one Dataset per executor is more efficient since it reduces LightGBM network size and complexity during training or fitting. It also avoids using slow network protocols on partitions
+that are actually on the same executor node.
+
+SyanpseML has two modes, "streaming" and "bulk", that control how data is transferred from Spark to LightGBM.
+This mode doesn't affect training but can affect memory usage fit/transform time.
+
+#### Bulk Execution mode
+The "Bulk" mode requires accumulating all data in executor memory before creating Datasets. This mode can cause
+OOM errors for large data, especially since the data must be accumulated in its original double-format size.
+For now, "bulk" mode is the default since "streaming" is new, but SynapseML will eventually make streaming the default.
+
+#### Streaming Execution Mode
+The "streaming" execution mode uses new LightGBM APIs that don't require loading extra copies of the data into memory. In particular, data is passed directly
+from partitions to Datasets in small "micro-batches", similar to Spark streaming. The `microBatchSize` parameter controls the size of these micro-batches.
+Smaller micro-batch sizes reduce memory overhead, but larger sizes avoid overhead from repeatedly transferring data to the native layer. The default
+100, uses far less memory than bulk mode since only 100 rows of data will be loaded at a time. If your dataset has
+few columns, you can increase the batch size. Alternatively, if
+your dataset has a large number of columns you can decrease the micro-batch size to avoid OOM issues.
+
+These new streaming APIs in LightGBM are thread-safe, and allow all partitions in the same executor
+to push data into a shared Dataset in parallel. Because of this, streaming mode always uses the more efficient
+"useSingleDatasetMode=true", creating only one Dataset per executor.
+
+You can explicitly specify Execution Mode and MicroBatch size as parameters.
+
+    val lgbm = new LightGBMClassifier()
+        .setExecutionMode("streaming")
+        .setMicroBatchSize(100)
+        .setLabelCol(labelColumn)
+        .setObjective("binary")
+        .setUseBarrierExecutionMode(true)
+    ...
+    <train classifier>
 
 ### Barrier Execution Mode
 
 By default LightGBM uses regular spark paradigm for launching tasks and communicates with the driver to coordinate task execution.
 The driver thread aggregates all task host:port information and then communicates the full list back to the workers in order for NetworkInit to be called.
-This requires the driver to know how many tasks there are, and if the expected number of tasks is different from actual this will cause the initialization to deadlock.
-There is a new UseBarrierExecutionMode flag, which when activated uses the barrier() stage to block all tasks.
-The barrier execution mode simplifies the logic to aggregate host:port information across all tasks.
+This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number will cause the initialization to deadlock.
+To avoid this issue, use the `UseBarrierExecutionMode` flag, to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
+Barrier execution mode simplifies the logic to aggregate `host:port` information across all tasks.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
 
     val lgbm = new LightGBMClassifier()

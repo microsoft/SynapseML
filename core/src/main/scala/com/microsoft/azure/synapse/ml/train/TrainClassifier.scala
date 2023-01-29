@@ -55,14 +55,14 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
   /** Doc for model to run.
-    */
+   */
   override def modelDoc: String = "Classifier to run"
 
   /** Specifies whether to reindex the given label column.
-    * See class documentation for how this parameter interacts with specified labels.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with specified labels.
+   *
+   * @group param
+   */
   val reindexLabel = new BooleanParam(this, "reindexLabel", "Re-index the label column")
   setDefault(reindexLabel -> true)
 
@@ -73,10 +73,10 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
   /** Specifies the labels metadata on the column.
-    * See class documentation for how this parameter interacts with reindex labels parameter.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with reindex labels parameter.
+   *
+   * @group param
+   */
   val labels = new StringArrayParam(this, "labels", "Sorted label values on the labels column")
 
   /** @group getParam */
@@ -86,11 +86,11 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /** Optional parameter, specifies the name of the features column passed to the learner.
-    * Must have a unique name different from the input columns.
-    * By default, set to <uid>_features.
-    *
-    * @group param
-    */
+   * Must have a unique name different from the input columns.
+   * By default, set to <uid>_features.
+   *
+   * @group param
+   */
   setDefault(featuresCol, this.uid + "_features")
 
   /** Fits the classification model.
@@ -108,6 +108,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         } else {
           None
         }
+
       // Convert label column to categorical on train, remove rows with missing labels
       val (convertedLabelDataset, levels) = convertLabel(dataset, getLabelCol, labelValues)
 
@@ -154,11 +155,12 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
           numFeatures
         }
 
-      val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
+      val nonFeatureColumns = getLabelCol
+      val featureColumns = convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
-        .setInputCols(featureColumns.toArray)
+        .setInputCols(featureColumns)
         .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
         .setNumFeatures(featuresToHashTo)
       val featurizedModel = featurizer.fit(convertedLabelDataset)

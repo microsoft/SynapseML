@@ -4,17 +4,16 @@
 package com.microsoft.azure.synapse.ml.cognitive.anomaly
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
-import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import spray.json.{DefaultJsonProtocol, _}
 
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{OffsetDateTime, ZonedDateTime}
+import scala.collection.mutable.HashSet
 
 
 case class MADListModelsResponse(models: Seq[MADModel],
@@ -38,7 +37,6 @@ object MADListModelsProtocol extends DefaultJsonProtocol {
 
 trait StorageCredentials {
 
-  lazy val connectionString: String = sys.env.getOrElse("STORAGE_CONNECTION_STRING", Secrets.MADTestConnectionString)
   lazy val storageKey: String = sys.env.getOrElse("STORAGE_KEY", Secrets.MADTestStorageKey)
   lazy val storageAccount = "anomalydetectiontest"
   lazy val containerName = "madtest"
@@ -58,9 +56,9 @@ trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
 
 }
 
-class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomaly] with MADTestUtils {
+class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultivariateAnomaly] with MADTestUtils {
 
-  def simpleMultiAnomalyEstimator: FitMultivariateAnomaly = new FitMultivariateAnomaly()
+  def simpleMultiAnomalyEstimator: SimpleFitMultivariateAnomaly = new SimpleFitMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation(anomalyLocation)
     .setOutputCol("result")
@@ -70,39 +68,29 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
 
-  test("Blob client SAS Url generation is correct") {
-    val blobName = "intermediateData/some_file.zip"
-    val offset = OffsetDateTime.parse("2022-08-22T18:52:02.853001800-04:00")
-    val exampleSas = "sv=2020-10-02&se=2022-08-22T22%3A52%3A02Z&sr=b&sp=r&" +
-      "sig=QIl7NpjUhsWHXy5tt3WynqHSNEuhbS0qLmEzI9gUfa0%3D"
-
-    val sas1 = SlimStorageClient.generateReadSAS(
-      storageAccount, "madtest", blobName, storageKey, offset)
-    assert(exampleSas == sas1)
-  }
-
   test("SimpleMultiAnomalyEstimator basic usage") {
-    val smae = simpleMultiAnomalyEstimator
-      .setSlidingWindow(200)
+    val smae = simpleMultiAnomalyEstimator.setSlidingWindow(50)
     val model = smae.fit(df)
     smae.cleanUpIntermediateData()
-    assert(model.getDiagnosticsInfo.variableStates.get.length.equals(3))
 
-    val result = model
-      .setStartTime(startTime)
-      .setEndTime(endTime)
-      .setOutputCol("result")
-      .setTimestampCol(timestampColumn)
-      .setInputCols(inputColumns)
-      .transform(df)
-      .collect()
-    model.cleanUpIntermediateData()
-    assert(result.length == df.collect().length)
+    // model might not be ready
+    tryWithRetries(Array(100, 500, 1000)) { () =>
+      val result = model
+        .setStartTime(startTime)
+        .setEndTime(endTime)
+        .setOutputCol("result")
+        .setTimestampCol(timestampColumn)
+        .setInputCols(inputColumns)
+        .transform(df)
+        .collect()
+      model.cleanUpIntermediateData()
+      assert(result.length == df.collect().length)
+    }
   }
 
   test("Throw errors if alignMode is not set correctly") {
     val caught = intercept[IllegalArgumentException] {
-      simpleMultiAnomalyEstimator.setSlidingWindow(200).setAlignMode("alignMode").fit(df)
+      simpleMultiAnomalyEstimator.setAlignMode("alignMode").fit(df)
     }
     assert(caught.getMessage.contains("alignMode must be either `inner` or `outer`."))
   }
@@ -116,7 +104,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   test("Throw errors if authentication is not provided") {
     val caught = intercept[IllegalAccessError] {
-      new FitMultivariateAnomaly()
+      new SimpleFitMultivariateAnomaly()
         .setSubscriptionKey(anomalyKey)
         .setLocation(anomalyLocation)
         .setIntermediateSaveDir(s"wasbs://$containerName@notreal.blob.core.windows.net/intermediateData")
@@ -131,7 +119,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     val caught = intercept[IllegalArgumentException] {
       val smae = simpleMultiAnomalyEstimator
         .setStartTime("2021-01-01 00:00:00")
-        .setSlidingWindow(200)
       smae.fit(df)
     }
     assert(caught.getMessage.contains("StartTime should be ISO8601 format."))
@@ -139,7 +126,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     val caught2 = intercept[IllegalArgumentException] {
       val smae = simpleMultiAnomalyEstimator
         .setEndTime("2021-01-01 00:00:00")
-        .setSlidingWindow(200)
       smae.fit(df)
     }
     assert(caught2.getMessage.contains("EndTime should be ISO8601 format."))
@@ -149,7 +135,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     val caught = intercept[RuntimeException] {
       val testDf = df.limit(50)
       simpleMultiAnomalyEstimator
-        .setSlidingWindow(200)
         .fit(testDf)
     }
     assert(caught.getMessage.contains("TrainFailed"))
@@ -159,10 +144,8 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     val caught = intercept[RuntimeException] {
       val testDf = df.limit(50)
       val smae = simpleMultiAnomalyEstimator
-        .setSlidingWindow(200)
       val model = smae.fit(df)
       smae.cleanUpIntermediateData()
-      assert(model.getDiagnosticsInfo.variableStates.get.length.equals(3))
 
       model.setStartTime(startTime)
         .setEndTime(endTime)
@@ -177,7 +160,7 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   test("Expose correct error message for invalid modelId") {
     val caught = intercept[RuntimeException] {
-      val detectMultivariateAnomaly = new DetectMultivariateAnomaly()
+      val detectMultivariateAnomaly = new SimpleDetectMultivariateAnomaly()
         .setModelId("FAKE_MODEL_ID")
         .setSubscriptionKey(anomalyKey)
         .setLocation(anomalyLocation)
@@ -198,7 +181,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     val caught = intercept[RuntimeException] {
       val smae = simpleMultiAnomalyEstimator
         .setMaxPollingRetries(1)
-        .setSlidingWindow(200)
       val model = smae.fit(df)
       smae.cleanUpIntermediateData()
 
@@ -214,11 +196,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     assert(caught.getMessage.contains("not ready yet"))
   }
 
-  override def getterSetterParamExamples(p: FitMultivariateAnomaly): Map[Param[_],Any] = Map(
-    (p.alignMode,  "Inner"),
-    (p.fillNAMethod,  "Zero")
-  )
-
   override def testSerialization(): Unit = {
     println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
   }
@@ -229,7 +206,6 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
 
   override def afterAll(): Unit = {
     MADUtils.cleanUpAllModels(anomalyKey, anomalyLocation)
-    cleanOldModels()
     super.afterAll()
   }
 
@@ -240,9 +216,10 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
     hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
       "org.apache.hadoop.fs.azure.SimpleKeyProvider")
     hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
+    cleanOldModels()
   }
 
-  override def testObjects(): Seq[TestObject[FitMultivariateAnomaly]] =
+  override def testObjects(): Seq[TestObject[SimpleFitMultivariateAnomaly]] =
     Seq(new TestObject(simpleMultiAnomalyEstimator.setSlidingWindow(200), df))
 
   def stringToTime(dateString: String): ZonedDateTime = {
@@ -254,22 +231,35 @@ class FitMultivariateAnomalySuite extends EstimatorFuzzing[FitMultivariateAnomal
   def cleanOldModels(): Unit = {
     val url = simpleMultiAnomalyEstimator.setLocation(anomalyLocation).getUrl + "/"
     val twoDaysAgo = ZonedDateTime.now().minusDays(2)
+    val modelSet: HashSet[String] = HashSet()
+    var modelDeleted: Boolean = false
 
-    val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
-      .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
-      .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
-
-    models.foreach { modelId =>
-      val lastUpdated = MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
-      val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
-      if (lastUpdatedTime.isBefore(twoDaysAgo)) {
-        println(s"Deleting $modelId")
-        MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
+    // madListModels doesn't necessarily return all models, so just in case,
+    // if we delete any models, we loop around to see if there are more to check.
+    // scalastyle:off while
+    do {
+      modelDeleted = false
+      val models = MADUtils.madListModels(anomalyKey, anomalyLocation)
+        .parseJson.asJsObject().fields("models").asInstanceOf[JsArray].elements
+        .map(modelJson => modelJson.asJsObject.fields("modelId").asInstanceOf[JsString].value)
+      models.foreach { modelId =>
+        if (!modelSet.contains(modelId)) {
+          modelSet += modelId
+          val lastUpdated =
+            MADUtils.madGetModel(url, modelId, anomalyKey).parseJson.asJsObject.fields("lastUpdatedTime")
+          val lastUpdatedTime = stringToTime(lastUpdated.toString().replaceAll("\"", ""))
+          if (lastUpdatedTime.isBefore(twoDaysAgo)) {
+            println(s"Deleting $modelId")
+            MADUtils.madDelete(modelId, anomalyKey, anomalyLocation)
+            modelDeleted = true
+          }
+        }
       }
-    }
+    } while (modelDeleted)
+    // scalastyle:on while
   }
 
-  override def reader: MLReadable[_] = FitMultivariateAnomaly
+  override def reader: MLReadable[_] = SimpleFitMultivariateAnomaly
 
-  override def modelReader: MLReadable[_] = DetectMultivariateAnomaly
+  override def modelReader: MLReadable[_] = SimpleDetectMultivariateAnomaly
 }

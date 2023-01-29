@@ -11,7 +11,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.array
-import org.apache.spark.sql.types.{ArrayType, StructType};
+import org.apache.spark.sql.types.{ArrayType, StructType}
 
 object VectorZipper extends ComplexParamsReadable[VectorZipper]
 

@@ -64,7 +64,7 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2021-12-10.tgz"
+val datasetName = "datasets-2022-08-09.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -105,7 +105,7 @@ rootGenDir := {
 }
 
 // scalastyle:off line.size.limit
-val genSleetConfig = TaskKey[Unit]("genSleetConfig",
+val genSleetConfig = TaskKey[File]("genSleetConfig",
   "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
 genSleetConfig := {
   val fileContent =
@@ -125,13 +125,13 @@ genSleetConfig := {
   val sleetJsonFile = join(rootGenDir.value, "sleet.json")
   if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
   FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+  sleetJsonFile
 }
 // scalastyle:on line.size.limit
 
 val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
   "generate dotnet test helper file with current library version and publish E2E test base")
 publishDotnetTestBase := {
-  genSleetConfig.value
   val fileContent =
     s"""// Licensed to the .NET Foundation under one or more agreements.
        |// The .NET Foundation licenses this file to you under the MIT license.
@@ -204,7 +204,7 @@ publishDotnetTestBase := {
   packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir,
     "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
-  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
+  publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
@@ -382,7 +382,7 @@ val settings = Seq(
 ThisBuild / publishMavenStyle := true
 
 lazy val core = (project in file("core"))
-  .enablePlugins(BuildInfoPlugin && SbtPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
     libraryDependencies ++= dependencies,
     buildInfoKeys ++= Seq[BuildInfoKey](
@@ -397,7 +397,6 @@ lazy val core = (project in file("core"))
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
@@ -408,7 +407,6 @@ lazy val deepLearning = (project in file("deep-learning"))
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
@@ -416,15 +414,13 @@ lazy val lightgbm = (project in file("lightgbm"))
   ): _*)
 
 lazy val vw = (project in file("vw"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
+    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.3.0"),
     name := "synapseml-vw"
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
@@ -436,7 +432,6 @@ lazy val cognitive = (project in file("cognitive"))
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
@@ -452,7 +447,7 @@ lazy val root = (project in file("."))
     vw % "test->test;compile->compile",
     lightgbm % "test->test;compile->compile",
     opencv % "test->test;compile->compile")
-  .enablePlugins(ScalaUnidocPlugin && SbtPlugin)
+  .enablePlugins(ScalaUnidocPlugin)
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
