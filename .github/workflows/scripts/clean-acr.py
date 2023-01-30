@@ -33,6 +33,7 @@ kvUri = f"https://{keyvaultName}.vault.azure.net"
 kvClient = SecretClient(vault_url=kvUri, credential=DefaultAzureCredential())
 conn_string = kvClient.get_secret(secretName).value
 
+
 def retry_command(command, tries):
     delay = 5
     for i in range(tries):
