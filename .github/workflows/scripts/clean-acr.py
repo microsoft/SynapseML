@@ -2,6 +2,7 @@ import os
 import json
 from azure.storage.blob import BlobClient
 import sys
+import time
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 
@@ -32,6 +33,19 @@ kvUri = f"https://{keyvaultName}.vault.azure.net"
 kvClient = SecretClient(vault_url=kvUri, credential=DefaultAzureCredential())
 conn_string = kvClient.get_secret(secretName).value
 
+def retry_command(command, tries):
+    delay = 5
+    for i in range(tries):
+        result = os.system(cmd)
+        if result == 0:
+            break
+        print(f"Command '{command}' failed. Retrying after {delay} seconds")
+        time.sleep(delay)
+        delay = delay * 3
+
+    return result
+
+
 os.system("az extension add --name acrtransfer")
 
 repos = json.loads(os.popen(f"az acr repository list -n {acr}").read())
@@ -51,10 +65,10 @@ for repo in repos:
         ).exists()
         if not backup_exists:
             cmd = (
-                f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} "
-                + f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
+                    f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} "
+                    + f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
             )
-            result = os.system(cmd)
+            result = retry_command(cmd, 5)
             assert result == 0
             print(f"Transferred {target_blob}")
         else:
@@ -65,7 +79,6 @@ for repo in repos:
         ).exists()
         if backup_exists:
             print(f"Deleting {image}")
-            result = os.system(
-                f"az acr repository delete --name {acr} --image {image} --yes"
-            )
+            cmd = f"az acr repository delete --name {acr} --image {image} --yes"
+            result = retry_command(cmd, 5)
             assert result == 0
