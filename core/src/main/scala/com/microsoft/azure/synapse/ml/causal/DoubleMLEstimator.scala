@@ -25,6 +25,9 @@ import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongTyp
 
 import scala.concurrent.Future
 
+// scalastyle:off method.length
+// scalastyle:off cyclomatic.complexity
+
 /** Double ML estimators. The estimator follows the two stage process,
  *  where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
  *  and a final stage estimates the average treatment effect (ATE) model.
@@ -74,7 +77,8 @@ class DoubleMLEstimator(override val uid: String)
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
       val treatmentColType = dataset.schema(getTreatmentCol).dataType
-      require(treatmentColType == DoubleType || treatmentColType == LongType || treatmentColType == IntegerType || treatmentColType == BooleanType,
+      require(treatmentColType == DoubleType || treatmentColType == LongType
+        || treatmentColType == IntegerType || treatmentColType == BooleanType,
         s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
 
       if (get(weightCol).isDefined) {
