@@ -77,7 +77,7 @@ and can be tuned with [SparkML's cross
 validators](https://spark.apache.org/docs/latest/ml-tuning.html).
 
 Models built can be saved as SparkML pipeline with native LightGBM model
-using `saveNativeModel()`. Additionally, they are fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
+using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](https://en.wikipedia.org/wiki/Predictive_Model_Markup_Language) and
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
@@ -85,9 +85,9 @@ can be converted to PMML format through the
 
 By default LightGBM uses regular spark paradigm for launching tasks and communicates with the driver to coordinate task execution.
 The driver thread aggregates all task host:port information and then communicates the full list back to the workers in order for NetworkInit to be called.
-This requires the driver to know how many tasks there are, and if the expected number of tasks is different from actual this will cause the initialization to deadlock.
-There is a new UseBarrierExecutionMode flag, which when activated uses the barrier() stage to block all tasks.
-The barrier execution mode simplifies the logic to aggregate host:port information across all tasks.
+This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number will cause the initialization to deadlock.
+To avoid this issue, use the `UseBarrierExecutionMode` flag, to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
+Barrier execution mode simplifies the logic to aggregate `host:port` information across all tasks.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
 
     val lgbm = new LightGBMClassifier()

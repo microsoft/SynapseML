@@ -8,41 +8,60 @@ With SynapseML, you can build scalable and intelligent systems to solve challeng
 
 SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
 
-| Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Build   | [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)                                                                                                                                 |
-| Version | [![Version](https://img.shields.io/badge/version-0.10.2-blue)](https://github.com/Microsoft/SynapseML/releases) [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)                                                                                                                                      |
+| Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Build   | [![Build Status](https://msdata.visualstudio.com/A365/_apis/build/status/microsoft.SynapseML?branchName=master)](https://msdata.visualstudio.com/A365/_build/latest?definitionId=17563&branchName=master) [![codecov](https://codecov.io/gh/Microsoft/SynapseML/branch/master/graph/badge.svg)](https://codecov.io/gh/Microsoft/SynapseML) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)                     |
+| Version | [![Version](https://img.shields.io/badge/version-0.10.2-blue)](https://github.com/Microsoft/SynapseML/releases) [![Release Notes](https://img.shields.io/badge/release-notes-blue)](https://github.com/Microsoft/SynapseML/releases) [![Snapshot Version](https://mmlspark.blob.core.windows.net/icons/badges/master_version3.svg)](#sbt)                                                                                                                                       |
 | Docs    | [![Scala Docs](https://img.shields.io/static/v1?label=api%20docs&message=scala&color=blue&logo=scala)](https://mmlspark.blob.core.windows.net/docs/0.10.2/scala/index.html#package) [![PySpark Docs](https://img.shields.io/static/v1?label=api%20docs&message=python&color=blue&logo=python)](https://mmlspark.blob.core.windows.net/docs/0.10.2/pyspark/index.html) [![Academic Paper](https://img.shields.io/badge/academic-paper-7fdcf7)](https://arxiv.org/abs/1810.08744) |
-| Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                |
-| Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/v0.10.2?labpath=notebooks%2Ffeatures) |
+| Support | [![Gitter](https://badges.gitter.im/Microsoft/MMLSpark.svg)](https://gitter.im/Microsoft/MMLSpark?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Mail](https://img.shields.io/badge/mail-synapseml--support-brightgreen)](mailto:synapseml-support@microsoft.com)                                                                                                                                                                                                  |
+| Binder  | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/microsoft/SynapseML/v0.10.2?labpath=notebooks%2Ffeatures)                                                                                                                                                                                                                                                                                                                                           |
 
-<summary><strong><em>Table of Contents</em></strong></summary>
+<!-- markdownlint-disable MD033 -->
+<details open>
+<summary>
+<strong><em>Table of Contents</em></strong>
+</summary>
 
--   [Features](#features)
--   [Documentation](#documentation-and-examples)
--   [Setup and installation](#setup-and-installation)
--   [Publications](#papers)
--   [Learn More](#learn-more)
--   [Contributing & feedback](#contributing--feedback)
--   [Other relevant projects](#other-relevant-projects)
+- [Synapse Machine Learning](#synapse-machine-learning)
+  - [Features](#features)
+  - [Documentation and Examples](#documentation-and-examples)
+  - [Setup and installation](#setup-and-installation)
+    - [Synapse Analytics](#synapse-analytics)
+    - [Databricks](#databricks)
+    - [Python Standalone](#python-standalone)
+    - [Spark Submit](#spark-submit)
+    - [SBT](#sbt)
+    - [Apache Livy and HDInsight](#apache-livy-and-hdinsight)
+    - [Docker](#docker)
+    - [R](#r)
+    - [C# (.NET)](#c-net)
+    - [Building from source](#building-from-source)
+  - [Papers](#papers)
+  - [Learn More](#learn-more)
+  - [Contributing \& feedback](#contributing--feedback)
+  - [Other relevant projects](#other-relevant-projects)
 
+</details>
+<!-- markdownlint-enable MD033 -->
 
 ## Features
 
-|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
-|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
-| [**Vowpal Wabbit on Spark**](https://microsoft.github.io/SynapseML/docs/features/vw/about/)  | [**The Cognitive Services for Big Data**](https://microsoft.github.io/SynapseML/docs/features/cognitive_services/CognitiveServices%20-%20Overview/)| [**LightGBM on Spark**](https://microsoft.github.io/SynapseML/docs/features/lightgbm/about/) |  [**Spark Serving**](https://microsoft.github.io/SynapseML/docs/features/spark_serving/about/) |
-| Fast, Sparse, and Effective Text Analytics | Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines | Train Gradient Boosted Machines with LightGBM   | Serve any Spark Computation as a Web Service with Sub-Millisecond Latency |
+<!-- markdownlint-disable MD033 -->
+| <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/vw-blue-dark-orange.svg"> |                     <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/cog_services_on_spark_2.svg">                     | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/decision_tree_recolor.png"> | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/mmlspark_serving_recolor.svg"> |
+| :----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+|      [**Vowpal Wabbit on Spark**](https://microsoft.github.io/SynapseML/docs/features/vw/about/)       | [**The Cognitive Services for Big Data**](https://microsoft.github.io/SynapseML/docs/features/cognitive_services/CognitiveServices%20-%20Overview/) |       [**LightGBM on Spark**](https://microsoft.github.io/SynapseML/docs/features/lightgbm/about/)        |        [**Spark Serving**](https://microsoft.github.io/SynapseML/docs/features/spark_serving/about/)        |
+|                               Fast, Sparse, and Effective Text Analytics                               |                        Leverage the Microsoft Cognitive Services at Unprecedented Scales in your existing SparkML pipelines                         |                               Train Gradient Boosted Machines with LightGBM                               |                  Serve any Spark Computation as a Web Service with Sub-Millisecond Latency                  |
 
-|<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png"> |<img width="800" src="https://mmlspark.blob.core.windows.net/graphics/emails/onnxai-ar21_crop.svg"> | <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/emails/scales.svg">|  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png"> |
-|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
-|  [**HTTP on Spark**](https://microsoft.github.io/SynapseML/docs/features/cognitive_services/CognitiveServices%20-%20Overview/#arbitrary-web-apis) | [**ONNX on Spark**](https://microsoft.github.io/SynapseML/docs/features/onnx/about/) |  [**Responsible AI**](https://microsoft.github.io/SynapseML/docs/features/responsible_ai/Model%20Interpretation%20on%20Spark/)| [**Spark Binding Autogeneration**](https://microsoft.github.io/SynapseML/docs/reference/developer-readme/#packagepython) |
-| An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration| Distributed and Hardware Accelerated Model Inference on Spark | Understand Opaque-box Models and Measure Dataset Biases | Automatically Generate Spark bindings for PySpark and SparklyR|
+|                     <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/Readme/microservice_recolor.png">                      | <img width="800" src="https://mmlspark.blob.core.windows.net/graphics/emails/onnxai-ar21_crop.svg"> |                  <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/emails/scales.svg">                   |               <img width="800"  src="https://mmlspark.blob.core.windows.net/graphics/Readme/bindings.png">               |
+| :----------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------: |
+| [**HTTP on Spark**](https://microsoft.github.io/SynapseML/docs/features/cognitive_services/CognitiveServices%20-%20Overview/#arbitrary-web-apis) |        [**ONNX on Spark**](https://microsoft.github.io/SynapseML/docs/features/onnx/about/)         | [**Responsible AI**](https://microsoft.github.io/SynapseML/docs/features/responsible_ai/Model%20Interpretation%20on%20Spark/) | [**Spark Binding Autogeneration**](https://microsoft.github.io/SynapseML/docs/reference/developer-readme/#packagepython) |
+|                       An Integration Between Spark and the HTTP Protocol, enabling Distributed Microservice Orchestration                        |                    Distributed and Hardware Accelerated Model Inference on Spark                    |                                    Understand Opaque-box Models and Measure Dataset Biases                                    |                              Automatically Generate Spark bindings for PySpark and SparklyR                              |
 
-| <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg"> | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">   | <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">  |
-|:---:|:---:|:---:|
-|  [**Isolation Forest on Spark**](https://microsoft.github.io/SynapseML/docs/documentation/estimators/estimators_core/#isolationforest)  | [**CyberML**](https://github.com/microsoft/SynapseML/blob/master/notebooks/features/other/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | [**Conditional KNN**](https://microsoft.github.io/SynapseML/docs/features/other/ConditionalKNN%20-%20Exploring%20Art%20Across%20Cultures/)  |
-|  Distributed Nonlinear Outlier Detection | Machine Learning Tools for Cyber Security | Scalable KNN Models with Conditional Queries |
+|                 <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/isolation forest 3.svg">                 |                          <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/cyberml.svg">                           |                     <img width="150" src="https://mmlspark.blob.core.windows.net/graphics/emails/conditional_knn.svg">                     |
+| :-----------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------: |
+| [**Isolation Forest on Spark**](https://microsoft.github.io/SynapseML/docs/documentation/estimators/estimators_core/#isolationforest) | [**CyberML**](https://github.com/microsoft/SynapseML/blob/master/notebooks/features/other/CyberML%20-%20Anomalous%20Access%20Detection.ipynb) | [**Conditional KNN**](https://microsoft.github.io/SynapseML/docs/features/other/ConditionalKNN%20-%20Exploring%20Art%20Across%20Cultures/) |
+|                                                Distributed Nonlinear Outlier Detection                                                |                                                   Machine Learning Tools for Cyber Security                                                   |                                                Scalable KNN Models with Conditional Queries                                                |
+<!-- markdownlint-enable MD033 -->
 
 ## Documentation and Examples
 
@@ -52,25 +71,25 @@ For quickstarts, documentation, demos, and examples please see our [website](htt
 
 First select the correct platform that you are installing SynapseML into:
 <!--ts-->
-   * [Synapse Analytics](#synapse-analytics)
-   * [Databricks](#databricks)
-   * [Python Standalone](#python-standalone)
-   * [Spark Submit](#spark-submit)
-   * [SBT](#sbt)
-   * [Apachy Livy and HDInsight](#apache-livy-and-hdinsight)
-   * [Docker](#docker)
-   * [R](#r)
-   * [Building from Source](#building-from-source)
+- [Synapse Analytics](#synapse-analytics)
+- [Databricks](#databricks)
+- [Python Standalone](#python-standalone)
+- [Spark Submit](#spark-submit)
+- [SBT](#sbt)
+- [Apache Livy and HDInsight](#apache-livy-and-hdinsight)
+- [Docker](#docker)
+- [R](#r)
+- [C# (.NET)](#c-net)
+- [Building from source](#building-from-source)
 <!--te-->
-
 
 ### Synapse Analytics
 
 In Azure Synapse notebooks please place the following in the first cell of your notebook.
 
-For Spark 3.2 Pools:
+- For Spark 3.2 Pools:
 
-```
+```bash
 %%configure -f
 {
   "name": "synapseml",
@@ -78,14 +97,15 @@ For Spark 3.2 Pools:
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.2",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true"
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
   }
 }
 ```
 
-For Spark 3.1 Pools:
+- For Spark 3.1 Pools:
 
-```
+```bash
 %%configure -f
 {
   "name": "synapseml",
@@ -157,7 +177,7 @@ To install SynapseML from within a Jupyter notebook served by Apache Livy the fo
 
 Excluding certain packages from the library may be necessary due to current issues with Livy 0.5.
 
-```
+```bash
 %%configure -f
 {
     "name": "synapseml",
@@ -167,7 +187,6 @@ Excluding certain packages from the library may be necessary due to current issu
     }
 }
 ```
-
 
 ### Docker
 
@@ -181,8 +200,7 @@ docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/releas
 Navigate to <http://localhost:8888/> in your web browser to run the sample
 notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
 
-> To read the EULA for using the docker image, run \\
-> `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
+> To read the EULA for using the docker image, run `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
 
 ### R
 
@@ -217,15 +235,15 @@ better integrate with intellij and SBT.
 
 ## Learn More
 
--   Visit our [website].
+- Visit our [website].
 
--   Watch our keynote demos at [the Spark+AI Summit 2019], [the Spark+AI European Summit 2018], and [the Spark+AI Summit 2018].
+- Watch our keynote demos at [the Spark+AI Summit 2019], [the Spark+AI European Summit 2018], [the Spark+AI Summit 2018] and [SynapseML at the Spark Summit].
 
--   See how SynapseML is used to [help endangered species].
+- See how SynapseML is used to [help endangered species].
 
--   Explore generative adversarial artwork in [our collaboration with The MET and MIT].
+- Explore generative adversarial artwork in [our collaboration with The MET and MIT].
 
--   Explore [our collaboration with Apache Spark] on image analysis.
+- Explore [our collaboration with Apache Spark] on image analysis.
 
 [website]: https://microsoft.github.io/SynapseML/ "aka.ms/spark"
 
@@ -260,20 +278,17 @@ To give feedback and/or report an issue, open a [GitHub
 Issue](https://help.github.com/articles/creating-an-issue/).
 
 ## Other relevant projects
--   [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit)
 
--   [LightGBM](https://github.com/Microsoft/LightGBM)
+- [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit)
 
--   [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
+- [LightGBM](https://github.com/Microsoft/LightGBM)
 
--   [Recommenders](https://github.com/Microsoft/Recommenders)
+- [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
 
--   [JPMML-SparkML plugin for converting SynapseML LightGBM models to
-    PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
+- [Recommenders](https://github.com/Microsoft/Recommenders)
 
--   [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
+- [JPMML-SparkML plugin for converting SynapseML LightGBM models to PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
 
+- [Microsoft Cognitive Toolkit](https://github.com/Microsoft/CNTK)
 
-_Apache®, Apache Spark, and Spark® are either registered trademarks or
-trademarks of the Apache Software Foundation in the United States and/or other
-countries._
+_Apache®, Apache Spark, and Spark® are either registered trademarks or trademarks of the Apache Software Foundation in the United States and/or other countries._
