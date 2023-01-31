@@ -90,8 +90,7 @@ object SynapseExtensionUtilities {
          |    'spark.jars.repositories' : '$SparkMavenRepositoryList',
          |    'spark.jars.excludes': '$excludes',
          |    'spark.dynamicAllocation.enabled': 'false',
-         |    'spark.driver.userClassPathFirst': 'true',
-         |    'spark.executor.userClassPathFirst': 'true',
+         |    'spark.yarn.user.classpath.first': 'true',
          |    'spark.executorEnv.IS_$Platform': 'true',
          |    'spark.sql.parquet.outputwriter':
          |    'org.apache.spark.sql.execution.datasources.parquet.ParquetOutputWriter',
