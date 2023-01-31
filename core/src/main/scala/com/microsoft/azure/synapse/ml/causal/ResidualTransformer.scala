@@ -61,22 +61,22 @@ class ResidualTransformer(override val uid: String) extends Transformer
       // Make sure the observedCol is a DoubleType or IntegerType
       val observedColType = dataset.schema(getObservedCol).dataType
       require(observedColType == DoubleType || observedColType == LongType || observedColType == IntegerType || observedColType == BooleanType,
-        s"ResidualTransformer: observedCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $observedColType")
-      
-      if (observedColType == BooleanType) {
-        dataset.withColumn(getObservedCol, col(getObservedCol).cast(IntegerType))
-      }
+        s"${this.getClass.getSimpleName}: observedCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $observedColType")
 
-      val predictedColDataType = dataset.schema(getPredictedCol).dataType
+      val convertedDataset = if (observedColType == BooleanType) {
+        dataset.withColumn(getObservedCol, col(getObservedCol).cast(IntegerType))
+      } else dataset
+
+      val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
       predictedColDataType match {
         case SQLDataTypes.VectorType =>
           // For probability vector, compute the residual as "observed - probability($index)"
-          dataset.withColumn(getOutputCol,
+          convertedDataset.withColumn(getOutputCol,
             col(getObservedCol) - vector_to_array(col(getPredictedCol))(getClassIndex)
           )
         case _: NumericType =>
           // For prediction numeric, compute residual as "observed - prediction"
-          dataset.withColumn(getOutputCol,
+          convertedDataset.withColumn(getOutputCol,
             col(getObservedCol) - col(getPredictedCol)
           )
         case _ =>
