@@ -19,10 +19,14 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
 import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, StructType}
 
 import scala.concurrent.Future
+
+// scalastyle:off method.length
+// scalastyle:off cyclomatic.complexity
 
 /** Double ML estimators. The estimator follows the two stage process,
  *  where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
@@ -72,6 +76,11 @@ class DoubleMLEstimator(override val uid: String)
   override def fit(dataset: Dataset[_]): DoubleMLModel = {
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
+      val treatmentColType = dataset.schema(getTreatmentCol).dataType
+      require(treatmentColType == DoubleType || treatmentColType == LongType
+        || treatmentColType == IntegerType || treatmentColType == BooleanType,
+        s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
+
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
