@@ -66,8 +66,8 @@ for repo in repos:
         ).exists()
         if not backup_exists:
             cmd = (
-                    f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} "
-                    + f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
+                f"az acr pipeline-run create --resource-group {rg} --registry {acr} --pipeline {pipeline} "
+                + f"--name {str(abs(hash(target_blob)))} --pipeline-type export --storage-blob {target_blob} -a {image}"
             )
             result = retry_command(cmd, 5)
             assert result == 0
