@@ -76,9 +76,6 @@ class DoubleMLEstimator(override val uid: String)
       val treatmentColType = dataset.schema(getTreatmentCol).dataType
       require(treatmentColType == DoubleType || treatmentColType == LongType || treatmentColType == IntegerType || treatmentColType == BooleanType,
         s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
-      if (treatmentColType == BooleanType) {
-        dataset.withColumn(getTreatmentCol, col(getTreatmentCol).cast(IntegerType))
-      }
 
       if (get(weightCol).isDefined) {
         getTreatmentModel match {

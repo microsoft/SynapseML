@@ -12,7 +12,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.{IntParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DoubleType, IntegerType, LongType, NumericType, StructField, StructType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /** Compute the differences between observed and predicted values of data.
@@ -60,8 +60,12 @@ class ResidualTransformer(override val uid: String) extends Transformer
       transformSchema(schema = dataset.schema, logging = true)
       // Make sure the observedCol is a DoubleType or IntegerType
       val observedColType = dataset.schema(getObservedCol).dataType
-      require(observedColType == DoubleType || observedColType == LongType || observedColType == IntegerType,
-        s"ResidualTransformer: observedCol must be of type DoubleType, LongType or IntegerType but got $observedColType")
+      require(observedColType == DoubleType || observedColType == LongType || observedColType == IntegerType || observedColType == BooleanType,
+        s"ResidualTransformer: observedCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $observedColType")
+      
+      if (observedColType == BooleanType) {
+        dataset.withColumn(getObservedCol, col(getObservedCol).cast(IntegerType))
+      }
 
       val predictedColDataType = dataset.schema(getPredictedCol).dataType
       predictedColDataType match {
