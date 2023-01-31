@@ -119,7 +119,7 @@ class DoubleMLEstimator(override val uid: String)
               Some(oneAte)
             } catch {
               case ex: Throwable =>
-                println(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
+                log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
                   s"Exception details: $ex")
                 None
             }
