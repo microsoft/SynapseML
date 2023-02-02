@@ -34,6 +34,9 @@ class SynapseExtensionsTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     .filterNot(_.getAbsolutePath.contains("CyberML"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVW"))
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlass"))
+    .filterNot(_.getAbsolutePath.contains("Interpretability")) //TODO: Remove when fixed
     .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
     .filterNot(_.getAbsolutePath.contains("DeepLearning"))

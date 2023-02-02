@@ -34,7 +34,7 @@ parameters:
   - name: runSynapseExtensionE2ETests
     displayName: Run Synapse Extension E2E Tests
     type: boolean
-    default: false
+    default: true
   - name: SYNAPSE_ENVIRONMENT
     displayName: Synapse Extension E2E Test Environment
     type: string
