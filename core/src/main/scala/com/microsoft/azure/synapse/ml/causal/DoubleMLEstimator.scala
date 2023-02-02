@@ -193,8 +193,12 @@ class DoubleMLEstimator(override val uid: String)
     val treatmentResidualVecCol = DatasetExtensions.findUnusedColumnName("treatmentResidualVec", dataset)
 
     def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
-      val treatmentModel = treatmentEstimator.setInputCols(train.columns.filterNot(_ == getOutcomeCol)).fit(train)
-      val outcomeModel = outcomeEstimator.setInputCols(train.columns.filterNot(_ == getTreatmentCol)).fit(train)
+      val treatmentModel = treatmentEstimator.setInputCols(
+        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol).contains)
+      ).fit(train)
+      val outcomeModel = outcomeEstimator.setInputCols(
+        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol).contains)
+      ).fit(train)
 
       val treatmentResidual =
         new ResidualTransformer()
