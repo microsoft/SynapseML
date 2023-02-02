@@ -12,7 +12,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.param.{IntParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DoubleType, IntegerType, NumericType, StructField, StructType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /** Compute the differences between observed and predicted values of data.
@@ -60,19 +60,25 @@ class ResidualTransformer(override val uid: String) extends Transformer
       transformSchema(schema = dataset.schema, logging = true)
       // Make sure the observedCol is a DoubleType or IntegerType
       val observedColType = dataset.schema(getObservedCol).dataType
-      require(observedColType == DoubleType || observedColType == IntegerType,
-        s"observedCol must be of type DoubleType or IntegerType but got $observedColType")
+      require(observedColType == DoubleType || observedColType == LongType
+        || observedColType == IntegerType || observedColType == BooleanType,
+        s"${this.getClass.getSimpleName}: " +
+          s"observedCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $observedColType")
 
-      val predictedColDataType = dataset.schema(getPredictedCol).dataType
+      val convertedDataset = if (observedColType == BooleanType) {
+        dataset.withColumn(getObservedCol, col(getObservedCol).cast(IntegerType))
+      } else dataset
+
+      val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
       predictedColDataType match {
         case SQLDataTypes.VectorType =>
           // For probability vector, compute the residual as "observed - probability($index)"
-          dataset.withColumn(getOutputCol,
+          convertedDataset.withColumn(getOutputCol,
             col(getObservedCol) - vector_to_array(col(getPredictedCol))(getClassIndex)
           )
         case _: NumericType =>
           // For prediction numeric, compute residual as "observed - prediction"
-          dataset.withColumn(getOutputCol,
+          convertedDataset.withColumn(getOutputCol,
             col(getObservedCol) - col(getPredictedCol)
           )
         case _ =>
