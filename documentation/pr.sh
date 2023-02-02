@@ -11,7 +11,7 @@ git config core.sparseCheckout true
 git sparse-checkout set articles/synapse-analytics/
 git pull origin main --depth=1
 # generate a notebook
-python ../SynapseML/documentation/convert_notebooks.py --input_path "../SynapseML/notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb" --output_dir ./articles/synapse-analytics --github_authors JessicaXYWang --service cognitive-search --mapping_file ../SynapseML/documentation/authors.yml --new_title "cognitive-services-with-synapseml-overview"
+python ../SynapseML/documentation/convert_notebooks.py 
 # push it to forked repo
 git add .
 git commit -m "update SynapseML doc"
