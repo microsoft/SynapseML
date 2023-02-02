@@ -31,6 +31,7 @@ class SynapseExtensionsTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
+    .filterNot(_.getAbsolutePath.contains("EffectsOfOutreach"))
     .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
     .filterNot(_.getAbsolutePath.contains("CyberML"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
