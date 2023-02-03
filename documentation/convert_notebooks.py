@@ -20,6 +20,15 @@ def convert_notebook_to_md(input_file):
     nb_body, _ = md_exporter.from_filename(input_file)
     return nb_body
 
+def change_doc_link_absolute():
+    pass
+
+def handle_multiple_h1s():
+    """
+    Azure doc validation rule (Warning) multiple-h1s
+    """
+    pass
+
 
 class Document:
     def __init__(self, filename, content):

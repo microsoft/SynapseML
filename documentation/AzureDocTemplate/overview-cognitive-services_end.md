@@ -1,5 +1,5 @@
 
-# Other Tutorials
+## Other Tutorials
 
 The following tutorials provide complete examples of using Cognitive Services in Synapse Analytics.
 
@@ -17,14 +17,14 @@ The following tutorials provide complete examples of using Cognitive Services in
 
 - [Computer Vision with Cognitive Service](tutorial-computer-vision-use-mmlspark.md) demonstrates how to use [Computer Vision](../../cognitive-services/computer-vision/index.yml) to analyze images on Azure Synapse Analytics.
 
-# Available Cognitive Services APIs
-## Bing Image Search
+## Available Cognitive Services APIs
+### Bing Image Search
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 |Bing Image Search|BingImageSearch|Images - Visual Search V7.0| Not Supported|
 
-## Anomaly Detector
+### Anomaly Detector
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -32,7 +32,7 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Detect Anomalies                           | DetectAnomalies                | Detect Entire Series V1.0                                                                                                       | Supported        |
 | Simple DetectAnomalies                     | SimpleDetectAnomalies          | Detect Entire Series V1.0                                                                                                       | Supported        |
 
-## Computer vision
+### Computer vision
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -46,7 +46,7 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Describe Image                             | DescribeImage                  | Describe Image V2.0                                                                                                             | Supported        |
 
 
-## Translator
+### Translator
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -58,7 +58,7 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Document Translation                       | DocumentTranslator             | Document Translation V1.0                                                                                                       | Not Supported    |
 
 
-## Face
+### Face
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -68,7 +68,7 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Identify Faces                             | IdentifyFaces                  | Identify V1.0                                                                                                                   | Supported        |
 | Verify Faces                               | VerifyFaces                    | Verify Face To Face V1.0                                                                                                        | Supported        |
 
-## Form Recognizer
+### Form Recognizer
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | Analyze Layout                             | AnalyzeLayout                  | Analyze Layout Async V2.1                                                                                                       | Supported        |
@@ -80,14 +80,14 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Get Custom Model                           | GetCustomModel                 | Get Custom Models V2.1                                                                                                          | Supported        |
 | Analyze Custom Model                       | AnalyzeCustomModel             | Analyze With Custom Model V2.1                                                                                                  | Supported        |
 
-## Speech-to-text
+### Speech-to-text
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | Speech To Text                             | SpeechToText                   | SpeechToText V1.0 |  Not Supported    |
 | Speech To Text SDK                         | SpeechToTextSDK                | Using Speech SDK Version 1.14.0                                                                                                 | Not Supported    |
 
 
-## Text Analytics
+### Text Analytics
 
 | API Type                                   | SynapseML APIs                  | Cognitive Service APIs (Versions)                                                                                               | DEP VNet Support |
 | ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -104,7 +104,7 @@ The following tutorials provide complete examples of using Cognitive Services in
 | Entity Detector                            | EntityDetector                 | Entities Linking V3.1                                                                                                           | Supported        |
 
 
-# Next steps
+## Next steps
 
 - [Machine Learning capabilities in Azure Synapse Analytics](what-is-machine-learning.md)
 - [What are Cognitive Services?](../../cognitive-services/what-are-cognitive-services.md)

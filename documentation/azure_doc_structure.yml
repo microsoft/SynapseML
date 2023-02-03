@@ -12,6 +12,6 @@ overview-cognitive-services: # output md file name
   front: ./AzureDocTemplate/overview-cognitive-services_front.md # platform specific content added before notebook
   end: ./AzureDocTemplate/overview-cognitive-services_end.md # platform specific content added after notebook
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
-  output_dir: ../../syncdocpr/articles/synapse-analytics
+  output_dir: ../../syncdocpr/articles/synapse-analytics/machine-learning
   active: true # include / exclude the notebook in the pipeline
 
