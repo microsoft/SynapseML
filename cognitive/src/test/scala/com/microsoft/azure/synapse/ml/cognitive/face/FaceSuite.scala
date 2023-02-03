@@ -196,6 +196,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   lazy val pgName = "group" + DateTimeFormatter.ofPattern(timeFormat).format(LocalDateTime.now())
 
   lazy val pgId = {
+    cleanOldGroups()
     PersonGroup.create(pgName, pgName)
     Thread.sleep(500) // A little insurance
     PersonGroup.list().find(_.name == pgName).get.personGroupId
@@ -223,7 +224,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    cleanOldGroups()
     println(satyaFaceIds ++ bradFaceIds)
     PersonGroup.train(pgId)
     tryWithRetries() { () =>
