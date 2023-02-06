@@ -13,6 +13,7 @@ let cls_pages = listExamplePaths("features", "classification");
 let reg_pages = listExamplePaths("features", "regression");
 let dl_pages = listExamplePaths("features", "simple_deep_learning");
 let ci_pages = listExamplePaths("features", "causal_inference");
+let hpt_pages = listExamplePaths("features", "hyperparameter_tuning");
 let other_pages = listExamplePaths("features", "other");
 
 module.exports = {
@@ -99,6 +100,11 @@ module.exports = {
           type: 'category',
           label: 'Causal Inference',
           items: ci_pages,
+        },
+        {
+          type: 'category',
+          label: 'Hyperparameter Tuning',
+          items: hpt_pages,
         },
         {
           type: 'category',
