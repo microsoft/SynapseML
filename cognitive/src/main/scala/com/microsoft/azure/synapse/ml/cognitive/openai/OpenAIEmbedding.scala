@@ -23,7 +23,7 @@ import scala.language.existentials
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(uid)
-  with HasServiceParams with HasInputCol with HasAPIVersion with HasDeploymentName
+  with HasServiceParams with HasAPIVersion with HasDeploymentName
   with HasCognitiveServiceInput  with SynapseMLLogging {
   logClass()
 
@@ -34,12 +34,9 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
   val inputParam: ServiceParam[String] = new ServiceParam[String](
     this, "input", "Input text to get embeddings for.", isRequired = true)
 
-  override def setInputCol(value: String): this.type = {
-    setVectorParam(inputParam, value)
+  def getInputCol: String = getVectorParam(inputParam)
 
-    // TODO: do I need that?
-    set(inputCol, value)
-  }
+  def setInputCol(value: String): this.type = setVectorParam(inputParam, value)
 
   override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
     def responseToVector(r: Row) =
