@@ -204,7 +204,8 @@ object SynapseUtilities {
          |         "spark.jars.repositories" : "$SparkMavenRepositoryList",
          |         "spark.jars.excludes": "$excludes",
          |         "spark.yarn.user.classpath.first": "true",
-         |         "spark.sql.parquet.enableVectorizedReader":"false"
+         |         "spark.sql.parquet.enableVectorizedReader":"false",
+         |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
          |     }
          | }
       """.stripMargin
