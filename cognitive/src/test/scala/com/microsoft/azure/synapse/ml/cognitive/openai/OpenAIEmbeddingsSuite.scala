@@ -17,7 +17,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName("text-search-ada-doc-001")
     .setCustomServiceName(openAIServiceName)
-    .setInputCol("text")
+    .setTextCol("text")
     .setOutputCol("out")
 
   lazy val df: DataFrame = Seq(
