@@ -31,12 +31,12 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
 
   def urlPath: String = ""
 
-  val inputParam: ServiceParam[String] = new ServiceParam[String](
-    this, "input", "Input text to get embeddings for.", isRequired = true)
+  val inputCol: ServiceParam[String] = new ServiceParam[String](
+    this, "inputCol", "Input text to get embeddings for.", isRequired = true)
 
-  def getInputCol: String = getVectorParam(inputParam)
+  def getInputCol: String = getVectorParam(inputCol)
 
-  def setInputCol(value: String): this.type = setVectorParam(inputParam, value)
+  def setInputCol(value: String): this.type = setVectorParam(inputCol, value)
 
   override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
     def responseToVector(r: Row) =
@@ -60,7 +60,7 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
-      getValueOpt(r, inputParam)
+      getValueOpt(r, inputCol)
         .map(input => new StringEntity(Map("input" -> input).toJson.compactPrint, ContentType.APPLICATION_JSON))
       .orElse(throw new IllegalArgumentException("Please set inputCol."))
   }
