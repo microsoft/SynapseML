@@ -3,10 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.codegen.{GenerationUtils, Wrappable}
-import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput,
-  HasInternalJsonOutputParser, HasServiceParams}
-import com.microsoft.azure.synapse.ml.io.http._
+import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
+import com.microsoft.azure.synapse.ml.cognitive.{
+  CognitiveServicesBase, HasCognitiveServiceInput,
+  HasInternalJsonOutputParser, HasServiceParams
+}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -19,21 +20,6 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.language.existentials
-
-
-trait HasSetServiceName extends Wrappable with HasURL {
-  override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """
-      |def setServiceName(self, value):
-      |    self._java_obj = self._java_obj.setServiceName(value)
-      |    return self
-      |""".stripMargin
-  }
-
-  def setServiceName(v: String): this.type = {
-    setUrl(s"https://${v}.openai.azure.com/")
-  }
-}
 
 trait HasPrompt extends HasServiceParams {
   val prompt: ServiceParam[String] = new ServiceParam[String](
@@ -135,7 +121,7 @@ trait HasMaxTokens extends HasServiceParams {
 }
 
 trait HasOpenAIParams extends HasServiceParams
-  with HasSetServiceName with HasPrompt  with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
+  with HasPrompt with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
   with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
@@ -318,6 +304,10 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
   def this() = this(Identifiable.randomUID("OpenAPICompletion"))
 
   def urlPath: String = ""
+
+  override def setCustomServiceName(v: String): this.type = {
+    setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
+  }
 
   override protected def prepareUrlRoot: Row => String = { row =>
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/completions"
