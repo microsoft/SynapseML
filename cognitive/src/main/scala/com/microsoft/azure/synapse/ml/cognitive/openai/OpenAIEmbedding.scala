@@ -45,13 +45,13 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
   override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
     def responseToVector(r: Row) =
       if (r == null)
-        Vectors.zeros(0)
+        None
       else
-        Vectors.dense(r.getAs[Seq[Row]]("data").head.getAs[Seq[Double]]("embedding").toArray)
+        Some(Vectors.dense(r.getAs[Seq[Row]]("data").head.getAs[Seq[Double]]("embedding").toArray))
 
     new JSONOutputParser()
       .setDataType(EmbeddingResponse.schema)
-      .setPostProcessFunc[Row, Vector](responseToVector, VectorType)
+      .setPostProcessFunc[Row, Option[Vector]](responseToVector, VectorType)
   }
 
   override def setCustomServiceName(v: String): this.type = {
