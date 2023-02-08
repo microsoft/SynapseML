@@ -31,12 +31,16 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
 
   def urlPath: String = ""
 
-  val textCol: ServiceParam[String] = new ServiceParam[String](
-    this, "textCol", "Input text to get embeddings for.", isRequired = true)
+  val text: ServiceParam[String] = new ServiceParam[String](
+    this, "text", "Input text to get embeddings for.", isRequired = true)
 
-  def getTextCol: String = getVectorParam(textCol)
+  def getText: String = getScalarParam(text)
 
-  def setTextCol(value: String): this.type = setVectorParam(textCol, value)
+  def setText(value: String): this.type = setScalarParam(text, value)
+
+  def getTextCol: String = getVectorParam(text)
+
+  def setTextCol(value: String): this.type = setVectorParam(text, value)
 
   override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
     def responseToVector(r: Row) =
@@ -60,9 +64,9 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
-      getValueOpt(r, textCol)
+      getValueOpt(r, text)
         .map(text => new StringEntity(Map("input" -> text).toJson.compactPrint, ContentType.APPLICATION_JSON))
-      .orElse(throw new IllegalArgumentException("Please set inputCol."))
+      .orElse(throw new IllegalArgumentException("Please set textCol."))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
