@@ -32,6 +32,7 @@
 !/docs/features/vw
 /docs/features/vw/*
 !/docs/features/vw/about.md
+/docs/features/hyperparameter_tuning/*
 
 # Misc
 .DS_Store
