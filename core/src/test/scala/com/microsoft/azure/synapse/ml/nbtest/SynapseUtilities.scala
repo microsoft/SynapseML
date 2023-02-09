@@ -130,7 +130,7 @@ object SynapseUtilities {
   val StorageContainer: String = "synapse"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
   val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
-  val PoolNodeSize: String = "Medium"
+  val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
   val WorkspaceName: String = "mmlsparkbuild"
   val ResourceGroupName: String = "marhamil-mmlspark"
