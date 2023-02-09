@@ -46,6 +46,8 @@ class SynapseTests extends TestBase {
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
+    // Exclude because Synapse doesn't have seamless integration with mlflow
+    .filterNot(_.getAbsolutePath.contains("HyperOptSynapseML"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
