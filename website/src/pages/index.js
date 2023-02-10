@@ -288,11 +288,12 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.2",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.10.2,org.apache.spark:spark-avro_2.12:3.3.1",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false"
+      "spark.sql.parquet.enableVectorizedReader": "false",
+      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
   }
 }`}
                     lang="bash"
