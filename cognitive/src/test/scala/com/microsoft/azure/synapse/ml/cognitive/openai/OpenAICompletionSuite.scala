@@ -35,6 +35,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   lazy val indexPromptCompletion: OpenAICompletion = newCompletion.setIndexPromptCol("indexPrompt")
   lazy val batchIndexPromptCompletion: OpenAICompletion = newCompletion.setBatchIndexPromptCol("batchIndexPrompt")
 
+
   lazy val df: DataFrame = Seq(
     "Once upon a time",
     "Best programming language award goes to",
@@ -106,7 +107,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
         assert(c.text.length > requiredLength)))
   }
 
-  def newCompletion(): OpenAICompletion = {
+  def newCompletion: OpenAICompletion = {
     new OpenAICompletion()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName("text-davinci-001")
