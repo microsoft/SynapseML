@@ -12,10 +12,6 @@ description: MLflow support of SynapseML
 * [MLflow Models](https://mlflow.org/docs/latest/models.html): A model packaging format and tools that let you easily deploy the same model from any ML library for both batch and real-time scoring. It supports platforms such as Docker, Apache Spark, Azure ML and AWS SageMaker.
 * [MLflow Model Registry](https://mlflow.org/docs/latest/model-registry.html): A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-## Installation
-
-Install MLflow from PyPI via `pip install mlflow`
-
-MLflow requires `conda` to be on the `PATH` for the projects feature.
-
-Learn more about MLflow on their [GitHub page](https://github.com/mlflow/mlflow).
+## Next Steps:
+- [Installation](installation.md)
+- [Usage Examples](examples.md)
