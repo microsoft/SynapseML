@@ -54,7 +54,3 @@ mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())
 experiment_name = "synapse-mlflow-experiment"
 mlflow.set_experiment(experiment_name) 
 ```
-
-### Next Steps:
-- [Usage Examples](examples.md)
-- [Autologging with mlflow](autologging.md)
