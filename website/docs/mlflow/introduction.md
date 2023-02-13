@@ -5,7 +5,7 @@ description: MLflow support of SynapseML
 
 ## What is MLflow
 
-[MLflow](https://github.com/mlflow/mlflow) is a platform to streamline machine learning development, including tracking experiments, packaging code into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be used with any existing machine learning application or library, for instance TensorFlow, PyTorch, XGBoost, etc. It will run wherever you currently run ML code, for example, in notebooks, standalone applications or the cloud. MLflow's current components are:
+[MLflow](https://github.com/mlflow/mlflow) is a platform to streamline machine learning development, including tracking experiments, packaging code into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be used with any existing machine learning application or library, for instance TensorFlow, PyTorch, XGBoost, etc. It runs wherever you currently run ML code, for example, in notebooks, standalone applications or the cloud. MLflow's current components are:
 
 * [MLflow Tracking](https://mlflow.org/docs/latest/tracking.html): An API to log parameters, code, and results in machine learning experiments and compare them using an interactive UI.
 * [MLflow Projects](https://mlflow.org/docs/latest/projects.html): A code packaging format for reproducible runs using Conda and Docker, so you can share your ML code with others.
