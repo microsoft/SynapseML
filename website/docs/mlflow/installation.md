@@ -29,13 +29,13 @@ Please follow this document to create [AML workspace](https://learn.microsoft.co
 
 #### Create an Azure ML Linked Service
 
-<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/ml_linked_service_1.png" width="600" style="float: center;"/>
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/ml_linked_service_1.png" width="600" />
 
 - In the Synapse workspace, go to **Manage** -> **External connections** -> **Linked services**, click **+ New**
 - Select the workspace you want to log the model in and create the linked service. The name of the linked service will be used later.
 
 #### Auth Synapse Workspace
-<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/ml_linked_service_2.png" width="600" style="float: center;"/>
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/ml_linked_service_2.png" width="600" />
 
 - Go to the **Azure Machine Learning workspace** resource -> **access control (IAM)** -> **Role assignment**, click **+ Add**, choose **Add role assignment**
 - Choose **contributor**, click next
