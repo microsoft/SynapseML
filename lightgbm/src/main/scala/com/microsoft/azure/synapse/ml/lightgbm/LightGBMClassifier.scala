@@ -53,7 +53,8 @@ class LightGBMClassifier(override val uid: String)
       getExecutionParams(numTasksPerExec),
       getObjectiveParams,
       getSeedParams,
-      getCategoricalParams)
+      getCategoricalParams,
+      getNumClass)
   }
 
   override protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = {
@@ -63,7 +64,8 @@ class LightGBMClassifier(override val uid: String)
      */
     val classifierParams = params.asInstanceOf[ClassifierTrainParams]
     if (classifierParams.isBinary) params
-    else classifierParams.setNumClass(getNumClasses(dataset))
+    else if (classifierParams.getNumClass() != 1) params // multi classfication and already set number of classes
+    else classifierParams.setNumClass(getNumClasses(dataset)) // infering the actual numClasses from the dataset
   }
 
   def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {

@@ -606,6 +606,12 @@ trait LightGBMParams extends Wrappable
   def getMinDataInLeaf: Int = $(minDataInLeaf)
   def setMinDataInLeaf(value: Int): this.type = set(minDataInLeaf, value)
 
+  val numClass = new IntParam(this, "numClass",
+    "Number of classes for multi-class classification. Defaults to binary.")
+  setDefault(numClass -> 1)
+  def getNumClass: Int = $(numClass)
+  def setNumClass(value: Int): this.type = set(numClass, value)
+
   var delegate: Option[LightGBMDelegate] = None
   def getDelegate: Option[LightGBMDelegate] = delegate
   def setDelegate(delegate: LightGBMDelegate): this.type = {
