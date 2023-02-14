@@ -6,7 +6,6 @@ from nbconvert import MarkdownExporter
 from yaml.loader import FullLoader
 
 
-
 def convert_notebook_to_md(input_file):
     """
     convert notebook (.ipynb) file to markdown format
@@ -20,14 +19,27 @@ def convert_notebook_to_md(input_file):
     nb_body, _ = md_exporter.from_filename(input_file)
     return nb_body
 
-def change_doc_link_absolute():
-    pass
 
-def handle_multiple_h1s():
+def replace_doc_link_absolute(text):
     """
-    Azure doc validation rule (Warning) multiple-h1s
+    some documentation will point to microsoft learn doc with absolute link.
+    when generate azure doc, it need to be relative link
+
+    :param text: md text
+    :type text: str
     """
-    pass
+    return text.replace("https://docs.microsoft.com/azure/", "../")
+
+
+def header1_to_header2(input_string):
+    """
+    handle Azure doc validation rule (Warning) multiple-h1s
+    find the first line start with '#' and turn it to '##'
+    """
+    if input_string.startswith("#") and not input_string.startswith("##"):
+        return "#" + input_string
+    else:
+        return input_string
 
 
 class Document:
@@ -52,44 +64,60 @@ class Document:
         """
         metadata = self.content["metadata"]
         # ensure required metadata info
-        for required_metadata in {"author", "description", "ms.author", "ms.topic","title"}:
+        for required_metadata in {
+            "author",
+            "description",
+            "ms.author",
+            "ms.topic",
+            "title",
+        }:
             if required_metadata not in metadata:
-                raise ValueError("{required_metadata} is required metadata by azure doc, please add it to yml file".format(required_metadata=required_metadata))
-        if ('ms.service' not in metadata) and ('ms.prod' not in metadata):
-            raise ValueError("either ms.service or ms.prod must be in metadata, please add it to yml file")
+                raise ValueError(
+                    "{required_metadata} is required metadata by azure doc, please add it to yml file".format(
+                        required_metadata=required_metadata
+                    )
+                )
+        if ("ms.service" not in metadata) and ("ms.prod" not in metadata):
+            raise ValueError(
+                "either ms.service or ms.prod must be in metadata, please add it to yml file"
+            )
         # generate final metadata
         generated_metadata = "---\n"
         for k, v in metadata.items():
             generated_metadata += "{k}: {v}\n".format(k=k, v=v)
-        if 'ms.date' not in metadata:
+        if "ms.date" not in metadata:
             update_date = datetime.today().strftime("%m/%d/%Y")
-            generated_metadata += "ms.date: {update_date}\n".format(update_date=update_date)
+            generated_metadata += "ms.date: {update_date}\n".format(
+                update_date=update_date
+            )
         else:
-            warnings.warn("ms.date is set in yml file, the date won't be automatically updated. if you want the date to be updated automatically, remove ms.date from yml file")
+            warnings.warn(
+                "ms.date is set in yml file, the date won't be automatically updated. if you want the date to be updated automatically, remove ms.date from yml file"
+            )
 
         generated_metadata += "---\n"
         return generated_metadata
-    
+
     def combine_documentation(self, generated_metadata, body):
         """
         combine documentation with metadata, and platform specified info
         """
         if "front" in content:
-            with open(content["front"], 'r') as f:
+            with open(content["front"], "r") as f:
                 front = f.read()
         else:
             front = ""
-        
+
         if "end" in content:
-            with open(content["end"], 'r') as f:
+            with open(content["end"], "r") as f:
                 end = f.read()
         else:
             end = ""
 
-        generated_doc ="".join([generated_metadata, front, body, end])
-        return generated_doc
-
-
+        if front:
+            body = header1_to_header2(body)
+        generated_doc = "".join([generated_metadata, front, body, end])
+        return replace_doc_link_absolute(generated_doc)
 
     def run(self):
         body = convert_notebook_to_md(self.input_path)
@@ -97,15 +125,16 @@ class Document:
         combined_documentation = self.combine_documentation(generated_metadata, body)
 
         if not os.path.exists(self.output_dir):
-           os.mkdir(self.output_dir)
-        output_file = self.output_dir + "/" +self.filename + '.md'
-        with open(output_file,'w') as f:
+            os.mkdir(self.output_dir)
+        output_file = self.output_dir + "/" + self.filename + ".md"
+        with open(output_file, "w") as f:
             f.write(combined_documentation)
 
+
 if __name__ == "__main__":
-    with open("azure_doc_structure.yml","r") as f:
+    with open("azure_doc_structure.yml", "r") as f:
         structure = yaml.load(f, Loader=FullLoader)
     for doc_name, content in structure.items():
-        if content["active"]: # TODO: adding try except, default to active
+        if content["active"]:  # TODO: adding try except, default to active
             doc = Document(doc_name, content)
             doc.run()

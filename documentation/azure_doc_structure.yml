@@ -1,6 +1,6 @@
 overview-cognitive-services: # output md file name
   metadata: # metadata for azure doc
-    title: Cognitive Services in Azure Synapse Analytics 
+    title: Cognitive Services in Azure Synapse Analytics
     description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
     ms.service: synapse-analytics
     ms.subservice: machine-learning
@@ -8,10 +8,9 @@ overview-cognitive-services: # output md file name
     ms.reviewer: sngun, garye, negust, ruxu
     author: WilliamDAssafMSFT
     ms.author: wiassaf
-    ms.custom: ignite-fall-2021    
+    ms.custom: ignite-fall-2021
   front: ./AzureDocTemplate/overview-cognitive-services_front.md # platform specific content added before notebook
   end: ./AzureDocTemplate/overview-cognitive-services_end.md # platform specific content added after notebook
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
-  output_dir: ../../syncdocpr/articles/synapse-analytics/machine-learning
+  output_dir: ../../syncdoc/articles/synapse-analytics/machine-learning #./articles/synapse-analytics
   active: true # include / exclude the notebook in the pipeline
-
