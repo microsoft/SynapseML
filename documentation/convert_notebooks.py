@@ -20,21 +20,36 @@ def convert_notebook_to_md(input_file):
     return nb_body
 
 
-def replace_doc_link_absolute(text):
+def replace_doc_link_absolute(text, replace_mapping):
     """
-    some documentation will point to microsoft learn doc with absolute link.
-    when generate azure doc, it need to be relative link
+    handle Azure doc validation rule (Suggestion: docs-link-absolute)
+    given text and replace_dict, replace the content
+
+    https://review.learn.microsoft.com/en-us/help/platform/validation-ref/docs-link-absolute?branch=main
 
     :param text: md text
     :type text: str
     """
-    return text.replace("https://docs.microsoft.com/azure/", "../")
+    # TODO: automate this and remove hard coded path in azure_doc_structure.yml
+    for absolute_link, relative_link in replace_mapping:
+        text = text.replace(absolute_link, relative_link)
+    return text
+
+
+def preprocess_img(img_folder):
+    """
+    handle Azure doc validation rule (Suggestion: external-image, Warning: alt-text-missing)
+    scan text and find external image link, download the image and store in the img folder
+    replace image link with img path
+    """
 
 
 def header1_to_header2(input_string):
     """
     handle Azure doc validation rule (Warning) multiple-h1s
     find the first line start with '#' and turn it to '##'
+
+    https://review.learn.microsoft.com/help/platform/validation-ref/multiple-h1s?branch=main
     """
     if input_string.startswith("#") and not input_string.startswith("##"):
         return "#" + input_string
@@ -48,6 +63,10 @@ class Document:
         self.content = content
         self.input_path = content["input_path"]
         self.output_dir = content["output_dir"]
+        try:
+            self.replace_mapping = content["replace_mapping"]
+        except KeyError:
+            self.replace_mapping = {}
 
     def azure_doc_requirement_check(self):
         # TODO: adding checks such as title can only contains lower case letter and "-"
@@ -117,7 +136,11 @@ class Document:
         if front:
             body = header1_to_header2(body)
         generated_doc = "".join([generated_metadata, front, body, end])
-        return replace_doc_link_absolute(generated_doc)
+        if self.replace_mapping:
+            generated_doc = replace_doc_link_absolute(
+                generated_doc, self.replace_mapping
+            )
+        return generated_doc
 
     def run(self):
         body = convert_notebook_to_md(self.input_path)

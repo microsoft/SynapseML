@@ -14,3 +14,7 @@ overview-cognitive-services: # output md file name
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
   output_dir: ../../syncdoc/articles/synapse-analytics/machine-learning #./articles/synapse-analytics
   active: true # include / exclude the notebook in the pipeline
+  replace_mapping: # replace link to azure docs with relative path
+    https://docs.microsoft.com/azure/search/search-what-is-azure-search: ../../search/search-what-is-azure-search.md
+    https://docs.microsoft.com/azure/cognitive-services/big-data/getting-started: ../../cognitive-services/big-data/getting-started.md
+    https://docs.microsoft.com/azure/cognitive-services/language-service/text-analytics-for-health/overview: ../../cognitive-services/language-service/text-analytics-for-health/overview.md
