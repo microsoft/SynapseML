@@ -21,11 +21,11 @@ If you're using Databricks, install Mlflow with this command:
 ```
 
 ### Install Mlflow on Synapse
-Mlflow is pre-installed on Synapse. To log model with Mlflow, you need to create an Azure Machine Learning workspace and link it with your Synapse workspace.
+To log model with Mlflow, you need to create an Azure Machine Learning workspace and link it with your Synapse workspace.
 
 #### Create Azure Machine Learning Workspace
 
-Follow this document to create [AML workspace](https://learn.microsoft.com/en-us/azure/machine-learning/quickstart-create-resources#create-the-workspace), compute instance and compute clusters aren't required.
+Follow this document to create [AML workspace](https://learn.microsoft.com/en-us/azure/machine-learning/quickstart-create-resources#create-the-workspace). You don't need to create compute instance and compute clusters.
 
 #### Create an Azure ML Linked Service
 
@@ -57,7 +57,7 @@ experiment_name = "synapse-mlflow-experiment"
 mlflow.set_experiment(experiment_name) 
 ```
 
-#### Alternative (Linked Service is not required)
+#### Alternative (Don't need Linked Service)
 Once you create an AML workspace, you can obtain the MLflow tracking URL directly. The AML start page is where you can locate the MLflow tracking URL.
 <img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/mlflow_tracking_url.png" width="600" />
 You can set it tracking url with
