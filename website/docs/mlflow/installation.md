@@ -40,6 +40,8 @@ Follow this document to create [AML workspace](https://learn.microsoft.com/en-us
 - Go to the **Azure Machine Learning workspace** resource -> **access control (IAM)** -> **Role assignment**, select **+ Add**, choose **Add role assignment**
 - Choose **contributor**, select next
 - In members page, choose **Managed identity**, select  **+ select members**. Under **managed identity**, choose Synapse workspace. Under **Select**, choose the workspace you run your experiment on. Click **Select**, **Review + assign**.
+
+
 #### Use Mlflow in Synapse
 Set up connection
 ```python
@@ -53,4 +55,12 @@ mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())
 #Set MLflow experiment. 
 experiment_name = "synapse-mlflow-experiment"
 mlflow.set_experiment(experiment_name) 
+```
+
+#### Alternative (Linked Service is not required)
+Once you create an AML workspace, you can obtain the MLflow tracking URL directly. The AML start page is where you can locate the MLflow tracking URL.
+<img src="https://mmlspark.blob.core.windows.net/graphics/Documentation/mlflow_tracking_url.png" width="600" />
+You can set it tracking url with
+```python
+mlflow.set_tracking_uri("your mlflow tracking url")
 ```
