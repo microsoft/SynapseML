@@ -141,6 +141,7 @@ module.exports = {
       label: 'MLflow',
       items: [
         'mlflow/introduction',
+        'mlflow/installation',
         'mlflow/examples',
         'mlflow/autologging'
       ],
