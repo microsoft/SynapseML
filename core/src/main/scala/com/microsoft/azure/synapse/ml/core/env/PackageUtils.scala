@@ -18,6 +18,7 @@ object PackageUtils {
 
   val PackageName = s"synapseml_$ScalaVersionSuffix"
   val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
+  private val AvroCoordinate = "org.apache.spark:spark-avro_2.12:3.3.1"
   val PackageRepository: String = SparkMLRepository
 
   // If testing onnx package with snapshots repo, make sure to switch to using
@@ -28,6 +29,7 @@ object PackageUtils {
   private val OnnxProtobufRepository: String = SparkMLRepository
 
   // Note: this is also hardwired in core/src/main/dotnet/test/E2ETestUtils.cs AND website/doctest.py
-  val SparkMavenPackageList = s"$PackageMavenCoordinate"
+  // val SparkMavenPackageList = s"$PackageMavenCoordinate"
+  val SparkMavenPackageList = Array(PackageMavenCoordinate, AvroCoordinate).mkString(",")
   val SparkMavenRepositoryList = s"$PackageRepository"
 }
