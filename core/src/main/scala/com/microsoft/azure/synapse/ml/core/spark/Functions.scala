@@ -1,12 +1,13 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.core.spark
 
 import org.apache.spark.sql.{Column, functions => F}
 
 import scala.collection.mutable.ArrayBuffer
 
-//noinspection ScalaStyle
+//scalastyle:off
 class PEP3101Parser(val expr: String) {
   private var idx = 0
 
