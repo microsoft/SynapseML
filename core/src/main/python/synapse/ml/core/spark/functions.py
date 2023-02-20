@@ -3,6 +3,7 @@
 
 from pyspark import SparkContext
 
+
 def template(expr):
     ctx = SparkContext._active_spark_context
     return ctx._jvm.com.microsoft.azure.synapse.ml.core.spark.Functions.template(expr)
