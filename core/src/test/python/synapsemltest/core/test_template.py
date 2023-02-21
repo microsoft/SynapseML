@@ -14,7 +14,7 @@ class TemplateSpec(unittest.TestCase):
         schema = t.StructType(
             [
                 t.StructField("x", t.IntegerType(), nullable=True),
-                t.StructField("yz", t.StringType(), nullable=True),                
+                t.StructField("yz", t.StringType(), nullable=True),
             ],
         )
 
@@ -29,11 +29,10 @@ class TemplateSpec(unittest.TestCase):
     def test_template(self):
         df = self.create_sample_dataframe()
 
-        output = df.select(SF.template("{x}_{yz}")).toPandas().iloc[:,0].values
+        output = df.select(SF.template("{x}_{yz}")).toPandas().iloc[:, 0].values
 
         # a and b have the same elements in the same number, regardless of their order
-        self.assertCountEqual(["1_Bob","2_Mandy"], output)
-
+        self.assertCountEqual(["1_Bob", "2_Mandy"], output)
 
 
 if __name__ == "__main__":
