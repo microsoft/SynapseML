@@ -4,6 +4,9 @@
 from pyspark import SparkContext
 from pyspark.sql import Column
 
+
 def template(expr):
     ctx = SparkContext._active_spark_context
-    return Column(ctx._jvm.com.microsoft.azure.synapse.ml.core.spark.Functions.template(expr))
+    return Column(
+        ctx._jvm.com.microsoft.azure.synapse.ml.core.spark.Functions.template(expr)
+    )
