@@ -37,7 +37,8 @@ conn_string = kvClient.get_secret(secretName).value
 def retry_command(command, tries):
     delay = 5
     for i in range(tries):
-        result = os.system(cmd)
+        print(command)
+        result = os.system(command)
         if result == 0:
             break
         print(f"Command '{command}' failed. Retrying after {delay} seconds")
