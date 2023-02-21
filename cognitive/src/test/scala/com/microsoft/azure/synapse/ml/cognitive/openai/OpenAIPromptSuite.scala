@@ -22,14 +22,14 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setParsedOutputCol("outParsed")
 
   lazy val df: DataFrame = Seq(
-    "I love this",
-    "I'm so confused about the color of the car",
-    "He is very eager to learn and become educated"
-  ).toDF("text")
+    ("apple", "fruits"),
+    ("mercedes", "cars"),
+    ("cake", "dishes")
+  ).toDF("text", "category")
 
   test("Basic Usage") {
     prompt
-      .setPromptF("{text}\nA comma-separated list of matching adjectives: ")
+      .setPromptF("here is a comma separated list of 5 {category}: {text}, ")
       .setPostProcessing("csv")
       .transform(df)
       .show(5, 200)
