@@ -23,12 +23,12 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  val promptF = new Param[String](
-    this, "promptF", "The prompt. supports string interpolation {col1}: {col2}.")
+  val promptTemplate = new Param[String](
+    this, "promptTemplate", "The prompt. supports string interpolation {col1}: {col2}.")
 
-  def getPromptF: String = $(promptF)
+  def getPromptTemplate: String = $(promptTemplate)
 
-  def setPromptF(value: String): this.type = set(promptF, value)
+  def setPromptTemplate(value: String): this.type = set(promptTemplate, value)
 
   val parsedOutputCol = new Param[String](
     this, "parsedOutputCol", "The parsed output column.")
@@ -62,7 +62,7 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
       val promptColName = df.withDerivativeCol("prompt")
       setPromptCol(promptColName)
 
-      val dfTemplated = df.withColumn(promptColName, Functions.template(getPromptF))
+      val dfTemplated = df.withColumn(promptColName, Functions.template(getPromptTemplate))
 
       // apply template
       val promptedDF = super.transform(dfTemplated)

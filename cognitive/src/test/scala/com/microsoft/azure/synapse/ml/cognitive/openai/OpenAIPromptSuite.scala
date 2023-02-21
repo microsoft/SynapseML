@@ -29,7 +29,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage") {
     prompt
-      .setPromptF("here is a comma separated list of 5 {category}: {text}, ")
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
       .setPostProcessing("csv")
       .transform(df)
       .show(5, 200)
