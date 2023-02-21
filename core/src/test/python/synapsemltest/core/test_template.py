@@ -13,15 +13,15 @@ class TemplateSpec(unittest.TestCase):
     def create_sample_dataframe(self):
         schema = t.StructType(
             [
-                t.StructField("x", t.StringType(), nullable=True),
-                t.StructField("y", t.IntegerType(), nullable=True),
+                t.StructField("x", t.IntegerType(), nullable=True),
+                t.StructField("yz", t.StringType(), nullable=True),                
             ],
         )
 
         return sc.createDataFrame(
             [
-                ("1", "Bob"),
-                ("2", "Mandy"),
+                (1, "Bob"),
+                (2, "Mandy"),
             ],
             schema,
         )
@@ -29,9 +29,10 @@ class TemplateSpec(unittest.TestCase):
     def test_template(self):
         df = self.create_sample_dataframe()
 
-        output = df.select(SF.template("{x}_{yz}"))
+        output = df.select(SF.template("{x}_{yz}")).toPandas().iloc[:,0].values
 
-        self.assertEqual(["1_Bob","2_Mandy"], result)
+        # a and b have the same elements in the same number, regardless of their order
+        self.assertCountEqual(["1_Bob","2_Mandy"], output)
 
 
 
