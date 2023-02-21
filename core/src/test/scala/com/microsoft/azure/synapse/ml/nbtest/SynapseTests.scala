@@ -44,12 +44,8 @@ class SynapseTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("IsolationForest"))
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
-    // Exclude because Synapse doesn't have seamless integration with mlflow
-    .filterNot(_.getAbsolutePath.contains("HyperOptSynapseML"))
-    // TODO investigate and turn on
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVWnativeFormat"))
     .sortBy(_.getAbsolutePath)
 
