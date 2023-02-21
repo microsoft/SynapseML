@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
-import org.apache.spark.ml.param.{DoubleParam, FloatParam, Param, ParamMap, StringArrayParam}
+import org.apache.spark.ml.param.{DoubleParam, FloatParam, Param, ParamMap, ParamValidators, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.StructType
@@ -38,7 +38,8 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
   def setParsedOutputCol(value: String): this.type = set(parsedOutputCol, value)
 
   val postProcessing = new Param[String](
-    this, "postProcessing", "Post processing options: csv, json, regex")
+    this, "postProcessing", "Post processing options: csv, json, regex",
+    isValid = ParamValidators.inArray(Array("csv", "json", "regex")))
 
   def getPostProcessing: String = $(postProcessing)
 
