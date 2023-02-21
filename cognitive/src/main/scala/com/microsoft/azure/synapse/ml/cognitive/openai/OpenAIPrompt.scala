@@ -39,7 +39,7 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
 
   val postProcessing = new Param[String](
     this, "postProcessing", "Post processing options: csv, json, regex",
-    isValid = ParamValidators.inArray(Array("csv", "json", "regex")))
+    isValid = ParamValidators.inArray(Array("", "csv", "json", "regex")))
 
   def getPostProcessing: String = $(postProcessing)
 
@@ -74,7 +74,8 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
         case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
         case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
         case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
-        case _ => new PassThroughParser()
+        case "" => new PassThroughParser()
+        case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
       }
 
       promptedDF.withColumn(getParsedOutputCol,
