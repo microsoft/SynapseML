@@ -52,7 +52,8 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
 
   def setPostProcessingOptions(value: Map[String, String]): this.type = set(postProcessingOptions, value)
 
-  setDefault(postProcessing -> "", postProcessingOptions -> Map.empty)
+  setDefault(promptTemplate -> "", parsedOutputCol -> "outParsed",
+    postProcessing -> "", postProcessingOptions -> Map.empty)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
