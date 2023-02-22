@@ -3,16 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
-import org.apache.spark.ml.param.{DoubleParam, FloatParam, Param, ParamMap, ParamValidators, StringArrayParam}
+import org.apache.spark.ml.param.{Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.ml.{ComplexParamsReadable, Transformer}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
+import scala.collection.JavaConverters._
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
@@ -51,6 +48,9 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
   def getPostProcessingOptions: Map[String, String] = $(postProcessingOptions)
 
   def setPostProcessingOptions(value: Map[String, String]): this.type = set(postProcessingOptions, value)
+
+  def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
+    set(postProcessingOptions, v.asScala.toMap)
 
   setDefault(promptTemplate -> "", parsedOutputCol -> "outParsed",
     postProcessing -> "", postProcessingOptions -> Map.empty)
