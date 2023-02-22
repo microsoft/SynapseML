@@ -20,6 +20,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("out")
     .setParsedOutputCol("outParsed")
+    .setTemperature(0)
 
   lazy val df: DataFrame = Seq(
     ("apple", "fruits"),
@@ -35,8 +36,30 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .show(5, 200)
   }
 
-  override def testObjects(): Seq[TestObject[OpenAIPrompt]] =
-    Seq(new TestObject(prompt, df))
+
+  test("Basic Usage JSON") {
+    val result = prompt
+      .setPromptTemplate(
+        """Split a word into prefix and postfix return in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}: {{
+          |""".stripMargin)
+      .setPostProcessing("json")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .cache()
+
+    result.show(5, 200)
+
+    result.printSchema()
+  }
+
+  override def testObjects(): Seq[TestObject[OpenAIPrompt]] = {
+    val testPrompt = prompt
+      .setPromptTemplate("{text} rhymes with ")
+
+    Seq(new TestObject(testPrompt, df))
+  }
 
   override def reader: MLReadable[_] = OpenAIPrompt
 
