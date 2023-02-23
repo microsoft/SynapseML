@@ -36,7 +36,7 @@ object SynapsePlatformUtils {
   def getAccessTokenInternal(resource: String = "pbi"): String = {
     val clusterType = getClusterType
     clusterType match {
-      case PlatformSynapse => ""
+      case PlatformSynapse => throw new Exception(s"Doesn't support getAccessTokenInternal on $PlatformSynapse yet!")
       case _ =>
         val clazz = java.lang.Class.forName(s"com.microsoft.azure.$clusterType.tokenlibrary.TokenLibrary$$")
         val module = clazz.getDeclaredField("MODULE$")
