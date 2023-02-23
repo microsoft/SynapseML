@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.core.utils.SynapsePlatformUtils
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -154,11 +155,19 @@ trait HasAADToken extends HasServiceParams {
     setScalarParam(AADToken, v)
   }
 
+  protected def refreshAADToken(token: String): String = {
+    val expiryTime = SynapsePlatformUtils.getTokenExpiryTime(token)
+    val minutesLeft = (expiryTime.toInstant.toEpochMilli - System.currentTimeMillis()) / 60000
+    if (minutesLeft < 10) {
+      val newAADToken = SynapsePlatformUtils.getAccessTokenInternal()
+      setScalarParam(AADToken, newAADToken)
+      newAADToken
+    } else {
+      token
+    }
+  }
+
   def getAADToken: String = getScalarParam(AADToken)
-
-  def setAADTokenCol(v: String): this.type = setVectorParam(AADToken, v)
-
-  def getAADTokenCol: String = getVectorParam(AADToken)
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -271,7 +280,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
     } else {
       aadToken.foreach(s => {
-        req.setHeader(aadHeaderName, "Bearer " + s)
+        val token = refreshAADToken(s)
+        req.setHeader(aadHeaderName, "Bearer " + token)
         // this is required for internal workload
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
       })
