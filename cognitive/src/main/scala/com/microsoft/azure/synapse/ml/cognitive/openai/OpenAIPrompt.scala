@@ -3,22 +3,33 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
+import com.microsoft.azure.synapse.ml.cognitive
+import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.spark.Functions
+import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
 import org.apache.spark.ml.param.{Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
+
 import scala.collection.JavaConverters._
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
-class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
+class OpenAIPrompt(override val uid: String) extends Transformer
+  with HasOpenAIParams with HasURL with HasSubscriptionKey with HasAADToken
+  with ComplexParamsWritable with HasErrorCol with ConcurrencyParams
+  with HasCustomCogServiceDomain with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+
+  def urlPath: String = ""
 
   val promptTemplate = new Param[String](
     this, "promptTemplate", "The prompt. supports string interpolation {col1}: {col2}.")
@@ -55,6 +66,12 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
   setDefault(promptTemplate -> "", parsedOutputCol -> "outParsed",
     postProcessing -> "", postProcessingOptions -> Map.empty)
 
+  override def setCustomServiceName(v: String): this.type = {
+    setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
+  }
+
+  private val localParamNames = Seq("promptTemplate", "parsedOutputCol", "postProcessing", "postProcessingOptions")
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
 
@@ -66,42 +83,72 @@ class OpenAIPrompt(override val uid: String) extends OpenAICompletion {
 
       val dfTemplated = df.withColumn(promptColName, Functions.template(getPromptTemplate))
 
-      // apply template
-      val promptedDF = super.transform(dfTemplated)
+      val completion = openAICompletion
 
-      val opts = getPostProcessingOptions
-
-      val parser = getPostProcessing.toLowerCase match {
-        case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
-        case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
-        case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
-        case "" => new PassThroughParser()
-        case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
-      }
+      // run completion
+      val promptedDF = completion.transform(dfTemplated)
 
       promptedDF.withColumn(getParsedOutputCol,
-        parser.parse(F.element_at(F.col(getOutputCol).getField("choices"), 1)
+        getParser.parse(F.element_at(F.col(completion.getOutputCol).getField("choices"), 1)
           .getField("text")))
     })
   }
+
+  private def openAICompletion: OpenAICompletion = {
+    // apply template
+    val completion = new OpenAICompletion()
+
+    // apply all parameters
+    extractParamMap().toSeq
+      .filter(p => !localParamNames.contains(p.param.name))
+      .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
+
+    completion
+  }
+
+  private def getParser: OutputParser = {
+    val opts = getPostProcessingOptions
+
+    getPostProcessing.toLowerCase match {
+      case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
+      case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
+      case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
+      case "" => new PassThroughParser()
+      case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
+    }
+  }
+  override def transformSchema(schema: StructType): StructType =
+    openAICompletion
+      .transformSchema(schema)
+      .add(getPostProcessing, getParser.outputSchema)
 }
 
 trait OutputParser {
   def parse(responseCol: Column): Column
+
+  def outputSchema: T.DataType
 }
 
 class PassThroughParser extends OutputParser {
   def parse(responseCol: Column): Column = responseCol
+
+  def outputSchema: T.DataType = T.StringType
 }
 
 class DelimiterParser(val delimiter: String) extends OutputParser {
   def parse(responseCol: Column): Column = F.split(F.trim(responseCol), delimiter)
+
+  def outputSchema: T.DataType = T.ArrayType(T.StringType)
 }
 
 class JsonParser(val schema: String, options: Map[String, String]) extends OutputParser {
   def parse(responseCol: Column): Column = F.from_json(responseCol, schema, options)
+
+  def outputSchema: T.DataType = DataType.fromDDL(schema)
 }
 
 class RegexParser(val regex: String, val groupIdx: Int) extends OutputParser {
   def parse(responseCol: Column): Column = F.regexp_extract(responseCol, regex, groupIdx)
+
+  def outputSchema: T.DataType = T.StringType
 }

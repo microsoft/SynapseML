@@ -18,7 +18,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setDeploymentName("text-davinci-001")
     .setModel("text-davinci-003")
     .setCustomServiceName(openAIServiceName)
-    .setOutputCol("out")
     .setParsedOutputCol("outParsed")
     .setTemperature(0)
 
