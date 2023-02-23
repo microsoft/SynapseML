@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.linalg.Vector
+import org.scalactic.Equality
 
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
 
@@ -33,25 +33,28 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
       .setPostProcessing("csv")
       .transform(df)
-      .show(5, 200)
+      .select("outParsed")
+      .collect()
+      .foreach(r => assert(r.getSeq[String](0).nonEmpty))
   }
-
 
   test("Basic Usage JSON") {
     val result = prompt
       .setPromptTemplate(
-        """Split a word into prefix and postfix return in JSON
+        """Split a word into prefix and postfix a respond in JSON
           |Cherry: {{"prefix": "Che", "suffix": "rry"}}
-          |{text}: {{
+          |{text}:
           |""".stripMargin)
       .setPostProcessing("json")
       .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
       .transform(df)
-      .cache()
+      .select("outParsed")
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
 
-    result.show(5, 200)
-
-    result.printSchema()
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[OpenAIPrompt]] = {
