@@ -3,23 +3,26 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
+import breeze.linalg.sum
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor}
+import com.microsoft.azure.synapse.ml.train.{AutoTrainedModel, TrainClassifier, TrainRegressor}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaConstants}
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.{TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.spark.annotation.Experimental
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline, PipelineModel, Transformer}
 import org.apache.spark.ml.classification.ProbabilisticClassifier
 import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.functions.vector_to_array
 import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
 import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{avg, col, lit}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, StructType}
 
@@ -81,6 +84,12 @@ class DoubleMLEstimator(override val uid: String)
         || treatmentColType == IntegerType || treatmentColType == BooleanType,
         s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
 
+      if (treatmentColType != IntegerType && treatmentColType != BooleanType && getTreatmentType == TreatmentTypes.binary)
+      {throw new Exception("TreatmentModel was set as classifier but treatment columns isn't integer or boolean.")}
+
+      if (treatmentColType != DoubleType && treatmentColType != LongType && getTreatmentType == TreatmentTypes.continuous)
+      {throw new Exception("TreatmentModel was set as regression but treatment columns isn't continuous data type.")}
+
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
@@ -104,12 +113,12 @@ class DoubleMLEstimator(override val uid: String)
       val executionContext = getExecutionContextProxy
 
       val ateFutures =(1 to getMaxIter).toArray.map { index =>
-        Future[Option[Double]] {
+        Future[Option[(Double, Array[Transformer], Array[Transformer], Array[Transformer])]] {
           log.info(s"Executing ATE calculation on iteration: $index")
           // If the algorithm runs over 1 iteration, do not bootstrap from dataset,
           // otherwise, redraw sample with replacement
           val redrewDF =  if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
-          val ate: Option[Double] =
+          val ate: Option[(Double, Array[Transformer], Array[Transformer], Array[Transformer])] =
             try {
               val totalTime = new StopWatch
               val oneAte = totalTime.measure {
@@ -117,7 +126,7 @@ class DoubleMLEstimator(override val uid: String)
               }
               log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
                 s"time elapsed: ${totalTime.elapsed() / 6e10} minutes")
-              Some(oneAte)
+              Some(oneAte._1, oneAte._2, oneAte._3, oneAte._4)
             } catch {
               case ex: Throwable =>
                 log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
@@ -132,13 +141,19 @@ class DoubleMLEstimator(override val uid: String)
       if (ates.isEmpty) {
         throw new Exception("ATE calculation failed on all iterations. Please check the log for details.")
       }
-      val dmlModel = this.copyValues(new DoubleMLModel(uid)).setRawTreatmentEffects(ates.toArray)
+
+      val dmlModel = this.copyValues(new DoubleMLModel(uid))
+        .setOutputCol(getOutputCol)
+        .setRawTreatmentEffects(ates.map(_._1).toArray)
+        .setTrainedTreatmentModels(ates.flatMap(_._2).toArray)
+        .setTrainedOutcomeModels(ates.flatMap(_._3).toArray)
+        .setTrainedRegressionModels(ates.flatMap(_._4).toArray)
       dmlModel
     })
   }
 
   //scalastyle:off method.length
-  private def trainInternal(dataset: Dataset[_]): Double = {
+  private def trainInternal(dataset: Dataset[_]): (Double, Array[Transformer], Array[Transformer], Array[Transformer]) = {
 
     def getModel(model: Estimator[_ <: Model[_]], labelColName: String) = {
       model match {
@@ -192,7 +207,7 @@ class DoubleMLEstimator(override val uid: String)
     val outcomeResidualCol = DatasetExtensions.findUnusedColumnName(SchemaConstants.OutcomeResidualColumn, dataset)
     val treatmentResidualVecCol = DatasetExtensions.findUnusedColumnName("treatmentResidualVec", dataset)
 
-    def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
+    def calculateResiduals(train: Dataset[_], test: Dataset[_]): (DataFrame, Transformer, Transformer) = {
       val treatmentModel = treatmentEstimator.setInputCols(
         train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol).contains)
       ).fit(train)
@@ -222,7 +237,7 @@ class DoubleMLEstimator(override val uid: String)
         outcomeModel, outcomeResidual, dropOutcomePredictedColumns,
         treatmentResidualVA))
 
-      pipeline.fit(test).transform(test)
+      (pipeline.fit(test).transform(test), treatmentModel, outcomeModel)
     }
 
     // Note, we perform these steps to get ATE
@@ -235,8 +250,8 @@ class DoubleMLEstimator(override val uid: String)
     */
     val splits = dataset.randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
-    val residualsDF1 = calculateResiduals(train, test)
-    val residualsDF2 = calculateResiduals(test, train)
+    val (residualsDF1, treatmentModel1, outcomeModel1) = calculateResiduals(train, test)
+    val (residualsDF2, treatmentModel2, outcomeModel2) = calculateResiduals(test, train)
 
     // Average slopes from the two residual models.
     val regressor = new GeneralizedLinearRegression()
@@ -246,11 +261,16 @@ class DoubleMLEstimator(override val uid: String)
       .setLink("identity")
       .setFitIntercept(false)
 
-    val coefficients = Array(residualsDF1, residualsDF2).map(regressor.fit).map(_.coefficients(0))
-    val ate = coefficients.sum / coefficients.length
+    val regressorModel1 = regressor.fit(residualsDF1)
+    val regressorModel2 = regressor.fit(residualsDF2)
+    val ate = regressorModel1.coefficients(0) + regressorModel2.coefficients(0) / 2.0
 
     Seq(train, test).foreach(_.unpersist)
-    ate
+    (ate,
+      Array(treatmentModel1, treatmentModel2),
+      Array(outcomeModel1, outcomeModel2),
+      Array(regressorModel1, regressorModel2)
+    )
   }
 
   override def copy(extra: ParamMap): Estimator[DoubleMLModel] = {
@@ -273,6 +293,7 @@ object DoubleMLEstimator extends ComplexParamsReadable[DoubleMLEstimator] {
 /** Model produced by [[DoubleMLEstimator]]. */
 class DoubleMLModel(val uid: String)
   extends Model[DoubleMLModel] with DoubleMLParams with ComplexParamsWritable with Wrappable with SynapseMLLogging {
+
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -286,10 +307,25 @@ class DoubleMLModel(val uid: String)
   def getRawTreatmentEffects: Array[Double] = $(rawTreatmentEffects)
   def setRawTreatmentEffects(v: Array[Double]): this.type = set(rawTreatmentEffects, v)
 
+
+  val trainedTreatmentModels = new TransformerArrayParam(this, "treatmentModels", "treatment models produced by DML training")
+  def getTrainedTreatmentModels():  Array[Transformer] = $(trainedTreatmentModels)
+  def setTrainedTreatmentModels(v: Array[Transformer]): this.type = set(trainedTreatmentModels, v)
+
+  val trainedOutcomeModels = new TransformerArrayParam(this, "outcomeModels", "outcome models produced by DML training")
+  def getTrainedOutcomeModels(): Array[Transformer] = $(trainedOutcomeModels)
+  def setTrainedOutcomeModels(v: Array[Transformer]): this.type = set(trainedOutcomeModels, v)
+
+  val trainedRegressorModels = new TransformerArrayParam(this, "regressorModels", "regressor models produced by DML training")
+  def getTrainedRegressorModels(): Array[Transformer] = $(trainedRegressorModels)
+  def setTrainedRegressionModels(v: Array[Transformer]): this.type = set(trainedRegressorModels, v)
+
   def getAvgTreatmentEffect: Double = {
     val finalAte =  $(rawTreatmentEffects).sum / $(rawTreatmentEffects).length
     finalAte
   }
+
+  // To-Do: get p-value
 
   def getConfidenceInterval: Array[Double] = {
     val ciLowerBound = percentile($(rawTreatmentEffects), 100 * (1 - getConfidenceLevel))
@@ -313,8 +349,110 @@ class DoubleMLModel(val uid: String)
   @Experimental
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      dataset.toDF()
+      val df = {
+        if (getTreatmentType == TreatmentTypes.continuous) dataset.toDF() // write warning and set double "NAN" to ite column
+        else {
+          val treatmentModels = getTrainedTreatmentModels()
+          val outcomeModels = getTrainedOutcomeModels()
+          val regressorModels = getTrainedRegressorModels()
+
+          val modelCount = treatmentModels.length
+          var df = dataset
+          for (modelIndex <- 0 until modelCount) {
+            df = TransformDF(df, treatmentModels, outcomeModels, regressorModels, modelIndex)
+          }
+
+          val iteOutputColumnNames = for (i <- 0 until modelCount) yield s"${getOutputCol}_$i"
+          val iteOutputCols = iteOutputColumnNames.map(col)
+          val iteAvgFun = iteOutputCols.reduce(_ + _)/modelCount
+          // To-DO: prediction - 1 is treated, prediction is untreated
+
+          val dfWithAvg = df.withColumn(getOutputCol, iteAvgFun)
+            .drop(iteOutputColumnNames: _*)
+
+          dfWithAvg
+        }
+
+      }
+      df
     })
+  }
+
+  private def TransformDF(dataset: Dataset[_], treatmentModels: Array[Transformer], outcomeModels: Array[Transformer], regressorModels: Array[Transformer], modelIndex: Int) = {
+    // Using the treatment model, predict treatment probability (T ̂) using X columns. Return: T ̂-1 (treatment residual)
+    val df = treatmentModels(modelIndex).transform(dataset)
+    val predictionTreatmentCol = DatasetExtensions.findUnusedColumnName("predictionTreatment", dataset)
+    val rawPredictionTreatmentCol = DatasetExtensions.findUnusedColumnName("rawPredictionTreatment", dataset)
+    val probabilityTreatmentCol = DatasetExtensions.findUnusedColumnName("probabilityTreatment", dataset)
+    val probabilityTreatedCol = DatasetExtensions.findUnusedColumnName("probabilityTreated", dataset)
+    val probabilityUntreatedCol = DatasetExtensions.findUnusedColumnName("probabilityUntreated", dataset)
+
+    val df_transformedwithTreatmentModel =
+      df.withColumn("treatedProbability",  lit(1) - vector_to_array(col("probability"))(1))
+        .withColumn("untreatedProbability",  vector_to_array(col("probability"))(1))
+        .withColumnRenamed("prediction", predictionTreatmentCol)
+        .withColumnRenamed("rawPrediction", rawPredictionTreatmentCol)
+        .withColumnRenamed("probability", probabilityTreatmentCol)
+        .withColumnRenamed("untreatedProbability", probabilityUntreatedCol)
+        .withColumnRenamed("treatedProbability", probabilityTreatedCol)
+
+    // Using the outcome model, predict outcome (Y ̂).
+    val df_transformedwithOutcomeModel =  outcomeModels(modelIndex).transform(df_transformedwithTreatmentModel)
+    val predictionOutcomeCol = DatasetExtensions.findUnusedColumnName("predictionOutcome", dataset)
+    val rawPredictionOutcomeCol = DatasetExtensions.findUnusedColumnName("rawPredictionOutcome", dataset)
+    val probabilityOutcomeCol = DatasetExtensions.findUnusedColumnName("probabilityOutcome", dataset)
+    val df_dml =
+      df_transformedwithOutcomeModel.withColumnRenamed("prediction", predictionOutcomeCol)
+        .withColumnRenamed("rawPrediction", rawPredictionOutcomeCol)
+        .withColumnRenamed("probability", probabilityOutcomeCol)
+
+    // Using the residuals model, predict outcome residual using output from step 1.
+    val treatmentResidualVA_treated =
+      new VectorAssembler()
+        .setInputCols(Array(probabilityTreatedCol))
+        .setOutputCol("treatmentResidualVec")
+        .setHandleInvalid("skip")
+    val df_transfomedTreated = treatmentResidualVA_treated.transform(df_dml)
+    val df_transformedwithTreatedResidualModel = regressorModels(modelIndex).transform(df_transfomedTreated).drop("treatmentResidualVec")
+    val predictionTreatedResidualCol = DatasetExtensions.findUnusedColumnName("predictionTreatedResidual", dataset)
+    val rawPredictionTreatedResidualCol = DatasetExtensions.findUnusedColumnName("rawPredictionTreatedResidual", dataset)
+    val probabilityTreatedResidualCol = DatasetExtensions.findUnusedColumnName("probabilityTreatedResidual", dataset)
+    val df_treated =
+      df_transformedwithTreatedResidualModel.withColumnRenamed("prediction", predictionTreatedResidualCol)
+        .withColumnRenamed("rawPrediction", rawPredictionTreatedResidualCol)
+        .withColumnRenamed("probability", probabilityTreatedResidualCol)
+    val treatmentResidualVA_untreated =
+      new VectorAssembler()
+        .setInputCols(Array(probabilityUntreatedCol))
+        .setOutputCol("treatmentResidualVec")
+        .setHandleInvalid("skip")
+    val df_transformedUntreated = treatmentResidualVA_untreated.transform(df_treated)
+    val df_transformedwithUntreatedResidualModel = regressorModels(modelIndex).transform(df_transformedUntreated).drop("treatmentResidualVec")
+    val predictionUntreatedResidualCol = DatasetExtensions.findUnusedColumnName("predictionUntreatedResidual", dataset)
+    val rawPredictionUntreatedResidualCol = DatasetExtensions.findUnusedColumnName("rawPredictionUntreatedResidual", dataset)
+    val probabilityUntreatedResidualCol = DatasetExtensions.findUnusedColumnName("probabilityUntreatedResidual", dataset)
+    val df_processed =
+      df_transformedwithUntreatedResidualModel.withColumnRenamed("prediction", predictionUntreatedResidualCol)
+        .withColumnRenamed("rawPrediction", rawPredictionUntreatedResidualCol)
+        .withColumnRenamed("probability", probabilityUntreatedResidualCol)
+
+
+    // Add two columns to get the unbiased predicted outcome if the individual gets treatment
+    // unbiased predicted outcome if the individual does not get treatment
+    val df_final =
+      df_processed.withColumn(s"${getOutputCol}_$modelIndex" ,
+        col(predictionOutcomeCol) + col(predictionTreatedResidualCol) - col(predictionTreatedResidualCol)
+      )
+
+    val df_final_clean = df_final.drop(
+      predictionTreatmentCol, rawPredictionTreatmentCol , probabilityTreatmentCol,
+      predictionOutcomeCol, rawPredictionOutcomeCol , probabilityOutcomeCol,
+      probabilityTreatedCol, probabilityUntreatedCol,
+      predictionTreatedResidualCol, rawPredictionTreatedResidualCol, probabilityTreatedResidualCol,
+      predictionUntreatedResidualCol, rawPredictionUntreatedResidualCol, probabilityUntreatedResidualCol
+    )
+
+    df_final_clean
   }
 
   @DeveloperApi

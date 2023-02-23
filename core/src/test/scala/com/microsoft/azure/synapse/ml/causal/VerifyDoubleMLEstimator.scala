@@ -84,12 +84,27 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("col2")
-      .setMaxIter(10)
+      .setMaxIter(20)
 
     val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getConfidenceInterval.length == 2
       && ldmlModel.getConfidenceInterval(0) != ldmlModel.getConfidenceInterval(1))
   }
+
+
+  test("Get individual treatment effect from transformer") {
+    val ldml = new DoubleMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol(mockLabelColumn)
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("col2")
+      .setMaxIter(20)
+
+    val ldmlModel = ldml.fit(mockDataset)
+    val df = ldmlModel.transform(mockDataset)
+  }
+
+
 
 
   override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =

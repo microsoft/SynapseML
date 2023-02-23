@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasWeightCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasOutputCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
 import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
 import org.apache.spark.ml.{Estimator, Model}
@@ -37,7 +37,7 @@ trait HasOutcomeCol extends Params {
 }
 
 trait DoubleMLParams extends Params
-  with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
+  with HasOutputCol with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
   with HasMaxIter with HasWeightCol with HasParallelismInjected {
 
   val treatmentModel = new EstimatorParam(this, "treatmentModel", "treatment model to run")
@@ -85,6 +85,22 @@ trait DoubleMLParams extends Params
    */
   def setSampleSplitRatio(value: Array[Double]): this.type = set(sampleSplitRatio, value)
 
+  object TreatmentTypes extends Enumeration {
+    type TreatmentType = Value
+    val binary, continuous = Value
+  }
+
+  def getTreatmentType = {
+    val treatmentType =
+      getTreatmentModel match {
+        case _: ProbabilisticClassifier[_, _, _] =>
+          TreatmentTypes.binary
+        case _: Regressor[_, _, _] =>
+          TreatmentTypes.continuous
+      }
+    treatmentType
+  }
+
   val confidenceLevel = new DoubleParam(
     this,
     "confidenceLevel",
@@ -113,13 +129,15 @@ trait DoubleMLParams extends Params
 
   def setParallelism(value: Int): this.type = set(parallelism, value)
 
+
   setDefault(
     treatmentModel -> new LogisticRegression(),
     outcomeModel -> new LogisticRegression(),
     sampleSplitRatio -> Array(0.5, 0.5),
     confidenceLevel -> 0.975,
     maxIter -> 1,
-    parallelism -> 10 // Best practice, a value up to 10 should be sufficient for most clusters.
+    parallelism -> 10, // Best practice, a value up to 10 should be sufficient for most clusters.
+    outputCol -> "ite"
   )
 
   private def ensureSupportedEstimator(value: Estimator[_ <: Model[_]]): Unit = {
