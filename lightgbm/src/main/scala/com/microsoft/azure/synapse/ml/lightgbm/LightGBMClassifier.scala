@@ -63,7 +63,7 @@ class LightGBMClassifier(override val uid: String)
      */
     val classifierParams = params.asInstanceOf[ClassifierTrainParams]
     if (classifierParams.isBinary) params
-    else classifierParams.setNumClass(getNumClasses(dataset))
+    else classifierParams.setNumClass(getNumClasses(dataset, getMaxNumClasses))
   }
 
   def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
