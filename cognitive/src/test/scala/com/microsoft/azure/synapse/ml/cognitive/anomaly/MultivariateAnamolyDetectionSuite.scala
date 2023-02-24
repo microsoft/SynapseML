@@ -13,6 +13,7 @@ import spray.json.{DefaultJsonProtocol, _}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import scala.collection.mutable
 import scala.collection.mutable.HashSet
 
 
@@ -231,7 +232,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
   def cleanOldModels(): Unit = {
     val url = simpleMultiAnomalyEstimator.setLocation(anomalyLocation).getUrl + "/"
     val twoDaysAgo = ZonedDateTime.now().minusDays(2)
-    val modelSet: HashSet[String] = HashSet()
+    val modelSet: mutable.HashSet[String] = mutable.HashSet()
     var modelDeleted: Boolean = false
 
     // madListModels doesn't necessarily return all models, so just in case,

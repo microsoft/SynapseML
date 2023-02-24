@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.openai
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
@@ -23,7 +24,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName("text-davinci-001")
     .setModel("text-davinci-003")
-    .setServiceName(openAIServiceName)
+    .setCustomServiceName(openAIServiceName)
     .setMaxTokens(20)
     .setLogProbs(5)
     .setPromptCol("prompt")
@@ -33,6 +34,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   lazy val batchPromptCompletion: OpenAICompletion = newCompletion.setBatchPromptCol("batchPrompt")
   lazy val indexPromptCompletion: OpenAICompletion = newCompletion.setIndexPromptCol("indexPrompt")
   lazy val batchIndexPromptCompletion: OpenAICompletion = newCompletion.setBatchIndexPromptCol("batchIndexPrompt")
+
 
   lazy val df: DataFrame = Seq(
     "Once upon a time",
@@ -68,6 +70,23 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     testCompletion(promptCompletion, promptDF)
   }
 
+  test("Basic usage with AAD auth") {
+    val aadToken = getAccessToken(Secrets.ServicePrincipalClientId,
+      Secrets.ServiceConnectionSecret,
+      "https://cognitiveservices.azure.com/")
+    val completion = new OpenAICompletion()
+      .setAADToken(aadToken)
+      .setDeploymentName("text-davinci-001")
+      .setModel("text-davinci-003")
+      .setCustomServiceName(openAIServiceName)
+      .setMaxTokens(20)
+      .setLogProbs(5)
+      .setPromptCol("prompt")
+      .setOutputCol("out")
+
+    testCompletion(completion, promptDF)
+  }
+
   ignore("Batch Prompt") {
     testCompletion(batchPromptCompletion, batchPromptDF)
   }
@@ -83,16 +102,16 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = CompletionResponse.makeFromRowConverter
-    completion.transform(df).collect().map(r =>
-      fromRow(r.getAs[Row]("out")).choices.map(c =>
+    completion.transform(df).collect().foreach(r =>
+      fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.text.length > requiredLength)))
   }
 
-  def newCompletion(): OpenAICompletion = {
+  def newCompletion: OpenAICompletion = {
     new OpenAICompletion()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName("text-davinci-001")
-      .setServiceName(openAIServiceName)
+      .setCustomServiceName(openAIServiceName)
       .setMaxTokens(20)
       .setLogProbs(5)
       .setOutputCol("out")
