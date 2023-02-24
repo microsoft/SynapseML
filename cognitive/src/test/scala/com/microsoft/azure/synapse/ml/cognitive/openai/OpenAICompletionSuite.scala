@@ -102,8 +102,8 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = CompletionResponse.makeFromRowConverter
-    completion.transform(df).collect().map(r =>
-      fromRow(r.getAs[Row]("out")).choices.map(c =>
+    completion.transform(df).collect().foreach(r =>
+      fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.text.length > requiredLength)))
   }
 
