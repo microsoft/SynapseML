@@ -156,12 +156,16 @@ trait HasAADToken extends HasServiceParams {
   }
 
   protected def refreshAADToken(token: String): String = {
-    val expiryTime = SynapsePlatformUtils.getTokenExpiryTime(token)
-    val minutesLeft = (expiryTime.toInstant.toEpochMilli - System.currentTimeMillis()) / 60000
-    if (minutesLeft < 10) {
-      val newAADToken = SynapsePlatformUtils.getAccessTokenInternal()
-      setScalarParam(AADToken, newAADToken)
-      newAADToken
+    if (SynapsePlatformUtils.isSynapseInternal) {
+      val expiryTime = SynapsePlatformUtils.getTokenExpiryTime(token)
+      val minutesLeft = (expiryTime.toInstant.toEpochMilli - System.currentTimeMillis()) / 60000
+      if (minutesLeft < 10) {
+        val newAADToken = SynapsePlatformUtils.getAccessTokenInternal()
+        setScalarParam(AADToken, newAADToken)
+        newAADToken
+      } else {
+        token
+      }
     } else {
       token
     }
