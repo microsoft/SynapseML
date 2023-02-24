@@ -21,7 +21,9 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAIParams with HasURL with HasSubscriptionKey with HasAADToken
+  with HasAPIVersion with HasDeploymentName with HasMaxTokens
+  with HasTemperature with HasModel with HasStop
+  with HasURL with HasSubscriptionKey with HasAADToken
   with ComplexParamsWritable with HasErrorCol with ConcurrencyParams
   with HasOutputCol with HasCustomCogServiceDomain with SynapseMLLogging {
   logClass()
@@ -73,11 +75,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val df = dataset.toDF
 
       val promptColName = df.withDerivativeCol("prompt")
-      setPromptCol(promptColName)
 
       val dfTemplated = df.withColumn(promptColName, Functions.template(getPromptTemplate))
 
-      val completion = openAICompletion
+      val completion = openAICompletion.setPromptCol(promptColName)
 
       // run completion
       completion
