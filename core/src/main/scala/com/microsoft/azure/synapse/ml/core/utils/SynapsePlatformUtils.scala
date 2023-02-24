@@ -11,12 +11,12 @@ object SynapsePlatformUtils {
   val PlatformUnknown = "unknown"
 
   def getClusterType: String = {
-      val spark = SparkSession.getActiveSession match {
-        case s: Option[SparkSession] => s.get
-        case _ => throw new Exception("SparkSession not existing!")
-      }
-      val sc = spark.sparkContext
-      sc.getConf.get("spark.cluster.type")
+    val spark = SparkSession.getActiveSession match {
+      case s: Option[SparkSession] => s.get
+      case _ => throw new Exception("SparkSession not existing!")
+    }
+    val sc = spark.sparkContext
+    sc.getConf.get("spark.cluster.type")
   }
 
   def currentPlatform: String = {
