@@ -84,7 +84,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("col2")
-      .setMaxIter(5)
+      .setMaxIter(10)
 
     val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getConfidenceInterval.length == 2
