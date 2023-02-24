@@ -36,8 +36,40 @@ trait HasOutcomeCol extends Params {
   def setOutcomeCol(value: String): this.type = set(outcomeCol, value)
 }
 
+trait HasIteOutputCol extends Params {
+  val iteOutputCol: Param[String] = new Param[String](this,
+    "iteOutputCol",
+    "individual treatment effect output column")
+
+  def getIteOutputCol: String = $(iteOutputCol)
+
+  /**
+    * Set name of the output column for individual treatment effect
+    *
+    * @group setParam
+    */
+  def setIteOutputCol(value: String): this.type = set(iteOutputCol, value)
+
+}
+
+trait HasIteStddevOutputCol extends Params {
+  val iteStddevOutputCol: Param[String] = new Param[String](this,
+    "iteStddevOutputCol",
+    "individual treatment effect's standard deviation output column")
+
+  def getIteStddevOutputCol: String = $(iteStddevOutputCol)
+
+  /**
+    * Set name of the output column for ite standard deviation
+    *
+    * @group setParam
+    */
+  def setIteStddevOutputCol(value: String): this.type = set(iteStddevOutputCol, value)
+}
+
 trait DoubleMLParams extends Params
   with HasOutputCol with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
+  with HasIteOutputCol with HasIteStddevOutputCol
   with HasMaxIter with HasWeightCol with HasParallelismInjected {
 
   val treatmentModel = new EstimatorParam(this, "treatmentModel", "treatment model to run")
@@ -130,6 +162,7 @@ trait DoubleMLParams extends Params
   def setParallelism(value: Int): this.type = set(parallelism, value)
 
 
+
   setDefault(
     treatmentModel -> new LogisticRegression(),
     outcomeModel -> new LogisticRegression(),
@@ -137,7 +170,8 @@ trait DoubleMLParams extends Params
     confidenceLevel -> 0.975,
     maxIter -> 1,
     parallelism -> 10, // Best practice, a value up to 10 should be sufficient for most clusters.
-    outputCol -> "ite"
+    iteOutputCol -> "ite",
+    iteStddevOutputCol -> "ite_sd"
   )
 
   private def ensureSupportedEstimator(value: Estimator[_ <: Model[_]]): Unit = {
