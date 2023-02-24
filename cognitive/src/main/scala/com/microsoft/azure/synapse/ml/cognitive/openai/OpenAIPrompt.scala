@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.openai
 
 import com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
@@ -22,7 +23,7 @@ object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 class OpenAIPrompt(override val uid: String) extends Transformer
   with HasOpenAIParams with HasURL with HasSubscriptionKey with HasAADToken
   with ComplexParamsWritable with HasErrorCol with ConcurrencyParams
-  with HasCustomCogServiceDomain with SynapseMLLogging {
+  with HasOutputCol with HasCustomCogServiceDomain with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
@@ -37,13 +38,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def getPromptTemplate: String = $(promptTemplate)
 
   def setPromptTemplate(value: String): this.type = set(promptTemplate, value)
-
-  val parsedOutputCol = new Param[String](
-    this, "parsedOutputCol", "The parsed output column.")
-
-  def getParsedOutputCol: String = $(parsedOutputCol)
-
-  def setParsedOutputCol(value: String): this.type = set(parsedOutputCol, value)
 
   val postProcessing = new Param[String](
     this, "postProcessing", "Post processing options: csv, json, regex",
@@ -63,14 +57,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
     set(postProcessingOptions, v.asScala.toMap)
 
-  setDefault(promptTemplate -> "", parsedOutputCol -> "outParsed",
+  setDefault(outputCol -> "out",
     postProcessing -> "", postProcessingOptions -> Map.empty)
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
 
-  private val localParamNames = Seq("promptTemplate", "parsedOutputCol", "postProcessing", "postProcessingOptions")
+  private val localParamNames = Seq("promptTemplate", "outputCol", "postProcessing", "postProcessingOptions")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
@@ -86,11 +80,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val completion = openAICompletion
 
       // run completion
-      val promptedDF = completion.transform(dfTemplated)
-
-      promptedDF.withColumn(getParsedOutputCol,
-        getParser.parse(F.element_at(F.col(completion.getOutputCol).getField("choices"), 1)
-          .getField("text")))
+      completion
+        .transform(dfTemplated)
+        .withColumn(getOutputCol,
+          getParser.parse(F.element_at(F.col(completion.getOutputCol).getField("choices"), 1)
+            .getField("text")))
+        .drop(completion.getOutputCol)
     })
   }
 
