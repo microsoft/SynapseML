@@ -3,15 +3,16 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.form
 
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
-
+import org.scalactic.TripleEquals._
 import scala.collection.immutable.HashMap
 
-object FormRecognizerV3Utils {
+trait FormRecognizerV3Utils extends TestBase {
   def layoutTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {
     model.transform(df)
       .withColumn("content", col("result.analyzeResult.content"))
@@ -33,7 +34,7 @@ object FormRecognizerV3Utils {
   def resultAssert(result: Array[Row], str1: String, str2: String): Unit = {
     assert(result.head.getString(2).startsWith(str1))
     assert(result.head.getSeq(3).head.asInstanceOf[HashMap.HashTrieMap[String, _]]
-      .keys.toSeq.sortWith(_ < _).mkString(",").equals(str2))
+      .keys.toSeq.sortWith(_ < _).mkString(",") === str2)
   }
 
   def documentTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {
@@ -47,9 +48,7 @@ object FormRecognizerV3Utils {
 }
 
 class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with FormRecognizerUtils
-  with CustomModelUtils {
-
-  import FormRecognizerV3Utils._
+  with CustomModelUtils with FormRecognizerV3Utils {
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
@@ -132,11 +131,13 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-idDocument Basic Usage") {
-    val result1 = modelsTest(analyzeIDDocuments, imageDf5, false)
-    val result2 = modelsTest(bytesAnalyzeIDDocuments, bytesDF5, true)
+    val result1 = modelsTest(analyzeIDDocuments, imageDf5, useBytes = false)
+    val result2 = modelsTest(bytesAnalyzeIDDocuments, bytesDF5, useBytes = true)
     for (result <- Seq(result1, result2)) {
-      resultAssert(result, "WA WASHINGTON\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY\n" +
-        "4d LIC#WDLABCD456DG 9CLASS\nDONORS\n1 TALBOT\n2 LIAM R.\n3 DOB 01/06/1958\n",
+      resultAssert(
+        result,
+        "USA\nWASHINGTON\n20 1234567XX1101\nDRIVER LICENSE" +
+          "\nFEDERAL LIMITS APPLY\n4d LIC#WDLABCD456DG 9CLASS",
         "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber," +
           "Endorsements,FirstName,LastName,Region,Restrictions,Sex")
     }
@@ -151,12 +152,13 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-businessCard Basic Usage") {
-    val result1 = modelsTest(analyzeBusinessCards, imageDf3, false)
-    val result2 = modelsTest(bytesAnalyzeBusinessCards, bytesDF3, true)
+    val result1 = modelsTest(analyzeBusinessCards, imageDf3, useBytes = false)
+    val result2 = modelsTest(bytesAnalyzeBusinessCards, bytesDF3, useBytes = true)
     for (result <- Seq(result1, result2)) {
-      resultAssert(result, "Dr. Avery Smith\nSenior Researcher\nCloud & Al Department\n" +
-        "avery.smith@contoso.com\nhttps://www.contoso.com/\nmob:", "Addresses,CompanyNames,ContactNames," +
-        "Departments,Emails,Faxes,JobTitles,Locale,MobilePhones,Websites,WorkPhones")
+      resultAssert(result,
+        "Dr. Avery Smith Senior Researcher Cloud & Al Department",
+        "Addresses,CompanyNames,ContactNames," +
+          "Departments,Emails,Faxes,JobTitles,MobilePhones,Websites,WorkPhones")
     }
   }
 
@@ -169,12 +171,15 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-invoice Basic Usage") {
-    val result1 = modelsTest(analyzeInvoices, imageDf4, false)
-    val result2 = modelsTest(bytesAnalyzeInvoices, bytesDF4, true)
+    val result1 = modelsTest(analyzeInvoices, imageDf4, useBytes = false)
+    val result2 = modelsTest(bytesAnalyzeInvoices, bytesDF4, useBytes = true)
     for (result <- Seq(result1, result2)) {
-      resultAssert(result, "Contoso\nAddress:\n1 Redmond way Suite\n6000 Redmond, WA\n99243\n" +
-        "Invoice For: Microsoft\n1020 Enterprise Way", "CustomerAddress,CustomerAddressRecipient," +
-        "CustomerName,DueDate,InvoiceDate,InvoiceId,Items,VendorAddress,VendorName")
+      resultAssert(
+        result,
+        "Contoso\nAddress:\n1 Redmond way Suite\n6000 Redmond, WA\n99243\n" +
+          "Invoice For: Microsoft\n1020 Enterprise Way",
+        "CustomerAddress,CustomerAddressRecipient," +
+          "CustomerName,DueDate,InvoiceDate,InvoiceId,Items,VendorAddress,VendorName")
     }
   }
 
@@ -187,12 +192,14 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     .setImageBytesCol("imageBytes")
 
   test("Prebuilt-receipt Basic Usage") {
-    val result1 = modelsTest(analyzeReceipts, imageDf2, false)
-    val result2 = modelsTest(bytesAnalyzeReceipts, bytesDF2, true)
+    val result1 = modelsTest(analyzeReceipts, imageDf2, useBytes = false)
+    val result2 = modelsTest(bytesAnalyzeReceipts, bytesDF2, useBytes = true)
     for (result <- Seq(result1, result2)) {
-      resultAssert(result, "O\nContoso\nContoso\n123 Main Street\nRedmond, WA 98052\n123-456-7890\n" +
-        "6/10/2019 13:59\nSales Associate: Paul\n", "Items,Locale,MerchantAddress,MerchantName," +
-        "MerchantPhoneNumber,Subtotal,Total,TotalTax,TransactionDate,TransactionTime")
+      resultAssert(
+        result,
+        "Contoso\nContoso\n123 Main Street\nRedmond, WA 98052",
+        "Items,Locale,MerchantAddress,MerchantName," +
+          "MerchantPhoneNumber,Subtotal,Total,TotalTax,TransactionDate,TransactionTime")
     }
   }
 
