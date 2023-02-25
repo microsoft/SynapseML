@@ -119,16 +119,16 @@ trait DoubleMLParams extends Params
 
   object TreatmentTypes extends Enumeration {
     type TreatmentType = Value
-    val binary, continuous = Value
+    val Binary, Continuous = Value
   }
 
-  def getTreatmentType = {
+  def getTreatmentType: TreatmentTypes.Value = {
     val treatmentType =
       getTreatmentModel match {
         case _: ProbabilisticClassifier[_, _, _] =>
-          TreatmentTypes.binary
+          TreatmentTypes.Binary
         case _: Regressor[_, _, _] =>
-          TreatmentTypes.continuous
+          TreatmentTypes.Continuous
       }
     treatmentType
   }
