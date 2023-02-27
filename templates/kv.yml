@@ -1,5 +1,5 @@
 steps:
   - task: AzureKeyVault@1
     inputs:
-      azureSubscription: 'MMLSpark Build'
+      azureSubscription: 'SynapseML Build'
       keyVaultName: mmlspark-keys
