@@ -404,7 +404,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
