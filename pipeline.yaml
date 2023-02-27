@@ -59,7 +59,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
@@ -151,7 +151,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'MMLSpark Build'
+        azureSubscription:  'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -175,7 +175,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Get Docker Tag + Version'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -289,7 +289,7 @@ jobs:
     - task: AzureKeyVault@1
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
@@ -351,7 +351,7 @@ jobs:
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -362,7 +362,7 @@ jobs:
       displayName: 'Test Python Code'
       timeoutInMinutes: 40
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -381,7 +381,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -416,13 +416,13 @@ jobs:
     - task: AzureKeyVault@1
       condition: startsWith(variables['tag'], 'v')
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
     - task: AzureCLI@1
       displayName: 'Test Dotnet Code'
       timeoutInMinutes: 30
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         publishTestResults: true
         inlineScript: |
@@ -448,7 +448,7 @@ jobs:
     - task: AzureCLI@1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
@@ -483,7 +483,7 @@ jobs:
       displayName: 'Test R Code'
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -506,7 +506,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -528,7 +528,7 @@ jobs:
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -547,7 +547,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -573,7 +573,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Convert notebooks to markdowns'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -702,7 +702,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Setup repo'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -712,7 +712,7 @@ jobs:
       displayName: 'Unit Test'
       timeoutInMinutes: 90
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -734,7 +734,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'MMLSpark Build'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
