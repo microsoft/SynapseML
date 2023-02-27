@@ -502,7 +502,8 @@ class DoubleMLModel(val uid: String)
 
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType =
-    StructType(schema.fields)
+    schema.add(getIteOutputCol, DoubleType)
+      .add(getIteStddevOutputCol, DoubleType)
 }
 
 object DoubleMLModel extends ComplexParamsReadable[DoubleMLModel]
