@@ -269,7 +269,7 @@ class DoubleMLEstimator(override val uid: String)
 
     val regressorModel1 = regressor.fit(residualsDF1)
     val regressorModel2 = regressor.fit(residualsDF2)
-    val ate = regressorModel1.coefficients(0) + regressorModel2.coefficients(0) / 2.0
+    val ate = (regressorModel1.coefficients(0) + regressorModel2.coefficients(0)) / 2.0
 
     Seq(train, test).foreach(_.unpersist)
     (ate,
