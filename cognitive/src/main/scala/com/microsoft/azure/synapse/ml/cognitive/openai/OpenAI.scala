@@ -120,10 +120,7 @@ trait HasMaxTokens extends HasServiceParams {
 
 }
 
-trait HasOpenAIParams extends HasServiceParams
-  with HasPrompt with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
-  with HasAPIVersion with HasDeploymentName with HasMaxTokens {
-
+trait HasTemperature extends HasServiceParams {
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
     this, "temperature",
     "What sampling temperature to use. Higher values means the model will take more risks." +
@@ -138,6 +135,42 @@ trait HasOpenAIParams extends HasServiceParams
   def getTemperatureCol: String = getVectorParam(temperature)
 
   def setTemperatureCol(v: String): this.type = setVectorParam(temperature, v)
+}
+
+trait HasModel extends HasServiceParams {
+  val model: ServiceParam[String] = new ServiceParam[String](
+    this, "model",
+    "The name of the model to use",
+    isRequired = false)
+
+  def getModel: String = getScalarParam(model)
+
+  def setModel(v: String): this.type = setScalarParam(model, v)
+
+  def getModelCol: String = getVectorParam(model)
+
+  def setModelCol(v: String): this.type = setVectorParam(model, v)
+}
+
+trait HasStop extends HasServiceParams {
+  val stop: ServiceParam[String] = new ServiceParam[String](
+    this, "stop",
+    "A sequence which indicates the end of the current document.",
+    isRequired = false)
+
+  def getStop: String = getScalarParam(stop)
+
+  def setStop(v: String): this.type = setScalarParam(stop, v)
+
+  def getStopCol: String = getVectorParam(stop)
+
+  def setStopCol(v: String): this.type = setVectorParam(stop, v)
+}
+
+trait HasOpenAIParams extends HasServiceParams
+  with HasPrompt with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
+  with HasTemperature with HasModel with HasStop
+  with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val topP: ServiceParam[Double] = new ServiceParam[Double](
     this, "topP",
@@ -198,19 +231,6 @@ trait HasOpenAIParams extends HasServiceParams
 
   def setLogProbsCol(v: String): this.type = setVectorParam(logProbs, v)
 
-  val model: ServiceParam[String] = new ServiceParam[String](
-    this, "model",
-    "The name of the model to use",
-    isRequired = false)
-
-  def getModel: String = getScalarParam(model)
-
-  def setModel(v: String): this.type = setScalarParam(model, v)
-
-  def getModelCol: String = getVectorParam(model)
-
-  def setModelCol(v: String): this.type = setVectorParam(model, v)
-
   val echo: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this, "echo",
     "Echo back the prompt in addition to the completion",
@@ -223,19 +243,6 @@ trait HasOpenAIParams extends HasServiceParams
   def getEchoCol: String = getVectorParam(echo)
 
   def setEchoCol(v: String): this.type = setVectorParam(echo, v)
-
-  val stop: ServiceParam[String] = new ServiceParam[String](
-    this, "stop",
-    "A sequence which indicates the end of the current document.",
-    isRequired = false)
-
-  def getStop: String = getScalarParam(stop)
-
-  def setStop(v: String): this.type = setScalarParam(stop, v)
-
-  def getStopCol: String = getVectorParam(stop)
-
-  def setStopCol(v: String): this.type = setVectorParam(stop, v)
 
   val cacheLevel: ServiceParam[Int] = new ServiceParam[Int](
     this, "cacheLevel",
