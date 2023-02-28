@@ -315,19 +315,19 @@ class DoubleMLModel(val uid: String)
 
 
   val trainedTreatmentModels = new TransformerArrayParam(this,
-    "treatmentModels",
+    "trainedTreatmentModels",
     "treatment models produced by DML training")
   def getTrainedTreatmentModels(): Array[Transformer] = $(trainedTreatmentModels)
   def setTrainedTreatmentModels(v: Array[Transformer]): this.type = set(trainedTreatmentModels, v)
 
   val trainedOutcomeModels = new TransformerArrayParam(this,
-    "outcomeModels",
+    "trainedOutcomeModels",
     "outcome models produced by DML training")
   def getTrainedOutcomeModels(): Array[Transformer] = $(trainedOutcomeModels)
   def setTrainedOutcomeModels(v: Array[Transformer]): this.type = set(trainedOutcomeModels, v)
 
   val trainedRegressorModels = new TransformerArrayParam(this,
-    "regressorModels",
+    "trainedRegressorModels",
     "regressor models produced by DML training")
   def getTrainedRegressorModels(): Array[Transformer] = $(trainedRegressorModels)
   def setTrainedRegressionModels(v: Array[Transformer]): this.type = set(trainedRegressorModels, v)
