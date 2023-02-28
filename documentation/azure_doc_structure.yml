@@ -13,6 +13,7 @@ overview-cognitive-services: # output md file name
   end: ./AzureDocTemplate/overview-cognitive-services_end.md # platform specific content added after notebook
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
   output_dir: ../../syncdoc/articles/synapse-analytics/machine-learning #./articles/synapse-analytics
+  media_dir: media
   active: true # include / exclude the notebook in the pipeline
   replace_mapping: # replace link to azure docs with relative path
     https://docs.microsoft.com/azure/search/search-what-is-azure-search: ../../search/search-what-is-azure-search.md

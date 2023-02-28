@@ -4,16 +4,57 @@ import yaml
 import warnings
 from nbconvert import MarkdownExporter
 from yaml.loader import FullLoader
+import requests
+import re
+
+
+def download_image(image_url, image_path):
+    response = requests.get(image_url)
+    image_content = response.content
+    with open(image_path, "wb") as f:
+        f.write(image_content)
+
+
+def rename(file_name):
+    return file_name.replace("_", "-").lower()
+
+
+def process_img(nb_body, folder_name, output_dir, media_dir):
+    """
+    handle Azure doc validation rule (Suggestion: external-image, Warning: alt-text-missing)
+    scan text and find external image link, download the image and store in the img folder
+    replace image link with img path
+    """
+    image_tags = re.finditer(r"(<image.*?>)", nb_body)
+    process_nb_body = []
+    prev = 0
+    for match in image_tags:
+        start_index = match.start()
+        end_index = match.end()
+        content = nb_body[prev:start_index]
+        process_nb_body.append(content)
+        url = re.search(
+            r"<image.*?src=\"(.*?)\".*?>", nb_body[start_index:end_index]
+        ).group(1)
+        file_name = url.split("/")[-1]
+        img_azure_doc_path = "/".join([folder_name, rename(file_name)])
+        file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
+        print(url, file_path)
+        download_image(url, file_path)
+        md_img_path = (
+            ':::image type="content" source="{img_path}" alt_text="icon":::'.format(
+                img_path=img_azure_doc_path
+            )
+        )
+        process_nb_body.append(md_img_path)
+        prev = end_index
+    process_nb_body.append(nb_body[prev:])
+    return "".join(process_nb_body)
 
 
 def convert_notebook_to_md(input_file):
     """
     convert notebook (.ipynb) file to markdown format
-
-    :param input_file: jupyter notebook
-    :type input_file: str
-    :return: converted md file
-    :rtype: str
     """
     md_exporter = MarkdownExporter()
     nb_body, _ = md_exporter.from_filename(input_file)
@@ -26,22 +67,11 @@ def replace_doc_link_absolute(text, replace_mapping):
     given text and replace_dict, replace the content
 
     https://review.learn.microsoft.com/en-us/help/platform/validation-ref/docs-link-absolute?branch=main
-
-    :param text: md text
-    :type text: str
     """
     # TODO: automate this and remove hard coded path in azure_doc_structure.yml
-    for absolute_link, relative_link in replace_mapping:
+    for absolute_link, relative_link in replace_mapping.items():
         text = text.replace(absolute_link, relative_link)
     return text
-
-
-def preprocess_img(img_folder):
-    """
-    handle Azure doc validation rule (Suggestion: external-image, Warning: alt-text-missing)
-    scan text and find external image link, download the image and store in the img folder
-    replace image link with img path
-    """
 
 
 def header1_to_header2(input_string):
@@ -63,14 +93,11 @@ class Document:
         self.content = content
         self.input_path = content["input_path"]
         self.output_dir = content["output_dir"]
+        self.media_dir = content["media_dir"]
         try:
             self.replace_mapping = content["replace_mapping"]
         except KeyError:
             self.replace_mapping = {}
-
-    def azure_doc_requirement_check(self):
-        # TODO: adding checks such as title can only contains lower case letter and "-"
-        pass
 
     def generate_metadata(self):
         """
@@ -144,6 +171,7 @@ class Document:
 
     def run(self):
         body = convert_notebook_to_md(self.input_path)
+        body = process_img(body, self.filename, self.output_dir, self.media_dir)
         generated_metadata = self.generate_metadata()
         combined_documentation = self.combine_documentation(generated_metadata, body)
 
