@@ -94,41 +94,58 @@ object ONNXUtils {
 
   private[onnx] def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]): OnnxTensor = {
     val shape: Array[Long] = tensorInfo.getShape
-    // the first dimension of the shape can be -1 when multiple inputs are allowed. Setting it to the real
-    // input size. Otherwise we cannot create the tensor from the 1D array buffer.
-    if (shape.tail.contains(-1))
-      throw new Exception(s"The input tensor has shape [${shape.mkString}], " +
-        s"but -1 is only allowed at the first dimension (batch size).")
-    shape(0) = batchedValues.length
 
-    validateBatchShapes(batchedValues, shape)
+    if (shape.count(_ == -1) > 1) {
+      throw new Exception(s"The input tensor has shape [${shape.mkString(",")}], " +
+              s"but -1 is only allowed for at most one dimension.")
+    }
 
-    loadTensorBuffer(env, tensorInfo, batchedValues, shape)
+    val inferredShape = validateBatchShapes(batchedValues, shape)
+    loadTensorBuffer(env, tensorInfo, batchedValues, inferredShape)
   }
 
-  private def validateBatchShapes(batchedValues: Seq[_], expectedShape: Array[Long]): Unit = {
+  private def validateBatchShapes(batchedValues: Seq[_], expectedShape: Array[Long]): Array[Long] = {
     // Validate input shape based on first sequence in each parent
     @tailrec
-    def validateOneShape(nestedSeq: Seq[_], currentSize: Array[Long], expectedShape: Array[Long]): Unit = {
+    def validateOneShape(nestedSeq: Seq[_], currentSize: Array[Long], expectedShape: Array[Long]): Array[Long] = {
       if (nestedSeq.isEmpty) {
         throw new IllegalArgumentException("Input element dimension is empty")
       }
+
+      val currentDim = currentSize.length
+      if (expectedShape(currentDim) == -1) {
+        // If the current dimension is variable length, fill in with actual length
+        expectedShape(currentDim) = nestedSeq.length.toLong
+      }
+
       val newSize = currentSize :+ nestedSeq.length.toLong
       nestedSeq.head match {
         case s: Seq[_] => validateOneShape(s, newSize, expectedShape)
         case _ =>
           if (!util.Arrays.equals(newSize, expectedShape)) {
             throw new IllegalArgumentException(
-              s"Input element does not match input tensor shape [${expectedShape.mkString}]." +
-              s" Found shape [${newSize.mkString}]")
+              s"Input element does not match input tensor shape [${expectedShape.mkString(",")}]." +
+                s" Found shape [${newSize.mkString(",")}]")
+          } else {
+            expectedShape
           }
       }
     }
 
-    batchedValues.foreach {
+    val inferredShapes: Seq[Array[Long]] = batchedValues.map {
       case s: Seq[_] => validateOneShape(s, Array[Long](), expectedShape.tail)
       case _ => throw new IllegalArgumentException("Image batch is not a sequence")
     }
+
+    inferredShapes.filterNot(_.sameElements(inferredShapes.head)).headOption.foreach {
+      shape =>
+        throw new Exception("Each element in the input batch must have the same shape. " +
+          s"The head of the batch has shape ${inferredShapes.head.mkString(",")}, but detected an " +
+          s"element with shape ${shape.mkString(",")}")
+    }
+
+    // batch size         shape for inner elements
+    inferredShapes.length.toLong +: inferredShapes.head
   }
 
   private[onnx] def loadTensorBuffer(env: OrtEnvironment,
