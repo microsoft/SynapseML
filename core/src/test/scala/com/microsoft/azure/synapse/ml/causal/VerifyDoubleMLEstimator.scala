@@ -105,6 +105,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
 
     val ldmlModel = ldml.fit(mockDataset)
     val df = ldmlModel.transform(mockDataset)
+    assert(df.count === mockDataset.count)
   }
 
 

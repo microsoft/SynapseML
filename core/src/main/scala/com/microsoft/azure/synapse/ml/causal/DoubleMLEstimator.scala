@@ -366,8 +366,7 @@ class DoubleMLModel(val uid: String)
 
           dataset.withColumn(getIteOutputCol, lit(Double.NaN))
             .withColumn(getIteStddevOutputCol, lit(Double.NaN))
-        }
-        else {
+        } else {
           val treatmentModels = getTrainedTreatmentModels()
           val outcomeModels = getTrainedOutcomeModels()
           val regressorModels = getTrainedRegressorModels()
@@ -415,14 +414,15 @@ class DoubleMLModel(val uid: String)
                               treatmentModel: Transformer,
                               outcomeModel: Transformer,
                               regressorModel: Transformer): DataFrame = {
+
+    val getFreshCol: String => String = name => DatasetExtensions.findUnusedColumnName(name, dataset)
     // Using the treatment model, predict treatment probability (T^) using X columns.
     // and return: T^-1 (treatment residual)
     val df = treatmentModel.transform(dataset)
-    val predictionTreatmentCol = DatasetExtensions.findUnusedColumnName("predictionTreatment", dataset)
-    val rawPredictionTreatmentCol = DatasetExtensions.findUnusedColumnName("rawPredictionTreatment", dataset)
-    val probabilityTreatmentCol = DatasetExtensions.findUnusedColumnName("probabilityTreatment", dataset)
-    val probabilityTreatedCol = DatasetExtensions.findUnusedColumnName("probabilityTreated", dataset)
-    val probabilityUntreatedCol = DatasetExtensions.findUnusedColumnName("probabilityUntreated", dataset)
+    val (predictionTreatmentCol, rawPredictionTreatmentCol, probabilityTreatmentCol,
+          probabilityTreatedCol, probabilityUntreatedCol) = (
+      getFreshCol("predictionTreatment"), getFreshCol("rawPredictionTreatment"), getFreshCol("probabilityTreatment"),
+        getFreshCol("probabilityTreated"), getFreshCol("probabilityUntreated"))
 
     val dfTransformedwithTreatmentModel =
       df.withColumn(probabilityTreatedCol, lit(1) - vector_to_array(col("probability"))(1))
@@ -433,15 +433,15 @@ class DoubleMLModel(val uid: String)
 
     // Using the outcome model, predict outcome (Y^).
     val dfTransformedwithOutcomeModel =  outcomeModel.transform(dfTransformedwithTreatmentModel)
-    val predictionOutcomeCol = DatasetExtensions.findUnusedColumnName("predictionOutcome", dataset)
-    val rawPredictionOutcomeCol = DatasetExtensions.findUnusedColumnName("rawPredictionOutcome", dataset)
-    val probabilityOutcomeCol = DatasetExtensions.findUnusedColumnName("probabilityOutcome", dataset)
+    val (predictionOutcomeCol, rawPredictionOutcomeCol, probabilityOutcomeCol) = (
+      getFreshCol("predictionOutcome"), getFreshCol("rawPredictionOutcome"), getFreshCol("probabilityOutcome"))
+
     val dfDML =
       dfTransformedwithOutcomeModel.withColumnRenamed("prediction", predictionOutcomeCol)
         .withColumnRenamed("rawPrediction", rawPredictionOutcomeCol)
         .withColumnRenamed("probability", probabilityOutcomeCol)
 
-    // Using the residuals model, predict outcome residual using output from step 1.
+    // Using the residuals model, predict outcome residual using output from previous step.
     val treatmentResidualVATreated =
       new VectorAssembler()
         .setInputCols(Array(probabilityTreatedCol))
@@ -450,12 +450,10 @@ class DoubleMLModel(val uid: String)
     val dfTransfomedTreated = treatmentResidualVATreated.transform(dfDML)
     val dfTransformedwithTreatedResidualModel =
       regressorModel.transform(dfTransfomedTreated).drop("treatmentResidualVec")
-    val predictionTreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("predictionTreatedResidual", dataset)
-    val rawPredictionTreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("rawPredictionTreatedResidual", dataset)
-    val probabilityTreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("probabilityTreatedResidual", dataset)
+    val (predictionTreatedResidualCol, rawPredictionTreatedResidualCol, probabilityTreatedResidualCol) = (
+      getFreshCol("predictionTreatedResidual"), getFreshCol("rawPredictionTreatedResidual"),
+      getFreshCol("probabilityTreatedResidual"))
+
     val dfTreated =
       dfTransformedwithTreatedResidualModel.withColumnRenamed("prediction", predictionTreatedResidualCol)
         .withColumnRenamed("rawPrediction", rawPredictionTreatedResidualCol)
@@ -468,12 +466,9 @@ class DoubleMLModel(val uid: String)
     val dfTransformedUntreated = treatmentResidualVAUntreated.transform(dfTreated)
     val dfTransformedUntreatedResidualModel =
       regressorModel.transform(dfTransformedUntreated).drop("treatmentResidualVec")
-    val predictionUntreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("predictionUntreatedResidual", dataset)
-    val rawPredictionUntreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("rawPredictionUntreatedResidual", dataset)
-    val probabilityUntreatedResidualCol =
-      DatasetExtensions.findUnusedColumnName("probabilityUntreatedResidual", dataset)
+    val (predictionUntreatedResidualCol, rawPredictionUntreatedResidualCol, probabilityUntreatedResidualCol) = (
+      getFreshCol("predictionUntreatedResidual"), getFreshCol("rawPredictionUntreatedResidual"),
+      getFreshCol("probabilityUntreatedResidual"))
     val dfProcessed =
       dfTransformedUntreatedResidualModel.withColumnRenamed("prediction", predictionUntreatedResidualCol)
         .withColumnRenamed("rawPrediction", rawPredictionUntreatedResidualCol)
