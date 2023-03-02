@@ -27,7 +27,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("apple", "fruits"),
     ("mercedes", "cars"),
     ("cake", "dishes"),
-    (null, "none")
+    (null, "none") //scalastyle:ignore null
   ).toDF("text", "category")
 
   test("Basic Usage") {
