@@ -3,10 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
+import com.microsoft.azure.synapse.ml.core.spark.Functions.template
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{col, lit, when}
+import org.apache.spark.sql.{DataFrame, functions => F}
 import org.scalactic.Equality
 
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
@@ -24,17 +26,26 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   lazy val df: DataFrame = Seq(
     ("apple", "fruits"),
     ("mercedes", "cars"),
-    ("cake", "dishes")
+    ("cake", "dishes"),
+    (null, "none")
   ).toDF("text", "category")
 
   test("Basic Usage") {
-    prompt
+    val nonNullCount = prompt
       .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
       .collect()
-      .foreach(r => assert(r.getSeq[String](0).nonEmpty))
+      .map(r =>
+        if (r.isNullAt(0)) 0
+        else {
+          assert(r.getSeq[String](0).length > 0)
+          1
+        })
+      .toSeq.sum
+
+    assert(nonNullCount == 3)
   }
 
   test("Basic Usage JSON") {
@@ -48,6 +59,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
       .transform(df)
       .select("outParsed")
+      .where(col("outParsed").isNotNull)
       .collect()
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
