@@ -46,9 +46,17 @@ dml = (DoubleMLEstimator()
       .setOutcomeModel(LogisticRegression())
       .setMaxIter(20))
 dmlModel = dml.fit(df)
+```
+After fit the model, you can get average treatment effect and confidence interval:
+```python
 dmlModel.getAvgTreatmentEffect()
 dmlModel.getConfidenceInterval()
 ```
+Additionally, you can use transform function to get individual treatment effect for each record:
+```python
+resDF = dmlModel.transform(df)
+```
+resDF will have two columns "ite" and "ite_sd" added.
 
 For an end to end application, check out the DoubleMLEstimator [notebook
 example](../Effects%20of%20Outreach%20Efforts).

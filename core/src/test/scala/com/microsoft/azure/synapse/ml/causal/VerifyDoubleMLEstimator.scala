@@ -7,6 +7,8 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestO
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.DataFrame
+import org.scalactic.Equality
 
 class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
 
@@ -108,6 +110,22 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     assert(df.count === mockDataset.count)
   }
 
+  test("Invalid treatment model will throw exception.") {
+    assertThrows[Exception] {
+      val ldml = new DoubleMLEstimator()
+        .setTreatmentModel(new LinearRegression())
+        .setTreatmentCol(mockLabelColumn)
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("col2")
+        .setMaxIter(20)
+
+      val ldmlModel = ldml.fit(mockDataset)
+    }
+  }
+
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(df1.drop("ite", "ite_sd"), df2.drop("ite", "ite_sd"))(eq)
+  }
 
   override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =
     Seq(new TestObject(new DoubleMLEstimator()

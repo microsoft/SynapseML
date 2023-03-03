@@ -85,8 +85,9 @@ class DoubleMLModel(val uid: String)
   override def copy(extra: ParamMap): DoubleMLModel = defaultCopy(extra)
 
   /**
-    * :: Experimental ::
-    * DoubleMLEstimator transform  function is still experimental, and its behavior could change in the future.
+    *
+    * DoubleMLEstimator transform function will calculate ITE (individual treatment effect) for each record
+    * based on all the models from DoubleMLEstimator fit
     */
   @Experimental
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -113,7 +114,9 @@ class DoubleMLModel(val uid: String)
               val processedDF = calculateIteCol(
                 dfIdx,
                 iteColName,
-                NamespaceInjections.pipelineModel(Array(treatmentModels(index), outcomeModels(index), regressorModels(index)))
+                NamespaceInjections.pipelineModel(
+                  Array(treatmentModels(index), outcomeModels(index), regressorModels(index))
+                )
               )
               processedDF
             }(executionContext)
@@ -140,10 +143,12 @@ class DoubleMLModel(val uid: String)
     })
   }
 
+  //scalastyle:off method.length
   private def calculateIteCol(dataset: Dataset[_],
                               iteColName: String,
                               pipelineModel: PipelineModel): DataFrame = {
-    val (treatmentModel, outcomeModel, residualModel) = (pipelineModel.stages(0), pipelineModel.stages(1), pipelineModel.stages(2))
+    val (treatmentModel, outcomeModel, residualModel) =
+      (pipelineModel.stages(0), pipelineModel.stages(1), pipelineModel.stages(2))
     val getFreshCol: String => String = name => DatasetExtensions.findUnusedColumnName(name, dataset)
     // Using the treatment model, predict treatment probability (T^) using X columns.
     // and return: T^-1 (treatment residual)
@@ -170,11 +175,13 @@ class DoubleMLModel(val uid: String)
         .withColumnRenamed("rawPrediction", rawPredictionOutcomeCol)
         .withColumnRenamed("probability", probabilityOutcomeCol)
 
+    val treatmentResidualVecCol = getFreshCol("treatmentResidualVec")
+
     // Using the residuals model, predict outcome residual using output from previous step.
     val treatmentResidualVATreated =
       new VectorAssembler()
         .setInputCols(Array(probabilityTreatedCol))
-        .setOutputCol("treatmentResidualVec")
+        .setOutputCol(treatmentResidualVecCol)
         .setHandleInvalid("skip")
     val dfTransfomedTreated = treatmentResidualVATreated.transform(dfDML)
     val dfTransformedwithTreatedResidualModel =
@@ -190,7 +197,7 @@ class DoubleMLModel(val uid: String)
     val treatmentResidualVAUntreated =
       new VectorAssembler()
         .setInputCols(Array(probabilityUntreatedCol))
-        .setOutputCol("treatmentResidualVec")
+        .setOutputCol(treatmentResidualVecCol)
         .setHandleInvalid("skip")
     val dfTransformedUntreated = treatmentResidualVAUntreated.transform(dfTreated)
     val dfTransformedUntreatedResidualModel =

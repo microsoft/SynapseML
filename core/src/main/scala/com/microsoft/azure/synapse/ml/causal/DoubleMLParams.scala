@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasOutputCol, HasWeightCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
 import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
 import org.apache.spark.ml.{Estimator, Model}
@@ -36,7 +36,7 @@ trait HasOutcomeCol extends Params {
   def setOutcomeCol(value: String): this.type = set(outcomeCol, value)
 }
 
-trait HasIteOutputCol extends Params {
+trait HasITEOutput extends Params {
   val iteOutputCol: Param[String] = new Param[String](this,
     "iteOutputCol",
     "individual treatment effect output column")
@@ -50,9 +50,6 @@ trait HasIteOutputCol extends Params {
     */
   def setIteOutputCol(value: String): this.type = set(iteOutputCol, value)
 
-}
-
-trait HasIteStddevOutputCol extends Params {
   val iteStddevOutputCol: Param[String] = new Param[String](this,
     "iteStddevOutputCol",
     "individual treatment effect's standard deviation output column")
@@ -65,11 +62,11 @@ trait HasIteStddevOutputCol extends Params {
     * @group setParam
     */
   def setIteStddevOutputCol(value: String): this.type = set(iteStddevOutputCol, value)
+
 }
 
 trait DoubleMLParams extends Params
-  with HasOutputCol with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
-  with HasIteOutputCol with HasIteStddevOutputCol
+  with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol with HasITEOutput
   with HasMaxIter with HasWeightCol with HasParallelismInjected {
 
   val treatmentModel = new EstimatorParam(this, "treatmentModel", "treatment model to run")
@@ -117,12 +114,12 @@ trait DoubleMLParams extends Params
    */
   def setSampleSplitRatio(value: Array[Double]): this.type = set(sampleSplitRatio, value)
 
-  object TreatmentTypes extends Enumeration {
+  private[causal] object TreatmentTypes extends Enumeration {
     type TreatmentType = Value
     val Binary, Continuous = Value
   }
 
-  def getTreatmentType: TreatmentTypes.Value = {
+  private[causal] def getTreatmentType: TreatmentTypes.Value = {
     val treatmentType =
       getTreatmentModel match {
         case _: ProbabilisticClassifier[_, _, _] =>

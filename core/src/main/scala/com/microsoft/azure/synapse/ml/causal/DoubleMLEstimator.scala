@@ -3,28 +3,22 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import breeze.linalg.sum
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.train.{AutoTrainedModel, TrainClassifier, TrainRegressor}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaConstants}
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.azure.synapse.ml.param.{TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.stages.DropColumns
-import org.apache.spark.annotation.Experimental
-import org.apache.commons.math3.stat.descriptive.rank.Percentile
+import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor}
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, NamespaceInjections, Pipeline, PipelineModel, Transformer}
 import org.apache.spark.ml.classification.ProbabilisticClassifier
-import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.functions.vector_to_array
-import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
+import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.{avg, col, lit, monotonically_increasing_id, stddev}
+import org.apache.spark.ml._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, StructType}
 
 import scala.concurrent.Future
 
@@ -85,12 +79,16 @@ class DoubleMLEstimator(override val uid: String)
         s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
 
       if (treatmentColType != IntegerType && treatmentColType != BooleanType
-        && getTreatmentType == TreatmentTypes.Binary)
-      {throw new Exception("TreatmentModel was set as classifier but treatment columns isn't integer or boolean.")}
+        && getTreatmentType == TreatmentTypes.Binary) {
+        throw new Exception("TreatmentModel was set to use classifier " +
+          "but treatment column in dataset isn't integer or boolean type.")
+      }
 
       if (treatmentColType != DoubleType && treatmentColType != LongType
-        && getTreatmentType == TreatmentTypes.Continuous)
-      {throw new Exception("TreatmentModel was set as regression but treatment columns isn't continuous data type.")}
+        && getTreatmentType == TreatmentTypes.Continuous) {
+        throw new Exception("TreatmentModel was set to use regression " +
+        "but treatment column in dataset isn't continuous data type.")
+      }
 
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
@@ -128,7 +126,7 @@ class DoubleMLEstimator(override val uid: String)
               }
               log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
                 s"time elapsed: ${totalTime.elapsed() / 6e10} minutes")
-              Some(oneAte._1, oneAte._2, oneAte._3, oneAte._4)
+              Some(oneAte)
             } catch {
               case ex: Throwable =>
                 log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
