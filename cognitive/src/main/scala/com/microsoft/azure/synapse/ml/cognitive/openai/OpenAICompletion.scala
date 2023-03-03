@@ -74,6 +74,12 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
+  override def shouldSkip(row: Row): Boolean =
+    emptyParamData(row, prompt) &&
+    emptyParamData(row, batchPrompt) &&
+    emptyParamData(row, indexPrompt) &&
+    emptyParamData(row, batchIndexPrompt)
+
   override def responseDataType: DataType = CompletionResponse.schema
 
   private[this] def getStringEntity[A](prompt: A, optionalParams: Map[String, Any]): StringEntity = {
