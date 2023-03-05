@@ -18,7 +18,7 @@ To install the current SynapseML package for R use:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.10.2.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.11.0.zip")
 ...
 ```
 
@@ -31,7 +31,7 @@ It will take some time to install all dependencies.  Then, run:
 library(sparklyr)
 library(dplyr)
 config <- spark_config()
-config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:0.10.2"
+config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:0.11.0"
 sc <- spark_connect(master = "local", config = config)
 ...
 ```
@@ -91,7 +91,7 @@ and then use spark_connect with method = "databricks":
 
 ```R
 install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.10.2.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.11.0.zip")
 library(sparklyr)
 library(dplyr)
 sc <- spark_connect(method = "databricks")
