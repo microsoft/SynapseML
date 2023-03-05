@@ -391,9 +391,10 @@ abstract class DatabricksTestHelper extends TestBase {
       assert(isClusterActive(clusterId))
     }
 
+    Thread.sleep(1000) // Ensure cluster is not overwhelmed
     println("Installing libraries")
     installLibraries(clusterId, libraries)
-    tryWithRetries(Seq.fill(60 * 3)(1000).toArray) { () =>
+    tryWithRetries(Seq.fill(60 * 6)(1000).toArray) { () =>
       assert(areLibrariesInstalled(clusterId))
     }
 
