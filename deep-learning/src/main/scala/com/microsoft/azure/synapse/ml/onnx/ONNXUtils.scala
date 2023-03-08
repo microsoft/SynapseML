@@ -94,10 +94,12 @@ object ONNXUtils {
 
   private[onnx] def createTensor(env: OrtEnvironment, tensorInfo: TensorInfo, batchedValues: Seq[_]): OnnxTensor = {
     val shape: Array[Long] = tensorInfo.getShape
-
+    shape(0) = batchedValues.length
     if (shape.count(_ == -1) > 1) {
       throw new Exception(s"The input tensor has shape [${shape.mkString(",")}], " +
-              s"but -1 is only allowed for at most one dimension.")
+        s"but -1 is only allowed for at most one dimension. " +
+        s"If the array size in each row can vary, either pass in one row at a time, " +
+        s"or set the mini batch size to 1.")
     }
 
     val inferredShape = validateBatchShapes(batchedValues, shape)
@@ -125,7 +127,7 @@ object ONNXUtils {
           if (!util.Arrays.equals(newSize, expectedShape)) {
             throw new IllegalArgumentException(
               s"Input element does not match input tensor shape [${expectedShape.mkString(",")}]." +
-                s" Found shape [${newSize.mkString(",")}]")
+                s" Found shape [${newSize.mkString(",")}]. Consider setting mini batch size to 1.")
           } else {
             expectedShape
           }

@@ -234,13 +234,13 @@ class ONNXModel(override val uid: String)
       StructType(modelOutputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
     )
 
-    // The cache call is a workaround for GH issue 1075:
-    //  https://github.com/Microsoft/SynapseML/issues/1075
     val batchedDF = getMiniBatcher.transform(dataset)
-    val batchedCache = if (batchedDF.isStreaming) batchedDF else batchedDF.cache().unpersist()
-    val (coerced, feedDict) = coerceBatchedDf(batchedCache)
+    val (coerced, feedDict) = coerceBatchedDf(batchedDF)
     val modelBc = broadcastedModelPayload.getOrElse(rebroadcastModelPayload(dataset.sparkSession))
     val (fetchDicts, devType, optLevel) = (getFetchDict, get(deviceType), OptLevel.valueOf(getOptimizationLevel))
+
+    coerced.show(true)
+
     val outputDf = coerced.mapPartitions {
       rows =>
         val payload = modelBc.value
@@ -252,11 +252,7 @@ class ONNXModel(override val uid: String)
         applyModel(session, env, feedDict, fetchDicts, inputSchema)(rows)
     }
 
-    // The cache call is a workaround for GH issue 1075:
-    //  https://github.com/Microsoft/SynapseML/issues/1075
-    val outputCache = if (outputDf.isStreaming) outputDf else outputDf.cache().unpersist()
-
-    val flattenedDF = new FlattenBatch().transform(outputCache)
+    val flattenedDF = new FlattenBatch().transform(outputDf)
 
     (softMaxTransform _ andThen argMaxTransform) (flattenedDF)
   }
