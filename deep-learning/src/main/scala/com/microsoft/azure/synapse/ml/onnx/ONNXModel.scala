@@ -239,8 +239,6 @@ class ONNXModel(override val uid: String)
     val modelBc = broadcastedModelPayload.getOrElse(rebroadcastModelPayload(dataset.sparkSession))
     val (fetchDicts, devType, optLevel) = (getFetchDict, get(deviceType), OptLevel.valueOf(getOptimizationLevel))
 
-    coerced.show(true)
-
     val outputDf = coerced.mapPartitions {
       rows =>
         val payload = modelBc.value
