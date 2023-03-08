@@ -15,7 +15,7 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.10.2",
+    version: "0.11.0",
   },
   stylesheets: [
     {
@@ -94,11 +94,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.2/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.11.0/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.10.2/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.11.0/scala/index.html',
             },
           ],
         },
