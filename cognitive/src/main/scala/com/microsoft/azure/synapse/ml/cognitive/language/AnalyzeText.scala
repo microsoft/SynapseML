@@ -147,6 +147,8 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
 
   override def urlPath: String = "/language/:analyze-text"
 
+  override private[ml] def internalServiceType: String = "textanalytics"
+
   // We don't support setKindCol here because output schemas for different kind are different
   val kind = new Param[String](
     this, "kind", "Enumeration of supported Text Analysis tasks",
