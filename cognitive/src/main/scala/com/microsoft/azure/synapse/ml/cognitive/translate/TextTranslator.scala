@@ -127,6 +127,7 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
   with HasInternalJsonOutputParser with HasSubscriptionRegion
   with HasSetLocation with HasSetLinkedServiceUsingLocation {
 
+  override private[ml] def internalServiceType: String = "texttranslation"
 
   protected def reshapeColumns(schema: StructType, parameterNames: Seq[String])
   : Seq[(Transformer, String, String)] = {

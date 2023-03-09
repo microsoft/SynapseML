@@ -31,6 +31,8 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
   def urlPath: String = ""
 
+  override private[ml] def internalServiceType: String = "openai"
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
