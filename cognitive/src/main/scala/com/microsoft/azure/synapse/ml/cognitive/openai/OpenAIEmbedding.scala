@@ -30,7 +30,7 @@ class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(u
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 
   def urlPath: String = ""
-  
+
   override private[ml] def internalServiceType: String = "openai"
 
   val text: ServiceParam[String] = new ServiceParam[String](
