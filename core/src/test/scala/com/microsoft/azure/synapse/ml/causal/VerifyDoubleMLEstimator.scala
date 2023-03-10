@@ -92,6 +92,19 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     assert(ateLow < ateHigh && ateLow > 0 && ateHigh < 150)
   }
 
+  test("Invalid treatment model will throw exception.") {
+    assertThrows[Exception] {
+      val ldml = new DoubleMLEstimator()
+        .setTreatmentModel(new LinearRegression())
+        .setTreatmentCol(mockLabelColumn)
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("col2")
+        .setMaxIter(20)
+
+      val ldmlModel = ldml.fit(mockDataset)
+    }
+  }
+
   override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =
     Seq(new TestObject(new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
