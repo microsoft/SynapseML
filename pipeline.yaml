@@ -8,6 +8,8 @@ trigger:
   paths:
     exclude:
     - README.md
+    - CONTRIBUTORS.md
+    - SECURITY.md
     - docs/*
     - CODEOWNERS
     - .github
