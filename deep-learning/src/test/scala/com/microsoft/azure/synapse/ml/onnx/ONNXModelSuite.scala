@@ -396,4 +396,62 @@ class ONNXModelSuite extends TestBase
       .map(wrappedArr => wrappedArr.head.head)
       .toArray
   }
+
+  private lazy val testTextModel: ONNXModel = {
+    spark
+    val model = downloadModel("TfIdfVectorizer.onnx", baseUrl)
+    new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(Map("text" -> "features"))
+      .setFetchDict(Map("encoded" -> "result"))
+  }
+
+  private lazy val testDfText1: DataFrame = {
+    Seq(
+      Tuple1(Array("A", "B", "C"))
+    ).toDF("features")
+  }
+
+  private lazy val testDfText2: DataFrame = {
+    Seq(
+      Tuple1(Array("A", "B", "C")),
+      Tuple1(Array("A", "B", "B", "C", "A"))
+    ).toDF("features")
+  }
+
+  test("ONNX model can accept variable size input if batch size is set to 1"){
+
+    // If the array size in each row can vary, either pass in one row at a time,
+    val Array(row) = testTextModel
+      .setMiniBatchSize(10)
+      .transform(testDfText1.orderBy("features"))
+      .select("encoded")
+      .as[Seq[Float]]
+      .collect()
+
+    assert(row == Seq(1.0, 1.0, 1.0))
+
+    // Or set the mini batch size to 1.
+    val Array(row1, row2) = testTextModel
+      .setMiniBatchSize(1)
+      .transform(testDfText2.orderBy("features"))
+      .select("encoded")
+      .as[Seq[Float]]
+      .collect()
+
+    assert(row1 == Seq(2.0, 2.0, 1.0))
+    assert(row2 == Seq(1.0, 1.0, 1.0))
+
+
+    assertThrows[Exception] {
+      // When multiple rows are sent through the same batch, and the shape varies, we cannot
+      // infer the proper tensor size.
+      testTextModel
+        .setMiniBatchSize(10)
+        .transform(testDfText2.orderBy("features"))
+        .select("encoded")
+        .as[Seq[Float]]
+        .collect()
+    }
+  }
 }
