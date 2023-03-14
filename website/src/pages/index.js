@@ -393,10 +393,10 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.0 MyApp.jar `}
                   python:
                   <CodeSnippet
                     snippet={`import pyspark
-spark = pyspark.sql.SparkSession.builder.appName("MyApp")
+spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
         .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.0") # Please use 0.11.0 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-        .getOrCreate()
+        .getOrCreate())
 import synapse.ml`}
                     lang="python"
                   ></CodeSnippet>
