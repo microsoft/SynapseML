@@ -17,6 +17,7 @@ class ConstantColumns {
   val transformedOutcome = "_tmp_tsOutcome"
   val transformedWeights = "_tmp_twOutcome"
   val tempVecCol = "_tmp_combined_prediction"
+  val tempForestPred = "_tmp_op_rf"
 }
 
 object ConstantColumns extends ConstantColumns
@@ -113,30 +114,34 @@ class OrthoForestDMLEstimator(override val uid: String)
     val residualsDF1 = calculateResiduals(train, test)
     val residualsDF2 = calculateResiduals(test, train)
 
-    val residualsDF = residualsDF1.unionAll(residualsDF2)
-
     val orthoPredTransformer = new OrthoForestVariableTransformer()
       .setTreatmentResidualCol(getTreatmentResidualCol)
       .setOutcomeResidualCol(getOutcomeResidualCol)
       .setOutputCol(ConstantColumns.transformedOutcome)
       .setWeightsCol(ConstantColumns.transformedWeights)
 
-    val transformedDF = orthoPredTransformer
-      .transform(residualsDF)
+    def getTreesByFitting(residualDF: DataFrame): Array[DecisionTreeRegressionModel] = {
+      val transformedDF = orthoPredTransformer.transform(residualDF)
 
-    val rfRegressor = new RandomForestRegressor()
-      .setFeaturesCol(getHeterogeneityVecCol)
-      .setLabelCol(ConstantColumns.transformedOutcome)
-      .setWeightCol(ConstantColumns.transformedWeights)
-      .setPredictionCol(s"_tmp_op_rf")
-      .setMaxDepth(getMaxDepth)
-      .setMinInstancesPerNode(getMinSamplesLeaf)
+      val rfRegressor = new RandomForestRegressor()
+        .setFeaturesCol(getHeterogeneityVecCol)
+        .setLabelCol(ConstantColumns.transformedOutcome)
+        .setWeightCol(ConstantColumns.transformedWeights)
+        .setPredictionCol(ConstantColumns.tempForestPred)
+        .setMaxDepth(getMaxDepth)
+        .setMinInstancesPerNode(getMinSamplesLeaf)
 
-    val theTree = rfRegressor.fit(transformedDF)
+      val theForest = rfRegressor.fit(transformedDF)
+
+      theForest.trees
+    }
+
+    val finalArray = Array.concat(getTreesByFitting(residualsDF1),
+      getTreesByFitting(residualsDF2))
 
     Seq(train, test).foreach(_.unpersist)
 
-    theTree.trees
+    finalArray
   }
 
   override def copy(extra: ParamMap): Estimator[OrthoForestDMLModel] = {
