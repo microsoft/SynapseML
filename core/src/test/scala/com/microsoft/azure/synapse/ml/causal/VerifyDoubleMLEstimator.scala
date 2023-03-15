@@ -16,42 +16,42 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
   val dog = "Dog"
   val bird = "Bird"
   private lazy val mockDataset = spark.createDataFrame(Seq(
-    (0, 1, 50, 0.60, dog, cat),
-    (1, 0, 140, 0.50, cat, dog),
-    (0, 1, 78, 0.99, dog, bird),
-    (1, 0, 92, 0.34, cat, dog),
-    (0, 1, 50, 0.60, dog, bird),
-    (1, 0, 80, 0.50, bird, dog),
-    (0, 1, 78, 0.99, dog, cat),
-    (1, 0, 101, 0.28, cat, bird),
-    (0, 1, 40, 0.58, dog, cat),
-    (0, 1, 42, 0.53, cat, dog),
-    (1, 0, 128, 0.99, dog, bird),
-    (0, 1, 12, 0.34, cat, dog),
-    (1, 1, 55, 0.69, cat, bird),
-    (0, 1, 32, 0.48, cat, dog),
-    (1, 1, 62, 0.78, dog, bird),
-    (0, 1, 19, 0.48, cat, bird),
-    (0, 1, 11, 0.32, cat, bird),
-    (1, 1, 43, 0.63, dog, cat),
-    (1, 1, 138, 0.73, cat, dog),
-    (1, 0, 98, 0.89, dog, bird),
-    (0, 1, 22, 0.39, cat, dog),
-    (0, 0, 47, 0.72, cat, bird),
-    (1, 0, 95, 0.49, cat, dog),
-    (0, 1, 66, 0.71, dog, bird),
-    (0, 1, 21, 0.45, cat, bird),
-    (1, 1, 72, 0.34, cat, dog),
-    (0, 0, 50, 0.60, dog, cat),
-    (1, 1, 72, 0.51, bird, dog),
-    (0, 0, 22, 0.91, cat, bird),
-    (1, 1, 133, 0.31, cat, dog),
-    (0, 1, 55, 0.69, dog, bird),
-    (1, 0, 58, 0.40, bird, dog),
-    (0, 1, 69, 0.88, dog, cat),
-    (1, 1, 136, 0.35, cat, dog),
-    (0, 0, 48, 0.58, dog, cat)))
-    .toDF(mockLabelColumn, "col1", "col2", "col3", "col4", "col5")
+    (0, 1, 50, 0.60, cat),
+    (1, 0, 140, 0.50, dog),
+    (0, 1, 78, 0.99, bird),
+    (1, 0, 92, 0.34, dog),
+    (0, 1, 50, 0.60, bird),
+    (1, 0, 80, 0.50, dog),
+    (0, 1, 78, 0.99, cat),
+    (1, 0, 101, 0.28, bird),
+    (0, 1, 40, 0.58, cat),
+    (0, 1, 42, 0.53, dog),
+    (1, 0, 128, 0.99, bird),
+    (0, 1, 12, 0.34, dog),
+    (1, 1, 55, 0.69, bird),
+    (0, 1, 32, 0.48, dog),
+    (1, 1, 62, 0.78, bird),
+    (0, 1, 19, 0.48, bird),
+    (0, 1, 11, 0.32, bird),
+    (1, 1, 43, 0.63, cat),
+    (1, 1, 138, 0.73, dog),
+    (1, 0, 98, 0.89, bird),
+    (0, 1, 22, 0.39, dog),
+    (0, 0, 47, 0.72, bird),
+    (1, 0, 95, 0.49, dog),
+    (0, 1, 66, 0.71, bird),
+    (0, 1, 21, 0.45, bird),
+    (1, 1, 72, 0.34, dog),
+    (0, 0, 50, 0.60, cat),
+    (1, 1, 72, 0.51, dog),
+    (0, 0, 22, 0.91, bird),
+    (1, 1, 133, 0.31, dog),
+    (0, 1, 55, 0.69, bird),
+    (1, 0, 58, 0.40, dog),
+    (0, 1, 69, 0.88, cat),
+    (1, 1, 136, 0.35, dog),
+    (0, 0, 48, 0.58, cat)))
+    .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
 
 
   test("Get treatment effects") {
@@ -84,12 +84,25 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
       .setTreatmentCol(mockLabelColumn)
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("col2")
-      .setMaxIter(10)
+      .setMaxIter(30)
 
     val ldmlModel = ldml.fit(mockDataset)
     assert(ldmlModel.getConfidenceInterval.length == 2)
     val (ateLow, ateHigh) = (ldmlModel.getConfidenceInterval(0), ldmlModel.getConfidenceInterval(1))
     assert(ateLow < ateHigh && ateLow > -130 && ateHigh < 130)
+  }
+
+  test("Invalid treatment model will throw exception.") {
+    assertThrows[Exception] {
+      val ldml = new DoubleMLEstimator()
+        .setTreatmentModel(new LinearRegression())
+        .setTreatmentCol(mockLabelColumn)
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("col2")
+        .setMaxIter(20)
+
+      val ldmlModel = ldml.fit(mockDataset)
+    }
   }
 
   override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =
