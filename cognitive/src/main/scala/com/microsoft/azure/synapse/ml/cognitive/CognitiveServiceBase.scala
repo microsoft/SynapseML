@@ -197,7 +197,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
         |    mlflow_env_configs = get_mlflow_env_config()
         |    self.setAADToken(mlflow_env_configs.driver_aad_token)
         |    self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
-        |dataset = DataFrame(self._java_obj.transform(dataset._jdf), dataset.sparkSession)""".stripMargin
+        |""".stripMargin + super.pyTransformerInvocation
 
   override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
     s"""/// <summary>
