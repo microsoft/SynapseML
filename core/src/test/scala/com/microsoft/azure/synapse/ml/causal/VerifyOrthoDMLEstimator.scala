@@ -32,7 +32,7 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
 
     val heterogeneityCols  = Array("X1","X2","X3")
     val heterogeneityVecCol = "XVec"
-    val confounderCols = Array("X1","X2","X3","W1","W2","W3","W4","W5","W6","W7","W8","W9","W10")
+    val confounderCols = Array("W1","W2","W3","W4","W5","W6","W7","W8","W9","W10")
     val confounderVecCol = "XWVec"
 
     val filePath = s"${sys.env("DATASETS_HOME")}/Causal/OrthoForestData.csv"
@@ -82,7 +82,7 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
       .getLong(0)
 
     /* Since the sample is 1000, we expect at least 5% +/- 1.34% */
-    assert(samplesInBound > 915)
+    assert(samplesInBound > 950)
 
   }
 
