@@ -154,6 +154,17 @@ class PerPartitionScalarScalerEstimator(
         raise NotImplementedError()
 
     def _fit(self, df: DataFrame) -> PerPartitionScalarScalerModel:
+        def _ensure_spark_df(self, data):
+            if isinstance(data, pd.DataFrame):
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+                return spark.createDataFrame(data)
+            else:
+                return data
+
+        df = _ensure_spark_df(df)
+
         partition_key = self.partition_key
         apply_on_cols = self._apply_on_cols()
 

@@ -116,6 +116,17 @@ class IdIndexer(Estimator, HasSetInputCol, HasSetOutputCol):
         )
 
     def _fit(self, df: DataFrame) -> IdIndexerModel:
+        def _ensure_spark_df(self, data):
+            if isinstance(data, pd.DataFrame):
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+                return spark.createDataFrame(data)
+            else:
+                return data
+
+        df = _ensure_spark_df(df)
+
         return IdIndexerModel(
             self.input_col,
             self.partition_key,
@@ -166,4 +177,15 @@ class MultiIndexer(Estimator):
         self.indexers = indexers
 
     def _fit(self, df: DataFrame) -> MultiIndexerModel:
+        def _ensure_spark_df(self, data):
+            if isinstance(data, pd.DataFrame):
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+                return spark.createDataFrame(data)
+            else:
+                return data
+
+        df = _ensure_spark_df(df)
+
         return MultiIndexerModel([i.fit(df) for i in self.indexers])

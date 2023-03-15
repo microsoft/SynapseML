@@ -36,5 +36,16 @@ class RankingTrainValidationSplit(_ValidatorParams, _RankingTrainValidationSplit
         return _java_obj
 
     def _fit(self, dataset):
+        def _ensure_spark_df(self, data):
+            if isinstance(data, pd.DataFrame):
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+                return spark.createDataFrame(data)
+            else:
+                return data
+
+        df = _ensure_spark_df(df)
+
         model = self._to_java().fit(dataset._jdf)
         return self._create_model(model)

@@ -177,27 +177,27 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   private[ml] def internalServiceType: String = ""
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
-    """def setCustomServiceName(self, value):
-      |    self._java_obj = self._java_obj.setCustomServiceName(value)
-      |    return self
-      |
-      |def setEndpoint(self, value):
-      |    self._java_obj = self._java_obj.setEndpoint(value)
-      |    return self
-      |
-      |def setInternalEndpoint(self, value):
-      |    self._java_obj = self._java_obj.setInternalEndpoint(value)
-      |    return self
-      |
-      |def _transform(self, dataset: DataFrame) -> DataFrame:
-      |    if running_on_synapse_internal():
-      |        from synapse.ml.mlflow import get_mlflow_env_config
-      |        mlflow_env_configs = get_mlflow_env_config()
-      |        self.setAADToken(mlflow_env_configs.driver_aad_token)
-      |        self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
-      |    return super()._transform(dataset)
-      |""".stripMargin
+    """|def setCustomServiceName(self, value):
+       |    self._java_obj = self._java_obj.setCustomServiceName(value)
+       |    return self
+       |
+       |def setEndpoint(self, value):
+       |    self._java_obj = self._java_obj.setEndpoint(value)
+       |    return self
+       |
+       |def setInternalEndpoint(self, value):
+       |    self._java_obj = self._java_obj.setInternalEndpoint(value)
+       |    return self
+       |""".stripMargin
   }
+
+  override def pyTransformerInvocation: String =
+    s"""|if running_on_synapse_internal():
+        |    from synapse.ml.mlflow import get_mlflow_env_config
+        |    mlflow_env_configs = get_mlflow_env_config()
+        |    self.setAADToken(mlflow_env_configs.driver_aad_token)
+        |    self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
+        |dataset = DataFrame(self._java_obj.transform(dataset._jdf), dataset.sparkSession)""".stripMargin
 
   override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
     s"""/// <summary>

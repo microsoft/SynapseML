@@ -221,6 +221,17 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         self.setLabelCols([self.getLabelCol()])
 
     def _fit(self, dataset):
+        def _ensure_spark_df(self, data):
+            if isinstance(data, pd.DataFrame):
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+                return spark.createDataFrame(data)
+            else:
+                return data
+
+        df = _ensure_spark_df(df)
+
         return super()._fit(dataset)
 
     # override this method to provide a correct default backend

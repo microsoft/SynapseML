@@ -172,7 +172,18 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamsSetters: String =
-    thisStage.params.map(pyParamSetter).mkString("\n")
+    thisStage.params.map(pyParamSetter).mkString("\n") + "\n"
+
+  private def pyEnsureDatasetFormatMethods: String = {
+    """|def _ensure_spark_df(self, data):
+       |    if isinstance(data, pd.DataFrame):
+       |        from pyspark.sql import SparkSession
+       |        spark = SparkSession.builder.getOrCreate()
+       |        return spark.createDataFrame(data)
+       |    else:
+       |        return data
+       |""".stripMargin
+  }
 
   protected def pyExtraEstimatorMethods: String = {
     thisStage match {
@@ -185,12 +196,37 @@ trait PythonWrappable extends BaseWrappable {
             |        model = ${companionModelClassName.split(".".toCharArray).last}._from_java(java_model)
             |    return model
             |
+            |$pyEnsureDatasetFormatMethods
             |def _fit(self, dataset):
-            |    java_model = self._fit_java(dataset)
+            |    spark_dataset = _ensure_spark_df(dataset)
+            |    java_model = self._fit_java(spark_dataset)
             |    return self._create_model(java_model)
             |""".stripMargin
       case _ =>
         ""
+    }
+  }
+
+  protected def pyTransformerInvocation: String =
+    "dataset = DataFrame(self._java_obj.transform(dataset._jdf), dataset.sparkSession)"
+
+  def pyExtraTransformerMethods: String = {
+    thisStage match {
+      case _: Model[_] | _: Transformer => {
+        s"""|$pyEnsureDatasetFormatMethods
+            |def _transform(self, data):
+            |    assert self._java_obj is not None
+            |    self._transfer_params_to_java()
+            |    dataset = self._ensure_spark_df(data)
+            |${indent(pyTransformerInvocation, 1)}
+            |    if isinstance(data, pd.DataFrame):
+            |        return dataset.toPandas()
+            |    else:
+            |        return dataset
+            |
+            |""".stripMargin
+      }
+      case _ => ""
     }
   }
 
@@ -207,10 +243,14 @@ trait PythonWrappable extends BaseWrappable {
           companionModelImport.mkString(".")
         }
         val modelName = companionModelImport.last
-        s"from $path import $modelName"
+        s"from $path import $modelName" + "\n" + "import pandas as pd"
       case _ =>
         ""
     }
+  }
+
+  protected def pyExtraTrasformerImports: String = {
+    "import pandas as pd"
   }
 
   protected def pyParamGetter(p: Param[_]): String = {
@@ -252,7 +292,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamsGetters: String =
-    thisStage.params.map(pyParamGetter).mkString("\n")
+    thisStage.params.map(pyParamGetter).mkString("\n") + "\n"
 
   def pyInitFunc(): String = {
     s"""
@@ -303,6 +343,7 @@ trait PythonWrappable extends BaseWrappable {
         |from pyspark.ml.param import TypeConverters
         |from synapse.ml.core.schema.TypeConversionUtils import generateTypeConverter, complexTypeConverter
         |$pyExtraEstimatorImports
+        |$pyExtraTrasformerImports
         |
         |@inherit_doc
         |class $pyClassName(${pyInheritedClasses.mkString(", ")}):
@@ -343,10 +384,9 @@ trait PythonWrappable extends BaseWrappable {
         |        return from_java(java_stage, module_name)
         |
         |${indent(pyParamsSetters, 1)}
-        |
         |${indent(pyParamsGetters, 1)}
-        |
         |${indent(pyExtraEstimatorMethods, 1)}
+        |${indent(pyExtraTransformerMethods, 1)}
         |
         |${indent(pyAdditionalMethods, 1)}
         """.stripMargin
