@@ -19,9 +19,9 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
 import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, StructType}
+import org.apache.commons.math3.stat.inference.TestUtils
 
 import scala.concurrent.Future
 
@@ -80,6 +80,18 @@ class DoubleMLEstimator(override val uid: String)
       require(treatmentColType == DoubleType || treatmentColType == LongType
         || treatmentColType == IntegerType || treatmentColType == BooleanType,
         s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
+
+      if (treatmentColType != IntegerType && treatmentColType != BooleanType
+        && getTreatmentType == TreatmentTypes.Binary) {
+        throw new Exception("TreatmentModel was set to use classifier " +
+          "but treatment column in dataset isn't integer or boolean type.")
+      }
+
+      if (treatmentColType != DoubleType && treatmentColType != LongType
+        && getTreatmentType == TreatmentTypes.Continuous) {
+        throw new Exception("TreatmentModel was set to use regression " +
+          "but treatment column in dataset isn't continuous data type.")
+      }
 
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
@@ -289,6 +301,11 @@ class DoubleMLModel(val uid: String)
   def getAvgTreatmentEffect: Double = {
     val finalAte =  $(rawTreatmentEffects).sum / $(rawTreatmentEffects).length
     finalAte
+  }
+
+  def getPValue: Double = {
+    val pvalue = TestUtils.tTest(0.0, $(rawTreatmentEffects))
+    pvalue
   }
 
   def getConfidenceInterval: Array[Double] = {
