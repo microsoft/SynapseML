@@ -140,4 +140,3 @@ speech_to_text.transform(df).show()
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.SpeechToTextSDK"
 scala="com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/SpeechToTextSDK.scala" />
-

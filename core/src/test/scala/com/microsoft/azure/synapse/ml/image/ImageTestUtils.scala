@@ -3,29 +3,29 @@
 
 package com.microsoft.azure.synapse.ml.image
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.IOImplicits.dfrToDfre
+import org.apache.commons.io.FileUtils
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.io.File
 import java.net.URL
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import com.microsoft.azure.synapse.ml.io.IOImplicits.dfrToDfre
-import org.apache.commons.io.FileUtils
-import org.apache.spark.sql.functions.col
 
 trait ImageTestUtils extends TestBase {
 
-  val filesRoot = BuildInfo.datasetDir.toString
-  val imagePath = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
-  val modelPath = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
-  val inputCol = "cntk_images"
+  val filesRoot: String = BuildInfo.datasetDir.toString
+  val imagePath: String = FileUtilities.join(filesRoot, "Images", "CIFAR").toString
+  val modelPath: String = FileUtilities.join(filesRoot, "CNTKModel", "ConvNet_CIFAR10.model").toString
+  val inputCol = "image"
   val outputCol = "out"
   val labelCol = "labels"
 
-  val featureVectorLength = 3 * 32 * 32
-  lazy val saveFile = new File(tmpDir.toFile, "spark-z.model").toString
+  val featureVectorLength: Int = 3 * 32 * 32
+  lazy val saveFile: String = new File(tmpDir.toFile, "spark-z.model").toString
 
   def testModelDF(spark: SparkSession): DataFrame = {
     import spark.implicits._

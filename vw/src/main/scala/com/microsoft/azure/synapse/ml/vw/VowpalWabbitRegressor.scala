@@ -4,20 +4,22 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.ml.regression.RegressionModel
+import org.apache.spark.sql.types.DoubleType
 
-object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
-
+/**
+  * VowpalWabbit exposed as SparkML regressor.
+  */
 class VowpalWabbitRegressor(override val uid: String)
   extends BaseRegressor[Row, VowpalWabbitRegressor, VowpalWabbitRegressionModel]
-    with VowpalWabbitBase
-    with ComplexParamsWritable with BasicLogging {
+    with VowpalWabbitBaseSpark
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
@@ -38,10 +40,12 @@ class VowpalWabbitRegressor(override val uid: String)
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)
 }
 
+object VowpalWabbitRegressor extends ComplexParamsReadable[VowpalWabbitRegressor]
+
 class VowpalWabbitRegressionModel(override val uid: String)
   extends RegressionModel[Row, VowpalWabbitRegressionModel]
-    with VowpalWabbitBaseModel
-    with ComplexParamsWritable with Wrappable with BasicLogging {
+    with VowpalWabbitBaseModelSpark
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressionModel"))
@@ -50,13 +54,13 @@ class VowpalWabbitRegressionModel(override val uid: String)
 
   protected override def transformImpl(dataset: Dataset[_]): DataFrame = {
     transformImplInternal(dataset)
+      .withColumn($(rawPredictionCol),
+        col(vowpalWabbitPredictionCol).getField("prediction").cast(DoubleType))
       .withColumn($(predictionCol), col($(rawPredictionCol)))
   }
 
   override def predict(features: Row): Double = {
-    logPredict(
-      throw new NotImplementedError("Not implement")
-    )
+    throw new NotImplementedError("Not implement")
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

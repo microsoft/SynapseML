@@ -25,9 +25,9 @@ description: SynapseML Development Setup
 
 # Publishing and Using Build Secrets
 
-To use secrets in the build you must be part of the synapsemlkeyvault
- and azure subscription. If you are MSFT internal would like to be 
- added please reach out `mmlspark-support@microsoft.com`
+To use secrets in the build, you must be part of the synapsemlkeyvault
+ and Azure subscription. If you're MSFT internal and would like to be
+ added, reach out to `synapseml-support@microsoft.com`
 
 # SBT Command Guide
 
@@ -53,7 +53,7 @@ Generates documentation for scala sources
 
 ### `createCondaEnv`
 
-Creates a conda environment `synapseml` from `environment.yaml` if it does not already exist. 
+Creates a conda environment `synapseml` from `environment.yaml` if it doesn't already exist.
 This env is used for python testing. **Activate this env before using python build commands.**
 
 ### `cleanCondaEnv`
@@ -92,20 +92,20 @@ Packages the library into a jar
 
 ### `publishBlob`
 
-Publishes Jar to synapseml's azure blob based maven repo. (Requires Keys)
+Publishes Jar to SynapseML's Azure blob-based Maven repo. (Requires Keys)
 
 ### `publishLocal`
 
-Publishes library to local maven repo
+Publishes library to the local Maven repo
 
 ### `publishDocs`
 
-Publishes scala and python doc to synapseml's build azure storage account. (Requires Keys)
+Publishes scala and python doc to SynapseML's Azure storage account. (Requires Keys)
 
 ### `publishSigned`
 
-Publishes the library to sonatype staging repo
+Publishes the library to Sonatype staging repo
 
 ### `sonatypeRelease`
 
-Promotes the published sonatype artifact
+Promotes the published Sonatype artifact

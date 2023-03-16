@@ -43,7 +43,7 @@ class SimpleHTTPTransformerSuite
 
   test("Basic Handling") {
     val results = simpleTransformer
-      .setHandler(HandlingUtils.basic)
+      .setHandler(HandlingUtils.basic _)
       .transform(df).collect
     assert(results.length == 10)
     results.foreach(r =>

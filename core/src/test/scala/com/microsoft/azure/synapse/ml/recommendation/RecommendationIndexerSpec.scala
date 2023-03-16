@@ -47,4 +47,3 @@ class RecommendationIndexerModelSpec extends RankingTestBase with TransformerFuz
 
   override def reader: MLReadable[_] = RankingAdapterModel
 }
-

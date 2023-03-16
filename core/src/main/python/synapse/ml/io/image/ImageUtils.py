@@ -51,4 +51,3 @@ def readFromStrings(df, bytesCol, imageCol="image", dropPrefix=False):
     jresult = reader.readFromStrings(df._jdf, bytesCol, imageCol, dropPrefix)
     sql_ctx = pyspark.SQLContext.getOrCreate(ctx)
     return DataFrame(jresult, sql_ctx)
-

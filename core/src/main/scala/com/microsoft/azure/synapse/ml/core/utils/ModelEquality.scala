@@ -3,8 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.utils
 
-import org.apache.spark.ml.PipelineStage
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.TripleEquals._
 
@@ -21,7 +20,7 @@ object ModelEquality {
     a.intersect(b).size.toDouble / (a | b).size.toDouble
   }
 
-  def assertEqual(m1: PipelineStage, m2: PipelineStage): Unit = {
+  def assertEqual(m1: Params, m2: Params): Unit = {
     assert(m1.getClass === m2.getClass, s"${m1.getClass} != ${m2.getClass}, assertion failed.")
     val m1Params = m1.extractParamMap().toSeq.map(pp => pp.param.name).toSet
     val m2Params = m2.extractParamMap().toSeq.map(pp => pp.param.name).toSet
@@ -36,7 +35,7 @@ object ModelEquality {
       p1 match {
         case pe1: ParamEquality[_] =>
           pe1.assertEquality(v1, v2)
-        case _ if Set("outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs in them
+        case _ if Set("inputCol", "outputCol", "errorCol", "featuresCol")(paramName) => // These usually have UIDs
           assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length, s"$v1 != $v2")
         case _ if Set("defaultListenPort")(paramName) => // Randomly assigned ports in LightGBM
           assert(v1.asInstanceOf[Int] > 0 && v1.asInstanceOf[Int] > 0)
@@ -49,12 +48,36 @@ object ModelEquality {
     }
   }
 
+  def assertEqual(m1: ParamMap, m2: ParamMap): Unit = {
+    assert(m1.getClass === m2.getClass, s"${m1.getClass} != ${m2.getClass}, assertion failed.")
+    assert(m1.toSeq.length == m2.toSeq.length)
+    val m1Params = m1.toSeq.map(pp => pp.param).toSet
+
+    m1Params.foreach { param =>
+      val v1 = m1.get(param)
+      val v2 = m2.get(param)
+
+      param match {
+        case pe1: ParamEquality[_] =>
+          pe1.assertEquality(v1, v2)
+        case _ if Set("outputCol", "errorCol", "featuresCol")(param.name) => // These usually have UIDs in them
+          assert(v1.asInstanceOf[String].length == v2.asInstanceOf[String].length, s"$v1 != $v2")
+        case _ if Set("defaultListenPort")(param.name) => // Randomly assigned ports in LightGBM
+          assert(v1.asInstanceOf[Int] > 0 && v1.asInstanceOf[Int] > 0)
+        case _ if Set("validationMetrics")(param.name) =>
+          assert(v1.asInstanceOf[Seq[Double]].length === v2.asInstanceOf[Seq[Double]].length) // This can be flaky
+        case _ =>
+          assert(v1 === v2, s"Param: ${param.name} not equal with ${v1.toString} and ${v2.toString}")
+      }
+
+    }
+  }
+
   private def companion[T](name: String)(implicit man: Manifest[T]): T =
     Class.forName(name + "$").getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
 
-
   def assertEqual(modelClassName: String, path1: String, path2: String): Unit = {
-    val companionObject = companion[MLReadable[_ <: PipelineStage]](modelClassName)
+    val companionObject = companion[MLReadable[_ <: Params]](modelClassName)
     assertEqual(companionObject.load(path1), companionObject.load(path2))
   }
 

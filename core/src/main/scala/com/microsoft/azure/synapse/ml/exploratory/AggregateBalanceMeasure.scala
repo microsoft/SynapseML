@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -32,7 +32,7 @@ class AggregateBalanceMeasure(override val uid: String)
     with DataBalanceParams
     with ComplexParamsWritable
     with Wrappable
-    with BasicLogging {
+    with SynapseMLLogging {
 
   logClass()
 
@@ -83,7 +83,7 @@ class AggregateBalanceMeasure(override val uid: String)
 
       //noinspection ScalaStyle
       if (getVerbose)
-        featureStats.cache.show(numRows = 20, truncate = false)
+        featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
       df.unpersist
       calculateAggregateMeasures(featureStats, featureProbCol)
@@ -126,7 +126,7 @@ private[exploratory] object AggregateMetrics {
   val THEILLINDEX = "theil_l_index"
   val THEILTINDEX = "theil_t_index"
 
-  val METRICS = Seq(ATKINSONINDEX, THEILLINDEX, THEILTINDEX)
+  val METRICS: Seq[String] = Seq(ATKINSONINDEX, THEILLINDEX, THEILTINDEX)
 }
 
 //noinspection SpellCheckingInspection

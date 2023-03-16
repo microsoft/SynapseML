@@ -10,7 +10,7 @@ description: R setup and example for SynapseML
 
 ## Installation
 
-**Requirements**: You will need to have R and
+**Requirements**: You'll need to have R and
 [devtools](https://github.com/hadley/devtools) installed on your
 machine.
 
@@ -38,7 +38,7 @@ sc <- spark_connect(master = "local", config = config)
 
 This will create a spark context on local machine.
 
-We will then need to import the R wrappers:
+We'll then need to import the R wrappers:
 
 ```R
 ...

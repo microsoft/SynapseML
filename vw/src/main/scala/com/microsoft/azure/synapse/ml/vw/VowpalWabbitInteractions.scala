@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.ParamMap
@@ -23,7 +23,7 @@ object VowpalWabbitInteractions extends ComplexParamsReadable[VowpalWabbitIntera
   */
 class VowpalWabbitInteractions(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
-  with Wrappable with ComplexParamsWritable with BasicLogging
+  with Wrappable with ComplexParamsWritable with SynapseMLLogging
 {
   logClass()
 
@@ -89,8 +89,8 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
           throw new IllegalArgumentException("column " + f + " must be of type Vector but is " + fieldType.typeName)
       }
 
-    schema.add(StructField(getOutputCol, VectorType, true))
+    schema.add(StructField(getOutputCol, VectorType, nullable = true))
   }
 
-  override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)
+  override def copy(extra: ParamMap): VowpalWabbitInteractions = defaultCopy(extra)
 }

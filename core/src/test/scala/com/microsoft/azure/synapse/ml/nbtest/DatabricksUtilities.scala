@@ -3,16 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
-import com.microsoft.azure.synapse.ml.io.split2.HasHttpClient
-
-import java.io.{File, FileInputStream}
-import java.time.LocalDateTime
-import java.util.concurrent.TimeoutException
-import SprayImplicits._
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils._
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
+import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
+import com.microsoft.azure.synapse.ml.nbtest.SprayImplicits._
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
@@ -20,15 +18,21 @@ import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import java.io.{File, FileInputStream}
+import java.time.LocalDateTime
+import java.util.concurrent.{TimeUnit, TimeoutException}
+import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
-//noinspection ScalaStyle
-object DatabricksUtilities extends HasHttpClient {
+object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-10.1"
-  val AdbRuntime = "10.1.x-scala2.12"
+  val PoolName = "synapseml-build-10.4"
+  val GpuPoolName = "synapseml-build-10.4-gpu"
+  val AdbRuntime = "10.4.x-scala2.12"
+  val AdbGpuRuntime = "10.4.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -37,82 +41,60 @@ object DatabricksUtilities extends HasHttpClient {
     .encode(("token:" + Token).getBytes("UTF-8"))
   val BaseURL = s"https://$Region.azuredatabricks.net/api/2.0/"
   lazy val PoolId: String = getPoolIdByName(PoolName)
+  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
+  lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
-  // SynapseML info
-  val Version = s"com.microsoft.azure:synapseml_$ScalaVersion:${BuildInfo.version}"
-  val Repository = "https://mmlspark.azureedge.net/maven"
-
   val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> Version, "repo" -> Repository)),
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "nltk")),
     Map("pypi" -> Map("package" -> "bs4")),
     Map("pypi" -> Map("package" -> "plotly")),
     Map("pypi" -> Map("package" -> "Pillow")),
-    Map("pypi" -> Map("package" -> "onnxmltools")),
+    Map("pypi" -> Map("package" -> "onnxmltools==1.7.0")),
     Map("pypi" -> Map("package" -> "lightgbm")),
     Map("pypi" -> Map("package" -> "mlflow"))
+  ).toJson.compactPrint
+
+  // TODO: install synapse.ml.dl wheel package here
+  val GPULibraries: String = List(
+    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
+    Map("pypi" -> Map("package" -> "transformers==4.15.0")),
+    Map("pypi" -> Map("package" -> "petastorm==0.12.0"))
+  ).toJson.compactPrint
+
+  val GPUInitScripts: String = List(
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
   ).toJson.compactPrint
 
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
-  def recursiveListFiles(f: File): Array[File] = {
-    val files = f.listFiles()
-    files.filter(_.isFile) ++ files.filter(_.isDirectory).flatMap(recursiveListFiles)
-  }
+  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
+    FileUtilities.join(
+      BuildInfo.baseDirectory.getParent, "notebooks", "features").getCanonicalFile)
 
-  val NotebookFiles: Array[File] = recursiveListFiles(FileUtilities.join(BuildInfo.baseDirectory.getParent,
-      "notebooks").getCanonicalFile)
+  val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val ParallizableNotebooks: Seq[File] = NotebookFiles
+  val CPUNotebooks: Seq[File] = ParallelizableNotebooks.filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
 
-  val NonParallizableNotebooks: Seq[File] = Nil
-
-  def retry[T](backoffs: List[Int], f: () => T): T = {
-    try {
-      f()
-    } catch {
-      case t: Throwable =>
-        val waitTime = backoffs.headOption.getOrElse(throw t)
-        println(s"Caught error: $t with message ${t.getMessage}, waiting for $waitTime")
-        blocking {
-          Thread.sleep(waitTime.toLong)
-        }
-        retry(backoffs.tail, f)
-    }
-  }
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 
   def databricksGet(path: String): JsValue = {
-    retry(List(100, 500, 1000), { () =>
-      val request = new HttpGet(BaseURL + path)
-      request.addHeader("Authorization", AuthValue)
-      using(client.execute(request)) { response =>
-        if (response.getStatusLine.getStatusCode != 200) {
-          throw new RuntimeException(s"Failed: response: $response")
-        }
-        IOUtils.toString(response.getEntity.getContent, "UTF-8").parseJson
-      }.get
-    })
+    val request = new HttpGet(BaseURL + path)
+    request.addHeader("Authorization", AuthValue)
+    RESTHelpers.sendAndParseJson(request)
   }
 
   //TODO convert all this to typed code
-  def databricksPost(path: String, body: String, retries: List[Int] = List(100, 500, 1000)): JsValue = {
-    retry(retries, { () =>
-      val request = new HttpPost(BaseURL + path)
-      request.addHeader("Authorization", AuthValue)
-      request.setEntity(new StringEntity(body))
-      using(client.execute(request)) { response =>
-        if (response.getStatusLine.getStatusCode != 200) {
-          val entity = IOUtils.toString(response.getEntity.getContent, "UTF-8")
-          throw new RuntimeException(s"Failed:\n entity:$entity \n response: $response")
-        }
-        IOUtils.toString(response.getEntity.getContent, "UTF-8").parseJson
-      }.get
-    })
+  def databricksPost(path: String, body: String): JsValue = {
+    val request = new HttpPost(BaseURL + path)
+    request.addHeader("Authorization", AuthValue)
+    request.setEntity(new StringEntity(body))
+    RESTHelpers.sendAndParseJson(request)
   }
 
   def getClusterIdByName(name: String): String = {
@@ -151,35 +133,55 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
+  def uploadFileToDBFS(file: File, dest: String): Unit = {
+    val content = BaseEncoding.base64().encode(
+      IOUtils.toByteArray(new FileInputStream(file)))
+    val body =
+      s"""
+         |{
+         |  "contents": "$content",
+         |  "path": "$dest",
+         |  "overwrite": true
+         |}
+       """.stripMargin
+    databricksPost("dbfs/put", body)
+    ()
+  }
+
   def workspaceRmDir(dir: String): Unit = {
     val body = s"""{"path": "$dir", "recursive":true}"""
     databricksPost("workspace/delete", body)
     ()
   }
 
-  def createClusterInPool(clusterName: String, poolId: String): String = {
+  def createClusterInPool(clusterName: String,
+                          sparkVersion: String,
+                          numWorkers: Int,
+                          poolId: String,
+                          initScripts: String): String = {
     val body =
       s"""
          |{
          |  "cluster_name": "$clusterName",
-         |  "spark_version": "$AdbRuntime",
-         |  "num_workers": $NumWorkers,
+         |  "spark_version": "$sparkVersion",
+         |  "num_workers": $numWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-         |   }
+         |   },
+         |  "init_scripts": $initScripts
          |}
       """.stripMargin
     databricksPost("clusters/create", body).select[String]("cluster_id")
   }
 
-  def installLibraries(clusterId: String): Unit = {
+  def installLibraries(clusterId: String, libraries: String): Unit = {
     databricksPost("libraries/install",
       s"""
          |{
          | "cluster_id": "$clusterId",
-         | "libraries": $Libraries
+         | "libraries": $libraries
          |}
       """.stripMargin)
     ()
@@ -203,12 +205,17 @@ object DatabricksUtilities extends HasHttpClient {
     ()
   }
 
-  def deleteCluster(clusterId: String): Unit = {
+  def terminateCluster(clusterId: String): Unit = {
     databricksPost("clusters/delete", s"""{"cluster_id":"$clusterId"}""")
     ()
   }
 
-  def submitRun(clusterId: String, notebookPath: String, timeout: Int = 10 * 60): Int = {
+  def permanentDeleteCluster(clusterId: String): Unit = {
+    databricksPost("clusters/permanent-delete", s"""{"cluster_id":"$clusterId"}""")
+    ()
+  }
+
+  def submitRun(clusterId: String, notebookPath: String): Int = {
     val body =
       s"""
          |{
@@ -232,6 +239,17 @@ object DatabricksUtilities extends HasHttpClient {
     state == "RUNNING"
   }
 
+  def areLibrariesInstalled(clusterId: String): Boolean = {
+    val clusterObj = databricksGet(s"libraries/cluster-status?cluster_id=$clusterId")
+    val libraryStatuses = clusterObj.asInstanceOf[JsObject].fields("library_statuses")
+      .asInstanceOf[JsArray].elements
+    if (libraryStatuses.exists(_.select[String]("status") == "FAILED")) {
+      val error = libraryStatuses.filter(_.select[String]("status") == "FAILED").toJson.compactPrint
+      throw new RuntimeException(s"Library Installation Failure: $error")
+    }
+    libraryStatuses.forall(_.select[String]("status") == "INSTALLED")
+  }
+
   private def getRunStatuses(runId: Int): (String, Option[String]) = {
     val runObj = databricksGet(s"jobs/runs/get?run_id=$runId")
     val stateObj = runObj.select[JsObject]("state")
@@ -252,6 +270,7 @@ object DatabricksUtilities extends HasHttpClient {
     (url, nbName)
   }
 
+  //scalastyle:off cyclomatic.complexity
   def monitorJob(runId: Integer,
                  timeout: Int,
                  interval: Int = 8000,
@@ -263,7 +282,7 @@ object DatabricksUtilities extends HasHttpClient {
       val (url, nbName) = getRunUrlAndNBName(runId)
       if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty &
+      while (finalState.isEmpty &  //scalastyle:ignore while
         (System.currentTimeMillis() - startTime) < timeout &
         lifeCycleState != "INTERNAL_ERROR"
       ) {
@@ -299,10 +318,17 @@ object DatabricksUtilities extends HasHttpClient {
 
     }(ExecutionContext.global)
   }
+  //scalastyle:on cyclomatic.complexity
 
-  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): Int = {
-    uploadNotebook(notebookFile, Folder + "/" + notebookFile.getName)
-    submitRun(clusterId, Folder + "/" + notebookFile.getName)
+  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
+    val destination: String = Folder + "/" + notebookFile.getName
+    uploadNotebook(notebookFile, destination)
+    val runId: Int = submitRun(clusterId, destination)
+    val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
+
+    println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
+
+    run
   }
 
   def cancelRun(runId: Int): Unit = {
@@ -349,5 +375,66 @@ object DatabricksUtilities extends HasHttpClient {
   def cancelAllJobs(clusterId: String): Unit = {
     listActiveJobs(clusterId).foreach(cancelRun)
   }
+}
 
+abstract class DatabricksTestHelper extends TestBase {
+
+  import DatabricksUtilities._
+
+  def databricksTestHelper(clusterId: String,
+                           libraries: String,
+                           notebooks: Seq[File]): mutable.ListBuffer[Int] = {
+    val jobIdsToCancel: mutable.ListBuffer[Int] = mutable.ListBuffer[Int]()
+
+    println("Checking if cluster is active")
+    tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
+      assert(isClusterActive(clusterId))
+    }
+
+    Thread.sleep(1000) // Ensure cluster is not overwhelmed
+    println("Installing libraries")
+    installLibraries(clusterId, libraries)
+    tryWithRetries(Seq.fill(60 * 6)(1000).toArray) { () =>
+      assert(areLibrariesInstalled(clusterId))
+    }
+
+    println(s"Creating folder $Folder")
+    workspaceMkDir(Folder)
+
+    println(s"Submitting jobs")
+    val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))
+    parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
+    println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
+    assert(parNotebookRuns.nonEmpty)
+
+    parNotebookRuns.foreach(run => {
+      println(s"Testing ${run.notebookName}")
+      test(run.notebookName) {
+        val result = Await.ready(
+          run.monitor(logLevel = 0),
+          Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+
+        if (!result.isSuccess) {
+          throw result.failed.get
+        }
+      }
+    })
+
+    jobIdsToCancel
+  }
+
+  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Int],
+                               clusterId: String,
+                               clusterName: String): Unit = {
+    println("Suite test finished. Running afterAll procedure...")
+    jobIdsToCancel.foreach(cancelRun)
+    permanentDeleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId, name $clusterName")
+  }
+}
+
+case class DatabricksNotebookRun(runId: Int, notebookName: String) {
+  def monitor(logLevel: Int = 2): Future[Any] = {
+    monitorJob(runId, TimeoutInMillis, logLevel)
+  }
 }

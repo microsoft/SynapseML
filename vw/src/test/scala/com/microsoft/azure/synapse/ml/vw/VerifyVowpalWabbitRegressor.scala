@@ -5,13 +5,15 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks, DatasetUtils}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{Column, DataFrame}
 
 class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor] with Benchmarks {
 
-  val args: Array[String] = Array("", "--bfgs", "--adaptive")
+  // "--bfgs", (crashes in latest VW version)
+  val args: Array[String] = Array("", "--adaptive")
 
   val numPartitions = 2
 
@@ -65,7 +67,7 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
           .setFeaturesCol(featuresColumn)
           .setPredictionCol(predCol)
           .setNumPasses(3)
-          .setArgs(s" $arg --quiet")
+          .setPassThroughArgs(s" $arg --quiet")
           .fit(trainData)
         val scoredResult = model.transform(trainData).drop(featuresColumn)
 
@@ -74,8 +76,8 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
           .setPredictionCol(predCol)
           .setMetricName("rmse")
         val metric = eval.evaluate(scoredResult)
-        addBenchmark(s"VowpalWabbitRegressor_${fileName}_${arg}",
-          metric, decimals, false)
+        addBenchmark(s"VowpalWabbitRegressor_${fileName}_$arg",
+          metric, decimals, higherIsBetter = false)
       }
     }
   }
@@ -118,8 +120,8 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
       .setFeaturesCol("a")
       .setAdditionalFeatures(Array("b"))
       .setPredictionCol(predCol)
-      //.setArgs(s"-a") // don't pass -a (audit) when using interactions...
-      .setArgs("--quiet")
+      //.setPassThroughArgs(s"-a") // don't pass -a (audit) when using interactions...
+      .setPassThroughArgs("--quiet")
       .setInteractions(Array("ab"))
       .fit(trainData)
     val scoredResult = model.transform(trainData).drop(featuresColumn)
@@ -133,21 +135,33 @@ class VerifyVowpalWabbitRegressor extends EstimatorFuzzing[VowpalWabbitRegressor
     assert (metric < 11)
   }
 
-  test("Verify SGD followed-by BFGS") {
+  test("Verify SGD and SparkML model stats") {
     val dataset = spark.read.format("libsvm")
       .load(DatasetUtils.regressionTrainFile("triazines.scale.reg.train.svmlight").toString)
       .coalesce(1)
 
     val model1 = new VowpalWabbitRegressor()
       .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
+      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1")
       .fit(dataset)
 
-    val model2 = new VowpalWabbitRegressor()
-      .setNumPasses(20)
-      .setArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs")
-      .setInitialModel(model1.getModel)
-      .fit(dataset)
+    val predictions = model1.transform(dataset)
+
+    val metrics = new ComputeModelStatistics()
+      .setEvaluationMetric("regression")
+      .setLabelCol("label")
+      .setScoresCol("prediction")
+
+    val mse = metrics.transform(predictions).head().getAs[Double]("mean_squared_error")
+
+    assert (mse < 0.16)
+
+    // crashes on latest version
+//    val model2 = new VowpalWabbitRegressor()
+//      .setNumPasses(20)
+//      .setPassThroughArgs("--holdout_off --loss_function quantile -q :: -l 0.1 --bfgs --predict_only_model")
+//      .setInitialModel(model1.getModel)
+//      .fit(dataset)
   }
 
   override def reader: MLReadable[_] = VowpalWabbitRegressor

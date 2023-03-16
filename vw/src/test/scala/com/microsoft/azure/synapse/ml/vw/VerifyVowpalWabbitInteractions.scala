@@ -12,7 +12,7 @@ class VerifyVowpalWabbitInteractions extends TestBase with TransformerFuzzing[Vo
 
   case class Data(v1: Vector, v2: Vector, v3: Vector)
 
-  lazy val df = spark.createDataFrame(Seq(Data(
+  private lazy val df = spark.createDataFrame(Seq(Data(
     Vectors.dense(Array(1.0, 2.0, 3.0)),
     Vectors.sparse(8, Array(5), Array(4.0)),
     Vectors.sparse(11, Array(8, 9), Array(7.0, 8.0))

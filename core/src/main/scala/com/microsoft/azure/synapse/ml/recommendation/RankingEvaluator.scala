@@ -3,8 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.recommendation
 
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.internal.Logging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{HasRecommenderCols, RecEvaluatorParams}
@@ -48,7 +47,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
       if (labSet.nonEmpty) {
         var i = 0
         var reciprocalRank = 0.0
-        while (i < pred.length && reciprocalRank == 0.0) {
+        while (i < pred.length && reciprocalRank == 0.0) {  //scalastyle:ignore while
           if (labSet.contains(pred(i))) {
             reciprocalRank = 1.0 / (i + 1)
           }
@@ -98,7 +97,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
 }
 
 class RankingEvaluator(override val uid: String)
-  extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable with BasicLogging {
+  extends Evaluator with RecEvaluatorParams with HasRecommenderCols with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("recEval"))

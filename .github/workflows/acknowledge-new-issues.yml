@@ -1,0 +1,17 @@
+name: Acknowledge Issue
+on:
+  issues:
+    types: opened
+jobs:
+  commentor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment to acknowledge issue
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Hey @${{ github.event.issue.user.login }} :wave:!
+            Thank you so much for reporting the issue/feature request :rotating_light:.
+            Someone from SynapseML Team will be looking to triage this issue soon.
+            We appreciate your patience.

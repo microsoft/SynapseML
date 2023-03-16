@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 
 class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreprocessor] {
@@ -117,6 +118,10 @@ class TextPreprocessorSuite extends TestBase with TransformerFuzzing[TextPreproc
     val result = textPreprocessor.transform(wordDF)
     assert(verifyResult(result, expectedResult))
   }
+
+  override def getterSetterParamExamples(pipelineStage: TextPreprocessor): Map[Param[_], Any] = Map(
+    (pipelineStage.normFunc, "identity")
+  )
 
   def testObjects(): Seq[TestObject[TextPreprocessor]] = List(new TestObject(
     new TextPreprocessor().setInputCol("words").setOutputCol("out"), makeBasicDF()))

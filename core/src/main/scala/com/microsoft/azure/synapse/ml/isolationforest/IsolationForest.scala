@@ -3,21 +3,22 @@
 
 package com.microsoft.azure.synapse.ml.isolationforest
 
-import org.apache.spark.ml.param.{ParamMap, TransformerParam}
+import com.linkedin.relevance.isolationforest.{IsolationForestParams,
+  IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.TransformerParam
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
-import com.linkedin.relevance.isolationforest.{
-  IsolationForestParams, IsolationForest => IsolationForestSource, IsolationForestModel => IsolationForestModelSource}
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object IsolationForest extends DefaultParamsReadable[IsolationForest]
 
 class IsolationForest(override val uid: String, val that: IsolationForestSource)
   extends Estimator[IsolationForestModel]
-    with IsolationForestParams with DefaultParamsWritable with Wrappable with BasicLogging {
+    with IsolationForestParams with DefaultParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   def this(uid: String) = this(uid, new IsolationForestSource(uid))
@@ -41,7 +42,7 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
 
 class IsolationForestModel(override val uid: String)
   extends Model[IsolationForestModel]
-    with IsolationForestParams with ComplexParamsWritable with Wrappable with BasicLogging {
+    with IsolationForestParams with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass()
 
   override lazy val pyInternalWrapper = true
@@ -58,12 +59,12 @@ class IsolationForestModel(override val uid: String)
 
   override def transform(data: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getInnerModel.setPredictionCol("prediction").transform(data)
+      getInnerModel.setPredictionCol(getPredictionCol).transform(data)
     )
   }
 
   override def transformSchema(schema: StructType): StructType =
-    getInnerModel.setPredictionCol("prediction").transformSchema(schema)
+    getInnerModel.setPredictionCol(getPredictionCol).transformSchema(schema)
 
 }
 

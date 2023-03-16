@@ -38,9 +38,9 @@ from pyspark.sql.functions import col
 
 # Create a dataframe that's tied to it's column names
 df_sentences = spark.createDataFrame([
-  ("I am so happy today, its sunny!", "en-US"),
+  ("I'm so happy today, it's sunny!", "en-US"),
   ("this is a dog", "en-US"),s
-  ("I am frustrated by this rush hour traffic!", "en-US")
+  ("I'm frustrated by this rush hour traffic!", "en-US")
 ], ["text", "language"])
 
 # Run the Text Analytics service with options
@@ -61,6 +61,6 @@ display(sentiment.transform(df_sentences).select("text", col("sentiment")[0].get
 
 | text                                       | sentiment |
 | ------------------------------------------ | --------- |
-| I am frustrated by this rush hour traffic! | negative  |
+| I'm frustrated by this rush hour traffic!  | negative  |
 | this is a dog                              | neutral   |
-| I am so happy today, its sunny!            | positive  |
+| I'm so happy today, it's sunny!            | positive  |

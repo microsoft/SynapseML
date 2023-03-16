@@ -4,11 +4,12 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.sql.Dataset
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.PipelineStageParam
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{ParamMap, PipelineStageParam, StringArrayParam}
+import org.apache.spark.ml.param.{ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
 object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
@@ -17,7 +18,7 @@ object MultiColumnAdapter extends ComplexParamsReadable[MultiColumnAdapter]
   * and applies the pipeline stage to each input column after being fit
   */
 class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with ComplexParamsWritable with BasicLogging {
+  with Wrappable with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("MultiColumnAdapter"))

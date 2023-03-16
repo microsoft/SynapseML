@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -40,7 +40,7 @@ class DistributionBalanceMeasure(override val uid: String)
     with DataBalanceParams
     with ComplexParamsWritable
     with Wrappable
-    with BasicLogging {
+    with SynapseMLLogging {
 
   logClass()
 
@@ -87,7 +87,7 @@ class DistributionBalanceMeasure(override val uid: String)
 
       //noinspection ScalaStyle
       if (getVerbose)
-        featureStats.cache.show(numRows = 20, truncate = false)
+        featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
       // TODO (for v2): Introduce a referenceDistribution function param for user to override the uniform distribution
       val referenceDistribution = uniformDistribution
@@ -160,8 +160,14 @@ private[exploratory] object DistributionMetrics {
   val CHISQUAREDTESTSTATISTIC = "chi_sq_stat"
   val CHISQUAREDPVALUE = "chi_sq_p_value"
 
-  val METRICS = Seq(KLDIVERGENCE, JSDISTANCE, INFNORMDISTANCE, TOTALVARIATIONDISTANCE, WASSERSTEINDISTANCE,
-    CHISQUAREDTESTSTATISTIC, CHISQUAREDPVALUE)
+  val METRICS: Seq[String] = Seq(
+    KLDIVERGENCE,
+    JSDISTANCE,
+    INFNORMDISTANCE,
+    TOTALVARIATIONDISTANCE,
+    WASSERSTEINDISTANCE,
+    CHISQUAREDTESTSTATISTIC,
+    CHISQUAREDPVALUE)
 }
 
 //noinspection SpellCheckingInspection

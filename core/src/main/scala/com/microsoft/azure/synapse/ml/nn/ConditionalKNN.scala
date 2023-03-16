@@ -5,11 +5,12 @@ package com.microsoft.azure.synapse.ml.nn
 
 import breeze.linalg.{DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.core.contracts.HasLabelCol
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.ConditionalBallTreeParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.param.{ConditionalBallTreeParam, Param, ParamMap}
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.functions.col
@@ -29,7 +30,7 @@ trait ConditionalKNNParams extends KNNParams with HasLabelCol {
 object ConditionalKNN extends DefaultParamsReadable[ConditionalKNN]
 
 class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNModel]
-  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with BasicLogging {
+  with ConditionalKNNParams with DefaultParamsWritable with OptimizedCKNNFitting with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ConditionalKNN"))
@@ -37,8 +38,8 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
   setDefault(featuresCol, "features")
   setDefault(valuesCol, "values")
   setDefault(outputCol, uid + "_output")
-  setDefault(k, 5)
-  setDefault(leafSize, 50)
+  setDefault(k, 5)  //scalastyle:ignore magic.number
+  setDefault(leafSize, 50)  //scalastyle:ignore magic.number
   setDefault(labelCol, "labels")
   setDefault(conditionerCol, "conditioner")
 
@@ -70,7 +71,7 @@ private[ml] object KNNFuncHolder {
 }
 
 class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
-  with ComplexParamsWritable with ConditionalKNNParams with BasicLogging {
+  with ComplexParamsWritable with ConditionalKNNParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ConditionalKNNModel"))

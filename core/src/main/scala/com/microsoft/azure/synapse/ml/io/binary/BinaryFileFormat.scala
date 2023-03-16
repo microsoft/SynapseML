@@ -5,10 +5,6 @@ package com.microsoft.azure.synapse.ml.io.binary
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.ZipIterator
 import com.microsoft.azure.synapse.ml.core.schema.BinaryFileSchema
-
-import java.io.{Closeable, InputStream}
-import java.net.URI
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.ZipIterator
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -25,6 +21,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.SerializableConfiguration
 
+import java.io.{Closeable, InputStream}
+import java.net.URI
 import scala.util.Random
 
 /** Actually reads the records from files
@@ -228,7 +226,7 @@ class BinaryOutputWriter(val path: String,
   override def write(row: InternalRow): Unit = {
     val bytes = row.getBinary(bytesCol)
     val filename = row.getString(pathCol)
-    val nonTempPath = new Path(path).getParent.getParent.getParent.getParent.getParent
+    val nonTempPath = new Path(path).getParent
     val outputPath = new Path(nonTempPath, filename)
     val os = fs.create(outputPath)
     try {

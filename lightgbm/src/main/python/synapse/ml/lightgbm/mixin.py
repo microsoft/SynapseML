@@ -5,6 +5,7 @@ from pyspark.ml.linalg import SparseVector, DenseVector
 from pyspark.ml.common import inherit_doc
 from synapse.ml.core.serialize.java_params_patch import *
 
+
 @inherit_doc
 class LightGBMModelMixin:
     def saveNativeModel(self, filename, overwrite=True):
@@ -12,6 +13,12 @@ class LightGBMModelMixin:
         Save the booster as string format to a local or WASB remote location.
         """
         self._java_obj.saveNativeModel(filename, overwrite)
+
+    def getNativeModel(self):
+        """
+        Get the native model serialized representation as a string.
+        """
+        return self._java_obj.getNativeModel()
 
     def getFeatureImportances(self, importance_type="split"):
         """
@@ -29,9 +36,17 @@ class LightGBMModelMixin:
         elif isinstance(vector, SparseVector):
             sparse_indices = [int(i) for i in vector.indices]
             sparse_values = [float(v) for v in vector.values]
-            return list(self._java_obj.getSparseFeatureShaps(vector.size, sparse_indices, sparse_values))
+            return list(
+                self._java_obj.getSparseFeatureShaps(
+                    vector.size,
+                    sparse_indices,
+                    sparse_values,
+                ),
+            )
         else:
-            raise TypeError("Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type")
+            raise TypeError(
+                "Vector argument to getFeatureShaps must be a pyspark.linalg sparse or dense vector type",
+            )
 
     def getBoosterBestIteration(self):
         """Get the best iteration from the booster.

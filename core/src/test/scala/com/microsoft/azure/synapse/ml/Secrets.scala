@@ -3,15 +3,15 @@
 
 package com.microsoft.azure.synapse.ml
 
-import java.io.IOException
-
-import sys.process._
+import spray.json.DefaultJsonProtocol._
 import spray.json._
-import DefaultJsonProtocol._
+
+import java.io.IOException
+import scala.sys.process._
 
 object Secrets {
   private val KvName = "mmlspark-build-keys"
-  private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
+  private[ml] val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
@@ -34,13 +34,22 @@ object Secrets {
     SubscriptionID
   }
 
+  def getSynapseExtensionSecret(envName: String, secretType: String): String = {
+    val secretKey = s"synapse-extension-$envName-$secretType"
+    println(s"[info] fetching secret: $secretKey from $AccountString")
+    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
+    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+  }
+
   private def getSecret(secretName: String): String = {
-    println(s"fetching secret: $secretName from $AccountString")
+    println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
+  lazy val OpenAIApiKey: String = getSecret("openai-api-key")
+
   lazy val CustomSpeechApiKey: String = getSecret("custom-speech-api-key")
   lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
   lazy val ConversationTranscriptionKey: String = getSecret("conversation-transcription-key")
@@ -49,13 +58,18 @@ object Secrets {
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
+  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
-  lazy val SynapseStorageKey: String = getSecret("mmlsparkeuap-key")
+  lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
   lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
-  lazy val MADTestConnectionString: String = getSecret("madtest-connection-string")
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
-  lazy val MADTestSASToken: String = getSecret("madtest-sas-token")
 
-  lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
+  lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
+  lazy val Platform: String = getSecret("synapse-platform")
+  lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
+  lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
+  lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
+
+  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

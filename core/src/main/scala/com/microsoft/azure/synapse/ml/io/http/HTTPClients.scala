@@ -11,11 +11,10 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.StringType
 
-import scala.concurrent.{ExecutionContext, blocking}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.Try
 
 trait Handler {
@@ -39,7 +38,7 @@ private[ml] trait HTTPClient extends BaseClient
     .setSocketTimeout(requestTimeout)
     .build()
 
-  protected val connectionManager = {
+  protected val connectionManager: PoolingHttpClientConnectionManager = {
     val cm = new PoolingHttpClientConnectionManager()
     cm.setDefaultMaxPerRoute(Int.MaxValue) // Spark will handle the threading to avoid going over limits
     cm.setMaxTotal(Int.MaxValue)
@@ -71,54 +70,73 @@ object HandlingUtils extends SparkLogging {
 
   type HandlerFunc = (CloseableHttpClient, HTTPRequestData) => HTTPResponseData
 
+  private def keepTrying(client: CloseableHttpClient,
+                         request: HttpRequestBase,
+                         retriesLeft: Array[Int],
+                         e: Throwable): CloseableHttpResponse = {
+    if (retriesLeft.isEmpty) {
+      throw e
+    } else {
+      Thread.sleep(retriesLeft.head.toLong)
+      sendWithRetries(client, request, retriesLeft.tail)
+    }
+  }
+
+  //scalastyle:off cyclomatic.complexity
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
                                   retriesLeft: Array[Int]): CloseableHttpResponse = {
-    val response = client.execute(request)
-    val code = response.getStatusLine.getStatusCode
-    //scalastyle:off magic.number
-    val succeeded = code match {
-      case 200 => true
-      case 201 => true
-      case 202 => true
-      case 429 =>
-        Option(response.getFirstHeader("Retry-After"))
-          .foreach { h =>
-            logInfo(s"waiting ${h.getValue} on ${
-              request match {
-                case p: HttpPost => p.getURI + "   " +
-                  Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
-                case _ => request.getURI
-              }
-            }")
-            Thread.sleep(h.getValue.toLong * 1000)
-          }
-        false
-      case 400 =>
-        true
-      case _ =>
-        logWarning(s"got error  $code: ${response.getStatusLine.getReasonPhrase} on ${
-          request match {
-            case p: HttpPost => p.getURI + "   " +
-              Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
-            case _ => request.getURI
-          }
-        }")
-        false
-    }
-    //scalastyle:on magic.number
-    if (succeeded || retriesLeft.isEmpty) {
-      response
-    } else {
-      response.close()
-      Thread.sleep(retriesLeft.head.toLong)
-      if (code == 429) { // Do not count rate limiting in number of failures
-        sendWithRetries(client, request, retriesLeft)
-      } else {
-        sendWithRetries(client, request, retriesLeft.tail)
+    try {
+      val response = client.execute(request)
+      val code = response.getStatusLine.getStatusCode
+      //scalastyle:off magic.number
+      val succeeded = code match {
+        case 200 => true
+        case 201 => true
+        case 202 => true
+        case 429 =>
+          Option(response.getFirstHeader("Retry-After"))
+            .foreach { h =>
+              logInfo(s"waiting ${h.getValue} on ${
+                request match {
+                  case p: HttpPost => p.getURI + "   " +
+                    Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
+                  case _ => request.getURI
+                }
+              }")
+              Thread.sleep(h.getValue.toLong * 1000)
+            }
+          false
+        case 400 =>
+          true
+        case _ =>
+          logWarning(s"got error  $code: ${response.getStatusLine.getReasonPhrase} on ${
+            request match {
+              case p: HttpPost => p.getURI + "   " +
+                Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
+              case _ => request.getURI
+            }
+          }")
+          false
       }
+      //scalastyle:on magic.number
+      if (succeeded || retriesLeft.isEmpty) {
+        response
+      } else {
+        response.close()
+        Thread.sleep(retriesLeft.head.toLong)
+        if (code == 429) { // Do not count rate limiting in number of failures
+          sendWithRetries(client, request, retriesLeft)
+        } else {
+          sendWithRetries(client, request, retriesLeft.tail)
+        }
+      }
+    } catch {
+      case e: javax.net.ssl.SSLException => keepTrying(client, request, retriesLeft, e)
+      case e: java.net.SocketTimeoutException => keepTrying(client, request, retriesLeft, e)
     }
   }
+  //scalastyle:on cyclomatic.complexity
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {

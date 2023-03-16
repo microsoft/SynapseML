@@ -6,25 +6,26 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.{UDFParam, UDPyFParam}
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.ml.param.{ParamMap, UDFParam, UDPyFParam}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset}
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
+import org.apache.spark.sql.{Column, DataFrame, Dataset}
 
-object UDFTransformer extends ComplexParamsReadable[UDFTransformer]
+object UDFTransformer extends ComplexParamsReadable[UDFTransformer] with Serializable
 
 /** <code>UDFTransformer</code> takes as input input column, output column, and a UserDefinedFunction
   * returns a dataframe comprised of the original columns with the output column as the result of the
   * udf applied to the input column
   */
 class UDFTransformer(val uid: String) extends Transformer with Wrappable with ComplexParamsWritable
-  with HasInputCol with HasInputCols with HasOutputCol with BasicLogging {
+  with HasInputCol with HasInputCols with HasOutputCol with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("UDFTransformer"))
@@ -109,4 +110,3 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
   def copy(extra: ParamMap): UDFTransformer = defaultCopy(extra)
 
 }
-

@@ -4,22 +4,23 @@
 package com.microsoft.azure.synapse.ml.core.utils
 
 import java.net.InetAddress
-
 import org.apache.http.conn.util.InetAddressUtils
+import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.functions.typedLit
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.slf4j.Logger
 
 object ClusterUtil {
   /** Get number of tasks from dummy dataset for 1 executor.
     * Note: all executors have same number of cores,
     * and this is more reliable than getting value from conf.
-    * @param dataset The dataset containing the current spark session.
+    * @param spark The current spark session.
+    * @param log The Logger.
     * @return The number of tasks per executor.
     */
-  def getNumTasksPerExecutor(dataset: Dataset[_], log: Logger): Int = {
-    val spark = dataset.sparkSession
-    val confTaskCpus = getTaskCpus(dataset, log)
+  def getNumTasksPerExecutor(spark: SparkSession, log: Logger): Int = {
+    val confTaskCpus = getTaskCpus(spark.sparkContext, log)
     try {
       val confCores = spark.sparkContext.getConf.get("spark.executor.cores").toInt
       val tasksPerExec = confCores / confTaskCpus
@@ -35,6 +36,21 @@ object ClusterUtil {
           s"default num cores($defaultNumCores) from master and $confTaskCpus task CPUs")
         tasksPerExec
     }
+  }
+
+  /** Get number of rows per partition of a dataframe.  Note that this will execute a full
+    * distributed Spark app query.
+    * @param df The dataframe.
+    * @return The number of rows per partition (where partitionId is the array index).
+    */
+  def getNumRowsPerPartition(df: DataFrame, labelCol: Column): Array[Long] = {
+    val indexedRowCounts: Array[(Int, Long)] = df
+      .select(typedLit(0.toByte))
+      .rdd
+      .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
+      .collect()
+    // Get an array where the index is implicitly the partition id
+    indexedRowCounts.sortBy(pair => pair._1).map(pair => pair._2)
   }
 
   /** Get number of default cores from sparkSession(required) or master(optional) for 1 executor.
@@ -88,10 +104,9 @@ object ClusterUtil {
     }
   }
 
-  def getTaskCpus(dataset: Dataset[_], log: Logger): Int = {
-    val spark = dataset.sparkSession
+  def getTaskCpus(sparkContext: SparkContext, log: Logger): Int = {
     try {
-      val taskCpusConfig = spark.sparkContext.getConf.getOption("spark.task.cpus")
+      val taskCpusConfig = sparkContext.getConf.getOption("spark.task.cpus")
       if (taskCpusConfig.isEmpty) {
         log.info("ClusterUtils did not detect spark.task.cpus config set, using default 1 instead")
       }
@@ -139,7 +154,7 @@ object ClusterUtil {
   }
 
   /** Returns the number of executors * number of tasks.
-    * @param dataset The dataset containing the current spark session.
+    * @param spark The current spark session.
     * @param numTasksPerExec The number of tasks per executor.
     * @return The number of executors * number of tasks.
     */
@@ -156,8 +171,8 @@ object ClusterUtil {
       //TODO make this less brittle
       val rx = "local(?:\\[(\\*|\\d+)(?:,\\d+)?\\])?".r
       master match {
-        case rx(null)  =>
-          log.info(s"Retrieved local() = 1 executor by default")
+        case rx(null) =>  //scalastyle:ignore null
+        log.info(s"Retrieved local() = 1 executor by default")
           1
         case rx("*")   =>
           log.info(s"Retrieved local(*) = ${Runtime.getRuntime.availableProcessors()} executors")

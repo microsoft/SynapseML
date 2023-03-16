@@ -5,8 +5,8 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams, TrainParams}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+  BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
@@ -14,6 +14,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{BaseRegressor, ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StructField
 
 object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 
@@ -37,7 +38,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
   */
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
-    with LightGBMBase[LightGBMRegressionModel] with BasicLogging {
+    with LightGBMBase[LightGBMRegressionModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
@@ -47,33 +48,33 @@ class LightGBMRegressor(override val uid: String)
 
   val alpha = new DoubleParam(this, "alpha", "parameter for Huber loss and Quantile regression")
   setDefault(alpha -> 0.9)
-
   def getAlpha: Double = $(alpha)
   def setAlpha(value: Double): this.type = set(alpha, value)
 
   val tweedieVariancePower = new DoubleParam(this, "tweedieVariancePower",
     "control the variance of tweedie distribution, must be between 1 and 2")
   setDefault(tweedieVariancePower -> 1.5)
-
   def getTweedieVariancePower: Double = $(tweedieVariancePower)
   def setTweedieVariancePower(value: Double): this.type = set(tweedieVariancePower, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RegressorTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), getAlpha, getTweedieVariancePower,
-      get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf),
-      numTasks, modelStr, getVerbosity, categoricalIndexes,
-      getBoostFromAverage, getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
-      get(metric), get(minGainToSplit), get(maxDeltaStep),
-      getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate,
-      getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams)
+  def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
+    RegressorTrainParams(
+      get(passThroughArgs),
+      getAlpha,
+      getTweedieVariancePower,
+      getBoostFromAverage,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, featuresSchema),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMRegressionModel = {
     new LightGBMRegressionModel(uid)
       .setLightGBMBooster(lightGBMBooster)
       .setFeaturesCol(getFeaturesCol)
@@ -96,7 +97,7 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
@@ -126,17 +127,10 @@ class LightGBMRegressionModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logPredict(
-      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
-    )
+    getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRegressionModel = defaultCopy(extra)
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRegressionModel extends ComplexParamsReadable[LightGBMRegressionModel] {

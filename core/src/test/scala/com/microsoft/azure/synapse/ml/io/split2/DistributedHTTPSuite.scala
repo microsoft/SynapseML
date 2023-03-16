@@ -3,18 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.io.split2
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.string_to_response
-import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
+import com.microsoft.azure.synapse.ml.io.http.{RESTHelpers, SharedSingleton}
 import com.microsoft.azure.synapse.ml.io.split1.WithFreeUrl
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{FileEntity, StringEntity}
-import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient, HttpClientBuilder}
+import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.execution.streaming.DistributedHTTPSourceProvider
 import org.apache.spark.sql.functions.{col, length}
@@ -25,38 +24,25 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.parsing.json.JSONObject
 
-trait HasHttpClient {
-  lazy val requestTimeout = 600000
 
-  lazy val requestConfig: RequestConfig = RequestConfig.custom()
-    .setConnectTimeout(requestTimeout)
-    .setConnectionRequestTimeout(requestTimeout)
-    .setSocketTimeout(requestTimeout)
-    .build()
-
-  lazy val client: CloseableHttpClient = HttpClientBuilder
-    .create().setDefaultRequestConfig(requestConfig).build()
-}
-
-trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
+trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
-    while (waited < maxTimeWaited) {
+    while (waited < maxTimeWaited) {  //scalastyle:ignore while
       if (!server.isActive) throw server.exception.get
-      if (server.recentProgress.length > 1) return
+      if (server.recentProgress.length > 1) return  //scalastyle:ignore return
       Thread.sleep(checkEvery.toLong)
       waited += checkEvery
     }
     throw new TimeoutException(s"Server Did not start within $maxTimeWaited ms")
   }
 
-  def sendStringRequest(client: CloseableHttpClient,
-                        url: String = url,
+  def sendStringRequest(url: String = url,
                         payload: String = "foo",
                         targetCode: Int = 200): (String, Double) = {
     val post = new HttpPost(url)
@@ -64,12 +50,12 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
     post.setEntity(e)
     //println("request sent")
     val t0 = System.nanoTime()
-    val res = client.execute(post)
+    val res = RESTHelpers.Client.execute(post)
     val t1 = System.nanoTime()
 
     assert(targetCode === res.getStatusLine.getStatusCode)
     val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
-      null
+      null  //scalastyle:ignore null
     } else {
       new BasicResponseHandler().handleResponse(res)
     }
@@ -87,42 +73,42 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
     }
   }
 
-  def sendStringRequestAsync(client: CloseableHttpClient, url: String = url): Future[(String, Double)] = {
+  def sendStringRequestAsync(url: String = url): Future[(String, Double)] = {
     Future {
-      sendStringRequest(client, url = url)
+      sendStringRequest(url = url)
     }(ExecutionContext.global)
   }
 
-  def sendJsonRequest(client: CloseableHttpClient, map: Map[String, Any], url: String): String = {
+  def sendJsonRequest(map: Map[String, Any], url: String): String = {
     val post = new HttpPost(url)
     val params = new StringEntity(JSONObject(map).toString())
     post.addHeader("content-type", "application/json")
     post.setEntity(params)
-    val res = client.execute(post)
+    val res = RESTHelpers.Client.execute(post)
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     out
   }
 
-  def sendJsonRequest(client: CloseableHttpClient, payload: Int, url: String): (String, Long) = {
+  def sendJsonRequest(payload: Int, url: String): (String, Long) = {
     val post = new HttpPost(url)
     val e = new StringEntity("{\"data\":" + s"$payload}")
     post.setEntity(e)
     val t0 = System.currentTimeMillis()
-    val res = client.execute(post)
+    val res = RESTHelpers.Client.execute(post)
     val t1 = System.currentTimeMillis()
     val out = new BasicResponseHandler().handleResponse(res)
     res.close()
     (out, t1 - t0)
   }
 
-  def sendJsonRequestAsync(client: CloseableHttpClient, map: Map[String, Any], url: String = url): Future[String] = {
+  def sendJsonRequestAsync(map: Map[String, Any], url: String = url): Future[String] = {
     Future {
-      sendJsonRequest(client, map, url = url)
+      sendJsonRequest(map, url = url)
     }(ExecutionContext.global)
   }
 
-  def sendFileRequest(client: CloseableHttpClient, url: String = url): (String, Double) = {
+  def sendFileRequest(url: String = url, client: CloseableHttpClient = RESTHelpers.Client): (String, Double) = {
     val post = new HttpPost(url)
     val e = new FileEntity(FileUtilities.join(
       BuildInfo.datasetDir, "Images", "Grocery", "testImages", "WIN_20160803_11_28_42_Pro.jpg"))
@@ -152,9 +138,9 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl with HasHttpClient {
     } / xs.size)
   }
 
-  lazy val requestDuration = Duration(10, TimeUnit.SECONDS)
+  lazy val requestDuration: FiniteDuration = Duration(10, TimeUnit.SECONDS)
 
-  lazy implicit val ec = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+  lazy implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
   def assertLatency(responsesWithLatencies: Seq[(String, Double)], cutoff: Double): Unit = {
     val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
@@ -219,16 +205,16 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val responses = List(
-        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
-        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree"), url),
-        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee"), url),
-        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"), url)
+        sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url),
+        sendJsonRequest(Map("foo" -> 2, "bar" -> "heree"), url),
+        sendJsonRequest(Map("foo" -> 3, "bar" -> "hereee"), url),
+        sendJsonRequest(Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
       val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url))
+      (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
   }
@@ -243,16 +229,16 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     using(server) {
       waitForServer(server)
       val responses = List(
-        sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url),
-        sendJsonRequest(client, Map("foo" -> 2, "bar" -> "heree"), url),
-        sendJsonRequest(client, Map("foo" -> 3, "bar" -> "hereee"), url),
-        sendJsonRequest(client, Map("foo" -> 4, "bar" -> "hereeee"), url)
+        sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url),
+        sendJsonRequest(Map("foo" -> 2, "bar" -> "heree"), url),
+        sendJsonRequest(Map("foo" -> 3, "bar" -> "hereee"), url),
+        sendJsonRequest(Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
       val correctResponses = List(27, 28, 29, 30).map(_.toString)
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequest(client, Map("foo" -> 1, "bar" -> "here"), url))
+      (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
         .foreach(resp => assert(resp === "27"))
     }
 
@@ -269,7 +255,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 10).map(i => sendFileRequest(client))
+      val responsesWithLatencies = (1 to 10).map(_ => sendFileRequest())
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
       val meanLatency = mean(latencies)
@@ -291,8 +277,8 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
     using(server) {
       waitForServer(server)
-      val responsesWithLatencies = (1 to 10).map(i =>
-        sendFileRequest(client)
+      val responsesWithLatencies = (1 to 10).map(_ =>
+        sendFileRequest()
       )
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
@@ -316,40 +302,41 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
            |import threading
            |import time
            |
-         |exitFlag = 0
+           |exitFlag = 0
            |s = requests.Session()
            |
-         |class myThread(threading.Thread):
+           |class myThread(threading.Thread):
            |    def __init__(self, threadID):
            |        threading.Thread.__init__(self)
            |        self.threadID = threadID
            |
-         |    def run(self):
+           |    def run(self):
            |        print("Starting " + str(self.threadID))
            |        r = s.post("$url",
            |                          data={"number": 12524, "type": "issue", "action": "show"},
            |                          headers = {"content-type": "application/json"},
            |                          timeout=15)
            |
-         |        assert r.status_code==200
+           |        assert r.status_code==200
            |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
            |
-         |
-         |threads = []
+           |
+           |threads = []
            |for i in range(4):
            |    # Create new threads
            |    t = myThread(i)
            |    t.start()
            |    threads.append(t)
            |
-         |""".stripMargin
+           |""".stripMargin
 
       val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
       FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-      val processes = (1 to 50).map(_ =>
+      val processes = (1 to 50).map(_ => {
+        Runtime.getRuntime.exec("pip install requests")
         Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
-      )
+      })
 
       processes.foreach { p =>
         p.waitFor
@@ -367,10 +354,10 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       waitForServer(server)
 
       val futures = List(
-        sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")),
-        sendJsonRequestAsync(client, Map("foo" -> 2, "bar" -> "heree")),
-        sendJsonRequestAsync(client, Map("foo" -> 3, "bar" -> "hereee")),
-        sendJsonRequestAsync(client, Map("foo" -> 4, "bar" -> "hereeee"))
+        sendJsonRequestAsync(Map("foo" -> 1, "bar" -> "here")),
+        sendJsonRequestAsync(Map("foo" -> 2, "bar" -> "heree")),
+        sendJsonRequestAsync(Map("foo" -> 3, "bar" -> "hereee")),
+        sendJsonRequestAsync(Map("foo" -> 4, "bar" -> "hereeee"))
       )
 
       val responses = futures.map(f => Await.result(f, Duration.Inf))
@@ -378,7 +365,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
       assert(responses === correctResponses)
 
-      (1 to 20).map(i => sendJsonRequestAsync(client, Map("foo" -> 1, "bar" -> "here")))
+      (1 to 20).map(_ => sendJsonRequestAsync(Map("foo" -> 1, "bar" -> "here")))
         .foreach { f =>
           val resp = Await.result(f, Duration(10, TimeUnit.SECONDS))
           assert(resp === "27")

@@ -1,15 +1,14 @@
-import java.io.{File, PrintWriter}
-import java.net.URL
+import BuildUtils._
 import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 
-import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
+import java.io.File
+import java.net.URL
 import scala.xml.transform.{RewriteRule, RuleTransformer}
-import BuildUtils._
-import xerial.sbt.Sonatype._
+import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.0"
+val sparkVersion = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -26,14 +25,18 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test")
+  "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
-  "org.scalactic" %% "scalactic" % "3.0.5",
-  "io.spray" %% "spray-json" % "1.3.2",
+  "org.scalactic" %% "scalactic" % "3.2.14",
+  "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
-  "org.apache.httpcomponents" % "httpclient" % "4.5.6",
-  "org.apache.httpcomponents" % "httpmime" % "4.5.6",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
+  "org.apache.httpcomponents" % "httpmime" % "4.5.13",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8",
+  // Although breeze 1.2 is already provided by Spark, this is needed for Azure Synapse Spark 3.2 pools.
+  // Otherwise a NoSuchMethodError will be thrown by interpretability code. This problem only happens
+  // to Azure Synapse Spark 3.2 pools.
+  "org.scalanlp" %% "breeze" % "1.2"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -65,7 +68,7 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2021-12-10.tgz"
+val datasetName = "datasets-2022-08-09.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -105,6 +108,109 @@ rootGenDir := {
   join(targetDir, "generated")
 }
 
+// scalastyle:off line.size.limit
+val genSleetConfig = TaskKey[File]("genSleetConfig",
+  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
+genSleetConfig := {
+  val fileContent =
+    s"""{
+       |  "username": "",
+       |  "useremail": "",
+       |  "sources": [
+       |    {
+       |      "name": "SynapseMLNuget",
+       |      "type": "azure",
+       |      "container": "synapsemlnuget",
+       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
+       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
+       |    }
+       |  ]
+       |}""".stripMargin
+  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
+  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
+  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
+  sleetJsonFile
+}
+// scalastyle:on line.size.limit
+
+val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
+  "generate dotnet test helper file with current library version and publish E2E test base")
+publishDotnetTestBase := {
+  val fileContent =
+    s"""// Licensed to the .NET Foundation under one or more agreements.
+       |// The .NET Foundation licenses this file to you under the MIT license.
+       |// See the LICENSE file in the project root for more information.
+       |
+       |namespace SynapseMLtest.Utils
+       |{
+       |    public class Helper
+       |    {
+       |        public static string GetSynapseMLPackage()
+       |        {
+       |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
+       |        }
+       |    }
+       |
+       |}
+       |""".stripMargin
+  val dotnetTestBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "test")
+  val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
+  if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
+  FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
+
+  val dotnetTestBaseProjContent =
+    s"""<Project Sdk="Microsoft.NET.Sdk">
+       |
+       |  <PropertyGroup>
+       |    <TargetFramework>netstandard2.1</TargetFramework>
+       |    <LangVersion>9.0</LangVersion>
+       |    <AssemblyName>SynapseML.DotnetE2ETest</AssemblyName>
+       |    <IsPackable>true</IsPackable>
+       |    <Description>SynapseML .NET Test Base</Description>
+       |    <Version>${dotnetedVersion(version.value)}</Version>
+       |  </PropertyGroup>
+       |
+       |  <ItemGroup>
+       |    <PackageReference Include="xunit" Version="2.4.1" />
+       |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
+       |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
+       |  </ItemGroup>
+       |
+       |  <ItemGroup>
+       |    <InternalsVisibleTo Include="SynapseML.Cognitive" />
+       |    <InternalsVisibleTo Include="SynapseML.Core" />
+       |    <InternalsVisibleTo Include="SynapseML.DeepLearning" />
+       |    <InternalsVisibleTo Include="SynapseML.Lightgbm" />
+       |    <InternalsVisibleTo Include="SynapseML.Opencv" />
+       |    <InternalsVisibleTo Include="SynapseML.Vw" />
+       |    <InternalsVisibleTo Include="SynapseML.Cognitive.Test" />
+       |    <InternalsVisibleTo Include="SynapseML.Core.Test" />
+       |    <InternalsVisibleTo Include="SynapseML.DeepLearning.Test" />
+       |    <InternalsVisibleTo Include="SynapseML.Lightgbm.Test" />
+       |    <InternalsVisibleTo Include="SynapseML.Opencv.Test" />
+       |    <InternalsVisibleTo Include="SynapseML.Vw.Test" />
+       |  </ItemGroup>
+       |
+       |  <PropertyGroup>
+       |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
+       |  </PropertyGroup>
+       |
+       |  <PropertyGroup>
+       |    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
+       |  </PropertyGroup>
+       |
+       |</Project>""".stripMargin
+  // update the version of current dotnetTestBase assembly
+  val dotnetTestBaseProj = join(dotnetTestBaseDir, "dotnetTestBase.csproj")
+  if (dotnetTestBaseProj.exists()) FileUtils.forceDelete(dotnetTestBaseProj)
+  FileUtils.writeStringToFile(dotnetTestBaseProj, dotnetTestBaseProjContent, "utf-8")
+
+  packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
+  val packagePath = join(dotnetTestBaseDir,
+    "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
+  publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
+}
+
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
   task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
@@ -121,6 +227,30 @@ generatePythonDoc := {
   join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
+}
+
+val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
+generateDotnetDoc := {
+  Def.sequential(
+    runTaskForAllInCompile(dotnetCodeGen),
+    runTaskForAllInCompile(mergeDotnetCode)
+  ).value
+  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
+  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
+  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
+  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
+  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
+  val fileContent =
+    s"""PROJECT_NAME = "$packageName"
+       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
+       |USE_MDFILE_AS_MAINPAGE = "README.md"
+       |RECURSIVE = YES
+       |""".stripMargin
+  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
+  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
+  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
+  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
+  runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -149,7 +279,7 @@ packageSynapseML := {
          |    packages=find_namespace_packages(include=['synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
-         |    author_email="mmlspark-support@microsoft.com",
+         |    author_email="synapseml-support@microsoft.com",
          |    classifiers=[
          |        "Development Status :: 4 - Beta",
          |        "Intended Audience :: Developers",
@@ -190,10 +320,13 @@ publishPypi := {
   )
 }
 
-val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
 publishDocs := {
-  generatePythonDoc.value
-  (root / Compile / unidoc).value
+  Def.sequential(
+    generatePythonDoc,
+    generateDotnetDoc,
+    (root / Compile / unidoc)
+  ).value
   val html =
     """
       |<html><body><pre style="font-size: 150%;">
@@ -208,6 +341,9 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
+  val dotnetDir = join(unifiedDocDir.toString, "dotnet")
+  if (dotnetDir.exists()) FileUtils.forceDelete(dotnetDir)
+  FileUtils.copyDirectory(join(codegenDir, "src", "dotnet", "html"), dotnetDir)
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
@@ -225,7 +361,8 @@ publishBadges := {
       s"https://img.shields.io/badge/${enc(left)}-${enc(right)}-${enc(color)}"))
     singleUploadToBlob(
       join(badgeDir.toString, filename).toString,
-      s"badges/$filename", "icons", extraArgs = Seq("--content-cache-control", "no-cache"))
+      s"badges/$filename", "icons",
+      extraArgs = Seq("--content-cache-control", "no-cache", "--content-type", "image/svg+xml"))
   }
 
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
@@ -235,6 +372,7 @@ val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
   Test / parallelExecution := false,
+  Test / publishArtifact := true,
   assembly / test := {},
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
@@ -248,7 +386,7 @@ val settings = Seq(
 ThisBuild / publishMavenStyle := true
 
 lazy val core = (project in file("core"))
-  .enablePlugins(BuildInfoPlugin && SbtPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
     libraryDependencies ++= dependencies,
     buildInfoKeys ++= Seq[BuildInfoKey](
@@ -263,46 +401,41 @@ lazy val core = (project in file("core"))
   ): _*)
 
 lazy val deepLearning = (project in file("deep-learning"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.cntk" % "cntk" % "2.4",
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
   ): _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.2.110"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
     name := "synapseml-lightgbm"
   ): _*)
 
 lazy val vw = (project in file("vw"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
+    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.3.0"),
     name := "synapseml-vw"
   ): _*)
 
 lazy val cognitive = (project in file("cognitive"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
-      "com.azure" % "azure-storage-blob" % "12.14.2",
-      "com.azure" % "azure-ai-textanalytics" % "5.1.4",
+      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
     name := "synapseml-cognitive"
   ): _*)
 
 lazy val opencv = (project in file("opencv"))
-  .enablePlugins(SbtPlugin)
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies += ("org.openpnp" % "opencv" % "3.2.0-1"),
@@ -318,7 +451,7 @@ lazy val root = (project in file("."))
     vw % "test->test;compile->compile",
     lightgbm % "test->test;compile->compile",
     opencv % "test->test;compile->compile")
-  .enablePlugins(ScalaUnidocPlugin && SbtPlugin)
+  .enablePlugins(ScalaUnidocPlugin)
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
@@ -348,50 +481,3 @@ testWebsiteDocs := {
     Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
-
-ThisBuild / sonatypeProjectHosting := Some(
-  GitHubHosting("Azure", "SynapseML", "mmlspark-support@microsot.com"))
-ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
-ThisBuild / scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
-  )
-)
-ThisBuild / developers := List(
-  Developer("mhamilton723", "Mark Hamilton",
-    "mmlspark-support@microsoft.com", url("https://github.com/mhamilton723")),
-  Developer("imatiach-msft", "Ilya Matiach",
-    "mmlspark-support@microsoft.com", url("https://github.com/imatiach-msft")),
-  Developer("drdarshan", "Sudarshan Raghunathan",
-    "mmlspark-support@microsoft.com", url("https://github.com/drdarshan"))
-)
-
-ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
-
-ThisBuild / credentials += Credentials("Sonatype Nexus Repository Manager",
-  "oss.sonatype.org",
-  Secrets.nexusUsername,
-  Secrets.nexusPassword)
-
-pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
-pgpSecretRing := {
-  val temp = File.createTempFile("secret", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPrivate)
-    close()
-  }
-  temp
-}
-pgpPublicRing := {
-  val temp = File.createTempFile("public", ".asc")
-  new PrintWriter(temp) {
-    write(Secrets.pgpPublic)
-    close()
-  }
-  temp
-}
-ThisBuild / publishTo := sonatypePublishToBundle.value
-
-ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / dynverSeparator := "-"

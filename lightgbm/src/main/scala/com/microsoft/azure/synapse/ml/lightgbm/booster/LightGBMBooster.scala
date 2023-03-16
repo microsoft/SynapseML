@@ -44,6 +44,7 @@ protected object BoosterHandler {
     LightGBMUtils.validate(
       lightgbmlib.LGBM_BoosterLoadModelFromString(lgbModelString, numItersOut, boosterOutPtr),
       "Booster LoadFromString")
+    lightgbmlib.delete_intp(numItersOut)
     lightgbmlib.voidpp_value(boosterOutPtr)
   }
 }
@@ -144,7 +145,7 @@ protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
   lazy val rawScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_RAW_SCORE
   lazy val normalScoreConstant: Int = lightgbmlibConstants.C_API_PREDICT_NORMAL
   lazy val leafIndexPredictConstant: Int = lightgbmlibConstants.C_API_PREDICT_LEAF_INDEX
-  lazy val contribPredictConstant = lightgbmlibConstants.C_API_PREDICT_CONTRIB
+  lazy val contribPredictConstant: Int = lightgbmlibConstants.C_API_PREDICT_CONTRIB
 
   lazy val dataInt32bitType: Int = lightgbmlibConstants.C_API_DTYPE_INT32
   lazy val data64bitType: Int = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -208,7 +209,8 @@ protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
   * @param modelStr Optional parameter with the string serialized representation of the learner
   */
 @SerialVersionUID(777L)
-class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val parameters: Option[String] = None,
+class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
+                      val parameters: Option[String] = None,
                       val modelStr: Option[String] = None) extends Serializable {
 
   /** Represents a LightGBM Booster learner
@@ -264,19 +266,21 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   }
 
   /** Saves the booster to string representation.
+    * @param upToIteration The zero-based index of the iteration to save as the last one (ignoring the rest).
     * @return The serialized string representation of the Booster.
     */
-  def saveToString(): String = {
+  def saveToString(upToIteration: Option[Int] = None): String = {
       val bufferLength = LightGBMConstants.DefaultBufferLength
       val bufferOutLengthPtr = lightgbmlib.new_int64_tp()
+      val iterationCount = if (upToIteration.isEmpty) -1 else upToIteration.get + 1
       lightgbmlib.LGBM_BoosterSaveModelToStringSWIG(boosterHandler.boosterPtr,
-        0, -1, 0, bufferLength, bufferOutLengthPtr)
+        0, iterationCount, 0, bufferLength, bufferOutLengthPtr)
   }
 
   /** Get the evaluation dataset column names from the native booster.
     * @return The evaluation dataset column names.
     */
-  def getEvalNames(): Array[String] = {
+  def getEvalNames: Array[String] = {
     // Need to keep track of best scores for each metric, see callback.py in lightgbm for reference
     // For debugging, can get metric names
     val stringArrayHandle = lightgbmlib.LGBM_BoosterGetEvalNamesSWIG(boosterHandler.boosterPtr)
@@ -299,7 +303,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     val resultEval = lightgbmlib.LGBM_BoosterGetEval(boosterHandler.boosterPtr, dataIndex,
       dummyEvalCountsPtr, evalResults)
     lightgbmlib.delete_intp(dummyEvalCountsPtr)
-    LightGBMUtils.validate(resultEval, s"Booster Get Eval Results for data index: ${dataIndex}")
+    LightGBMUtils.validate(resultEval, s"Booster Get Eval Results for data index: $dataIndex")
 
     val results: Array[(String, Double)] = evalNames.zipWithIndex.map { case (evalName, index) =>
       val score = lightgbmlib.doubleArray_getitem(evalResults, index.toLong)
@@ -312,7 +316,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   /** Reset the specified parameters on the native booster.
     * @param newParameters The new parameters to set.
     */
-  def resetParameter(newParameters: String) = {
+  def resetParameter(newParameters: String): Unit = {
     LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterHandler.boosterPtr,
       newParameters), "Booster Reset learning_rate Param")
   }
@@ -381,9 +385,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
           gradPtr, hessPtr, isFinishedPtr), "Booster Update One Iter Custom")
       lightgbmlib.intp_value(isFinishedPtr) == 1
     } finally {
-      isFinishedPtrOpt.foreach(lightgbmlib.delete_intp(_))
-      gradientPtrOpt.foreach(lightgbmlib.delete_floatArray(_))
-      hessianPtrOpt.foreach(lightgbmlib.delete_floatArray(_))
+      isFinishedPtrOpt.foreach(lightgbmlib.delete_intp)
+      gradientPtrOpt.foreach(lightgbmlib.delete_floatArray)
+      hessianPtrOpt.foreach(lightgbmlib.delete_floatArray)
     }
   }
 
@@ -403,9 +407,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   def predictLeaf(features: Vector): Array[Double] = {
     val kind = boosterHandler.leafIndexPredictConstant
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind, false,
+      case dense: DenseVector => predictForMat(dense.toArray, kind, disableShapeCheck = false,
         boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
-      case sparse: SparseVector => predictForCSR(sparse, kind, false,
+      case sparse: SparseVector => predictForCSR(sparse, kind, disableShapeCheck = false,
         boosterHandler.leafIndexDataLengthLongPtr.get().ptr, boosterHandler.leafIndexDataOutPtr.get().ptr)
     }
     predLeafToArray(boosterHandler.leafIndexDataOutPtr.get().ptr)
@@ -414,9 +418,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
   def featuresShap(features: Vector): Array[Double] = {
     val kind = boosterHandler.contribPredictConstant
     features match {
-      case dense: DenseVector => predictForMat(dense.toArray, kind, false,
+      case dense: DenseVector => predictForMat(dense.toArray, kind, disableShapeCheck = false,
         boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
-      case sparse: SparseVector => predictForCSR(sparse, kind, false,
+      case sparse: SparseVector => predictForCSR(sparse, kind, disableShapeCheck = false,
         boosterHandler.shapDataLengthLongPtr.get().ptr, boosterHandler.shapDataOutPtr.get().ptr)
     }
     shapToArray(boosterHandler.shapDataOutPtr.get().ptr)
@@ -460,6 +464,12 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None, val para
     val dataset = session.sqlContext.createDataset(rdd)
     val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
     dataset.coalesce(1).write.mode(mode).text(filename)
+  }
+
+  /** Gets the native model serialized representation as a string.
+    */
+  def getNativeModel(): String = {
+    modelStr.get
   }
 
   /** Dumps the native model pointer to file.

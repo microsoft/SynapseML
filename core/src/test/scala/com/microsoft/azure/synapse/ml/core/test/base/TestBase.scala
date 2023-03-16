@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.core.test.base
 
-import java.nio.file.Files
 import breeze.linalg.norm.Impl
 import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.math.Field
@@ -15,42 +14,87 @@ import org.apache.spark.streaming.{StreamingContext, Seconds => SparkSeconds}
 import org.scalactic.Equality
 import org.scalactic.source.Position
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.concurrent.TimeLimits
 import org.scalatest.time.{Seconds, Span}
 
+import java.io.File
+import java.nio.file.{Files, Path}
 import scala.concurrent._
 import scala.reflect.ClassTag
 
-// Common test tags
-object TestBase {
+trait SparkSessionManagement {
 
-  // Run only on Linux
-  object LinuxOnly extends Tag("com.microsoft.azure.synapse.ml.test.tags.linuxonly")
+  def currentDir: String = System.getProperty("user.dir")
+
+  // Default spark warehouse = ./spark-warehouse
+  private val defaultWarehouseDirName = "spark-warehouse"
+  private val testDir = System.currentTimeMillis.toString
+
+  private lazy val localWarehousePath =
+    "file:" + customNormalize(new File(currentDir, defaultWarehouseDirName).getAbsolutePath)
+  lazy val workingDir: String = "file:" + customNormalize(new File(currentDir, testDir).getAbsolutePath)
+
+  // On NTFS-like systems, normalize path
+  //   (solves the problem of sending a path from spark to hdfs on Windows)
+  def customNormalize(path: String): String = {
+    if (File.separator != "\\") path
+    else path.replaceFirst("[A-Z]:", "").replace("\\", "/")
+  }
+
+  def sparkConfiguration: SparkConf = {
+    new SparkConf()
+      .set("spark.logConf", "true")
+      .set("spark.sql.shuffle.partitions", "20")
+      .set("spark.driver.maxResultSize", "6g")
+      .set("spark.sql.crossJoin.enabled", "true")
+      .set("spark.sql.warehouse.dir", localWarehousePath)
+  }
+
+  def getSession(name: String,
+                 logLevel: String = "WARN",
+                 numRetries: Int = 1,
+                 numCores: Option[Int] = None): SparkSession = {
+    val cores = numCores.map(_.toString).getOrElse("*")
+    val master = if (numRetries == 1) {
+      s"local[$cores]"
+    } else {
+      s"local[$cores, $numRetries]"
+    }
+    val sess = SparkSession.builder()
+      .appName(name)
+      .master(master)
+      .config(sparkConfiguration)
+      .getOrCreate()
+    sess.sparkContext.setLogLevel(logLevel)
+    sess
+  }
 
   def sc: SparkContext = spark.sparkContext
+
   def ssc: StreamingContext = new StreamingContext(sc, SparkSeconds(1))
 
-  private var SparkInternal: Option[SparkSession] = None
+  private var sparkInternal: Option[SparkSession] = None
+
   def resetSparkSession(numRetries: Int = 1, numCores: Option[Int] = None): Unit = {
-    SparkInternal.foreach(_.close())
-    SparkInternal = Some(
-      SparkSessionFactory.getSession(s"$this", numRetries=numRetries, numCores=numCores)
+    sparkInternal.foreach(_.close())
+    sparkInternal = Some(getSession(s"$this", numRetries = numRetries, numCores = numCores)
     )
   }
 
   def stopSparkSession(): Unit = {
-    SparkInternal.foreach{spark =>
+    sparkInternal.foreach { spark =>
       spark.close()
       Thread.sleep(1000) // TODO figure out if/why this is needed to give spark a chance to stop
     }
-    SparkInternal = None
+    sparkInternal = None
   }
 
   def spark: SparkSession = {
-    if (SparkInternal.isEmpty){
+    if (sparkInternal.isEmpty) {
       resetSparkSession()
     }
-    SparkInternal.get
+    sparkInternal.get
   }
 
 }
@@ -62,11 +106,11 @@ trait LinuxOnly extends TestBase {
 
 trait Flaky extends TestBase {
 
-  val retyMillis: Array[Int] = Array(0, 1000, 5000)
+  val retryMillis: Array[Int] = Array(0, 1000, 5000)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*) {
-      tryWithRetries(retyMillis)(testFun _)
+      tryWithRetries(retryMillis)(testFun _)
     }
   }
 
@@ -76,11 +120,11 @@ trait TimeLimitedFlaky extends TestBase with TimeLimits {
 
   val timeoutInSeconds: Int = 5 * 60
 
-  val retyMillis: Array[Int] = Array(0, 100, 100)
+  val retryMillis: Array[Int] = Array(0, 100, 100)
 
   override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
     super.test(testName, testTags: _*) {
-      tryWithRetries(retyMillis) {
+      tryWithRetries(retryMillis) {
         failAfter(Span(timeoutInSeconds, Seconds)) {
           println("Executing time-limited flaky function")
           testFun _
@@ -91,21 +135,27 @@ trait TimeLimitedFlaky extends TestBase with TimeLimits {
 
 }
 
-abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+// Common test tags
+object TestBase extends SparkSessionManagement {
 
-  lazy val spark = TestBase.spark
-  lazy val sc = TestBase.sc
-  lazy val ssc = TestBase.ssc
+  // Run only on Linux
+  object LinuxOnly extends Tag("com.microsoft.azure.synapse.ml.test.tags.linuxonly")
 
-  protected lazy val dir = SparkSessionFactory.WorkingDir
+}
+
+abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+
+  lazy val sparkProvider: SparkSessionManagement = TestBase
+
+  lazy val spark: SparkSession = sparkProvider.spark
+  lazy val sc: SparkContext = sparkProvider.sc
+  lazy val ssc: StreamingContext = sparkProvider.ssc
 
   private var tmpDirCreated = false
-  protected lazy val tmpDir = {
+  protected lazy val tmpDir: Path = {
     tmpDirCreated = true
     Files.createTempDirectory("MML-Test-")
   }
-
-  protected def normalizePath(path: String) = SparkSessionFactory.customNormalize(path)
 
   // Timing info
   var suiteElapsed: Long = 0
@@ -136,8 +186,8 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
 
   protected override def afterAll(): Unit = {
     logTime(s"Suite $this", suiteElapsed, 10000)
-    if (tmpDirCreated) {
-      FileUtils.forceDelete(tmpDir.toFile)
+    if (tmpDirCreated && tmpDir.toFile.exists) {
+        FileUtils.forceDelete(tmpDir.toFile)
     }
   }
 
@@ -146,7 +196,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def tryWithRetries[T](times: Array[Int] = Array(0, 100, 500, 1000, 3000, 5000))(block: () => T): T = {
     for ((t, i) <- times.zipWithIndex) {
       try {
-        return block()
+        return block()  //scalastyle:ignore return
       } catch {
         case e: Exception if (i + 1) < times.length =>
           println(s"RETRYING after $t ms:  Caught error: $e ")
@@ -167,7 +217,12 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   }
 
   def interceptWithoutLogging[E <: Throwable: ClassTag](e: => Any): Unit = {
-    withoutLogging{intercept[E]{e}; ()}
+    withoutLogging {
+      intercept[E] {
+        e
+      }
+      ()
+    }
   }
 
   def assertSparkException[E <: Throwable: ClassTag](stage: PipelineStage, data: DataFrame): Unit = {
@@ -240,7 +295,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def breezeVectorEq[T: Field](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDV[T]] =
     (a: BDV[T], b: Any) => {
       b match {
-        case p: BDV[T @unchecked] =>
+        case p: BDV[T@unchecked] =>
           a.length == p.length && norm(a - p) < tol
         case _ => false
       }
@@ -249,7 +304,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def breezeMatrixEq[T: Field](tol: Double)(implicit normImpl: Impl[T, Double]): Equality[BDM[T]] =
     (a: BDM[T], b: Any) => {
       b match {
-        case p: BDM[T @unchecked] =>
+        case p: BDM[T@unchecked] =>
           a.rows == p.rows && a.cols == p.cols && {
             ((a(*, ::).iterator) zip (p(*, ::).iterator)).forall {
               case (v1: BDV[T], v2: BDV[T]) =>
@@ -264,7 +319,7 @@ abstract class TestBase extends FunSuite with BeforeAndAfterEachTestData with Be
   def mapEq[K, V: Equality]: Equality[Map[K, V]] = {
     (a: Map[K, V], b: Any) => {
       b match {
-        case m: Map[K @unchecked, V @unchecked] => a.keySet == m.keySet && a.keySet.forall(key => a(key) === m(key))
+        case m: Map[K@unchecked, V@unchecked] => a.keySet == m.keySet && a.keySet.forall(key => a(key) === m(key))
         case _ => false
       }
     }

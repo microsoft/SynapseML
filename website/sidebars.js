@@ -2,6 +2,7 @@ const { listExamplePaths } = require('./src/plugins/examples');
 
 let cs_pages = listExamplePaths("features", "cognitive_services");
 let gs_pages = listExamplePaths("features", "geospatial_services");
+let if_pages = listExamplePaths("features", "isolation_forest");
 let rai_pages = listExamplePaths("features", "responsible_ai");
 let onnx_pages = listExamplePaths("features", "onnx");
 let lgbm_pages = listExamplePaths("features", "lightgbm");
@@ -10,6 +11,9 @@ let ss_pages = listExamplePaths("features", "spark_serving");
 let ocv_pages = listExamplePaths("features", "opencv");
 let cls_pages = listExamplePaths("features", "classification");
 let reg_pages = listExamplePaths("features", "regression");
+let dl_pages = listExamplePaths("features", "simple_deep_learning");
+let ci_pages = listExamplePaths("features", "causal_inference");
+let hpt_pages = listExamplePaths("features", "hyperparameter_tuning");
 let other_pages = listExamplePaths("features", "other");
 
 module.exports = {
@@ -25,6 +29,7 @@ module.exports = {
         'getting_started/installation',
         'getting_started/first_example',
         'getting_started/first_model',
+        'getting_started/dotnet_example',
       ],
     },
     {
@@ -35,6 +40,11 @@ module.exports = {
           type: 'category',
           label: 'Cognitive Services',
           items: cs_pages,
+        },
+        {
+          type: 'category',
+          label: 'Isolation Forest',
+          items: if_pages,
         },
         {
           type: 'category',
@@ -83,6 +93,21 @@ module.exports = {
         },
         {
           type: 'category',
+          label: 'Simple Deep Learning',
+          items: dl_pages,
+        },
+        {
+          type: 'category',
+          label: 'Causal Inference',
+          items: ci_pages,
+        },
+        {
+          type: 'category',
+          label: 'Hyperparameter Tuning',
+          items: hpt_pages,
+        },
+        {
+          type: 'category',
           label: 'Other',
           items: other_pages,
         },
@@ -108,6 +133,17 @@ module.exports = {
         'documentation/estimators/estimators_core',
         'documentation/estimators/estimators_lightgbm',
         'documentation/estimators/estimators_vw',
+        'documentation/estimators/estimators_causal',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'MLflow',
+      items: [
+        'mlflow/introduction',
+        'mlflow/installation',
+        'mlflow/examples',
+        'mlflow/autologging'
       ],
     },
     {
@@ -118,9 +154,9 @@ module.exports = {
         'reference/contributing_guide',
         'reference/docker',
         'reference/R-setup',
+        'reference/dotnet-setup',
         'reference/SAR',
         'reference/cyber',
-        'reference/datasets',
         'reference/vagrant',
       ],
     },

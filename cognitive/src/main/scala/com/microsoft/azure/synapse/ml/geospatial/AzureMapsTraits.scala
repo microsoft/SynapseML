@@ -5,12 +5,13 @@ package com.microsoft.azure.synapse.ml.geospatial
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.cognitive.{HasAsyncReply, HasServiceParams, HasUrlPath}
+import com.microsoft.azure.synapse.ml.cognitive.vision.HasAsyncReply
+import com.microsoft.azure.synapse.ml.cognitive.{HasServiceParams, HasUrlPath}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils._
 import com.microsoft.azure.synapse.ml.io.http.{HasURL, _}
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.spark.ml.param._
 import spray.json.DefaultJsonProtocol.{DoubleJsonFormat, StringJsonFormat, seqFormat}
 
 import java.net.URI

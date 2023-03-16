@@ -3,18 +3,10 @@
 
 package org.apache.spark.sql.execution.streaming.continuous
 
-import java.io.{BufferedReader, InputStreamReader}
-import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
-import java.util
-import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
-import java.util.{Optional, UUID}
 import com.jcraft.jsch.Session
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.io.http.{
-  HTTPRequestData, HTTPResponseData, HTTPSchema, PortForwarding, StatusLineData}
+import com.microsoft.azure.synapse.ml.io.http._
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-
-import javax.annotation.concurrent.GuardedBy
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
@@ -24,8 +16,8 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.catalog.{SupportsRead, Table, TableCapability}
-import org.apache.spark.sql.connector.read.streaming._
 import org.apache.spark.sql.connector.read._
+import org.apache.spark.sql.connector.read.streaming._
 import org.apache.spark.sql.execution.streaming.HTTPServerUtils
 import org.apache.spark.sql.internal.connector.SimpleTableProvider
 import org.apache.spark.sql.sources.DataSourceRegister
@@ -36,6 +28,13 @@ import org.apache.spark.{SparkContext, TaskContext}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
+import java.io.{BufferedReader, InputStreamReader}
+import java.net.{InetAddress, InetSocketAddress, ServerSocket, URL}
+import java.util
+import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.{Optional, UUID}
+import javax.annotation.concurrent.GuardedBy
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -137,8 +136,8 @@ private[streaming] object DriverServiceUtils {
                                       host: String,
                                       handler: HttpHandler): HttpServer = {
     val port: Int = StreamUtilities.using(new ServerSocket(0))(_.getLocalPort).get
-    val server = HttpServer.create(new InetSocketAddress(host, port), 100)
-    server.setExecutor(Executors.newFixedThreadPool(100))
+    val server = HttpServer.create(new InetSocketAddress(host, port), 100)  //scalastyle:ignore magic.number
+    server.setExecutor(Executors.newFixedThreadPool(100))  //scalastyle:ignore magic.number
     server.createContext(s"/$path", handler)
     server.start()
     server
@@ -209,10 +208,10 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Case
 
   val numPartitions: Int = options.getInt(HTTPSourceV2.NumPartitions, 2)
   val host: String = options.get(HTTPSourceV2.Host, "localhost")
-  val port: Int = options.getInt(HTTPSourceV2.Port, 8888)
+  val port: Int = options.getInt(HTTPSourceV2.Port, 8888)  //scalastyle:ignore magic.number
   val path: String = options.get(HTTPSourceV2.Path)
   val name: String = options.get(HTTPSourceV2.NAME)
-  val epochLength: Long = options.getLong(HTTPSourceV2.EpochLength, 30000)
+  val epochLength: Long = options.getLong(HTTPSourceV2.EpochLength, 30000)  //scalastyle:ignore magic.number
 
   val forwardingOptions: collection.Map[String, String] = options.asCaseSensitiveMap().asScala
     .filter { case (k, _) => k.startsWith("forwarding") }
@@ -319,7 +318,7 @@ private[streaming] class HTTPContinuousReader(options: CaseInsensitiveStringMap)
   }
 
   override def planInputPartitions(start: Offset): Array[InputPartition] =
-    planInputPartitions(start, null)
+    planInputPartitions(start, null)  //scalastyle:ignore null
 
   override def createContinuousReaderFactory(): ContinuousPartitionReaderFactory = {
     HTTPSourceReaderFactory
@@ -487,7 +486,7 @@ private[streaming] class WorkerServer(val name: String,
   private var epoch: Long = 0
 
   def registerPartition(localEpoch: Epoch, partitionId: PID): Unit = synchronized {
-    if (registeredPartitions.get(partitionId).isEmpty) {
+    if (!registeredPartitions.contains(partitionId)) {
       logInfo(s"registering $partitionId localEpoch:$localEpoch globalEpoch:$epoch")
       registeredPartitions.update(partitionId, localEpoch)
     } else {
@@ -572,6 +571,7 @@ private[streaming] class WorkerServer(val name: String,
     ()
   }
 
+  @tailrec
   private def tryCreateServer(host: String,
                               startingPort: Int,
                               triesLeft: Int,
@@ -581,7 +581,8 @@ private[streaming] class WorkerServer(val name: String,
         " try increasing the number of ports to try")
     }
     try {
-      val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort), 100)
+      val server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(host), startingPort),
+                            100)  //scalastyle:ignore magic.number
       (server, startingPort)
     } catch {
       case _: java.net.BindException =>
@@ -609,22 +610,20 @@ private[streaming] class WorkerServer(val name: String,
   private def getNextRequestHelper(localEpoch: Epoch,
                                    partitionIndex: PID,
                                    continuous: Boolean): Option[CachedRequest] = {
-    if (!continuous && recoveredPartitions.get((localEpoch, partitionIndex)).isDefined) {
-      return Option(recoveredPartitions((localEpoch, partitionIndex)).poll())
-    }
-
-    val queue = requestQueues.getOrElseUpdate(
-      localEpoch, new LinkedBlockingQueue[CachedRequest]())
-    val timeout: Option[Either[Long, Long]] = if (continuous) {
-      None
-    } else if (localEpoch < epoch || Option(queue.peek()).isDefined) {
-      Some(Left(0L))
+    if (!continuous && recoveredPartitions.contains((localEpoch, partitionIndex))) {
+      Option(recoveredPartitions((localEpoch, partitionIndex)).poll())
     } else {
-      Some(Right(config.epochLength - (System.currentTimeMillis() - epochStart)))
-    }
+      val queue = requestQueues.getOrElseUpdate(
+        localEpoch, new LinkedBlockingQueue[CachedRequest]())
+      val timeout: Option[Either[Long, Long]] = if (continuous) {
+        None
+      } else if (localEpoch < epoch || Option(queue.peek()).isDefined) {
+        Some(Left(0L))
+      } else {
+        Some(Right(config.epochLength - (System.currentTimeMillis() - epochStart)))
+      }
 
-    val result = timeout
-      .map {
+      timeout.map {
         case Left(0L) => Option(queue.poll())
         case Right(t) =>
           Option(queue.poll(t, TimeUnit.MILLISECONDS)).orElse {
@@ -641,7 +640,7 @@ private[streaming] class WorkerServer(val name: String,
       }
       .orElse(Some(Some(queue.take())))
       .flatten
-    result
+    }
   }
 
   def getNextRequest(localEpoch: Epoch, partitionIndex: PID, continuous: Boolean): Option[InternalRow] = {
@@ -668,7 +667,7 @@ private[streaming] class WorkerServer(val name: String,
   server.start()
   logInfo(s"successfully started server at ${config.host}:$foundPort")
 
-  val reporting = Future {
+  val reporting: Future[Unit] = Future {
     client.reportServerToDriver(
       s"http://${config.driverServiceHost}:${config.driverServicePort}/driverService",
       ServiceInfo(name, config.host, foundPort, config.path, getMachineLocalIp, getMachinePublicIp)

@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.{ModelParam, TypedDoubleArrayParam}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation._
@@ -15,16 +16,15 @@ import org.apache.spark.sql.functions.{collect_list, rank => r, _}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
-import spray.json.DefaultJsonProtocol._
-
-import scala.annotation.tailrec
 
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
-  with RecommendationParams with BasicLogging {
+  with RecommendationParams with SynapseMLLogging {
   logClass()
 
   override lazy val pyInternalWrapper: Boolean = true
@@ -46,14 +46,14 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   /** @group setParam */
   def setEstimatorParamMaps(value: Array[ParamMap]): this.type = set(estimatorParamMaps, value)
 
+  def setEstimatorParamMaps(value: java.util.ArrayList[ParamMap]): this.type =
+    set(estimatorParamMaps, value.asScala.toArray)
+
   /** @group setParam */
   def setEvaluator(value: Evaluator): this.type = set(evaluator, value)
 
   /** @group setParam */
   def setTrainRatio(value: Double): this.type = set(trainRatio, value)
-
-  /** @group setParam */
-  def setSeed(value: Long): this.type = set(seed, value)
 
   /** @group setParam */
   def setMinRatingsU(value: Int): this.type = set(minRatingsU, value)
@@ -168,7 +168,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
     .join(filterByItemCount(dataset), $(userCol))
 
-  def splitDF(dataset: DataFrame): Array[DataFrame] = {
+  def splitDF(dataset: DataFrame): Array[DataFrame] = {  //scalastyle:ignore method.length
     val shuffleFlag = true
     val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
 
@@ -292,28 +292,27 @@ object RankingTrainValidationSplit extends ComplexParamsReadable[RankingTrainVal
 class RankingTrainValidationSplitModel(
                                         override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   override protected lazy val pyInternalWrapper = true
 
   def setValidationMetrics(value: Seq[Double]): this.type = set(validationMetrics, value)
 
-  val validationMetrics = new TypedArrayParam[Double](this, "validationMetrics", "Best Model")
+  val validationMetrics = new TypedDoubleArrayParam(this, "validationMetrics", "Best Model")
 
   /** @group getParam */
   def getValidationMetrics: Seq[_] = $(validationMetrics)
 
-  def setBestModel(value: Model[_]): this.type = set(bestModel, value)
+  def setBestModel(value: Model[_]): this.type = set(bestModel, value.asInstanceOf[Model[_ <: Model[_]]])
 
-  val bestModel: TransformerParam =
-    new TransformerParam(
+  val bestModel: ModelParam =
+    new ModelParam(
       this,
-      "bestModel", "The internal ALS model used splitter",
-      { t => t.isInstanceOf[Model[_]] })
+      "bestModel", "The internal ALS model used splitter")
 
   /** @group getParam */
-  def getBestModel: Model[_] = $(bestModel).asInstanceOf[Model[_]]
+  def getBestModel: Model[_ <: Model[_]] = $(bestModel)
 
   def this() = this(Identifiable.randomUID("RankingTrainValidationSplitModel"))
 

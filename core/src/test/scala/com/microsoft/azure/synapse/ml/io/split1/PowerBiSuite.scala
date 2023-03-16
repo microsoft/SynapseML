@@ -6,13 +6,12 @@ package com.microsoft.azure.synapse.ml.io.split1
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
-
-import java.io.File
 import org.apache.spark.SparkException
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{current_timestamp, lit}
 
+import java.io.File
 import scala.collection.JavaConverters._
 
 class PowerBiSuite extends TestBase with FileReaderUtils {

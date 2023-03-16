@@ -3,11 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.core.env
 
-import java.io.{ByteArrayOutputStream, InputStream}
-import java.util.zip.ZipInputStream
-
 import org.apache.commons.io.IOUtils
 
+import java.io.{ByteArrayOutputStream, InputStream}
+import java.util.zip.ZipInputStream
 import scala.io.Source
 import scala.util.Random
 
@@ -57,7 +56,7 @@ object StreamUtilities {
 
     private def getNext: Option[(String, Array[Byte])] = {
       var entry = zipStream.getNextEntry
-      while (entry != null) {
+      while (entry != null) {  //scalastyle:ignore while
         if (!entry.isDirectory && random.nextDouble < sampleRatio) {
 
           val filename = zipfile + java.io.File.separator + entry.getName
@@ -70,7 +69,7 @@ object StreamUtilities {
           assert(bytes.length == entry.getSize,
             "incorrect number of bytes is read from zipstream: " + bytes.length + " instead of " + entry.getSize)
 
-          return Some((filename, bytes))
+          return Some((filename, bytes))  //scalastyle:ignore return
         }
         entry = zipStream.getNextEntry
       }

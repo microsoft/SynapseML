@@ -2,7 +2,7 @@ const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
 const { all_examples } = require('./src/plugins/examples');
-let version = "0.9.5";
+let version = "0.10.0";
 
 module.exports = {
   title: 'SynapseML',
@@ -15,7 +15,7 @@ module.exports = {
   trailingSlash: true,
   customFields: {
     examples: all_examples(),
-    version: "0.9.5",
+    version: "0.11.0",
   },
   stylesheets: [
     {
@@ -28,6 +28,7 @@ module.exports = {
     prism: {
       theme: require('./src/plugins/prism_themes/github'),
       darkTheme: require('./src/plugins/prism_themes/monokai'),
+      additionalLanguages: ['csharp', 'powershell'],
     },
     colorMode: {
       defaultMode: 'dark',
@@ -62,6 +63,10 @@ module.exports = {
             {
               label: 'Scala',
               href: `https://mmlspark.blob.core.windows.net/docs/${version}/scala/com/microsoft/azure/synapse/ml/index.html`,
+            },
+            {
+              label: 'C#',
+              href: `https://mmlspark.blob.core.windows.net/docs/${version}/dotnet/index.html`,
             }
           ]
         },
@@ -89,11 +94,11 @@ module.exports = {
             },
             {
               label: 'Python API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/pyspark/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.11.0/pyspark/index.html',
             },
             {
               label: 'Scala API Reference',
-              to: 'https://mmlspark.blob.core.windows.net/docs/0.9.5/scala/index.html',
+              to: 'https://mmlspark.blob.core.windows.net/docs/0.11.0/scala/index.html',
             },
           ],
         },
@@ -128,10 +133,6 @@ module.exports = {
       indexName: 'synapseML',
       contextualSearch: true,
     },
-    gtag: {
-      trackingID: 'G-RWPE0183E8',
-      anonymizeIP: true,
-    },
     announcementBar: {
       id: 'announcementBar-1', // Increment on change
       content: `⭐️ If you like SynapseML, consider giving it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/Microsoft/SynapseML">GitHub</a> ⭐`,
@@ -149,6 +150,10 @@ module.exports = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+        gtag: {
+          trackingID: 'G-RWPE0183E8',
+          anonymizeIP: true,
+        },
         blog: {
           feedOptions: {
             type: 'all',
@@ -158,4 +163,3 @@ module.exports = {
     ],
   ],
 };
-

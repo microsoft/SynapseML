@@ -4,17 +4,19 @@
 package com.microsoft.azure.synapse.ml.onnx
 
 import breeze.linalg.{argmax, argtopk}
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.commons.io.FileUtils
+import org.apache.spark.SparkException
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -24,6 +26,7 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 import java.io.File
 import java.net.URL
+import scala.collection.mutable
 
 class ONNXModelSuite extends TestBase
   with TransformerFuzzing[ONNXModel] {
@@ -39,6 +42,7 @@ class ONNXModelSuite extends TestBase
 
   override def reader: MLReadable[_] = ONNXModel
 
+  // Note that we could use OnnxHub to get models for tests, but this makes sure we test with some known binary models
   private val baseUrl = "https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/"
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
@@ -80,6 +84,39 @@ class ONNXModelSuite extends TestBase
     Tuple1(Vectors.dense(4.9d, 3.0d, 1.4d, 0.2d)),
     Tuple1(Vectors.dense(5.8d, 2.7d, 5.1d, 1.9d))
   ) toDF "features"
+
+  private lazy val testDfIrisWrongShape: DataFrame = Seq(
+    Array(6.7f, 3.1f, 4.7f)  // Should be 4 values
+  ) toDF "features"
+
+  private lazy val testDfIrisWrongShape2: DataFrame = Seq(
+    Array(6.7f, 3.1f, 4.7f, 1.5f),
+    Array(6.7f, 3.1f, 4.7f)  // Should be 4 values
+  ) toDF "features"
+
+  private lazy val testDfIrisEmptyDimension: DataFrame = Seq(
+    Array[Double]()  // No dimension should be empty
+  ) toDF "features"
+
+  test("ONNXModel throws for wrong shape") {
+    val caught = intercept[SparkException] {
+      onnxIris.transform(testDfIrisWrongShape).collect()
+    }
+    assert(caught.getMessage.contains("IllegalArgumentException"))
+
+    // Test when bad shape is not first in batch
+    val caught2 = intercept[SparkException] {
+      onnxIris.transform(testDfIrisWrongShape2).collect()
+    }
+    assert(caught2.getMessage.contains("IllegalArgumentException"))
+  }
+
+  test("ONNXModel throws for empty dimension") {
+    val caught = intercept[SparkException] {
+      onnxIris.transform(testDfIrisEmptyDimension).collect()
+    }
+    assert(caught.getMessage.contains("IllegalArgumentException"))
+  }
 
   test("ONNXModel can infer observations of matching input types") {
     val predicted = onnxIris.transform(testDfIrisFloat).as[(Seq[Float], Long, Map[Long, Float])].collect()
@@ -257,6 +294,13 @@ class ONNXModelSuite extends TestBase
       .setMiniBatchSize(1)
   }
 
+  // We must clear the softMax and argMax dictionaries, as they only apply to the full model transform
+  private lazy val onnxResNet50ForSlicing = {
+    onnxResNet50
+      .setSoftMaxDict(Map.empty[String, String])
+      .setArgMaxDict(Map.empty[String, String])
+  }
+
   private lazy val testDfResNet50: DataFrame = {
     val greyhoundImageLocation: String = {
       val loc = "/tmp/greyhound.jpg"
@@ -280,6 +324,10 @@ class ONNXModelSuite extends TestBase
     imageTransformer.transform(imageDf).cache()
   }
 
+  override def getterSetterParamExamples(pipelineStage: ONNXModel): Map[Param[_], Any] = Map(
+    (pipelineStage.deviceType, "cpu")
+  )
+
   test("ONNXModel can infer for resnet50 model") {
     val (probability, prediction) = onnxResNet50.transform(testDfResNet50)
       .select("probability", "prediction")
@@ -289,5 +337,121 @@ class ONNXModelSuite extends TestBase
     val top2 = argtopk(probability.toBreeze, 2).toArray
     assert(top2 sameElements Array(176, 172))
     assert(prediction.toInt == 176)
+  }
+
+  test("Load ONNX Hub Model") {
+    spark
+    val name = "resnet50"
+    val hub = new ONNXHub()
+    val bytes = hub.load(name)
+    val model = new ONNXModel()
+      .setModelPayload(bytes)
+      .setFeedDict(Map("data" -> "features"))
+      .setFetchDict(Map("rawPrediction" -> "resnetv17_dense0_fwd"))
+      .setSoftMaxDict(Map("rawPrediction" -> "probability"))
+      .setArgMaxDict(Map("rawPrediction" -> "prediction"))
+      .setMiniBatchSize(1)
+
+    val (probability, _) = model.transform(testDfResNet50)
+      .select("probability", "prediction")
+      .as[(Vector, Double)]
+      .head
+
+    val top2 = argtopk(probability.toBreeze, 2).toArray
+    assert(top2.contains(176))
+  }
+
+  test("ONNXModel automatic slicing based on fetch dictionary") {
+    // Set the fetch dictionary to an intermediate output, and the model should automatically slice at that point.
+    val intermediateOutputName = "resnetv24_pool1_fwd"
+    val adjustedSlicedModel = onnxResNet50ForSlicing
+      .setFetchDict(Map("rawFeatures" -> intermediateOutputName))
+
+    assert(!adjustedSlicedModel.modelOutput.keys.toArray.contains(intermediateOutputName))
+
+    val intermediateDf = adjustedSlicedModel.transform(testDfResNet50)
+
+    val firstRowFeatures = extractFirstRowFromSlicedLayer(intermediateDf, "rawFeatures")
+    assert(firstRowFeatures.length == 2048)
+  }
+
+  test("ONNXModel manual slicing") {
+    // Note that we must also clear the softMax and argMax dictionaries, as they only apply to the full model transform
+    val intermediateOutputName = "resnetv24_pool1_fwd"
+    val slicedModel = onnxResNet50ForSlicing
+      .sliceAtOutput(intermediateOutputName)
+      .setFetchDict(Map("rawFeatures" -> intermediateOutputName))
+
+    assert(slicedModel.modelOutput.keys.toArray.contains(intermediateOutputName))
+
+    val intermediateDf = slicedModel.transform(testDfResNet50)
+
+    val firstRowFeatures = extractFirstRowFromSlicedLayer(intermediateDf, "rawFeatures")
+    assert(firstRowFeatures.length == 2048)
+  }
+
+  def extractFirstRowFromSlicedLayer(df: DataFrame, colName: String): Array[Float] = {
+    df.select(colName).collect()(0)(0)
+      .asInstanceOf[mutable.WrappedArray[mutable.WrappedArray[mutable.WrappedArray[Float]]]]
+      .map(wrappedArr => wrappedArr.head.head)
+      .toArray
+  }
+
+  private lazy val testTextModel: ONNXModel = {
+    spark
+    val model = downloadModel("TfIdfVectorizer.onnx", baseUrl)
+    new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setFeedDict(Map("text" -> "features"))
+      .setFetchDict(Map("encoded" -> "result"))
+  }
+
+  private lazy val testDfText1: DataFrame = {
+    Seq(
+      Tuple1(Array("A", "B", "C"))
+    ).toDF("features")
+  }
+
+  private lazy val testDfText2: DataFrame = {
+    Seq(
+      Tuple1(Array("A", "B", "C")),
+      Tuple1(Array("A", "B", "B", "C", "A"))
+    ).toDF("features")
+  }
+
+  test("ONNX model can accept variable size input if batch size is set to 1"){
+
+    // If the array size in each row can vary, either pass in one row at a time,
+    val Array(row) = testTextModel
+      .setMiniBatchSize(10)
+      .transform(testDfText1.orderBy("features"))
+      .select("encoded")
+      .as[Seq[Float]]
+      .collect()
+
+    assert(row == Seq(1.0, 1.0, 1.0))
+
+    // Or set the mini batch size to 1.
+    val Array(row1, row2) = testTextModel
+      .setMiniBatchSize(1)
+      .transform(testDfText2.orderBy("features"))
+      .select("encoded")
+      .as[Seq[Float]]
+      .collect()
+
+    assert(row1 == Seq(2.0, 2.0, 1.0))
+    assert(row2 == Seq(1.0, 1.0, 1.0))
+
+
+    assertThrows[Exception] {
+      // When multiple rows are sent through the same batch, and the shape varies, we cannot
+      // infer the proper tensor size.
+      testTextModel
+        .setMiniBatchSize(10)
+        .transform(testDfText2.orderBy("features"))
+        .select("encoded")
+        .as[Seq[Float]]
+        .collect()
+    }
   }
 }

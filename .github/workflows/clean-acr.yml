@@ -1,0 +1,47 @@
+name: Clean ACR
+
+# Notes: To access key vault and grab the connection string, we first need a service principal.
+# We need to add that service principal as a Reader in the RBAC for the key vault in question,
+# as well as adding it with Get and List permissions in the key vault's access policies.
+# Then we need to store that service principal's info as a GitHub secret.
+# We then use that secret here as the credentials for logging into Azure.
+# Instructions are here: https://learn.microsoft.com/en-us/azure/developer/github/github-key-vault
+# In our case, the service principal is called synapseml-clean-acr.
+# The github secret is a repository secret called clean_acr.
+# It is backed up in the mmlspark-keys vault by secret clean-acr-github-actions-info.
+# The secret has an expiration date (currently 11/20/2024), so it will need to be renewed at some point.
+
+on:
+  schedule:
+    - cron: "0 1 * * 0" # every sunday at 1am
+
+# Use workflow_dispatch in place of schedule for debugging.
+# You can trigger the workflow in the 'Actions' tab in github.
+# Apparently, this file must be in the master branch to get the 'Run workflow' button.
+#on:
+#  workflow_dispatch:
+   
+jobs:
+  clean-acr:
+     name: Clean ACR
+     runs-on: ubuntu-latest
+     steps:
+       - name: Azure Login
+         uses: azure/login@v1
+         with:
+           creds: ${{ secrets.clean_acr }}
+       - name: checkout repo content
+         uses: actions/checkout@v3 # checkout the repo
+       - name: setup python
+         uses: actions/setup-python@v4
+         with:
+           python-version: '3.x'
+       - name: Execute clean-acr.py
+         uses: azure/CLI@v1
+         with:
+           inlineScript: |
+             python -m venv acr-env
+             source acr-env/bin/activate
+             pip install --upgrade pip
+             pip install azure-storage-blob azure-identity azure-keyvault-secrets
+             python .github/workflows/scripts/clean-acr.py mmlspark-keys clean-acr-connection-string

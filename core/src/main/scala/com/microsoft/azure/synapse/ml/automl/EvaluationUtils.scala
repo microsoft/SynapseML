@@ -5,17 +5,20 @@ package com.microsoft.azure.synapse.ml.automl
 
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants
-import com.microsoft.azure.synapse.ml.train.{
-  TrainClassifier, TrainRegressor, TrainedClassifierModel, TrainedRegressorModel}
+import com.microsoft.azure.synapse.ml.train._
 import org.apache.spark.injections.RegressionUtils
 import org.apache.spark.ml.classification.{ClassificationModel, Classifier}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.regression._
 import org.apache.spark.ml.{PipelineStage, Transformer}
 
+import scala.annotation.tailrec
+
 object EvaluationUtils {
   val ModelTypeUnsupportedErr = "Model type not supported for evaluation"
   // Find type of trained models
+  //scalastyle:off cyclomatic.complexity
+  @tailrec
   def getModelType(model: PipelineStage): String = {
     model match {
       case _: TrainRegressor => SchemaConstants.RegressionKind
@@ -33,12 +36,14 @@ object EvaluationUtils {
       case _ => throw new Exception(ModelTypeUnsupportedErr)
     }
   }
+  //scalastyle:on cyclomatic.complexity
 
   def getMetricWithOperator(model: PipelineStage, evaluationMetric: String): (String, Ordering[Double]) = {
     val modelType = getModelType(model)
     getMetricWithOperator(modelType, evaluationMetric)
   }
 
+  //scalastyle:off cyclomatic.complexity
   def getMetricWithOperator(modelType: String, evaluationMetric: String): (String, Ordering[Double]) = {
     val chooseHighest = Ordering.Double
     val chooseLowest = Ordering.Double.reverse
@@ -61,7 +66,9 @@ object EvaluationUtils {
     }
     (evaluationMetricColumnName, operator)
   }
+  //scalastyle:on cyclomatic.complexity
 
+  @tailrec
   def getModelParams(model: Transformer): ParamMap = {
     model match {
       case reg: TrainedRegressorModel => reg.getParamMap

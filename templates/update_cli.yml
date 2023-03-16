@@ -1,0 +1,12 @@
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+      architecture: 'x64'
+  - task: JavaToolInstaller@0
+    inputs:
+      versionSpec: '8'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'PreInstalled'
+  - bash: pip install azure-cli==2.40.0
+    displayName: 'Upgrade Azure CLI'

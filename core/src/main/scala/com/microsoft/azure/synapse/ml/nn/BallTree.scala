@@ -3,10 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.nn
 
-import java.io._
 import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+
+import java.io._
 import scala.collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],
@@ -16,7 +17,7 @@ private case class Query(point: DenseVector[Double],
   def this(point: DenseVector[Double], bestK: Int) = this(point, norm(point), Query.createQueue(bestK))
 
   override def toString: String = {
-    s"Query with point ${point}} \n " +
+    s"Query with point {$point}} \n " +
       s"and bestMatches of size of ${bestMatches.size} (bestMatch example: ${bestMatches.take(1)}})"
   }
 }
@@ -108,7 +109,8 @@ trait BallTreeBase[V] {
   */
 case class BallTree[V](override val keys: IndexedSeq[DenseVector[Double]],
                        override val values: IndexedSeq[V],
-                       override val leafSize: Int = 50) extends Serializable with BallTreeBase[V] {
+                       override val leafSize: Int = 50)  //scalastyle:ignore magic.number
+                       extends Serializable with BallTreeBase[V] {
 
   private val root: Node = makeBallTree(pointIdx)
 
@@ -202,7 +204,7 @@ class ReverseIndex[L](ballTree: Node, labels: IndexedSeq[L]) extends Serializabl
 case class ConditionalBallTree[L, V](override val keys: IndexedSeq[DenseVector[Double]],
                                      override val values: IndexedSeq[V],
                                      labels: IndexedSeq[L],
-                                     override val leafSize: Int = 50)
+                                     override val leafSize: Int = 50)  //scalastyle:ignore magic.number
   extends Serializable with BallTreeBase[V] {
 
   private[ml] val root: Node = makeBallTree(pointIdx)

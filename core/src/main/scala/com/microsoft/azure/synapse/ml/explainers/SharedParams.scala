@@ -4,14 +4,15 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.utils.SlicerFunctions
+import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerParam}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.functions.{array, col}
-import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Column, DataFrame}
 
 trait CanValidateSchema {
   protected def validateSchema(inputSchema: StructType): Unit = {}
@@ -176,7 +177,7 @@ trait HasExplainTarget extends Params with CanValidateSchema {
         SlicerFunctions.vectorSlicer(col(getTargetCol), col(targetClassesCol))
       case ArrayType(elementType: NumericType, _) =>
         SlicerFunctions.arraySlicer(elementType)(col(getTargetCol), col(targetClassesCol))
-      case MapType(_: IntegerType, valueType: NumericType, _) =>
+      case MapType(_: IntegerType | LongType | ShortType | ByteType, valueType: NumericType, _) =>
         SlicerFunctions.mapSlicer(valueType)(col(getTargetCol), col(targetClassesCol))
       case other =>
         throw new IllegalArgumentException(

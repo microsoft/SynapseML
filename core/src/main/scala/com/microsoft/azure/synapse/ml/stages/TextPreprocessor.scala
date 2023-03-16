@@ -5,14 +5,14 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.ml.param.{MapParam, Param, ParamMap}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
-import spray.json.DefaultJsonProtocol._
 
 class Trie(map: Map[Char, Trie] = Map.empty,
            textValue: Seq[Char] = Seq.empty,
@@ -96,7 +96,7 @@ object TextPreprocessor extends ComplexParamsReadable[TextPreprocessor]
   * Priority is given to longer keys and from left to right.
   */
 class TextPreprocessor(val uid: String) extends Transformer
-  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with BasicLogging {
+  with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TextPreprocessor"))
@@ -107,7 +107,7 @@ class TextPreprocessor(val uid: String) extends Transformer
     "upperCase"  -> Character.toUpperCase
   )
 
-  val map = new MapParam[String, String](this, "map", "Map of substring match to replacement")
+  val map = new StringStringMapParam(this, "map", "Map of substring match to replacement")
 
   /** @group getParam */
   def getMap: Map[String, String] = get(map).getOrElse(Map())

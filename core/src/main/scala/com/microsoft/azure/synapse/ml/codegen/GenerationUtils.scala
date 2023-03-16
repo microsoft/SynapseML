@@ -3,8 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import org.apache.spark.ml.param.{Param, ParamPair, PythonWrappableParam}
+import com.microsoft.azure.synapse.ml.param.{DotnetWrappableParam, PipelineStageWrappable, PythonWrappableParam}
+import com.microsoft.azure.synapse.ml.param.RWrappableParam
+import org.apache.spark.ml.param._
 
 object GenerationUtils {
   def indent(lines: String, numTabs: Int): String = {
@@ -16,7 +17,7 @@ object GenerationUtils {
     val tailAfterHeadInUppercase = str.dropWhile(c => c.isUpper || c.isDigit)
 
     if (tailAfterHeadInUppercase.isEmpty) headInUpperCase.toLowerCase else {
-      val firstWord = if (!headInUpperCase.dropRight(1).isEmpty) {
+      val firstWord = if (headInUpperCase.dropRight(1).nonEmpty) {
         headInUpperCase.last match {
           case c if c.isDigit => headInUpperCase
           case _ => headInUpperCase.dropRight(1).toLowerCase
@@ -42,10 +43,43 @@ object GenerationUtils {
     p match {
       case pwp: PythonWrappableParam[_] =>
         pwp.pyConstructorLine(v.asInstanceOf[pwp.InnerType])
-      case _: ComplexParam[_] =>
-        throw new NotImplementedError("No translation found for complex parameter")
       case _ =>
         s"""${p.name}=${PythonWrappableParam.pyDefaultRender(v, p)}"""
+    }
+  }
+
+  def dotnetRenderParam[T](pp: ParamPair[T]): String = {
+    dotnetRenderParam(pp.param, pp.value)
+  }
+
+  //noinspection ScalaStyle
+  def dotnetRenderParam[T](p: Param[T], v: T): String = {
+    import DefaultParamInfo._
+
+    p match {
+      case pwp: DotnetWrappableParam[T] =>
+        "." + pwp.dotnetTestSetterLine(v)
+      case _: StringArrayParam | _: DoubleArrayParam | _: IntArrayParam |
+           _: DoubleArrayArrayParam =>
+        s""".Set${p.name.capitalize}(new ${getGeneralParamInfo(p).dotnetType}
+           |    ${DotnetWrappableParam.dotnetDefaultRender(v, p)})""".stripMargin
+      case _ =>
+        s""".Set${p.name.capitalize}(${DotnetWrappableParam.dotnetDefaultRender(v, p)})"""
+    }
+  }
+
+  def rRenderParam[T](pp: ParamPair[T]): String = {
+    rRenderParam(pp.param, pp.value)
+  }
+
+  def rRenderParam[T](p: Param[T], v: T): String = {
+    p match {
+      case psw: PipelineStageWrappable[_] =>
+        s"""${psw.name}=spark_jobj(${psw.rValue(v.asInstanceOf[psw.RInnerType])})"""
+      case rp: RWrappableParam[_] =>
+        rp.rConstructorLine(v.asInstanceOf[rp.RInnerType])
+      case _ =>
+        s"""${p.name}=${RWrappableParam.rDefaultRender(v, p)}"""
     }
   }
 

@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.KernelSHAP
 import com.microsoft.azure.synapse.ml.explainers.{ImageExplainersSuite, ImageFormat, ImageSHAP}
-import com.microsoft.azure.synapse.ml.lime.SuperpixelData
+import com.microsoft.azure.synapse.ml.image.SuperpixelData
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 
@@ -16,9 +16,9 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
 
   import spark.implicits._
 
-  val shap: ImageSHAP = KernelSHAP.image
-    .setModel(resNetTransformer)
-    .setTargetCol(resNetTransformer.getOutputCol)
+  lazy val shap: ImageSHAP = KernelSHAP.image
+    .setModel(resNetOnnxTransformer)
+    .setTargetCol("probability")
     .setTargetClasses(Array(172))
     .setOutputCol("weights")
     .setSuperpixelCol("superpixels")
@@ -41,7 +41,7 @@ class ImageSHAPExplainerSuite extends ImageExplainersSuite
 
     // Uncomment the following lines lines to view the censoredImage image.
     // import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-    // import com.microsoft.azure.synapse.ml.lime.Superpixel
+    // import com.microsoft.azure.synapse.ml.image.Superpixel
     // import java.awt.image.BufferedImage
     // val originalImage = ImageUtils.toBufferedImage(image.data, image.width, image.height, image.nChannels)
     // val censoredImage: BufferedImage = Superpixel.maskImage(originalImage, superpixels, spStates)

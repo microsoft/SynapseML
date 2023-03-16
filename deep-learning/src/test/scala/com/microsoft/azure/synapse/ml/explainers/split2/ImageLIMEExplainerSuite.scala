@@ -7,8 +7,8 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.LIME
 import com.microsoft.azure.synapse.ml.explainers.{ImageExplainersSuite, ImageFormat, ImageLIME}
+import com.microsoft.azure.synapse.ml.image.SuperpixelData
 import com.microsoft.azure.synapse.ml.io.IOImplicits._
-import com.microsoft.azure.synapse.ml.lime.SuperpixelData
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
@@ -18,7 +18,7 @@ class ImageLIMEExplainerSuite extends ImageExplainersSuite
 
   import spark.implicits._
 
-  val lime: ImageLIME = LIME.image
+  lazy val lime: ImageLIME = LIME.image
     .setModel(resNetTransformer)
     .setTargetCol(resNetTransformer.getOutputCol)
     .setSamplingFraction(0.7)

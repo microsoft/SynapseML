@@ -6,7 +6,8 @@ package com.microsoft.azure.synapse.ml.featurize.text
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.TypedIntArrayParam
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
@@ -14,7 +15,6 @@ import org.apache.spark.ml.util._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import spray.json.DefaultJsonProtocol._
 
 object MultiNGram extends DefaultParamsReadable[MultiNGram]
 
@@ -24,14 +24,14 @@ object MultiNGram extends DefaultParamsReadable[MultiNGram]
   */
 class MultiNGram(override val uid: String)
   extends Transformer with HasInputCol with HasOutputCol
-    with Wrappable with DefaultParamsWritable with BasicLogging {
+    with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("MultiNGram"))
 
   setDefault(outputCol, uid + "_output")
 
-  val lengths = new TypedArrayParam[Int](
+  val lengths = new TypedIntArrayParam(
     this,
     "lengths",
     "the collection of lengths to use for ngram extraction"

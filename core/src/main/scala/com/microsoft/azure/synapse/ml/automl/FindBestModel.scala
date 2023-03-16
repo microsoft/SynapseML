@@ -6,13 +6,16 @@ package com.microsoft.azure.synapse.ml.automl
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.{DataFrameParam, TransformerArrayParam, TransformerParam}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
 import org.apache.spark.ml._
-import org.apache.spark.ml.param.{DataFrameParam, ParamMap, Params, TransformerArrayParam, TransformerParam}
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.collection.JavaConverters._
 
 object FindBestModel extends ComplexParamsReadable[FindBestModel] {
   val ModelNameCol = "model_name"
@@ -47,7 +50,8 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
 }
 
 /** Evaluates and chooses the best model from a list of models. */
-class FindBestModel(override val uid: String) extends Estimator[BestModel] with FindBestModelParams with BasicLogging {
+class FindBestModel(override val uid: String) extends Estimator[BestModel]
+  with FindBestModelParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("FindBestModel"))
@@ -63,6 +67,8 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel] with 
 
   /** @group setParam */
   def setModels(value: Array[Transformer]): this.type = set(models, value)
+
+  def setModels(value: java.util.ArrayList[Transformer]): this.type = set(models, value.asScala.toArray)
 
   /** @param dataset - The input dataset, to be fitted
     * @return The Model that results from the fitting
@@ -132,7 +138,7 @@ trait HasBestModel extends Params {
 
 /** Model produced by [[FindBestModel]]. */
 class BestModel(val uid: String) extends Model[BestModel]
-  with ComplexParamsWritable with Wrappable with HasBestModel with BasicLogging {
+  with ComplexParamsWritable with Wrappable with HasBestModel with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("BestModel"))

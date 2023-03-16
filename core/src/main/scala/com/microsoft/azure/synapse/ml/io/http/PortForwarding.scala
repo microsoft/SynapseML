@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
-import java.io.File
-import java.net.URI
-
 import com.jcraft.jsch.{JSch, Session}
 import org.apache.commons.io.IOUtils
+
+import java.io.File
+import java.net.URI
 
 object PortForwarding {
 
@@ -47,7 +47,7 @@ object PortForwarding {
     session.connect()
     var attempt = 0
     var foundPort: Option[Int] = None
-    while (foundPort.isEmpty && attempt <= maxRetries) {
+    while (foundPort.isEmpty && attempt <= maxRetries) {  //scalastyle:ignore while
       try {
         session.setPortForwardingR(
           bindAddress, remotePortStart + attempt, localHost, localPort)

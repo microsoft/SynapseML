@@ -6,13 +6,9 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.featurize.text.TextFeaturizer
-
-import java.sql.{Date, Timestamp}
-import java.time.temporal.ChronoField
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda, UDFTransformer}
-import org.apache.spark.ml.feature.{Imputer, OneHotEncoder, SQLTransformer, VectorAssembler}
+import org.apache.spark.ml.feature.{OneHotEncoder, SQLTransformer, VectorAssembler}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param._
@@ -22,6 +18,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
+import java.sql.{Date, Timestamp}
+import java.time.temporal.ChronoField
 import scala.collection.mutable
 
 private[ml] object FeaturizeUtilities {
@@ -35,7 +33,7 @@ object Featurize extends DefaultParamsReadable[Featurize]
 
 /** Featurizes a dataset. Converts the specified columns to feature columns. */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
-  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with BasicLogging {
+  with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("Featurize"))
@@ -85,7 +83,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
       if (version == 0) {
         originalName
       } else {
-        s"${originalName}_${uid}_${version}"
+        s"${originalName}_${uid}_$version"
       }
     }
   }
@@ -118,7 +116,8 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
     * @param dataset The input dataset to train.
     * @return The featurized model.
     */
-  //noinspection ScalaStyle
+  //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit({
       val columnState = new ColumnState(dataset)
@@ -228,6 +227,8 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
       new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
     })
   }
+  //scalastyle:on cyclomatic.complexity
+  //scalastyle:on method.length
 
   override def copy(extra: ParamMap): Estimator[PipelineModel] = {
     new Featurize()

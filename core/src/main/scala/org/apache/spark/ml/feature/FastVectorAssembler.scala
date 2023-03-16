@@ -3,7 +3,6 @@
 
 package org.apache.spark.ml.feature
 
-import scala.collection.mutable
 import org.apache.spark.SparkException
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.attribute.{Attribute, AttributeGroup}
@@ -11,9 +10,11 @@ import org.apache.spark.ml.linalg.{Vector, VectorUDT, Vectors}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+
+import scala.collection.mutable
 
 /** A fast vector assembler.  The columns given must be ordered such that categorical columns come first
   * (otherwise spark learners will give categorical attributes to the wrong index).
@@ -31,7 +32,8 @@ class FastVectorAssembler (override val uid: String)
   /** @group setParam */
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  //scalastyle:off cyclomatic.complexity
+  override def transform(dataset: Dataset[_]): DataFrame = {  //scalastyle:ignore method.length
     // Schema transformation.
     val schema = dataset.schema
     var addedNumericField = false
@@ -68,7 +70,7 @@ class FastVectorAssembler (override val uid: String)
                 attr.withName(c + "_" + i)
               } else {
                 addedNumericField = true
-                null
+                null  //scalastyle:ignore null
               }
             }.filter(attr => attr != null)
           } else {
@@ -95,6 +97,7 @@ class FastVectorAssembler (override val uid: String)
 
     dataset.select(col("*"), assembleFunc(struct(args: _*)).as($(outputCol), metadata))
   }
+  //scalastyle:on cyclomatic.complexity
 
   override def transformSchema(schema: StructType): StructType = {
     val inputColNames = $(inputCols)
@@ -109,7 +112,7 @@ class FastVectorAssembler (override val uid: String)
     if (schema.fieldNames.contains(outputColName)) {
       throw new IllegalArgumentException(s"Output column $outputColName already exists.")
     }
-    StructType(schema.fields :+ StructField(outputColName, new VectorUDT, true))
+    StructType(schema.fields :+ StructField(outputColName, new VectorUDT, nullable = true))
   }
 
   override def copy(extra: ParamMap): FastVectorAssembler = defaultCopy(extra)
@@ -140,7 +143,7 @@ object FastVectorAssembler extends DefaultParamsReadable[FastVectorAssembler] {
           }
         }
         cur += vec.size
-      case null =>
+      case null =>  //scalastyle:ignore null
         throw new SparkException("Values to assemble cannot be null.")
       case o =>
         throw new SparkException(s"$o of type ${o.getClass.getName} is not supported.")

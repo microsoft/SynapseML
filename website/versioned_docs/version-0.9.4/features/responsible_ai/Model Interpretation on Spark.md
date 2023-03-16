@@ -59,7 +59,7 @@ All LIME based explainers ([TabularLIME](#tabularlime), [VectorLIME](#vectorlime
 | metricsCol     | `String` | "r2"                            | Column name for fitting metrics.                          |
 
 ### Common SHAP explainer params
-  
+
 All Kernel SHAP based explainers ([TabularSHAP](#tabularshap), [VectorSHAP](#vectorshap), [ImageSHAP](#imageshap), [TextSHAP](#textshap)) support the following params:
 
 | Param      | Type     | Default                         | Description                                    |

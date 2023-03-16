@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.isolationforest
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.Benchmarks
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import com.microsoft.azure.synapse.ml.train.ComputeModelStatistics
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
@@ -57,6 +57,27 @@ class VerifyIsolationForest extends Benchmarks with EstimatorFuzzing[IsolationFo
     val auroc = metrics.first().getDouble(1)
     assert(auroc === aurocExpectation +- uncert, "expected area under ROC =" +
         s" $aurocExpectation +/- $uncert, but observed $auroc")
+  }
+
+  test ("Verify predictionCol") {
+    import spark.implicits._
+
+    val df = spark.createDataset(Seq(1, 2, 3)).toDF("data")
+
+    val dfAssembled = new VectorAssembler()
+      .setInputCols(Array("data"))
+      .setOutputCol("features")
+      .transform(df)
+
+    val isf = new IsolationForest()
+      .setContamination(0.1)
+      .setScoreCol("comp_score")
+      .setPredictionCol("azerty")
+      .setMaxSamples(1)
+
+    val dfOutput = isf.fit(dfAssembled).transform(dfAssembled)
+
+    assert(dfOutput.schema.names.contains("azerty"))
   }
 
   def loadMammographyData(): DataFrame = {

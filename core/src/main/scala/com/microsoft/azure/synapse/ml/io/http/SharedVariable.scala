@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.io.http
 
 import java.util.UUID
-
 import scala.collection.concurrent.TrieMap
 import scala.reflect.ClassTag
 

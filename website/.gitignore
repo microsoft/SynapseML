@@ -10,6 +10,9 @@
 
 # Converted markdowns
 /docs/features/*
+!/docs/features/causal_inference
+/docs/features/causal_inference/*
+!/docs/features/causal_inference/about.md
 !/docs/features/lightgbm
 /docs/features/lightgbm/*
 !/docs/features/lightgbm/about.md
@@ -20,12 +23,16 @@
 /docs/features/responsible_ai/*
 !/docs/features/responsible_ai/Data Balance Analysis.md
 !/docs/features/responsible_ai/Model Interpretation on Spark.md
+!/docs/features/simple_deep_learning
+/docs/features/simple_deep_learning/*
+!/docs/features/simple_deep_learning/about.md
 !/docs/features/spark_serving
 /docs/features/spark_serving/*
 !/docs/features/spark_serving/about.md
 !/docs/features/vw
 /docs/features/vw/*
 !/docs/features/vw/about.md
+/docs/features/hyperparameter_tuning/*
 
 # Misc
 .DS_Store

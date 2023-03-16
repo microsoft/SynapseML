@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets
 
 class VerifyVowpalWabbitMurmurWithPrefix extends TestBase {
 
-  case class Sample1(val str: String, val seq: Seq[String])
+  case class Sample1(str: String, seq: Seq[String])
 
   test("Verify VowpalWabbitMurmurWithPrefix-based hash produces same results") {
     val prefix = "Markus"
@@ -21,7 +21,7 @@ class VerifyVowpalWabbitMurmurWithPrefix extends TestBase {
     var time2: Long = 0
     var time3: Long = 0
 
-    for (j <- 0 until 1024) {
+    for (_ <- 0 until 1024) {
       val sb = new StringBuilder
 
       for (i <- 0 until 128) {

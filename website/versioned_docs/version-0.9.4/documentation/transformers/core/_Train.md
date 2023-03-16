@@ -147,6 +147,3 @@ display(cps.transform(scoredData))
 py="synapse.ml.train.html#module-synapse.ml.train.ComputePerInstanceStatistics"
 scala="com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/train/ComputePerInstanceStatistics.scala" />
-
-
-

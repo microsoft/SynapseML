@@ -1,0 +1,121 @@
+name: Bug Report
+description: Create a report to help us reproduce and correct the bug
+labels: 'bug'
+title: '[BUG]'
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting an issue.
+        Please refer to our [website](https://microsoft.github.io/SynapseML/) for guidance about installation and samples.
+        On Synapse or Databricks, please make sure the SynapseML version you installed corresponds to cluster/pool's Spark version.
+        If the bug pertains to a specific feature please tag the appropriate [CODEOWNER](https://github.com/Microsoft/SynapseML/blob/master/CODEOWNERS) for better visibility
+        #### Please fill in this bug report template to ensure a timely and thorough response.
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: SynapseML version
+      description: SynapseML version (run `synapse.ml.core.__spark_package_version__` if you're using pyspark).
+
+  - type: textarea
+    attributes:
+      label: System information
+      description: |
+        Describe the system where you encountered the bug.
+      value: |
+        - **Language version** (e.g. python 3.8, scala 2.12):
+        - **Spark Version** (e.g. 3.2.3):
+        - **Spark Platform** (e.g. Synapse, Databricks):
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Describe the problem
+      description: |
+        Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Code to reproduce issue
+      description: |
+        Provide a reproducible test case that is the bare minimum necessary to generate the problem.
+      placeholder: |
+        ```python
+        # code to reproduce issue
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Other info / logs
+      description: |
+        Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
+      placeholder: |
+        ```python-traceback
+        Traceback (most recent call last):
+          File "example.py", line 1, in <module>
+            raise Exception("something went wrong")
+        Exception: something went wrong
+        ```
+    validations:
+      required: false
+  - type: checkboxes
+    id: component
+    attributes:
+      label: What component(s) does this bug affect?
+      description: Please choose one or more components below.
+      options:
+        - label: "`area/cognitive`: Cognitive project"
+          required: false
+        - label: "`area/core`: Core project"
+          required: false
+        - label: "`area/deep-learning`: DeepLearning project"
+          required: false
+        - label: "`area/lightgbm`: Lightgbm project"
+          required: false
+        - label: "`area/opencv`: Opencv project"
+          required: false
+        - label: "`area/vw`: VW project"
+          required: false
+        - label: "`area/website`: Website"
+          required: false
+        - label: "`area/build`: Project build system"
+          required: false
+        - label: "`area/notebooks`: Samples under notebooks folder"
+          required: false
+        - label: "`area/docker`: Docker usage"
+          required: false
+        - label: "`area/models`: models related issue"
+          required: false
+  - type: checkboxes
+    id: language
+    attributes:
+      description: Please choose one or more languages below.
+      label: What language(s) does this bug affect?
+      options:
+        - label: "`language/scala`: Scala source code"
+          required: false
+        - label: "`language/python`: Pyspark APIs"
+          required: false
+        - label: "`language/r`: R APIs"
+          required: false
+        - label: "`language/csharp`: .NET APIs"
+          required: false
+        - label: "`language/new`: Proposals for new client languages"
+          required: false
+  - type: checkboxes
+    id: integration
+    attributes:
+      description: Please choose one or more cloud integrations below.
+      label: What integration(s) does this bug affect?
+      options:
+        - label: "`integrations/synapse`: Azure Synapse integrations"
+          required: false
+        - label: "`integrations/azureml`: Azure ML integrations"
+          required: false
+        - label: "`integrations/databricks`: Databricks integrations"
+          required: false

@@ -4,15 +4,15 @@
 package com.microsoft.azure.synapse.ml.featurize
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-
-import java.sql.Timestamp
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap, StringArrayParam}
-import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
+
+import java.sql.Timestamp
 
 /** Converts the specified list of columns to the specified type.
   * Returns a new DataFrame with the converted columns
@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   * @param uid The id of the module
   */
 class DataConversion(override val uid: String) extends Transformer
-  with Wrappable with DefaultParamsWritable with BasicLogging {
+  with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("DataConversion"))
@@ -67,6 +67,7 @@ class DataConversion(override val uid: String) extends Transformer
     * @param dataset The dataset to be transformed
     * @return The transformed dataset
     */
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       require(dataset != null, "No dataset supplied")
@@ -102,9 +103,10 @@ class DataConversion(override val uid: String) extends Transformer
       res
     })
   }
+  //scalastyle:on cyclomatic.complexity
 
   /** Transform the schema
-    * @param schema
+    * @param schema The input schema
     * @return modified schema
     */
   def transformSchema(schema: StructType): StructType = {
@@ -113,7 +115,7 @@ class DataConversion(override val uid: String) extends Transformer
   }
 
   /** Copy the class, with extra com.microsoft.azure.synapse.ml.core.serialize.params
-    * @param extra
+    * @param extra Extra parameters
     * @return
     */
   def copy(extra: ParamMap): DataConversion = defaultCopy(extra)
@@ -172,3 +174,5 @@ class DataConversion(override val uid: String) extends Transformer
   }
 
 }
+
+object DataConversion extends DefaultParamsReadable[DataConversion]

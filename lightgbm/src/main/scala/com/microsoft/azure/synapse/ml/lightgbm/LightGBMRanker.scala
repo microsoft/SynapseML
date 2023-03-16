@@ -5,14 +5,15 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams, TrainParams}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+  BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RankerTrainParams}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Ranker, RankerModel}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StructField
 
 object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
 
@@ -24,7 +25,7 @@ object LightGBMRanker extends DefaultParamsReadable[LightGBMRanker]
   */
 class LightGBMRanker(override val uid: String)
   extends Ranker[Vector, LightGBMRanker, LightGBMRankerModel]
-    with LightGBMBase[LightGBMRankerModel] with BasicLogging {
+    with LightGBMBase[LightGBMRankerModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRanker"))
@@ -34,36 +35,37 @@ class LightGBMRanker(override val uid: String)
 
   val maxPosition = new IntParam(this, "maxPosition", "optimized NDCG at this position")
   setDefault(maxPosition -> 20)
-
   def getMaxPosition: Int = $(maxPosition)
   def setMaxPosition(value: Int): this.type = set(maxPosition, value)
 
   val labelGain = new DoubleArrayParam(this, "labelGain", "graded relevance for each label in NDCG")
   setDefault(labelGain -> Array.empty[Double])
-
   def getLabelGain: Array[Double] = $(labelGain)
   def setLabelGain(value: Array[Double]): this.type = set(labelGain, value)
 
   val evalAt = new IntArrayParam(this, "evalAt", "NDCG and MAP evaluation positions, separated by comma")
   setDefault(evalAt -> (1 to 5).toArray)
-
   def getEvalAt: Array[Int] = $(evalAt)
   def setEvalAt(value: Array[Int]): this.type = set(evalAt, value)
 
-  def getTrainParams(numTasks: Int, dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    RankerTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf), numTasks, modelStr,
-      getVerbosity, categoricalIndexes, getBoostingType, get(lambdaL1), get(lambdaL2), getMaxPosition, getLabelGain,
-      get(isProvideTrainingMetric), get(metric), getEvalAt, get(minGainToSplit), get(maxDeltaStep),
-      getMaxBinByFeature, get(minDataInLeaf), getSlotNames, getDelegate, getDartParams,
-      getExecutionParams(numTasksPerExec), getObjectiveParams)
+  def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
+    RankerTrainParams(
+      get(passThroughArgs),
+      getMaxPosition,
+      getLabelGain,
+      getEvalAt,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, featuresSchema),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMRankerModel = {
     new LightGBMRankerModel(uid)
       .setLightGBMBooster(lightGBMBooster)
       .setFeaturesCol(getFeaturesCol)
@@ -80,11 +82,11 @@ class LightGBMRanker(override val uid: String)
   override def getOptGroupCol: Option[String] = Some(getGroupCol)
 
   /** For Ranking, we need to sort the data within partitions by group prior to training to ensure training succeeds.
-    * @param dataset The dataset to preprocess prior to training.
-    * @return The preprocessed data, sorted within partiton by group.
+    * @param df The data frame to preprocess prior to training.
+    * @return The preprocessed data, sorted within partition by group.
     */
-  override def preprocessData(dataset: DataFrame): DataFrame = {
-    dataset.sortWithinPartitions(getOptGroupCol.get)
+  override def preprocessData(df: DataFrame): DataFrame = {
+    df.sortWithinPartitions(getOptGroupCol.get)
   }
 
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
@@ -93,13 +95,24 @@ class LightGBMRanker(override val uid: String)
     if (getRepartitionByGroupingColumn) {
       val repartitionedDataset = getOptGroupCol match {
         case None => dataset
-        case Some(groupingCol) => {
-          val df = dataset.repartition(new Column(groupingCol)).cache()
-          //force materialization
-          df.count
-          df
-        }
+        case Some(groupingCol) =>
+          val numPartitions = dataset.rdd.getNumPartitions
+
+          // in barrier mode, will use repartition in super.prepareDataframe,
+          // this will let repartition on groupingCol fail
+          // so repartition here, then super.prepareDataframe won't repartition
+          if (getUseBarrierExecutionMode) {
+            if (numPartitions > numTasks) {
+              dataset.repartition(numTasks, new Column(groupingCol))
+            } else {
+              dataset.repartition(numPartitions, new Column(groupingCol))
+            }
+          } else {
+            // if not in barrier mode, coalesce won't break repartition by groupingCol
+            dataset.repartition(new Column(groupingCol))
+          }
       }
+
       super.prepareDataframe(repartitionedDataset, numTasks)
     } else {
       super.prepareDataframe(dataset, numTasks)
@@ -113,7 +126,7 @@ class LightGBMRankerModel(override val uid: String)
     with LightGBMModelParams
     with LightGBMModelMethods
     with LightGBMPredictionParams
-    with ComplexParamsWritable with BasicLogging {
+    with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMRankerModel"))
@@ -143,19 +156,12 @@ class LightGBMRankerModel(override val uid: String)
   }
 
   override def predict(features: Vector): Double = {
-    logPredict(
-      getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
-    )
+    getModel.score(features, false, false, getPredictDisableShapeCheck)(0)
   }
 
   override def copy(extra: ParamMap): LightGBMRankerModel = defaultCopy(extra)
 
   override def numFeatures: Int = getModel.numFeatures
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
-  }
 }
 
 object LightGBMRankerModel extends ComplexParamsReadable[LightGBMRankerModel] {

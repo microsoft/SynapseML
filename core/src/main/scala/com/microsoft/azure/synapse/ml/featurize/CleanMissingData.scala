@@ -5,13 +5,16 @@ package com.microsoft.azure.synapse.ml.featurize
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCols}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+
+import scala.collection.JavaConverters._
 
 object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   val MeanOpt = "Mean"
@@ -46,7 +49,7 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   * `String`, `Boolean`
   */
 class CleanMissingData(override val uid: String) extends Estimator[CleanMissingDataModel]
-  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with BasicLogging {
+  with HasInputCols with HasOutputCols with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingData"))
@@ -131,6 +134,8 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
       case CleanMissingData.CustomOpt =>
         // Note: All column types supported for custom value
         colsToClean.map(_ => getCustomValue)
+      case _ =>
+        Array[String]()
     }
     outputCols.zip(metrics).toMap
   }
@@ -140,7 +145,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
 /** Model produced by [[CleanMissingData]]. */
 class CleanMissingDataModel(val uid: String)
   extends Model[CleanMissingDataModel] with ComplexParamsWritable with Wrappable
-    with HasInputCols with HasOutputCols with BasicLogging {
+    with HasInputCols with HasOutputCols with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("CleanMissingDataModel"))
@@ -157,6 +162,8 @@ class CleanMissingDataModel(val uid: String)
   def setColsToFill(v: Array[String]): this.type = set(colsToFill, v)
 
   def setFillValues(v: Array[Any]): this.type = set(fillValues, v)
+
+  def setFillValues(v: java.util.ArrayList[Any]): this.type = set(fillValues, v.asScala.toArray)
 
   override def copy(extra: ParamMap): CleanMissingDataModel = defaultCopy(extra)
 

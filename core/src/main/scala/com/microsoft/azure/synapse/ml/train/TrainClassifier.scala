@@ -7,7 +7,8 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.core.utils.CastUtilities._
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.UntypedArrayParam
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml._
 import org.apache.spark.ml.classification._
@@ -17,6 +18,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
 import java.util.UUID
+import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
   *
@@ -47,20 +49,20 @@ import java.util.UUID
   * Multilayer Perceptron Classifier
   * In addition to any generic learner that inherits from Predictor.
   */
-class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with BasicLogging {
+class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClassifierModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifier"))
 
   /** Doc for model to run.
-    */
+   */
   override def modelDoc: String = "Classifier to run"
 
   /** Specifies whether to reindex the given label column.
-    * See class documentation for how this parameter interacts with specified labels.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with specified labels.
+   *
+   * @group param
+   */
   val reindexLabel = new BooleanParam(this, "reindexLabel", "Re-index the label column")
   setDefault(reindexLabel -> true)
 
@@ -71,10 +73,10 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setReindexLabel(value: Boolean): this.type = set(reindexLabel, value)
 
   /** Specifies the labels metadata on the column.
-    * See class documentation for how this parameter interacts with reindex labels parameter.
-    *
-    * @group param
-    */
+   * See class documentation for how this parameter interacts with reindex labels parameter.
+   *
+   * @group param
+   */
   val labels = new StringArrayParam(this, "labels", "Sorted label values on the labels column")
 
   /** @group getParam */
@@ -84,11 +86,11 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
   def setLabels(value: Array[String]): this.type = set(labels, value)
 
   /** Optional parameter, specifies the name of the features column passed to the learner.
-    * Must have a unique name different from the input columns.
-    * By default, set to <uid>_features.
-    *
-    * @group param
-    */
+   * Must have a unique name different from the input columns.
+   * By default, set to <uid>_features.
+   *
+   * @group param
+   */
   setDefault(featuresCol, this.uid + "_features")
 
   /** Fits the classification model.
@@ -96,6 +98,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
     * @param dataset The input dataset to train.
     * @return The trained classification model.
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def fit(dataset: Dataset[_]): TrainedClassifierModel = {
     logFit({
       val labelValues =
@@ -104,6 +108,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         } else {
           None
         }
+
       // Convert label column to categorical on train, remove rows with missing labels
       val (convertedLabelDataset, levels) = convertLabel(dataset, getLabelCol, labelValues)
 
@@ -150,11 +155,16 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
           numFeatures
         }
 
-      val featureColumns = convertedLabelDataset.columns.filter(col => col != getLabelCol).toSeq
+      val nonFeatureColumns = getLabelCol
+      val featureColumns = if (isDefined(inputCols)) {
+        getInputCols
+      } else {
+        convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
+      }
 
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
-        .setInputCols(featureColumns.toArray)
+        .setInputCols(featureColumns)
         .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
         .setNumFeatures(featuresToHashTo)
       val featurizedModel = featurizer.fit(convertedLabelDataset)
@@ -187,6 +197,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
       levels.map(l => model.setLevels(l.toArray)).getOrElse(model)
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   def getFeaturizeParams: (Boolean, Boolean, Int) = {
     var oneHotEncodeCategoricals = true
@@ -286,7 +298,7 @@ object TrainClassifier extends ComplexParamsReadable[TrainClassifier] {
 
 /** Model produced by [[TrainClassifier]]. */
 class TrainedClassifierModel(val uid: String)
-  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with BasicLogging {
+  extends AutoTrainedModel[TrainedClassifierModel] with Wrappable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("TrainClassifierModel"))
@@ -295,7 +307,9 @@ class TrainedClassifierModel(val uid: String)
 
   def getLevels: Array[Any] = $(levels)
 
-  def setLevels(v: Array[Any]): this.type = set(levels, v)
+  def setLevels(v: Array[_]): this.type = set(levels, v.asInstanceOf[Array[Any]])
+
+  def setLevels(v: java.util.ArrayList[Any]): this.type = set(levels, v.asScala.toArray)
 
   override def copy(extra: ParamMap): TrainedClassifierModel = defaultCopy(extra)
 

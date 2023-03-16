@@ -98,6 +98,6 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val randomForestClassifier = createRF.setLabelCol(mockLabelColumn)
     val model = randomForestClassifier.fit(createMockDataset)
     new FindBestModel()
-      .setModels(Array(model, model))
+      .setModels(Array(model.asInstanceOf[Transformer], model))
       .setEvaluationMetric(MetricConstants.AccuracySparkMetric)}, createMockDataset))
 }

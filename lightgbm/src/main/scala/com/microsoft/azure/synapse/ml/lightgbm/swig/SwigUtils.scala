@@ -3,10 +3,19 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.swig
 
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_double, SWIGTYPE_p_float, SWIGTYPE_p_int, doubleChunkedArray,
-  floatChunkedArray, int32ChunkedArray, lightgbmlib}
+import com.microsoft.ml.lightgbm._
 
 object SwigUtils extends Serializable {
+  /** Converts a native double array to a Java array using SWIG.
+    * @param nativeArray The native Array to convert.
+    * @return The Java array.
+    */
+  def nativeDoubleArrayToArray(nativeArray: SWIGTYPE_p_double, count: Int): Array[Double] = {
+    val array: Array[Double] = Array.fill[Double](count)(0)
+    array.indices.foreach(i => array(i) = lightgbmlib.doubleArray_getitem(nativeArray, i))
+    array
+  }
+
   /** Converts a Java float array to a native C++ array using SWIG.
     * @param array The Java float Array to convert.
     * @return The SWIG wrapper around the native array.
@@ -14,7 +23,7 @@ object SwigUtils extends Serializable {
   def floatArrayToNative(array: Array[Float]): SWIGTYPE_p_float = {
     val colArray = lightgbmlib.new_floatArray(array.length)
     array.zipWithIndex.foreach(ri =>
-      lightgbmlib.floatArray_setitem(colArray, ri._2.toLong, ri._1.toFloat))
+      lightgbmlib.floatArray_setitem(colArray, ri._2.toLong, ri._1))
     colArray
   }
 }
@@ -24,6 +33,8 @@ abstract class ChunkedArray[T]() {
 
   def getLastChunkAddCount: Long
 
+  def getChunkSize: Long
+
   def getAddCount: Long
 
   def getItem(chunk: Long, inChunkIdx: Long, default: T): T
@@ -31,88 +42,206 @@ abstract class ChunkedArray[T]() {
   def add(value: T): Unit
 }
 
-class FloatChunkedArray(floatChunkedArray: floatChunkedArray) extends ChunkedArray[Float] {
+object FloatChunkedArray {
+  private def apply(size: Long): floatChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new floatChunkedArray(size)
+  }
+}
 
-  def this(size: Long) = this(new floatChunkedArray(size))
+class FloatChunkedArray(array: floatChunkedArray) extends ChunkedArray[Float] {
+  def this(size: Long) = this(FloatChunkedArray(size))
 
-  def getChunksCount: Long = floatChunkedArray.get_chunks_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getLastChunkAddCount: Long = floatChunkedArray.get_last_chunk_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
 
-  def getAddCount: Long = floatChunkedArray.get_add_count()
+  def getChunkSize: Long = array.get_chunk_size()
+
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Float): Float =
-    floatChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Float): Unit = floatChunkedArray.add(value)
+  def add(value: Float): Unit = array.add(value)
 
-  def delete(): Unit = floatChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(floatSwigArray: FloatSwigArray): Unit = floatChunkedArray.coalesce_to(floatSwigArray.array)
+  def coalesceTo(floatSwigArray: FloatSwigArray): Unit = array.coalesce_to(floatSwigArray.array)
 }
 
-class DoubleChunkedArray(doubleChunkedArray: doubleChunkedArray) extends ChunkedArray[Double] {
-  def this(size: Long) = this(new doubleChunkedArray(size))
+object DoubleChunkedArray {
+  private def apply(size: Long): doubleChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new doubleChunkedArray(size)
+  }
+}
 
-  def getChunksCount: Long = doubleChunkedArray.get_chunks_count()
+class DoubleChunkedArray(array: doubleChunkedArray) extends ChunkedArray[Double] {
+  def this(size: Long) = this(DoubleChunkedArray(size))
 
-  def getLastChunkAddCount: Long = doubleChunkedArray.get_last_chunk_add_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getAddCount: Long = doubleChunkedArray.get_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getChunkSize: Long = array.get_chunk_size()
+
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Double): Double =
-    doubleChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Double): Unit = doubleChunkedArray.add(value)
+  def add(value: Double): Unit = array.add(value)
 
-  def delete(): Unit = doubleChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(doubleSwigArray: DoubleSwigArray): Unit = doubleChunkedArray.coalesce_to(doubleSwigArray.array)
+  def coalesceTo(doubleSwigArray: DoubleSwigArray): Unit = array.coalesce_to(doubleSwigArray.array)
 }
 
-class IntChunkedArray(intChunkedArray: int32ChunkedArray) extends ChunkedArray[Int] {
-  def this(size: Long) = this(new int32ChunkedArray(size))
+object IntChunkedArray {
+  private def apply(size: Long): int32ChunkedArray = {
+    if (size <= 0) {
+      throw new IllegalArgumentException("Chunked array size must be greater than zero")
+    }
+    new int32ChunkedArray(size)
+  }
+}
 
-  def getChunksCount: Long = intChunkedArray.get_chunks_count()
+class IntChunkedArray(array: int32ChunkedArray) extends ChunkedArray[Int] {
+  def this(size: Long) = this(IntChunkedArray(size))
 
-  def getLastChunkAddCount: Long = intChunkedArray.get_last_chunk_add_count()
+  def getChunksCount: Long = array.get_chunks_count()
 
-  def getAddCount: Long = intChunkedArray.get_add_count()
+  def getLastChunkAddCount: Long = array.get_last_chunk_add_count()
+
+  def getChunkSize: Long = array.get_chunk_size()
+
+  def getAddCount: Long = array.get_add_count()
 
   def getItem(chunk: Long, inChunkIdx: Long, default: Int): Int =
-    intChunkedArray.getitem(chunk, inChunkIdx, default)
+    array.getitem(chunk, inChunkIdx, default)
 
-  def add(value: Int): Unit = intChunkedArray.add(value)
+  def add(value: Int): Unit = array.add(value)
 
-  def delete(): Unit = intChunkedArray.delete()
+  def delete(): Unit = array.delete()
 
-  def coalesceTo(intSwigArray: IntSwigArray): Unit = intChunkedArray.coalesce_to(intSwigArray.array)
+  def coalesceTo(intSwigArray: IntSwigArray): Unit = array.coalesce_to(intSwigArray.array)
 }
 
 abstract class BaseSwigArray[T]() {
+  def getItem(index: Long): T
   def setItem(index: Long, item: T): Unit
 }
 
+// Wraps float*
 class FloatSwigArray(val array: SWIGTYPE_p_float) extends BaseSwigArray[Float] {
   def this(size: Long) = this(lightgbmlib.new_floatArray(size))
+
+  def getItem(index: Long): Float = lightgbmlib.floatArray_getitem(array, index)
 
   def setItem(index: Long, item: Float): Unit = lightgbmlib.floatArray_setitem(array, index, item)
 
   def delete(): Unit = lightgbmlib.delete_floatArray(array)
 }
 
+// Wraps double*
 class DoubleSwigArray(val array: SWIGTYPE_p_double) extends BaseSwigArray[Double] {
   def this(size: Long) = this(lightgbmlib.new_doubleArray(size))
+
+  def getItem(index: Long): Double = lightgbmlib.doubleArray_getitem(array, index)
 
   def setItem(index: Long, item: Double): Unit = lightgbmlib.doubleArray_setitem(array, index, item)
 
   def delete(): Unit = lightgbmlib.delete_doubleArray(array)
 }
 
+// Wraps int*
 class IntSwigArray(val array: SWIGTYPE_p_int) extends BaseSwigArray[Int] {
   def this(size: Long) = this(lightgbmlib.new_intArray(size))
+
+  def getItem(index: Long): Int = lightgbmlib.intArray_getitem(array, index)
 
   def setItem(index: Long, item: Int): Unit = lightgbmlib.intArray_setitem(array, index, item)
 
   def delete(): Unit = lightgbmlib.delete_intArray(array)
+}
+
+// Wraps long*
+class LongSwigArray(val array: SWIGTYPE_p_long_long) extends BaseSwigArray[Long] {
+  def this(size: Long) = this(lightgbmlib.new_longArray(size))
+
+  def getItem(index: Long): Long = lightgbmlib.longArray_getitem(array, index)
+
+  def setItem(index: Long, item: Long): Unit = lightgbmlib.longArray_setitem(array, index, item)
+
+  def delete(): Unit = lightgbmlib.delete_longArray(array)
+}
+
+// Wraps void**
+class VoidPointerSwigArray(val array: SWIGTYPE_p_p_void, val size: Int) extends BaseSwigArray[SWIGTYPE_p_void] {
+  def this(size: Int) = this(lightgbmlib.new_voidPtrArray(size), size)
+
+  def getItem(index: Long): SWIGTYPE_p_void = lightgbmlib.voidPtrArray_getitem(array, index)
+
+  def setItem(index: Long, item: SWIGTYPE_p_void): Unit = {
+    lightgbmlib.voidPtrArray_setitem(array, index, item) // set native pointer value
+  }
+
+  def delete(): Unit =  {
+    lightgbmlib.delete_voidPtrArray(array)
+  }
+}
+
+// Wraps double**, which is implemented in the wrapper as an array of DoubleSwigArray
+class DoublePointerSwigArray(val array: SWIGTYPE_p_p_double, val size: Int) extends BaseSwigArray[DoubleSwigArray] {
+  val columnVectors: Array[Option[DoubleSwigArray]] = Array.fill(size)(None)
+
+  def this(size: Int) = this(lightgbmlib.new_doublePtrArray(size), size)
+
+  def getItem(index: Long): DoubleSwigArray = columnVectors.apply(index.toInt).get
+
+  def setItem(index: Long, item: DoubleSwigArray): Unit = {
+    columnVectors(index.toInt).foreach(array => array.delete()) // free existing vector if exists
+    columnVectors(index.toInt) = Option(item) // store vector wrapper locally
+    lightgbmlib.doublePtrArray_setitem(array, index, item.array) // set native pointer value
+  }
+
+  def pushElement(col: Int, row: Int, value: Double): Unit = {
+    columnVectors(col).foreach(v => v.setItem(row, value))
+  }
+
+  def delete(): Unit =  {
+    // delete the individual vectors first
+    columnVectors.foreach(v => v.map(array => array.delete()))
+    lightgbmlib.delete_doublePtrArray(array)
+  }
+}
+
+// Wraps int**, which is implemented in the wrapper as an array of IntSwigArray
+class IntPointerSwigArray(val array: SWIGTYPE_p_p_int, val size: Int) extends BaseSwigArray[IntSwigArray] {
+  val columnVectors: Array[Option[IntSwigArray]] = Array.fill(size)(None)
+
+  def this(size: Int) = this(lightgbmlib.new_intPtrArray(size), size)
+
+  def getItem(index: Long): IntSwigArray = columnVectors.apply(index.toInt).get
+
+  def setItem(index: Long, item: IntSwigArray): Unit = {
+    columnVectors(index.toInt).foreach(array => array.delete()) // free existing vector if exists
+    columnVectors(index.toInt) = Option(item) // store vector wrapper locally
+    lightgbmlib.intPtrArray_setitem(array, index, item.array) // set native pointer value
+  }
+
+  def pushElement(col: Int, row: Int, value: Int): Unit = {
+    columnVectors(col).foreach(v => v.setItem(row, value))
+  }
+
+  def delete(): Unit =  {
+    // delete the individual vectors first
+    columnVectors.foreach(v => v.map(array => array.delete()))
+    lightgbmlib.delete_intPtrArray(array)
+  }
 }

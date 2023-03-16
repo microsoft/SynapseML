@@ -30,6 +30,16 @@ object BuildUtils {
     }
   }
 
+  def dotnetedVersion(version: String): String = {
+    version match {
+      case s if s.contains("-") => {
+        val versionArray = s.split("-".toCharArray)
+        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
+      }
+      case s => s
+    }
+  }
+
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
              envVars: Map[String, String] = Map()): Unit = {
@@ -40,7 +50,11 @@ object BuildUtils {
       .redirectOutput(Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
-    assert(pb.start().waitFor() == 0)
+    val result = pb.start().waitFor()
+    if (result != 0) {
+      println(s"Error: result code: ${result}")
+      throw new Exception(s"Execution resulted in non-zero exit code: ${result}")
+    }
   }
 
   def condaEnvName: String = "synapseml"
@@ -50,7 +64,7 @@ object BuildUtils {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
       Seq()
-      //TODO figure out why this doesent work
+      //TODO figure out why this doesn't work
       //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
     }
   }
@@ -63,6 +77,17 @@ object BuildUtils {
       workDir)
   }
 
+  def packDotnetAssemblyCmd(outputDir: String,
+                            workDir: File): Unit =
+    runCmd(Seq("dotnet", "pack", "--output", outputDir), workDir)
+
+  def publishDotnetAssemblyCmd(packagePath: String,
+                               sleetConfigFile: File): Unit =
+    runCmd(
+      Seq("sleet", "push", packagePath, "--config", sleetConfigFile.getAbsolutePath,
+        "--source", "SynapseMLNuget", "--force")
+    )
+
   def uploadToBlob(source: String,
                    dest: String,
                    container: String,
@@ -72,7 +97,9 @@ object BuildUtils {
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey)
+      "--account-key", Secrets.storageKey,
+      "--overwrite", "true"
+    )
     runCmd(osPrefix ++ command)
   }
 
@@ -99,7 +126,9 @@ object BuildUtils {
       "--container-name", container,
       "--name", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey) ++ extraArgs
+      "--account-key", Secrets.storageKey,
+      "--overwrite", "true"
+    ) ++ extraArgs
     runCmd(osPrefix ++ command)
   }
 

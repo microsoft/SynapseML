@@ -4,13 +4,13 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
-import org.apache.spark.sql.{DataFrame, Dataset}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object SelectColumns extends DefaultParamsReadable[SelectColumns]
 
@@ -20,7 +20,8 @@ object SelectColumns extends DefaultParamsReadable[SelectColumns]
   * The columns to be selected is a list of column names
   */
 
-class SelectColumns(val uid: String) extends Transformer with Wrappable with DefaultParamsWritable with BasicLogging {
+class SelectColumns(val uid: String) extends Transformer
+  with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("SelectColumns"))

@@ -10,7 +10,6 @@ Original file: https://github.com/apache/spark/core/src/main/scala/org/apache/sp
 
 import java.io.Serializable
 import java.util.{PriorityQueue => JPriorityQueue}
-
 import scala.collection.generic.Growable
 
 /**
@@ -29,6 +28,7 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
 
   override def size: Int = underlying.size
 
+  //scalastyle:off method.name
   override def ++=(xs: TraversableOnce[A]): this.type = {
     xs.foreach {
       this += _
@@ -48,6 +48,7 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
   override def +=(elem1: A, elem2: A, elems: A*): this.type = {
     this += elem1 += elem2 ++= elems
   }
+  //scalastyle:on method.name
 
   override def clear(): Unit = {
     underlying.clear()

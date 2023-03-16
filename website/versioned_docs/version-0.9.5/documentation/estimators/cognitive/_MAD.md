@@ -40,8 +40,7 @@ fitMultivariateAnomaly = (FitMultivariateAnomaly()
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
     .setSlidingWindow(200)
-    .setConnectionString(connectionString)
-    .setConcurrency(5))
+    .setConnectionString(connectionString))
 
 # uncomment below for fitting your own dataframe
 # model = fitMultivariateAnomaly.fit(df)
@@ -74,8 +73,7 @@ val fitMultivariateAnomaly = (new FitMultivariateAnomaly()
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
     .setSlidingWindow(200)
-    .setConnectionString(connectionString)
-    .setConcurrency(5))
+    .setConnectionString(connectionString))
 
 val df = (spark.read.format("csv")
       .option("header", True)
@@ -104,4 +102,3 @@ model.cleanUpIntermediateData()
 py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.FitMultivariateAnomaly"
 scala="com/microsoft/azure/synapse/ml/cognitive/FitMultivariateAnomaly.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/MultivariateAnomalyDetection.scala" />
-

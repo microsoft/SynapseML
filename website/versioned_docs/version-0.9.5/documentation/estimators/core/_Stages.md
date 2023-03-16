@@ -214,7 +214,3 @@ timer.fit(df3).transform(df3).show()
 py="synapse.ml.stages.html#module-synapse.ml.stages.Timer"
 scala="com/microsoft/azure/synapse/ml/stages/Timer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/Timer.scala" />
-
-
-
-

@@ -5,8 +5,8 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams, TrainParams}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+  BaseTrainParams, ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams}
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
@@ -14,6 +14,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.StructField
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
@@ -25,7 +26,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
   */
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
-  with LightGBMBase[LightGBMClassificationModel] with BasicLogging {
+  with LightGBMBase[LightGBMClassificationModel] with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
@@ -36,28 +37,36 @@ class LightGBMClassifier(override val uid: String)
   val isUnbalance = new BooleanParam(this, "isUnbalance",
     "Set to true if training data is unbalanced in binary classification scenario")
   setDefault(isUnbalance -> false)
-
   def getIsUnbalance: Boolean = $(isUnbalance)
   def setIsUnbalance(value: Boolean): this.type = set(isUnbalance, value)
 
-  def getTrainParams(numTasks: Int,  dataset: Dataset[_], numTasksPerExec: Int): TrainParams = {
-    /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
-     * so we infer the actual numClasses from the dataset here
-     */
-    val actualNumClasses = getNumClasses(dataset)
-    val categoricalIndexes = getCategoricalIndexes(dataset.schema(getFeaturesCol))
-    val modelStr = if (getModelString == null || getModelString.isEmpty) None else get(modelString)
-    ClassifierTrainParams(getParallelism, get(topK), getNumIterations, getLearningRate,
-      get(numLeaves), get(maxBin), get(binSampleCount), get(baggingFraction), get(posBaggingFraction),
-      get(negBaggingFraction), get(baggingFreq), get(baggingSeed), getEarlyStoppingRound, getImprovementTolerance,
-      get(featureFraction), get(maxDepth), get(minSumHessianInLeaf), numTasks, modelStr,
-      getIsUnbalance, getVerbosity, categoricalIndexes, actualNumClasses, getBoostFromAverage,
-      getBoostingType, get(lambdaL1), get(lambdaL2), get(isProvideTrainingMetric),
-      get(metric), get(minGainToSplit), get(maxDeltaStep), getMaxBinByFeature, get(minDataInLeaf), getSlotNames,
-      getDelegate, getDartParams, getExecutionParams(numTasksPerExec), getObjectiveParams)
+  def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
+    ClassifierTrainParams(
+      get(passThroughArgs),
+      getIsUnbalance,
+      getBoostFromAverage,
+      get(isProvideTrainingMetric),
+      getDelegate,
+      getGeneralParams(numTasks, featuresSchema),
+      getDatasetParams,
+      getDartParams,
+      getExecutionParams(numTasksPerExec),
+      getObjectiveParams,
+      getSeedParams,
+      getCategoricalParams)
   }
 
-  def getModel(trainParams: TrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
+  override protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = {
+    /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
+     * so we infer the actual numClasses from the dataset here.  Since this could be a full pass over
+     * the data, explicitly call it out as a calculation and only do it if needed.
+     */
+    val classifierParams = params.asInstanceOf[ClassifierTrainParams]
+    if (classifierParams.isBinary) params
+    else classifierParams.setNumClass(getNumClasses(dataset, getMaxNumClasses))
+  }
+
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): LightGBMClassificationModel = {
     val classifierTrainParams = trainParams.asInstanceOf[ClassifierTrainParams]
     val model = new LightGBMClassificationModel(uid)
       .setLightGBMBooster(lightGBMBooster)
@@ -84,7 +93,6 @@ class LightGBMClassifier(override val uid: String)
 trait HasActualNumClasses extends Params {
   val actualNumClasses = new IntParam(this, "actualNumClasses",
     "Inferred number of classes based on dataset metadata or, if there is no metadata, unique count")
-
   def getActualNumClasses: Int = $(actualNumClasses)
   def setActualNumClasses(value: Int): this.type = set(actualNumClasses, value)
 }
@@ -93,7 +101,7 @@ trait HasActualNumClasses extends Params {
 class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
-      with HasActualNumClasses with ComplexParamsWritable with BasicLogging {
+      with HasActualNumClasses with ComplexParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
@@ -163,11 +171,11 @@ class LightGBMClassificationModel(override val uid: String)
   override def numClasses: Int = getActualNumClasses
 
   override def predictRaw(features: Vector): Vector = {
-    Vectors.dense(getModel.score(features, true, true, getPredictDisableShapeCheck))
+    Vectors.dense(getModel.score(features, raw = true, classification = true, getPredictDisableShapeCheck))
   }
 
   override def predictProbability(features: Vector): Vector = {
-    Vectors.dense(getModel.score(features, false, true, getPredictDisableShapeCheck))
+    Vectors.dense(getModel.score(features, raw = false, classification = true, getPredictDisableShapeCheck))
   }
 
   override def copy(extra: ParamMap): LightGBMClassificationModel = defaultCopy(extra)
@@ -181,11 +189,6 @@ class LightGBMClassificationModel(override val uid: String)
     } else {
       udf(predict _).apply(col(getFeaturesCol))
     }
-  }
-
-  def saveNativeModel(filename: String, overwrite: Boolean): Unit = {
-    val session = SparkSession.builder().getOrCreate()
-    getModel.saveNativeModel(session, filename, overwrite)
   }
 }
 

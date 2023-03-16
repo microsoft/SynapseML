@@ -16,4 +16,5 @@ class FObjParam(parent: Params, name: String, doc: String,
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, {_ => true})
+
 }

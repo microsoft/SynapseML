@@ -11,6 +11,8 @@ import scala.math.abs
 
 class FeatureBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuzzing[FeatureBalanceMeasure] {
 
+  override val sortInDataframeEquality = true
+
   override def testObjects(): Seq[TestObject[FeatureBalanceMeasure]] = Seq(
     new TestObject(featureBalanceMeasure, sensitiveFeaturesDf)
   )

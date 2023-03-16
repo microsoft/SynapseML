@@ -5,16 +5,16 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.DataFrameEquality
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalactic.Equality
 import org.scalatest.Assertion
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
   import spark.implicits._
@@ -115,7 +115,7 @@ class TimeIntervalMiniBatchTransformerSuite
 object FlattenBatchUtils extends Serializable {
   def nullify(arr: Seq[Int]): Seq[Int] = {
     if (arr.head == 7){
-      null
+      null  //scalastyle:ignore null
     }else{
       arr
     }

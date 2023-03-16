@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import org.vowpalwabbit.spark.VowpalWabbitMurmur
+
 import java.nio.charset.StandardCharsets
 
 /**
@@ -34,7 +35,9 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
       // copy sub part
       var i = start
       var j = ysStart // i for chars; j for bytes
-      while (i < end) { // fill ys with bytes
+
+      // fill ys with bytes
+      while (i < end) { //scalastyle:ignore while
         val c = str.charAt(i)
         if (c < 0x80) {
           ys(j) = c.toByte
@@ -54,7 +57,7 @@ class VowpalWabbitMurmurWithPrefix(val prefix: String, val maxSize: Int = 2 * 10
             else
               throw new Exception("malformed")
 
-          ys(j) = (0xf0 | ((uc >> 18))).toByte
+          ys(j) = (0xf0 | (uc >> 18)).toByte
           ys(j + 1) = (0x80 | ((uc >> 12) & 0x3f)).toByte
           ys(j + 2) = (0x80 | ((uc >> 6) & 0x3f)).toByte
           ys(j + 3) = (0x80 | (uc & 0x3f)).toByte

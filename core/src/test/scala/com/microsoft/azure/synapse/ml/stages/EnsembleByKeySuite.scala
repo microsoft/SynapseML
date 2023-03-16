@@ -91,7 +91,7 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
 
   }
 
-  test("should rountrip serialize") {
+  test("should roundtrip serialize") {
     testSerialization()
   }
 

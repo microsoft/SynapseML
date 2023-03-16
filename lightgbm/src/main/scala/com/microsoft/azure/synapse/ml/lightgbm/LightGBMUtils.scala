@@ -5,16 +5,10 @@ package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.core.env.NativeLoader
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities}
-import com.microsoft.azure.synapse.ml.lightgbm.ConnectionState._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.Dataset
 import org.apache.spark.{SparkEnv, TaskContext}
-import org.slf4j.Logger
-
-import java.io._
-import java.net.{ServerSocket, Socket}
-import scala.collection.mutable.ListBuffer
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
@@ -55,54 +49,6 @@ object LightGBMUtils {
       .fit(dataset)
   }
 
-  def sendDataToExecutors(hostAndPorts: ListBuffer[(Socket, String)], allConnections: String): Unit = {
-    hostAndPorts.foreach(hostAndPort => {
-      val writer = new BufferedWriter(new OutputStreamWriter(hostAndPort._1.getOutputStream))
-      writer.write(allConnections + "\n")
-      writer.flush()
-    })
-  }
-
-  def closeConnections(log: Logger, hostAndPorts: ListBuffer[(Socket, String)],
-                       driverServerSocket: ServerSocket): Unit = {
-    log.info("driver closing all sockets and server socket")
-    hostAndPorts.foreach(_._1.close())
-    driverServerSocket.close()
-  }
-
-  def addSocketAndComm(hostAndPorts: ListBuffer[(Socket, String)], log: Logger,
-                       comm: String, driverSocket: Socket): Unit = {
-    log.info(s"driver received socket from task: $comm")
-    val socketAndComm = (driverSocket, comm)
-    hostAndPorts += socketAndComm
-  }
-
-  /** Handles the connection to a task from the driver.
-    *
-    * @param driverServerSocket The driver socket.
-    * @param log The log4j logger.
-    * @param hostAndPorts A list of host and ports of connected tasks.
-    * @return The connection status, can be finished for barrier mode, empty task or connected.
-    */
-  def handleConnection(driverServerSocket: ServerSocket, log: Logger,
-                       hostAndPorts: ListBuffer[(Socket, String)]): ConnectionState = {
-    log.info("driver accepting a new connection...")
-    val driverSocket = driverServerSocket.accept()
-    val reader = new BufferedReader(new InputStreamReader(driverSocket.getInputStream))
-    val comm = reader.readLine()
-    if (comm == LightGBMConstants.FinishedStatus) {
-      log.info("driver received all tasks from barrier stage")
-      Finished
-    } else if (comm == LightGBMConstants.IgnoreStatus) {
-      log.info("driver received ignore status from task")
-      EmptyTask
-    } else {
-      addSocketAndComm(hostAndPorts, log, comm, driverSocket)
-      Connected
-    }
-  }
-
-
   /** Returns an integer ID for the current worker.
     * @return In cluster, returns the executor id.  In local case, returns the partition id.
     */
@@ -114,6 +60,25 @@ object LightGBMUtils {
     val id = if (executorId == "driver") partId else executorId
     val idAsInt = id.toString.toInt
     idAsInt
+  }
+
+  /** Returns the partition ID for the spark Dataset.
+    *
+    * Used to make operations deterministic on same dataset.
+    *
+    * @return Returns the partition id.
+    */
+  def getPartitionId: Int = {
+    val ctx = TaskContext.get
+    ctx.partitionId
+  }
+
+  /** Returns the executor ID for the spark Dataset.
+    *
+    * @return Returns the executor id.
+    */
+  def getExecutorId: String = {
+    SparkEnv.get.executorId
   }
 
   /** Returns true if spark is run in local mode.
@@ -132,25 +97,4 @@ object LightGBMUtils {
     val taskId = ctx.taskAttemptId()
     taskId
   }
-
-  def getNumRowsForChunksArray(numRows: Int, chunkSize: Int): SWIGTYPE_p_int = {
-    val leftoverChunk = numRows % chunkSize
-    val numChunks = if (leftoverChunk > 0) {
-      Math.floorDiv(numRows, chunkSize) + 1
-    }else{
-      Math.floorDiv(numRows, chunkSize)
-    }
-    val numRowsForChunks = lightgbmlib.new_intArray(numChunks)
-    (0 until numChunks).foreach({ index: Int =>
-      if (index == numChunks - 1 && leftoverChunk > 0) {
-        lightgbmlib.intArray_setitem(numRowsForChunks, index, leftoverChunk)
-      } else {
-        lightgbmlib.intArray_setitem(numRowsForChunks, index, chunkSize)
-      }
-    })
-    numRowsForChunks
-  }
-
-
-
 }

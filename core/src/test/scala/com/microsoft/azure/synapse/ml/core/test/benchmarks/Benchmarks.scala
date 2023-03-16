@@ -3,9 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.core.test.benchmarks
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.sql.Row
 import org.scalatest.Assertion
 
@@ -35,8 +35,10 @@ object Benchmark {
 trait Benchmarks extends TestBase {
 
   lazy val resourcesDirectory = new File(getClass.getResource("/").toURI)
-  lazy val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"), s"benchmarks_${this}.csv")
-  lazy val newBenchmarkFile = new File(new File(resourcesDirectory, "new_benchmarks"), s"new_benchmarks_${this}.csv")
+  lazy val oldBenchmarkFile = new File(new File(resourcesDirectory, "benchmarks"),
+                                 s"benchmarks_$this.csv")
+  lazy val newBenchmarkFile = new File(new File(resourcesDirectory, "new_benchmarks"),
+                                 s"new_benchmarks_$this.csv")
   lazy val newBenchmarks: ListBuffer[Benchmark] = ListBuffer[Benchmark]()
 
   def addBenchmark(name: String,
@@ -96,8 +98,8 @@ trait Benchmarks extends TestBase {
     writeCSV(newBenchmarks, newBenchmarkFile)
 
     val oldBenchmarks = spark.read
-      .option("header", true)
-      .option("inferSchema", true)
+      .option("header", value = true)
+      .option("inferSchema", value = true)
       .csv(oldBenchmarkFile.getAbsolutePath)
       .collect().map(Benchmark.fromRow)
     val newMap = newBenchmarks.map(bm => (bm.name, bm)).toMap
@@ -116,6 +118,9 @@ object DatasetUtils {
 
   def multiclassTrainFile(name: String): File =
     FileUtilities.join(BuildInfo.datasetDir,"Multiclass","Train", name)
+
+  def multiclassTestFile(name: String): File =
+    FileUtilities.join(BuildInfo.datasetDir,"Multiclass","Test", name)
 
   def regressionTrainFile(name: String): File =
     FileUtilities.join(BuildInfo.datasetDir,"Regression","Train", name)

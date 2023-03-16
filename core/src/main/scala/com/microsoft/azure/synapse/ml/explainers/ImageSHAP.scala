@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
+import com.microsoft.azure.synapse.ml.image.{HasCellSize, HasModifier, SuperpixelData}
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
-import com.microsoft.azure.synapse.ml.lime.{HasCellSize, HasModifier, SuperpixelData}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema

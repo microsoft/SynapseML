@@ -5,12 +5,12 @@ package com.microsoft.azure.synapse.ml.featurize.text
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -22,7 +22,7 @@ object PageSplitter extends DefaultParamsReadable[PageSplitter]
   */
 class PageSplitter(override val uid: String)
   extends Transformer with HasInputCol with HasOutputCol
-    with Wrappable with DefaultParamsWritable with BasicLogging {
+    with Wrappable with DefaultParamsWritable with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("PageSplitter"))
@@ -98,7 +98,7 @@ class PageSplitter(override val uid: String)
     )
   }
 
-  override def copy(extra: ParamMap): MultiNGram =
+  override def copy(extra: ParamMap): PageSplitter =
     defaultCopy(extra)
 
   def transformSchema(schema: StructType): StructType = {

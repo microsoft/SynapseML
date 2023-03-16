@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.TrainParams
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
 import org.slf4j.Logger
@@ -21,39 +21,39 @@ trait LightGBMDelegate extends Serializable {
   }
 
   def beforeGenerateTrainDataset(batchIndex: Int, partitionId: Int, columnParams: ColumnParams, schema: StructType,
-                                 log: Logger, trainParams: TrainParams): Unit = {
+                                 log: Logger, trainParams: BaseTrainParams): Unit = {
     // override this function and write code
   }
 
   def afterGenerateTrainDataset(batchIndex: Int, partitionId: Int, columnParams: ColumnParams, schema: StructType,
-                                log: Logger, trainParams: TrainParams): Unit = {
+                                log: Logger, trainParams: BaseTrainParams): Unit = {
     // override this function and write code
   }
 
   def beforeGenerateValidDataset(batchIndex: Int, partitionId: Int, columnParams: ColumnParams, schema: StructType,
-                                 log: Logger, trainParams: TrainParams): Unit = {
+                                 log: Logger, trainParams: BaseTrainParams): Unit = {
     // override this function and write code
   }
 
   def afterGenerateValidDataset(batchIndex: Int, partitionId: Int, columnParams: ColumnParams, schema: StructType,
-                                log: Logger, trainParams: TrainParams): Unit = {
+                                log: Logger, trainParams: BaseTrainParams): Unit = {
     // override this function and write code
   }
 
   def beforeTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                           trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
+                           trainParams: BaseTrainParams, booster: LightGBMBooster, hasValid: Boolean): Unit = {
     // override this function and write code
   }
 
   def afterTrainIteration(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger,
-                          trainParams: TrainParams, booster: LightGBMBooster, hasValid: Boolean,
+                          trainParams: BaseTrainParams, booster: LightGBMBooster, hasValid: Boolean,
                           isFinished: Boolean,
                           trainEvalResults: Option[Map[String, Double]],
                           validEvalResults: Option[Map[String, Double]]): Unit = {
     // override this function and write code
   }
 
-  def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: TrainParams,
+  def getLearningRate(batchIndex: Int, partitionId: Int, curIters: Int, log: Logger, trainParams: BaseTrainParams,
                       previousLearningRate: Double): Double = {
     // override this function and write code
     previousLearningRate

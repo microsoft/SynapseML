@@ -5,80 +5,35 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.param._
+import org.apache.commons.lang.StringEscapeUtils
+import org.apache.spark.ml.evaluation.Evaluator
+import org.apache.spark.ml.param._
+import org.apache.spark.ml.{Estimator, Model, Transformer}
 
 import java.lang.reflect.ParameterizedType
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import org.apache.spark.ml.evaluation.Evaluator
-import org.apache.spark.ml.param._
-import org.apache.spark.ml.{Estimator, Model, Transformer}
-import org.apache.commons.lang.StringEscapeUtils
-
 import scala.collection.Iterator.iterate
-import scala.reflect.ClassTag
-
-case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
-                                              pyTypeConverter: Option[String],
-                                              rTypeConverter: Option[String]) {
-
-  def this(pyType: String, typeConverterArg: String, rTypeConverterArg: String) = {
-    this(pyType, Some(typeConverterArg), Some(rTypeConverterArg))
-  }
-
-  def this(pyType: String) = {
-    this(pyType, None, None)
-  }
-
-}
-
-object DefaultParamInfo {
-  val BooleanInfo = new ParamInfo[BooleanParam]("bool", "TypeConverters.toBoolean", "as.logical")
-  val IntInfo = new ParamInfo[IntParam]("int", "TypeConverters.toInt", "as.integer")
-  val LongInfo = new ParamInfo[LongParam]("long", None, Some("as.integer"))
-  val FloatInfo = new ParamInfo[FloatParam]("float", "TypeConverters.toFloat", "as.double")
-  val DoubleInfo = new ParamInfo[DoubleParam]("float", "TypeConverters.toFloat", "as.double")
-  val StringInfo = new ParamInfo[Param[String]]("str", Some("TypeConverters.toString"), None)
-  val StringArrayInfo = new ParamInfo[StringArrayParam]("list", "TypeConverters.toListString", "as.array")
-  val DoubleArrayInfo = new ParamInfo[DoubleArrayParam]("list", "TypeConverters.toListFloat", "as.array")
-  val IntArrayInfo = new ParamInfo[IntArrayParam]("list", "TypeConverters.toListInt", "as.array")
-  val ByteArrayInfo = new ParamInfo[ByteArrayParam]("list")
-  val MapInfo = new ParamInfo[MapParam[_, _]]("dict")
-  val UnknownInfo = new ParamInfo[Param[_]]("object")
-
-  //noinspection ScalaStyle
-  def getParamInfo(dataType: Param[_]): ParamInfo[_] = {
-    dataType match {
-      case _: BooleanParam => BooleanInfo
-      case _: IntParam => IntInfo
-      case _: LongParam => LongInfo
-      case _: FloatParam => FloatInfo
-      case _: DoubleParam => DoubleInfo
-      case _: StringArrayParam => StringArrayInfo
-      case _: DoubleArrayParam => DoubleArrayInfo
-      case _: IntArrayParam => IntArrayInfo
-      case _: ByteArrayParam => ByteArrayInfo
-      case _: MapParam[_, _] => MapInfo
-      //case _: Param[String] => StringInfo //TODO fix erasure issues
-      case _ => UnknownInfo
-    }
-  }
-}
 
 
 trait BaseWrappable extends Params {
+
+  protected val thisStage: Params = this
+
   protected lazy val copyrightLines: String =
     s"""|# Copyright (C) Microsoft Corporation. All rights reserved.
         |# Licensed under the MIT License. See LICENSE in project root for information.
         |""".stripMargin
 
-  protected lazy val classNameHelper: String = this.getClass.getName.split(".".toCharArray).last
+  protected lazy val classNameHelper: String = thisStage.getClass.getName.split(".".toCharArray).last
 
   protected def companionModelClassName: String = {
-    val superClass = iterate[Class[_]](this.getClass)(_.getSuperclass)
+    val superClass = iterate[Class[_]](thisStage.getClass)(_.getSuperclass)
       .find(c => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")(
         c.getSuperclass.getSimpleName))
       .get
-    val typeArgs = this.getClass.getGenericSuperclass.asInstanceOf[ParameterizedType].getActualTypeArguments
+    val typeArgs = thisStage.getClass.getGenericSuperclass.asInstanceOf[ParameterizedType].getActualTypeArguments
     val modelTypeArg = superClass.getSuperclass.getSimpleName match {
       case "Estimator" =>
         typeArgs.head
@@ -88,12 +43,15 @@ trait BaseWrappable extends Params {
     modelTypeArg.getTypeName
   }
 
+  def getParamInfo(p: Param[_]): ParamInfo[_] = {
+    DefaultParamInfo.defaultGetParamInfo(thisStage, p)
+  }
+
 }
 
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
-  import DefaultParamInfo._
 
   def pyAdditionalMethods: String = {
     ""
@@ -110,7 +68,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected lazy val pyObjectBaseClass: String = {
-    this match {
+    thisStage match {
       case _: Estimator[_] => "JavaEstimator"
       case _: Model[_] => "JavaModel"
       case _: Transformer => "JavaTransformer"
@@ -123,7 +81,7 @@ trait PythonWrappable extends BaseWrappable {
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {
-    val argLines = this.params.map { p =>
+    val argLines = thisStage.params.map { p =>
       s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
     }.mkString("\n")
     s"""|"\""
@@ -138,15 +96,22 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected lazy val pyParamsDefinitions: String = {
-    this.params.map { p =>
+    thisStage.params.map { p =>
       val typeConverterString = getParamInfo(p).pyTypeConverter.map(", typeConverter=" + _).getOrElse("")
-      s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
-          |""".stripMargin
+      p match {
+        case sp: ServiceParam[_] =>
+          // Helps when we call _transfer_params_to_java the underlying java_obj set service params correctly
+          s"""|${sp.name} = Param(Params._dummy(), "${sp.name}", "ServiceParam: ${escape(sp.doc)}"$typeConverterString)
+              |""".stripMargin
+        case _ =>
+          s"""|${p.name} = Param(Params._dummy(), "${p.name}", "${escape(p.doc)}"$typeConverterString)
+              |""".stripMargin
+      }
     }.mkString("\n")
   }
 
   protected def pyParamArg[T](p: Param[T]): String = {
-    (p, this.getDefault(p)) match {
+    (p, thisStage.getDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         s"${p.name}=None,\n${p.name}Col=None"
       case (_: ComplexParam[_], _) | (_, None) =>
@@ -157,7 +122,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamDefault[T](p: Param[T]): Option[String] = {
-    (p, this.getDefault(p)) match {
+    (p, thisStage.getDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         None
       case (_: ComplexParam[_], _) | (_, None) =>
@@ -168,10 +133,10 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamsArgs: String =
-    this.params.map(pyParamArg(_)).mkString(",\n")
+    thisStage.params.map(pyParamArg(_)).mkString(",\n")
 
   protected def pyParamsDefaults: String =
-    this.params.flatMap(pyParamDefault(_)).mkString("\n")
+    thisStage.params.flatMap(pyParamDefault(_)).mkString("\n")
 
   protected def pyParamSetter(p: Param[_]): String = {
     val capName = p.name.capitalize
@@ -181,12 +146,13 @@ trait PythonWrappable extends BaseWrappable {
           |    ${p.name}: ${p.doc}
           |"\""
           |""".stripMargin
+    // scalastyle:off line.size.limit
     p match {
       case _: ServiceParam[_] =>
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
             |    if isinstance(value, list):
-            |        value = SparkContext._active_spark_context._jvm.org.apache.spark.ml.param.ServiceParam.toSeq(value)
+            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
             |    self._java_obj = self._java_obj.set$capName(value)
             |    return self
             |
@@ -202,13 +168,14 @@ trait PythonWrappable extends BaseWrappable {
             |    return self
             |""".stripMargin
     }
+    // scalastyle:on line.size.limit
   }
 
   protected def pyParamsSetters: String =
-    this.params.map(pyParamSetter).mkString("\n")
+    thisStage.params.map(pyParamSetter).mkString("\n")
 
   protected def pyExtraEstimatorMethods: String = {
-    this match {
+    thisStage match {
       case _: Estimator[_] =>
         s"""|def _create_model(self, java_model):
             |    try:
@@ -228,7 +195,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyExtraEstimatorImports: String = {
-    this match {
+    thisStage match {
       case _: Estimator[_] =>
         val companionModelImport = companionModelClassName
           .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml")
@@ -269,6 +236,12 @@ trait PythonWrappable extends BaseWrappable {
             |${indent(docString, 1)}
             |    return JavaParams._from_java(self._java_obj.get$capName())
             |""".stripMargin
+      case _: ServiceParam[_] =>
+        s"""|
+            |def get$capName(self):
+            |${indent(docString, 1)}
+            |    return self._java_obj.get$capName()
+            |""".stripMargin
       case _ =>
         s"""|
             |def get$capName(self):
@@ -279,7 +252,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamsGetters: String =
-    this.params.map(pyParamGetter).mkString("\n")
+    thisStage.params.map(pyParamGetter).mkString("\n")
 
   def pyInitFunc(): String = {
     s"""
@@ -291,7 +264,7 @@ trait PythonWrappable extends BaseWrappable {
        |    ):
        |    super($pyClassName, self).__init__()
        |    if java_obj is None:
-       |        self._java_obj = self._new_java_obj("${this.getClass.getName}", self.uid)
+       |        self._java_obj = self._new_java_obj("${thisStage.getClass.getName}", self.uid)
        |    else:
        |        self._java_obj = java_obj
        |${indent(pyParamsDefaults, 1)}
@@ -308,7 +281,7 @@ trait PythonWrappable extends BaseWrappable {
 
   }
 
-  //noinspection ScalaStyle
+  //scalastyle:off method.length
   protected def pythonClass(): String = {
     s"""|$copyrightLines
         |
@@ -321,6 +294,7 @@ trait PythonWrappable extends BaseWrappable {
         |from pyspark.ml.param.shared import *
         |from pyspark import keyword_only
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+        |from synapse.ml.core.platform import running_on_synapse_internal
         |from synapse.ml.core.serialize.java_params_patch import *
         |from pyspark.ml.wrapper import JavaTransformer, JavaEstimator, JavaModel
         |from pyspark.ml.evaluation import JavaEvaluator
@@ -360,7 +334,7 @@ trait PythonWrappable extends BaseWrappable {
         |    @staticmethod
         |    def getJavaPackage():
         |        "\"" Returns package name String. "\""
-        |        return "${this.getClass.getName}"
+        |        return "${thisStage.getClass.getName}"
         |
         |    @staticmethod
         |    def _from_java(java_stage):
@@ -377,12 +351,13 @@ trait PythonWrappable extends BaseWrappable {
         |${indent(pyAdditionalMethods, 1)}
         """.stripMargin
   }
+  //scalastyle:on method.length
 
   def makePyFile(conf: CodegenConfig): Unit = {
-    val importPath = this.getClass.getName.split(".".toCharArray).dropRight(1)
+    val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
     val srcFolders = importPath.mkString(".")
       .replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml").split(".".toCharArray)
-    val srcDir = FileUtilities.join((Seq(conf.pySrcDir.toString) ++ srcFolders.toSeq): _*)
+    val srcDir = FileUtilities.join(Seq(conf.pySrcDir.toString) ++ srcFolders.toSeq: _*)
     srcDir.mkdirs()
     Files.write(
       FileUtilities.join(srcDir, pyClassName + ".py").toPath,
@@ -406,10 +381,10 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rParamsArgs: String =
-    this.params.map(rParamArg(_) + ",\n").mkString("")
+    thisStage.params.map(rParamArg(_) + ",\n").mkString("")
 
   protected def rParamArg[T](p: Param[T]): String = {
-    (p, this.getDefault(p)) match {
+    (p, thisStage.getDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         s"${p.name}=NULL,\n${p.name}Col=NULL"
       case (_: ComplexParam[_], _) | (_, None) =>
@@ -420,37 +395,37 @@ trait RWrappable extends BaseWrappable {
   }
 
   protected def rDocString: String = {
-    val paramDocLines = this.params.map(p =>
+    val paramDocLines = thisStage.params.map(p =>
       s"#' @param ${p.name} ${p.doc}"
     ).mkString("\n")
     s"""
        |#' $classNameHelper
        |#'
-       |${paramDocLines}
+       |$paramDocLines
        |#' @export
        |""".stripMargin
   }
 
   protected def rSetterLines: String = {
-    this.params.map { p =>
-      val value = DefaultParamInfo.getParamInfo(p)
-        .rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
+    thisStage.params.map { p =>
+      val value = getParamInfo(p).rTypeConverter.map(tc => s"$tc(${p.name})").getOrElse(p.name)
       p match {
-        case p: ServiceParam[_] =>
-          s"""invoke("set${p.name.capitalize}Col", ${p.name}Col) %>%\ninvoke("set${p.name.capitalize}", $value)"""
-        case p =>
-          s"""invoke("set${p.name.capitalize}", $value)"""
+        case sp: ServiceParam[_] =>
+          val colName = sp.name + "Col"
+          getRConditionalSetterLine(colName, colName) + "\n" + getRConditionalSetterLine(sp.name, value)
+        case _ =>
+          getRConditionalSetterLine(p.name, value)
       }
-    }.mkString(" %>%\n")
+    }.mkString("\n")
+  }
+
+  private def getRConditionalSetterLine(name: String, value: String, setterSuffix: String = ""): String = {
+    s"""if (!is.null($name)) mod <- mod %>% """ +
+      s"""invoke("set${name.capitalize}$setterSuffix", $value)"""
   }
 
   protected def rExtraInitLines: String = {
-    this match {
-      case _: Estimator[_] =>
-        "unfit.model=FALSE,\nonly.model=FALSE,\n"
-      case _ =>
-        "only.model=FALSE,\n"
-    }
+    "unfit.model=FALSE,\nonly.model=FALSE,\n"
   }
 
   protected def rExtraBodyLines: String = {
@@ -458,14 +433,14 @@ trait RWrappable extends BaseWrappable {
       case _: Estimator[_] =>
         s"""
            |if (unfit.model)
-           |    return(mod_parameterized)
-           |transformer <- mod_parameterized %>%
+           |    return(mod)
+           |transformer <- mod %>%
            |    invoke("fit", df)
-           |scala_transformer_class <- "${companionModelClassName}"
+           |scala_transformer_class <- "$companionModelClassName"
            |""".stripMargin
       case _ =>
         s"""
-           |transformer <- mod_parameterized
+           |transformer <- mod
            |scala_transformer_class <- scala_class
            |""".stripMargin
     }
@@ -480,19 +455,18 @@ trait RWrappable extends BaseWrappable {
        |    x,
        |${indent(rParamsArgs, 1)}
        |${indent(rExtraInitLines, 1)}
-       |    uid=random_string("${rFuncName}"),
+       |    uid=random_string("$rFuncName"),
        |    ...)
        |{
-       |    if (unfit.model) {
-       |        sc <- x
+       |   if (unfit.model) {
+       |       sc <- x
        |    } else {
        |        df <- spark_dataframe(x)
        |        sc <- spark_connection(df)
        |    }
-       |    scala_class <- "${this.getClass.getName}"
+       |    scala_class <- "${thisStage.getClass.getName}"
        |    mod <- invoke_new(sc, scala_class, uid = uid)
-       |    mod_parameterized <- mod %>%
-       |${indent(rSetterLines, 2)}
+       |${indent(rSetterLines, 1)}
        |${indent(rExtraBodyLines, 1)}
        |    if (only.model)
        |        return(sparklyr:::new_ml_transformer(transformer, class=scala_transformer_class))
@@ -512,5 +486,4 @@ trait RWrappable extends BaseWrappable {
 
 }
 
-trait Wrappable extends PythonWrappable with RWrappable
-
+trait Wrappable extends PythonWrappable with RWrappable with DotnetWrappable

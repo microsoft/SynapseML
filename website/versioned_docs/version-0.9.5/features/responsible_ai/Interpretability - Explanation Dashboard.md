@@ -167,14 +167,14 @@ global_explanation.local_importance_values
 class wrapper(object):
   def __init__(self, model):
     self.model = model
-  
+
   def predict(self, data):
     sparkdata = spark.createDataFrame(data)
-    return model.transform(sparkdata).select('prediction').toPandas().values.flatten().tolist()
-  
+    return self.model.transform(sparkdata).select('prediction').toPandas().values.flatten().tolist()
+
   def predict_proba(self, data):
     sparkdata = spark.createDataFrame(data)
-    prediction = model.transform(sparkdata).select('probability').toPandas().values.flatten().tolist()
+    prediction = self.model.transform(sparkdata).select('probability').toPandas().values.flatten().tolist()
     proba_list = [vector.values.tolist() for vector in prediction]
     return proba_list
 ```

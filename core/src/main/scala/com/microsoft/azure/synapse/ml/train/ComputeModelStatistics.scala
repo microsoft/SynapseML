@@ -4,23 +4,22 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.{
-  HasEvaluationMetric, HasLabelCol, HasScoredLabelsCol, HasScoresCol, MetricData}
+import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.azure.synapse.ml.logging.BasicLogging
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
-import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
+import org.apache.spark.mllib.evaluation.{BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.log4j.Logger
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
@@ -57,7 +56,7 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
 
 /** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer
-  with ComputeModelStatisticsParams with BasicLogging {
+  with ComputeModelStatisticsParams with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
@@ -71,6 +70,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     * @param dataset the dataset to calculate the metrics for
     * @return DataFrame whose columns contain the calculated metrics
     */
+  //scalastyle:off method.length
+  //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val (modelName, labelColumnName, scoreValueKind) =
@@ -168,6 +169,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
     })
   }
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
@@ -281,7 +284,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     // Calculate confusion matrix and output it as DataFrame
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoredLabelsColumnName), col(labelColumnName))
+    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName))
       .cache()
       .na
       .drop(Array(scoredLabelsColumnName, labelColumnName))
@@ -295,7 +298,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   private def getScalarScoresAndLabels(dataset: Dataset[_],
                                        labelColumnName: String,
                                        scoresColumnName: String): RDD[(Double, Double)] = {
-    selectAndCastToDF(dataset, scoresColumnName, labelColumnName).show
+
     selectAndCastToDF(dataset, scoresColumnName, labelColumnName)
       .rdd
       .map {

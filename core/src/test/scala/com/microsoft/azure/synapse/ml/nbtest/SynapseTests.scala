@@ -3,79 +3,95 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import SynapseUtilities.exec
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.sendAndParseJson
+import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
+import org.apache.http.client.methods.HttpGet
 
 import java.io.File
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.existentials
-import scala.sys.process.Process
+import scala.util.Try
 
-/** Tests to validate fuzzing of modules. */
-class SynapseTests extends TestBase {
+class SynapseTestCleanup extends TestBase {
 
-  ignore("Synapse") {
+  import SynapseJsonProtocol._
 
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" =>
-        exec("conda activate synapseml && jupyter nbconvert --to script .\\notebooks\\*.ipynb")
-      case _ =>
-        Process(s"conda init bash; conda activate synapseml; jupyter nbconvert --to script ./notebooks/*.ipynb")
-    }
-
-    SynapseUtilities.listPythonFiles().map(f => {
-      val newPath = f
-        .replace(" ", "")
-        .replace("-", "")
-      new File(f).renameTo(new File(newPath))
+  ignore("Clean up all pools") {
+    println("Deleting stray old Apache Spark Pools...")
+    val getBigDataPoolsUri =
+      s"""
+         |$ManagementUrlRoot/resources?api-version=2021-04-01&
+         |$$filter=substringof(name, \'$WorkspaceName\') and
+         | resourceType eq \'Microsoft.Synapse/workspaces/bigDataPools\'
+         |""".stripMargin.replaceAll(LineSeparator, "").replaceAll(" ", "%20")
+    val getBigDataPoolRequest = new HttpGet(getBigDataPoolsUri)
+    getBigDataPoolRequest.setHeader("Authorization", s"Bearer $ArmToken")
+    val sparkPools = sendAndParseJson(getBigDataPoolRequest).convertTo[SynapseResourceResponse].value
+    sparkPools.foreach(sparkPool => {
+      val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")
+      deleteSparkPool(name)
     })
+  }
 
-    val workspaceName = "mmlspark"
-    val sparkPools = Array("buildpool", "buildpool2", "buildpool3")
+}
 
-    val livyBatchJobs = SynapseUtilities.listPythonJobFiles()
-      .filterNot(_.contains(" "))
-      .filterNot(_.contains("-"))
-      .map(f => {
-        val poolName = SynapseUtilities.monitorPool(workspaceName, sparkPools)
-        val livyUrl = "https://" +
-          workspaceName +
-          ".dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/" +
-          poolName +
-          "/batches"
-        val livyBatch: LivyBatch = SynapseUtilities.uploadAndSubmitNotebook(livyUrl, f)
-        println(s"submitted livy job: ${livyBatch.id} to sparkPool: $poolName")
-        LivyBatchJob(livyBatch, poolName, livyUrl)
-      })
-      .filterNot(_.livyBatch.state == "none")
+class SynapseTests extends TestBase {
+  SharedNotebookE2ETestUtilities.generateNotebooks()
 
-    try {
-      val batchFutures: Array[Future[Any]] = livyBatchJobs.map((batchJob: LivyBatchJob) => {
-        Future {
-          val batch = batchJob.livyBatch
-          val livyUrl = batchJob.livyUrl
+  val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
+    .filter(_.getAbsolutePath.endsWith(".py"))
+    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVWnativeFormat"))
+    .sortBy(_.getAbsolutePath)
 
-          if (batch.state != "success") {
-            SynapseUtilities.retry(batch.id, livyUrl, SynapseUtilities.TimeoutInMillis, System.currentTimeMillis())
-          }
-        }(ExecutionContext.global)
-      })
+  val expectedPoolCount: Int = selectedPythonFiles.length
 
-      val failures = batchFutures
-        .map(f => Await.ready(f, Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get)
-        .filter(f => f.isFailure)
-      assert(failures.isEmpty)
+  assert(expectedPoolCount >= 1)
+  println(s"SynapseTests E2E Test Suite starting on ${expectedPoolCount} notebook(s)...")
+  selectedPythonFiles.foreach(println)
+
+  // Cleanup old stray spark pools lying around due to ungraceful test shutdown
+  tryDeleteOldSparkPools()
+
+  println(s"Creating $expectedPoolCount Spark Pools...")
+  val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
+
+  val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
+    SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
+  }
+
+  livyBatches.foreach { livyBatch =>
+    println(s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
+    test(livyBatch.runName) {
+      try {
+        val result = Await.ready(
+          livyBatch.monitor(),
+          Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+        assert(result.isSuccess)
+      } catch {
+        case t: Throwable =>
+          livyBatch.cancelRun()
+          throw new RuntimeException(s"Job failed see ${livyBatch.jobStatusPage} for details", t)
+      }
     }
-    catch {
-      case t: Throwable =>
-        livyBatchJobs.foreach { batchJob =>
-          println(s"Cancelling job ${batchJob.livyBatch.id}")
-          SynapseUtilities.cancelRun(batchJob.livyUrl, batchJob.livyBatch.id)
-        }
-        throw t
+  }
+
+  protected override def afterAll(): Unit = {
+    println("Synapse E2E Test Suite finished. Deleting Spark Pools...")
+    val failures = sparkPools.map(pool => Try(deleteSparkPool(pool)))
+      .filter(_.isFailure)
+    if (failures.isEmpty) {
+      println("All Spark Pools deleted successfully.")
+    } else {
+      println("Failed to delete all spark pools cleanly:")
+      failures.foreach(failure =>
+        println(failure.failed.get.getMessage))
     }
+    super.afterAll()
   }
 }
