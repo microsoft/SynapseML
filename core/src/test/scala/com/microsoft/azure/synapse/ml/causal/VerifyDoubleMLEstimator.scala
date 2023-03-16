@@ -92,7 +92,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     assert(ateLow < ateHigh && ateLow > -130 && ateHigh < 130)
   }
 
-  test("Invalid treatment model will throw exception.") {
+  test("Mismatch treatment model and treatment column will throw exception.") {
     assertThrows[Exception] {
       val ldml = new DoubleMLEstimator()
         .setTreatmentModel(new LinearRegression())
@@ -101,7 +101,21 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
         .setOutcomeCol("col2")
         .setMaxIter(20)
 
-      val ldmlModel = ldml.fit(mockDataset)
+      ldml.fit(mockDataset)
+    }
+  }
+
+  test("Mismatch outcome model and outcome column will throw exception.") {
+    assertThrows[Exception] {
+      val ldml = new DoubleMLEstimator()
+        .setTreatmentModel(new LogisticRegression())
+        .setTreatmentCol(mockLabelColumn)
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("col1")
+        .setMaxIter(5)
+
+      val dmlModel = ldml.fit(mockDataset)
+      dmlModel.getAvgTreatmentEffect
     }
   }
 
