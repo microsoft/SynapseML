@@ -265,9 +265,11 @@ class DoubleMLEstimator(override val uid: String)
   protected def validateColTypeWithModel(colType: DataType, colName: String, model: Estimator[_]): Unit = {
     val modelType = getDoubleMLModelType(model)
     colType match {
-      case IntegerType | BooleanType =>
+      case IntegerType =>
+        // valid column type
+      case BooleanType =>
         if (modelType == DoubleMLModelTypes.Continuous)
-          throw new Exception(s"column $colName in dataset is integer or boolean data type " +
+          throw new Exception(s"column $colName in dataset is boolean data type " +
             s"but you set to use a regression model for it.")
       case DoubleType | LongType  =>
         if (modelType == DoubleMLModelTypes.Binary)
