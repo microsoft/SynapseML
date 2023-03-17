@@ -7,59 +7,65 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestO
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, StructField, StructType}
 
 class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
-
-  val mockLabelColumn = "Label"
-
   val cat = "Cat"
   val dog = "Dog"
   val bird = "Bird"
-  private lazy val mockDataset = spark.createDataFrame(Seq(
-    (0, 1, 50, 0.60, cat),
-    (1, 0, 140, 0.50, dog),
-    (0, 1, 78, 0.99, bird),
-    (1, 0, 92, 0.34, dog),
-    (0, 1, 50, 0.60, bird),
-    (1, 0, 80, 0.50, dog),
-    (0, 1, 78, 0.99, cat),
-    (1, 0, 101, 0.28, bird),
-    (0, 1, 40, 0.58, cat),
-    (0, 1, 42, 0.53, dog),
-    (1, 0, 128, 0.99, bird),
-    (0, 1, 12, 0.34, dog),
-    (1, 1, 55, 0.69, bird),
-    (0, 1, 32, 0.48, dog),
-    (1, 1, 62, 0.78, bird),
-    (0, 1, 19, 0.48, bird),
-    (0, 1, 11, 0.32, bird),
-    (1, 1, 43, 0.63, cat),
-    (1, 1, 138, 0.73, dog),
-    (1, 0, 98, 0.89, bird),
-    (0, 1, 22, 0.39, dog),
-    (0, 0, 47, 0.72, bird),
-    (1, 0, 95, 0.49, dog),
-    (0, 1, 66, 0.71, bird),
-    (0, 1, 21, 0.45, bird),
-    (1, 1, 72, 0.34, dog),
-    (0, 0, 50, 0.60, cat),
-    (1, 1, 72, 0.51, dog),
-    (0, 0, 22, 0.91, bird),
-    (1, 1, 133, 0.31, dog),
-    (0, 1, 55, 0.69, bird),
-    (1, 0, 58, 0.40, dog),
-    (0, 1, 69, 0.88, cat),
-    (1, 1, 136, 0.35, dog),
-    (0, 0, 48, 0.58, cat)))
-    .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
+  val schema = StructType(Array(StructField("discount", BooleanType, nullable = false),
+    StructField("support", BooleanType, nullable = false),
+    StructField("price", IntegerType, nullable = false),
+    StructField("weight", DoubleType, nullable = false),
+    StructField("category", StringType, nullable = true)
+  ))
 
+  import scala.collection.JavaConverters._
+  private lazy val mockDataset = spark.createDataFrame(
+    Seq(Row(false, true, 50, 0.60, cat),
+      Row(true, false, 140, 0.50, dog),
+      Row(false, true, 78, 0.99, bird),
+      Row(true, false, 92, 0.34, dog),
+      Row(false, true, 50, 0.60, bird),
+      Row(true, false, 80, 0.50, dog),
+      Row(false, true, 78, 0.99, cat),
+      Row(true, false, 101, 0.28, bird),
+      Row(false, true, 40, 0.58, cat),
+      Row(false, true, 42, 0.53, dog),
+      Row(true, false, 128, 0.99, bird),
+      Row(false, true, 12, 0.34, dog),
+      Row(true, true, 55, 0.69, bird),
+      Row(false, true, 32, 0.48, dog),
+      Row(true, true, 62, 0.78, bird),
+      Row(false, true, 19, 0.48, bird),
+      Row(false, true, 11, 0.32, bird),
+      Row(true, true, 43, 0.63, cat),
+      Row(true, true, 138, 0.73, dog),
+      Row(true, false, 98, 0.89, bird),
+      Row(false, true, 22, 0.39, dog),
+      Row(false, false, 47, 0.72, bird),
+      Row(true, false, 95, 0.49, dog),
+      Row(false, true, 66, 0.71, bird),
+      Row(false, true, 21, 0.45, bird),
+      Row(true, true, 72, 0.34, dog),
+      Row(false, false, 50, 0.60, cat),
+      Row(true, true, 72, 0.51, dog),
+      Row(false, false, 22, 0.91, bird),
+      Row(true, true, 133, 0.31, dog),
+      Row(false, true, 55, 0.69, bird),
+      Row(true, false, 58, 0.40, dog),
+      Row(false, true, 69, 0.88, cat),
+      Row(true, true, 136, 0.35, dog),
+      Row(false, false, 48, 0.58, cat)).asJava
+    , schema)
 
   test("Get treatment effects") {
     val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
-      .setTreatmentCol(mockLabelColumn)
+      .setTreatmentCol("discount")
       .setOutcomeModel(new LinearRegression())
-      .setOutcomeCol("col2")
+      .setOutcomeCol("price")
 
     val ldmlModel = ldml.fit(mockDataset)
     ldmlModel.getAvgTreatmentEffect
@@ -69,10 +75,10 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
   test("Get treatment effects with weight column") {
     val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
-      .setTreatmentCol(mockLabelColumn)
-      .setOutcomeModel(new LogisticRegression())
-      .setOutcomeCol("col1")
-      .setWeightCol("col3")
+      .setTreatmentCol("discount")
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("price")
+      .setWeightCol("weight")
 
     val ldmlModel = ldml.fit(mockDataset)
     ldmlModel.getAvgTreatmentEffect
@@ -81,9 +87,9 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
   test("Get confidence intervals with multiple iterations") {
     val ldml = new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
-      .setTreatmentCol(mockLabelColumn)
+      .setTreatmentCol("discount")
       .setOutcomeModel(new LinearRegression())
-      .setOutcomeCol("col2")
+      .setOutcomeCol("price")
       .setMaxIter(30)
 
     val ldmlModel = ldml.fit(mockDataset)
@@ -96,9 +102,9 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     assertThrows[Exception] {
       val ldml = new DoubleMLEstimator()
         .setTreatmentModel(new LinearRegression())
-        .setTreatmentCol(mockLabelColumn)
+        .setTreatmentCol("discount")
         .setOutcomeModel(new LinearRegression())
-        .setOutcomeCol("col2")
+        .setOutcomeCol("price")
         .setMaxIter(20)
 
       ldml.fit(mockDataset)
@@ -109,9 +115,9 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     assertThrows[Exception] {
       val ldml = new DoubleMLEstimator()
         .setTreatmentModel(new LogisticRegression())
-        .setTreatmentCol(mockLabelColumn)
-        .setOutcomeModel(new LinearRegression())
-        .setOutcomeCol("col1")
+        .setTreatmentCol("discount")
+        .setOutcomeModel(new LogisticRegression())
+        .setOutcomeCol("price")
         .setMaxIter(5)
 
       val dmlModel = ldml.fit(mockDataset)
@@ -122,10 +128,10 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
   override def testObjects(): Seq[TestObject[DoubleMLEstimator]] =
     Seq(new TestObject(new DoubleMLEstimator()
       .setTreatmentModel(new LogisticRegression())
-      .setTreatmentCol(mockLabelColumn)
+      .setTreatmentCol("discount")
       .setOutcomeModel(new LinearRegression())
-      .setOutcomeCol("col2"),
-    mockDataset))
+      .setOutcomeCol("price"),
+      mockDataset))
 
   override def reader: MLReadable[_] = DoubleMLEstimator
 
