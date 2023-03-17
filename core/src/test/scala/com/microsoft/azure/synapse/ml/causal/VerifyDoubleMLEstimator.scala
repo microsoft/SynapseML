@@ -15,7 +15,7 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
   val dog = "Dog"
   val bird = "Bird"
   val schema = StructType(Array(StructField("discount", BooleanType, nullable = false),
-    StructField("support", BooleanType, nullable = false),
+    StructField("support", IntegerType, nullable = false),
     StructField("price", IntegerType, nullable = false),
     StructField("weight", DoubleType, nullable = false),
     StructField("category", StringType, nullable = true)
@@ -23,41 +23,41 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
 
   import scala.collection.JavaConverters._
   private lazy val mockDataset = spark.createDataFrame(
-    Seq(Row(false, true, 50, 0.60, cat),
-      Row(true, false, 140, 0.50, dog),
-      Row(false, true, 78, 0.99, bird),
-      Row(true, false, 92, 0.34, dog),
-      Row(false, true, 50, 0.60, bird),
-      Row(true, false, 80, 0.50, dog),
-      Row(false, true, 78, 0.99, cat),
-      Row(true, false, 101, 0.28, bird),
-      Row(false, true, 40, 0.58, cat),
-      Row(false, true, 42, 0.53, dog),
-      Row(true, false, 128, 0.99, bird),
-      Row(false, true, 12, 0.34, dog),
-      Row(true, true, 55, 0.69, bird),
-      Row(false, true, 32, 0.48, dog),
-      Row(true, true, 62, 0.78, bird),
-      Row(false, true, 19, 0.48, bird),
-      Row(false, true, 11, 0.32, bird),
-      Row(true, true, 43, 0.63, cat),
-      Row(true, true, 138, 0.73, dog),
-      Row(true, false, 98, 0.89, bird),
-      Row(false, true, 22, 0.39, dog),
-      Row(false, false, 47, 0.72, bird),
-      Row(true, false, 95, 0.49, dog),
-      Row(false, true, 66, 0.71, bird),
-      Row(false, true, 21, 0.45, bird),
-      Row(true, true, 72, 0.34, dog),
-      Row(false, false, 50, 0.60, cat),
-      Row(true, true, 72, 0.51, dog),
-      Row(false, false, 22, 0.91, bird),
-      Row(true, true, 133, 0.31, dog),
-      Row(false, true, 55, 0.69, bird),
-      Row(true, false, 58, 0.40, dog),
-      Row(false, true, 69, 0.88, cat),
-      Row(true, true, 136, 0.35, dog),
-      Row(false, false, 48, 0.58, cat)).asJava
+    Seq(Row(false, 1, 50, 0.60, cat),
+      Row(true, 0, 140, 0.50, dog),
+      Row(false, 1, 78, 0.99, bird),
+      Row(true, 0, 92, 0.34, dog),
+      Row(false, 1, 50, 0.60, bird),
+      Row(true, 0, 80, 0.50, dog),
+      Row(false, 1, 78, 0.99, cat),
+      Row(true, 0, 101, 0.28, bird),
+      Row(false, 1, 40, 0.58, cat),
+      Row(false, 1, 42, 0.53, dog),
+      Row(true, 0, 128, 0.99, bird),
+      Row(false, 1, 12, 0.34, dog),
+      Row(true, 1, 55, 0.69, bird),
+      Row(false, 1, 32, 0.48, dog),
+      Row(true, 1, 62, 0.78, bird),
+      Row(false, 1, 19, 0.48, bird),
+      Row(false, 1, 11, 0.32, bird),
+      Row(true, 1, 43, 0.63, cat),
+      Row(true, 1, 138, 0.73, dog),
+      Row(true, 0, 98, 0.89, bird),
+      Row(false, 1, 22, 0.39, dog),
+      Row(false, 0, 47, 0.72, bird),
+      Row(true, 0, 95, 0.49, dog),
+      Row(false, 1, 66, 0.71, bird),
+      Row(false, 1, 21, 0.45, bird),
+      Row(true, 1, 72, 0.34, dog),
+      Row(false, 0, 50, 0.60, cat),
+      Row(true, 1, 72, 0.51, dog),
+      Row(false, 0, 22, 0.91, bird),
+      Row(true, 1, 133, 0.31, dog),
+      Row(false, 1, 55, 0.69, bird),
+      Row(true, 0, 58, 0.40, dog),
+      Row(false, 1, 69, 0.88, cat),
+      Row(true, 1, 136, 0.35, dog),
+      Row(false, 0, 48, 0.58, cat)).asJava
     , schema)
 
   test("Get treatment effects") {
@@ -70,6 +70,32 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
     val ldmlModel = ldml.fit(mockDataset)
     ldmlModel.getAvgTreatmentEffect
     assert(ldmlModel.getConfidenceInterval.length == 2)
+  }
+
+  test("Get treatment effects, use integer as binary treatment") {
+    val ldml = new DoubleMLEstimator()
+      .setTreatmentModel(new LogisticRegression())
+      .setTreatmentCol("support")
+      .setOutcomeModel(new LinearRegression())
+      .setOutcomeCol("price")
+
+    val ldmlModel = ldml.fit(mockDataset)
+    ldmlModel.getAvgTreatmentEffect
+    assert(ldmlModel.getConfidenceInterval.length == 2)
+  }
+
+  test("Get treatment effects, use integer as binary treatment but it has invalid values, will throw exception.") {
+    assertThrows[Exception] {
+      val ldml = new DoubleMLEstimator()
+        .setTreatmentModel(new LogisticRegression())
+        .setTreatmentCol("price")
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("weight")
+
+      val ldmlModel = ldml.fit(mockDataset)
+      ldmlModel.getAvgTreatmentEffect
+      assert(ldmlModel.getConfidenceInterval.length == 2)
+    }
   }
 
   test("Get treatment effects with weight column") {
