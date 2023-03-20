@@ -26,7 +26,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Map[_, _] => {
           try {
             mapFormat[String, Any].write(v.asInstanceOf[Map[String, Any]])
-          }  catch {
+          } catch {
             case _: Throwable => throwFailure(any)
           }
         }
