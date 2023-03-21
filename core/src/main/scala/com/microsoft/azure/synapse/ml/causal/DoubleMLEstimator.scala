@@ -20,8 +20,9 @@ import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
 import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, StructType}
+import org.apache.spark.sql.types.{BooleanType, DataType, DoubleType, IntegerType, LongType, StructType}
 import org.apache.commons.math3.stat.inference.TestUtils
+import org.apache.spark.sql.functions.{col, lit, when}
 
 import scala.concurrent.Future
 
@@ -76,22 +77,8 @@ class DoubleMLEstimator(override val uid: String)
   override def fit(dataset: Dataset[_]): DoubleMLModel = {
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
-      val treatmentColType = dataset.schema(getTreatmentCol).dataType
-      require(treatmentColType == DoubleType || treatmentColType == LongType
-        || treatmentColType == IntegerType || treatmentColType == BooleanType,
-        s"TreatmentCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $treatmentColType")
-
-      if (treatmentColType != IntegerType && treatmentColType != BooleanType
-        && getTreatmentType == TreatmentTypes.Binary) {
-        throw new Exception("TreatmentModel was set to use classifier " +
-          "but treatment column in dataset isn't integer or boolean type.")
-      }
-
-      if (treatmentColType != DoubleType && treatmentColType != LongType
-        && getTreatmentType == TreatmentTypes.Continuous) {
-        throw new Exception("TreatmentModel was set to use regression " +
-          "but treatment column in dataset isn't continuous data type.")
-      }
+      validateColTypeWithModel(dataset, getTreatmentCol, getTreatmentModel)
+      validateColTypeWithModel(dataset, getOutcomeCol, getOutcomeModel)
 
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
@@ -256,7 +243,7 @@ class DoubleMLEstimator(override val uid: String)
       .setFeaturesCol(treatmentResidualVecCol)
       .setFamily("gaussian")
       .setLink("identity")
-      .setFitIntercept(false)
+      .setFitIntercept(true)
 
     val coefficients = Array(residualsDF1, residualsDF2).map(regressor.fit).map(_.coefficients(0))
     val ate = coefficients.sum / coefficients.length
@@ -272,6 +259,35 @@ class DoubleMLEstimator(override val uid: String)
   @DeveloperApi
   override def transformSchema(schema: StructType): StructType = {
     DoubleMLEstimator.validateTransformSchema(schema)
+  }
+
+  protected def validateColTypeWithModel(dataset: Dataset[_], colName: String, model: Estimator[_]): Unit = {
+    val colType = dataset.schema(colName).dataType
+    val modelType = getDoubleMLModelType(model)
+    colType match {
+      case IntegerType =>
+        // If column is integer with value 0 or 1, it can be used with classification model
+        // If column has normal integer values, it can be used with regression model
+        // If user set to use classification model, verify if all values in (0, 1)
+        if (modelType == DoubleMLModelTypes.Binary){
+          val hasInvalidValues = dataset.filter(!col(colName).isin(0, 1)).count() > 0
+          if (hasInvalidValues)
+            throw new Exception(s"column '$colName' in dataset is integer data type and " +
+              "you set to use a classification model for it, " +
+              "its all values must be either 0 or 1, but it has other values.")
+        }
+      case BooleanType =>
+        if (modelType == DoubleMLModelTypes.Continuous)
+          throw new Exception(s"column '$colName' in dataset is boolean data type, " +
+            "but you set to use a regression model for it.")
+      case DoubleType | LongType  =>
+        if (modelType == DoubleMLModelTypes.Binary)
+          throw new Exception(s"column '$colName' in dataset is double or long data type, " +
+            "but you set to use a classification model for it.")
+      case _ =>
+        throw new Exception(s"column '$colName' must be of type DoubleType, LongType, " +
+          s"IntegerType or BooleanType but got $colType")
+    }
   }
 }
 
