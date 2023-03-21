@@ -41,7 +41,7 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   with HasImageInput with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
   logClass()
 
-  setDefault(apiVersion -> Left("2022-01-30-preview"))
+  setDefault(apiVersion -> Left("2022-08-31"))
 
   def this() = this(Identifiable.randomUID("AnalyzeDocument"))
 
@@ -66,6 +66,9 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       getValueOpt(r, imageUrl)
+        // TODO: the swagger contains a base64Source value in request, double confirm how to support
+        // https://github.com/Azure/azure-rest-api-specs/blob/main/specification/cognitiveservices/
+        // data-plane/FormRecognizer/stable/2022-08-31/FormRecognizer.json
         .map(url => new StringEntity(Map("urlSource" -> url).toJson.compactPrint, ContentType.APPLICATION_JSON))
         .orElse(getValueOpt(r, imageBytes)
           .map(bytes => new ByteArrayEntity(bytes, ContentType.APPLICATION_OCTET_STREAM))
