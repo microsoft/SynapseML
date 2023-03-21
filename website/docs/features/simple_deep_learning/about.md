@@ -14,21 +14,20 @@ a lightweight wrapper around the popular PyTorch deep learning framework.
 SynapseML's simple deep learning toolkit makes it easy to use modern deep learning methods in Apache Spark.
 By providing a collection of Estimators, SynapseML enables users to perform distributed transfer learning on
 spark clusters to solve custom machine learning tasks without requiring in-depth domain expertise.
-Whether you are a data scientist, data engineer, or business analyst this project aims to make modern deep-learning methods easy to use for new domain-specific problems.
+Whether you're a data scientist, data engineer, or business analyst this project aims to make modern deep-learning methods easy to use for new domain-specific problems.
 
 ### SynapseML's Simple DNN
 SynapseML goes beyond the limited support for deep networks in SparkML and provides out-of-the-box solutions for various common scenarios:
-- Visual Classification: Users can apply transfer learning for image classification tasks, using pre-trained models and fine-tuning them to solve custom classification problems.
-- Text Classification: SynapseML simplifies the process of implementing natural language processing tasks such as sentiment analysis, text classification, and language modeling by providing pre-built models and tools.
-- More to be added...
+- Visual Classification: Users can apply transfer learning for image classification tasks, using pretrained models and fine-tuning them to solve custom classification problems.
+- Text Classification: SynapseML simplifies the process of implementing natural language processing tasks such as sentiment analysis, text classification, and language modeling by providing prebuilt models and tools.
+- And more coming soon
 
 ### Why Horovod
 Horovod is a distributed deep learning framework developed by Uber, which has become popular for its ability to scale
-deep learning tasks across multiple GPUs and compute nodes efficiently. It is designed to work with TensorFlow, Keras, 
-PyTorch, and Apache MXNet.
-- Scalability: Horovod uses efficient communication algorithms like ring-allreduce and hierarchical allreduce, which allow it to scale the training process across multiple GPUs and nodes without significant performance degradation.
+deep learning tasks across multiple GPUs and compute nodes efficiently. It's designed to work with TensorFlow, Keras, PyTorch, and Apache MXNet.
+- Scalability: Horovod uses efficient communication algorithms like ring-allreduce and hierarchical all reduce, which allow it to scale the training process across multiple GPUs and nodes without significant performance degradation.
 - Easy Integration: Horovod can be easily integrated into existing deep learning codebases with minimal changes, making it a popular choice for distributed training.
-- Fault Tolerance: Horovod provides fault tolerance features like elastic training, which can dynamically adapt to changes in the number of workers or recover from failures.
+- Fault Tolerance: Horovod provides fault tolerance features like elastic training. It can dynamically adapt to changes in the number of workers or recover from failures.
 - Community Support: Horovod has an active community and is widely used in the industry, which ensures that the framework is continually updated and improved.
 
 ### Why Pytorch Lightning
@@ -38,7 +37,7 @@ make it an excellent choice for SynapseML's Simple Deep Learning:
 - Code Organization: PyTorch Lightning promotes a clean and organized code structure by separating the research code from the engineering code. This makes it easier to maintain, debug, and share deep learning models.
 - Flexibility: PyTorch Lightning retains the flexibility and expressiveness of PyTorch while adding useful abstractions to simplify the training loop and other boilerplate code.
 - Built-in Best Practices: PyTorch Lightning incorporates many best practices for deep learning, such as automatic optimization, gradient clipping, and learning rate scheduling, making it easier for users to achieve optimal performance.
-- Compatibility: PyTorch Lightning is compatible with a wide range of popular tools and frameworks, including Horovod, which allows users to easily leverage distributed training capabilities.
+- Compatibility: PyTorch Lightning is compatible with a wide range of popular tools and frameworks, including Horovod, which allows users to easily use distributed training capabilities.
 - Rapid Development: With PyTorch Lightning, users can quickly prototype and experiment with different model architectures and training strategies without worrying about low-level implementation details.
 
 ### Sample usage with DeepVisionClassifier
