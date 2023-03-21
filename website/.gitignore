@@ -26,6 +26,7 @@
 !/docs/features/simple_deep_learning
 /docs/features/simple_deep_learning/*
 !/docs/features/simple_deep_learning/about.md
+!/docs/features/simple_deep_learning/installation.md
 !/docs/features/spark_serving
 /docs/features/spark_serving/*
 !/docs/features/spark_serving/about.md
