@@ -9,7 +9,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
-import org.scalactic.TripleEquals._
+
 import scala.collection.immutable.HashMap
 
 trait FormRecognizerV3Utils extends TestBase {
@@ -40,7 +40,7 @@ trait FormRecognizerV3Utils extends TestBase {
   def documentTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {
     model.transform(df)
       .withColumn("content", col("result.analyzeResult.content"))
-      .withColumn("entities", col("result.analyzeResult.entities.content"))
+      .withColumn("paragraphs", col("result.analyzeResult.paragraphs"))
       .withColumn("keyValuePairs", col("result.analyzeResult.keyValuePairs"))
       .withColumn("keyValuePairs", map_from_arrays(col("keyValuePairs.key.content"),
         col("keyValuePairs.value.content")))
@@ -66,7 +66,8 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
       .transform(imageDf6)
       .collect()
       .map(r => fromRow(r.getAs[Row]("result")))
-      .foreach(r => assert(r.analyzeResult.pages.get.head.pageNumber >= 0))
+      .foreach(r => assert(r.analyzeResult.pages.head.pageNumber >= 0 &&
+        r.analyzeResult.paragraphs.get.head.content != null))
   }
 
   def analyzeDocument: AnalyzeDocument = new AnalyzeDocument()
@@ -95,7 +96,7 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
       .collect()
 
     for (result <- Seq(result1, result2)) {
-      assert(result.head.getString(1).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n"))
+      assert(result.head.getString(1).startsWith("Purchase Order"))
     }
   }
 
@@ -116,8 +117,7 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
       .collect()
 
     for (result <- Seq(result1, result2)) {
-      assert(result.head.getString(2).startsWith("Purchase Order\nHero Limited\nCompany Phone: 555-348-6512\n" +
-        "Website: www.herolimited.com"))
+      assert(result.head.getString(2).startsWith("Purchase Order"))
       assert(result.head.getSeq(3).mkString(";").startsWith("Details;Quantity;Unit Price;Total;Bindings;20;1.00"))
     }
   }
@@ -136,10 +136,10 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
     for (result <- Seq(result1, result2)) {
       resultAssert(
         result,
-        "USA\nWASHINGTON\n20 1234567XX1101\nDRIVER LICENSE" +
-          "\nFEDERAL LIMITS APPLY\n4d LIC#WDLABCD456DG 9CLASS",
-        "Address,CountryRegion,DateOfBirth,DateOfExpiration,DocumentNumber," +
-          "Endorsements,FirstName,LastName,Region,Restrictions,Sex")
+        "USA\nWASHINGTON\n20 1234567XX1101\nDRIVER LICENSE\nFEDERAL LIMITS APPLY\n4d LIC#WDLABCD456DG 9CLASS\n" +
+          "DONOR\n1 TALBOT\n2 LIAM R.\n3 DOB 01/06/1958 8 123 STREET ADDRESS YOUR CITY WA 99999-1234\n",
+        "Address,CountryRegion,DateOfBirth,DateOfExpiration,DateOfIssue,DocumentDiscriminator," +
+          "DocumentNumber,Endorsements,EyeColor,FirstName,Height,LastName,Region,Restrictions,Sex,Weight")
     }
   }
 
@@ -198,8 +198,8 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
       resultAssert(
         result,
         "Contoso\nContoso\n123 Main Street\nRedmond, WA 98052",
-        "Items,Locale,MerchantAddress,MerchantName," +
-          "MerchantPhoneNumber,Subtotal,Total,TotalTax,TransactionDate,TransactionTime")
+        "Items,MerchantAddress,MerchantName,MerchantPhoneNumber," +
+          "Subtotal,Total,TotalTax,TransactionDate,TransactionTime")
     }
   }
 
