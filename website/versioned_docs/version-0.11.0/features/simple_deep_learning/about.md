@@ -34,7 +34,7 @@ deep learning tasks across multiple GPUs and compute nodes efficiently. It's des
 PyTorch Lightning is a lightweight wrapper around the popular PyTorch deep learning framework, designed to make it 
 easier to write clean, modular, and scalable deep learning code. PyTorch Lightning has several advantages that 
 make it an excellent choice for SynapseML's Simple Deep Learning:
-- Code Organization: PyTorch Lightning promotes a clean and organized code structure by separating the research code from the engineering code. This makes it easier to maintain, debug, and share deep learning models.
+- Code Organization: PyTorch Lightning promotes a clean and organized code structure by separating the research code from the engineering code. This property makes it easier to maintain, debug, and share deep learning models.
 - Flexibility: PyTorch Lightning retains the flexibility and expressiveness of PyTorch while adding useful abstractions to simplify the training loop and other boilerplate code.
 - Built-in Best Practices: PyTorch Lightning incorporates many best practices for deep learning, such as automatic optimization, gradient clipping, and learning rate scheduling, making it easier for users to achieve optimal performance.
 - Compatibility: PyTorch Lightning is compatible with a wide range of popular tools and frameworks, including Horovod, which allows users to easily use distributed training capabilities.
@@ -66,7 +66,7 @@ deep_vision_classifier = DeepVisionClassifier(
 deep_vision_model = deep_vision_classifier.fit(train_df)
 ```
 DeepVisionClassifier does distributed-training on spark with Horovod under the hood, after this fitting process it returns
-a DeepVisionModel. With below code you could use the model for inference directly:
+a DeepVisionModel. With this code you could use the model for inference directly:
 ```python
 pred_df = deep_vision_model.transform(test_df)
 ```
