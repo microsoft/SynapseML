@@ -11,11 +11,10 @@ SynapseML aims to simplify this process by building on top of the [Horovod](http
 distributed deep learning model that is compatible with SparkML, and [Pytorch-lightning](https://github.com/Lightning-AI/lightning),
 a lightweight wrapper around the popular PyTorch deep learning framework.
 
-SynapseML library offers a straightforward approach to leveraging deep learning in Spark-based distributed systems.
+SynapseML's simple deep learning toolkit makes it easy to use modern deep learning methods in Apache Spark.
 By providing a collection of Estimators, SynapseML enables users to perform distributed transfer learning on
 spark clusters to solve custom machine learning tasks without requiring in-depth domain expertise.
-This caters to data scientists and business analysts who want to use the latest advancements in machine learning
-for their domain-specific problems.
+Whether you are a data scientist, data engineer, or business analyst this project aims to make modern deep-learning methods easy to use for new domain-specific problems.
 
 ### SynapseML's Simple DNN
 SynapseML goes beyond the limited support for deep networks in SparkML and provides out-of-the-box solutions for various common scenarios:
