@@ -459,6 +459,7 @@ lazy val root = (project in file("."))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
+  getHadoopTask.value
   compile.all(ScopeFilter(
     inProjects(root, core, deepLearning, cognitive, vw, lightgbm, opencv),
     inConfigurations(Compile, Test))

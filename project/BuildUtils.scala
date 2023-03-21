@@ -1,6 +1,9 @@
 
-import java.io.File
+import EnvironmentUtils.{IsWindows, osCommandPrefix}
+
+import java.io.{ByteArrayOutputStream, File}
 import java.lang.ProcessBuilder.Redirect
+import scala.util.Using
 
 object BuildUtils {
   def join(root: File, folders: String*): File = {
@@ -9,18 +12,6 @@ object BuildUtils {
 
   def join(folders: String*): File = {
     join(new File(folders.head), folders.tail: _*)
-  }
-
-  def isWindows: Boolean = {
-    sys.props("os.name").toLowerCase.contains("windows")
-  }
-
-  def osPrefix: Seq[String] = {
-    if (isWindows) {
-      Seq("cmd", "/C")
-    } else {
-      Seq()
-    }
   }
 
   def pythonizedVersion(version: String): String = {
@@ -32,36 +23,47 @@ object BuildUtils {
 
   def dotnetedVersion(version: String): String = {
     version match {
-      case s if s.contains("-") => {
+      case s if s.contains("-") =>
         val versionArray = s.split("-".toCharArray)
         versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
-      }
       case s => s
     }
   }
 
+  def getCmdOutput(cmd: Seq[String],
+             wd: File = new File("."),
+             envVars: Map[String, String] = Map()): String = {
+    Using(new ByteArrayOutputStream()) { outputStream =>
+      runCmd(cmd, wd, envVars, outputStream = Some(outputStream))
+      outputStream.toString("UTF-8")
+    }.get
+  }
+
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
-             envVars: Map[String, String] = Map()): Unit = {
+             envVars: Map[String, String] = Map(),
+             outputStream: Option[ByteArrayOutputStream] = None): Unit = {
     val pb = new ProcessBuilder()
       .directory(wd)
       .command(cmd: _*)
       .redirectError(Redirect.INHERIT)
-      .redirectOutput(Redirect.INHERIT)
+      .redirectOutput(if (outputStream.nonEmpty) Redirect.PIPE else Redirect.INHERIT)
     val env = pb.environment()
     envVars.foreach(p => env.put(p._1, p._2))
-    val result = pb.start().waitFor()
+    val process = pb.start()
+    outputStream.map(process.getInputStream.transferTo(_))
+    val result = process.waitFor()
     if (result != 0) {
-      println(s"Error: result code: ${result}")
-      throw new Exception(s"Execution resulted in non-zero exit code: ${result}")
+      println(s"Error: result code: $result")
+      throw new Exception(s"Execution resulted in non-zero exit code: $result")
     }
   }
 
   def condaEnvName: String = "synapseml"
 
   def activateCondaEnv: Seq[String] = {
-    if (sys.props("os.name").toLowerCase.contains("windows")) {
-      osPrefix ++ Seq("activate", condaEnvName, "&&")
+    if (IsWindows) {
+      osCommandPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
       Seq()
       //TODO figure out why this doesn't work
@@ -100,7 +102,7 @@ object BuildUtils {
       "--account-key", Secrets.storageKey,
       "--overwrite", "true"
     )
-    runCmd(osPrefix ++ command)
+    runCmd(osCommandPrefix ++ command)
   }
 
   def downloadFromBlob(source: String,
@@ -113,7 +115,7 @@ object BuildUtils {
       "--source", container,
       "--account-name", accountName,
       "--account-key", Secrets.storageKey)
-    runCmd(osPrefix ++ command)
+    runCmd(osCommandPrefix ++ command)
   }
 
   def singleUploadToBlob(source: String,
@@ -129,38 +131,39 @@ object BuildUtils {
       "--account-key", Secrets.storageKey,
       "--overwrite", "true"
     ) ++ extraArgs
-    runCmd(osPrefix ++ command)
+    runCmd(osCommandPrefix ++ command)
   }
 
 
-  def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
+  private def allFiles(dir: File, predicate: Option[File => Boolean] = None): Array[File] = {
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
-      (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)
+      val filteredFiles = predicate match {
+        case None => files
+        case _ => files.filter(predicate.get)
+      }
+      filteredFiles ++ dirs.flatMap(loop)
     }
 
     loop(dir)
   }
 
-  // Perhaps this should move into a more specific place, not a generic file utils thing
+  // Perhaps this should move into a more specific place, not a generic build utils thing
   def zipFolder(dir: File, out: File): Unit = {
     import java.io.{BufferedInputStream, FileInputStream, FileOutputStream}
     import java.util.zip.{ZipEntry, ZipOutputStream}
     val bufferSize = 2 * 1024
     val data = new Array[Byte](bufferSize)
-    val zip = new ZipOutputStream(new FileOutputStream(out))
-    val prefixLen = dir.getParentFile.toString.length + 1
-    allFiles(dir).foreach { file =>
-      zip.putNextEntry(new ZipEntry(file.toString.substring(prefixLen).replace(java.io.File.separator, "/")))
-      val in = new BufferedInputStream(new FileInputStream(file), bufferSize)
-      var b = 0
-      while (b >= 0) {
-        zip.write(data, 0, b); b = in.read(data, 0, bufferSize)
+    Using(new ZipOutputStream(new FileOutputStream(out))) { zip =>
+      val prefixLen = dir.getParentFile.toString.length + 1
+      allFiles(dir).foreach { file =>
+        zip.putNextEntry(new ZipEntry(file.toString.substring(prefixLen).replace(java.io.File.separator, "/")))
+        Using(new BufferedInputStream(new FileInputStream(file), bufferSize)) { in =>
+          Stream.continually(in.read(data, 0, bufferSize)).takeWhile(_ != -1).foreach(b => zip.write(data, 0, b))
+        }
+        zip.closeEntry()
       }
-      in.close()
-      zip.closeEntry()
     }
-    zip.close()
   }
 
 }

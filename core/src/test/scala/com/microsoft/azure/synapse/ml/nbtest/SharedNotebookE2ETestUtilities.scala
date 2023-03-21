@@ -39,11 +39,11 @@ object SharedNotebookE2ETestUtilities {
     assert(NotebooksDir.mkdirs())
   }
 
-  def isWindows: Boolean = {
+  private def isWindows: Boolean = {
     sys.props("os.name").toLowerCase.contains("windows")
   }
 
-  def osPrefix: Seq[String] = {
+  private def osPrefix: Seq[String] = {
     if (isWindows) {
       Seq("cmd", "/C")
     } else {
@@ -51,7 +51,7 @@ object SharedNotebookE2ETestUtilities {
     }
   }
 
-  def runCmd(cmd: Seq[String],
+  private def runCmd(cmd: Seq[String],
              wd: File = new File("."),
              envVars: Map[String, String] = Map()): Unit = {
     val pb = new java.lang.ProcessBuilder()
