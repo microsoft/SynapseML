@@ -108,12 +108,11 @@ case class AggregateMetricsCalculator(featureProbabilities: Array[Double], epsil
   }
 }
 
-case class DistributionMetricsCalculator(obsFeatureProbabilities: Array[Double],
+case class DistributionMetricsCalculator(refFeatureProbabilities: Array[Double],
+                                         refFeatureCounts: Array[Double],
+                                         obsFeatureProbabilities: Array[Double],
                                          obsFeatureCounts: Array[Double],
-                                         numRows: Double) {
-  val numFeatures: Double = obsFeatureProbabilities.length
-  val refFeatureProbabilities: Array[Double] = Array.fill(numFeatures.toInt)(1d / numFeatures)
-
+                                         numFeatures: Double) {
   val absDiffObsRef: Array[Double] = (obsFeatureProbabilities, refFeatureProbabilities).zipped.map((a, b) => abs(a - b))
 
   val klDivergence: Double = entropy(obsFeatureProbabilities, Some(refFeatureProbabilities))
@@ -126,11 +125,11 @@ case class DistributionMetricsCalculator(obsFeatureProbabilities: Array[Double],
   val infNormDistance: Double = absDiffObsRef.max
   val totalVariationDistance: Double = 0.5d * absDiffObsRef.sum
   val wassersteinDistance: Double = absDiffObsRef.sum / absDiffObsRef.length
-  val chiSquaredTestStatistic: Double = {
-    val refFeatureCount = numRows / numFeatures
-    obsFeatureCounts.map(o => pow(o - refFeatureCount, 2) / refFeatureCount).sum
+  val chiSquaredTestStatistic: Double = (obsFeatureCounts, refFeatureCounts).zipped.map((a, b) => pow(a - b, 2) / b).sum
+  val chiSquaredPValue: Double = chiSquaredTestStatistic match {
+    case Double.PositiveInfinity => 0
+    case _ => 1 - ChiSquared(numFeatures - 1).cdf(chiSquaredTestStatistic)
   }
-  val chiSquaredPValue: Double = 1 - ChiSquared(numFeatures - 1).cdf(chiSquaredTestStatistic)
 
   def entropy(distA: Array[Double], distB: Option[Array[Double]] = None): Double = {
     if (distB.isDefined) {

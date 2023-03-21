@@ -7,6 +7,7 @@ import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.ArrayMapParam
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -14,6 +15,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
+import java.util
+import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
 /** This transformer computes data balance measures based on a reference distribution.
@@ -56,15 +59,42 @@ class DistributionBalanceMeasure(override val uid: String)
 
   def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
 
+  val referenceDistribution = new ArrayMapParam(
+    this,
+    "referenceDistribution",
+    "An ordered list of reference distributions that correspond to each of the sensitive columns."
+  )
+
+  def getReferenceDistribution: Array[Map[String, Double]] =
+    get(referenceDistribution).getOrElse(Array.empty).map(
+      m => if (m == null) null else m.mapValues(_.asInstanceOf[Double]).map(identity)) //scalastyle:ignore null
+
+  def setReferenceDistribution(value: util.ArrayList[util.HashMap[String, Double]]): this.type = {
+    // NOTE: null implies we use the uniform distribution for the corresponding sensitive column
+    val arrayMap = value.asScala.toArray.map(
+      hm => if (hm == null) null else hm.asScala.toMap.mapValues(_.asInstanceOf[Any])) //scalastyle:ignore null
+    set(referenceDistribution, arrayMap)
+  }
+
   setDefault(
     featureNameCol -> "FeatureName",
-    outputCol -> "DistributionBalanceMeasure"
+    outputCol -> "DistributionBalanceMeasure",
+    referenceDistribution  -> Array.empty
   )
 
   private val uniformDistribution: Int => String => Double = {
     n: Int => {
       _: String =>
         1d / n
+    }
+  }
+
+  private val customDistribution: Map[String, Double] => String => Double = {
+    dist: Map[String, Double] => {
+      // NOTE: If the custom distribution doesn't have the col value, return a default probability of 0.0
+      // This assumes that the reference distribution does not contain the col value at all
+      s: String =>
+        dist.getOrElse(s, 0.0)
     }
   }
 
@@ -89,29 +119,32 @@ class DistributionBalanceMeasure(override val uid: String)
       if (getVerbose)
         featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
-      // TODO (for v2): Introduce a referenceDistribution function param for user to override the uniform distribution
-      val referenceDistribution = uniformDistribution
-
       df.unpersist
-      calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows, referenceDistribution)
+      calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows)
     })
   }
 
   private def calculateDistributionMeasures(featureStats: DataFrame,
                                             obsFeatureProbCol: String,
                                             obsFeatureCountCol: String,
-                                            numRows: Double,
-                                            referenceDistribution: Int => String => Double): DataFrame = {
-    val distributionMeasures = getSensitiveCols.map {
-      sensitiveCol =>
+                                            numRows: Double): DataFrame = {
+    val distributionMeasures = getSensitiveCols.zipWithIndex.map {
+      case (sensitiveCol, i) =>
         val observed = featureStats
           .groupBy(sensitiveCol)
           .agg(sum(obsFeatureProbCol).alias(obsFeatureProbCol), sum(obsFeatureCountCol).alias(obsFeatureCountCol))
 
         val numFeatures = observed.count.toInt
-        val refDistFunc = udf(referenceDistribution(numFeatures))
         val refFeatureProbCol = DatasetExtensions.findUnusedColumnName("refFeatureProb", featureStats.schema)
         val refFeatureCountCol = DatasetExtensions.findUnusedColumnName("refFeatureCount", featureStats.schema)
+
+        val refDist: String => Double = if (getReferenceDistribution.isEmpty) {
+          uniformDistribution(numFeatures)
+        } else getReferenceDistribution(i) match {
+          case null => uniformDistribution(numFeatures) //scalastyle:ignore null
+          case customDist => customDistribution(customDist)
+        }
+        val refDistFunc = udf(refDist)
 
         val observedWithRef = observed
           .withColumn(refFeatureProbCol, refDistFunc(col(sensitiveCol)))
@@ -145,6 +178,23 @@ class DistributionBalanceMeasure(override val uid: String)
           StructType(DistributionMetrics.METRICS.map(StructField(_, DoubleType, nullable = true))), nullable = false) ::
         Nil
     )
+  }
+
+  override def validateSchema(schema: StructType): Unit = {
+    super.validateSchema(schema)
+
+    getReferenceDistribution.isEmpty match {
+      case true =>
+      case false if getReferenceDistribution.length != getSensitiveCols.length => throw new Exception(
+        "The reference distribution must have the same length and order as the sensitive columns " +
+          getSensitiveCols.mkString(", "))
+      case false => getReferenceDistribution.foreach {
+        case _: Map[String, Double] | null => //scalastyle:ignore null
+        case m => throw new Exception(
+          s"The element $m in the reference distribution must either be a <string, double> map, " +
+            "or it must be null (which signals to use the uniform distribution for the corresponding sensitive column)")
+      }
+    }
   }
 }
 
