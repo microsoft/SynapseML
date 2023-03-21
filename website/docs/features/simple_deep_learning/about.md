@@ -38,7 +38,7 @@ make it an excellent choice for SynapseML's Simple Deep Learning:
 - Flexibility: PyTorch Lightning retains the flexibility and expressiveness of PyTorch while adding useful abstractions to simplify the training loop and other boilerplate code.
 - Built-in Best Practices: PyTorch Lightning incorporates many best practices for deep learning, such as automatic optimization, gradient clipping, and learning rate scheduling, making it easier for users to achieve optimal performance.
 - Compatibility: PyTorch Lightning is compatible with a wide range of popular tools and frameworks, including Horovod, which allows users to easily use distributed training capabilities.
-- Rapid Development: With PyTorch Lightning, users can quickly prototype and experiment with different model architectures and training strategies without worrying about low-level implementation details.
+- Rapid Development: With PyTorch Lightning, users can quickly prototype and experiment with different model architectures, even training strategies without worrying about low-level implementation details.
 
 ### Sample usage with DeepVisionClassifier
 DeepVisionClassifier incorporates all models supported by [torchvision](https://github.com/pytorch/vision). 
