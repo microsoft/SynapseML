@@ -65,9 +65,12 @@ class DistributionBalanceMeasure(override val uid: String)
     "An ordered list of reference distributions that correspond to each of the sensitive columns."
   )
 
+  val emptyReferenceDistribution: Array[Map[String, Double]] = Array.empty
+
   def getReferenceDistribution: Array[Map[String, Double]] =
-    get(referenceDistribution).getOrElse(Array.empty).map(
+    if (isDefined(referenceDistribution)) $(referenceDistribution).map(
       m => if (m == null) null else m.mapValues(_.asInstanceOf[Double]).map(identity)) //scalastyle:ignore null
+    else emptyReferenceDistribution
 
   def setReferenceDistribution(value: util.ArrayList[util.HashMap[String, Double]]): this.type = {
     // NOTE: null implies we use the uniform distribution for the corresponding sensitive column
@@ -78,8 +81,7 @@ class DistributionBalanceMeasure(override val uid: String)
 
   setDefault(
     featureNameCol -> "FeatureName",
-    outputCol -> "DistributionBalanceMeasure",
-    referenceDistribution  -> Array.empty
+    outputCol -> "DistributionBalanceMeasure"
   )
 
   private val uniformDistribution: Int => String => Double = {
@@ -91,10 +93,10 @@ class DistributionBalanceMeasure(override val uid: String)
 
   private val customDistribution: Map[String, Double] => String => Double = {
     dist: Map[String, Double] => {
-      // NOTE: If the custom distribution doesn't have the col value, return a default probability of 0.0
+      // NOTE: If the custom distribution doesn't have the col value, return a default probability of 0
       // This assumes that the reference distribution does not contain the col value at all
       s: String =>
-        dist.getOrElse(s, 0.0)
+        dist.getOrElse(s, 0d)
     }
   }
 
@@ -138,7 +140,7 @@ class DistributionBalanceMeasure(override val uid: String)
         val refFeatureProbCol = DatasetExtensions.findUnusedColumnName("refFeatureProb", featureStats.schema)
         val refFeatureCountCol = DatasetExtensions.findUnusedColumnName("refFeatureCount", featureStats.schema)
 
-        val refDist: String => Double = if (getReferenceDistribution.isEmpty) {
+        val refDist: String => Double = if (!isDefined(referenceDistribution)) {
           uniformDistribution(numFeatures)
         } else getReferenceDistribution(i) match {
           case null => uniformDistribution(numFeatures) //scalastyle:ignore null
@@ -183,17 +185,9 @@ class DistributionBalanceMeasure(override val uid: String)
   override def validateSchema(schema: StructType): Unit = {
     super.validateSchema(schema)
 
-    getReferenceDistribution.isEmpty match {
-      case true =>
-      case false if getReferenceDistribution.length != getSensitiveCols.length => throw new Exception(
-        "The reference distribution must have the same length and order as the sensitive columns " +
-          getSensitiveCols.mkString(", "))
-      case false => getReferenceDistribution.foreach {
-        case _: Map[String, Double] | null => //scalastyle:ignore null
-        case m => throw new Exception(
-          s"The element $m in the reference distribution must either be a <string, double> map, " +
-            "or it must be null (which signals to use the uniform distribution for the corresponding sensitive column)")
-      }
+    if (isDefined(referenceDistribution) && getReferenceDistribution.length != getSensitiveCols.length) {
+      throw new Exception("The reference distribution must have the same length and order as the sensitive columns: "
+        + getSensitiveCols.mkString(", "))
     }
   }
 }
@@ -262,23 +256,32 @@ private[exploratory] case class DistributionMetrics(numFeatures: Int,
   }
 
   // Calculates Pearson's chi-squared statistic
-  def chiSquaredTestStatistic: Column =
-    sum(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol))
+  def chiSquaredTestStatistic: Column = sum(
+    // If expected is zero and observed is not zero, the test assumes observed is impossible so Chi^2 value becomes +inf
+    when(col(refFeatureCountCol) === 0 && col(obsFeatureCountCol) =!= 0, lit(Double.PositiveInfinity))
+      .otherwise(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol)))
 
   // Calculates left-tailed p-value from degrees of freedom and chi-squared test statistic
   def chiSquaredPValue: Column = {
     val degOfFreedom = numFeatures - 1
     val scoreCol = chiSquaredTestStatistic
-    val chiSqPValueUdf = udf({
-      score: Double =>
-        1d - ChiSquared(degOfFreedom).cdf(score)
-    })
+    val chiSqPValueUdf = udf(
+      (score: Double) => score match {
+        // limit of CDF as x approaches +inf is 1 (https://en.wikipedia.org/wiki/Cumulative_distribution_function)
+        case Double.PositiveInfinity => 1d
+        case _ => 1 - ChiSquared(degOfFreedom).cdf(score)
+      }
+    )
     chiSqPValueUdf(scoreCol)
   }
 
   private def entropy(distA: Column, distB: Option[Column] = None): Column = {
     if (distB.isDefined) {
-      sum(distA * log(distA / distB.get))
+      // Using same cases as scipy (https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html)
+      val entropies = when(distA === 0d && distB.get >= 0d, lit(0d))
+        .when(distA > 0d && distB.get > 0d, distA * log(distA / distB.get))
+        .otherwise(lit(Double.PositiveInfinity))
+      sum(entropies)
     } else {
       sum(distA * log(distA)) * -1d
     }

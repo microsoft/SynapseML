@@ -119,7 +119,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // Index 0: Gender (all unique values included)
     customDist.add(new util.HashMap[String, Double](Map("Male" -> 0.25, "Female" -> 0.4, "Other" -> 0.35).asJava))
     // Index 1: Ethnicity ('Other' value purposefully left out, which signals a probability of 0.0)
-    customDist.add(new util.HashMap[String, Double](Map("Asian" -> 0.33, "White" -> 0.33, "Black" -> 0.33).asJava))
+    customDist.add(new util.HashMap[String, Double](Map("Asian" -> 1/3d, "White" -> 1/3d, "Black" -> 1/3d).asJava))
     customDist
   }
 
@@ -143,6 +143,23 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
 
     df.show(truncate = false)
     df.printSchema()
+  }
+
+  test("DistributionBalanceMeasure expects the custom distribution to be the same length as sensitive columns") {
+    val emptyDist = new util.ArrayList[util.HashMap[String, Double]]()
+    assertThrows[Exception] {
+      distributionBalanceMeasure
+        .setReferenceDistribution(emptyDist)
+        .transform(sensitiveFeaturesDf)
+    }
+
+    val mismatchedLenDist = new util.ArrayList[util.HashMap[String, Double]]()
+    mismatchedLenDist.add(new util.HashMap[String, Double](Map("ColA" -> 0.25).asJava))
+    assertThrows[Exception] {
+      distributionBalanceMeasure
+        .setReferenceDistribution(emptyDist)
+        .transform(sensitiveFeaturesDf)
+    }
   }
 
   private def actualCustomDist: DataFrame =
@@ -209,15 +226,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // val refProbs = featureValues.map(customDistribution.get(1).getOrDefault(_, 0.0)) // idx 1 = Ethnicity
     // val refCounts = refProbs.map(_ * numRows)
     // val CALC = DistributionMetricsCalculator(refProbs, refCounts, obsProbs, obsCounts, numFeatures)
-    val KLDIVERGENCE = Double.PositiveInfinity // ln(obsProb(Other) / refProb(Other)) = ln(0.111 / 0.0) = +Inf
-    val JSDISTANCE = Double.NaN // ln(refProb(Other) / avgRefAObsProb(Other)) = ln(0.0 / 0.055) = -Inf -> sum(...) = NaN
+    val KLDIVERGENCE = Double.PositiveInfinity
+    val JSDISTANCE = 0.2100032735609124
     val INFNORMDISTANCE = 0.1111111111111111
-    val TOTALVARIATIONDISTANCE = 0.11277777777777775
-    val WASSERSTEINDISTANCE = 0.05638888888888888
-    // (obsCount(Other) - refCount(Other))^2 / refCount(Other)) = (1 - 0)^2 / 0 = 1 / 0 = +Inf
+    val TOTALVARIATIONDISTANCE = 0.1111111111111111
+    val WASSERSTEINDISTANCE = 0.05555555555555555
     val CHISQUAREDTESTSTATISTIC = Double.PositiveInfinity
-    // Since Chi^2 represents the confidence that x <= Y and Y is +inf, p-value = 1.0 - confidence = 1.0 - 1.0 = 0.0
-    val CHISQUAREDPVALUE = 0
+    val CHISQUAREDPVALUE = 1d
   }
 
   test(s"DistributionBalanceMeasure can a custom reference distribution with missing values ($feature2)") {
@@ -226,17 +241,12 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // which means that it should default to a reference probability of 0.00
     val actual = actualCustomDistFeature2
     val expected = ExpectedCustomDistFeature2
-
+    assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
+    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
     assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
     assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
     assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
-
-    // TODO: The following measures are handling a probability distribution of 0.0 differently than expected.
-    //  They are actively being investigated and cross-referenced with the behavior of scipy measures.
-    //  In the meanwhile, they are commented out until the behavior is fixed.
-    // assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
-    // assert(actual(JSDISTANCE) === expected.JSDISTANCE)
-    // assert(actual(CHISQUAREDTESTSTATISTIC) === expected.CHISQUAREDTESTSTATISTIC)
-    // assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
+    assert(actual(CHISQUAREDTESTSTATISTIC) === expected.CHISQUAREDTESTSTATISTIC)
+    assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 }

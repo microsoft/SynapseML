@@ -127,14 +127,20 @@ case class DistributionMetricsCalculator(refFeatureProbabilities: Array[Double],
   val wassersteinDistance: Double = absDiffObsRef.sum / absDiffObsRef.length
   val chiSquaredTestStatistic: Double = (obsFeatureCounts, refFeatureCounts).zipped.map((a, b) => pow(a - b, 2) / b).sum
   val chiSquaredPValue: Double = chiSquaredTestStatistic match {
-    case Double.PositiveInfinity => 0
+    // limit of CDF as x approaches +inf is 1 (https://en.wikipedia.org/wiki/Cumulative_distribution_function)
+    case Double.PositiveInfinity => 1
     case _ => 1 - ChiSquared(numFeatures - 1).cdf(chiSquaredTestStatistic)
   }
 
   def entropy(distA: Array[Double], distB: Option[Array[Double]] = None): Double = {
     if (distB.isDefined) {
-      val logQuotient = (distA, distB.get).zipped.map((a, b) => log(a / b))
-      (distA, logQuotient).zipped.map(_ * _).sum
+      (distA, distB.get).zipped.map((a, b) =>
+        // Using cases from scipy.special.rel_entr, which scipy.stats.entropy directly calls
+        // https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.rel_entr.html
+        if (a == 0.0 && b >= 0.0) 0.0
+        else if (a > 0.0 && b > 0) a * log(a / b)
+        else Double.PositiveInfinity
+      ).sum
     } else {
       -1d * distA.map(x => x * log(x)).sum
     }
