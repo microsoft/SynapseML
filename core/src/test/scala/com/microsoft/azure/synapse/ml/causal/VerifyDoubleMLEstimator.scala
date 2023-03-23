@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
+import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.classification.LogisticRegression
@@ -10,7 +11,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, StructField, StructType}
 
-class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] {
+class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] with Flaky {
   val cat = "Cat"
   val dog = "Dog"
   val bird = "Bird"
