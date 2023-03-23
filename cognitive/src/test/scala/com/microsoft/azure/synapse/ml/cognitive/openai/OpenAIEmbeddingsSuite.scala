@@ -29,7 +29,6 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   test("Basic Usage") {
     embedding.transform(df).collect().foreach(r => {
       val v = r.getAs[Vector]("out")
-
       assert(v.size > 0)
     })
   }

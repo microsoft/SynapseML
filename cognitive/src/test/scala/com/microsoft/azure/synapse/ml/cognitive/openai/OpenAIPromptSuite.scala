@@ -3,12 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.core.spark.Functions.template
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, lit, when}
-import org.apache.spark.sql.{DataFrame, functions => F}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
 
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
@@ -17,8 +16,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName("text-davinci-001")
-    .setModel("text-davinci-003")
+    .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
     .setTemperature(0)
@@ -37,24 +35,17 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .transform(df)
       .select("outParsed")
       .collect()
-      .map(r =>
-        if (r.isNullAt(0)) 0
-        else {
-          assert(r.getSeq[String](0).length > 0)
-          1
-        })
-      .toSeq.sum
+      .count(r => Option(r.getSeq[String](0)).isDefined)
 
     assert(nonNullCount == 3)
   }
 
   test("Basic Usage JSON") {
-    val result = prompt
-      .setPromptTemplate(
-        """Split a word into prefix and postfix a respond in JSON
-          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
-          |{text}:
-          |""".stripMargin)
+    prompt.setPromptTemplate(
+      """Split a word into prefix and postfix a respond in JSON
+        |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+        |{text}:
+        |""".stripMargin)
       .setPostProcessing("json")
       .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
       .transform(df)
