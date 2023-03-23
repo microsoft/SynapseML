@@ -68,14 +68,12 @@ class DistributionBalanceMeasure(override val uid: String)
   val emptyReferenceDistribution: Array[Map[String, Double]] = Array.empty
 
   def getReferenceDistribution: Array[Map[String, Double]] =
-    if (isDefined(referenceDistribution)) $(referenceDistribution).map(
-      m => if (m == null) null else m.mapValues(_.asInstanceOf[Double]).map(identity)) //scalastyle:ignore null
+    if (isDefined(referenceDistribution))
+      $(referenceDistribution).map(_.mapValues(_.asInstanceOf[Double]).map(identity))
     else emptyReferenceDistribution
 
   def setReferenceDistribution(value: util.ArrayList[util.HashMap[String, Double]]): this.type = {
-    // NOTE: null implies we use the uniform distribution for the corresponding sensitive column
-    val arrayMap = value.asScala.toArray.map(
-      hm => if (hm == null) null else hm.asScala.toMap.mapValues(_.asInstanceOf[Any])) //scalastyle:ignore null
+    val arrayMap = value.asScala.toArray.map(_.asScala.toMap.mapValues(_.asInstanceOf[Any]))
     set(referenceDistribution, arrayMap)
   }
 
@@ -140,12 +138,9 @@ class DistributionBalanceMeasure(override val uid: String)
         val refFeatureProbCol = DatasetExtensions.findUnusedColumnName("refFeatureProb", featureStats.schema)
         val refFeatureCountCol = DatasetExtensions.findUnusedColumnName("refFeatureCount", featureStats.schema)
 
-        val refDist: String => Double = if (!isDefined(referenceDistribution)) {
-          uniformDistribution(numFeatures)
-        } else getReferenceDistribution(i) match {
-          case null => uniformDistribution(numFeatures) //scalastyle:ignore null
-          case customDist => customDistribution(customDist)
-        }
+        val refDist: String => Double =
+          if (!isDefined(referenceDistribution) || getReferenceDistribution(i).isEmpty) uniformDistribution(numFeatures)
+          else customDistribution(getReferenceDistribution(i))
         val refDistFunc = udf(refDist)
 
         val observedWithRef = observed

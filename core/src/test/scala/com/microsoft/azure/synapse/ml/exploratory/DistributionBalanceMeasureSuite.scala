@@ -135,7 +135,8 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
   test("DistributionBalanceMeasure can use a custom distribution for one col and uniform for another") {
     val customDist = customDistribution
     // Keep custom distribution for Gender (index 0), and use uniform distribution for Ethnicity (index 1)
-    customDist.set(1, null) //scalastyle:ignore null
+    // Specifying empty map defaults to the uniform distribution
+    customDist.set(1, new util.HashMap[String, Double]())
 
     val df = distributionBalanceMeasure
       .setReferenceDistribution(customDist)
