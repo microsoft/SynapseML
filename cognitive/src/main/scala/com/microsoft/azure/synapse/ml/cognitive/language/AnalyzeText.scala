@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive.language
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.openai.HasAPIVersion
 import com.microsoft.azure.synapse.ml.cognitive.text.{TADocument, TextAnalyticsAutoBatch}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
