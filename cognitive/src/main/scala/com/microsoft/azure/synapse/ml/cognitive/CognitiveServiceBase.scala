@@ -233,6 +233,22 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   }
 }
 
+trait HasAPIVersion extends HasServiceParams {
+  val apiVersion: ServiceParam[String] = new ServiceParam[String](
+    this, "apiVersion", "version of the api", isRequired = true, isURLParam = true) {
+    override val payloadName: String = "api-version"
+  }
+
+  def getApiVersion: String = getScalarParam(apiVersion)
+
+  def setApiVersion(v: String): this.type = setScalarParam(apiVersion, v)
+
+  def getApiVersionCol: String = getVectorParam(apiVersion)
+
+  def setApiVersionCol(v: String): this.type = setVectorParam(apiVersion, v)
+
+}
+
 object URLEncodingUtils {
 
   private case class NameValuePairInternal(t: (String, String)) extends NameValuePair {
