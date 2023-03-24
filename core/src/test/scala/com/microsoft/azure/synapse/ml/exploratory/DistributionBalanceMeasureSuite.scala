@@ -8,9 +8,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{array, col}
 
-import java.util
-import scala.collection.JavaConverters._
-
 class DistributionBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionBalanceMeasure] {
 
   override def testObjects(): Seq[TestObject[DistributionBalanceMeasure]] = Seq(
@@ -113,15 +110,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 
-  private def customDistribution: util.ArrayList[util.HashMap[String, Double]] = {
-    // For each feature in sensitiveFeaturesDf (["Gender", "Ethnicity"]), need to specify its corresponding distribution
-    val customDist = new util.ArrayList[util.HashMap[String, Double]]()
+  // For each feature in sensitiveFeaturesDf (["Gender", "Ethnicity"]), need to specify its corresponding distribution
+  private def customDistribution: Array[Map[String, Double]] = Array(
     // Index 0: Gender (all unique values included)
-    customDist.add(new util.HashMap[String, Double](Map("Male" -> 0.25, "Female" -> 0.4, "Other" -> 0.35).asJava))
+    Map("Male" -> 0.25, "Female" -> 0.4, "Other" -> 0.35),
     // Index 1: Ethnicity ('Other' value purposefully left out, which signals a probability of 0.0)
-    customDist.add(new util.HashMap[String, Double](Map("Asian" -> 1/3d, "White" -> 1/3d, "Black" -> 1/3d).asJava))
-    customDist
-  }
+    Map("Asian" -> 1/3d, "White" -> 1/3d, "Black" -> 1/3d)
+  )
 
   test("DistributionBalanceMeasure can use a custom reference distribution for multiple cols") {
     val df = distributionBalanceMeasure
@@ -136,7 +131,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val customDist = customDistribution
     // Keep custom distribution for Gender (index 0), and use uniform distribution for Ethnicity (index 1)
     // Specifying empty map defaults to the uniform distribution
-    customDist.set(1, new util.HashMap[String, Double]())
+    customDist.update(1, Map())
 
     val df = distributionBalanceMeasure
       .setReferenceDistribution(customDist)
@@ -147,18 +142,17 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
   }
 
   test("DistributionBalanceMeasure expects the custom distribution to be the same length as sensitive columns") {
-    val emptyDist = new util.ArrayList[util.HashMap[String, Double]]()
+    val emptyDist: Array[Map[String, Double]] = Array.empty
     assertThrows[Exception] {
       distributionBalanceMeasure
         .setReferenceDistribution(emptyDist)
         .transform(sensitiveFeaturesDf)
     }
 
-    val mismatchedLenDist = new util.ArrayList[util.HashMap[String, Double]]()
-    mismatchedLenDist.add(new util.HashMap[String, Double](Map("ColA" -> 0.25).asJava))
+    val mismatchedLenDist = Array(Map("ColA" -> 0.25))
     assertThrows[Exception] {
       distributionBalanceMeasure
-        .setReferenceDistribution(emptyDist)
+        .setReferenceDistribution(mismatchedLenDist)
         .transform(sensitiveFeaturesDf)
     }
   }
