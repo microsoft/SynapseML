@@ -5,10 +5,55 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.{IntParam, Param, Params}
 import org.apache.spark.ml.regression.{GBTRegressor, RandomForestRegressor, Regressor}
 
-trait OrthoForestDMLParams extends DoubleMLParams {
+
+trait HasNumTrees extends Params{
+  val numTrees: IntParam = new IntParam(this, "numTrees", "Number of trees")
+
+  def getNumTrees: Int = $(numTrees)
+
+  /**
+    * Set number of trees to be used in the forest
+    *
+    * @group setParam
+    */
+  def setNumTrees(value: Int): this.type = set(numTrees, value)
+}
+
+trait HasMaxDepth extends Params{
+
+  val maxDepth: IntParam = new IntParam(this,
+    "maxDepth",
+    "Max Depth of Tree")
+
+  def getMaxDepth: Int = $(maxDepth)
+
+  /**
+    * Set max depth of the trees to be used in the forest
+    *
+    * @group setParam
+    */
+  def setMaxDepth(value: Int): this.type = set(maxDepth, value)
+}
+
+trait  HasMinSampleLeaf extends Params{
+  val minSamplesLeaf: IntParam = new IntParam(this,
+    "minSamplesLeaf",
+    "Max Depth of Tree")
+
+  def getMinSamplesLeaf: Int = $(minSamplesLeaf)
+
+  /**
+    * Set number of samples in the leaf node of trees to be used in the forest
+    *
+    * @group setParam
+    */
+  def setMinSamplesLeaf(value: Int): this.type = set(minSamplesLeaf, value)
+}
+
+trait OrthoForestDMLParams extends DoubleMLParams with HasNumTrees with HasMaxDepth with HasMinSampleLeaf {
   val treatmentResidualCol: Param[String] = new Param[String](this,
     "treatmentResidualCol",
     "Treatment Residual Column")
@@ -102,44 +147,6 @@ trait OrthoForestDMLParams extends DoubleMLParams {
     * @group setParam
     */
   def setOutputHighCol(value: String): this.type = set(outputHighCol, value)
-
-  val numTrees: Param[Int] = new Param[Int](this, "numTrees", "Number of trees")
-
-  def getNumTrees: Int = $(numTrees)
-
-  /**
-    * Set number of trees to be used in the forest
-    *
-    * @group setParam
-    */
-  def setNumTrees(value: Int): this.type = set(numTrees, value)
-
-  val maxDepth: Param[Int] = new Param[Int](this,
-    "maxDepth",
-    "Max Depth of Tree")
-
-  def getMaxDepth: Int = $(maxDepth)
-
-  /**
-    * Set max depth of the trees to be used in the forest
-    *
-    * @group setParam
-    */
-  def setMaxDepth(value: Int): this.type = set(maxDepth, value)
-
-
-  val minSamplesLeaf: Param[Int] = new Param[Int](this,
-    "minSamplesLeaf",
-    "Max Depth of Tree")
-
-  def getMinSamplesLeaf: Int = $(minSamplesLeaf)
-
-  /**
-    * Set number of samples in the leaf node of trees to be used in the forest
-    *
-    * @group setParam
-    */
-  def setMinSamplesLeaf(value: Int): this.type = set(minSamplesLeaf, value)
 
 
   setDefault(

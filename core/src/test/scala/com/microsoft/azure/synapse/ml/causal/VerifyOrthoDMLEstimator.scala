@@ -95,7 +95,7 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
       .setConfounderVecCol(confounderVecCol)
       .setMaxDepth(7)
       .setMinSamplesLeaf(30),
-      df))
+      ppfit))
 
   override def reader: MLReadable[_] = OrthoForestDMLEstimator
 
