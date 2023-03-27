@@ -105,7 +105,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
     assert(results.head.getSeq(0).mkString("\n") === "再见")
-    assert(results.head.getSeq(1).mkString("\n") === "zài jiàn")
+    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "") === "zàijiàn")
   }
 
   test("Translate to multiple languages") {

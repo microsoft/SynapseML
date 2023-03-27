@@ -4,24 +4,14 @@
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
-import com.microsoft.azure.synapse.ml.cognitive.{
-  CognitiveServicesBase, HasCognitiveServiceInput,
-  HasInternalJsonOutputParser, HasServiceParams
-}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
+import com.microsoft.azure.synapse.ml.cognitive.{HasAPIVersion, HasServiceParams}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
-import org.apache.spark.ml.ComplexParamsReadable
-import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
-import spray.json._
 
 import scala.language.existentials
 
-trait HasPrompt extends HasServiceParams {
+trait HasPromptInputs extends HasServiceParams {
   val prompt: ServiceParam[String] = new ServiceParam[String](
     this, "prompt", "The text to complete", isRequired = false)
 
@@ -32,9 +22,7 @@ trait HasPrompt extends HasServiceParams {
   def getPromptCol: String = getVectorParam(prompt)
 
   def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
-}
 
-trait HasBatchPrompt extends HasServiceParams {
   val batchPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
     this, "batchPrompt", "Sequence of prompts to complete", isRequired = false)
 
@@ -45,52 +33,11 @@ trait HasBatchPrompt extends HasServiceParams {
   def getBatchPromptCol: String = getVectorParam(batchPrompt)
 
   def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
+
 }
 
-trait HasIndexPrompt extends HasServiceParams {
-  val indexPrompt: ServiceParam[Seq[Int]] = new ServiceParam[Seq[Int]](
-    this, "indexPrompt", "Sequence of indexes to complete", isRequired = false)
+trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
-  def getIndexPrompt: Seq[Int] = getScalarParam(indexPrompt)
-
-  def setIndexPrompt(v: Seq[Int]): this.type = setScalarParam(indexPrompt, v)
-
-  def getIndexPromptCol: String = getVectorParam(indexPrompt)
-
-  def setIndexPromptCol(v: String): this.type = setVectorParam(indexPrompt, v)
-}
-
-trait HasBatchIndexPrompt extends HasServiceParams {
-  val batchIndexPrompt: ServiceParam[Seq[Seq[Int]]] = new ServiceParam[Seq[Seq[Int]]](
-    this, "batchIndexPrompt", "Sequence of index sequences to complete", isRequired = false)
-
-  def getBatchIndexPrompt: Seq[Seq[Int]] = getScalarParam(batchIndexPrompt)
-
-  def setBatchIndexPrompt(v: Seq[Seq[Int]]): this.type = setScalarParam(batchIndexPrompt, v)
-
-  def getBatchIndexPromptCol: String = getVectorParam(batchIndexPrompt)
-
-  def setBatchIndexPromptCol(v: String): this.type = setVectorParam(batchIndexPrompt, v)
-}
-
-trait HasAPIVersion extends HasServiceParams {
-  val apiVersion: ServiceParam[String] = new ServiceParam[String](
-    this, "apiVersion", "version of the api", isRequired = true, isURLParam = true) {
-    override val payloadName: String = "api-version"
-  }
-
-  def getApiVersion: String = getScalarParam(apiVersion)
-
-  def setApiVersion(v: String): this.type = setScalarParam(apiVersion, v)
-
-  def getApiVersionCol: String = getVectorParam(apiVersion)
-
-  def setApiVersionCol(v: String): this.type = setVectorParam(apiVersion, v)
-
-  setDefault(apiVersion -> Left("2022-03-01-preview"))
-}
-
-trait HasDeploymentName extends HasServiceParams {
   val deploymentName = new ServiceParam[String](
     this, "deploymentName", "The name of the deployment", isRequired = true)
 
@@ -101,9 +48,25 @@ trait HasDeploymentName extends HasServiceParams {
   def getDeploymentNameCol: String = getVectorParam(deploymentName)
 
   def setDeploymentNameCol(v: String): this.type = setVectorParam(deploymentName, v)
+
+  val user: ServiceParam[String] = new ServiceParam[String](
+    this, "user",
+    "The ID of the end-user, for use in tracking and rate-limiting.",
+    isRequired = false)
+
+  def getUser: String = getScalarParam(user)
+
+  def setUser(v: String): this.type = setScalarParam(user, v)
+
+  def getUserCol: String = getVectorParam(user)
+
+  def setUserCol(v: String): this.type = setVectorParam(user, v)
+
+  setDefault(apiVersion -> Left("2023-03-15-preview"))
+
 }
 
-trait HasMaxTokens extends HasServiceParams {
+trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -118,9 +81,6 @@ trait HasMaxTokens extends HasServiceParams {
 
   def setMaxTokensCol(v: String): this.type = setVectorParam(maxTokens, v)
 
-}
-
-trait HasTemperature extends HasServiceParams {
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
     this, "temperature",
     "What sampling temperature to use. Higher values means the model will take more risks." +
@@ -135,24 +95,7 @@ trait HasTemperature extends HasServiceParams {
   def getTemperatureCol: String = getVectorParam(temperature)
 
   def setTemperatureCol(v: String): this.type = setVectorParam(temperature, v)
-}
 
-trait HasModel extends HasServiceParams {
-  val model: ServiceParam[String] = new ServiceParam[String](
-    this, "model",
-    "The name of the model to use",
-    isRequired = false)
-
-  def getModel: String = getScalarParam(model)
-
-  def setModel(v: String): this.type = setScalarParam(model, v)
-
-  def getModelCol: String = getVectorParam(model)
-
-  def setModelCol(v: String): this.type = setVectorParam(model, v)
-}
-
-trait HasStop extends HasServiceParams {
   val stop: ServiceParam[String] = new ServiceParam[String](
     this, "stop",
     "A sequence which indicates the end of the current document.",
@@ -165,12 +108,6 @@ trait HasStop extends HasServiceParams {
   def getStopCol: String = getVectorParam(stop)
 
   def setStopCol(v: String): this.type = setVectorParam(stop, v)
-}
-
-trait HasOpenAIParams extends HasServiceParams
-  with HasPrompt with HasBatchPrompt with HasIndexPrompt with HasBatchIndexPrompt
-  with HasTemperature with HasModel with HasStop
-  with HasAPIVersion with HasDeploymentName with HasMaxTokens {
 
   val topP: ServiceParam[Double] = new ServiceParam[Double](
     this, "topP",
@@ -188,19 +125,6 @@ trait HasOpenAIParams extends HasServiceParams
   def getTopPCol: String = getVectorParam(topP)
 
   def setTopPCol(v: String): this.type = setVectorParam(topP, v)
-
-  val user: ServiceParam[String] = new ServiceParam[String](
-    this, "user",
-    "The ID of the end-user, for use in tracking and rate-limiting.",
-    isRequired = false)
-
-  def getUser: String = getScalarParam(user)
-
-  def setUser(v: String): this.type = setScalarParam(user, v)
-
-  def getUserCol: String = getVectorParam(user)
-
-  def setUserCol(v: String): this.type = setVectorParam(user, v)
 
   val n: ServiceParam[Int] = new ServiceParam[Int](
     this, "n",
@@ -299,5 +223,24 @@ trait HasOpenAIParams extends HasServiceParams
 
   def setBestOfCol(v: String): this.type = setVectorParam(bestOf, v)
 
+  private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    Seq(
+      maxTokens,
+      temperature,
+      topP,
+      user,
+      n,
+      echo,
+      stop,
+      cacheLevel,
+      presencePenalty,
+      frequencyPenalty,
+      bestOf
+    ).flatMap(param =>
+      getValueOpt(r, param).map(v => (GenerationUtils.camelToSnake(param.name), v))
+    ).++(Seq(
+      getValueOpt(r, logProbs).map(v => ("logprobs", v))
+    ).flatten).toMap
+  }
 }
 

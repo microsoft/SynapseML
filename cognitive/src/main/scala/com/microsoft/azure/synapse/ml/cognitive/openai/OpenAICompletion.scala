@@ -3,10 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 import com.microsoft.azure.synapse.ml.cognitive.{
-  CognitiveServicesBase, HasCognitiveServiceInput,
-  HasInternalJsonOutputParser
+  CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser
 }
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
@@ -23,13 +21,15 @@ import scala.language.existentials
 object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 
 class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(uid)
-  with HasOpenAIParams with HasCognitiveServiceInput
+  with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass()
 
-  def this() = this(Identifiable.randomUID("OpenAPICompletion"))
+  def this() = this(Identifiable.randomUID("OpenAICompletion"))
 
   def urlPath: String = ""
+
+  override private[ml] def internalServiceType: String = "openai"
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -41,33 +41,11 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
-      lazy val optionalParams: Map[String, Any] = Seq(
-        maxTokens,
-        temperature,
-        topP,
-        user,
-        n,
-        model,
-        echo,
-        stop,
-        cacheLevel,
-        presencePenalty,
-        frequencyPenalty,
-        bestOf
-      ).flatMap(param =>
-        getValueOpt(r, param).map(v => (GenerationUtils.camelToSnake(param.name), v))
-      ).++(Seq(
-        getValueOpt(r, logProbs).map(v => ("logprobs", v))
-      ).flatten).toMap
-
+      lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       getValueOpt(r, prompt)
         .map(prompt => getStringEntity(prompt, optionalParams))
         .orElse(getValueOpt(r, batchPrompt)
           .map(batchPrompt => getStringEntity(batchPrompt, optionalParams)))
-        .orElse(getValueOpt(r, indexPrompt)
-          .map(indexPrompt => getStringEntity(indexPrompt, optionalParams)))
-        .orElse(getValueOpt(r, batchIndexPrompt)
-          .map(batchIndexPrompt => getStringEntity(batchIndexPrompt, optionalParams)))
         .orElse(throw new IllegalArgumentException(
           "Please set one of prompt, batchPrompt, indexPrompt or batchIndexPrompt."))
   }
@@ -75,10 +53,8 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def shouldSkip(row: Row): Boolean =
-    emptyParamData(row, prompt) &&
-    emptyParamData(row, batchPrompt) &&
-    emptyParamData(row, indexPrompt) &&
-    emptyParamData(row, batchIndexPrompt)
+    super.shouldSkip(row) ||
+      (emptyParamData(row, prompt) && emptyParamData(row, batchPrompt))
 
   override def responseDataType: DataType = CompletionResponse.schema
 
@@ -88,3 +64,4 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
   }
 
 }
+

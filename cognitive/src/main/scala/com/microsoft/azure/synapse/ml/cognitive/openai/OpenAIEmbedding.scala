@@ -23,13 +23,14 @@ import scala.language.existentials
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(uid)
-  with HasServiceParams with HasAPIVersion with HasDeploymentName
-  with HasCognitiveServiceInput  with SynapseMLLogging {
+  with HasOpenAISharedParams with HasCognitiveServiceInput  with SynapseMLLogging {
   logClass()
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 
   def urlPath: String = ""
+
+  override private[ml] def internalServiceType: String = "openai"
 
   val text: ServiceParam[String] = new ServiceParam[String](
     this, "text", "Input text to get embeddings for.", isRequired = true)

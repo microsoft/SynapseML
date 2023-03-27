@@ -16,8 +16,6 @@ import java.io.File
 
 object PyCodegen {
 
-  type Foo = Estimator[_ <: Model[_]]
-
   import CodeGenUtils._
 
   def generatePythonClasses(conf: CodegenConfig): Unit = {

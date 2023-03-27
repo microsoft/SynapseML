@@ -3,14 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.cognitive
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
-import org.apache.spark.ml.param.{Param, ParamMap, ParamValidators}
+import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.types.{DataType, StructType}
@@ -21,11 +20,12 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasAPIVersion with HasDeploymentName with HasMaxTokens
-  with HasTemperature with HasModel with HasStop
-  with HasURL with HasSubscriptionKey with HasAADToken
-  with ComplexParamsWritable with HasErrorCol with ConcurrencyParams
-  with HasOutputCol with HasCustomCogServiceDomain with SynapseMLLogging {
+  with HasOpenAITextParams
+  with HasErrorCol with HasOutputCol
+  with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
+  with HasSubscriptionKey with HasAADToken
+  with ComplexParamsWritable with SynapseMLLogging {
+
   logClass()
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
@@ -33,6 +33,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   def urlPath: String = ""
+
+  override private[ml] def internalServiceType: String = "openai"
 
   val promptTemplate = new Param[String](
     this, "promptTemplate", "The prompt. supports string interpolation {col1}: {col2}.")
@@ -59,14 +61,27 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
     set(postProcessingOptions, v.asScala.toMap)
 
-  setDefault(outputCol -> "out",
-    postProcessing -> "", postProcessingOptions -> Map.empty)
+  val dropPrompt = new BooleanParam(
+    this, "dropPrompt", "whether to drop the column of prompts after templating")
+
+  def getDropPrompt: Boolean = $(dropPrompt)
+
+  def setDropPrompt(value: Boolean): this.type = set(dropPrompt, value)
+
+  setDefault(
+    postProcessing -> "",
+    postProcessingOptions -> Map.empty,
+    outputCol -> (this.uid + "_output"),
+    errorCol -> (this.uid + "_error"),
+    dropPrompt -> true
+  )
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
 
-  private val localParamNames = Seq("promptTemplate", "outputCol", "postProcessing", "postProcessingOptions")
+  private val localParamNames = Seq(
+    "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
@@ -81,12 +96,18 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val completion = openAICompletion.setPromptCol(promptColName)
 
       // run completion
-      completion
+      val results = completion
         .transform(dfTemplated)
         .withColumn(getOutputCol,
           getParser.parse(F.element_at(F.col(completion.getOutputCol).getField("choices"), 1)
             .getField("text")))
         .drop(completion.getOutputCol)
+
+      if (getDropPrompt) {
+        results.drop(promptColName)
+      } else {
+        results
+      }
     })
   }
 
@@ -113,6 +134,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
     }
   }
+
   override def transformSchema(schema: StructType): StructType =
     openAICompletion
       .transformSchema(schema)

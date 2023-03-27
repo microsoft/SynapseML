@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.cognitive.language
 
 import com.microsoft.azure.synapse.ml.cognitive._
-import com.microsoft.azure.synapse.ml.cognitive.openai.HasAPIVersion
 import com.microsoft.azure.synapse.ml.cognitive.text.{TADocument, TextAnalyticsAutoBatch}
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -146,6 +145,8 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
   )
 
   override def urlPath: String = "/language/:analyze-text"
+
+  override private[ml] def internalServiceType: String = "textanalytics"
 
   // We don't support setKindCol here because output schemas for different kind are different
   val kind = new Param[String](

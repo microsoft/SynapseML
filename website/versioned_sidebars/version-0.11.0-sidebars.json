@@ -135,7 +135,7 @@
             "features/simple_deep_learning/about",
             "features/simple_deep_learning/DeepLearning - Deep Text Classification",
             "features/simple_deep_learning/DeepLearning - Deep Vision Classification",
-            "features/simple_deep_learning/DeepLearning - Deep Vision Classifier"
+            "features/simple_deep_learning/installation"
           ]
         },
         {
@@ -157,13 +157,16 @@
           "type": "category",
           "label": "Other",
           "items": [
+            "features/other/AzureSearchIndex - Met Artworks",
             "features/other/ConditionalKNN - Exploring Art Across Cultures",
             "features/other/CyberML - Anomalous Access Detection",
             "features/other/DeepLearning - BiLSTM Medical Entity Extraction",
             "features/other/DeepLearning - CIFAR10 Convolutional Network",
             "features/other/DeepLearning - Flower Image Classification",
             "features/other/DeepLearning - Transfer Learning",
-            "features/other/HyperParameterTuning - Fighting Breast Cancer"
+            "features/other/HyperParameterTuning - Fighting Breast Cancer",
+            "features/other/TextAnalytics - Amazon Book Reviews with Word2Vec",
+            "features/other/TextAnalytics - Amazon Book Reviews"
           ]
         }
       ]

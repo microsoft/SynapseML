@@ -170,6 +170,12 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
     setUrl(v + urlPath.stripPrefix("/"))
   }
 
+  def setInternalEndpoint(v: String): this.type = {
+    setUrl(v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
+  }
+
+  private[ml] def internalServiceType: String = ""
+
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """def setCustomServiceName(self, value):
       |    self._java_obj = self._java_obj.setCustomServiceName(value)
@@ -179,12 +185,16 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setEndpoint(value)
       |    return self
       |
+      |def setInternalEndpoint(self, value):
+      |    self._java_obj = self._java_obj.setInternalEndpoint(value)
+      |    return self
+      |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
       |    if running_on_synapse_internal():
       |        from synapse.ml.mlflow import get_mlflow_env_config
       |        mlflow_env_configs = get_mlflow_env_config()
       |        self.setAADToken(mlflow_env_configs.driver_aad_token)
-      |        self.setEndpoint(mlflow_env_configs.workload_endpoint + "/cognitive/api/")
+      |        self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
       |    return super()._transform(dataset)
       |""".stripMargin
   }
@@ -209,8 +219,34 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
        |/// <returns> New $dotnetClassName object </returns>
        |public $dotnetClassName SetEndpoint(string value) =>
        |    $dotnetClassWrapperName(Reference.Invoke(\"setEndpoint\", value));
+       |
+       |/// <summary>
+       |/// Sets value for internal endpoint
+       |/// </summary>
+       |/// <param name=\"value\">
+       |/// Endpoint of the cognitive service
+       |/// </param>
+       |/// <returns> New $dotnetClassName object </returns>
+       |public $dotnetClassName setInternalEndpoint(string value) =>
+       |    $dotnetClassWrapperName(Reference.Invoke(\"setInternalEndpoint\", value));
        |""".stripMargin
   }
+}
+
+trait HasAPIVersion extends HasServiceParams {
+  val apiVersion: ServiceParam[String] = new ServiceParam[String](
+    this, "apiVersion", "version of the api", isRequired = true, isURLParam = true) {
+    override val payloadName: String = "api-version"
+  }
+
+  def getApiVersion: String = getScalarParam(apiVersion)
+
+  def setApiVersion(v: String): this.type = setScalarParam(apiVersion, v)
+
+  def getApiVersionCol: String = getVectorParam(apiVersion)
+
+  def setApiVersionCol(v: String): this.type = setVectorParam(apiVersion, v)
+
 }
 
 object URLEncodingUtils {
