@@ -14,7 +14,6 @@ import spray.json.{DefaultJsonProtocol, _}
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import scala.collection.mutable
-import scala.collection.mutable.HashSet
 
 
 case class MADListModelsResponse(models: Seq[MADModel],
@@ -147,6 +146,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
       val smae = simpleMultiAnomalyEstimator
       val model = smae.fit(df)
       smae.cleanUpIntermediateData()
+      assert(model.getDiagnosticsInfo.variableStates.get.length.equals(3))
 
       model.setStartTime(startTime)
         .setEndTime(endTime)
