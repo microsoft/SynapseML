@@ -10,16 +10,19 @@ import com.microsoft.azure.synapse.ml.cognitive.anomaly.MADJsonProtocol._
 import com.microsoft.azure.synapse.ml.cognitive.vision.HasAsyncReply
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.stages._
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods._
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
+import org.apache.spark.internal.Logging
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -48,7 +51,7 @@ private[ml] object Conversions {
   scala.collection.Iterator[T] = RemoteIteratorWrapper[T](underlying)
 }
 
-object MADUtils {
+object MADUtils extends Logging {
 
   private[ml] val CreatedModels: mutable.ParHashSet[String] = new ParHashSet[String]()
 
@@ -153,6 +156,27 @@ object MADUtils {
     CreatedModels.clear()
   }
 
+  private[ml] def checkModelStatus(url: String, modelId: String, subscriptionKey: String): Unit = try {
+    val response = madGetModel(url, modelId, subscriptionKey)
+      .parseJson.asJsObject.fields
+
+    val modelInfo = response("modelInfo").asJsObject.fields
+    val modelStatus = modelInfo("status").asInstanceOf[JsString].value.toLowerCase
+    modelStatus match {
+      case "failed" =>
+        val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
+        throw new RuntimeException(s"Caught errors during fitting: $errors")
+      case "created" | "running" =>
+        throw new RuntimeException(s"model $modelId is not ready yet")
+      case "ready" =>
+        logInfo("model is ready for inference")
+    }
+  } catch {
+    case e: RuntimeException =>
+      throw new RuntimeException(s"Encounter error while fetching model $modelId, " +
+        s"please double check the modelId is correct: ${e.getMessage}")
+  }
+
 }
 
 trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
@@ -241,12 +265,8 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
 
 private case class StorageInfo(account: String, container: String, key: String, blob: String)
 
-trait MADBase extends HasOutputCol
-  with MADHttpRequest with HasSetLocation with HasInputCols
-  with ComplexParamsWritable with Wrappable
-  with HasErrorCol with SynapseMLLogging {
-
-  private def convertTimeFormat(name: String, v: String): String = {
+trait TimeConverter {
+  protected def convertTimeFormat(name: String, v: String): String = {
     try {
       DateTimeFormatter.ISO_INSTANT.format(DateTimeFormatter.ISO_INSTANT.parse(v))
     }
@@ -256,6 +276,22 @@ trait MADBase extends HasOutputCol
           s"${name.capitalize} should be ISO8601 format. e.g. 2021-01-01T00:00:00Z, received: ${e.toString}")
     }
   }
+}
+
+trait HasTimestampCol extends Params {
+  val timestampCol = new Param[String](this, "timestampCol", "Timestamp column name")
+
+  def setTimestampCol(v: String): this.type = set(timestampCol, v)
+
+  def getTimestampCol: String = $(timestampCol)
+
+  setDefault(timestampCol -> "timestamp")
+}
+
+trait MADBase extends HasOutputCol with TimeConverter
+  with MADHttpRequest with HasSetLocation with HasInputCols
+  with ComplexParamsWritable with Wrappable with HasTimestampCol
+  with HasErrorCol with SynapseMLLogging {
 
   val startTime = new Param[String](this, "startTime", "A required field, start time" +
     " of data to be used for detection/generating multivariate anomaly detection model, should be date-time.")
@@ -270,14 +306,6 @@ trait MADBase extends HasOutputCol
   def setEndTime(v: String): this.type = set(endTime, convertTimeFormat(endTime.name, v))
 
   def getEndTime: String = $(endTime)
-
-  val timestampCol = new Param[String](this, "timestampCol", "Timestamp column name")
-
-  def setTimestampCol(v: String): this.type = set(timestampCol, v)
-
-  def getTimestampCol: String = $(timestampCol)
-
-  setDefault(timestampCol -> "timestamp")
 
   private def validateIntermediateSaveDir(dir: String): Boolean = {
     if (!dir.startsWith("wasbs://") && !dir.startsWith("abfss://")) {
@@ -315,7 +343,7 @@ trait MADBase extends HasOutputCol
       .sparkContext.hadoopConfiguration
     val key = Option(hc.get(adlsConfig)).orElse(Option(hc.get(blobConfig)))
 
-    if (key.isEmpty){
+    if (key.isEmpty) {
       throw new IllegalAccessError("Could not find the storage account credentials." +
         s" Make sure your hadoopConfiguration has the" +
         s" ''$blobConfig'' or ''$adlsConfig'' configuration set.")
@@ -508,16 +536,7 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
 
 }
 
-object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetectMultivariateAnomaly] with Serializable
-
-class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
-  with MADBase with HasHandler {
-  logClass()
-
-  def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
-
-  def urlPath: String = "anomalydetector/v1.1/multivariate/models/"
-
+trait DetectMAParams extends Params {
   val modelId = new Param[String](this, "modelId", "Format - uuid. Model identifier.")
 
   def setModelId(v: String): this.type = set(modelId, v)
@@ -535,6 +554,17 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
   def getTopContributorCount: Int = $(topContributorCount)
 
   setDefault(topContributorCount -> 10)
+}
+
+object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetectMultivariateAnomaly] with Serializable
+
+class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
+  with MADBase with HasHandler with DetectMAParams {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
+
+  def urlPath: String = "anomalydetector/v1.1/multivariate/models/"
 
   protected def prepareEntity(dataSource: String): Option[AbstractHttpEntity] = {
     Some(new StringEntity(
@@ -552,26 +582,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
     logTransform[DataFrame] {
 
       // check model status first
-      try {
-        val response = MADUtils.madGetModel(getUrl, getModelId, getSubscriptionKey)
-          .parseJson.asJsObject.fields
-
-        val modelInfo = response("modelInfo").asJsObject.fields
-        val modelStatus = modelInfo("status").asInstanceOf[JsString].value.toLowerCase
-        modelStatus match {
-          case "failed" =>
-            val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
-            throw new RuntimeException(s"Caught errors during fitting: $errors")
-          case "created" | "running" =>
-            throw new RuntimeException(s"model $getModelId is not ready yet")
-          case "ready" =>
-            logInfo("model is ready for inference")
-        }
-      } catch {
-        case e: RuntimeException =>
-          throw new RuntimeException(s"Encounter error while fetching model $getModelId, " +
-            s"please double check the modelId is correct: ${e.getMessage}")
-      }
+      MADUtils.checkModelStatus(getUrl, getModelId, getSubscriptionKey)
 
       val spark = dataset.sparkSession
       val responseJson = submitDatasetAndJob(dataset)
@@ -624,5 +635,109 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
       .add(getOutputCol, DMAResponse.schema)
       .add("isAnomaly", BooleanType)
   }
+
+}
+
+object DetectLastMultivariateAnomaly extends ComplexParamsReadable[DetectLastMultivariateAnomaly] with Serializable
+
+class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveServicesBase(uid)
+  with HasInternalJsonOutputParser with TimeConverter with HasTimestampCol
+  with HasSetLocation with HasCognitiveServiceInput with HasBatchSize
+  with ComplexParamsWritable with Wrappable
+  with HasErrorCol with SynapseMLLogging with DetectMAParams {
+  logClass()
+
+  def this() = this(Identifiable.randomUID("DetectLastMultivariateAnomaly"))
+
+  def urlPath: String = "anomalydetector/v1.1/multivariate/models/"
+
+  val inputVariablesCols = new Param[Seq[String]](this, "inputVariablesCols",
+    "The names of the input variables columns")
+
+  def setInputVariablesCols(value: Seq[String]): this.type = set(inputVariablesCols, value)
+
+  def getInputVariablesCols: Seq[String] = $(inputVariablesCols)
+
+  override def setBatchSize(value: Int): this.type = {
+    logWarning("batchSize should be equal to 1 sliding window.")
+    set(batchSize, value)
+  }
+
+  setDefault(batchSize -> 300)
+
+  override protected def prepareUrl: Row => String = {
+    row: Row => getUrl + s"$getModelId:detect-last"
+  }
+
+  protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
+    val timestamps = row.getAs[Seq[String]](getTimestampCol)
+    val variables = getInputVariablesCols.map(
+      variable => Variable(timestamps, row.getAs[Seq[Double]](variable), variable))
+    Some(new StringEntity(
+      DLMARequest(variables, getTopContributorCount).toJson.compactPrint
+    ))
+  }
+
+  // scalastyle:off null
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
+      // check model status first
+      MADUtils.checkModelStatus(getUrl, getModelId, getSubscriptionKey)
+
+      val convertTimeFormatUdf = UDFUtils.oldUdf(
+        { value: String => convertTimeFormat("Timestamp column", value) },
+        StringType
+      )
+      val formattedDF = dataset.withColumn(getTimestampCol, convertTimeFormatUdf(col(getTimestampCol)))
+        .sort(col(getTimestampCol).asc)
+
+      getInternalTransformer(formattedDF.schema).transform(formattedDF)
+        .withColumn("isAnomaly", when(col(getOutputCol).isNotNull,
+          col(s"$getOutputCol.results.value.isAnomaly")(0)).otherwise(null))
+        .withColumn("DetectDataTimestamp", when(col(getOutputCol).isNotNull,
+          col(s"$getOutputCol.results.timestamp")(0)).otherwise(null))
+
+    })
+  }
+  // scalastyle:on null
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val batcher = Some(new FixedMiniBatchTransformer().setBatchSize(getBatchSize))
+    val newSchema = batcher.map(_.transformSchema(schema)).get
+
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", newSchema)
+    val lambda = Lambda(_.withColumn(dynamicParamColName, struct(getTimestampCol, getInputVariablesCols: _*)))
+
+    val stages = Array(
+      lambda,
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(newSchema))
+        .setOutputParser(getInternalOutputParser(newSchema))
+        .setHandler(handlingFunc _)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCol(dynamicParamColName)
+    )
+
+    val pipe = NamespaceInjections.pipelineModel(stages)
+
+    val flatten = Some(new FlattenBatch())
+
+    NamespaceInjections.pipelineModel(
+      Array(batcher, Some(pipe), flatten).flatten
+    )
+
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    schema.add(getErrorCol, DMAError.schema)
+      .add(getOutputCol, DLMAResponse.schema)
+      .add("isAnomaly", BooleanType)
+  }
+
+  override def responseDataType: DataType = DLMAResponse.schema
 
 }

@@ -43,9 +43,9 @@ case class DMASetupInfo(dataSource: String,
 case class DMAResult(timestamp: String, value: Option[DMAValue], errors: Option[Seq[DMAError]])
 
 case class DMAValue(interpretation: Option[Seq[Interpretation]],
-                    isAnomaly: Option[Boolean],
-                    severity: Option[Double],
-                    score: Option[Double])
+                    isAnomaly: Boolean,
+                    severity: Double,
+                    score: Double)
 
 case class Interpretation(variable: Option[String],
                           contributionScore: Option[Double],
@@ -91,6 +91,18 @@ case class ModelState(epochIds: Option[Seq[Int]],
                       validationLosses: Option[Seq[Double]],
                       latenciesInSeconds: Option[Seq[Double]])
 
+object DLMARequest extends SparkBindings[DLMARequest]
+
+case class DLMARequest(variables: Seq[Variable], topContributorCount: Int)
+
+object Variable extends SparkBindings[Variable]
+
+case class Variable(timestamps: Seq[String], values: Seq[Double], variable: String)
+
+object DLMAResponse extends SparkBindings[DLMAResponse]
+
+case class DLMAResponse(variableStates: Option[Seq[DMAVariableState]], results: Option[Seq[DMAResult]])
+
 object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat4(DMARequest.apply)
   implicit val EEnc: RootJsonFormat[DMAError] = jsonFormat2(DMAError.apply)
@@ -106,4 +118,6 @@ object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMASetupInfoEnc: RootJsonFormat[DMASetupInfo] = jsonFormat4(DMASetupInfo.apply)
   implicit val DMASummaryEnc: RootJsonFormat[DMASummary] = jsonFormat4(DMASummary.apply)
   implicit val MAEModelInfoEnc: RootJsonFormat[MAEModelInfo] = jsonFormat10(MAEModelInfo.apply)
+  implicit val VariableEnc: RootJsonFormat[Variable] = jsonFormat3(Variable.apply)
+  implicit val DLMARequestEnc: RootJsonFormat[DLMARequest] = jsonFormat2(DLMARequest.apply)
 }
