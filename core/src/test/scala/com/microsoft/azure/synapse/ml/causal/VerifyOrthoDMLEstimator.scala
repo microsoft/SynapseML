@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
@@ -100,5 +103,4 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
   override def reader: MLReadable[_] = OrthoForestDMLEstimator
 
   override def modelReader: MLReadable[_] = OrthoForestDMLModel
-
 }
