@@ -74,7 +74,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
 
-  test("SimpleMultiAnomalyEstimator basic usage") {
+  test("SimpleFitMultivariateAnomaly basic usage") {
     val smae = simpleMultiAnomalyEstimator.setSlidingWindow(50)
     val model = smae.fit(df)
     smae.cleanUpIntermediateData()

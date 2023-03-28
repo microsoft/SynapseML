@@ -43,9 +43,9 @@ case class DMASetupInfo(dataSource: String,
 case class DMAResult(timestamp: String, value: Option[DMAValue], errors: Option[Seq[DMAError]])
 
 case class DMAValue(interpretation: Option[Seq[Interpretation]],
-                    isAnomaly: Boolean,
-                    severity: Double,
-                    score: Double)
+                    isAnomaly: Option[Boolean],
+                    severity: Option[Double],
+                    score: Option[Double])
 
 case class Interpretation(variable: Option[String],
                           contributionScore: Option[Double],
