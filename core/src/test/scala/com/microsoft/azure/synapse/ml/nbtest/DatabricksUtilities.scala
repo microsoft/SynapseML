@@ -56,7 +56,8 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "Pillow")),
     Map("pypi" -> Map("package" -> "onnxmltools==1.7.0")),
     Map("pypi" -> Map("package" -> "lightgbm")),
-    Map("pypi" -> Map("package" -> "mlflow"))
+    Map("pypi" -> Map("package" -> "mlflow")),
+    Map("pypi" -> Map("package" -> "openai"))
   ).toJson.compactPrint
 
   // TODO: install synapse.ml.dl wheel package here

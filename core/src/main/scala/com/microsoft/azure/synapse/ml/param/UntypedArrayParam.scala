@@ -6,14 +6,15 @@ package com.microsoft.azure.synapse.ml.param
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat, _}
-import org.json4s.DefaultFormats
 
 import scala.collection.JavaConverters._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
 
   //scalastyle:off cyclomatic.complexity
-  implicit def anyFormat: JsonFormat[Any] =
+  implicit def anyFormat: JsonFormat[Any] = {
+    def throwFailure(any: Any) = throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
+
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
         case v: Int => v.toJson
@@ -22,8 +23,14 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
         case v: Seq[_] => seqFormat[Any].write(v)
-        case v: Map[String, _] => mapFormat[String, Any].write(v)
-        case _ => throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
+        case v: Map[_, _] => {
+          try {
+            mapFormat[String, Any].write(v.asInstanceOf[Map[String, Any]])
+          } catch {
+            case _: Throwable => throwFailure(any)
+          }
+        }
+        case _ => throwFailure(any)
       }
 
       def read(value: JsValue): Any = value match {
@@ -42,8 +49,8 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case _ => throw new IllegalArgumentException(s"Cannot deserialize ${value}")
       }
     }
+  }
   //scalastyle:on cyclomatic.complexity
-
 }
 
 /** :: DeveloperApi ::

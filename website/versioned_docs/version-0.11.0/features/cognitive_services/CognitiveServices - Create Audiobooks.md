@@ -3,7 +3,7 @@ title: CognitiveServices - Create Audiobooks
 hide_title: true
 status: stable
 ---
-# Create Audiobooks using Neural Speech to Text
+# Create audiobooks using neural Text to speech
 
 ## Step 1: Load libraries and add service information
 
@@ -35,11 +35,6 @@ storage_account = "anomalydetectiontest"
 ```python
 spark_key_setting = f"fs.azure.account.key.{storage_account}.blob.core.windows.net"
 spark.sparkContext._jsc.hadoopConfiguration().set(spark_key_setting, storage_key)
-```
-
-
-```python
-import os
 ```
 
 
