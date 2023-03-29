@@ -13,9 +13,10 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
-import java.util.UUID
+import java.util.{Calendar, UUID}
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with SynapseMLLogging {
@@ -106,12 +107,23 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         .setNumFeatures(featuresToHashTo)
 
       val featurizedModel = featurizer.fit(convertedLabelDataset)
-      val processedData = featurizedModel.transform(convertedLabelDataset)
+
+//      val colstoSelect = if (isDefined(weightCol) || !$(weightCol).isEmpty)
+//        Array(getFeaturesCol, getLabelCol, getWeightCol)
+//      else Array(getFeaturesCol, getLabelCol)
+//
+//      val processedData = featurizedModel.transform(convertedLabelDataset).select(colstoSelect.map(col): _*)
+
+      val processedData = featurizedModel.transform(convertedLabelDataset).select(getFeaturesCol, getLabelCol)
 
       processedData.cache()
 
       // Train the learner
+      println(s"$this - [trainRegressor] start fit at ${Calendar.getInstance().getTime()}")
+
       val fitModel = regressor.fit(processedData)
+
+      println(s"$this - [trainRegressor] complete fit at ${Calendar.getInstance().getTime()}")
 
       processedData.unpersist()
 
@@ -155,6 +167,8 @@ class TrainedRegressorModel(val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
+      println(s"$this - [trainRegressor] start transform at ${Calendar.getInstance().getTime()}")
+
       // re-featurize and score the data
       val scoredData = getModel.transform(dataset)
 
@@ -168,6 +182,8 @@ class TrainedRegressorModel(val uid: String)
         if (!labelColumnExists) cleanedScoredData
         else SparkSchema.setLabelColumnName(
           cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
+
+      println(s"$this - [trainRegressor] complete at ${Calendar.getInstance().getTime()}")
 
       SparkSchema.updateColumnMetadata(schematizedScoredDataWithLabel,
         moduleName, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)

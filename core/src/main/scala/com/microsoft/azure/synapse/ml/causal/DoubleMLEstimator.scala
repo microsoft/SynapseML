@@ -24,6 +24,7 @@ import org.apache.spark.sql.types.{BooleanType, DataType, DoubleType, IntegerTyp
 import org.apache.commons.math3.stat.inference.TestUtils
 import org.apache.spark.sql.functions.{col, lit, when}
 
+import java.util.Calendar
 import scala.concurrent.Future
 
 // scalastyle:off method.length
@@ -104,7 +105,7 @@ class DoubleMLEstimator(override val uid: String)
 
       val ateFutures =(1 to getMaxIter).toArray.map { index =>
         Future[Option[Double]] {
-          log.info(s"Executing ATE calculation on iteration: $index")
+          println(s"Executing ATE calculation on iteration: $index")
           // If the algorithm runs over 1 iteration, do not bootstrap from dataset,
           // otherwise, redraw sample with replacement
           val redrewDF =  if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
@@ -114,12 +115,12 @@ class DoubleMLEstimator(override val uid: String)
               val oneAte = totalTime.measure {
                 trainInternal(redrewDF)
               }
-              log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
+              println(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
                 s"time elapsed: ${totalTime.elapsed() / 6e10} minutes")
               Some(oneAte)
             } catch {
               case ex: Throwable =>
-                log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
+                println(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
                   s"Exception details: $ex")
                 None
             }
@@ -193,11 +194,16 @@ class DoubleMLEstimator(override val uid: String)
 
     def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
       val treatmentModel = treatmentEstimator.setInputCols(
-        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol).contains)
-      ).fit(train)
+        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol,
+//          treatmentResidualPredictionColName, outcomeResidualPredictionColName
+        ).contains)
+      )
+
       val outcomeModel = outcomeEstimator.setInputCols(
-        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol).contains)
-      ).fit(train)
+        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol,
+//          treatmentResidualPredictionColName, outcomeResidualPredictionColName
+        ).contains)
+      )
 
       val treatmentResidual =
         new ResidualTransformer()
@@ -221,7 +227,7 @@ class DoubleMLEstimator(override val uid: String)
         outcomeModel, outcomeResidual, dropOutcomePredictedColumns,
         treatmentResidualVA))
 
-      pipeline.fit(test).transform(test)
+      pipeline.fit(train).transform(test)
     }
 
     // Note, we perform these steps to get ATE
@@ -234,8 +240,19 @@ class DoubleMLEstimator(override val uid: String)
     */
     val splits = dataset.randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
-    val residualsDF1 = calculateResiduals(train, test)
-    val residualsDF2 = calculateResiduals(test, train)
+
+    val totalTime = new StopWatch
+    println(s"$this - [trainInternal] start crossfit 1 at ${Calendar.getInstance().getTime()} on train data ${train.count()} and fit on ${test.count()}")
+    val residualsDF1 = totalTime.measure {
+      calculateResiduals(train, test).select(outcomeResidualCol, treatmentResidualVecCol)
+    }
+    println(s"$this - [trainInternal] complete crossfit 1 in ${totalTime.elapsed() / 6e10} minutes")
+
+    println(s"$this - [trainInternal] start crossfit 2 at ${Calendar.getInstance().getTime()} on train data ${test.count()} and fit on ${train.count()}")
+    val residualsDF2 = totalTime.measure {
+      calculateResiduals(test, train).select(outcomeResidualCol, treatmentResidualVecCol)
+    }
+    println(s"$this - [trainInternal] complete crossfit 2 in ${totalTime.elapsed() / 6e10} minutes")
 
     // Average slopes from the two residual models.
     val regressor = new GeneralizedLinearRegression()
@@ -245,9 +262,15 @@ class DoubleMLEstimator(override val uid: String)
       .setLink("identity")
       .setFitIntercept(true)
 
+    println(s"$this - [trainInternal] start GeneralizedLinearRegression at ${Calendar.getInstance().getTime()}")
+    println(s"$this - [trainInternal] residualsDF1 columns ${residualsDF1.columns.mkString(",")}, size ${residualsDF1.count()}")
+    println(s"$this - [trainInternal] residualsDF2 columns ${residualsDF2.columns.mkString(",")}, size ${residualsDF2.count()}")
+
     val coefficients = Array(residualsDF1, residualsDF2).map(regressor.fit).map(_.coefficients(0))
+    println(s"$this - [trainInternal] complete GeneralizedLinearRegression at ${Calendar.getInstance().getTime()}")
     val ate = coefficients.sum / coefficients.length
 
+    println(s"$this - got ate $ate at ${Calendar.getInstance().getTime()}")
     Seq(train, test).foreach(_.unpersist)
     ate
   }
