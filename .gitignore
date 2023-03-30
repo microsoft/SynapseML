@@ -25,6 +25,7 @@
 .idea
 .metals
 .bloop
+metals.sbt
 
 # .NET plugins and build
 .metals
