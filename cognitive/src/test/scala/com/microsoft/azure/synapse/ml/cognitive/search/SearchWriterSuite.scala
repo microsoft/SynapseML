@@ -147,6 +147,17 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     assert(SearchIndex.getStatistics(indexName, azureSearchKey, testServiceName)._1 == size)
     ()
   }
+    
+  ignore("clean up all search indexes"){
+    getExisting(azureSearchKey, testServiceName)
+      .foreach { n =>
+      val deleteRequest = new HttpDelete(
+        s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
+      deleteRequest.setHeader("api-key", azureSearchKey)
+      val response = safeSend(deleteRequest)
+      println(s"Deleted index $n, status code ${response.getStatusLine.getStatusCode}")
+    }
+  }
 
   test("Run azure-search tests with waits") {
     val testsToRun = Set(1, 2) //, 3)
