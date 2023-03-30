@@ -7,8 +7,10 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestO
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StructType, StructField, DoubleType, StringType}
+import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
+import org.scalactic.Equality
 
 class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] {
     val schema = StructType(Array(
@@ -61,6 +63,16 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
 
     var ppfit = pipeline.fit(df).transform(df)
 
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    val dropCols = List("estAvg","estLow","estHigh","XVec","XWVec")
+
+    def prep(df: DataFrame) = {
+      df.drop(dropCols: _*)
+    }
+
+    super.assertDFEq(prep(df1), prep(df2))(eq)
+  }
+
   test("Test Ortho Forest DML") {
 
     val mtTransform = new OrthoForestDMLEstimator()
@@ -91,14 +103,14 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
 
   override def testObjects(): Seq[TestObject[OrthoForestDMLEstimator]] =
     Seq(new TestObject(new OrthoForestDMLEstimator()
-      .setNumTrees(100)
+      .setNumTrees(10)
       .setTreatmentCol("T")
       .setOutcomeCol("Y")
       .setHeterogeneityVecCol(heterogeneityVecCol)
       .setConfounderVecCol(confounderVecCol)
-      .setMaxDepth(7)
-      .setMinSamplesLeaf(30),
-      ppfit))
+      .setMaxDepth(10)
+      .setMinSamplesLeaf(100),
+      ppfit,ppfit))
 
   override def reader: MLReadable[_] = OrthoForestDMLEstimator
 

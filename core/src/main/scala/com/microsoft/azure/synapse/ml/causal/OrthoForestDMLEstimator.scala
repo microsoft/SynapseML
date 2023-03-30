@@ -20,6 +20,7 @@ class ConstantColumns {
   val transformedOutcome = "_tmp_tsOutcome"
   val transformedWeights = "_tmp_twOutcome"
   val tempVecCol = "_tmp_combined_prediction"
+  val tmpBLBBounds ="_tmp_blb_bounds"
   val tempForestPred = "_tmp_op_rf"
 }
 
@@ -174,27 +175,44 @@ class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegress
 
   override def copy(extra: ParamMap): OrthoForestDMLModel = defaultCopy(extra)
 
-  private def getAverage(rawTreatmentEffects: Array[Double]): Double={
-    val finalAte =  rawTreatmentEffects.sum / rawTreatmentEffects.length
+  private def getBLBBounds(values: Array[Double]): Array[Double] = {
 
-    finalAte
-  }
+    val n = values.length
+    val b = math.ceil(math.sqrt(n)).toInt
+    val subSamples = values.toList.grouped(b).toList
+    val r = 100
 
-  private def percentile(values: Array[Double], quantile: Double): Double = {
-    val sortedValues = values.sorted
-    val percentile = new Percentile()
-    percentile.setData(sortedValues)
-    percentile.evaluate(quantile)
-  }
+    def draw(x: List[Double]): Double = x(scala.util.Random.nextInt(x.length))
 
-  private def getConfidenceIntervalLower(rawTreatmentEffects: Array[Double]): Double = {
-    val ciLowerBound = percentile(rawTreatmentEffects, 100 * (1 - getConfidenceLevel))
-    ciLowerBound
-  }
+    val upsampledSorted = subSamples.map(x => List.fill(r)(draw(x)).sorted)
 
-  private def getConfidenceIntervalHigher(rawTreatmentEffects: Array[Double]): Double = {
-    val ciUpperBound = percentile(rawTreatmentEffects, getConfidenceLevel * 100)
-    ciUpperBound
+    def avg(x: List[Double]): Double = x.sum / x.length
+
+    val ciLower = upsampledSorted.map(x => {
+
+      val percentile = new Percentile()
+      percentile.setData(x.toArray)
+
+      percentile.evaluate(100 * (1 - getConfidenceLevel))
+    })
+
+    val ciHigher = upsampledSorted.map(x => {
+
+      val percentile = new Percentile()
+      percentile.setData(x.toArray)
+
+      percentile.evaluate(100 * getConfidenceLevel)
+    })
+
+    val median = upsampledSorted.map(x => {
+
+      val percentile = new Percentile()
+      percentile.setData(x.toArray)
+
+      percentile.evaluate(50)
+    })
+
+    Array(avg(ciLower), avg(median), avg(ciHigher))
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -223,25 +241,23 @@ class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegress
     val pipeline =  new Pipeline()
       .setStages(forest ++ Array(assembler,dropCols))
 
-    val averageUDF = udf { features: Array[Double] =>
-      getAverage(features)
+    val getBLBBoundsUDF = udf { features: Array[Double] =>
+      getBLBBounds(features)
     }
 
-    val ciLowerUDF = udf { features: Array[Double] =>
-      getConfidenceIntervalLower(features)
-    }
-
-    val ciUpperUDF = udf { features: Array[Double] =>
-      getConfidenceIntervalHigher(features)
-    }
+    val getLowerBound = udf { combined: Array[Double] => combined(0) }
+    val getAverage = udf { combined: Array[Double] => combined(1) }
+    val getUpperBound = udf { combined: Array[Double] => combined(2) }
 
     pipeline
       .fit(df)
       .transform(df)
-      .withColumn(getOutputCol,averageUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
-      .withColumn(getOutputLowCol,ciLowerUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
-      .withColumn(getOutputHighCol,ciUpperUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
+      .withColumn(ConstantColumns.tmpBLBBounds, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
+      .withColumn(getOutputLowCol, getLowerBound(col(ConstantColumns.tmpBLBBounds)))
+      .withColumn(getOutputCol, getAverage(col(ConstantColumns.tmpBLBBounds)))
+      .withColumn(getOutputHighCol, getUpperBound(col(ConstantColumns.tmpBLBBounds)))
       .drop(ConstantColumns.tempVecCol)
+      .drop(ConstantColumns.tmpBLBBounds)
       .drop(ConstantColumns.transformedOutcome)
       .drop(ConstantColumns.transformedWeights)
   }

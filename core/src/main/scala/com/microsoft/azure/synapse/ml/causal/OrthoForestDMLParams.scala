@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import org.apache.spark.ml.param.{IntParam, Param, Params}
-import org.apache.spark.ml.regression.{GBTRegressor, RandomForestRegressor, Regressor}
+import org.apache.spark.ml.regression.GBTRegressor
 
 trait HasNumTrees extends Params{
   val numTrees: IntParam = new IntParam(this, "numTrees", "Number of trees")
