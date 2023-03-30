@@ -147,7 +147,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     assert(SearchIndex.getStatistics(indexName, azureSearchKey, testServiceName)._1 == size)
     ()
   }
-    
+
   ignore("clean up all search indexes"){
     getExisting(azureSearchKey, testServiceName)
       .foreach { n =>

@@ -206,10 +206,13 @@ class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegress
 
     val median = upsampledSorted.map(x => {
 
+      val PERCENTILE_FOR_MEDIAN = 50
+
       val percentile = new Percentile()
       percentile.setData(x.toArray)
 
-      percentile.evaluate(50)
+      //50 is the median value
+      percentile.evaluate(PERCENTILE_FOR_MEDIAN)
     })
 
     Array(avg(ciLower), avg(median), avg(ciHigher))
