@@ -24,6 +24,7 @@
 .vscode
 .idea
 .metals
+.bloop
 
 # .NET plugins and build
 .metals
