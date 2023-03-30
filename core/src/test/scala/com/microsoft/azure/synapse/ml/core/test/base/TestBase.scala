@@ -209,11 +209,13 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
   }
 
   def withoutLogging[T](e: => T): T = {
-    // This should really keep the old level, but there is no sc.getLogLevel, so
-    // take the cheap way out for now: just use "WARN", and do something proper
-    // when/if needed
+    //noinspection ScalaStyle
+    // Spark doesn't expose a getLogLevel, but setLogLevel is a thin wrapper around log4j
+    // so get the current logLevel directly from log4j
+    // https://github.com/apache/spark/blob/4be566062defa249435c4d72eb106fe7b933e023/core/src/main/scala/org/apache/spark/util/Utils.scala#L2330
+    val currentLevel = org.apache.log4j.Logger.getRootLogger().getLevel
     sc.setLogLevel("OFF")
-    try e finally sc.setLogLevel("WARN")
+    try e finally sc.setLogLevel(currentLevel.toString)
   }
 
   def interceptWithoutLogging[E <: Throwable: ClassTag](e: => Any): Unit = {
