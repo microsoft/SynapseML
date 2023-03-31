@@ -108,22 +108,12 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
 
       val featurizedModel = featurizer.fit(convertedLabelDataset)
 
-//      val colstoSelect = if (isDefined(weightCol) || !$(weightCol).isEmpty)
-//        Array(getFeaturesCol, getLabelCol, getWeightCol)
-//      else Array(getFeaturesCol, getLabelCol)
-//
-//      val processedData = featurizedModel.transform(convertedLabelDataset).select(colstoSelect.map(col): _*)
-
-      val processedData = featurizedModel.transform(convertedLabelDataset).select(getFeaturesCol, getLabelCol)
+      val processedData = featurizedModel.transform(convertedLabelDataset)
 
       processedData.cache()
 
       // Train the learner
-      println(s"$this - [trainRegressor] start fit at ${Calendar.getInstance().getTime()}")
-
       val fitModel = regressor.fit(processedData)
-
-      println(s"$this - [trainRegressor] complete fit at ${Calendar.getInstance().getTime()}")
 
       processedData.unpersist()
 

@@ -162,7 +162,6 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
       }
 
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start featurize")
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
         .setInputCols(featureColumns)
@@ -170,16 +169,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         .setNumFeatures(featuresToHashTo)
       val featurizedModel = featurizer.fit(convertedLabelDataset)
 
-// Error: java.util.NoSuchElementException: Failed to find a default value for weightCol
-//      val colstoSelect = if (isDefined(weightCol) || !$(weightCol).isEmpty)
-//        Array(getFeaturesCol, getLabelCol, getWeightCol)
-//      else Array(getFeaturesCol, getLabelCol)
-//
-//      val processedData = featurizedModel.transform(convertedLabelDataset).select(colstoSelect.map(col): _*)
-
-      val processedData = featurizedModel.transform(convertedLabelDataset).select(getFeaturesCol, getLabelCol)
-
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete featurize")
+      val processedData = featurizedModel.transform(convertedLabelDataset)
 
       if (!processedData.storageLevel.useMemory) {
         processedData.cache()
@@ -196,10 +186,8 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         multilayerPerceptronClassifier.setLayers(multilayerPerceptronClassifier.getLayers)
       }
 
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start fit")
       // Train the learner
       val fitModel = classifier.fit(processedData)
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete fit")
 
       if (processedData.storageLevel.useMemory) {
         processedData.unpersist()
