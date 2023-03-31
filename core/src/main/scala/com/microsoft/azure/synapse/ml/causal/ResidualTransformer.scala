@@ -57,8 +57,6 @@ class ResidualTransformer(override val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      println(s"[${java.time.LocalDateTime.now}] $this - [ResidualTransformer] start transform")
-
       transformSchema(schema = dataset.schema, logging = true)
       // Make sure the observedCol is a DoubleType or IntegerType
       val observedColType = dataset.schema(getObservedCol).dataType
@@ -72,8 +70,6 @@ class ResidualTransformer(override val uid: String) extends Transformer
       } else dataset
 
       val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
-
-      println(s"[${java.time.LocalDateTime.now}] $this - [ResidualTransformer] complete transform")
 
       predictedColDataType match {
         case SQLDataTypes.VectorType =>

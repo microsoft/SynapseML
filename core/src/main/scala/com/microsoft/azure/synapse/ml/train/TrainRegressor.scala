@@ -16,7 +16,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
-import java.util.{Calendar, UUID}
+import java.util.UUID
 
 /** Trains a regression model. */
 class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegressorModel] with SynapseMLLogging {
@@ -157,8 +157,6 @@ class TrainedRegressorModel(val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      println(s"$this - [trainRegressor] start transform at ${Calendar.getInstance().getTime()}")
-
       // re-featurize and score the data
       val scoredData = getModel.transform(dataset)
 
@@ -172,9 +170,6 @@ class TrainedRegressorModel(val uid: String)
         if (!labelColumnExists) cleanedScoredData
         else SparkSchema.setLabelColumnName(
           cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
-
-      println(s"$this - [trainRegressor] complete at ${Calendar.getInstance().getTime()}")
-
       SparkSchema.updateColumnMetadata(schematizedScoredDataWithLabel,
         moduleName, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
     })

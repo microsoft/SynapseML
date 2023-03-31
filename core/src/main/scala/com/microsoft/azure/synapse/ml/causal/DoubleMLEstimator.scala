@@ -118,7 +118,7 @@ class DoubleMLEstimator(override val uid: String)
               Some(oneAte)
             } catch {
               case ex: Throwable =>
-                log.info(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
+                log.warn(s"ATE calculation got exception on iteration $index with the redrew sample data. " +
                   s"Exception details: $ex")
                 None
             }
@@ -193,14 +193,12 @@ class DoubleMLEstimator(override val uid: String)
 
     def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
       val treatmentModel = treatmentEstimator.setInputCols(
-        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol,
-//          treatmentResidualPredictionColName, outcomeResidualPredictionColName
+        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol
         ).contains)
       )
 
       val outcomeModel = outcomeEstimator.setInputCols(
-        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol,
-//          treatmentResidualPredictionColName, outcomeResidualPredictionColName
+        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol
         ).contains)
       )
 

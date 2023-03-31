@@ -322,8 +322,6 @@ class TrainedClassifierModel(val uid: String)
   //scalastyle:off
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start transform on data ${dataset.count()}")
-
       val hasScoreCols = hasScoreColumns(getLastStage)
 
       // re-featurize and score the data
@@ -358,9 +356,6 @@ class TrainedClassifierModel(val uid: String)
         else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLabels,
           SchemaConstants.SparkPredictionColumn,
           getLevels)
-
-      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete transform")
-
       // add metadata to the scored labels and true labels for the levels in label column
       if (get(levels).isEmpty || !labelColumnExists) scoredDataWithUpdatedScoredLevels
       else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLevels,
