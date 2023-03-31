@@ -4,13 +4,14 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.param.TransformerArrayParam
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline, Transformer}
 import org.apache.spark.ml.regression.{DecisionTreeRegressionModel, RandomForestRegressor, Regressor}
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.functions.vector_to_array
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.{DataFrame, Dataset}
@@ -47,8 +48,9 @@ class OrthoForestDMLEstimator(override val uid: String)
 
     val forest = trainInternal(dataset)
 
-    val dmlModel = this.copyValues(new OrthoForestDMLModel(uid,forest))
-    dmlModel
+    val dmlModel = this.copyValues(new OrthoForestDMLModel(uid))
+
+    dmlModel.setForest(forest)
   }
 
   //scalastyle:off method.length
@@ -165,13 +167,23 @@ object OrthoForestDMLEstimator extends ComplexParamsReadable[OrthoForestDMLEstim
 }
 
 /** Model produced by [[OrthoForestDMLEstimator]]. */
-class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegressionModel])
+class OrthoForestDMLModel(val uid: String)
   extends Model[OrthoForestDMLModel] with OrthoForestDMLParams
-    with ComplexParamsWritable with Wrappable {
+    with ComplexParamsWritable with Wrappable{
 
   override protected lazy val pyInternalWrapper = true
 
-  def this(forest: Array[DecisionTreeRegressionModel]) = this(Identifiable.randomUID("OrthoForestDMLModel"),forest)
+  val forest = new TransformerArrayParam(this,
+    "forest",
+    "Forest Trees produced in Ortho Forest DML Estimator")
+
+  private def getForest: Array[DecisionTreeRegressionModel] = {
+    $(forest).map(x=>x.asInstanceOf[DecisionTreeRegressionModel])
+  }
+
+  def setForest(v: Array[DecisionTreeRegressionModel]): this.type = set(forest, v.map(x=>x.asInstanceOf[Transformer]))
+
+  def this() = this(Identifiable.randomUID("OrthoForestDMLModel"))
 
   override def copy(extra: ParamMap): OrthoForestDMLModel = defaultCopy(extra)
 
@@ -222,12 +234,12 @@ class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegress
 
     val df = dataset.toDF()
 
-    val cnt = forest.length
+    val cnt = getForest.length
 
     def predColIx(x: Any): String = {s"_tmp_op_$x"}
 
     var opCnt = 1
-    for(tree<-forest){
+    for(tree<-getForest){
       tree.setPredictionCol(predColIx(opCnt))
       opCnt = opCnt + 1
     }
@@ -242,7 +254,7 @@ class OrthoForestDMLModel(val uid: String, val forest: Array[DecisionTreeRegress
       .setCols(colsNamed)
 
     val pipeline =  new Pipeline()
-      .setStages(forest ++ Array(assembler,dropCols))
+      .setStages(getForest ++ Array(assembler,dropCols))
 
     val getBLBBoundsUDF = udf { features: Array[Double] =>
       getBLBBounds(features)
