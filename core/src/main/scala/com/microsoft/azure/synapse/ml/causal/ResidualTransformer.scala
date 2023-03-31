@@ -15,8 +15,6 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-import java.util.Calendar
-
 /** Compute the differences between observed and predicted values of data.
  *  for classification, we compute residual as "observed - probability($(classIndex))"
  *  for regression, we compute residual as "observed - prediction"
@@ -59,7 +57,7 @@ class ResidualTransformer(override val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      println(s"$this - [ResidualTransformer] start transform at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [ResidualTransformer] start transform")
 
       transformSchema(schema = dataset.schema, logging = true)
       // Make sure the observedCol is a DoubleType or IntegerType
@@ -75,7 +73,7 @@ class ResidualTransformer(override val uid: String) extends Transformer
 
       val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
 
-      println(s"$this - [ResidualTransformer] complete transform at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [ResidualTransformer] complete transform")
 
       predictedColDataType match {
         case SQLDataTypes.VectorType =>

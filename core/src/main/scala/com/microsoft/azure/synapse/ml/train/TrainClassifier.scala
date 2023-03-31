@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.train
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
 import com.microsoft.azure.synapse.ml.core.utils.CastUtilities._
 import com.microsoft.azure.synapse.ml.featurize.{Featurize, FeaturizeUtilities, ValueIndexer, ValueIndexerModel}
@@ -16,10 +15,9 @@ import org.apache.spark.ml.classification._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
-import java.util.{Calendar, UUID}
+import java.util.UUID
 import scala.collection.JavaConverters._
 
 /** Trains a classification model.  Featurizes the given data into a vector of doubles.
@@ -164,7 +162,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         convertedLabelDataset.columns.filterNot(nonFeatureColumns.contains)
       }
 
-      println(s"$this - [trainClassifier] start featurize at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start featurize")
       val featurizer = new Featurize()
         .setOutputCol(getFeaturesCol)
         .setInputCols(featureColumns)
@@ -181,13 +179,11 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
 
       val processedData = featurizedModel.transform(convertedLabelDataset).select(getFeaturesCol, getLabelCol)
 
-      println(s"$this - [trainClassifier] complete featurize at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete featurize")
 
       if (!processedData.storageLevel.useMemory) {
-        println(s"$this - [trainClassifier] cache data ${processedData.count()} at ${Calendar.getInstance().getTime()}")
         processedData.cache()
       }
-      println(s"$this - [trainClassifier] cache data completed at ${Calendar.getInstance().getTime()}")
 
       // For neural network, need to modify input layer so it will automatically work during train
       if (modifyInputLayer) {
@@ -200,13 +196,12 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         multilayerPerceptronClassifier.setLayers(multilayerPerceptronClassifier.getLayers)
       }
 
-      println(s"$this - [trainClassifier] start fit at ${Calendar.getInstance().getTime()} on size of data ${processedData.count()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start fit")
       // Train the learner
       val fitModel = classifier.fit(processedData)
-      println(s"$this - [trainClassifier] complete fit at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete fit")
 
       if (processedData.storageLevel.useMemory) {
-        println(s"$this - [trainClassifier] unpersist data at ${Calendar.getInstance().getTime()}")
         processedData.unpersist()
       }
 
@@ -339,7 +334,7 @@ class TrainedClassifierModel(val uid: String)
   //scalastyle:off
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      println(s"$this - [trainClassifier] start transform at ${Calendar.getInstance().getTime()} on data ${dataset.count()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] start transform on data ${dataset.count()}")
 
       val hasScoreCols = hasScoreColumns(getLastStage)
 
@@ -376,7 +371,7 @@ class TrainedClassifierModel(val uid: String)
           SchemaConstants.SparkPredictionColumn,
           getLevels)
 
-      println(s"$this - [trainClassifier] complete transform at ${Calendar.getInstance().getTime()}")
+      println(s"[${java.time.LocalDateTime.now}] $this - [trainClassifier] complete transform")
 
       // add metadata to the scored labels and true labels for the levels in label column
       if (get(levels).isEmpty || !labelColumnExists) scoredDataWithUpdatedScoredLevels
