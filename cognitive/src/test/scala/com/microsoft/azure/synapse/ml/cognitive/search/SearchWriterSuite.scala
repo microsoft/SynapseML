@@ -13,6 +13,9 @@ import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
+import java.time.LocalDateTime
+import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
+import java.time.temporal.ChronoField
 import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.blocking
@@ -28,6 +31,12 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   import spark.implicits._
 
   private val testServiceName = "mmlspark-azure-search"
+
+  // When a date pattern starts with 'yyyy' and has no separator following, the parser can sometimes decide
+  // to take the whole string to match the year, which results in an exception. The following is a hackaround.
+  val formatter = new DateTimeFormatterBuilder()
+    .appendValue(ChronoField.YEAR_OF_ERA, 4, 4, SignStyle.EXCEEDS_PAD)
+    .appendPattern("MMddHHmmssSSS").toFormatter()
 
   private def createTestData(numDocs: Int): DataFrame = {
     (0 until numDocs)
@@ -68,7 +77,8 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
   private val createdIndexes: mutable.ListBuffer[String] = mutable.ListBuffer()
 
   private def generateIndexName(): String = {
-    val name = s"test-${UUID.randomUUID().hashCode()}"
+    val date = formatter.format(LocalDateTime.now())
+    val name = s"test-${UUID.randomUUID().hashCode()}-${date}"
     createdIndexes.append(name)
     name
   }
@@ -82,20 +92,48 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
       createSimpleIndexJson(indexName))
   }
 
+  def deleteIndex(indexName: String): Int = {
+    val deleteRequest = new HttpDelete(
+      s"https://$testServiceName.search.windows.net/indexes/$indexName?api-version=2017-11-11")
+    deleteRequest.setHeader("api-key", azureSearchKey)
+    val response = safeSend(deleteRequest)
+    response.getStatusLine.getStatusCode
+  }
+
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
     val successfulCleanup = getExisting(azureSearchKey, testServiceName)
       .intersect(createdIndexes).map { n =>
-      val deleteRequest = new HttpDelete(
-        s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
-      deleteRequest.setHeader("api-key", azureSearchKey)
-      val response = safeSend(deleteRequest)
-      response.getStatusLine.getStatusCode
+        deleteIndex(n)
     }.forall(_ == 204)
+    cleanOldIndexes()
     super.afterAll()
     assert(successfulCleanup)
     ()
+  }
+
+  def cleanOldIndexes(): Unit = {
+    import scala.util.matching.Regex
+
+    val twoDaysAgo = LocalDateTime.now().minusDays(2)
+    val endingDatePattern: Regex = "^.*-(\\d{17})$".r
+    val e = getExisting(azureSearchKey, testServiceName)
+    e.foreach { name =>
+      name match {
+        case endingDatePattern(dateString) =>
+          try {
+            val date = LocalDateTime.parse(dateString, formatter)
+            if (date.isBefore(twoDaysAgo)) {
+              deleteIndex(name)
+            }
+          } catch {
+            case _: DateTimeParseException => {}
+            case t: Throwable => throw t
+          }
+        case _ => {}
+      }
+    }
   }
 
   private def retryWithBackoff[T](f: => T,
@@ -147,7 +185,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     assert(SearchIndex.getStatistics(indexName, azureSearchKey, testServiceName)._1 == size)
     ()
   }
-    
+
   ignore("clean up all search indexes"){
     getExisting(azureSearchKey, testServiceName)
       .foreach { n =>
