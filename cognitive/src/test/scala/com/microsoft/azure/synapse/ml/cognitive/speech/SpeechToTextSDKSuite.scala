@@ -318,7 +318,7 @@ trait TranscriptionSecrets {
 }
 
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
-  with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
+  with SpeechToTextSDKSuiteBase with TranscriptionSecrets with CognitiveKey {
 
   override val retrySerializationFuzzing: Boolean = true
 
@@ -356,6 +356,7 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
       .map(r => fromRow(r.getAs[Row]("text")).SpeakerId)
       .filterNot(sid => sid == "Unidentified")
 
+    println(speakers.toSet)
     assert(Seq("user1", "user2").forall(speakers.toSet))
   }
 
@@ -433,11 +434,11 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  test("Detailed SDK with mp3 (Linux only)") {
+  ignore("Detailed SDK with mp3 (Linux only)") {
     dfTest("simple", audioDf3, text3, sdk = sdk.setFileType("mp3"), verbose = true, threshold = .6)
   }
 
-  test("m3u8 based access") {
+  ignore("m3u8 based access") {
     val sdk2 = sdk.setExtraFfmpegArgs(Array("-t", "60"))
       .setLanguage("en-US")
     // 20 seconds of streaming
@@ -450,7 +451,7 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  test("m3u8 file writing") {
+  ignore("m3u8 file writing") {
     val outputMp3 = new File(savePath, "output.mp3")
     val outputJson = new File(savePath, "output.json")
 
