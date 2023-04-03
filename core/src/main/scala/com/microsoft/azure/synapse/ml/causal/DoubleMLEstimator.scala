@@ -232,9 +232,7 @@ class DoubleMLEstimator(override val uid: String)
 
       val df1 = treatmentPipeline.transform(test).cache
       val df2 = outcomePipeline.transform(df1).cache
-      df1.unpersist()
       val transformed = treatmentResidualVA.transform(df2)
-      df2.unpersist()
       transformed
     }
 
