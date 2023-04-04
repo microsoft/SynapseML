@@ -11,7 +11,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 import java.time.LocalDateTime
-import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
+import java.time.temporal.ChronoField
 import scala.util.matching.Regex
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
@@ -182,8 +183,6 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   import spark.implicits._
 
-  val timeFormat = "yyyyMMddHHmmssSSS"
-
   lazy val satyaFaces = Seq(
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
   )
@@ -193,7 +192,13 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     "https://mmlspark.blob.core.windows.net/datasets/DSIR/test3.jpg"
   )
 
-  lazy val pgName = "group" + DateTimeFormatter.ofPattern(timeFormat).format(LocalDateTime.now())
+  // When a date pattern starts with 'yyyy' and has no separator following, the parser can sometimes decide
+  // to take the whole string to match the year, which results in an exception. The following is a hackaround.
+  val formatter = new DateTimeFormatterBuilder()
+    .appendValue(ChronoField.YEAR_OF_ERA, 4, 4, SignStyle.EXCEEDS_PAD)
+    .appendPattern("MMddHHmmssSSS").toFormatter()
+
+  lazy val pgName = "group" + formatter.format(LocalDateTime.now())
 
   lazy val pgId = {
     cleanOldGroups()
@@ -280,13 +285,15 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
     // scalastyle:off while
     do {
+      groupDeleted = false
       PersonGroup.list(top = Some("500")).foreach { pgi =>
         try {
           val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-          val pgDate = LocalDateTime.parse(pgDateString, DateTimeFormatter.ofPattern(timeFormat))
+          val pgDate = LocalDateTime.parse(pgDateString, formatter)
           if (pgDate.isBefore(twoDaysAgo)) {
             PersonGroup.delete(pgi.personGroupId)
             println(s"Deleted group $pgi")
+            groupDeleted = true
           }
         } catch {
           // for uuid-based names
@@ -295,6 +302,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
             if ((uuidPattern findFirstIn pgi.personGroupId).isDefined) {
               PersonGroup.delete(pgi.personGroupId)
               println(s"Deleted group $pgi")
+              groupDeleted = true
             }
           }
           case t: Throwable => throw t
