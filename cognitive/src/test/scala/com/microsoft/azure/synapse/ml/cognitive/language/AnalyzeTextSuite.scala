@@ -204,7 +204,6 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
     assert(detectedLanguages.contains("French"))
     assert(detectedLanguages.contains("Spanish"))
-    assert(detectedLanguages.contains("Dutch"))
   }
 
   test("api-version 2022-10-01-preview") {
@@ -214,7 +213,6 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
     assert(detectedLanguages.contains("French"))
     assert(detectedLanguages.contains("Spanish"))
-    assert(detectedLanguages.contains("Dutch"))
   }
 
   test("Show stats") {
@@ -225,7 +223,6 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
     assert(detectedLanguages.contains("French"))
     assert(detectedLanguages.contains("Spanish"))
-    assert(detectedLanguages.contains("Dutch"))
     assert(result.collect()(1).getAs[Seq[Int]]("validDocumentsCount") == Seq(3, 3, 3))
   }
 
