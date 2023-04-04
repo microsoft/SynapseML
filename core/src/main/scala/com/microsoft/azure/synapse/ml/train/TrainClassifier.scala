@@ -168,12 +168,16 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         .setOneHotEncodeCategoricals(oneHotEncodeCategoricals)
         .setNumFeatures(featuresToHashTo)
       val featurizedModel = featurizer.fit(convertedLabelDataset)
+
       val processedData = featurizedModel.transform(convertedLabelDataset)
 
-      processedData.cache()
+      if (!processedData.storageLevel.useMemory) {
+        processedData.cache()
+      }
 
       // For neural network, need to modify input layer so it will automatically work during train
       if (modifyInputLayer) {
+
         val multilayerPerceptronClassifier = classifier.asInstanceOf[MultilayerPerceptronClassifier]
         val row = processedData.take(1)(0)
         val featuresVector = row.get(row.fieldIndex(getFeaturesCol))
@@ -185,7 +189,9 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
       // Train the learner
       val fitModel = classifier.fit(processedData)
 
-      processedData.unpersist()
+      if (processedData.storageLevel.useMemory) {
+        processedData.unpersist()
+      }
 
       // Note: The fit shouldn't do anything here
       val pipelineModel = new Pipeline().setStages(Array(featurizedModel, fitModel)).fit(convertedLabelDataset)
@@ -350,7 +356,6 @@ class TrainedClassifierModel(val uid: String)
         else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLabels,
           SchemaConstants.SparkPredictionColumn,
           getLevels)
-
       // add metadata to the scored labels and true labels for the levels in label column
       if (get(levels).isEmpty || !labelColumnExists) scoredDataWithUpdatedScoredLevels
       else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLevels,

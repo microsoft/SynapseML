@@ -70,6 +70,7 @@ class ResidualTransformer(override val uid: String) extends Transformer
       } else dataset
 
       val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
+
       predictedColDataType match {
         case SQLDataTypes.VectorType =>
           // For probability vector, compute the residual as "observed - probability($index)"
