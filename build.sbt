@@ -215,7 +215,7 @@ publishDotnetTestBase := {
 // existing nuget package with the same version number
 val publishDotnetBase = TaskKey[Unit]("publishDotnetBase",
   "publish dotnet base nuget package that contains core elements for SynapseML in C#")
-publishDotnetTestBase := {
+publishDotnetBase := {
   val dotnetBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "src")
   packDotnetAssemblyCmd(join(dotnetBaseDir, "target").getAbsolutePath, dotnetBaseDir)
   val packagePath = join(dotnetBaseDir,
