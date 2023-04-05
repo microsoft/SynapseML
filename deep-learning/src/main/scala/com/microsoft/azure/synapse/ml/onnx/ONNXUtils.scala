@@ -136,7 +136,7 @@ object ONNXUtils {
 
     val inferredShapes: Seq[Array[Long]] = batchedValues.map {
       case s: Seq[_] => validateOneShape(s, Array[Long](), expectedShape.tail)
-      case _ => throw new IllegalArgumentException("Image batch is not a sequence")
+      case _ => Array.empty[Long]
     }
 
     inferredShapes.filterNot(_.sameElements(inferredShapes.head)).headOption.foreach {

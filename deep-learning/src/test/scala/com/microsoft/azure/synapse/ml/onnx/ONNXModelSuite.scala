@@ -26,6 +26,7 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 import java.io.File
 import java.net.URL
+import java.util
 import scala.collection.mutable
 
 class ONNXModelSuite extends TestBase
@@ -37,6 +38,7 @@ class ONNXModelSuite extends TestBase
     new TestObject(onnxIris, testDfIrisVector),
     new TestObject(onnxMNIST, testDfMNIST),
     new TestObject(onnxAdultsIncome, testDfAdultsIncome),
+    new TestObject(onnxGH1902, testDfGH1902),
     new TestObject(onnxResNet50, testDfResNet50)
   )
 
@@ -266,6 +268,43 @@ class ONNXModelSuite extends TestBase
       case (acc, feature) =>
         acc.withColumn(feature, array(col(feature)))
     }.repartition(1)
+  }
+
+  private lazy val onnxGH1902 = {
+    spark
+    val model = downloadModel("GH1902.onnx", baseUrl)
+    new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setDeviceType("CPU")
+      .setFeedDict(featuresAdultsIncome.map(v => (v, v)).toMap)
+      .setFetchDict(Map("probability" -> "probabilities"))
+      .setArgMaxDict(Map("probability" -> "prediction"))
+      .setMiniBatchSize(5000)
+  }
+
+  private lazy val testDfGH1902 = {
+    val testDf = Seq(
+      (39L, " State-gov", 77516L, " Bachelors", 13L, " Never-married", " Adm-clerical",
+        " Not-in-family", " White", " Male", 2174L, 0L, 40L, " United-States"),
+      (52L, " Self-emp-not-inc", 209642L, " Doctorate", 16L, " Married-civ-spouse", " Exec-managerial",
+        " Husband", " White", " Male", 0L, 0L, 45L, " United-States")
+    ).toDF(featuresAdultsIncome: _*).repartition(1)
+
+    testDf
+  }
+
+  test("ONNXModel can run transform for issue 1902") {
+    val Array(row1, row2) = onnxGH1902.transform(testDfGH1902)
+      .select("probability", "prediction")
+      .orderBy(col("prediction"))
+      .as[(Seq[Float], Double)]
+      .collect()
+
+    assert(util.Arrays.equals(row1._1.toArray, Array(0.9343283f, 0.065671645f)))
+    assert(row1._2 == 0.0)
+
+    assert(util.Arrays.equals(row2._1.toArray, Array(0.16954122f, 0.8304587f)))
+    assert(row2._2 == 1.0)
   }
 
   test("ONNXModel can translate zipmap output properly") {
