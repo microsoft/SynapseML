@@ -26,7 +26,6 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 import java.io.File
 import java.net.URL
-import java.util
 import scala.collection.mutable
 
 class ONNXModelSuite extends TestBase
@@ -46,8 +45,15 @@ class ONNXModelSuite extends TestBase
 
   // Note that we could use OnnxHub to get models for tests, but this makes sure we test with some known binary models
   private val baseUrl = "https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/"
+  private implicit val eqDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-4)
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
+  private implicit val eqSeqDouble: Equality[Seq[Double]] = (a: Seq[Double], b: Any) => {
+    b match {
+      case sd: Seq[Double] => a.zip(sd).forall(x => x._1 === x._2)
+      case _ => false
+    }
+  }
 
   import spark.implicits._
 
@@ -230,9 +236,6 @@ class ONNXModelSuite extends TestBase
 
     val rows = prediction.as[(Int, Array[Float], Vector, Double)].head(10)
 
-    val epsilon = 1e-4
-    implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
-
     rows.foreach {
       case (label, rawPrediction, probability, prediction) =>
         assert(label == prediction.toInt)
@@ -297,14 +300,14 @@ class ONNXModelSuite extends TestBase
     val Array(row1, row2) = onnxGH1902.transform(testDfGH1902)
       .select("probability", "prediction")
       .orderBy(col("prediction"))
-      .as[(Seq[Float], Double)]
+      .as[(Seq[Double], Double)]
       .collect()
 
-    assert(util.Arrays.equals(row1._1.toArray, Array(0.9343283f, 0.065671645f)))
-    assert(row1._2 == 0.0)
+    assert(row1._1 === Seq(0.9343283176422119, 0.0656716451048851))
+    assert(row1._2 === 0.0)
 
-    assert(util.Arrays.equals(row2._1.toArray, Array(0.16954122f, 0.8304587f)))
-    assert(row2._2 == 1.0)
+    assert(row2._1 === Seq(0.16954122483730316, 0.8304587006568909))
+    assert(row2._2 === 1.0)
   }
 
   test("ONNXModel can translate zipmap output properly") {
