@@ -17,7 +17,7 @@ class DoubleMLModel(_DoubleMLModel):
         return self._java_obj.getAvgTreatmentEffect()
 
     def getConfidenceInterval(self):
-        return self._java_obj.getConfidenceInterval()
+        return list(self._java_obj.getConfidenceInterval())
 
     def getPValue(self):
         return self._java_obj.getPValue()
