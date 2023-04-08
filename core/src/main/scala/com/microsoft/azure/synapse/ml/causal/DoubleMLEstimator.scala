@@ -4,25 +4,24 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor}
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SchemaConstants}
 import com.microsoft.azure.synapse.ml.core.utils.StopWatch
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.stages.DropColumns
-import org.apache.spark.annotation.Experimental
+import com.microsoft.azure.synapse.ml.train.{TrainClassifier, TrainRegressor}
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
-import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline}
-import org.apache.spark.ml.classification.ProbabilisticClassifier
-import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
-import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
-import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
-import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.{BooleanType, DataType, DoubleType, IntegerType, LongType, StructType}
 import org.apache.commons.math3.stat.inference.TestUtils
-import org.apache.spark.sql.functions.{col, lit, when}
+import org.apache.spark.annotation.{DeveloperApi, Experimental}
+import org.apache.spark.ml.classification.ProbabilisticClassifier
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.param.shared.{HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
+import org.apache.spark.ml.param.{DoubleArrayParam, ParamMap}
+import org.apache.spark.ml.regression.{GeneralizedLinearRegression, Regressor}
+import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml._
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.concurrent.Future
 
@@ -114,8 +113,8 @@ class DoubleMLEstimator(override val uid: String)
               val oneAte = totalTime.measure {
                 trainInternal(redrewDF)
               }
-              log.info(s"Completed ATE calculation on iteration $index and got ATE value: $oneAte, " +
-                s"time elapsed: ${totalTime.elapsed() / 6e10} minutes")
+              log.info(s"Completed ATE calculation on iteration $index " +
+                s"and got ATE value: $oneAte, time elapsed: ${totalTime.elapsed() / 6e10} minutes")
               Some(oneAte)
             } catch {
               case ex: Throwable =>
@@ -128,6 +127,7 @@ class DoubleMLEstimator(override val uid: String)
       }
 
       val ates = awaitFutures(ateFutures).flatten
+
       if (ates.isEmpty) {
         throw new Exception("ATE calculation failed on all iterations. Please check the log for details.")
       }
@@ -193,35 +193,47 @@ class DoubleMLEstimator(override val uid: String)
 
     def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
       val treatmentModel = treatmentEstimator.setInputCols(
-        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol).contains)
-      ).fit(train)
+        train.columns.filterNot(Array(getTreatmentCol, getOutcomeCol
+        ).contains)
+      )
+
       val outcomeModel = outcomeEstimator.setInputCols(
-        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol).contains)
-      ).fit(train)
+        train.columns.filterNot(Array(getOutcomeCol, getTreatmentCol
+        ).contains)
+      )
 
       val treatmentResidual =
         new ResidualTransformer()
           .setObservedCol(getTreatmentCol)
           .setPredictedCol(treatmentResidualPredictionColName)
           .setOutputCol(treatmentResidualCol)
-      val dropTreatmentPredictedColumns = new DropColumns().setCols(treatmentPredictionColsToDrop.toArray)
+      val dropTreatmentPredictedColumns = new DropColumns().setCols(treatmentPredictionColsToDrop)
       val outcomeResidual =
         new ResidualTransformer()
           .setObservedCol(getOutcomeCol)
           .setPredictedCol(outcomeResidualPredictionColName)
           .setOutputCol(outcomeResidualCol)
-      val dropOutcomePredictedColumns = new DropColumns().setCols(outcomePredictionColsToDrop.toArray)
+      val dropOutcomePredictedColumns = new DropColumns().setCols(outcomePredictionColsToDrop)
+
+      // TODO: use org.apache.spark.ml.functions.array_to_vector function maybe slightly more efficient.
       val treatmentResidualVA =
         new VectorAssembler()
           .setInputCols(Array(treatmentResidualCol))
           .setOutputCol(treatmentResidualVecCol)
           .setHandleInvalid("skip")
-      val pipeline = new Pipeline().setStages(Array(
-        treatmentModel, treatmentResidual, dropTreatmentPredictedColumns,
-        outcomeModel, outcomeResidual, dropOutcomePredictedColumns,
-        treatmentResidualVA))
 
-      pipeline.fit(test).transform(test)
+      val treatmentPipeline = new Pipeline()
+        .setStages(Array(treatmentModel, treatmentResidual, dropTreatmentPredictedColumns))
+        .fit(train)
+
+      val outcomePipeline = new Pipeline()
+        .setStages(Array(outcomeModel, outcomeResidual, dropOutcomePredictedColumns))
+        .fit(train)
+
+      val df1 = treatmentPipeline.transform(test).cache
+      val df2 = outcomePipeline.transform(df1).cache
+      val transformed = treatmentResidualVA.transform(df2)
+      transformed
     }
 
     // Note, we perform these steps to get ATE
@@ -234,8 +246,8 @@ class DoubleMLEstimator(override val uid: String)
     */
     val splits = dataset.randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
-    val residualsDF1 = calculateResiduals(train, test)
-    val residualsDF2 = calculateResiduals(test, train)
+    val residualsDF1 = calculateResiduals(train, test).select(outcomeResidualCol, treatmentResidualVecCol)
+    val residualsDF2 = calculateResiduals(test, train).select(outcomeResidualCol, treatmentResidualVecCol)
 
     // Average slopes from the two residual models.
     val regressor = new GeneralizedLinearRegression()
@@ -247,7 +259,6 @@ class DoubleMLEstimator(override val uid: String)
 
     val coefficients = Array(residualsDF1, residualsDF2).map(regressor.fit).map(_.coefficients(0))
     val ate = coefficients.sum / coefficients.length
-
     Seq(train, test).foreach(_.unpersist)
     ate
   }

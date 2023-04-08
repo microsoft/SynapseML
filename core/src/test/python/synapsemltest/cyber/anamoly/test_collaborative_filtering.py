@@ -136,17 +136,18 @@ class Dataset:
             intra_test_pdf = factory.create_clustered_intra_test_data(training_pdf)
             inter_test_pdf = factory.create_clustered_inter_test_data()
 
-            curr_training = sc.createDataFrame(training_pdf).withColumn(
+            print(type(training_pdf))
+            curr_training = spark.createDataFrame(training_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col,
                 f.lit(tid),
             )
 
-            curr_intra_test = sc.createDataFrame(intra_test_pdf).withColumn(
+            curr_intra_test = spark.createDataFrame(intra_test_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col,
                 f.lit(tid),
             )
 
-            curr_inter_test = sc.createDataFrame(inter_test_pdf).withColumn(
+            curr_inter_test = spark.createDataFrame(inter_test_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col,
                 f.lit(tid),
             )
@@ -212,7 +213,7 @@ class Dataset:
         training_pdf = create_data_factory().create_clustered_training_data(ratio)
 
         return materialized_cache(
-            sc.createDataFrame(training_pdf).withColumn(
+            spark.createDataFrame(training_pdf).withColumn(
                 AccessAnomalyConfig.default_tenant_col,
                 f.lit(0),
             ),
@@ -274,18 +275,20 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         )
 
         df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [["0", "roy", "res1", 4.0], ["0", "roy", "res2", 8.0]],
                 df_schema,
             ),
         )
 
         user_mapping_df = materialized_cache(
-            sc.createDataFrame([["0", "roy", [1.0, 1.0, 0.0, 1.0]]], user_model_schema),
+            spark.createDataFrame(
+                [["0", "roy", [1.0, 1.0, 0.0, 1.0]]], user_model_schema
+            ),
         )
 
         res_mapping_df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [
                     ["0", "res1", [2.0, 2.0, 1.0, 0.0]],
                     ["0", "res2", [4.0, 4.0, 1.0, 0.0]],
@@ -377,7 +380,7 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         )
 
         user_mapping_df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [
                     [
                         0,
@@ -391,7 +394,7 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         )
 
         res_mapping_df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [
                     [
                         0,
@@ -414,7 +417,7 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         assert df.count() == num_users * num_resources
 
         user_mapping_df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [
                     [
                         0,
@@ -428,7 +431,7 @@ class TestModelNormalizeTransformer(unittest.TestCase):
         )
 
         res_mapping_df = materialized_cache(
-            sc.createDataFrame(
+            spark.createDataFrame(
                 [
                     [
                         0,
@@ -897,7 +900,7 @@ class TestConnectedComponents:
             ],
         )
 
-        df = sc.createDataFrame(
+        df = spark.createDataFrame(
             [
                 ["0", "user0", "res0", 4.0],
                 ["0", "user1", "res0", 8.0],
@@ -944,7 +947,7 @@ class TestConnectedComponents:
         user_col = "user"
         res_col = "res"
 
-        df = sc.createDataFrame(
+        df = spark.createDataFrame(
             DataFactory(single_component=False).create_clustered_training_data(),
         ).withColumn(tenant_col, f.lit(0))
 
