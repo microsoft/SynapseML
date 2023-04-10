@@ -14,6 +14,7 @@ import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, se
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods._
@@ -315,7 +316,7 @@ trait MADBase extends HasOutputCol
       .sparkContext.hadoopConfiguration
     val key = Option(hc.get(adlsConfig)).orElse(Option(hc.get(blobConfig)))
 
-    if (key.isEmpty){
+    if (key.isEmpty) {
       throw new IllegalAccessError("Could not find the storage account credentials." +
         s" Make sure your hadoopConfiguration has the" +
         s" ''$blobConfig'' or ''$adlsConfig'' configuration set.")
@@ -495,6 +496,7 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
         .setLocation(getUrl.split("/".toCharArray)(2).split(".".toCharArray).head)
         .setModelId(modelId)
         .setIntermediateSaveDir(getIntermediateSaveDir)
+        .setDiagnosticsInfo(modelInfo("diagnosticsInfo").convertTo[DiagnosticsInfo])
     })
   }
 
@@ -523,6 +525,13 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
   def setModelId(v: String): this.type = set(modelId, v)
 
   def getModelId: String = $(modelId)
+
+  val diagnosticsInfo = new CognitiveServiceStructParam[DiagnosticsInfo](this, "diagnosticsInfo",
+    "diagnosticsInfo for training a multivariate anomaly detection model")
+
+  def setDiagnosticsInfo(v: DiagnosticsInfo): this.type = set(diagnosticsInfo, v)
+
+  def getDiagnosticsInfo: DiagnosticsInfo = $(diagnosticsInfo)
 
   val topContributorCount = new IntParam(this, "topContributorCount", "This is a number" +
     " that you could specify N from 1 to 30, which will give you the details of top N contributed variables " +
