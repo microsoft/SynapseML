@@ -200,6 +200,22 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   override def rValue(v: T): String = RWrappableParam.rDefaultRender(v)
 
+  override private[ml] def dotnetGetter(capName: String): String = {
+    dotnetType match {
+      case "DiagnosticsInfo" =>
+        s"""|public $dotnetType Get$capName()
+            |{
+            |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
+            |    return new $dotnetType(jvmObject);
+            |}
+            |""".stripMargin
+      case _ =>
+        s"""|public $dotnetType Get$capName() =>
+            |    ($dotnetType)Reference.Invoke(\"get$capName\");
+            |""".stripMargin
+    }
+  }
+
   override private[ml] def dotnetTestValue(v: T): String = DotnetWrappableParam.dotnetDefaultRender(v)
 
   override private[ml] def dotnetTestSetterLine(v: T): String = {
@@ -212,6 +228,7 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   private[ml] def dotnetType: String = typeOf[T].toString match {
     case "Seq[com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask]" => "TextAnalyzeTask[]"
+    case "com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo" => "DiagnosticsInfo"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
 }
