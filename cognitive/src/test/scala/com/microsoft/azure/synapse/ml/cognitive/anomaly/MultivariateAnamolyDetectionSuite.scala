@@ -152,6 +152,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
       val smae = simpleMultiAnomalyEstimator
       val model = smae.fit(df)
       smae.cleanUpIntermediateData()
+      assert(model.getDiagnosticsInfo.variableStates.get.length.equals(3))
 
       model.setStartTime(startTime)
         .setEndTime(endTime)

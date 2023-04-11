@@ -37,6 +37,7 @@ class ONNXModelSuite extends TestBase
     new TestObject(onnxIris, testDfIrisVector),
     new TestObject(onnxMNIST, testDfMNIST),
     new TestObject(onnxAdultsIncome, testDfAdultsIncome),
+    new TestObject(onnxGH1902, testDfGH1902),
     new TestObject(onnxResNet50, testDfResNet50)
   )
 
@@ -44,8 +45,15 @@ class ONNXModelSuite extends TestBase
 
   // Note that we could use OnnxHub to get models for tests, but this makes sure we test with some known binary models
   private val baseUrl = "https://mmlspark.blob.core.windows.net/publicwasb/ONNXModels/"
+  private implicit val eqDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-4)
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
+  private implicit val eqSeqDouble: Equality[Seq[Double]] = (a: Seq[Double], b: Any) => {
+    b match {
+      case sd: Seq[Double] => a.zip(sd).forall(x => x._1 === x._2)
+      case _ => false
+    }
+  }
 
   import spark.implicits._
 
@@ -228,9 +236,6 @@ class ONNXModelSuite extends TestBase
 
     val rows = prediction.as[(Int, Array[Float], Vector, Double)].head(10)
 
-    val epsilon = 1e-4
-    implicit lazy val doubleEq: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(epsilon)
-
     rows.foreach {
       case (label, rawPrediction, probability, prediction) =>
         assert(label == prediction.toInt)
@@ -266,6 +271,43 @@ class ONNXModelSuite extends TestBase
       case (acc, feature) =>
         acc.withColumn(feature, array(col(feature)))
     }.repartition(1)
+  }
+
+  private lazy val onnxGH1902 = {
+    spark
+    val model = downloadModel("GH1902.onnx", baseUrl)
+    new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setDeviceType("CPU")
+      .setFeedDict(featuresAdultsIncome.map(v => (v, v)).toMap)
+      .setFetchDict(Map("probability" -> "probabilities"))
+      .setArgMaxDict(Map("probability" -> "prediction"))
+      .setMiniBatchSize(5000)
+  }
+
+  private lazy val testDfGH1902 = {
+    val testDf = Seq(
+      (39L, " State-gov", 77516L, " Bachelors", 13L, " Never-married", " Adm-clerical",
+        " Not-in-family", " White", " Male", 2174L, 0L, 40L, " United-States"),
+      (52L, " Self-emp-not-inc", 209642L, " Doctorate", 16L, " Married-civ-spouse", " Exec-managerial",
+        " Husband", " White", " Male", 0L, 0L, 45L, " United-States")
+    ).toDF(featuresAdultsIncome: _*).repartition(1)
+
+    testDf
+  }
+
+  test("ONNXModel can run transform for issue 1902") {
+    val Array(row1, row2) = onnxGH1902.transform(testDfGH1902)
+      .select("probability", "prediction")
+      .orderBy(col("prediction"))
+      .as[(Seq[Double], Double)]
+      .collect()
+
+    assert(row1._1 === Seq(0.9343283176422119, 0.0656716451048851))
+    assert(row1._2 === 0.0)
+
+    assert(row2._1 === Seq(0.16954122483730316, 0.8304587006568909))
+    assert(row2._2 === 1.0)
   }
 
   test("ONNXModel can translate zipmap output properly") {
