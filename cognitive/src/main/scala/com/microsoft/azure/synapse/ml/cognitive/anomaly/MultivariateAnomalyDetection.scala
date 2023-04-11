@@ -661,12 +661,12 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
 
   def urlPath: String = "anomalydetector/v1.1/multivariate/models/"
 
-  val inputVariablesCols = new Param[Seq[String]](this, "inputVariablesCols",
+  val inputVariablesCols = new StringArrayParam(this, "inputVariablesCols",
     "The names of the input variables columns")
 
-  def setInputVariablesCols(value: Seq[String]): this.type = set(inputVariablesCols, value)
+  def setInputVariablesCols(value: Array[String]): this.type = set(inputVariablesCols, value)
 
-  def getInputVariablesCols: Seq[String] = $(inputVariablesCols)
+  def getInputVariablesCols: Array[String] = $(inputVariablesCols)
 
   override def setBatchSize(value: Int): this.type = {
     logWarning("batchSize should be equal to 1 sliding window.")
