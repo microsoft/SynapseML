@@ -305,9 +305,11 @@ class DetectLastMultivariateAnomalySuite extends TransformerFuzzing[DetectLastMu
 
   test("Basic Usage") {
     val result = dlma.setBatchSize(50)
-      .transform(df.limit(50))
-    result.show(50, truncate = false)
-    assert(!result.collect().head.getAs[Boolean]("isAnomaly"))
+      .transform(df.limit(100))
+      .collect()
+    assert(result(0).get(6) == null)
+    assert(!result(50).getAs[Boolean]("isAnomaly"))
+    assert(result(68).getAs[Boolean]("isAnomaly"))
   }
 
   test("Error if batch size is smaller than sliding window") {

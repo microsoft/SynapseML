@@ -27,6 +27,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import spray.json._
@@ -670,9 +671,9 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
   }
 
   protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
-    val timestamps = row.getAs[Seq[String]](getTimestampCol)
+    val timestamps = row.getAs[Seq[String]](s"${getTimestampCol}_list")
     val variables = getInputVariablesCols.map(
-      variable => Variable(timestamps, row.getAs[Seq[Double]](variable), variable))
+      variable => Variable(timestamps, row.getAs[Seq[Double]](s"${variable}_list"), variable))
     Some(new StringEntity(
       DLMARequest(variables, getTopContributorCount).toJson.compactPrint
     ))
@@ -690,31 +691,42 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
       )
       val formattedDF = dataset.withColumn(getTimestampCol, convertTimeFormatUdf(col(getTimestampCol)))
         .sort(col(getTimestampCol).asc)
+        .withColumn("group", lit(1))
 
-      getInternalTransformer(formattedDF.schema).transform(formattedDF)
+      val window = Window.partitionBy("group").rowsBetween(-getBatchSize, 0)
+      var collectedDF = formattedDF
+      var columnNames = Array(getTimestampCol) ++ getInputVariablesCols
+      for (columnName <- columnNames) {
+        collectedDF = collectedDF.withColumn(s"${columnName}_list", collect_list(columnName).over(window))
+      }
+      collectedDF = collectedDF.drop("group")
+      columnNames = columnNames.map(name => s"${name}_list")
+
+      val testDF = getInternalTransformer(collectedDF.schema).transform(collectedDF)
+
+      testDF
         .withColumn("isAnomaly", when(col(getOutputCol).isNotNull,
           col(s"$getOutputCol.results.value.isAnomaly")(0)).otherwise(null))
         .withColumn("DetectDataTimestamp", when(col(getOutputCol).isNotNull,
           col(s"$getOutputCol.results.timestamp")(0)).otherwise(null))
+        .drop(columnNames: _*)
 
     })
   }
   // scalastyle:on null
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val batcher = Some(new FixedMiniBatchTransformer().setBatchSize(getBatchSize))
-    val newSchema = batcher.map(_.transformSchema(schema)).get
-
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", newSchema)
-    val lambda = Lambda(_.withColumn(dynamicParamColName, struct(getTimestampCol, getInputVariablesCols: _*)))
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val lambda = Lambda(_.withColumn(dynamicParamColName, struct(
+      s"${getTimestampCol}_list", getInputVariablesCols.map(name => s"${name}_list"): _*)))
 
     val stages = Array(
       lambda,
       new SimpleHTTPTransformer()
         .setInputCol(dynamicParamColName)
         .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(newSchema))
-        .setOutputParser(getInternalOutputParser(newSchema))
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
         .setHandler(handlingFunc _)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
@@ -722,13 +734,7 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
       new DropColumns().setCol(dynamicParamColName)
     )
 
-    val pipe = NamespaceInjections.pipelineModel(stages)
-
-    val flatten = Some(new FlattenBatch())
-
-    NamespaceInjections.pipelineModel(
-      Array(batcher, Some(pipe), flatten).flatten
-    )
+    NamespaceInjections.pipelineModel(stages)
 
   }
 
