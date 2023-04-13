@@ -273,7 +273,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
         .setPredictionCol(getPredictionCol)
 
       trainInternal(dataset, model)
-    })
+    }, dataset.columns.length)
   }
 
   override def fit(dataset: Dataset[_], paramMaps: Seq[ParamMap]): Seq[VowpalWabbitContextualBanditModel] = {
@@ -293,7 +293,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
       }
 
       awaitFutures(modelFutures).map(model => model.setParent(this))
-    })
+    }, dataset.columns.length)
   }
 
   def parallelFit(dataset: Dataset[_], paramMaps: util.ArrayList[ParamMap]):
@@ -361,7 +361,7 @@ class VowpalWabbitContextualBanditModel(override val uid: String)
       dataset.withColumn(
         $(predictionCol),
         predictUDF(struct(dataset.columns.map(dataset(_)): _*)))
-    })
+    }, dataset.columns.length)
   }
 
   override def predict(features: Row): Double = {

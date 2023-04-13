@@ -225,7 +225,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
       )
 
       new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on cyclomatic.complexity
   //scalastyle:on method.length

@@ -64,7 +64,7 @@ class ImageSetAugmenter(val uid: String) extends Transformer
         else Some(flipImages(df, getInputCol, getOutputCol, Flip.flipUpDown))
 
       List(dfLR, dfUD).flatten(x => x).foldLeft(dfID) { case (dfl, tdr) => dfl.union(tdr) }
-    })
+    }, dataset.columns.length)
 
   }
 

@@ -87,7 +87,7 @@ class AggregateBalanceMeasure(override val uid: String)
 
       df.unpersist
       calculateAggregateMeasures(featureStats, featureProbCol)
-    })
+    }, dataset.columns.length)
   }
 
   private def calculateAggregateMeasures(featureStats: DataFrame, featureProbCol: String): DataFrame = {

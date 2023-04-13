@@ -101,7 +101,7 @@ class DataConversion(override val uid: String) extends Transformer
         df
       }
       res
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on cyclomatic.complexity
 
