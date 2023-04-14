@@ -45,7 +45,14 @@ dml = (DoubleMLEstimator()
       .setOutcomeCol("Outcome")
       .setOutcomeModel(LogisticRegression())
       .setMaxIter(20))
-dmlModel = dml.fit(df)
+dmlModel = dml.fit(dataset)
+```
+> Note: all columns except "Treatment" and "Outcome" in your dataset will be used as confounders.
+
+> Note: For discrete treatment, the treatment column must be `int` or `bool`. `0` and `False` will be treated as the control group. 
+
+After fitting the model, you can get average treatment effect and confidence interval:
+```python
 dmlModel.getAvgTreatmentEffect()
 dmlModel.getConfidenceInterval()
 ```

@@ -2,7 +2,7 @@ const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
 const { all_examples } = require('./src/plugins/examples');
-let version = "0.10.0";
+let version = "0.11.0";
 
 module.exports = {
   title: 'SynapseML',

@@ -8,6 +8,8 @@ trigger:
   paths:
     exclude:
     - README.md
+    - CONTRIBUTORS.md
+    - SECURITY.md
     - docs/*
     - CODEOWNERS
     - .github
@@ -717,8 +719,8 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          (${FFMPEG:-false} && sudo add-apt-repository ppa:savoury1/ffmpeg4 -y && \
-          sudo apt-get update && sudo apt-get install ffmpeg libgstreamer1.0-0 \
+          (${FFMPEG:-false} && sudo apt-get update && \
+          sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||

@@ -139,10 +139,12 @@ class ONNXHub(val modelCacheDir: Path,
   }
 
   private def toStream(url: URL) = {
-    val urlCon = url.openConnection()
-    urlCon.setConnectTimeout(connectTimeout)
-    urlCon.setReadTimeout(readTimeout)
-    new BufferedInputStream(urlCon.getInputStream)
+    FaultToleranceUtils.retryWithTimeout(retryCount, Duration.apply(retryTimeoutInSeconds, "sec")) {
+      val urlCon = url.openConnection()
+      urlCon.setConnectTimeout(connectTimeout)
+      urlCon.setReadTimeout(readTimeout)
+      new BufferedInputStream(urlCon.getInputStream)
+    }
   }
 
   def listModels(repo: String = ONNXHub.DefaultRepo,

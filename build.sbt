@@ -211,6 +211,19 @@ publishDotnetTestBase := {
   publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
+// This command should be run only when you make an update to DotnetBase proj, and it will override
+// existing nuget package with the same version number
+val publishDotnetBase = TaskKey[Unit]("publishDotnetBase",
+  "publish dotnet base nuget package that contains core elements for SynapseML in C#")
+publishDotnetBase := {
+  val dotnetBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "src")
+  packDotnetAssemblyCmd(join(dotnetBaseDir, "target").getAbsolutePath, dotnetBaseDir)
+  val packagePath = join(dotnetBaseDir,
+    // Update the version whenever there's a new release
+    "target", s"SynapseML.DotnetBase.${dotnetedVersion("0.11.0")}.nupkg").getAbsolutePath
+  publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
+}
+
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
   task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
@@ -413,7 +426,7 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.500"),
     name := "synapseml-lightgbm"
   ): _*)
 

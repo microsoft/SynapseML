@@ -85,6 +85,24 @@ trait DoubleMLParams extends Params
    */
   def setSampleSplitRatio(value: Array[Double]): this.type = set(sampleSplitRatio, value)
 
+  private[causal] object DoubleMLModelTypes extends Enumeration {
+    type TreatmentType = Value
+    val Binary, Continuous = Value
+  }
+
+  private[causal] def getDoubleMLModelType(model: Any): DoubleMLModelTypes.Value = {
+    model match {
+      case _: ProbabilisticClassifier[_, _, _] =>
+        DoubleMLModelTypes.Binary
+      case _: Regressor[_, _, _] =>
+        DoubleMLModelTypes.Continuous
+      case _ =>
+        throw new IllegalArgumentException(s"Invalid model type: ${model.getClass.getName}")
+    }
+  }
+
+
+
   val confidenceLevel = new DoubleParam(
     this,
     "confidenceLevel",

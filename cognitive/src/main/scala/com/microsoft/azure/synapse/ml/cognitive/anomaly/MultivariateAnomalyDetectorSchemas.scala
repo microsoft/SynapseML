@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.anomaly
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import scala.collection.JavaConverters._
 
 // DMA stands for DetectMultivariateAnomaly
 object DMARequest extends SparkBindings[DMARequest]
@@ -33,7 +34,17 @@ case class DMAVariableState(variable: Option[String],
                             filledNARatio: Option[Double],
                             effectiveCount: Option[Int],
                             firstTimestamp: Option[String],
-                            lastTimestamp: Option[String])
+                            lastTimestamp: Option[String]) {
+  def getVariable: String = this.variable.get
+
+  def getFilledNARatio: Double = this.filledNARatio.get
+
+  def getEffectiveCount: Int = this.effectiveCount.get
+
+  def getFirstTimestamp: String = this.firstTimestamp.get
+
+  def getLastTimestamp: String = this.lastTimestamp.get
+}
 
 case class DMASetupInfo(dataSource: String,
                         topContributorCount: Option[Int],
@@ -84,12 +95,24 @@ case class MAEModelInfo(slidingWindow: Option[Int],
 
 case class AlignPolicy(alignMode: Option[String], fillNAMethod: Option[String], paddingValue: Option[Int])
 
-case class DiagnosticsInfo(modelState: Option[ModelState], variableStates: Option[Seq[DMAVariableState]])
+case class DiagnosticsInfo(modelState: Option[ModelState], variableStates: Option[Seq[DMAVariableState]]) {
+  def getModelState: ModelState = this.modelState.get
+
+  def getVariableStates: java.util.List[DMAVariableState] = this.variableStates.get.asJava
+}
 
 case class ModelState(epochIds: Option[Seq[Int]],
                       trainLosses: Option[Seq[Double]],
                       validationLosses: Option[Seq[Double]],
-                      latenciesInSeconds: Option[Seq[Double]])
+                      latenciesInSeconds: Option[Seq[Double]]) {
+  def getEpochIds: java.util.List[Int] = this.epochIds.getOrElse(Seq()).asJava
+
+  def getTrainLosses: java.util.List[Double] = this.trainLosses.getOrElse(Seq()).asJava
+
+  def getValidationLosses: java.util.List[Double] = this.validationLosses.getOrElse(Seq()).asJava
+
+  def getLatenciesInSeconds: java.util.List[Double] = this.latenciesInSeconds.getOrElse(Seq()).asJava
+}
 
 object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat4(DMARequest.apply)

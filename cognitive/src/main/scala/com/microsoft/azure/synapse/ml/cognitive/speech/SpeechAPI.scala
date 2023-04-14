@@ -19,7 +19,7 @@ object SpeechAPI {
   def getSpeakerProfile(data: File, key: String): String = {
     retry(List(100, 500, 1000), { () => //scalastyle:ignore magic.number
       val request = RequestBuilder
-        .post("https://signature.centralus.cts.speech.microsoft.com" +
+        .post("https://signature.eastus.cts.speech.microsoft.com" +
           "/api/v1/Signature/GenerateVoiceSignatureFromFormData")
         .setEntity(MultipartEntityBuilder.create()
           .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)

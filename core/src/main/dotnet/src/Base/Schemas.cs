@@ -15,7 +15,7 @@ namespace SynapseML.Dotnet.Utils
         public Dictionary<string, string> Parameters { get; init; }
 
         public TextAnalyzeTask(Dictionary<string, string> parameters)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask", parameters.ToJavaHashMap()))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask", parameters.ToJavaHashMap()))
         {
         }
 
@@ -46,7 +46,7 @@ namespace SynapseML.Dotnet.Utils
         public double Value { get; init; }
 
         public TimeSeriesPoint(string timestamp, double value)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TimeSeriesPoint", timestamp, value))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.TimeSeriesPoint", timestamp, value))
         {
         }
 
@@ -68,7 +68,7 @@ namespace SynapseML.Dotnet.Utils
         public string Translation { get; init; }
 
         public TextAndTranslation(string text, string translation)
-            : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TextAndTranslation", text, translation))
+            : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation", text, translation))
         {
         }
 
@@ -92,7 +92,7 @@ namespace SynapseML.Dotnet.Utils
         public string? StorageSource { get; init; }
 
         public TargetInput(string targetUrl, string language, string? category = null, Glossary[]? glossaries = null, string? storageSource = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.TargetInput", targetUrl, language, category, glossaries, storageSource))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.TargetInput", targetUrl, language, category, glossaries, storageSource))
         {
         }
 
@@ -123,7 +123,7 @@ namespace SynapseML.Dotnet.Utils
         public string? Version { get; init; }
 
         public Glossary(string format, string glossaryUrl, string? storageSource = null, string? version = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.Glossary", format, glossaryUrl, storageSource, version))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.Glossary", format, glossaryUrl, storageSource, version))
         {
         }
 
@@ -194,6 +194,80 @@ namespace SynapseML.Dotnet.Utils
         public bool Validate() => (bool)Reference.Invoke("validate");
 
         public int GetNumSplits() => (int)Reference.Invoke("getNumSplits");
+    }
+
+    public sealed class ModelState : IJvmObjectReferenceProvider
+    {
+        public int[]? EpochIds { get; init; }
+        public double[]? TrainLosses { get; init; }
+        public double[]? ValidationLosses { get; init; }
+        public double[]? LatenciesInSeconds { get; init; }
+
+        public ModelState(int[]? epochIds = null, double[]? trainLosses = null, double[]? validationLosses = null, double[]? latenciesInSeconds = null)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.ModelState", epochIds, trainLosses, validationLosses, latenciesInSeconds))
+        {
+        }
+
+        internal ModelState(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+            this.EpochIds = (int[])Reference.Invoke("epochIds");
+            this.TrainLosses = (double[])Reference.Invoke("trainLosses");
+            this.ValidationLosses = (double[])Reference.Invoke("validationLosses");
+            this.LatenciesInSeconds = (double[])Reference.Invoke("latenciesInSeconds");
+        }
+
+        public JvmObjectReference Reference { get; init; }
+
+    }
+
+    public sealed class DMAVariableState : IJvmObjectReferenceProvider
+    {
+        public string? Variable { get; init; }
+        public double? FilledNARatio { get; init; }
+        public int? EffectiveCount { get; init; }
+        public string? FirstTimestamp { get; init; }
+        public string? LastTimestamp { get; init; }
+
+
+        public DMAVariableState(string? variable = null, double? filledNARatio = null, int? effectiveCount = null, string? firstTimestamp = null, string? lastTimestamp = null)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.DMAVariableState", variable, filledNARatio, effectiveCount, firstTimestamp, lastTimestamp))
+        {
+        }
+
+        internal DMAVariableState(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+            this.Variable = (string)Reference.Invoke("variable");
+            this.FilledNARatio = (double)Reference.Invoke("filledNARatio");
+            this.EffectiveCount = (int)Reference.Invoke("effectiveCount");
+            this.FirstTimestamp = (string)Reference.Invoke("firstTimestamp");
+            this.LastTimestamp = (string)Reference.Invoke("lastTimestamp");
+        }
+
+        public JvmObjectReference Reference { get; init; }
+
+    }
+
+    public sealed class DiagnosticsInfo: IJvmObjectReferenceProvider
+    {
+        public ModelState? ModelState { get; init; }
+        public DMAVariableState? VariableStates { get; init; }
+
+        public DiagnosticsInfo(ModelState? modelState = null, DMAVariableState? variableStates = null)
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo", modelState, variableStates))
+        {
+        }
+
+        internal DiagnosticsInfo(JvmObjectReference jvmObject)
+        {
+            Reference = jvmObject;
+            this.ModelState = new ModelState((JvmObjectReference)Reference.Invoke("modelState"));
+            this.VariableStates = new DMAVariableState((JvmObjectReference)Reference.Invoke("variableStates"));
+        }
+
+        public JvmObjectReference Reference { get; init; }
+
     }
 
 #nullable disable
