@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
+import com.microsoft.azure.synapse.ml.core.env.CogServiceUtils
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
@@ -159,6 +160,8 @@ trait HasAADToken extends HasServiceParams {
   def setAADTokenCol(v: String): this.type = setVectorParam(AADToken, v)
 
   def getAADTokenCol: String = getVectorParam(AADToken)
+
+  setDefault(AADToken -> Left(CogServiceUtils.AADToken))
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -170,11 +173,10 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
     setUrl(v + urlPath.stripPrefix("/"))
   }
 
-  def setInternalEndpoint(v: String): this.type = {
-    setUrl(v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
-  }
-
   private[ml] def internalServiceType: String = ""
+
+  setDefault(url, CogServiceUtils.BaseEndpoint
+    + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """def setCustomServiceName(self, value):
@@ -184,18 +186,6 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |def setEndpoint(self, value):
       |    self._java_obj = self._java_obj.setEndpoint(value)
       |    return self
-      |
-      |def setInternalEndpoint(self, value):
-      |    self._java_obj = self._java_obj.setInternalEndpoint(value)
-      |    return self
-      |
-      |def _transform(self, dataset: DataFrame) -> DataFrame:
-      |    if running_on_synapse_internal():
-      |        from synapse.ml.mlflow import get_mlflow_env_config
-      |        mlflow_env_configs = get_mlflow_env_config()
-      |        self.setAADToken(mlflow_env_configs.driver_aad_token)
-      |        self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
-      |    return super()._transform(dataset)
       |""".stripMargin
   }
 
@@ -219,16 +209,6 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
        |/// <returns> New $dotnetClassName object </returns>
        |public $dotnetClassName SetEndpoint(string value) =>
        |    $dotnetClassWrapperName(Reference.Invoke(\"setEndpoint\", value));
-       |
-       |/// <summary>
-       |/// Sets value for internal endpoint
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// Endpoint of the cognitive service
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName setInternalEndpoint(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setInternalEndpoint\", value));
        |""".stripMargin
   }
 }
@@ -268,6 +248,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     case p: ServiceParam[_] => p.payloadName
     case _ => p.name
   }
+
+  override def getUrl: String = this.getOrDefault(url)
 
   protected def prepareUrlRoot: Row => String = {
     _ => getUrl
