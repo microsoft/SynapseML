@@ -274,27 +274,30 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
 class DetectLastMultivariateAnomalySuite extends TransformerFuzzing[DetectLastMultivariateAnomaly]
   with MADTestUtils {
 
-  val hc: Configuration = spark.sparkContext.hadoopConfiguration
-  hc.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
-  hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
-    "org.apache.hadoop.fs.azure.SimpleKeyProvider")
-  hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
+  lazy val sfma: SimpleFitMultivariateAnomaly = {
+    val hc: Configuration = spark.sparkContext.hadoopConfiguration
+    hc.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
+    hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
+      "org.apache.hadoop.fs.azure.SimpleKeyProvider")
+    hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
 
-  val sfma: SimpleFitMultivariateAnomaly = new SimpleFitMultivariateAnomaly()
-    .setSubscriptionKey(anomalyKey)
-    .setLocation(anomalyLocation)
-    .setOutputCol("result")
-    .setStartTime(startTime)
-    .setEndTime(endTime)
-    .setIntermediateSaveDir(intermediateSaveDir)
-    .setTimestampCol(timestampColumn)
-    .setInputCols(inputColumns)
-    .setSlidingWindow(50)
+    new SimpleFitMultivariateAnomaly()
+      .setSubscriptionKey(anomalyKey)
+      .setLocation(anomalyLocation)
+      .setOutputCol("result")
+      .setStartTime(startTime)
+      .setEndTime(endTime)
+      .setIntermediateSaveDir(intermediateSaveDir)
+      .setTimestampCol(timestampColumn)
+      .setInputCols(inputColumns)
+      .setSlidingWindow(50)
+  }
 
-  val model: SimpleDetectMultivariateAnomaly = sfma.fit(df)
-  val modelId: String = model.getModelId
-
-  MADUtils.CreatedModels += modelId
+  lazy val modelId: String = {
+    val model: SimpleDetectMultivariateAnomaly = sfma.fit(df)
+    MADUtils.CreatedModels += model.getModelId
+    model.getModelId
+  }
 
   lazy val dlma: DetectLastMultivariateAnomaly = new DetectLastMultivariateAnomaly()
     .setSubscriptionKey(anomalyKey)
