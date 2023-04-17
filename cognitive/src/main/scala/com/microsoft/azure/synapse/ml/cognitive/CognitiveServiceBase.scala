@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.cognitive
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.core.env.CogServiceUtils
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
@@ -161,7 +160,9 @@ trait HasAADToken extends HasServiceParams {
 
   def getAADTokenCol: String = getVectorParam(AADToken)
 
-  setDefault(AADToken -> Left(CogServiceUtils.AADToken))
+  def setDefaultAADToken(v: String): this.type = {
+    setDefault(AADToken -> Left(v))
+  }
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -173,10 +174,12 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
     setUrl(v + urlPath.stripPrefix("/"))
   }
 
-  private[ml] def internalServiceType: String = ""
+  override def getUrl: String = this.getOrDefault(url)
 
-  setDefault(url, CogServiceUtils.BaseEndpoint
-    + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
+  def setDefaultInternalEndpoint(v: String): this.type = setDefault(
+    url, v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
+
+  private[ml] def internalServiceType: String = ""
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """def setCustomServiceName(self, value):
@@ -186,6 +189,18 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |def setEndpoint(self, value):
       |    self._java_obj = self._java_obj.setEndpoint(value)
       |    return self
+      |
+      |def setDefaultInternalEndpoint(self, value):
+      |    self._java_obj = self._java_obj.setDefaultInternalEndpoint(value)
+      |    return self
+      |
+      |def _transform(self, dataset: DataFrame) -> DataFrame:
+      |    if running_on_synapse_internal():
+      |        from synapse.ml.mlflow import get_mlflow_env_config
+      |        mlflow_env_configs = get_mlflow_env_config()
+      |        self._java_obj.setDefaultAADToken(mlflow_env_configs.driver_aad_token)
+      |        self.setDefaultInternalEndpoint(mlflow_env_configs.workload_endpoint)
+      |    return super()._transform(dataset)
       |""".stripMargin
   }
 
