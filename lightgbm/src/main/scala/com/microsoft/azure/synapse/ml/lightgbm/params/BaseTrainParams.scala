@@ -182,6 +182,8 @@ case class ExecutionParams(chunkSize: Int,
                            matrixType: String,
                            numThreads: Int,
                            executionMode: String,
+                           samplingMode: String,
+                           samplingSetSize: Int,
                            microBatchSize: Int,
                            useSingleDatasetMode: Boolean,
                            maxStreamingOMPThreads: Int) extends ParamGroup {

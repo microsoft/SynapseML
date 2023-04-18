@@ -39,7 +39,7 @@ case class TrainingContext(batchIndex: Int,
                            featureNames: Option[Array[String]],
                            numTasksPerExecutor: Int,
                            validationData: Option[Broadcast[Array[Row]]],
-                           broadcastedSampleData: Option[Broadcast[Array[Row]]],
+                           serializedReferenceDataset: Option[Array[Byte]],
                            partitionCounts: Option[Array[Long]]) extends Serializable {
   val isProvideTrainingMetric: Boolean = { trainingParams.isProvideTrainingMetric.getOrElse(false) }
   val improvementTolerance: Double = { trainingParams.generalParams.improvementTolerance }

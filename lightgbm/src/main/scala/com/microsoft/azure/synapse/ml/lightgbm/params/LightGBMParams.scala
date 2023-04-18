@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInitScoreCol, HasValidationIndicatorCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDelegate}
+import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
@@ -57,6 +58,28 @@ trait LightGBMExecutionParams extends Wrappable {
   setDefault(useBarrierExecutionMode -> false)
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
+
+  val samplingMode = new Param[String](this, "samplingMode",
+    "Specify how SynapseML calculates sampled data for streaming mode. Sampled data is used to define bins. " +
+      "Values can be global, subset, or fixed. Default is subset.")
+  setDefault(samplingMode -> LightGBMConstants.SubsetSamplingModeSubset)
+  def getSamplingMode: String = $(samplingMode)
+  def setSamplingMode(value: String): this.type = set(samplingMode, value)
+
+  val samplingSubsetSize = new IntParam(this, "samplingSubsetSize",
+    "Specify subset size N for the sampling mode 'subset'. 'binSampleCount' will be chosen from " +
+      "the first N values of the dataset. Used to approximate random sample without iterating through all data.")
+  setDefault(samplingSubsetSize -> 1000000)
+  def getSamplingSubsetSize: Int = $(samplingSubsetSize)
+  def setSamplingSubsetSize(value: Int): this.type = set(samplingSubsetSize, value)
+
+  val referenceDataset: ByteArrayParam = new ByteArrayParam(
+    this,
+    "referenceDataset",
+    "The reference Dataset that was used for the fit. If using samplingMode=custom, this must be set before fit()."
+  )
+  def getReferenceDataset: Array[Byte] = $(referenceDataset)
+  def setReferenceDataset(value: Array[Byte]): this.type = set(referenceDataset, value)
 
   val executionMode = new Param[String](this, "executionMode",
     "Specify how LightGBM is executed.  " +

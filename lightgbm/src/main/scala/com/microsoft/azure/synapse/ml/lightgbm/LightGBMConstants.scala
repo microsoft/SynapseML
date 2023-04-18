@@ -37,6 +37,15 @@ object LightGBMConstants {
   /** Bulk execution mode.
     */
   val BulkExecutionMode: String = "bulk"
+  /** Sampling mode - random n within all global data.
+    */
+  val SubsetSamplingModeGlobal: String = "global"
+  /** Sampling mode - random n within subset N.
+    */
+  val SubsetSamplingModeSubset: String = "subset"
+  /** Sampling mode take first n rows.
+    */
+  val SubsetSamplingModeFixed: String = "fixed"
   /** Enabled task, used to indicate task that creates lightgbm dataset and runs training.
     */
   val EnabledTask: String = "enabledTask"
