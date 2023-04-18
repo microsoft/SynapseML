@@ -60,8 +60,7 @@ your `build.sbt`:
 ```scala
 resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
 // Use 0.11.0 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
-libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "0.11.0"
-
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.11.0"
 ```
 
 ## Spark package
