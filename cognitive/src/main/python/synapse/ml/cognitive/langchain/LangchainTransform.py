@@ -28,22 +28,24 @@ from pyspark.ml.param.shared import (
     Params,
     TypeConverters,
 )
+from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 from pyspark.sql.functions import udf
 
 # Default Values
-OPENAI_API_KEY = "64e8a259a46c496a9ccfb668895f78a9"
 OPENAI_API_BASE = "https://scusopenai.openai.azure.com/"
 OPENAI_API_VERSION = "2022-12-01"
 
 
-class LangchainTransformer(Transformer, HasInputCol, HasOutputCol):
+class LangchainTransformer(
+    Transformer, HasInputCol, HasOutputCol, DefaultParamsReadable, DefaultParamsWritable
+):
     @keyword_only
     def __init__(
         self,
         inputCol=None,
         outputCol=None,
         chain=None,
-        api_key=OPENAI_API_KEY,
+        api_key=None,
         api_base=OPENAI_API_BASE,
         api_version=OPENAI_API_VERSION,
     ):
@@ -67,7 +69,7 @@ class LangchainTransformer(Transformer, HasInputCol, HasOutputCol):
         inputCol=None,
         outputCol=None,
         chain=None,
-        api_key=OPENAI_API_KEY,
+        api_key=None,
         api_base=OPENAI_API_BASE,
         api_version=OPENAI_API_VERSION,
     ):
@@ -80,25 +82,25 @@ class LangchainTransformer(Transformer, HasInputCol, HasOutputCol):
     def getChain(self):
         return self.getOrDefault(self.chain)
 
-    def set_api_key(self, value: str):
+    def setApiKey(self, value: str):
         """
         set the openAI api key
         """
         return self._set(api_key=value)
 
-    def get_api_key(self):
+    def getApiKey(self):
         return self.getOrDefault(self.api_key)
 
-    def set_api_base(self, value: str):
+    def setApiBase(self, value: str):
         return self._set(api_base=value)
 
-    def get_api_base(self):
+    def getApiBase(self):
         return self.getOrDefault(self.api_base)
 
-    def set_api_version(self, value: str):
+    def setApiVersion(self, value: str):
         return self._set(api_version=value)
 
-    def get_api_version(self):
+    def getApiVersion(self):
         return self.getOrDefault(self.api_version)
 
     def setInputCol(self, value: str):
@@ -118,12 +120,14 @@ class LangchainTransformer(Transformer, HasInputCol, HasOutputCol):
         do langchain transformation for the input column,
         and save the transformed values to the output column.
         """
+
         def f(x):
             import openai
+
             openai.api_type = "azure"
-            openai.api_key = self.get_api_key()
-            openai.api_base = self.get_api_base()
-            openai.api_version = self.get_api_version()
+            openai.api_key = self.getApiKey()
+            openai.api_base = self.getApiBase()
+            openai.api_version = self.getApiVersion()
             return self.getChain().run(x)
 
         udf_function = udf(lambda x: f(x))
