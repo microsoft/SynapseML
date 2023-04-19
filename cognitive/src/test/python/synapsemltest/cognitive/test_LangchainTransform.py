@@ -66,7 +66,8 @@ class LangchainTransformTest(unittest.TestCase):
             .setInputCol("technology")
             .setOutputCol("copied_technology")
             .setChain(chain)
-            .set_api_key(openai_api_key)
+            .setApiKey(openai_api_key)
+            .setApiBase("https://synapseml-openai.openai.azure.com/")
         )
 
         transformed_df = langchainTransformer.transform(sentenceDataFrame)
