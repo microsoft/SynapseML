@@ -47,7 +47,7 @@ object RCodegen {
           |    sparklyr
           |License: MIT
           |Suggests:
-          |    testthat (>= 3.0.0)
+          |    testthat (>= 3.1.7)
           |Config/testthat/edition: 3
           |""".stripMargin)
 
