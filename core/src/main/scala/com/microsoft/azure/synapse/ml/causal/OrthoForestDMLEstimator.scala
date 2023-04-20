@@ -171,7 +171,7 @@ class OrthoForestDMLModel(val uid: String)
   extends Model[OrthoForestDMLModel] with OrthoForestDMLParams
     with ComplexParamsWritable with Wrappable{
 
-  override protected lazy val pyInternalWrapper = true
+  override protected lazy val pyInternalWrapper = false
 
   val forest = new TransformerArrayParam(this,
     "forest",
