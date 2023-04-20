@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -20,7 +21,9 @@ import org.apache.spark.sql.{DataFrame, Dataset}
   *  Any regressor that accepts sample weights can be used as a final model, e.g.:
   */
 class OrthoForestVariableTransformer(override val uid: String) extends Transformer
-  with HasOutputCol with DefaultParamsWritable with Wrappable {
+  with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
+
+  logClass()
 
   def this() = this(Identifiable.randomUID("OrthoPredictionTransformer"))
 

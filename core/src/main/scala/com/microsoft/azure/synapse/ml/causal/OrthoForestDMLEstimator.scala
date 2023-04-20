@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TransformerArrayParam
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
@@ -29,7 +30,9 @@ object ConstantColumns extends ConstantColumns
 
 class OrthoForestDMLEstimator(override val uid: String)
   extends Estimator[OrthoForestDMLModel] with ComplexParamsWritable
-    with OrthoForestDMLParams with Wrappable {
+    with OrthoForestDMLParams with Wrappable with SynapseMLLogging {
+
+  logClass()
 
   def this() = this(Identifiable.randomUID("OrthoForestDMLEstimator"))
 
@@ -169,7 +172,9 @@ object OrthoForestDMLEstimator extends ComplexParamsReadable[OrthoForestDMLEstim
 /** Model produced by [[OrthoForestDMLEstimator]]. */
 class OrthoForestDMLModel(val uid: String)
   extends Model[OrthoForestDMLModel] with OrthoForestDMLParams
-    with ComplexParamsWritable with Wrappable{
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
+
+  logClass()
 
   override protected lazy val pyInternalWrapper = false
 
@@ -231,50 +236,53 @@ class OrthoForestDMLModel(val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    logTransform[DataFrame]({
+      val df = dataset.toDF()
 
-    val df = dataset.toDF()
+      val cnt = getForest.length
 
-    val cnt = getForest.length
+      def predColIx(x: Any): String = {
+        s"_tmp_op_$x"
+      }
 
-    def predColIx(x: Any): String = {s"_tmp_op_$x"}
+      var opCnt = 1
+      for (tree <- getForest) {
+        tree.setPredictionCol(predColIx(opCnt))
+        opCnt = opCnt + 1
+      }
 
-    var opCnt = 1
-    for(tree<-getForest){
-      tree.setPredictionCol(predColIx(opCnt))
-      opCnt = opCnt + 1
-    }
+      val colsNamed = (1 to cnt).toArray.map { x => predColIx(x) }
 
-    val colsNamed = (1 to cnt).toArray.map{ x => predColIx(x) }
+      val assembler = new VectorAssembler()
+        .setInputCols(colsNamed)
+        .setOutputCol(ConstantColumns.tempVecCol)
 
-    val assembler = new VectorAssembler()
-      .setInputCols(colsNamed)
-      .setOutputCol(ConstantColumns.tempVecCol)
+      val dropCols = new DropColumns()
+        .setCols(colsNamed)
 
-    val dropCols = new DropColumns()
-      .setCols(colsNamed)
+      val pipeline = new Pipeline()
+        .setStages(getForest ++ Array(assembler, dropCols))
 
-    val pipeline =  new Pipeline()
-      .setStages(getForest ++ Array(assembler,dropCols))
+      val getBLBBoundsUDF = udf { features: Array[Double] =>
+        getBLBBounds(features)
+      }
 
-    val getBLBBoundsUDF = udf { features: Array[Double] =>
-      getBLBBounds(features)
-    }
+      val getLowerBound = udf { combined: Array[Double] => combined(0) }
+      val getAverage = udf { combined: Array[Double] => combined(1) }
+      val getUpperBound = udf { combined: Array[Double] => combined(2) }
 
-    val getLowerBound = udf { combined: Array[Double] => combined(0) }
-    val getAverage = udf { combined: Array[Double] => combined(1) }
-    val getUpperBound = udf { combined: Array[Double] => combined(2) }
-
-    pipeline
-      .fit(df)
-      .transform(df)
-      .withColumn(ConstantColumns.tmpBLBBounds, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
-      .withColumn(getOutputLowCol, getLowerBound(col(ConstantColumns.tmpBLBBounds)))
-      .withColumn(getOutputCol, getAverage(col(ConstantColumns.tmpBLBBounds)))
-      .withColumn(getOutputHighCol, getUpperBound(col(ConstantColumns.tmpBLBBounds)))
-      .drop(ConstantColumns.tempVecCol)
-      .drop(ConstantColumns.tmpBLBBounds)
-      .drop(ConstantColumns.transformedOutcome)
-      .drop(ConstantColumns.transformedWeights)
+      pipeline
+        .fit(df)
+        .transform(df)
+        .withColumn(ConstantColumns.tmpBLBBounds, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
+        .withColumn(getOutputLowCol, getLowerBound(col(ConstantColumns.tmpBLBBounds)))
+        .withColumn(getOutputCol, getAverage(col(ConstantColumns.tmpBLBBounds)))
+        .withColumn(getOutputHighCol, getUpperBound(col(ConstantColumns.tmpBLBBounds)))
+        .drop(ConstantColumns.tempVecCol)
+        .drop(ConstantColumns.tmpBLBBounds)
+        .drop(ConstantColumns.transformedOutcome)
+        .drop(ConstantColumns.transformedWeights)
+    })
   }
 
   override def transformSchema(schema: StructType): StructType =
