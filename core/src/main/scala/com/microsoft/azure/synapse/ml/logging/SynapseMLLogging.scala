@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import org.apache.spark.internal.Logging
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -13,9 +13,10 @@ case class SynapseMLLogInfo(uid: String,
                             className: String,
                             method: String,
                             buildVersion: String,
-                            columns: Int = -1)
+                            columns: Option[Int] = None)
 
-object LogJsonProtocol extends DefaultJsonProtocol {
+object LogJsonProtocol extends DefaultJsonProtocol with NullOptions
+{
   implicit val LogFormat: RootJsonFormat[SynapseMLLogInfo] = jsonFormat5(SynapseMLLogInfo)
 }
 
@@ -45,8 +46,13 @@ trait SynapseMLLogging extends Logging {
 
   val uid: String
 
-  protected def logBase(methodName: String, columns: Int = -1): Unit = {
-    logBase(SynapseMLLogInfo(uid, getClass.toString, methodName, BuildInfo.version, columns))
+  protected def logBase(methodName: String, columns:Int = -1): Unit = {
+    logBase(SynapseMLLogInfo(
+      uid,
+      getClass.toString,
+      methodName,
+      BuildInfo.version,
+      if (columns == -1) None else Some(columns)))
   }
 
   protected def logBase(info: SynapseMLLogInfo): Unit = {
