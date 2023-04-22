@@ -114,6 +114,18 @@ case class ModelState(epochIds: Option[Seq[Int]],
   def getLatenciesInSeconds: java.util.List[Double] = this.latenciesInSeconds.getOrElse(Seq()).asJava
 }
 
+object DLMARequest extends SparkBindings[DLMARequest]
+
+case class DLMARequest(variables: Seq[Variable], topContributorCount: Int)
+
+object Variable extends SparkBindings[Variable]
+
+case class Variable(timestamps: Seq[String], values: Seq[Double], variable: String)
+
+object DLMAResponse extends SparkBindings[DLMAResponse]
+
+case class DLMAResponse(variableStates: Option[Seq[DMAVariableState]], results: Option[Seq[DMAResult]])
+
 object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMAReqEnc: RootJsonFormat[DMARequest] = jsonFormat4(DMARequest.apply)
   implicit val EEnc: RootJsonFormat[DMAError] = jsonFormat2(DMAError.apply)
@@ -129,4 +141,6 @@ object MADJsonProtocol extends DefaultJsonProtocol {
   implicit val DMASetupInfoEnc: RootJsonFormat[DMASetupInfo] = jsonFormat4(DMASetupInfo.apply)
   implicit val DMASummaryEnc: RootJsonFormat[DMASummary] = jsonFormat4(DMASummary.apply)
   implicit val MAEModelInfoEnc: RootJsonFormat[MAEModelInfo] = jsonFormat10(MAEModelInfo.apply)
+  implicit val VariableEnc: RootJsonFormat[Variable] = jsonFormat3(Variable.apply)
+  implicit val DLMARequestEnc: RootJsonFormat[DLMARequest] = jsonFormat2(DLMARequest.apply)
 }
