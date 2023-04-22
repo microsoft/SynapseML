@@ -46,13 +46,13 @@ trait SynapseMLLogging extends Logging {
 
   val uid: String
 
-  protected def logBase(methodName: String, columns:Int = -1): Unit = {
+  protected def logBase(methodName: String, columns:Option[Int]): Unit = {
     logBase(SynapseMLLogInfo(
       uid,
       getClass.toString,
       methodName,
       BuildInfo.version,
-      if (columns == -1) None else Some(columns)))
+      columns))
   }
 
   protected def logBase(info: SynapseMLLogInfo): Unit = {
@@ -70,19 +70,19 @@ trait SynapseMLLogging extends Logging {
     logBase("constructor")
   }
 
-  def logFit[T](f: => T, columns: Int = -1): T = {
+  def logFit[T](f: => T, columns: Int): T = {
     logVerb("fit", f, columns)
   }
 
-  def logTrain[T](f: => T, columns: Int = -1): T = {
+  def logTrain[T](f: => T, columns: Int): T = {
     logVerb("train", f, columns)
   }
 
-  def logTransform[T](f: => T, columns: Int = -1): T = {
+  def logTransform[T](f: => T, columns: Int): T = {
     logVerb("transform", f, columns)
   }
   def logVerb[T](verb: String, f: => T, columns: Int = -1): T = {
-    logBase(verb, columns)
+    logBase(verb, if(columns == -1) None else Some(columns))
     try {
       f
     } catch {
