@@ -720,7 +720,7 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
           col(s"$getOutputCol.results.timestamp")(0)).otherwise(null))
         .drop(columnNames: _*)
 
-    })
+    }, dataset.columns.length)
   }
   // scalastyle:on null
 

@@ -46,7 +46,7 @@ trait SynapseMLLogging extends Logging {
 
   val uid: String
 
-  protected def logBase(methodName: String, columns:Option[Int]): Unit = {
+  protected def logBase(methodName: String, columns: Option[Int]): Unit = {
     logBase(SynapseMLLogInfo(
       uid,
       getClass.toString,
@@ -67,7 +67,7 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logClass(): Unit = {
-    logBase("constructor")
+    logBase("constructor", None)
   }
 
   def logFit[T](f: => T, columns: Int): T = {
