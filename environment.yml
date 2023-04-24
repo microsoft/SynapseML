@@ -24,6 +24,7 @@ dependencies:
     - nbconvert
     - nbformat
     - PyGithub
+    - tqdm
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
