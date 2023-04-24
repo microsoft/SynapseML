@@ -265,7 +265,7 @@ class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBas
         getErrorCol,
         s"$getOutputCol.1"
       ).withColumnRenamed("1", getOutputCol)
-    })
+    }, dataset.columns.length)
 
   }
 

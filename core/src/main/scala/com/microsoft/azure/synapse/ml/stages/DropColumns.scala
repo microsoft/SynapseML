@@ -39,7 +39,7 @@ class DropColumns(val uid: String) extends Transformer with Wrappable with Defau
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       dataset.toDF().drop(getCols: _*)
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

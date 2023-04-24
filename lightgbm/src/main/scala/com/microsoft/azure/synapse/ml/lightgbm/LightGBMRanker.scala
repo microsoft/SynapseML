@@ -152,7 +152,7 @@ class LightGBMRankerModel(override val uid: String)
         outputData = outputData.withColumn(getFeaturesShapCol, featureShapUDF(col(getFeaturesCol)))
       }
       outputData.toDF
-    })
+    }, dataset.columns.length)
   }
 
   override def predict(features: Vector): Double = {

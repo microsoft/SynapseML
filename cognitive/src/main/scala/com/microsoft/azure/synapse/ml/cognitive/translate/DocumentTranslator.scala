@@ -164,7 +164,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       getInternalTransformer(dataset.schema).transform(dataset)
-    })
+    }, dataset.columns.length)
   }
 
   override def responseDataType: DataType = TranslationStatusResponse.schema

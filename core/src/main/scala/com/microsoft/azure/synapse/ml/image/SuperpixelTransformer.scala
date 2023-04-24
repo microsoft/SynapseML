@@ -49,7 +49,7 @@ class SuperpixelTransformer(val uid: String) extends Transformer
         dataset.schema(getInputCol).dataType, getCellSize, getModifier)
 
       dataset.toDF().withColumn(getOutputCol, getSuperPixels(col(getInputCol)))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

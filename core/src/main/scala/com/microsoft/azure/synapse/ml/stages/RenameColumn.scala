@@ -31,7 +31,7 @@ class RenameColumn(val uid: String) extends Transformer with Wrappable with Defa
     logTransform[DataFrame]({
       transformSchema(dataset.schema, logging = true)
       dataset.toDF().withColumnRenamed(getInputCol, getOutputCol)
-    })
+    }, dataset.columns.length)
   }
 
   def validateAndTransformSchema(schema: StructType): StructType = {
