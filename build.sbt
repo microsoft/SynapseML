@@ -483,7 +483,7 @@ val convertNotebooks = TaskKey[Unit]("convertNotebooks",
   "convert notebooks to markdown for website display")
 convertNotebooks := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
+    "python docs/python/documentprojection -c website -r notebooks/features -p".split(" ")
   )
 }
 
