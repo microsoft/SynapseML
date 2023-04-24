@@ -97,7 +97,7 @@ class UDFTransformer(val uid: String) extends Transformer with Wrappable with Co
       } else {
         dataset.withColumn(getOutputCol, applyUDFOnCols(getInputCols.map(col): _*))
       }
-    })
+    }, dataset.columns.length)
   }
 
   def validateAndTransformSchema(schema: StructType): StructType = {

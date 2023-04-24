@@ -53,7 +53,7 @@ class ClassBalancer(override val uid: String) extends Estimator[ClassBalancerMod
         .setWeights(weights)
         .setBroadcastJoin(getBroadcastJoin)
         .setParent(this)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Estimator[ClassBalancerModel] = defaultCopy(extra)
@@ -94,7 +94,7 @@ class ClassBalancerModel(val uid: String) extends Model[ClassBalancerModel]
         getWeights
       }
       dataset.toDF().join(w, getInputCol)
-    })
+    }, dataset.columns.length)
   }
 
 }

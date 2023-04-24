@@ -123,7 +123,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         .setLabelCol(labelColumn)
         .setModel(pipelineModel)
         .setFeaturesCol(getFeaturesCol)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
@@ -172,7 +172,7 @@ class TrainedRegressorModel(val uid: String)
           cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
       SparkSchema.updateColumnMetadata(schematizedScoredDataWithLabel,
         moduleName, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
-    })
+    }, dataset.columns.length)
   }
 
   @DeveloperApi
