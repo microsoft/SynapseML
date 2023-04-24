@@ -182,7 +182,7 @@ class UnrollImage(val uid: String) extends Transformer
       assert(ImageSchemaUtils.isImage(df.schema(getInputCol)), "input column should have Image type")
       val unrollUDF = udf(unroll _)
       df.withColumn(getOutputCol, unrollUDF(df(getInputCol)))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -238,7 +238,7 @@ class UnrollBinaryImage(val uid: String) extends Transformer
       }, VectorType)
 
       df.withColumn($(outputCol), unrollUDF(df($(inputCol))))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

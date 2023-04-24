@@ -84,7 +84,7 @@ class Timer(val uid: String) extends Estimator[TimerModel]
       val (model, message) = fitWithTime(dataset)
       log(message)
       model
-    })
+    }, dataset.columns.length)
   }
 
 }
@@ -128,7 +128,7 @@ class TimerModel(val uid: String)
       val (model, message) = transformWithTime(dataset)
       log(message)
       model
-    })
+    }, dataset.columns.length)
   }
 
 }

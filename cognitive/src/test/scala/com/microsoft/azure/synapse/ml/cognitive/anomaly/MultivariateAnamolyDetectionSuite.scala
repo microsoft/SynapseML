@@ -6,15 +6,16 @@ package com.microsoft.azure.synapse.ml.cognitive.anomaly
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import spray.json.{DefaultJsonProtocol, _}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import scala.collection.mutable
-import scala.collection.mutable.HashSet
 
 
 case class MADListModelsResponse(models: Seq[MADModel],
@@ -53,7 +54,11 @@ trait MADTestUtils extends TestBase with AnomalyKey with StorageCredentials {
   lazy val intermediateSaveDir: String =
     s"wasbs://$containerName@$storageAccount.blob.core.windows.net/intermediateData"
   lazy val fileLocation: String = DatasetUtils.madTestFile("mad_example.csv").toString
-  lazy val df: DataFrame = spark.read.format("csv").option("header", "true").load(fileLocation)
+  lazy val fileSchema: StructType = StructType(Array(
+    StructField(timestampColumn, StringType, nullable = true)
+  ) ++ inputColumns.map(inputCol => StructField(inputCol, DoubleType, nullable = true)))
+  lazy val df: DataFrame = spark.read.format("csv")
+    .option("header", "true").schema(fileSchema).load(fileLocation)
 
 }
 
@@ -69,7 +74,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
     .setTimestampCol(timestampColumn)
     .setInputCols(inputColumns)
 
-  test("SimpleMultiAnomalyEstimator basic usage") {
+  test("SimpleFitMultivariateAnomaly basic usage") {
     val smae = simpleMultiAnomalyEstimator.setSlidingWindow(50)
     val model = smae.fit(df)
     smae.cleanUpIntermediateData()
@@ -147,6 +152,7 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
       val smae = simpleMultiAnomalyEstimator
       val model = smae.fit(df)
       smae.cleanUpIntermediateData()
+      assert(model.getDiagnosticsInfo.variableStates.get.length.equals(3))
 
       model.setStartTime(startTime)
         .setEndTime(endTime)
@@ -263,4 +269,71 @@ class SimpleFitMultivariateAnomalySuite extends EstimatorFuzzing[SimpleFitMultiv
   override def reader: MLReadable[_] = SimpleFitMultivariateAnomaly
 
   override def modelReader: MLReadable[_] = SimpleDetectMultivariateAnomaly
+}
+
+class DetectLastMultivariateAnomalySuite extends TransformerFuzzing[DetectLastMultivariateAnomaly]
+  with MADTestUtils {
+
+  lazy val sfma: SimpleFitMultivariateAnomaly = {
+    val hc: Configuration = spark.sparkContext.hadoopConfiguration
+    hc.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
+    hc.set(s"fs.azure.account.keyprovider.$storageAccount.blob.core.windows.net",
+      "org.apache.hadoop.fs.azure.SimpleKeyProvider")
+    hc.set(s"fs.azure.account.key.$storageAccount.blob.core.windows.net", storageKey)
+
+    new SimpleFitMultivariateAnomaly()
+      .setSubscriptionKey(anomalyKey)
+      .setLocation(anomalyLocation)
+      .setOutputCol("result")
+      .setStartTime(startTime)
+      .setEndTime(endTime)
+      .setIntermediateSaveDir(intermediateSaveDir)
+      .setTimestampCol(timestampColumn)
+      .setInputCols(inputColumns)
+      .setSlidingWindow(50)
+  }
+
+  lazy val modelId: String = {
+    val model: SimpleDetectMultivariateAnomaly = sfma.fit(df)
+    MADUtils.CreatedModels += model.getModelId
+    model.getModelId
+  }
+
+  lazy val dlma: DetectLastMultivariateAnomaly = new DetectLastMultivariateAnomaly()
+    .setSubscriptionKey(anomalyKey)
+    .setLocation(anomalyLocation)
+    .setModelId(modelId)
+    .setInputVariablesCols(inputColumns)
+    .setOutputCol("result")
+    .setTimestampCol(timestampColumn)
+
+  test("Basic Usage") {
+    val result = dlma.setBatchSize(50)
+      .transform(df.limit(100))
+      .collect()
+    assert(result(0).get(6) == null)
+    assert(!result(50).getAs[Boolean]("isAnomaly"))
+    assert(result(68).getAs[Boolean]("isAnomaly"))
+  }
+
+  test("Error if batch size is smaller than sliding window") {
+    val result = dlma.setBatchSize(10).transform(df.limit(50))
+    result.show(50, truncate = false)
+    assert(result.collect().head.getAs[StringType](dlma.getErrorCol).toString.contains("NotEnoughData"))
+  }
+
+  override def afterAll(): Unit = {
+    MADUtils.cleanUpAllModels(anomalyKey, anomalyLocation)
+    sfma.cleanUpIntermediateData()
+    super.afterAll()
+  }
+
+  override def testSerialization(): Unit = {
+    println("ignore the Serialization Fuzzing test because fitting process takes more than 3 minutes")
+  }
+
+  override def testObjects(): Seq[TestObject[DetectLastMultivariateAnomaly]] =
+    Seq(new TestObject(dlma, df))
+
+  override def reader: MLReadable[_] = DetectLastMultivariateAnomaly
 }

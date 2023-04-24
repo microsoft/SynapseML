@@ -34,7 +34,7 @@ class VowpalWabbitRegressor(override val uid: String)
         .setPredictionCol(getPredictionCol)
 
       trainInternal(dataset, model)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitRegressor = defaultCopy(extra)

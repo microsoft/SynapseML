@@ -418,7 +418,7 @@ abstract class SpeechSDKBase extends Transformer
         isUriAudio
       ))(enc)
         .drop(dynamicParamColName)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

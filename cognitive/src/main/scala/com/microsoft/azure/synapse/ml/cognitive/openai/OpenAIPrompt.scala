@@ -108,7 +108,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       } else {
         results
       }
-    })
+    }, dataset.columns.length)
   }
 
   private def openAICompletion: OpenAICompletion = {

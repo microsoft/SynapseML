@@ -13,6 +13,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 import java.util.UUID
@@ -106,6 +107,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         .setNumFeatures(featuresToHashTo)
 
       val featurizedModel = featurizer.fit(convertedLabelDataset)
+
       val processedData = featurizedModel.transform(convertedLabelDataset)
 
       processedData.cache()
@@ -121,7 +123,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         .setLabelCol(labelColumn)
         .setModel(pipelineModel)
         .setFeaturesCol(getFeaturesCol)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
@@ -168,10 +170,9 @@ class TrainedRegressorModel(val uid: String)
         if (!labelColumnExists) cleanedScoredData
         else SparkSchema.setLabelColumnName(
           cleanedScoredData, moduleName, getLabelCol, SchemaConstants.RegressionKind)
-
       SparkSchema.updateColumnMetadata(schematizedScoredDataWithLabel,
         moduleName, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
-    })
+    }, dataset.columns.length)
   }
 
   @DeveloperApi

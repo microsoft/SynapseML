@@ -682,7 +682,7 @@ class ImageTransformer(val uid: String) extends Transformer
       } else {
         df.withColumn(getOutputCol, convert(df(getInputCol)))
       }
-    })
+    }, dataset.columns.length)
   }
 
   private def getDecodedImage(decodeMode: String)(r: Any): Option[(String, Mat)] = {
