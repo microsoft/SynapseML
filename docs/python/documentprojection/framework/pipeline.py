@@ -68,7 +68,7 @@ class DocumentProjectionPipeline:
             log.warn(f"PUBLISH mode not enabled. Skipping publish step.")
 
         for channel in self.channels:
-            log.info(f"Processing notebooks in parallel for channel: {repr(channel)}")
+            log.info(f"Processing notebooks in parallel for: {repr(channel)}")
             formatted_documents = process_in_parallel(channel.format, notebooks)
             if self.config.publish:
                 process_in_parallel(channel.publish, formatted_documents)
