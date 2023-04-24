@@ -8,7 +8,9 @@ log = get_log(__name__)
 
 
 def get_mock_path():
-    return str(Path(__file__).with_name("mocks").joinpath("mock_notebook.ipynb"))
+    return str(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "mock_notebook.ipynb")
+    )
 
 
 def parse_notebooks(notebooks: List[str], recursive=False) -> List[str]:

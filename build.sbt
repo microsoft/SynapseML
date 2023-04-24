@@ -479,12 +479,12 @@ setupTask := {
   getDatasetsTask.value
 }
 
-val convertNotebooks = TaskKey[Unit]("convertNotebooks",
-  "convert notebooks to markdown for website display")
+val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmd(
-    "python docs/python/documentprojection -c website -r notebooks/features -p".split(" ")
-  )
+  runCmdStr("python -m pip uninstall -y documentprojection")
+  runCmdStr("python -m build docs/python")
+  runCmdStr("python -m pip install --find-links=docs/python/dist documentprojection")
+  runCmdStr("python -m documentprojection -p -c website -r notebooks/features")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",

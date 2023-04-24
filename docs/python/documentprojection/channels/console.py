@@ -1,6 +1,6 @@
-from framework import *
-from utils.logging import get_log
-from framework.markdown import MarkdownFormatter
+from ..framework import *
+from ..utils.logging import get_log
+from ..framework.markdown import MarkdownFormatter
 
 log = get_log(__name__)
 

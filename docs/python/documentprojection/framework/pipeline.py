@@ -1,11 +1,11 @@
 from typing import List
-from channels import *
-from channels import console
-from utils.notebook import get_mock_path
-from utils.logging import get_log
+from ..channels import *
+from ..channels import console
+from ..utils.notebook import get_mock_path
+from ..utils.logging import get_log
 from .objects import *
-from utils.notebook import *
-from utils.parallelism import process_in_parallel
+from ..utils.notebook import *
+from ..utils.parallelism import process_in_parallel
 
 log = get_log(__name__)
 

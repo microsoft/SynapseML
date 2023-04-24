@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from utils.notebook import *
-from utils.logging import get_log
+from ..utils.notebook import *
+from ..utils.logging import get_log
 
 
 def _defaultrepr(cls):

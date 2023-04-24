@@ -1,7 +1,7 @@
-from utils.logging import *
-from utils.notebook import *
-from framework.pipeline import *
-from channels.website import *
+from .utils.logging import *
+from .utils.notebook import *
+from .framework.pipeline import *
+from .channels.website import *
 
 import re
 

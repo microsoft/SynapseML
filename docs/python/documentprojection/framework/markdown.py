@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from nbconvert import MarkdownExporter
 
-from framework.objects import *
+from ..framework.objects import *
 
 # Sample base formatter for documents that are projected to markdown, include some cleaning, and inject a header
 class MarkdownFormatter(ABC):

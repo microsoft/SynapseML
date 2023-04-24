@@ -1,9 +1,10 @@
 import os
 import re
 
-from framework import *
-from utils.logging import get_log
-from framework.markdown import MarkdownFormatter
+from ..framework import *
+from ..utils.logging import get_log
+from ..framework.markdown import MarkdownFormatter
+from ..utils.parallelism import get_lock
 
 log = get_log(__name__)
 
@@ -42,6 +43,10 @@ class WebsiteFormatter(MarkdownFormatter):
 
 class WebsitePublisher(Publisher):
     def publish(self, document: Document) -> bool:
+        dir_name = os.path.dirname(document.metadata.target_path)
+        with get_lock(dir_name):
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
         with open(document.metadata.target_path, "w", encoding="utf-8") as f:
             f.write(document.content)
 

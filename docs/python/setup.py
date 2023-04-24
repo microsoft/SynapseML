@@ -25,7 +25,9 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     zip_safe=True,
-    package_data={"documentprojection": ["../LICENSE.txt", "../README.txt"]},
-    python_requires=">=3.10",
+    package_data={
+        "documentprojection": ["../LICENSE.txt", "../README.txt", "./utils/*.ipynb"]
+    },
+    python_requires=">=3.8.8",
     install_requires=["nbformat", "nbconvert", "pathlib", "argparse"],
 )
