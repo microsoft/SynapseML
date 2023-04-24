@@ -133,7 +133,7 @@ class DoubleMLEstimator(override val uid: String)
       }
       val dmlModel = this.copyValues(new DoubleMLModel(uid)).setRawTreatmentEffects(ates.toArray)
       dmlModel
-    })
+    }, dataset.columns.length)
   }
 
   //scalastyle:off method.length
@@ -358,7 +358,7 @@ class DoubleMLModel(val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       dataset.toDF()
-    })
+    }, dataset.columns.length)
   }
 
   @DeveloperApi

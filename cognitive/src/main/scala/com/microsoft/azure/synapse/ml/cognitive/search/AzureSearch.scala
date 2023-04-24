@@ -133,7 +133,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
           s"/indexes/$getIndexName/docs/index?api-version=${AzureSearchAPIConstants.DefaultAPIVersion}")
       }
       super.transform(dataset)
-    })
+    }, dataset.columns.length)
   }
 
   override def prepareEntity: Row => Option[AbstractHttpEntity] = row =>

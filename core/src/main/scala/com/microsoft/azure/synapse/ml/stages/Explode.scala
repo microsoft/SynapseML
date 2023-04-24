@@ -27,7 +27,7 @@ class Explode(val uid: String) extends Transformer
     logTransform[DataFrame]({
       transformSchema(dataset.schema)
       dataset.toDF().withColumn(getOutputCol, explode(col(getInputCol)))
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {
