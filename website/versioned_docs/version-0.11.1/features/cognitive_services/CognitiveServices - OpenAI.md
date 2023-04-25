@@ -47,7 +47,9 @@ deployment_name = "gpt-35-turbo"
 deployment_name_embeddings = "text-search-ada-doc-001"
 deployment_name_embeddings_query = "text-search-ada-query-001"
 
-key = find_secret("openai-api-key")  # please replace this with your key as a string
+key = find_secret(
+    "openai-api-key"
+)  # please replace this line with your key as a string
 
 assert key is not None and service_name is not None
 ```
@@ -81,7 +83,7 @@ completion = (
     OpenAICompletion()
     .setSubscriptionKey(key)
     .setDeploymentName(deployment_name)
-    .setUrl("https://{}.openai.azure.com/".format(service_name))
+    .setCustomServiceName(service_name)
     .setMaxTokens(200)
     .setPromptCol("prompt")
     .setErrorCol("error")
@@ -109,13 +111,86 @@ display(
 
 Your output should look something like this. Please note completion text will be different
 
-| **prompt**                 	| **error** 	| **text**                                                                                                                              	|
-|-----------------------------	|-----------	|---------------------------------------------------------------------------------------------------------------------------------------	|
+| **prompt**                   	| **error** 	| **text**                                                                                                                              	|
+|:----------------------------:	|:----------:	|:-------------------------------------------------------------------------------------------------------------------------------------:	|
 | Hello my name is            	| null      	| Makaveli I'm eighteen years old and I want to   be a rapper when I grow up I love writing and making music I'm from Los   Angeles, CA 	|
 | The best code is code thats 	| null      	| understandable This is a subjective statement,   and there is no definitive answer.                                                   	|
 | SynapseML is                	| null      	| A machine learning algorithm that is able to learn how to predict the future outcome of events.                                       	|
 
 ## Additional Usage Examples
+
+### Generating Text Embeddings
+
+In addition to completing text, we can also embed text for use in downstream algorithms or vector retrieval architectures. Creating embeddings allows you to search and retrieve documents from large collections and can be used when prompt engineering alo is not sufficient for the task. For more information on using `OpenAIEmbedding` see our [embedding guide](https://microsoft.github.io/SynapseML/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/).
+
+
+```python
+from synapse.ml.cognitive import OpenAIEmbedding
+
+embedding = (
+    OpenAIEmbedding()
+    .setSubscriptionKey(key)
+    .setDeploymentName(deployment_name_embeddings)
+    .setCustomServiceName(service_name)
+    .setTextCol("prompt")
+    .setErrorCol("error")
+    .setOutputCol("embeddings")
+)
+
+display(embedding.transform(df))
+```
+
+### Chat Completion
+
+Models such as ChatGPT and GPT-4 are capable of understanding chats instead of just single prompts. The `OpenAIChatCompletion` transformer exposes this functionality at scale.
+
+
+```python
+from synapse.ml.cognitive import OpenAIChatCompletion
+from pyspark.sql import Row
+from pyspark.sql.types import *
+
+
+def make_message(role, content):
+    return Row(role=role, content=content, name=role)
+
+
+chat_df = spark.createDataFrame(
+    [
+        (
+            [
+                make_message(
+                    "system", "You are an AI chatbot with red as your favorite color"
+                ),
+                make_message("user", "Whats your favorite color"),
+            ],
+        ),
+        (
+            [
+                make_message("system", "You are very excited"),
+                make_message("user", "How are you today"),
+            ],
+        ),
+    ]
+).toDF("messages")
+
+
+chat_completion = (
+    OpenAIChatCompletion()
+    .setSubscriptionKey(key)
+    .setDeploymentName(deployment_name)
+    .setCustomServiceName(service_name)
+    .setMessagesCol("messages")
+    .setErrorCol("error")
+    .setOutputCol("chat_completions")
+)
+
+display(
+    chat_completion.transform(chat_df).select(
+        "messages", "chat_completions.choices.message.content"
+    )
+)
+```
 
 ### Improve throughput with request batching 
 
@@ -142,7 +217,7 @@ batch_completion = (
     OpenAICompletion()
     .setSubscriptionKey(key)
     .setDeploymentName(deployment_name)
-    .setUrl("https://{}.openai.azure.com/".format(service_name))
+    .setCustomServiceName(service_name)
     .setMaxTokens(200)
     .setBatchPromptCol("batchPrompt")
     .setErrorCol("error")
@@ -213,183 +288,4 @@ qa_df = spark.createDataFrame(
 ).toDF("prompt")
 
 display(completion.transform(qa_df))
-```
-
-# OpenAI Embeddings
-
-We will use t-SNE to reduce the dimensionality of the embeddings from 1536 to 2. Once the embeddings are reduced to two dimensions, we can plot them in a 2D scatter plot.
-
-
-```python
-from synapse.ml.cognitive import OpenAIEmbedding
-
-embedding = (
-    OpenAIEmbedding()
-    .setSubscriptionKey(key)
-    .setDeploymentName(deployment_name_embeddings)
-    .setUrl("https://{}.openai.azure.com/".format(service_name))
-    .setTextCol("combined")
-    .setErrorCol("error")
-    .setOutputCol("embeddings")
-)
-```
-
-
-```python
-import pyspark.sql.functions as F
-
-df = spark.read.options(inferSchema="True", delimiter=",", header=True).csv(
-    "wasbs://publicwasb@mmlspark.blob.core.windows.net/fine_food_reviews_1k.csv"
-)
-
-df = df.withColumn(
-    "combined",
-    F.format_string("Title: %s; Content: %s", F.trim(df.Summary), F.trim(df.Text)),
-)
-
-display(df)
-```
-
-
-```python
-from pyspark.sql.functions import col
-
-completed_df = embedding.transform(df).cache()
-display(completed_df)
-```
-
-## Retrieve embeddings
-
-
-```python
-import numpy as np
-
-matrix = np.array(completed_df.select("embeddings").collect())[:, 0, :]
-matrix.shape
-```
-
-## Reduce dimensionality
-We reduce the dimensionality to 2 dimensions using t-SNE decomposition.
-
-
-```python
-import pandas as pd
-from sklearn.manifold import TSNE
-import numpy as np
-
-# Create a t-SNE model and transform the data
-tsne = TSNE(
-    n_components=2, perplexity=15, random_state=42, init="random", learning_rate=200
-)
-vis_dims = tsne.fit_transform(matrix)
-vis_dims.shape
-```
-
-## Plot the embeddings
-We colour each review by its star rating, ranging from red for negative reviews, to green for positive reviews..
-
-We can observe a decent data separation even in the reduced 2 dimensions.
-
-
-```python
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
-
-scores = np.array(completed_df.select("Score").collect()).reshape(-1)
-
-colors = ["red", "darkorange", "gold", "turquoise", "darkgreen"]
-x = [x for x, y in vis_dims]
-y = [y for x, y in vis_dims]
-color_indices = scores - 1
-
-colormap = matplotlib.colors.ListedColormap(colors)
-plt.scatter(x, y, c=color_indices, cmap=colormap, alpha=0.3)
-for score in [0, 1, 2, 3, 4]:
-    avg_x = np.array(x)[scores - 1 == score].mean()
-    avg_y = np.array(y)[scores - 1 == score].mean()
-    color = colors[score]
-    plt.scatter(avg_x, avg_y, marker="x", color=color, s=100)
-
-plt.title("Amazon ratings visualized in language using t-SNE")
-```
-
-## Use embeddings to build a semantic search Index
-
-Note that for some OpenAI models, users should use separate models for embedding documents and queries. These models are denoted by the "-doc" and "-query" suffixes respectively. 
-
-
-```python
-embedding_query = (
-    OpenAIEmbedding()
-    .setSubscriptionKey(key)
-    .setDeploymentName(deployment_name_embeddings_query)
-    .setUrl("https://{}.openai.azure.com/".format(service_name))
-    .setTextCol("query")
-    .setErrorCol("error")
-    .setOutputCol("embeddings")
-)
-```
-
-## Create a dataframe of search queries
-
-Note: The data types of the ID columns in the document and query dataframes should be the same
-
-
-```python
-query_df = (
-    spark.createDataFrame(
-        [
-            (
-                0,
-                "desserts",
-            ),
-            (
-                1,
-                "disgusting",
-            ),
-        ]
-    )
-    .toDF("id", "query")
-    .withColumn("id", F.col("id").cast("int"))
-)
-```
-
-## Generate embeddings for queries
-
-
-```python
-completed_query_df = embedding_query.transform(query_df).cache()
-```
-
-## Build index for fast retrieval
-
-
-```python
-from synapse.ml.nn import *
-
-knn = (
-    KNN()
-    .setFeaturesCol("embeddings")
-    .setValuesCol("id")
-    .setOutputCol("output")
-    .setK(10)
-)  # top-k for retrieval
-
-knn_index = knn.fit(completed_df)
-```
-
-## Retrieve results
-
-
-```python
-df_matches = knn_index.transform(completed_query_df).cache()
-
-df_result = (
-    df_matches.withColumn("match", F.explode("output"))
-    .join(df, df["id"] == F.col("match.value"))
-    .select("query", F.col("combined"), "match.distance")
-)
-
-display(df_result)
 ```
