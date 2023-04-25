@@ -1,0 +1,4 @@
+steps:
+- template: update_cli.yml
+- template: conda.yml
+- template: kv.yml

@@ -18,9 +18,7 @@ jobs:
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
   steps:
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: prepare_env.yml
     - bash: |
         set -e
         source activate synapseml

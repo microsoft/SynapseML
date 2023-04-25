@@ -80,9 +80,7 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: templates/prepare_env.yml
     - bash: |
         set -e
         sudo apt-get install graphviz doxygen -y
@@ -296,9 +294,7 @@ jobs:
         PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: templates/prepare_env.yml
     - task: AzureCLI@2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
@@ -427,9 +423,7 @@ jobs:
         PACKAGE: "cognitive"
   steps:
     #- template: templates/ivy_cache_2.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: templates/prepare_env.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
       timeoutInMinutes: 60

@@ -10,7 +10,7 @@ jobs:
 - template: test_e2e.yml
   condition: eq(parameters.runE2E, 'True')
   parameters:
-    runTests: parameters.runTests
+    runTests: ${{ parameters.runTests }}
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
@@ -18,9 +18,7 @@ jobs:
   pool:
     vmImage: ubuntu-20.04
   steps:
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: prepare_env.yml
     - task: AzureCLI@2
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
@@ -49,7 +47,7 @@ jobs:
         scriptType: bash
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
-    - template: templates/codecov.yml
+    - template: codecov.yml
 
 - job: WebsiteAutoDeployment
   cancelTimeoutInMinutes: 0
@@ -58,9 +56,7 @@ jobs:
   steps:
     - checkout: self
       persistCredentials: true
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
+    - template: prepare_env.yml
     - task: NodeTool@0
       inputs:
         versionSpec: '16.x'
