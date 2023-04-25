@@ -113,7 +113,7 @@ jobs:
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
 
-- template: templates/test_e2e.yml
+- template: templates/test_and_publish_notebooks.yml
   parameters:
     runTests: ${{ variables.runTests }}
 
@@ -457,10 +457,6 @@ jobs:
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
-
-- template: templates/notebook_projection.yml
-  parameters:
-    runE2E: false
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1
