@@ -8,9 +8,8 @@ parameters:
 
 jobs:
 - template: test_e2e.yml
-  condition: eq(parameters.runE2E, 'True')
   parameters:
-    runTests: ${{ parameters.runTests }}
+    runTests: ${{ and(parameters.runTests, parameters.runE2E) }}
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
