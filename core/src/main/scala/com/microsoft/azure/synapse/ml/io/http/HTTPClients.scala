@@ -17,6 +17,7 @@ import org.apache.spark.sql.types.StringType
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.Try
+
 trait Handler {
 
   def handle(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData

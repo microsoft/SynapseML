@@ -5,6 +5,13 @@ package com.microsoft.azure.synapse.ml.logging.common
 
 import scala.util.matching.Regex
 
+/*
+Scrubbers for filtering out information that is prohibited from
+logging such as SAS token, etc.
+
+SASScrubber: This one is specifically for scrubbing the Shared Access Signature.
+*/
+
 trait Scrubber {
   def scrub(content: String): String
 }

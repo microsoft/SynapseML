@@ -42,7 +42,7 @@ object SynapseMLLogging extends Logging {
     logInfo(s"metrics/ ${mapToPrint.toJson.compactPrint}")
   }
 
-  def logMessage(message: String) = {
+  def logMessage(message: String): Unit = {
     val scrubbedMessage = SASScrubber.scrub(message)
     logInfo(s"sending $scrubbedMessage")
   }
