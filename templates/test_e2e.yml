@@ -43,10 +43,10 @@ jobs:
           set -e
           source activate synapseml
           sbt "testOnly $(TEST-CLASS)"
-      condition: and(succeeded(), eq(parameters.runTests, 'True'))
+      condition: and(succeeded(), eq('${{ parameters.runTests }}', 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
-      condition: and(eq(parameters.runTests, 'True'), succeededOrFailed())
+      condition: and(eq('${{ parameters.runTests }}', 'True'), succeededOrFailed())

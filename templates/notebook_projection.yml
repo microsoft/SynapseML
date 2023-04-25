@@ -13,7 +13,7 @@ jobs:
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
-  condition: eq(parameters.runTests, 'True')
+  condition: eq('${{ parameters.runTests }}', 'True')
   pool:
     vmImage: ubuntu-20.04
   steps:
