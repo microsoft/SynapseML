@@ -1,0 +1,97 @@
+parameters:
+  - name: runE2E
+    type: boolean
+    default: False
+  - name: runTests
+    type: boolean
+    default: True
+
+jobs:
+- template: test_e2e.yml
+  condition: eq(parameters.runE2E, 'True')
+  parameters:
+    runTests: parameters.runTests
+
+- job: WebsiteSamplesTests
+  cancelTimeoutInMinutes: 0
+  condition: eq(parameters.runTests, 'True')
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
+    - task: AzureCLI@2
+      displayName: 'Test Website Samples'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          source activate synapseml
+          sbt packagePython
+          sbt publishBlob
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (sbt coverage testWebsiteDocs)
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/website-test-result.xml'
+        failTaskOnFailedTests: true
+      condition: succeededOrFailed()
+    - task: AzureCLI@2
+      displayName: 'Generate Codecov report'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: 'sbt coverageReport'
+      condition: succeededOrFailed()
+    - template: templates/codecov.yml
+
+- job: WebsiteAutoDeployment
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+    - checkout: self
+      persistCredentials: true
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+      displayName: 'Install Node.js'
+    - task: AzureCLI@2
+      displayName: 'Convert notebooks to markdowns'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          source activate synapseml
+          sbt convertNotebooks
+    - bash: |
+        set -e
+        yarn install
+        cd website
+        yarn
+        yarn build
+      displayName: 'yarn install and build'
+    - bash: |
+        set -e
+        git config --global user.name "${GH_NAME}"
+        git config --global user.email "${GH_EMAIL}"
+        git checkout -b main
+        echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+        cd website
+        GIT_USER="${GH_NAME}" yarn deploy
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      env:
+        GH_NAME: $(gh-name)
+        GH_EMAIL: $(gh-email)
+        GH_TOKEN: $(gh-token)
+      displayName: 'yarn deploy'
