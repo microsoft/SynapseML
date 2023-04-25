@@ -201,7 +201,7 @@ class TrainClassifier(override val uid: String) extends AutoTrainer[TrainedClass
         .setFeaturesCol(getFeaturesCol)
 
       levels.map(l => model.setLevels(l.toArray)).getOrElse(model)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
@@ -361,7 +361,7 @@ class TrainedClassifierModel(val uid: String)
       else CategoricalUtilities.setLevels(scoredDataWithUpdatedScoredLevels,
         getLabelCol,
         getLevels)
-    })
+    }, dataset.columns.length)
   }
 
   private def setMetadataForColumnName(sparkColumnName: String,

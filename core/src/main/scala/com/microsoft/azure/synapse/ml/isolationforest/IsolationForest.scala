@@ -27,13 +27,13 @@ class IsolationForest(override val uid: String, val that: IsolationForestSource)
 
   override def copy(extra: ParamMap): IsolationForest = defaultCopy(extra)
 
-  override def fit(data: Dataset[_]): IsolationForestModel = {
-    logFit {
-      val innerModel = copyValues(that).fit(data)
+  override def fit(dataset: Dataset[_]): IsolationForestModel = {
+    logFit ({
+      val innerModel = copyValues(that).fit(dataset)
       new IsolationForestModel(uid)
         .setInnerModel(innerModel)
         .copy(innerModel.extractParamMap())
-    }
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType =
@@ -59,7 +59,8 @@ class IsolationForestModel(override val uid: String)
 
   override def transform(data: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getInnerModel.setPredictionCol(getPredictionCol).transform(data)
+      getInnerModel.setPredictionCol(getPredictionCol).transform(data),
+      data.columns.length
     )
   }
 

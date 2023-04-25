@@ -245,7 +245,7 @@ class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with
       }
 
       result.drop(tempCol)
-    })
+    }, dataset.columns.length)
   }
 
   val convertOutputToVector: Seq[Float] => DenseVector = (raw: Seq[Float]) => {

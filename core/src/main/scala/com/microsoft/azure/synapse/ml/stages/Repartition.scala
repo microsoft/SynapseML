@@ -56,7 +56,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
         dataset.sqlContext.createDataFrame(
           dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
           dataset.schema)
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

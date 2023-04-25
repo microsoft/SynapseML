@@ -122,7 +122,7 @@ class SummarizeData(override val uid: String)
 
       val base = createJoinBase(df)
       subFrames.foldLeft(base) { (z, dfi) => z.join(dfi, SummarizeData.FeatureColumnName) }
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

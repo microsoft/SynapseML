@@ -108,7 +108,7 @@ class MultiColumnAdapter(override val uid: String) extends Estimator[PipelineMod
     logFit({
       transformSchema(dataset.schema)
       new Pipeline(uid).setStages(getStages).fit(dataset)
-    })
+    }, dataset.columns.length)
   }
 
   def copy(extra: ParamMap): this.type = defaultCopy(extra)

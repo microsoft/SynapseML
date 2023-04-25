@@ -67,7 +67,7 @@ class UnicodeNormalize(val uid: String) extends Transformer
       val textMapper = udf(f)
 
       dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

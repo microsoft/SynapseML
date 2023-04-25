@@ -60,7 +60,7 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams
 
   override def fit(dataset: Dataset[_]): KNNModel = {
     logFit(
-      fitOptimized(dataset)
+      fitOptimized(dataset), dataset.columns.length
     )
   }
 
@@ -112,7 +112,7 @@ class KNNModel(val uid: String) extends Model[KNNModel]
       ))
 
       dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol)))
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

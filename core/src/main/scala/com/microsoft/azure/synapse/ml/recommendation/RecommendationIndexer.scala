@@ -42,7 +42,7 @@ class RecommendationIndexer(override val uid: String)
         .setUserOutputCol(getUserOutputCol)
         .setItemInputCol(getItemInputCol)
         .setItemOutputCol(getItemOutputCol)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Estimator[RecommendationIndexerModel] = defaultCopy(extra)
@@ -59,7 +59,8 @@ class RecommendationIndexerModel(override val uid: String) extends Model[Recomme
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getItemIndexModel.transform(getUserIndexModel.transform(dataset))
+      getItemIndexModel.transform(getUserIndexModel.transform(dataset)),
+      dataset.columns.length
     )
   }
 
