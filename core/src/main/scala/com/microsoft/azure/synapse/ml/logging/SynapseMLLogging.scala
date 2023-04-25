@@ -4,8 +4,10 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
 import org.apache.spark.internal.Logging
 import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -38,6 +40,11 @@ object SynapseMLLogging extends Logging {
 
     SynapseMLLogging.LoggedClasses.add(className)
     logInfo(s"metrics/ ${mapToPrint.toJson.compactPrint}")
+  }
+
+  def logMessage(message: String) = {
+    val scrubbedMessage = SASScrubber.scrub(message)
+    logInfo(s"sending $scrubbedMessage")
   }
 
 }
