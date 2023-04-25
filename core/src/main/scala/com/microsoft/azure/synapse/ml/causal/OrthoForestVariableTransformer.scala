@@ -61,19 +61,23 @@ class OrthoForestVariableTransformer(override val uid: String) extends Transform
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
-    transformSchema(schema = dataset.schema, logging = true)
+    logTransform[DataFrame]({
+      transformSchema(schema = dataset.schema, logging = true)
 
-    val treatmentResidualColType = dataset.schema(getTreatmentResidualCol).dataType
-    require(treatmentResidualColType == DoubleType,
-      s"treatmentResidualColType must be of type DoubleType got $treatmentResidualColType")
+      val treatmentResidualColType = dataset.schema(getTreatmentResidualCol).dataType
+      require(treatmentResidualColType == DoubleType,
+        s"treatmentResidualColType must be of type DoubleType got $treatmentResidualColType")
 
-    val outcomeResidualColType = dataset.schema(getOutcomeResidualCol).dataType
-    require(outcomeResidualColType == DoubleType,
-      s"outcomeResidualColType must be of type DoubleType got $outcomeResidualColType")
+      val outcomeResidualColType = dataset.schema(getOutcomeResidualCol).dataType
+      require(outcomeResidualColType == DoubleType,
+        s"outcomeResidualColType must be of type DoubleType got $outcomeResidualColType")
 
-    dataset
-      .withColumn($(outputCol),col(getOutcomeResidualCol)/col(getTreatmentResidualCol))
-      .withColumn($(weightsCol),col(getTreatmentResidualCol)*col(getTreatmentResidualCol))
+      val finalData = dataset
+        .withColumn($(outputCol), col(getOutcomeResidualCol) / col(getTreatmentResidualCol))
+        .withColumn($(weightsCol), col(getTreatmentResidualCol) * col(getTreatmentResidualCol))
+
+      finalData
+    },dataset.columns.length)
   }
 }
 

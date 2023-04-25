@@ -271,7 +271,7 @@ class OrthoForestDMLModel(val uid: String)
       val getAverage = udf { combined: Array[Double] => combined(1) }
       val getUpperBound = udf { combined: Array[Double] => combined(2) }
 
-      pipeline
+      val finalData = pipeline
         .fit(df)
         .transform(df)
         .withColumn(ConstantColumns.tmpBLBBounds, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
@@ -282,7 +282,9 @@ class OrthoForestDMLModel(val uid: String)
         .drop(ConstantColumns.tmpBLBBounds)
         .drop(ConstantColumns.transformedOutcome)
         .drop(ConstantColumns.transformedWeights)
-    })
+
+      finalData
+    },dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType =
