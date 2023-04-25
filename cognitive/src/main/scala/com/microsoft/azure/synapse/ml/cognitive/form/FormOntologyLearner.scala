@@ -73,7 +73,7 @@ class FormOntologyLearner(override val uid: String) extends Estimator[FormOntolo
         .setInputCol(getInputCol)
         .setOutputCol(getOutputCol)
         .setOntology(mergedSchema)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Estimator[FormOntologyTransformer] = defaultCopy(extra)
@@ -121,7 +121,7 @@ class FormOntologyTransformer(override val uid: String) extends Model[FormOntolo
 
       dataset.toDF()
         .withColumn(getOutputCol, convertToOntologyUDF(col(getInputCol)))
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

@@ -85,9 +85,8 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
           HTTPSchema.to_http_request(urlCol, headersCol, methodCol, entityCol))
         .drop(entityCol, urlCol, headersCol, methodCol)
         .withColumnRenamed(requestCol, getOutputCol)
-    })
+    }, dataset.columns.length)
   }
-
 }
 
 object CustomInputParser extends ComplexParamsReadable[CustomInputParser] with Serializable
@@ -143,7 +142,7 @@ class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexPar
         }
       }
       dataset.toDF().withColumn(getOutputCol, parseInputExpression)
-    })
+    }, dataset.columns.length)
   }
 
 }
@@ -197,7 +196,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
         .setInputCol(getOutputCol)
         .setOutputCol(getOutputCol)
         .transform(parsed)).getOrElse(parsed)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -218,7 +217,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
     logTransform[DataFrame]({
       val stringEntityCol = HTTPSchema.entity_to_string(col(getInputCol + ".entity"))
       dataset.toDF.withColumn(getOutputCol, stringEntityCol)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -275,7 +274,7 @@ class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
       }
       dataset.toDF()
         .withColumn(getOutputCol, parseOutputExpression)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

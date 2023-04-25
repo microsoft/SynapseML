@@ -342,7 +342,7 @@ class TextFeaturizer(override val uid: String)
 
       val stages = chainedModels ++ Seq(new DropColumns().setCols(colsToDrop.toArray))
       new Pipeline().setStages(stages.toArray).fit(dataset).setParent(this)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
 

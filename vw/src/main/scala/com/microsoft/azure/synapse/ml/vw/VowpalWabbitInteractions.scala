@@ -74,7 +74,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
       })
 
       dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

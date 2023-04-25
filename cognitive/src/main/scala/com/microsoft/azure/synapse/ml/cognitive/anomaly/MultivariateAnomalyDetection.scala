@@ -526,7 +526,7 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
         .setModelId(modelId)
         .setIntermediateSaveDir(getIntermediateSaveDir)
         .setDiagnosticsInfo(modelInfo("diagnosticsInfo").convertTo[DiagnosticsInfo])
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): SimpleFitMultivariateAnomaly = defaultCopy(extra)
@@ -589,7 +589,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
 
   //scalastyle:off method.length
   override def transform(dataset: Dataset[_]): DataFrame =
-    logTransform[DataFrame] {
+    logTransform[DataFrame] ({
 
       // check model status first
       MADUtils.checkModelStatus(getUrl, getModelId, getSubscriptionKey)
@@ -635,7 +635,7 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
       df.join(finalDF, df(getTimestampCol) === finalDF("resultTimestamp"), "left")
         .drop("resultTimestamp")
         .sort(col(getTimestampCol).asc)
-    }
+    }, dataset.columns.length)
   //scalastyle:on method.length
 
   override def copy(extra: ParamMap): SimpleDetectMultivariateAnomaly = defaultCopy(extra)
@@ -720,7 +720,7 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
           col(s"$getOutputCol.results.timestamp")(0)).otherwise(null))
         .drop(columnNames: _*)
 
-    })
+    }, dataset.columns.length)
   }
   // scalastyle:on null
 

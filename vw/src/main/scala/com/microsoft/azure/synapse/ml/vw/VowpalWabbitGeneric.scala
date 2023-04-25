@@ -76,7 +76,7 @@ class VowpalWabbitGeneric(override val uid: String)
         .setInputCol(getInputCol)
 
       trainInternal(dataset.toDF, model)
-    })
+    }, dataset.columns.length)
   }
 }
 
@@ -100,7 +100,7 @@ class VowpalWabbitGenericModel(override val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     // this is doing predict, but lightgbm also logs logTransform in the model...
-    logTransform {
+    logTransform ({
       val df = dataset.toDF()
       val inputColIdx = df.schema.fieldIndex(getInputCol)
 
@@ -116,7 +116,7 @@ class VowpalWabbitGenericModel(override val uid: String)
         }}
       })(rowEncoder)
         .toDF()
-    }
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

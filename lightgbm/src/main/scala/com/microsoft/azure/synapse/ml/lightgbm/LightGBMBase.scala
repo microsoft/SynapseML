@@ -60,7 +60,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       } else {
         trainOneDataBatch(dataset, batchIndex = 0, 1)
       }
-    })
+    }, dataset.columns.length)
   }
 
   def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {

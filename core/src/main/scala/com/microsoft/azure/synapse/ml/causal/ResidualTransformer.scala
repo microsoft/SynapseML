@@ -87,7 +87,7 @@ class ResidualTransformer(override val uid: String) extends Transformer
             s"Prediction column $getPredictedCol must be of type Vector or NumericType, but is $predictedColDataType" +
               s", please use 'setPredictedCol' to set the correct prediction column")
       }
-    })
+    }, dataset.columns.length)
   }
 }
 
