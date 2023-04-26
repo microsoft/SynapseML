@@ -71,7 +71,11 @@ Runs all synapsemltests
 
 ### `scalastyle`
 
-Runs scalastyle check
+Runs scalastyle check on main
+
+### `test:scalastyle`
+
+Runs scalastyle check on test
 
 ### `unidoc`
 
