@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
+import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.spark.ml._
 import org.apache.spark.ml.feature.VectorAssembler
@@ -12,7 +13,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.scalactic.Equality
 
-class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] {
+class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
     val schema = StructType(Array(
       StructField("Label",StringType),
       StructField("X1",DoubleType),
@@ -40,9 +41,9 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
     val confounderCols = Array("W1","W2","W3","W4","W5","W6","W7","W8","W9","W10")
     val confounderVecCol = "XWVec"
 
-    val filePath = s"${sys.env("DATASETS_HOME")}/Causal/OrthoForestData.csv"
+    val filePath = causalTrainFile("OrthoForestData.csv").toString
 
-    val df = spark.read.format("csv")
+    lazy val df = spark.read.format("csv")
       .option("header", "true")
       .schema(schema)
       .load(filePath)
