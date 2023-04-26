@@ -51,9 +51,10 @@ class OrthoForestDMLEstimator(override val uid: String)
 
     val forest = trainInternal(dataset)
 
-    val dmlModel = this.copyValues(new OrthoForestDMLModel(uid))
+    val dmlModel = this.copyValues(new OrthoForestDMLModel(uid)).setForest(forest)
 
-    dmlModel.setForest(forest)
+    dmlModel
+
   }
 
   //scalastyle:off method.length

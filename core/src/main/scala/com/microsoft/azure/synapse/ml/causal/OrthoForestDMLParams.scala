@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
+import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import org.apache.spark.ml.param.{IntParam, Param, Params}
 import org.apache.spark.ml.regression.GBTRegressor
 
@@ -50,7 +51,8 @@ trait  HasMinSampleLeaf extends Params{
   def setMinSamplesLeaf(value: Int): this.type = set(minSamplesLeaf, value)
 }
 
-trait OrthoForestDMLParams extends DoubleMLParams with HasNumTrees with HasMaxDepth with HasMinSampleLeaf {
+trait OrthoForestDMLParams extends DoubleMLParams
+  with HasNumTrees with HasMaxDepth with HasMinSampleLeaf with HasOutputCol{
   val treatmentResidualCol: Param[String] = new Param[String](this,
     "treatmentResidualCol",
     "Treatment Residual Column")
@@ -104,19 +106,6 @@ trait OrthoForestDMLParams extends DoubleMLParams with HasNumTrees with HasMaxDe
     * @group setParam
     */
   def setConfounderVecCol(value: String): this.type = set(confounderVecCol, value)
-
-  val outputCol: Param[String] = new Param[String](this,
-    "outputCol",
-    "Output Average")
-
-  def getOutputCol: String = $(outputCol)
-
-  /**
-    * Set output column for effect prediction
-    *
-    * @group setParam
-    */
-  def setOutputCol(value: String): this.type = set(outputCol, value)
 
   val outputLowCol: Param[String] = new Param[String](this,
     "outputLowCol",
