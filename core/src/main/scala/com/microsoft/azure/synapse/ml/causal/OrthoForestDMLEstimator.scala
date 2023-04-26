@@ -30,7 +30,7 @@ object ConstantColumns extends ConstantColumns
 
 class OrthoForestDMLEstimator(override val uid: String)
   extends Estimator[OrthoForestDMLModel] with ComplexParamsWritable
-    with OrthoForestDMLParams with Wrappable with SynapseMLLogging {
+    with OrthoForestDMLParams with Wrappable with SynapseMLLogging with HasOutcomeCol {
 
   logClass()
 

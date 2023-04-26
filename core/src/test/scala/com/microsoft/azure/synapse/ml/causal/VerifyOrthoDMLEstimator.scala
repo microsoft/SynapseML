@@ -13,6 +13,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 import org.scalactic.Equality
 
+
 class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
     val schema = StructType(Array(
       StructField("Label",StringType),
