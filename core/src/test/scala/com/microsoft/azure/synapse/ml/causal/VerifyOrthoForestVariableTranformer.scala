@@ -15,8 +15,8 @@ class VerifyOrthoForestVariableTranformer extends TransformerFuzzing[OrthoForest
     (4,0.4d,1.4d),
     (5,0.5d,1.5d),
     (6,0.6d,1.6d),
-    (7,0.7d,1.7d),
-    )).toDF("label","TResid", "OResid")
+    (7,0.7d,1.7d)))
+    .toDF("label","TResid", "OResid")
 
   private lazy val expectedDF = spark.createDataFrame(Seq(
     (1,0.1d, 1.1d,11d,0.01d),
@@ -25,9 +25,8 @@ class VerifyOrthoForestVariableTranformer extends TransformerFuzzing[OrthoForest
     (4,0.4d, 1.4d,3.5d,0.16d),
     (5,0.5d, 1.5d,3d,0.25),
     (6,0.6d, 1.6d,2.66667d,0.36d),
-    (7,0.7d, 1.7d,2.428571d,0.49d),
-  )).toDF("label","TResid", "OResid","_tmp_tsOutcome","_tmp_twOutcome")
-
+    (7,0.7d, 1.7d,2.428571d,0.49d)))
+    .toDF("label","TResid", "OResid","_tmp_tsOutcome","_tmp_twOutcome")
 
   test("Compute Transformation") {
     val computeResiduals = new OrthoForestVariableTransformer()
