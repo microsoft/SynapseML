@@ -43,8 +43,7 @@ object SynapseMLLogging extends Logging {
   }
 
   def logMessage(message: String): Unit = {
-    val scrubbedMessage = SASScrubber.scrub(message)
-    logInfo(s"sending $scrubbedMessage")
+    logInfo(SASScrubber.scrub(message))
   }
 
 }
