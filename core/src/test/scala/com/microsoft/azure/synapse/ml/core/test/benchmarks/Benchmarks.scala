@@ -134,4 +134,7 @@ object DatasetUtils {
   def madTestFile(name: String): File =
     FileUtilities.join(BuildInfo.datasetDir, "MultivariateAnomalyDetection", name)
 
+  def causalTrainFile(name: String): File=
+    FileUtilities.join(BuildInfo.datasetDir, "Causal", name)
+
 }

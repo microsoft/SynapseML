@@ -68,7 +68,7 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2022-08-09.tgz"
+val datasetName = "datasets-2023-04-03.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
