@@ -18,6 +18,7 @@ class PipelineConfig:
     publish = None
     metadata = None
     channel = None
+    project_root = None
 
 
 class DocumentProjectionPipeline:
@@ -28,7 +29,14 @@ class DocumentProjectionPipeline:
     ):
 
         self.config = config
-        self.channels = [channel() for channel in channels]
+        self.ChannelConfig = ChannelConfig(
+            {
+                key: self.config.__dict__[key]
+                for key in ["project_root"]
+                if key in self.config.__dict__
+            }
+        )
+        self.channels = [channel(self.ChannelConfig) for channel in channels]
         log.debug(
             f"""
         DocumentProjectionPipeline initialized with:
@@ -39,7 +47,7 @@ class DocumentProjectionPipeline:
     def register_channels(self, channels: List[Channel]):
         if len(channels) == 0:
             log.warn("Extending channels with an empty list")
-        self.channels.extend([channel() for channel in channels])
+        self.channels.extend([channel(self.ChannelConfig) for channel in channels])
         return self
 
     def run(self, notebooks: List[Notebook]) -> None:

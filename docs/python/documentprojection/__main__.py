@@ -31,6 +31,13 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description="Document Projection Pipeline")
     parser.add_argument(
+        "project_root",
+        metavar="ROOT",
+        type=str,
+        help="the root directory of the project",
+        default=".",
+    )
+    parser.add_argument(
         "notebooks",
         metavar="N",
         type=str,
@@ -86,7 +93,10 @@ def run():
     config_log(args.loglevel)
     log.debug("script executed with args: {}".format(args))
 
+    args.project_root = os.path.abspath(args.project_root)
+
     if len(args.notebooks) == 0:
+        log.warn("No notebooks specified. Using sample notebook.")
         args.notebooks = [get_mock_path()]
 
     notebooks = collect_notebooks(args.notebooks, args.recursive)

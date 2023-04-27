@@ -62,11 +62,24 @@ class Publisher(ABC):
         pass
 
 
+class ChannelConfig:
+    def __init__(self, dict: dict):
+        self.__dict__.update(dict)
+
+    def __repr__(self):
+        return repr(self.__dict__)
+
+    project_root = None
+
+
 @_defaultrepr
 class Channel(ABC):
-    def __init__(self, formatter: Formatter, publisher: Publisher):
+    def __init__(
+        self, formatter: Formatter, publisher: Publisher, config: ChannelConfig
+    ):
         self.formatter: Formatter = formatter
         self.publisher: Publisher = publisher
+        self.config: ChannelConfig = config
 
     def format(self, notebook: Notebook) -> Document:
         instance_log = get_log(self.__class__.__name__)

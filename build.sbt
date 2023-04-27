@@ -484,7 +484,7 @@ convertNotebooks := {
   runCmdStr("python -m pip uninstall -y documentprojection")
   runCmdStr("python -m build docs/python")
   runCmdStr("python -m pip install --find-links=docs/python/dist documentprojection")
-  runCmdStr("python -m documentprojection -p -c website -r notebooks/features")
+  runCmdStr("python -m documentprojection -r -p -c website . notebooks/features")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",

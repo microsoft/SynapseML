@@ -23,6 +23,10 @@ class WebsiteDoc(Document):
 
 
 class WebsiteFormatter(MarkdownFormatter):
+    def __init__(self, config: ChannelConfig):
+        self.config = config
+        print(self.config)
+
     def clean_markdown(self, markdown: str) -> str:
         markdown = re.sub(r"style=\"[\S ]*?\"", "", markdown)
         markdown = re.sub(r"<style[\S \n.]*?</style>", "", markdown)
@@ -36,7 +40,12 @@ class WebsiteFormatter(MarkdownFormatter):
         feature_dir = os.path.basename(os.path.dirname(notebook.path))
         file_name = os.path.basename(notebook.path).replace("ipynb", "md")
         website_path = os.path.join(
-            get_project_root(), "website", "docs", "features", feature_dir, file_name
+            self.config.project_root,
+            "website",
+            "docs",
+            "features",
+            feature_dir,
+            file_name,
         )
         return DocumentMetadata(notebook.path, website_path)
 
@@ -54,6 +63,6 @@ class WebsitePublisher(Publisher):
 
 
 class WebsiteChannel(Channel):
-    def __init__(self):
-        self.formatter = WebsiteFormatter()
+    def __init__(self, config: ChannelConfig):
+        self.formatter = WebsiteFormatter(config)
         self.publisher = WebsitePublisher()
