@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import org.apache.spark.ml.param.{IntParam, Param, Params}
 import org.apache.spark.ml.regression.GBTRegressor
 
-trait HasNumTrees extends Params{
+trait HasNumTrees extends Params {
   val numTrees: IntParam = new IntParam(this, "numTrees", "Number of trees")
 
   def getNumTrees: Int = $(numTrees)
@@ -20,7 +20,7 @@ trait HasNumTrees extends Params{
   def setNumTrees(value: Int): this.type = set(numTrees, value)
 }
 
-trait HasMaxDepth extends Params{
+trait HasMaxDepth extends Params {
 
   val maxDepth: IntParam = new IntParam(this,
     "maxDepth",
@@ -36,7 +36,7 @@ trait HasMaxDepth extends Params{
   def setMaxDepth(value: Int): this.type = set(maxDepth, value)
 }
 
-trait  HasMinSampleLeaf extends Params{
+trait HasMinSampleLeaf extends Params {
   val minSamplesLeaf: IntParam = new IntParam(this,
     "minSamplesLeaf",
     "Max Depth of Tree")
@@ -52,7 +52,7 @@ trait  HasMinSampleLeaf extends Params{
 }
 
 trait OrthoForestDMLParams extends DoubleMLParams
-  with HasNumTrees with HasMaxDepth with HasMinSampleLeaf with HasOutputCol{
+  with HasNumTrees with HasMaxDepth with HasMinSampleLeaf with HasOutputCol {
   val treatmentResidualCol: Param[String] = new Param[String](this,
     "treatmentResidualCol",
     "Treatment Residual Column")
@@ -136,15 +136,15 @@ trait OrthoForestDMLParams extends DoubleMLParams
 
 
   setDefault(
-    treatmentModel -> new GBTRegressor(),
-    outcomeModel -> new GBTRegressor(),
-    treatmentResidualCol -> "TResid",
-    outcomeResidualCol -> "OutResid",
+    treatmentModel -> new GBTRegressor().setSeed(0),
+    outcomeModel -> new GBTRegressor().setSeed(0),
+    treatmentResidualCol -> "TreatmentResidual",
+    outcomeResidualCol -> "OutcomeResidual",
     heterogeneityVecCol -> "X",
     confounderVecCol -> "XW",
-    outputLowCol -> "estLow",
-    outputCol -> "estAvg",
-    outputHighCol -> "estHigh",
+    outputLowCol -> "EffectLowerBound",
+    outputCol -> "EffectAverage",
+    outputHighCol -> "EffectUpperBound",
     sampleSplitRatio -> Array(0.5, 0.5),
     confidenceLevel -> 0.975,
     maxDepth -> 5,

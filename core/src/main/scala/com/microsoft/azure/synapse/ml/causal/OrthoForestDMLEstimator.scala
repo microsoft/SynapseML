@@ -8,31 +8,33 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.TransformerArrayParam
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
+import org.apache.spark.ml.classification.ProbabilisticClassifier
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model, Pipeline, Transformer}
 import org.apache.spark.ml.regression.{DecisionTreeRegressionModel, RandomForestRegressor, Regressor}
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.functions.vector_to_array
+import org.apache.spark.ml.param.shared.HasPredictionCol
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 
-class ConstantColumns {
-  val transformedOutcome = "_tmp_tsOutcome"
-  val transformedWeights = "_tmp_twOutcome"
-  val tempVecCol = "_tmp_combined_prediction"
-  val tmpBLBBounds ="_tmp_blb_bounds"
-  val tempForestPred = "_tmp_op_rf"
+object ConstantColumns {
+  val TransformedOutcomeCol = "_tmp_tsOutcome"
+  val TransformedWeightsCol = "_tmp_twOutcome"
+  val TempVecCol = "_tmp_combined_prediction"
+  val TmpBLBBoundsCol = "_tmp_blb_bounds"
+  val TempForestPredCol = "_tmp_op_rf"
 }
-
-object ConstantColumns extends ConstantColumns
 
 class OrthoForestDMLEstimator(override val uid: String)
   extends Estimator[OrthoForestDMLModel] with ComplexParamsWritable
     with OrthoForestDMLParams with Wrappable with SynapseMLLogging with HasOutcomeCol {
 
   logClass()
+
+  type EstimatorWithPC = Estimator[_ <: Model[_] with HasPredictionCol] with HasPredictionCol
 
   def this() = this(Identifiable.randomUID("OrthoForestDMLEstimator"))
 
@@ -42,75 +44,58 @@ class OrthoForestDMLEstimator(override val uid: String)
     * @return The trained DoubleML model, from which you can get Ate and Ci values
     */
   override def fit(dataset: Dataset[_]): OrthoForestDMLModel = {
-
-    require(getNumTrees > 0, "You got to have at least one tree in a forest")
-
+    require(getNumTrees > 0, "You need at least one tree in a forest")
     val treatmentColType = dataset.schema(getTreatmentCol).dataType
     require(treatmentColType == DoubleType,
       s"TreatmentCol must be of type DoubleType but got $treatmentColType")
-
     val forest = trainInternal(dataset)
-
     val dmlModel = this.copyValues(new OrthoForestDMLModel(uid)).setForest(forest)
-
     dmlModel
-
   }
 
-  //scalastyle:off method.length
+  private def prepModel(model: Estimator[_ <: Model[_]],
+                        labelColName: String,
+                        featureColName: String): EstimatorWithPC = {
+    model.copy(model.extractParamMap()) match {
+      case r: Regressor[_, _, _] => r
+        .setFeaturesCol(featureColName)
+        .setLabelCol(labelColName).asInstanceOf[EstimatorWithPC]
+      case c: ProbabilisticClassifier[_, _, _] => c
+        .setFeaturesCol(featureColName)
+        .setLabelCol(labelColName).asInstanceOf[EstimatorWithPC]
+    }
+  }
+
+  private def calculateResiduals(train: Dataset[_],
+                                 test: Dataset[_]): DataFrame = {
+    val treatmentEstimator = prepModel(getTreatmentModel, getTreatmentCol, getConfounderVecCol)
+    val outcomeEstimator = prepModel(getOutcomeModel, getOutcomeCol, getConfounderVecCol)
+
+    val treatmentModel = treatmentEstimator.fit(train)
+    val outcomeModel = outcomeEstimator.fit(train)
+
+    val treatmentResidual = new ResidualTransformer()
+      .setObservedCol(getTreatmentCol)
+      .setPredictedCol(treatmentModel.getPredictionCol)
+      .setOutputCol(getTreatmentResidualCol)
+    val dropTreatmentPredictedColumns = new DropColumns()
+      .setCols(Array(treatmentModel.getPredictionCol))
+
+    val outcomeResidual = new ResidualTransformer()
+      .setObservedCol(getOutcomeCol)
+      .setPredictedCol(outcomeEstimator.getPredictionCol)
+      .setOutputCol(getOutcomeResidualCol)
+    val dropOutcomePredictedColumns = new DropColumns()
+      .setCols(Array(outcomeEstimator.getPredictionCol))
+
+    val pipeline = new Pipeline().setStages(Array(
+      treatmentModel, treatmentResidual, dropTreatmentPredictedColumns,
+      outcomeModel, outcomeResidual, dropOutcomePredictedColumns))
+
+    pipeline.fit(test).transform(test)
+  }
+
   private def trainInternal(dataset: Dataset[_]): Array[DecisionTreeRegressionModel] = {
-
-    def getModel(model: Estimator[_ <: Model[_]],
-                 labelColName: String,
-                 featureColName: String)={
-      model match {
-        case regressor: Regressor[_, _, _] => (regressor
-          .setFeaturesCol(featureColName)
-          .setLabelCol(labelColName),
-          regressor.getPredictionCol)
-      }
-    }
-
-
-    val (treatmentEstimator, treatmentPredictionColName) = getModel(
-      getTreatmentModel.copy(getTreatmentModel.extractParamMap()),
-      getTreatmentCol,
-      getConfounderVecCol
-    )
-
-    val (outcomeEstimator, outcomePredictionColName) = getModel(
-      getOutcomeModel.copy(getOutcomeModel.extractParamMap()),
-      getOutcomeCol,
-      getConfounderVecCol
-    )
-
-    def calculateResiduals(train: Dataset[_], test: Dataset[_]): DataFrame = {
-      val treatmentModel = treatmentEstimator.fit(train)
-      val outcomeModel = outcomeEstimator.fit(train)
-
-      val treatmentResidual =
-        new ResidualTransformer()
-          .setObservedCol(getTreatmentCol)
-          .setPredictedCol(treatmentPredictionColName)
-          .setOutputCol(getTreatmentResidualCol)
-      val dropTreatmentPredictedColumns = new DropColumns()
-        .setCols(Array(treatmentPredictionColName))
-
-      val outcomeResidual =
-        new ResidualTransformer()
-          .setObservedCol(getOutcomeCol)
-          .setPredictedCol(outcomePredictionColName)
-          .setOutputCol(getOutcomeResidualCol)
-      val dropOutcomePredictedColumns = new DropColumns()
-        .setCols(Array(outcomePredictionColName))
-
-      val pipeline = new Pipeline().setStages(Array(
-        treatmentModel, treatmentResidual, dropTreatmentPredictedColumns,
-        outcomeModel, outcomeResidual, dropOutcomePredictedColumns))
-
-      pipeline.fit(test).transform(test)
-    }
-
     // Note, we perform these steps to get ATE
     /*
       1. Split sample, e.g. 50/50
@@ -127,17 +112,17 @@ class OrthoForestDMLEstimator(override val uid: String)
     val orthoPredTransformer = new OrthoForestVariableTransformer()
       .setTreatmentResidualCol(getTreatmentResidualCol)
       .setOutcomeResidualCol(getOutcomeResidualCol)
-      .setOutputCol(ConstantColumns.transformedOutcome)
-      .setWeightsCol(ConstantColumns.transformedWeights)
+      .setOutputCol(ConstantColumns.TransformedOutcomeCol)
+      .setWeightsCol(ConstantColumns.TransformedWeightsCol)
 
     def getTreesByFitting(residualDF: DataFrame): Array[DecisionTreeRegressionModel] = {
       val transformedDF = orthoPredTransformer.transform(residualDF)
 
       val rfRegressor = new RandomForestRegressor()
         .setFeaturesCol(getHeterogeneityVecCol)
-        .setLabelCol(ConstantColumns.transformedOutcome)
-        .setWeightCol(ConstantColumns.transformedWeights)
-        .setPredictionCol(ConstantColumns.tempForestPred)
+        .setLabelCol(ConstantColumns.TransformedOutcomeCol)
+        .setWeightCol(ConstantColumns.TransformedWeightsCol)
+        .setPredictionCol(ConstantColumns.TempForestPredCol)
         .setMaxDepth(getMaxDepth)
         .setMinInstancesPerNode(getMinSamplesLeaf)
 
@@ -184,10 +169,10 @@ class OrthoForestDMLModel(val uid: String)
     "Forest Trees produced in Ortho Forest DML Estimator")
 
   private def getForest: Array[DecisionTreeRegressionModel] = {
-    $(forest).map(x=>x.asInstanceOf[DecisionTreeRegressionModel])
+    $(forest).map(x => x.asInstanceOf[DecisionTreeRegressionModel])
   }
 
-  def setForest(v: Array[DecisionTreeRegressionModel]): this.type = set(forest, v.map(x=>x.asInstanceOf[Transformer]))
+  def setForest(v: Array[DecisionTreeRegressionModel]): this.type = set(forest, v.map(x => x.asInstanceOf[Transformer]))
 
   def this() = this(Identifiable.randomUID("OrthoForestDMLModel"))
 
@@ -256,7 +241,7 @@ class OrthoForestDMLModel(val uid: String)
 
       val assembler = new VectorAssembler()
         .setInputCols(colsNamed)
-        .setOutputCol(ConstantColumns.tempVecCol)
+        .setOutputCol(ConstantColumns.TempVecCol)
 
       val dropCols = new DropColumns()
         .setCols(colsNamed)
@@ -275,17 +260,17 @@ class OrthoForestDMLModel(val uid: String)
       val finalData = pipeline
         .fit(df)
         .transform(df)
-        .withColumn(ConstantColumns.tmpBLBBounds, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.tempVecCol))))
-        .withColumn(getOutputLowCol, getLowerBound(col(ConstantColumns.tmpBLBBounds)))
-        .withColumn(getOutputCol, getAverage(col(ConstantColumns.tmpBLBBounds)))
-        .withColumn(getOutputHighCol, getUpperBound(col(ConstantColumns.tmpBLBBounds)))
-        .drop(ConstantColumns.tempVecCol)
-        .drop(ConstantColumns.tmpBLBBounds)
-        .drop(ConstantColumns.transformedOutcome)
-        .drop(ConstantColumns.transformedWeights)
+        .withColumn(ConstantColumns.TmpBLBBoundsCol, getBLBBoundsUDF(vector_to_array(col(ConstantColumns.TempVecCol))))
+        .withColumn(getOutputLowCol, getLowerBound(col(ConstantColumns.TmpBLBBoundsCol)))
+        .withColumn(getOutputCol, getAverage(col(ConstantColumns.TmpBLBBoundsCol)))
+        .withColumn(getOutputHighCol, getUpperBound(col(ConstantColumns.TmpBLBBoundsCol)))
+        .drop(ConstantColumns.TempVecCol)
+        .drop(ConstantColumns.TmpBLBBoundsCol)
+        .drop(ConstantColumns.TransformedOutcomeCol)
+        .drop(ConstantColumns.TransformedWeightsCol)
 
       finalData
-    },dataset.columns.length)
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType =

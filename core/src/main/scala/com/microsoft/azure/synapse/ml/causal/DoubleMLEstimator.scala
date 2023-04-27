@@ -29,36 +29,36 @@ import scala.concurrent.Future
 // scalastyle:off cyclomatic.complexity
 
 /** Double ML estimators. The estimator follows the two stage process,
- *  where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
- *  and a final stage estimates the average treatment effect (ATE) model.
- *  Our goal is to estimate the constant marginal ATE Theta(X)
- *
- *  In this estimator, the ATE is estimated by using the following estimating equations:
- *  .. math ::
- *      Y - \\E[Y | X, W] = \\Theta(X) \\cdot (T - \\E[T | X, W]) + \\epsilon
- *
- *  Thus if we estimate the nuisance functions :math:`q(X, W) = \\E[Y | X, W]` and
- *  :math:`f(X, W)=\\E[T | X, W]` in the first stage, we can estimate the final stage ate for each
- *  treatment t, by running a regression, minimizing the residual on residual square loss,
- *  estimating Theta(X) is a final regression problem, regressing tilde{Y} on X and tilde{T})
- *
- *  .. math ::
- *       \\hat{\\theta} = \\arg\\min_{\\Theta}\
- *       \E_n\\left[ (\\tilde{Y} - \\Theta(X) \\cdot \\tilde{T})^2 \\right]
- *
- * Where
- * `\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
- * residual outcome and residual treatment.
- *
- * The nuisance function :math:`q` is a simple machine learning problem and
- * user can use setOutcomeModel to set an arbitrary sparkML model
- * that is internally used to solve this problem
- *
- * The problem of estimating the nuisance function :math:`f` is also a machine learning problem and
- * user can use setTreatmentModel to set an arbitrary sparkML model
- * that is internally used to solve this problem.
- *
- */
+  * where a set of nuisance functions are estimated in the first stage in a cross-fitting manner
+  * and a final stage estimates the average treatment effect (ATE) model.
+  * Our goal is to estimate the constant marginal ATE Theta(X)
+  *
+  * In this estimator, the ATE is estimated by using the following estimating equations:
+  * .. math ::
+  * Y - \\E[Y | X, W] = \\Theta(X) \\cdot (T - \\E[T | X, W]) + \\epsilon
+  *
+  * Thus if we estimate the nuisance functions :math:`q(X, W) = \\E[Y | X, W]` and
+  * :math:`f(X, W)=\\E[T | X, W]` in the first stage, we can estimate the final stage ate for each
+  * treatment t, by running a regression, minimizing the residual on residual square loss,
+  * estimating Theta(X) is a final regression problem, regressing tilde{Y} on X and tilde{T})
+  *
+  * .. math ::
+  * \\hat{\\theta} = \\arg\\min_{\\Theta}\
+  * \E_n\\left[ (\\tilde{Y} - \\Theta(X) \\cdot \\tilde{T})^2 \\right]
+  *
+  * Where
+  * `\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
+  * residual outcome and residual treatment.
+  *
+  * The nuisance function :math:`q` is a simple machine learning problem and
+  * user can use setOutcomeModel to set an arbitrary sparkML model
+  * that is internally used to solve this problem
+  *
+  * The problem of estimating the nuisance function :math:`f` is also a machine learning problem and
+  * user can use setTreatmentModel to set an arbitrary sparkML model
+  * that is internally used to solve this problem.
+  *
+  */
 //noinspection ScalaDocParserErrorInspection,ScalaDocUnclosedTagWithoutParser
 class DoubleMLEstimator(override val uid: String)
   extends Estimator[DoubleMLModel] with ComplexParamsWritable
@@ -69,10 +69,10 @@ class DoubleMLEstimator(override val uid: String)
   def this() = this(Identifiable.randomUID("DoubleMLEstimator"))
 
   /** Fits the DoubleML model.
-   *
-   * @param dataset The input dataset to train.
-   * @return The trained DoubleML model, from which you can get Ate and Ci values
-   */
+    *
+    * @param dataset The input dataset to train.
+    * @return The trained DoubleML model, from which you can get Ate and Ci values
+    */
   override def fit(dataset: Dataset[_]): DoubleMLModel = {
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
@@ -82,13 +82,15 @@ class DoubleMLEstimator(override val uid: String)
       if (get(weightCol).isDefined) {
         getTreatmentModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
-          case _ => throw new Exception("""The selected treatment model does not support sample weight,
+          case _ => throw new Exception(
+            """The selected treatment model does not support sample weight,
             but the weightCol parameter was set for the DoubleMLEstimator.
             Please select a treatment model that supports sample weight.""".stripMargin)
         }
         getOutcomeModel match {
           case w: HasWeightCol => w.set(w.weightCol, getWeightCol)
-          case _ => throw new Exception("""The selected outcome model does not support sample weight,
+          case _ => throw new Exception(
+            """The selected outcome model does not support sample weight,
             but the weightCol parameter was set for the DoubleMLEstimator.
             Please select a outcome model that supports sample weight.""".stripMargin)
         }
@@ -101,12 +103,12 @@ class DoubleMLEstimator(override val uid: String)
       log.info(s"Parallelism: $getParallelism")
       val executionContext = getExecutionContextProxy
 
-      val ateFutures =(1 to getMaxIter).toArray.map { index =>
+      val ateFutures = (1 to getMaxIter).toArray.map { index =>
         Future[Option[Double]] {
           log.info(s"Executing ATE calculation on iteration: $index")
           // If the algorithm runs over 1 iteration, do not bootstrap from dataset,
           // otherwise, redraw sample with replacement
-          val redrewDF =  if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
+          val redrewDF = if (getMaxIter == 1) dataset else dataset.sample(withReplacement = true, fraction = 1)
           val ate: Option[Double] =
             try {
               val totalTime = new StopWatch
@@ -280,7 +282,7 @@ class DoubleMLEstimator(override val uid: String)
         // If column is integer with value 0 or 1, it can be used with classification model
         // If column has normal integer values, it can be used with regression model
         // If user set to use classification model, verify if all values in (0, 1)
-        if (modelType == DoubleMLModelTypes.Binary){
+        if (modelType == DoubleMLModelTypes.Binary) {
           val hasInvalidValues = dataset.filter(!col(colName).isin(0, 1)).count() > 0
           if (hasInvalidValues)
             throw new Exception(s"column '$colName' in dataset is integer data type and " +
@@ -291,7 +293,7 @@ class DoubleMLEstimator(override val uid: String)
         if (modelType == DoubleMLModelTypes.Continuous)
           throw new Exception(s"column '$colName' in dataset is boolean data type, " +
             "but you set to use a regression model for it.")
-      case DoubleType | LongType  =>
+      case DoubleType | LongType =>
         if (modelType == DoubleMLModelTypes.Binary)
           throw new Exception(s"column '$colName' in dataset is double or long data type, " +
             "but you set to use a classification model for it.")
@@ -322,11 +324,13 @@ class DoubleMLModel(val uid: String)
     this,
     "rawTreatmentEffects",
     "raw treatment effect results for all iterations")
+
   def getRawTreatmentEffects: Array[Double] = $(rawTreatmentEffects)
+
   def setRawTreatmentEffects(v: Array[Double]): this.type = set(rawTreatmentEffects, v)
 
   def getAvgTreatmentEffect: Double = {
-    val finalAte =  $(rawTreatmentEffects).sum / $(rawTreatmentEffects).length
+    val finalAte = $(rawTreatmentEffects).sum / $(rawTreatmentEffects).length
     finalAte
   }
 
@@ -351,9 +355,9 @@ class DoubleMLModel(val uid: String)
   override def copy(extra: ParamMap): DoubleMLModel = defaultCopy(extra)
 
   /**
-   * :: Experimental ::
-   * DoubleMLEstimator transform  function is still experimental, and its behavior could change in the future.
-  */
+    * :: Experimental ::
+    * DoubleMLEstimator transform  function is still experimental, and its behavior could change in the future.
+    */
   @Experimental
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({

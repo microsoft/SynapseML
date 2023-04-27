@@ -14,29 +14,37 @@ import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /** Transform the outcome residual and treatment residual.
-  *  \E_n\left[ \left(\tilde{Y} - \theta(X) \cdot \tilde{T}\right)^2 \right] =
-  *  \E_n\left[ \tilde{T}^2 \left(\frac{\tilde{Y}}{\tilde{T}} - \theta(X)\right)^2 \right]
-  *  The latter corresponds to a weighted regression problem, where the target label is :math:`\tilde{Y}/\tilde{T}`,
-  *  the features are `X` and the weight of each sample is :math:`\tilde{T}^2`.
-  *  Any regressor that accepts sample weights can be used as a final model, e.g.:
+  * \E_n\left[ \left(\tilde{Y} - \theta(X) \cdot \tilde{T}\right)^2 \right] =
+  * \E_n\left[ \tilde{T}^2 \left(\frac{\tilde{Y}}{\tilde{T}} - \theta(X)\right)^2 \right]
+  * The latter corresponds to a weighted regression problem, where the target label is :math:`\tilde{Y}/\tilde{T}`,
+  * the features are `X` and the weight of each sample is :math:`\tilde{T}^2`.
+  * Any regressor that accepts sample weights can be used as a final model, e.g.:
   */
 class OrthoForestVariableTransformer(override val uid: String) extends Transformer
   with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
 
   logClass()
 
-  def this() = this(Identifiable.randomUID("OrthoPredictionTransformer"))
+  def this() = this(Identifiable.randomUID("OrthoForestVariableTransformer"))
 
-  val treatmentResidualCol = new Param[String](this, "treatmentResidualCol", "Treatment Residual Col")
+  val treatmentResidualCol = new Param[String](
+    this, "treatmentResidualCol", "Treatment Residual Col")
+
   def setTreatmentResidualCol(value: String): this.type = set(param = treatmentResidualCol, value = value)
+
   final def getTreatmentResidualCol: String = getOrDefault(treatmentResidualCol)
 
-  val outcomeResidualCol = new Param[String](this, "outcomeResidualCol", "Outcome Residual Col")
+  val outcomeResidualCol = new Param[String](
+    this, "outcomeResidualCol", "Outcome Residual Col")
+
   def setOutcomeResidualCol(value: String): this.type = set(param = outcomeResidualCol, value = value)
+
   final def getOutcomeResidualCol: String = getOrDefault(outcomeResidualCol)
 
   val weightsCol = new Param[String](this, "weightsCol", "Weights Col")
+
   def setWeightsCol(value: String): this.type = set(param = weightsCol, value = value)
+
   final def getWeightsCol: String = getOrDefault(weightsCol)
 
   override def copy(extra: ParamMap): OrthoForestVariableTransformer = defaultCopy(extra)
@@ -60,7 +68,6 @@ class OrthoForestVariableTransformer(override val uid: String) extends Transform
     weightsCol -> "_tmp_twOutcome")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-
     logTransform[DataFrame]({
       transformSchema(schema = dataset.schema, logging = true)
 
@@ -77,7 +84,7 @@ class OrthoForestVariableTransformer(override val uid: String) extends Transform
         .withColumn($(weightsCol), col(getTreatmentResidualCol) * col(getTreatmentResidualCol))
 
       finalData
-    },dataset.columns.length)
+    }, dataset.columns.length)
   }
 }
 

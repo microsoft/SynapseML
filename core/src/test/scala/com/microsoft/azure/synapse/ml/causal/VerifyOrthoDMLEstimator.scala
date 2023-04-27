@@ -10,63 +10,63 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 import org.scalactic.Equality
 
 
-class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
-    val schema = StructType(Array(
-      StructField("Label",StringType),
-      StructField("X1",DoubleType),
-      StructField("X2",DoubleType),
-      StructField("X3",DoubleType),
-      StructField("W1",DoubleType),
-      StructField("W2",DoubleType),
-      StructField("W3",DoubleType),
-      StructField("W4",DoubleType),
-      StructField("W5",DoubleType),
-      StructField("W6",DoubleType),
-      StructField("W7",DoubleType),
-      StructField("W8",DoubleType),
-      StructField("W9",DoubleType),
-      StructField("W10",DoubleType),
-      StructField("Y",DoubleType),
-      StructField("T",DoubleType),
-      StructField("TE",DoubleType)
-    ))
-    val treatmentCol = "T"
-    val outcomeCol = "Y"
+class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] {
 
-    val heterogeneityCols  = Array("X1","X2","X3")
-    val heterogeneityVecCol = "XVec"
-    val confounderCols = Array("W1","W2","W3","W4","W5","W6","W7","W8","W9","W10")
-    val confounderVecCol = "XWVec"
+  lazy val schema: StructType = StructType(Array(
+    StructField("Label", StringType),
+    StructField("X1", DoubleType),
+    StructField("X2", DoubleType),
+    StructField("X3", DoubleType),
+    StructField("W1", DoubleType),
+    StructField("W2", DoubleType),
+    StructField("W3", DoubleType),
+    StructField("W4", DoubleType),
+    StructField("W5", DoubleType),
+    StructField("W6", DoubleType),
+    StructField("W7", DoubleType),
+    StructField("W8", DoubleType),
+    StructField("W9", DoubleType),
+    StructField("W10", DoubleType),
+    StructField("Y", DoubleType),
+    StructField("T", DoubleType),
+    StructField("TE", DoubleType)
+  ))
+  lazy val treatmentCol = "T"
+  lazy val outcomeCol = "Y"
+  lazy val heterogeneityCols: Array[String] = Array("X1", "X2", "X3")
+  lazy val heterogeneityVecCol = "XVec"
+  lazy val confounderCols: Array[String] = Array("W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10")
+  lazy val confounderVecCol = "XWVec"
 
-    val filePath = causalTrainFile("OrthoForestData.csv").toString
+  lazy val filePath: String = causalTrainFile("OrthoForestData.csv").toString
 
-    lazy val df = spark.read.format("csv")
-      .option("header", "true")
-      .schema(schema)
-      .load(filePath)
+  lazy val df: DataFrame = spark.read.format("csv")
+    .option("header", "true")
+    .schema(schema)
+    .load(filePath)
 
-    val heterogeneityVector =
-      new VectorAssembler()
-        .setInputCols(heterogeneityCols)
-        .setOutputCol(heterogeneityVecCol)
+  lazy val heterogeneityVector: VectorAssembler =
+    new VectorAssembler()
+      .setInputCols(heterogeneityCols)
+      .setOutputCol(heterogeneityVecCol)
 
-    val confounderVector =
-      new VectorAssembler()
-        .setInputCols(confounderCols)
-        .setOutputCol(confounderVecCol)
+  lazy val confounderVector: VectorAssembler =
+    new VectorAssembler()
+      .setInputCols(confounderCols)
+      .setOutputCol(confounderVecCol)
 
-    val pipeline = new Pipeline()
-      .setStages(Array(heterogeneityVector,
-        confounderVector))
+  lazy val pipeline: Pipeline = new Pipeline()
+    .setStages(Array(heterogeneityVector,
+      confounderVector))
 
-    var ppfit = pipeline.fit(df).transform(df)
+  lazy val ppfit: DataFrame = pipeline.fit(df).transform(df)
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    val dropCols = List("estAvg","estLow","estHigh","XVec","XWVec")
+    val dropCols = List("EffectAverage", "EffectLowerBound", "EffectUpperBound", "XVec", "XWVec")
 
     def prep(df: DataFrame) = {
       df.drop(dropCols: _*)
@@ -77,7 +77,7 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
 
   test("Test Ortho Forest DML") {
 
-    val mtTransform = new OrthoForestDMLEstimator()
+    val ortho = new OrthoForestDMLEstimator()
       .setNumTrees(100)
       .setTreatmentCol("T")
       .setOutcomeCol("Y")
@@ -86,12 +86,12 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
       .setMaxDepth(12)
       .setMinSamplesLeaf(5)
 
-    val finalModel = mtTransform
-      .fit(ppfit)
+    val finalModel = ortho.fit(ppfit)
 
-    val finalPred = finalModel
-      .transform(ppfit)
-      .withColumn("IsWithinBounds", when(col("TE") > col("estLow") && col("TE") < col("estHigh"), 1).otherwise(0))
+    val finalPred = finalModel.transform(ppfit)
+      .withColumn("IsWithinBounds",
+        (col("TE") > col(ortho.getOutputLowCol)
+          && col("TE") < col(ortho.getOutputHighCol)).cast(IntegerType))
 
     val samplesInBound = finalPred
       .agg(sum("IsWithinBounds"))
@@ -111,7 +111,9 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator]{
       .setConfounderVecCol(confounderVecCol)
       .setMaxDepth(10)
       .setMinSamplesLeaf(100),
-      ppfit,ppfit))
+      ppfit, ppfit))
+
+  override def dotnetTestObjects(): Seq[TestObject[OrthoForestDMLEstimator]] = Seq()
 
   override def reader: MLReadable[_] = OrthoForestDMLEstimator
 
