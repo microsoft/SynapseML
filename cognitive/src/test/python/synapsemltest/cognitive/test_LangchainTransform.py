@@ -6,7 +6,7 @@ from langchain.chains import LLMChain
 from langchain.chains import SimpleSequentialChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import AzureOpenAI
-from synapse.ml.cognitive.langchain.LangchainTransform import LangchainTransformer
+from synapse.ml.cognitive.langchain import LangchainTransformer
 from synapsemltest.spark import *
 
 
