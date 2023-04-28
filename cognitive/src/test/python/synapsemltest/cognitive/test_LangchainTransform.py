@@ -5,7 +5,7 @@ import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import AzureOpenAI
-from synapse.ml.cognitive.langchain.LangchainTransform import LangchainTransformer
+from synapse.ml.cognitive.langchain import LangchainTransformer
 from synapsemltest.spark import *
 
 
