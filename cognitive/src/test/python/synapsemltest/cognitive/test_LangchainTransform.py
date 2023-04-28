@@ -8,6 +8,20 @@ from langchain.llms import AzureOpenAI
 from synapse.ml.cognitive.langchain import LangchainTransformer
 from synapsemltest.spark import *
 
+#######################################################
+# this part is to correct a bug in langchain,
+# where the llm type of AzureOpenAI was set
+# to 'openai', but it should be 'azure'.
+# I submitted a PR to langchain for this.
+# link to the PR is here:
+# https://github.com/hwchase17/langchain/pull/3721/files
+# Once that's approved, I'll remove ths correction
+@property
+def _llm_type(self):
+    return "azure"
+
+AzureOpenAI._llm_type = _llm_type
+#######################################################
 
 class LangchainTransformTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -86,6 +100,8 @@ class LangchainTransformTest(unittest.TestCase):
         loaded_transformer = LangchainTransformer.load(path)
         self._assert_chain_output(loaded_transformer)
 
+    def test_test(self):
+        assert 1 > 0
 
 if __name__ == "__main__":
     result = unittest.main()
