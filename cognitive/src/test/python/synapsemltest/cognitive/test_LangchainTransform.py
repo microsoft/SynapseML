@@ -20,8 +20,10 @@ from synapsemltest.spark import *
 def _llm_type(self):
     return "azure"
 
+
 AzureOpenAI._llm_type = _llm_type
 #######################################################
+
 
 class LangchainTransformTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -102,6 +104,7 @@ class LangchainTransformTest(unittest.TestCase):
 
     def test_test(self):
         assert 1 > 0
+
 
 if __name__ == "__main__":
     result = unittest.main()
