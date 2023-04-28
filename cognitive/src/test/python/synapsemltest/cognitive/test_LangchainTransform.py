@@ -49,6 +49,14 @@ class LangchainTransformTest(unittest.TestCase):
         )
 
         self.chain = LLMChain(llm=llm, prompt=copy_prompt)
+        self.langchainTransformer = (
+            LangchainTransformer()
+            .setInputCol("technology")
+            .setOutputCol("copied_technology")
+            .setChain(self.chain)
+            .setSubscriptionKey(self.subscriptionKey)
+            .setUrl(self.url)
+        )
 
         # construction of test dataframe
         self.sentenceDataFrame = spark.createDataFrame(
@@ -68,16 +76,6 @@ class LangchainTransformTest(unittest.TestCase):
     def test_langchainTransform(self):
         # construct langchain transformer using the chain defined above. And test if the generated
         # column has the expected result.
-
-        self.langchainTransformer = (
-            LangchainTransformer()
-            .setInputCol("technology")
-            .setOutputCol("copied_technology")
-            .setChain(self.chain)
-            .setSubscriptionKey(self.subscriptionKey)
-            .setUrl(self.url)
-        )
-
         self._assert_chain_output(self.langchainTransformer)
 
     def test_save_load(self):
