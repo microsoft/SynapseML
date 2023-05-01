@@ -86,7 +86,7 @@ class ValueIndexer(override val uid: String) extends Estimator[ValueIndexerModel
         .setOutputCol(getOutputCol)
         .setLevels(castSortLevels)
         .setDataType(dataType)
-    })
+    }, dataset.columns.length)
   }
 
   private def sortLevels[T: TypeTag](levels: Array[_])
@@ -198,7 +198,7 @@ class ValueIndexerModel(val uid: String)
         mmlStyle = false)
       val inputColIndex = getIndex(dataset(getInputCol))
       dataset.withColumn(getOutputCol, inputColIndex.as(getOutputCol, metadata))
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on cyclomatic.complexity
 

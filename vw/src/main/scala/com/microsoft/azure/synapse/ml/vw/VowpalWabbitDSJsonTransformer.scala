@@ -75,7 +75,7 @@ class VowpalWabbitDSJsonTransformer(override val uid: String)
       dataset.toDF
         .withColumn(JsonColName, F.from_json(F.col(getDsJsonColumn), jsonSchema))
         .select(outputFields: _ *)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType =

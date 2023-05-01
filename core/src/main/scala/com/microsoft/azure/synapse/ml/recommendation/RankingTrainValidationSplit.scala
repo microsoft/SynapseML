@@ -142,7 +142,7 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
         .setBestModel(est.fit(dataset, epm(bestIndex)))
         .setValidationMetrics(metrics)
         .setParent(this))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): RankingTrainValidationSplit = defaultCopy(extra)
@@ -327,7 +327,7 @@ class RankingTrainValidationSplitModel(
 
       //sort to pass unit test
       getBestModel.transform(dataset).sort("prediction")
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

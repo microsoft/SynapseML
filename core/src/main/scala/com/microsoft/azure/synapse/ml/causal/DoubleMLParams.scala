@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasWeightCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasLabelCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
 import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
-import org.apache.spark.ml.param.shared.HasMaxIter
+import org.apache.spark.ml.param.shared.{HasMaxIter, HasPredictionCol}
 import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, Param, Params}
 import org.apache.spark.ml.regression.Regressor
 
@@ -41,7 +41,7 @@ trait DoubleMLParams extends Params
   with HasMaxIter with HasWeightCol with HasParallelismInjected {
 
   val treatmentModel = new EstimatorParam(this, "treatmentModel", "treatment model to run")
-  def getTreatmentModel: Estimator[_ <: Model[_]] = $(treatmentModel)
+  def getTreatmentModel: Estimator[_ <: Model[_]]  = $(treatmentModel)
 
   /**
    * Set treatment model, it could be any model derived from
@@ -101,8 +101,6 @@ trait DoubleMLParams extends Params
     }
   }
 
-
-
   val confidenceLevel = new DoubleParam(
     this,
     "confidenceLevel",
@@ -143,7 +141,7 @@ trait DoubleMLParams extends Params
   private def ensureSupportedEstimator(value: Estimator[_ <: Model[_]]): Unit = {
     value match {
       case _: Regressor[_, _, _] => // for continuous treatment or outcome
-      case _: ProbabilisticClassifier[_, _, _] =>
+      case _: ProbabilisticClassifier[_, _, _]  =>
       case _ => throw new Exception(
         s"DoubleMLEstimator only supports Regressor and ProbabilisticClassifier as treatment or outcome model types, " +
           s"but got type ${value.getClass.getName}"

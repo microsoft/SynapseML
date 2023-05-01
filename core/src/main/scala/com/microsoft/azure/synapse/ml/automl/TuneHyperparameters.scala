@@ -215,7 +215,7 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
       // Compute best model fit on dataset
       val bestModel = getModels(bestIndex % numModels).fit(dataset, paramsPerRun(bestIndex)).asInstanceOf[Model[_]]
       new TuneHyperparametersModel(uid).setBestModel(bestModel).setBestMetric(bestMetric)
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
 
@@ -247,7 +247,7 @@ class TuneHyperparametersModel(val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getBestModel.transform(dataset)
+      getBestModel.transform(dataset), dataset.columns.length
     )
   }
 

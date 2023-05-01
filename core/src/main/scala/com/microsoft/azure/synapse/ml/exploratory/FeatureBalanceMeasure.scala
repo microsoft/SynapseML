@@ -128,7 +128,7 @@ class FeatureBalanceMeasure(override val uid: String)
 
       df.unpersist
       calculateParity(associationMetricsDf, featureValueCol)
-    })
+    }, dataset.columns.length)
   }
 
   private def calculateParity(associationMetricsDf: DataFrame, featureValueCol: String): DataFrame = {

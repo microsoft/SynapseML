@@ -124,7 +124,7 @@ class DistributionBalanceMeasure(override val uid: String)
 
       df.unpersist
       calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows)
-    })
+    }, dataset.columns.length)
   }
 
   private def calculateDistributionMeasures(featureStats: DataFrame,
