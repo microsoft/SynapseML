@@ -10,7 +10,7 @@ description: R setup and example for SynapseML
 
 ## Installation
 
-**Requirements**: You'll need to have R and
+**Requirements**: You need to have R and
 [devtools](https://github.com/hadley/devtools) installed on your
 machine.
 
@@ -22,7 +22,7 @@ devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-core-0.11.0.
 ...
 ```
 
-and then install any or all of the packages listed below, depending on your intended ussage:
+and then install any or all of the following packages, depending on your intended usage:
 
 synapseml-cognitive,
 synapseml-deep-learning,
@@ -44,7 +44,7 @@ devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-vw-0.11.0.zi
 
 ### Importing libraries and setting up spark context
 
-It will take some time to install all dependencies.  Then, run:
+Installing all dependencies may be time-consuming.  When complete, run:
 
 ```R
 ...
@@ -56,9 +56,9 @@ sc <- spark_connect(master = "local", config = config)
 ...
 ```
 
-This will create a spark context on local machine.
+This creates a spark context on your local machine.
 
-We'll then need to import the R wrappers:
+We then need to import the R wrappers:
 
 ```R
 ...
