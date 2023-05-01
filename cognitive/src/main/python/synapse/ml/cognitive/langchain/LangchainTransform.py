@@ -19,7 +19,9 @@ Example Usage:
     >>> transformer.transform(sentenceDataFrame)
 
 If the chain does not have memory, you can also save and load the
-Langchain Transformer.
+Langchain Transformer. The saving of chains with memory is currently
+not supported in Langchain, so we can't save transformers with that
+kind of chains
 Example Usage:
     >>> transformer.save(path)
     >>> loaded_transformer = LangchainTransformer.load(path)

@@ -84,7 +84,6 @@ class LangchainTransformTest(unittest.TestCase):
         input_col_values = [row.technology for row in transformed_df.collect()]
         output_col_values = [row.copied_technology for row in transformed_df.collect()]
 
-        transformed_df.select("copied_technology").show(truncate=False)
         for i in range(len(input_col_values)):
             assert (
                 input_col_values[i] in output_col_values[i].lower()
@@ -102,9 +101,6 @@ class LangchainTransformTest(unittest.TestCase):
         self.langchainTransformer.save(path)
         loaded_transformer = LangchainTransformer.load(path)
         self._assert_chain_output(loaded_transformer)
-
-    def test_test(self):
-        assert 1 > 0
 
 
 if __name__ == "__main__":
