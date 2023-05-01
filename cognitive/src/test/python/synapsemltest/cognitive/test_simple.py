@@ -32,7 +32,8 @@ class SimpleHTTPTransformerSmokeTest(unittest.TestCase):
 
         responses = client.transform(df)
         responses.select("results").show(truncate=False)
-
+        output_col_values = [row.results for row in responses.collect()]
+        print(output_col_values)
 
 if __name__ == "__main__":
     result = unittest.main()
