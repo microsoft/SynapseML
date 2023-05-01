@@ -81,14 +81,14 @@ class LangchainTransformTest(unittest.TestCase):
 
     def _assert_chain_output(self, transformer):
         transformed_df = transformer.transform(self.sentenceDataFrame)
-        # input_col_values = [row.technology for row in transformed_df.collect()]
-        # output_col_values = [row.copied_technology for row in transformed_df.collect()]
+        input_col_values = [row.technology for row in transformed_df.collect()]
+        output_col_values = [row.copied_technology for row in transformed_df.collect()]
 
         transformed_df.select("copied_technology").show(truncate=False)
-        # for i in range(len(input_col_values)):
-        #     assert (
-        #         input_col_values[i] in output_col_values[i].lower()
-        #     ), f"output column value {output_col_values[i]} doesn't contain input column value {input_col_values[i]}"
+        for i in range(len(input_col_values)):
+            assert (
+                input_col_values[i] in output_col_values[i].lower()
+            ), f"output column value {output_col_values[i]} doesn't contain input column value {input_col_values[i]}"
 
     def test_langchainTransform(self):
         # construct langchain transformer using the chain defined above. And test if the generated
