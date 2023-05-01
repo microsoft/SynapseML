@@ -22,6 +22,10 @@ dependencies:
     - pytest
     - pytest-cov
     - nbconvert
+    - nbformat
+    - PyGithub
+    - tqdm
+    - build
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
