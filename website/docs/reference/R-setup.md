@@ -14,11 +14,31 @@ description: R setup and example for SynapseML
 [devtools](https://github.com/hadley/devtools) installed on your
 machine.
 
-To install the current SynapseML package for R use:
+To install the current SynapseML package for R, first install synapseml-core:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.11.0.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-core-0.11.0.zip")
+...
+```
+
+and then install any or all of the packages listed below, depending on your intended ussage:
+
+synapseml-cognitive,
+synapseml-deep-learning,
+synapseml-lightgbm,
+synapseml-opencv,
+synapseml-vw
+
+In other words:
+
+```R
+...
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-cognitive-0.11.0.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-deep-learning-0.11.0.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-lightgbm-0.11.0.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-opencv-0.11.0.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-vw-0.11.0.zip")
 ...
 ```
 
