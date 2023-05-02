@@ -16,9 +16,9 @@ import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, LongTyp
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /** Compute the differences between observed and predicted values of data.
- *  for classification, we compute residual as "observed - probability($(classIndex))"
- *  for regression, we compute residual as "observed - prediction"
- */
+  * for classification, we compute residual as "observed - probability($(classIndex))"
+  * for regression, we compute residual as "observed - prediction"
+  */
 class ResidualTransformer(override val uid: String) extends Transformer
   with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
 
@@ -27,11 +27,15 @@ class ResidualTransformer(override val uid: String) extends Transformer
   def this() = this(Identifiable.randomUID("ComputeResidualsTransformer"))
 
   val observedCol = new Param[String](this, "observedCol", "observed data (label column)")
+
   def setObservedCol(value: String): this.type = set(param = observedCol, value = value)
+
   final def getObservedCol: String = getOrDefault(observedCol)
 
   val predictedCol = new Param[String](this, "predictedCol", "predicted data (prediction or probability columns")
+
   def setPredictedCol(value: String): this.type = set(param = predictedCol, value = value)
+
   final def getPredictedCol: String = getOrDefault(predictedCol)
 
   val classIndex =
@@ -40,8 +44,11 @@ class ResidualTransformer(override val uid: String) extends Transformer
       "classIndex",
       "The index of the class to compute residual for classification outputs. Default value is 1.",
       ParamValidators.gtEq(0))
+
   def setClassIndex(value: Int): this.type = set(param = classIndex, value = value)
+
   final def getClassIndex: Int = getOrDefault(classIndex)
+
   override def copy(extra: ParamMap): ResidualTransformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType =
@@ -87,7 +94,7 @@ class ResidualTransformer(override val uid: String) extends Transformer
             s"Prediction column $getPredictedCol must be of type Vector or NumericType, but is $predictedColDataType" +
               s", please use 'setPredictedCol' to set the correct prediction column")
       }
-    })
+    }, dataset.columns.length)
   }
 }
 

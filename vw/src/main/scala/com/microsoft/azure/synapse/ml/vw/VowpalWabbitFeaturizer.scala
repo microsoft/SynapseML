@@ -212,7 +212,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
       val mode = udf(featurizeRow(featurizers))
 
       dataset.toDF.withColumn(getOutputCol, mode.apply(struct(fieldSubset.map(f => col(f.name)): _*)))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): VowpalWabbitFeaturizer = defaultCopy(extra)

@@ -140,7 +140,7 @@ class TextPreprocessor(val uid: String) extends Transformer
       val mapText: String => String = broadcastedTrie.value.mapText
       val textMapper = udf(mapText)
       dataset.withColumn(getOutputCol, textMapper(dataset(getInputCol)).as(getOutputCol))
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

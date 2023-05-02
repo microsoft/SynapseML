@@ -209,7 +209,7 @@ class ICETransformer(override val uid: String) extends Transformer
 
 
   def transform(ds: Dataset[_]): DataFrame = {
-    logTransform {
+    logTransform ({
       transformSchema(ds.schema)
       val df = ds.toDF
       val idCol = DatasetExtensions.findUnusedColumnName("idCol", df)
@@ -250,7 +250,7 @@ class ICETransformer(override val uid: String) extends Transformer
         case `featureKind` =>
           dependenceDfs.reduce(_ union _).orderBy(desc(getDependenceNameCol))
       }
-    }
+    }, ds.columns.length)
   }
 
   private def collectCategoricalValues[_](df: DataFrame, feature: ICECategoricalFeature): Array[_] = {

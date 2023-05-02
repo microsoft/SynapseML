@@ -81,7 +81,7 @@ class VowpalWabbitClassifier(override val uid: String)
       }
 
       trainInternal(finalDataset, model)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -154,7 +154,7 @@ class VowpalWabbitClassificationModel(override val uid: String)
               col(vowpalWabbitPredictionCol).getField("prediction").cast(DoubleType))
             .withColumn($(predictionCol), col($(rawPredictionCol)))
       }
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

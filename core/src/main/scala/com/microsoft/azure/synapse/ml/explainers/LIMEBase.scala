@@ -152,7 +152,7 @@ abstract class LIMEBase(override val uid: String)
     weightUdf
   }
 
-  final override def transform(instances: Dataset[_]): DataFrame = logTransform {
+  final override def transform(instances: Dataset[_]): DataFrame = logTransform ({
     import instances.sparkSession.implicits._
     this.validateSchema(instances.schema)
     val regularization = this.getRegularization
@@ -200,7 +200,7 @@ abstract class LIMEBase(override val uid: String)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
-  }
+  }, instances.columns.length)
 
   override def copy(extra: ParamMap): Transformer = this.defaultCopy(extra)
 

@@ -40,7 +40,7 @@ abstract class KernelSHAPBase(override val uid: String)
     with Wrappable
     with SynapseMLLogging {
 
-  override def transform(instances: Dataset[_]): DataFrame = logTransform {
+  override def transform(instances: Dataset[_]): DataFrame = logTransform ({
     import instances.sparkSession.implicits._
     this.validateSchema(instances.schema)
 
@@ -91,7 +91,7 @@ abstract class KernelSHAPBase(override val uid: String)
     }.toDF(idCol, this.getOutputCol, this.getMetricsCol)
 
     preprocessed.join(fitted, Seq(idCol), "inner").drop(idCol)
-  }
+  }, instances.columns.length)
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
