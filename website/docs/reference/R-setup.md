@@ -10,9 +10,13 @@ description: R setup and example for SynapseML
 
 ## Installation
 
-**Requirements**: You need to have R and
+**Requirements**: Ensure that R and
 [devtools](https://github.com/hadley/devtools) installed on your
 machine.
+
+Also make sure you have Apache Spark installed. If you are using Sparklyr, you can use [spark-install](https://spark.rstudio.com/packages/sparklyr/latest/reference/spark_install.html). Be sure to specify the correct version. As of this writing, that should be version="3.2". spark_install is a bit eccentric and may install a slightly different version. Be sure that the version you get is one that you want.
+
+On Windows, download [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe) and copy it into the `bin` directory of your Spark installation, e.g. C:\Users\user\AppData\Local\Spark\spark-3.3.2-bin-hadoop3\bin
 
 To install the current SynapseML package for R, first install synapseml-core:
 
@@ -62,7 +66,12 @@ We then need to import the R wrappers:
 
 ```R
 ...
-library(synapseml)
+ library(synapseml.core)
+ library(synapseml.cognitive)
+ library(synapseml.deep.learning)
+ library(synapseml.lightgbm)
+ library(synapseml.opencv)
+ library(synapseml.vw)
 ...
 ```
 
@@ -124,17 +133,18 @@ ml_train_regressor(faithful_df, labelCol="eruptions", unfit_model)
 
 Our R bindings are built as part of the [normal build
 process](developer-readme.md).  To get a quick build, start at the root
-of the synapsemldirectory, and:
+of the synapseml directory, and find the generated files. For instance,
+to find the R files for deep-learning, run
 
 ```bash
-./runme TESTS=NONE
-unzip ./BuildArtifacts/packages/R/synapseml-0.0.zip
+sbt packageR
+ls ./deep-learning/target/scala-2.12/generated/src/R/synapseml/R
 ```
 
 You can then run R in a terminal and install the above files directly:
 
 ```R
 ...
-devtools::install_local("./BuildArtifacts/packages/R/synapseml")
+devtools::install_local("./deep-learning/target/scala-2.12/generated/src/R/synapseml/R")
 ...
 ```

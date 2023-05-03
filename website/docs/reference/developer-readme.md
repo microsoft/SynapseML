@@ -10,6 +10,32 @@ description: SynapseML Development Setup
 1. [Install JDK 11](https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html)
     - You may need an Oracle login to download.
 1. [Install SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
+1. Install Apache Spark
+   - [Download and install Apache Spark](https://spark.apache.org/downloads.html) with version >= 3.2.0. (SynapseML v0.11.1 only supports spark version >= 3.2.0)
+   - Extract downloaded zipped files (with 7-Zip app on Windows or `tar` on linux) and remember the location of
+extracted files, we take `C:\bin\spark-3.2.0-bin-hadoop3.2` or `~/bin/spark-3.2.0-bin-hadoop3.2/` as an example here.
+
+   - On Windows, run the following commands to set the environment variables used to locate Apache Spark. Make sure to run the command prompt in administrator mode.
+    <Tabs groupId="operating-systems">
+        <TabItem value="win" label="Windows" default>
+
+            setx /M HADOOP_HOME C:\bin\spark-3.2.0-bin-hadoop3.2\
+            setx /M SPARK_HOME C:\bin\spark-3.2.0-bin-hadoop3.2\
+            setx /M PATH "%PATH%;%HADOOP_HOME%;%SPARK_HOME%bin" # Warning: Don't run this if your path is already long as it will truncate your path to 1024 characters and potentially remove entries!
+
+        </TabItem>
+    </Tabs>
+
+    - On Linux, add the following to your .bashrc:
+    <Tabs groupId="operating-systems">
+        <TabItem value="linux" label="Mac/Linux">
+
+            export SPARK_HOME=~/bin/spark-3.2.0-bin-hadoop3.2/
+            export PATH="$SPARK_HOME/bin:$PATH"
+
+        </TabItem>
+    </Tabs>
+
 1. Fork the repository on GitHub
     - See how to here: [Fork a repo - GitHub Docs](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
 1. Clone your fork
@@ -35,6 +61,8 @@ description: SynapseML Development Setup
     `horovod` requirement in the environment.yml file, because horovod installation only
     supports Linux or macOS. Horovod is used only for namespace `synapse.ml.dl`.
     :::
+1. On Windows, install WinUtils
+    - Download [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe) and copy it into the `bin` directory of your Spark installation, e.g. C:\Users\user\AppData\Local\Spark\spark-3.3.2-bin-hadoop3\bin
 1. Install pre-commit
     - This repository uses the [pre-commit](https://pre-commit.com/index.html) tool to manage git hooks and enforce linting/coding styles.
     - The hooks are configured in [.pre-commit-config.yaml](https://github.com/microsoft/SynapseML/blob/master/environment.yml).
