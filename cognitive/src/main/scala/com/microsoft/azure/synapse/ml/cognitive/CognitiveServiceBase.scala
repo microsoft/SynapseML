@@ -196,10 +196,13 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
       |    if running_on_synapse_internal():
-      |        from synapse.ml.mlflow import get_mlflow_env_config
-      |        mlflow_env_configs = get_mlflow_env_config()
-      |        self._java_obj.setDefaultAADToken(mlflow_env_configs.driver_aad_token)
-      |        self.setDefaultInternalEndpoint(mlflow_env_configs.workload_endpoint)
+      |        try:
+      |            from synapse.ml.mlflow import get_mlflow_env_config
+      |            mlflow_env_configs = get_mlflow_env_config()
+      |            self._java_obj.setDefaultAADToken(mlflow_env_configs.driver_aad_token)
+      |            self.setDefaultInternalEndpoint(mlflow_env_configs.workload_endpoint)
+      |        except ModuleNotFoundError as e:
+      |            pass
       |    return super()._transform(dataset)
       |""".stripMargin
   }
