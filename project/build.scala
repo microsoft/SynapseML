@@ -57,6 +57,8 @@ object BuildUtils {
     }
   }
 
+  def runCmdStr(cmd: String): Unit = runCmd(cmd.split(" "), new File("."), Map())
+
   def condaEnvName: String = "synapseml"
 
   def activateCondaEnv: Seq[String] = {

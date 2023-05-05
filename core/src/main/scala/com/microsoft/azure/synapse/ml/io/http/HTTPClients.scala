@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
@@ -146,10 +147,10 @@ object HandlingUtils extends SparkLogging {
         case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
         case r => r.getURI
       }
-      logInfo(s"sending $message")
+      SynapseMLLogging.logMessage(s"sending $message")
       val start = System.currentTimeMillis()
       val resp = sendWithRetries(client, req, retryTimes.toArray)
-      logInfo(s"finished sending (${System.currentTimeMillis() - start}ms) $message")
+      SynapseMLLogging.logMessage(s"finished sending (${System.currentTimeMillis() - start}ms) $message")
       val respData = convertAndClose(resp)
       req.releaseConnection()
       respData

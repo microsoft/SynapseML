@@ -288,7 +288,7 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.0,org.apache.spark:spark-avro_2.12:3.3.1",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1,org.apache.spark:spark-avro_2.12:3.3.1",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -303,9 +303,9 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:0.11.0 # Please use 0.11.0 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
-pyspark --packages com.microsoft.azure:synapseml_2.12:0.11.0
-spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.0 MyApp.jar `}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:0.11.1 # Please use 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+pyspark --packages com.microsoft.azure:synapseml_2.12:0.11.1
+spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.1 MyApp.jar `}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -338,7 +338,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.0 MyApp.jar `}
                     ></CodeSnippet>
                     Spark 3.2 Cluster:
                     <CodeSnippet
-                      snippet={`com.microsoft.azure:synapseml_2.12:0.11.0`}
+                      snippet={`com.microsoft.azure:synapseml_2.12:0.11.1`}
                       lang="bash"
                     ></CodeSnippet>
                     with the resolver:
@@ -356,7 +356,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.0 MyApp.jar `}
                   notebooks. To get started with our example notebooks import
                   the following databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.11.0.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.11.1.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -394,7 +394,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.0 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.0") # Please use 0.11.0 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.1") # Please use 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 import synapse.ml`}
@@ -406,19 +406,19 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "0.11.0" // Please use 0.11.0 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "0.11.1" // Please use 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="dotnet">
                   To try out SynapseML with .NET, you should add SynapseML's assembly into reference:
                   <CodeSnippet
-                    snippet={`dotnet add package SynapseML.Cognitive --version 0.11.0
-dotnet add package SynapseML.Core --version 0.11.0
-dotnet add package SynapseML.Lightgbm --version 0.11.0
-dotnet add package SynapseML.DeepLearning --version 0.11.0
-dotnet add package SynapseML.Opencv --version 0.11.0
-dotnet add package SynapseML.Vw --version 0.11.0`}
+                    snippet={`dotnet add package SynapseML.Cognitive --version 0.11.1
+dotnet add package SynapseML.Core --version 0.11.1
+dotnet add package SynapseML.Lightgbm --version 0.11.1
+dotnet add package SynapseML.DeepLearning --version 0.11.1
+dotnet add package SynapseML.Opencv --version 0.11.1
+dotnet add package SynapseML.Vw --version 0.11.1`}
                     lang="bash"
                   ></CodeSnippet>
                   For detailed installation, please refer this{" "}

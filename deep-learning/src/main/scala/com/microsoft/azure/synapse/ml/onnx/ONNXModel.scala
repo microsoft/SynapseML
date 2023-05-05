@@ -208,7 +208,7 @@ class ONNXModel(override val uid: String)
     sliceModelAtOutputs(this, outputs)
   }
 
-  override def transform(dataset: Dataset[_]): DataFrame = logTransform {
+  override def transform(dataset: Dataset[_]): DataFrame = logTransform ({
     val inputSchema = dataset.schema
     this.validateSchema(inputSchema)
 
@@ -225,9 +225,9 @@ class ONNXModel(override val uid: String)
 
     // Due to potential slicing of model, we either use this model or a sliced one to do the actual transform
     actualModel.transformInner(dataset, inputSchema)
-  }
+  }, dataset.columns.length)
 
-  def transformInner(dataset: Dataset[_], inputSchema: StructType): DataFrame = logTransform {
+  def transformInner(dataset: Dataset[_], inputSchema: StructType): DataFrame = logTransform ({
     val modelOutputSchema = getModelOutputSchema(inputSchema)
 
     implicit val enc: Encoder[Row] = RowEncoder(
@@ -253,7 +253,7 @@ class ONNXModel(override val uid: String)
     val flattenedDF = new FlattenBatch().transform(outputDf)
 
     (softMaxTransform _ andThen argMaxTransform) (flattenedDF)
-  }
+  }, dataset.columns.length)
 
   private def softMaxTransform(input: DataFrame): DataFrame = {
     this.getSoftMaxDict.foldLeft(input) {

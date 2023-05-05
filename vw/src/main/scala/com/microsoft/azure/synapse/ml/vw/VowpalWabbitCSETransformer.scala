@@ -157,7 +157,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
         // optional stratification
         .groupBy(getMetricsStratificationCols.map(F.col): _*)
         .agg(metrics.head, metrics.drop(1): _*)
-    })
+    }, dataset.columns.length)
   }
 
   private def perRewardSchema(f: T.StructField): T.StructField = {

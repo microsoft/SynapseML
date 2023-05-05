@@ -160,7 +160,7 @@ class LightGBMClassificationModel(override val uid: String)
           " since no output columns were set.")
       }
       outputData.toDF
-    })
+    }, dataset.columns.length)
   }
 
   override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
