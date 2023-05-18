@@ -14,13 +14,10 @@ import numpy as np
 @inherit_doc
 class DoubleMLModel(_DoubleMLModel):
     def getAvgTreatmentEffect(self):
-        return sum(self.getRawTreatmentEffects()) / len(self.getRawTreatmentEffects())
+        return self._java_obj.getAvgTreatmentEffect()
 
     def getConfidenceInterval(self):
-        ciLowerBound = np.percentile(
-            self.getRawTreatmentEffects(), 100 * (1 - self.getConfidenceLevel())
-        )
-        ciUpperBound = np.percentile(
-            self.getRawTreatmentEffects(), self.getConfidenceLevel() * 100
-        )
-        return [ciLowerBound, ciUpperBound]
+        return list(self._java_obj.getConfidenceInterval())
+
+    def getPValue(self):
+        return self._java_obj.getPValue()

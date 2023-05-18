@@ -58,7 +58,7 @@ class MultiNGram(override val uid: String)
         Row.fromSeq(row.toSeq :+ mergedNGrams)
       }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
         .drop(intermediateOutputCols: _*)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): MultiNGram =

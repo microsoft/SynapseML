@@ -167,7 +167,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       } else {
         throwOnInvalidScoringKind(scoreValueKind)
       }
-    })
+    }, dataset.columns.length)
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity

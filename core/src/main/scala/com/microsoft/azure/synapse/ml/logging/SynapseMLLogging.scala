@@ -4,18 +4,22 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
 import org.apache.spark.internal.Logging
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 case class SynapseMLLogInfo(uid: String,
                             className: String,
                             method: String,
-                            buildVersion: String)
+                            buildVersion: String,
+                            columns: Option[Int] = None)
 
-object LogJsonProtocol extends DefaultJsonProtocol {
-  implicit val LogFormat: RootJsonFormat[SynapseMLLogInfo] = jsonFormat4(SynapseMLLogInfo)
+object LogJsonProtocol extends DefaultJsonProtocol with NullOptions
+{
+  implicit val LogFormat: RootJsonFormat[SynapseMLLogInfo] = jsonFormat5(SynapseMLLogInfo)
 }
 
 import com.microsoft.azure.synapse.ml.logging.LogJsonProtocol._
@@ -38,14 +42,23 @@ object SynapseMLLogging extends Logging {
     logInfo(s"metrics/ ${mapToPrint.toJson.compactPrint}")
   }
 
+  def logMessage(message: String): Unit = {
+    logInfo(SASScrubber.scrub(message))
+  }
+
 }
 
 trait SynapseMLLogging extends Logging {
 
   val uid: String
 
-  protected def logBase(methodName: String): Unit = {
-    logBase(SynapseMLLogInfo(uid, getClass.toString, methodName, BuildInfo.version))
+  protected def logBase(methodName: String, columns: Option[Int]): Unit = {
+    logBase(SynapseMLLogInfo(
+      uid,
+      getClass.toString,
+      methodName,
+      BuildInfo.version,
+      columns))
   }
 
   protected def logBase(info: SynapseMLLogInfo): Unit = {
@@ -60,23 +73,22 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logClass(): Unit = {
-    logBase("constructor")
+    logBase("constructor", None)
   }
 
-  def logFit[T](f: => T): T = {
-    logVerb("fit", f)
+  def logFit[T](f: => T, columns: Int): T = {
+    logVerb("fit", f, columns)
   }
 
-  def logTrain[T](f: => T): T = {
-    logVerb("train", f)
+  def logTrain[T](f: => T, columns: Int): T = {
+    logVerb("train", f, columns)
   }
 
-  def logTransform[T](f: => T): T = {
-    logVerb("transform", f)
+  def logTransform[T](f: => T, columns: Int): T = {
+    logVerb("transform", f, columns)
   }
-
-  def logVerb[T](verb: String, f: => T): T = {
-    logBase(verb)
+  def logVerb[T](verb: String, f: => T, columns: Int = -1): T = {
+    logBase(verb, if(columns == -1) None else Some(columns))
     try {
       f
     } catch {

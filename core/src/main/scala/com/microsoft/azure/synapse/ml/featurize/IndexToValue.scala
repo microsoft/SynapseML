@@ -50,7 +50,7 @@ class IndexToValue(val uid: String) extends Transformer
           case _ => throw new Exception("Unsupported type " + dataType.toString)
         }
       dataset.withColumn(getOutputCol, getLevel(dataset(getInputCol)).as(getOutputCol))
-    })
+    }, dataset.columns.length)
   }
 
   private class Default[T] {var value: T = _ }

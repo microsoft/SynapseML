@@ -43,7 +43,7 @@ class SelectColumns(val uid: String) extends Transformer
     logTransform[DataFrame]({
       verifySchema(dataset.schema)
       dataset.toDF().select(getCols.map(col): _*)
-    })
+    }, dataset.columns.length)
   }
 
   def transformSchema(schema: StructType): StructType = {

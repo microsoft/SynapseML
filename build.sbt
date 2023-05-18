@@ -68,7 +68,7 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2022-08-09.tgz"
+val datasetName = "datasets-2023-04-03.tgz"
 val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
@@ -208,6 +208,19 @@ publishDotnetTestBase := {
   packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
   val packagePath = join(dotnetTestBaseDir,
     "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
+  publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
+}
+
+// This command should be run only when you make an update to DotnetBase proj, and it will override
+// existing nuget package with the same version number
+val publishDotnetBase = TaskKey[Unit]("publishDotnetBase",
+  "publish dotnet base nuget package that contains core elements for SynapseML in C#")
+publishDotnetBase := {
+  val dotnetBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "src")
+  packDotnetAssemblyCmd(join(dotnetBaseDir, "target").getAbsolutePath, dotnetBaseDir)
+  val packagePath = join(dotnetBaseDir,
+    // Update the version whenever there's a new release
+    "target", s"SynapseML.DotnetBase.${dotnetedVersion("0.11.1")}.nupkg").getAbsolutePath
   publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
@@ -413,7 +426,7 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.500"),
     name := "synapseml-lightgbm"
   ): _*)
 
@@ -466,12 +479,12 @@ setupTask := {
   getDatasetsTask.value
 }
 
-val convertNotebooks = TaskKey[Unit]("convertNotebooks",
-  "convert notebooks to markdown for website display")
+val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
-  )
+  runCmdStr("python -m pip uninstall -y documentprojection")
+  runCmdStr("python -m build docs/python")
+  runCmdStr("python -m pip install --find-links=docs/python/dist documentprojection")
+  runCmdStr("python -m documentprojection -r -p -c website . notebooks/features")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",

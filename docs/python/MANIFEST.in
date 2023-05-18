@@ -1,0 +1,5 @@
+# Misc
+include LICENSE.txt
+
+# documentation, if any - there may be a minimal set of docs:
+# recursive-include docs *.html *.txt *.js
