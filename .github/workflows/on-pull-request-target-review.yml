@@ -1,4 +1,6 @@
-on: [pull_request]
+on:
+  pull_request_target:
+    branches: [ 'master' ]
 
 jobs:
   add_pr_comment:
@@ -6,7 +8,7 @@ jobs:
     name: Azure OpenAI PR Comment
     steps:
       - id: review
-        uses: microsoft/gpt-review@v0.9.1
+        uses: microsoft/gpt-review@v0.9.2
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_OPENAI_API: ${{ secrets.AZURE_OPENAI_API }}
