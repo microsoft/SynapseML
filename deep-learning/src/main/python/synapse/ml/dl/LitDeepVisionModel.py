@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from pytorch_lightning.utilities import _module_available
+from urllib.error import URLError
+import time
 
 _TORCHVISION_AVAILABLE = _module_available("torchvision")
 if _TORCHVISION_AVAILABLE:
@@ -130,10 +132,22 @@ class LitDeepVisionModel(pl.LightningModule):
             "dropout_aux",
         )
 
+    def _retry_download(self, func, times_left):
+        try:
+            return func()
+        except URLError as e:
+            if times_left == 0:
+                raise e
+            else:
+                time.sleep(1)
+                return self._retry_download(func, times_left - 1)
+
     def _check_params(self):
         # TORCHVISION
         if self.backbone in models.__dict__:
-            self.model = models.__dict__[self.backbone](pretrained=True)
+            self.model = self._retry_download(
+                lambda: models.__dict__[self.backbone](pretrained=True), 5
+            )
         # TODO: add HUGGINGFACE.TRANSFORMERS
         else:
             raise ValueError("No model: {} found".format(self.backbone))
