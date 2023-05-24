@@ -60,7 +60,7 @@ installed via pip with `pip install pyspark`.
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            # Use 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+            # Use 0.11.1-spark3.3 version for spark3.3, 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
             .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.1") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
@@ -84,7 +84,7 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-# Please use 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
+# Please use 0.11.1-spark3.3 version for Spark3.3, 0.11.1 version for Spark3.2 and 0.9.5-13-d1b51517-SNAPSHOT version for Spark3.1
 spark-shell --packages com.microsoft.azure:synapseml_2.12:0.11.1
 pyspark --packages com.microsoft.azure:synapseml_2.12:0.11.1
 spark-submit --packages com.microsoft.azure:synapseml_2.12:0.11.1 MyApp.jar
@@ -112,6 +112,43 @@ Finally, ensure that your Spark cluster has at least Spark 3.12 and Scala 2.12.
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks, import the following databricks archive:
 
 `https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.11.1.dbc`
+
+## Microsoft Fabric
+
+In Microsoft Fabric notebooks please place the following in the first cell of your notebook. 
+
+- For Spark 3.2 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1,org.apache.spark:spark-avro_2.12:3.3.1",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false",
+      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
+  }
+}
+```
+
+- For Spark 3.3 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1-spark3.3",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
 
 ## Apache Livy and HDInsight
 
