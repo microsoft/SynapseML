@@ -1,0 +1,17 @@
+name: GPT Review on Pull Request
+
+on:
+  pull_request_target:
+    branches: [ 'master' ]
+
+jobs:
+  add_pr_comment:
+    runs-on: ubuntu-latest
+    name: Azure OpenAI PR Comment
+    steps:
+      - id: review
+        uses: microsoft/gpt-review@v0.9.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AZURE_OPENAI_API: ${{ secrets.AZURE_OPENAI_API }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
