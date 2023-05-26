@@ -6,7 +6,7 @@ SynapseML (previously known as MMLSpark), is an open-source library that simplif
 
 With SynapseML, you can build scalable and intelligent systems to solve challenges in domains such as anomaly detection, computer vision, deep learning, text analytics, and others. SynapseML can train and evaluate models on single-node, multi-node, and elastically resizable clusters of computers. This lets you scale your work without wasting resources. SynapseML is usable across Python, R, Scala, Java, and .NET. Furthermore, its API abstracts over a wide variety of databases, file systems, and cloud data stores to simplify experiments no matter where data is located.
 
-SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
+SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.8+.
 
 | Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -27,6 +27,7 @@ SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.6+.
   - [Setup and installation](#setup-and-installation)
     - [Synapse Analytics](#synapse-analytics)
     - [Databricks](#databricks)
+    - [Microsoft Fabric](#microsoft-fabric)
     - [Python Standalone](#python-standalone)
     - [Spark Submit](#spark-submit)
     - [SBT](#sbt)
@@ -86,6 +87,22 @@ First select the correct platform that you are installing SynapseML into:
 
 In Azure Synapse notebooks please place the following in the first cell of your notebook. 
 
+- For Spark 3.3 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1-spark3.3",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
+
 - For Spark 3.2 Pools:
 
 ```bash
@@ -103,20 +120,6 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 }
 ```
 
-- For Spark 3.1 Pools:
-
-```bash
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5-13-d1b51517-SNAPSHOT",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
-      "spark.yarn.user.classpath.first": "true"
-  }
-}
-```
 
 To install at the pool level instead of the notebook level [add the spark properties listed above to the pool configuration](https://techcommunity.microsoft.com/t5/azure-synapse-analytics-blog/how-to-set-spark-pyspark-custom-configs-in-synapse-workspace/ba-p/2114434).
 
@@ -136,6 +139,43 @@ Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12. I
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
 `https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv0.11.1.dbc`
+
+### Microsoft Fabric
+
+In Microsoft Fabric notebooks please place the following in the first cell of your notebook. 
+
+- For Spark 3.3 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1-spark3.3",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
+
+- For Spark 3.2 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1,org.apache.spark:spark-avro_2.12:3.3.1",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false",
+      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
+  }
+}
+```
 
 ### Python Standalone
 
