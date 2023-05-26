@@ -47,7 +47,7 @@ installed via pip with `pip install pyspark`.
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            # Use 0.11.1-spark3.3 version for spark3.3 and 0.11.1 version for Spark3.2
+            # Use 0.11.1-spark3.3 version for Spark3.3 and 0.11.1 version for Spark3.2
             .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.1") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
