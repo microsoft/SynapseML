@@ -50,7 +50,7 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
     if override is not None:
         return override
 
-    if running_on_synapse():
+    if running_on_synapse() or running_on_synapse_internal():
         from notebookutils.mssparkutils.credentials import getSecret
 
         return getSecret(keyvault, secret_name)
