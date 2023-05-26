@@ -267,7 +267,7 @@ function Home() {
                 ]}
               >
                 <TabItem value="Synapse">
-                  <p>SynapseML can be conveniently installed on Synapse:</p>
+                  <p>SynapseML can be installed on Synapse adding the following to the first cell of a notebook:</p>
                   For Spark3.3 pool:
                   <CodeSnippet
                     snippet={`%%configure -f
