@@ -27,6 +27,7 @@ SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.8+.
   - [Setup and installation](#setup-and-installation)
     - [Synapse Analytics](#synapse-analytics)
     - [Databricks](#databricks)
+    - [Microsoft Fabric](#microsoft-fabric)
     - [Python Standalone](#python-standalone)
     - [Spark Submit](#spark-submit)
     - [SBT](#sbt)
@@ -119,20 +120,6 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 }
 ```
 
-- For Spark 3.1 Pools:
-
-```bash
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.9.5-13-d1b51517-SNAPSHOT",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12",
-      "spark.yarn.user.classpath.first": "true"
-  }
-}
-```
 
 To install at the pool level instead of the notebook level [add the spark properties listed above to the pool configuration](https://techcommunity.microsoft.com/t5/azure-synapse-analytics-blog/how-to-set-spark-pyspark-custom-configs-in-synapse-workspace/ba-p/2114434).
 
