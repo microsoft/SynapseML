@@ -30,7 +30,7 @@ class Cacher(val uid: String) extends Transformer with Wrappable with DefaultPar
       } else {
         dataset.toDF
       }
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

@@ -70,7 +70,7 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
       val rspdata = spdata.partitionBy(rangePartitioner).mapPartitions(keyToRow =>
         keyToRow.map { case (key, row) => row }).persist()
       dataset.sqlContext.createDataFrame(rspdata, dataset.schema)
-    })
+    }, dataset.columns.length)
   }
 
   private def getEqualLabelCount(labelToCount: Array[(Int, Long)], dataset: Dataset[_]): Map[Int, Double] = {

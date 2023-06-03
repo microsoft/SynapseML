@@ -178,81 +178,84 @@ trait DotnetTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEqual
   //noinspection ScalaStyle
   def makeDotnetTestFile(conf: CodegenConfig): Unit = {
     spark
-    saveDotnetTestData(conf)
-    val testDataDirString = dotnetTestDataDir(conf).toString
-    val generatedTests = dotnetTestObjects().zipWithIndex.map { case (to, i) =>
-      makeDotnetTests(to, i, testDataDirString)
-    }
-    val stage = dotnetTestObjects().head.stage
-    val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
-    val importPathString = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Synapse.ML")
-      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
-      .split(".".toCharArray).map(capitalize).mkString(".")
-    val externalLoaderImports = conf.name match {
-      case "synapseml-deep-learning" =>
-        s"""using Synapse.ML.Onnx;
-           |using Synapse.ML.Stages;
+    val testObjects = dotnetTestObjects()
+    if (testObjects.nonEmpty) {
+      saveDotnetTestData(conf)
+      val testDataDirString = dotnetTestDataDir(conf).toString
+      val generatedTests = testObjects.zipWithIndex.map { case (to, i) =>
+        makeDotnetTests(to, i, testDataDirString)
+      }
+      val stage = dotnetTestObjects().head.stage
+      val importPath = stage.getClass.getName.split(".".toCharArray).dropRight(1)
+      val importPathString = importPath.mkString(".")
+        .replaceAllLiterally("com.microsoft.azure.synapse.ml", "Synapse.ML")
+        .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML")
+        .split(".".toCharArray).map(capitalize).mkString(".")
+      val externalLoaderImports = conf.name match {
+        case "synapseml-deep-learning" =>
+          s"""using Synapse.ML.Onnx;
+             |using Synapse.ML.Stages;
+             |""".stripMargin
+        case _ => ""
+      }
+      val namespaceString = importPath.mkString(".")
+        .replaceAllLiterally("com.microsoft.azure.synapse.ml", "SynapseMLtest")
+        .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
+        .split(".".toCharArray).map(capitalize).mkString(".")
+      val testClass =
+        s"""
+           |// Copyright (C) Microsoft Corporation. All rights reserved.
+           |// Licensed under the MIT License. See LICENSE in project root for information.
+           |
+           |using System;
+           |using System.IO;
+           |using System.Collections.Generic;
+           |using Microsoft.Spark.Interop.Ipc;
+           |using Microsoft.Spark.ML;
+           |using Microsoft.Spark.ML.Classification;
+           |using Microsoft.Spark.ML.Feature;
+           |using Microsoft.Spark.ML.Feature.Param;
+           |using Microsoft.Spark.ML.Recommendation;
+           |using Microsoft.Spark.ML.Regression;
+           |using Microsoft.Spark.Sql;
+           |using Microsoft.Spark.Sql.Types;
+           |using SynapseML.Dotnet.Utils;
+           |
+           |using Xunit;
+           |using SynapseMLtest.Utils;
+           |using SynapseMLtest.Helper;
+           |using $importPathString;
+           |$externalLoaderImports
+           |
+           |namespace $namespaceString
+           |{
+           |
+           |    [Collection("SynapseML Tests")]
+           |    public class $testClassName
+           |    {
+           |        public const string TestDataDir = "${testDataDirString.replaceAllLiterally("\\", "\\\\")}";
+           |        private readonly SparkSession _spark;
+           |        private readonly IJvmBridge _jvm;
+           |        public $testClassName(SparkFixture fixture)
+           |        {
+           |            _spark = fixture.Spark;
+           |            _jvm = fixture.Jvm;
+           |        }
+           |
+           |${indent(generatedTests.mkString("\n\n"), 2)}
+           |    }
+           |
+           |}
+           |
            |""".stripMargin
-      case _ => ""
-    }
-    val namespaceString = importPath.mkString(".")
-      .replaceAllLiterally("com.microsoft.azure.synapse.ml", "SynapseMLtest")
-      .replaceAllLiterally("org.apache.spark.ml", "Microsoft.Spark.ML.Test")
-      .split(".".toCharArray).map(capitalize).mkString(".")
-    val testClass =
-      s"""
-         |// Copyright (C) Microsoft Corporation. All rights reserved.
-         |// Licensed under the MIT License. See LICENSE in project root for information.
-         |
-         |using System;
-         |using System.IO;
-         |using System.Collections.Generic;
-         |using Microsoft.Spark.Interop.Ipc;
-         |using Microsoft.Spark.ML;
-         |using Microsoft.Spark.ML.Classification;
-         |using Microsoft.Spark.ML.Feature;
-         |using Microsoft.Spark.ML.Feature.Param;
-         |using Microsoft.Spark.ML.Recommendation;
-         |using Microsoft.Spark.ML.Regression;
-         |using Microsoft.Spark.Sql;
-         |using Microsoft.Spark.Sql.Types;
-         |using SynapseML.Dotnet.Utils;
-         |
-         |using Xunit;
-         |using SynapseMLtest.Utils;
-         |using SynapseMLtest.Helper;
-         |using $importPathString;
-         |$externalLoaderImports
-         |
-         |namespace $namespaceString
-         |{
-         |
-         |    [Collection("SynapseML Tests")]
-         |    public class $testClassName
-         |    {
-         |        public const string TestDataDir = "${testDataDirString.replaceAllLiterally("\\", "\\\\")}";
-         |        private readonly SparkSession _spark;
-         |        private readonly IJvmBridge _jvm;
-         |        public $testClassName(SparkFixture fixture)
-         |        {
-         |            _spark = fixture.Spark;
-         |            _jvm = fixture.Jvm;
-         |        }
-         |
-         |${indent(generatedTests.mkString("\n\n"), 2)}
-         |    }
-         |
-         |}
-         |
-         |""".stripMargin
 
-    val testFolders = namespaceString.split(".".toCharArray)
-    val testDir = FileUtilities.join((Seq(conf.dotnetTestDir.toString) ++ testFolders.toSeq): _*)
-    testDir.mkdirs()
-    Files.write(
-      FileUtilities.join(testDir, "Test" + testClassName.capitalize + ".cs").toPath,
-      testClass.getBytes(StandardCharsets.UTF_8))
+      val testFolders = namespaceString.split(".".toCharArray)
+      val testDir = FileUtilities.join((Seq(conf.dotnetTestDir.toString) ++ testFolders.toSeq): _*)
+      testDir.mkdirs()
+      Files.write(
+        FileUtilities.join(testDir, "Test" + testClassName.capitalize + ".cs").toPath,
+        testClass.getBytes(StandardCharsets.UTF_8))
+    }
   }
 
 }
@@ -472,9 +475,9 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
       }.mkString("\n")
 
       val modelArg = stage match {
-          case _: Estimator[_] => ",unfit.model=TRUE"
-          case _ => ",unfit.model=TRUE,only.model=TRUE"
-        }
+        case _: Estimator[_] => ",unfit.model=TRUE"
+        case _ => ",unfit.model=TRUE,only.model=TRUE"
+      }
 
       val uidArg = s""",uid = "${stageName}_${randomHex(12)}")"""
 
@@ -665,6 +668,7 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
   }
 
   val ignoreEstimators: Boolean = false
+
   def ignoreSerializationFuzzing: Boolean = false
 
   private def testSerializationHelper(path: String,

@@ -72,7 +72,7 @@ class SAR(override val uid: String) extends Estimator[SARModel]
         .setSupportThreshold(getSupportThreshold)
         .setItemCol(getItemCol)
         .setUserCol(getUserCol)
-    })
+    }, dataset.columns.length)
   }
 
   /**

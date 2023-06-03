@@ -101,7 +101,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
           .withColumn(MetricConstants.L2LossMetric,
             l2LossFunc(dataset(labelColumnName), dataset(scoresColumnName)))
       }
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = new ComputePerInstanceStatistics()

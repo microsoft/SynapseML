@@ -7,7 +7,7 @@ dependencies:
   - requests=2.26.0
   - pip=21.3
   - r-base=4.1.1
-  - r-sparklyr=1.7.6
+  - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - pip:
     - pyarrow>=0.15.0
@@ -22,6 +22,10 @@ dependencies:
     - pytest
     - pytest-cov
     - nbconvert
+    - nbformat
+    - PyGithub
+    - tqdm
+    - build
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
@@ -38,3 +42,5 @@ dependencies:
     - Pillow
     - transformers==4.15.0
     - huggingface-hub>=0.8.1
+    - langchain==0.0.151
+    - openai==0.27.5

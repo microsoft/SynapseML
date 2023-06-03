@@ -93,7 +93,7 @@ class RankingAdapter(override val uid: String)
         .setItemCol(getItemCol)
         .setRatingCol(getRatingCol)
         .setLabelCol(getLabelCol)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -155,7 +155,7 @@ class RankingAdapterModel private[ml](val uid: String)
         .select(col(getUserCol), col("recommendations." + getItemCol).as("prediction"))
         .join(perUserActualItemsDF, getUserCol)
         .drop(getUserCol)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): RankingAdapterModel = {

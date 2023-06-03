@@ -41,7 +41,7 @@ class CountSelector(override val uid: String) extends Estimator[CountSelectorMod
         .setIndices(slotsToKeep)
         .setInputCol(getInputCol)
         .setOutputCol(getOutputCol)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
@@ -77,7 +77,8 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getModel.transform(dataset)
+      getModel.transform(dataset),
+      dataset.columns.length
     )
   }
 

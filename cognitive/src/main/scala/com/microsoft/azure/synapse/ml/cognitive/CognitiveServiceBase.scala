@@ -159,6 +159,10 @@ trait HasAADToken extends HasServiceParams {
   def setAADTokenCol(v: String): this.type = setVectorParam(AADToken, v)
 
   def getAADTokenCol: String = getVectorParam(AADToken)
+
+  def setDefaultAADToken(v: String): this.type = {
+    setDefault(AADToken -> Left(v))
+  }
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -170,9 +174,10 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
     setUrl(v + urlPath.stripPrefix("/"))
   }
 
-  def setInternalEndpoint(v: String): this.type = {
-    setUrl(v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
-  }
+  override def getUrl: String = this.getOrDefault(url)
+
+  def setDefaultInternalEndpoint(v: String): this.type = setDefault(
+    url, v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
 
   private[ml] def internalServiceType: String = ""
 
@@ -185,16 +190,19 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setEndpoint(value)
       |    return self
       |
-      |def setInternalEndpoint(self, value):
-      |    self._java_obj = self._java_obj.setInternalEndpoint(value)
+      |def setDefaultInternalEndpoint(self, value):
+      |    self._java_obj = self._java_obj.setDefaultInternalEndpoint(value)
       |    return self
       |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
       |    if running_on_synapse_internal():
-      |        from synapse.ml.mlflow import get_mlflow_env_config
-      |        mlflow_env_configs = get_mlflow_env_config()
-      |        self.setAADToken(mlflow_env_configs.driver_aad_token)
-      |        self.setInternalEndpoint(mlflow_env_configs.workload_endpoint)
+      |        try:
+      |            from synapse.ml.mlflow import get_mlflow_env_config
+      |            mlflow_env_configs = get_mlflow_env_config()
+      |            self._java_obj.setDefaultAADToken(mlflow_env_configs.driver_aad_token)
+      |            self.setDefaultInternalEndpoint(mlflow_env_configs.workload_endpoint)
+      |        except ModuleNotFoundError as e:
+      |            pass
       |    return super()._transform(dataset)
       |""".stripMargin
   }
@@ -219,16 +227,6 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
        |/// <returns> New $dotnetClassName object </returns>
        |public $dotnetClassName SetEndpoint(string value) =>
        |    $dotnetClassWrapperName(Reference.Invoke(\"setEndpoint\", value));
-       |
-       |/// <summary>
-       |/// Sets value for internal endpoint
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// Endpoint of the cognitive service
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName setInternalEndpoint(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setInternalEndpoint\", value));
        |""".stripMargin
   }
 }
@@ -268,6 +266,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     case p: ServiceParam[_] => p.payloadName
     case _ => p.name
   }
+
+  override def getUrl: String = this.getOrDefault(url)
 
   protected def prepareUrlRoot: Row => String = {
     _ => getUrl
@@ -497,8 +497,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    logTransform[DataFrame](
-      getInternalTransformer(dataset.schema).transform(dataset)
+    logTransform[DataFrame](getInternalTransformer(dataset.schema).transform(dataset), dataset.columns.length
     )
   }
 

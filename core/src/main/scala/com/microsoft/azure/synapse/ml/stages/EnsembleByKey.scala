@@ -125,7 +125,7 @@ class EnsembleByKey(val uid: String) extends Transformer
         val needToDrop = getColNames.toSet & dataset.columns.toSet
         dataset.drop(needToDrop.toList: _*).toDF().join(aggregated, getKeys)
       }
-    })
+    }, dataset.columns.length)
 
   }
 
