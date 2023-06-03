@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm._
 
 /** Tests to validate the functionality of LightGBM module. */
 class VerifyLightGBMClassifierBulk extends VerifyLightGBMClassifierStream {
-  override lazy val executionMode: String = LightGBMConstants.BulkExecutionMode
+  override lazy val executionMode: String = LightGBMConstants.BulkDataTransferMode
   override def ignoreSerializationFuzzing: Boolean = true
   override def ignoreExperimentFuzzing: Boolean = true
 }
