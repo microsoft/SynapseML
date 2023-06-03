@@ -11,7 +11,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.DataFrame
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
@@ -86,7 +86,7 @@ abstract class LightGBMClassifierTestData extends Benchmarks
 
   def baseModel: LightGBMClassifier = {
     // TODO revert once streaming sparse bug fixed
-    val matrixType = if (executionMode == LightGBMConstants.StreamingExecutionMode) "dense"
+    val matrixType = if (executionMode == LightGBMConstants.StreamingDataTransferMode) "dense"
       else "auto"
     new LightGBMClassifier()
       .setFeaturesCol(featuresCol)

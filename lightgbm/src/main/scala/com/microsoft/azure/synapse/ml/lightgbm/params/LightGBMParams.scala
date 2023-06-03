@@ -78,15 +78,22 @@ trait LightGBMExecutionParams extends Wrappable {
     "referenceDataset",
     "The reference Dataset that was used for the fit. If using samplingMode=custom, this must be set before fit()."
   )
+  setDefault(referenceDataset -> Array.empty[Byte])
   def getReferenceDataset: Array[Byte] = $(referenceDataset)
   def setReferenceDataset(value: Array[Byte]): this.type = set(referenceDataset, value)
 
+  @deprecated("Please use 'dataTransferMode'", since = "0.11.1")
   val executionMode = new Param[String](this, "executionMode",
-    "Specify how LightGBM is executed.  " +
-      "Values can be streaming, bulk. Default is bulk.")
-  setDefault(executionMode -> LightGBMConstants.BulkExecutionMode)
-  def getExecutionMode: String = $(executionMode)
-  def setExecutionMode(value: String): this.type = set(executionMode, value)
+    "Deprecated. Please use dataTransferMode.")
+  @deprecated("Please use 'setDataTransferMode'", since = "0.11.1")
+  def setExecutionMode(value: String): this.type = set(dataTransferMode, value)
+
+  val dataTransferMode = new Param[String](this, "dataTransferMode",
+    "Specify how SynapseML transfers data from Spark to LightGBM.  " +
+      "Values can be streaming, bulk. Default is bulk, which is the legacy mode.")
+  setDefault(dataTransferMode -> LightGBMConstants.BulkDataTransferMode)
+  def getDataTransferMode: String = $(dataTransferMode)
+  def setDataTransferMode(value: String): this.type = set(dataTransferMode, value)
 
   val microBatchSize = new IntParam(this, "microBatchSize",
     "Specify how many elements are sent in a streaming micro-batch.")

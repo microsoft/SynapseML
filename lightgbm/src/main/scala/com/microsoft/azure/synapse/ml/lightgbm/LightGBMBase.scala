@@ -6,11 +6,9 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, ParamsStringBuilder}
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.{DatasetUtils, LightGBMDataset, SampledData}
+import com.microsoft.azure.synapse.ml.lightgbm.dataset._
 import com.microsoft.azure.synapse.ml.lightgbm.params._
-import com.microsoft.azure.synapse.ml.lightgbm.swig.SwigUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_void, lightgbmlib}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -18,7 +16,6 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql._
-import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.HashSet
@@ -314,7 +311,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     ExecutionParams(getChunkSize,
                     getMatrixType,
                     execNumThreads,
-                    getExecutionMode,
+                    getDataTransferMode,
                     getSamplingMode,
                     getSamplingSubsetSize,
                     getMicroBatchSize,
@@ -416,16 +413,16 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
-    var featureNames = getSlotNamesWithMetadata(featuresSchema)
+    val featureNames = getSlotNamesWithMetadata(featuresSchema)
     val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
     val trainParams = addCustomTrainParams(generalTrainParams, dataset)
     log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
 
-    val isStreamingMode = getExecutionMode == LightGBMConstants.StreamingExecutionMode
+    val isStreamingMode = getDataTransferMode == LightGBMConstants.StreamingDataTransferMode
     val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
       if (isStreamingMode) {
         val (referenceDataset, partitionCounts) =
-          calculateRowStatistics(trainingData, trainParams, featureNames, numCols, measures)
+          calculateRowStatistics(trainingData, trainParams, numCols, measures)
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
@@ -473,7 +470,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param dataframe The dataset to train on.
     * @return The number of feature columns and initial score classes
     */
-  protected def calculateColumnStatistics(dataframe: DataFrame, measures: InstrumentationMeasures): (Int, Int) = {
+  private def calculateColumnStatistics(dataframe: DataFrame, measures: InstrumentationMeasures): (Int, Int) = {
     measures.markColumnStatisticsStart()
     // Use the first row to get the column count
     val firstRow: Row = dataframe.first()
@@ -496,19 +493,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   }
 
   /**
-    * Inner train method for LightGBM learners.  Calculates the number of workers,
-    * creates a driver thread, and runs mapPartitions on the dataset.
+    * Calculate row statistics for streaming mode. Gets reference data set and partition counts.
     *
     * @param dataframe The dataset to train on.
     * @param trainingParams The training parameters.
     * @param numCols The number of feature columns.
+    * @param measures Instrumentation measures.
     * @return The serialized Dataset reference and an array of partition counts.
     */
-  protected def calculateRowStatistics(dataframe: DataFrame,
-                                       trainingParams: BaseTrainParams,
-                                       featureNames: Option[Array[String]],
-                                       numCols: Int,
-                                       measures: InstrumentationMeasures): (Array[Byte], Array[Long]) = {
+  private def calculateRowStatistics(dataframe: DataFrame,
+                                     trainingParams: BaseTrainParams,
+                                     numCols: Int,
+                                     measures: InstrumentationMeasures): (Array[Byte], Array[Long]) = {
     measures.markRowStatisticsStart()
 
     // Get the row counts per partition
@@ -518,17 +514,29 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
-    // Get sample data rows
-    measures.markSamplingStart()
-    val collectedSampleData = getSampledRows(dataframe, totalNumRows, trainingParams)
-    measures.markSamplingStop()
-
     val datasetParams = getDatasetCreationParams(
       trainingParams.generalParams.categoricalFeatures,
       trainingParams.executionParams.numThreads)
 
-    val referenceDataset = createReferenceDataset(datasetParams, featureNames, numCols, collectedSampleData, measures)
-    val serializedReference = serializeReferenceDataset(referenceDataset)
+    // Either get a reference dataset (as bytes) from params, or calculate it
+    val precalculatedDataset = getReferenceDataset
+    val serializedReference = if (precalculatedDataset.nonEmpty) {
+      precalculatedDataset
+    } else {
+      // Get sample data rows
+      measures.markSamplingStart()
+      val collectedSampleData = getSampledRows(dataframe, totalNumRows, trainingParams)
+      measures.markSamplingStop()
+
+      ReferenceDatasetUtils.createReferenceDatasetFromSample(
+        datasetParams,
+        getFeaturesCol,
+        numCols,
+        collectedSampleData,
+        measures,
+        log)
+    }
+
     measures.markRowStatisticsStop()
     (serializedReference, rowCounts)
   }
@@ -551,7 +559,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   * @param measures Instrumentation measures to populate.
   * @return The LightGBM Model from the trained LightGBM Booster.
   */
-  protected def executeTraining(dataframe: DataFrame,
+  private def executeTraining(dataframe: DataFrame,
                                 validationData: Option[Broadcast[Array[Row]]],
                                 serializedReferenceDataset: Option[Array[Byte]],
                                 partitionCounts: Option[Array[Long]],
@@ -591,7 +599,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     model
   }
 
-  protected def executePartitionTasks(ctx: TrainingContext,
+  private def executePartitionTasks(ctx: TrainingContext,
                                       dataframe: DataFrame,
                                       measures: InstrumentationMeasures): LightGBMBooster = {
     // Create the object that will manage the mapPartitions function
@@ -628,7 +636,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param networkManager The network manager.
     * @return The context of the training session.
     */
-  protected def getTrainingContext(dataframe: DataFrame,
+  private def getTrainingContext(dataframe: DataFrame,
                                    validationData: Option[Broadcast[Array[Row]]],
                                    serializedReferenceDataset: Option[Array[Byte]],
                                    partitionCounts: Option[Array[Long]],
@@ -700,8 +708,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   protected def preprocessData(df: DataFrame): DataFrame = df
 
   /**
-    * Inner train method for LightGBM learners.  Calculates the number of workers,
-    * creates a driver thread, and runs mapPartitions on the dataset.
+    * Creates an array of Rows to use as sample data.
     *
     * @param dataframe      The dataset to train on.
     * @param totalNumRows   The total number of rows in the dataset.
@@ -722,97 +729,15 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val samplingMode = trainingParams.executionParams.samplingMode
     samplingMode match {
       case LightGBMConstants.SubsetSamplingModeGlobal =>
-        // sample randomly from all rows
+        // sample randomly from all rows (expensive for large data sets)
         dataframe.select(dataframe.col(featureColName)).sample(fraction, seed).limit(numSamples).collect()
       case LightGBMConstants.SubsetSamplingModeSubset =>
-        // sample randomly from first 'samplingSetSize' rows
+        // sample randomly from first 'samplingSetSize' rows (optimization to save time on large data sets)
         dataframe.select(dataframe.col(featureColName)).limit(samplingSubsetSize).sample(fraction, seed).collect()
       case LightGBMConstants.SubsetSamplingModeFixed =>
-        // just take first 'N' rows.  Quick but assumes data already randomized.
+        // just take first 'N' rows.  Quick but assumes data already randomized and representative.
         dataframe.select(dataframe.col(featureColName)).limit(numSamples).collect()
       case _ => throw new NotImplementedError(s"Unknown sampling mode: $samplingMode")
     }
-
-    // Get sample data using sample() function in Spark
-    val rawSampleData = dataframe.select(dataframe.col(featureColName)).sample(fraction, seed).limit(numSamples)
-    rawSampleData.collect()
-  }
-
-  private def createReferenceDataset(datasetParams: String,
-                                     featureNames: Option[Array[String]],
-                                     numCols: Int,
-                                     sampledRowData: Array[Row],
-                                     measures: InstrumentationMeasures): LightGBMDataset = {
-    // Use driver node to run LightGBM in standalone mode
-    measures.markSamplingStart()
-
-    // create properly formatted sampled data
-    log.info(s"Loading sample data from broadcast with ${sampledRowData.length} samples")
-    val datasetVoidPtr = lightgbmlib.voidpp_handle()
-    val sampledData: SampledData = new SampledData(sampledRowData.length, numCols)
-    try {
-      sampledRowData.zipWithIndex.foreach(rowAndIndex =>
-        sampledData.pushRow(rowAndIndex._1, rowAndIndex._2, getFeaturesCol))
-      measures.markSamplingStop()
-
-      // Convert byte array to native memory
-      log.info(s"Creating reference training dataset, config:$datasetParams")
-      // Generate the dataset for features
-      val datasetVoidPtr = lightgbmlib.voidpp_handle()
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
-        sampledData.getSampleData,
-        sampledData.getSampleIndices,
-        numCols,
-        sampledData.getRowCounts,
-        sampledData.numRows,
-        0, // TODO check OK
-        0, // TODO check OK
-        datasetParams,
-        datasetVoidPtr), "Dataset create")
-
-      val datasetHandle: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
-
-      val dataset = new LightGBMDataset(datasetHandle)
-      dataset.setFeatureNames(featureNames, numCols)
-
-      val bufferHandle = lightgbmlib.voidpp_handle()
-      val lenPtr = lightgbmlib.new_intp()
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
-        datasetHandle,
-        bufferHandle,
-        lenPtr), "Serialize ref")
-      val bufferLen: Int = lightgbmlib.intp_value(lenPtr)
-      lightgbmlib.delete_intp(lenPtr)
-
-      dataset
-    }
-    finally {
-      sampledData.delete()
-      lightgbmlib.delete_voidpp(datasetVoidPtr)
-    }
-  }
-
-  def serializeReferenceDataset(dataset: LightGBMDataset): Array[Byte] = {
-    val buffer = lightgbmlib.voidpp_handle()
-    val datasetHandle = dataset.datasetPtr
-    val lenPtr = lightgbmlib.new_intp()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
-      datasetHandle,
-      buffer,
-      lenPtr), "Serialize ref")
-    val bufferLen: Int = lightgbmlib.intp_value(lenPtr)
-    lightgbmlib.delete_intp(lenPtr)
-
-    val serializedReference = new Array[Byte](bufferLen)
-    val valPtr = lightgbmlib.new_bytep()
-    val bufferHandle = lightgbmlib.voidpp_value(buffer)
-    (0 until bufferLen).foreach(i => {
-      LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferGetAt(bufferHandle, i, valPtr),"Buffer getat")
-      serializedReference(i) = lightgbmlib.bytep_value(valPtr).toByte
-    })
-    lightgbmlib.delete_bytep(valPtr)
-
-    LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferFree(bufferHandle),"Buffer free")
-    serializedReference
   }
 }

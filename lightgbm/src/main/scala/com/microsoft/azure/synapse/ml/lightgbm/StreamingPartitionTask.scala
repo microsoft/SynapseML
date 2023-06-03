@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.{LightGBMDataset, SampledData}
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{LightGBMDataset, ReferenceDatasetUtils}
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -113,9 +113,9 @@ class StreamingPartitionTask extends BasePartitionTask {
 
   protected def preparePartitionDataInternal(ctx: PartitionTaskContext,
                                              inputRows: Iterator[Row]): PartitionDataState = {
-    // If this is the task that will execute training, first create the empty Dataset from sampled data
+    // If this is the task that will execute training, first create the empty Dataset from context
     if (ctx.shouldExecuteTraining) {
-      ctx.sharedState.datasetState.streamingDataset = Option(getReferenceDataset(ctx))
+      ctx.sharedState.datasetState.streamingDataset = Option(ReferenceDatasetUtils.getInitializedReferenceDataset(ctx))
       ctx.sharedState.helperStartSignal.countDown()
     } else {
       // This must be a task that just loads data and exits, so wait for the shared Dataset to be created
@@ -367,34 +367,5 @@ class StreamingPartitionTask extends BasePartitionTask {
     val dataset = new LightGBMDataset(datasetPtr)
     dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
     dataset
-  }
-
-  private def getReferenceDataset(ctx: PartitionTaskContext): LightGBMDataset = {
-    // The definition is broadcast from Spark, so retrieve it
-    val serializedDataset: Array[Byte] = ctx.trainingCtx.serializedReferenceDataset.get
-
-    // Convert byte array to native memory
-    val datasetVoidPtr = lightgbmlib.voidpp_handle()
-    val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
-      lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
-      serializedDataset.length,
-      ctx.executorRowCount,
-      ctx.trainingCtx.datasetParams,
-      datasetVoidPtr), "Dataset create from reference")
-
-    val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
-    val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(datasetPtr,
-      ctx.trainingCtx.hasWeightsAsInt,
-      ctx.trainingCtx.hasInitialScoresAsInt,
-      ctx.trainingCtx.hasGroupsAsInt,
-      ctx.trainingParams.getNumClass,
-      ctx.executorPartitionCount,
-      maxOmpThreads),
-      "LGBM_DatasetInitStreaming")
-
-    lightgbmlib.delete_voidpp(datasetVoidPtr)
-    new LightGBMDataset(datasetPtr)
   }
 }
