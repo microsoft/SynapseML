@@ -42,8 +42,8 @@ object ReferenceDatasetUtils {
         numCols,
         sampledData.getRowCounts,
         sampledData.numRows,
-        0, // TODO check OK
-        0, // TODO check OK
+        1, // TODO check OK
+        1, // TODO check OK
         datasetParams,
         datasetVoidPtr), "Dataset create from samples")
 
