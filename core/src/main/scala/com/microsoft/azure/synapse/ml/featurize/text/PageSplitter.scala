@@ -94,7 +94,8 @@ class PageSplitter(override val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol)))
+      dataset.toDF().withColumn(getOutputCol, UDFUtils.oldUdf(split _, ArrayType(StringType))(col(getInputCol))),
+      dataset.columns.length
     )
   }
 

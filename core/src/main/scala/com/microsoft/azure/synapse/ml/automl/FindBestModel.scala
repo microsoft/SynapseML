@@ -114,7 +114,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel]
         .setBestModelMetrics(evaluator.transform(bestScoredDf))
         .setRocCurve(evaluator.rocCurve)
         .setAllModelMetrics(allModelMetrics)
-    })
+    }, dataset.columns.length)
   }
 
   // Choose a random model as we don't know which one will be chosen yet - all will transform schema in same way
@@ -189,7 +189,7 @@ class BestModel(val uid: String) extends Model[BestModel]
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getBestModel.transform(dataset)
+      getBestModel.transform(dataset), dataset.columns.length
     )
   }
 

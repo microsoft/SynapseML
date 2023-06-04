@@ -45,7 +45,7 @@ class ConditionalKNN(override val uid: String) extends Estimator[ConditionalKNNM
 
   override def fit(dataset: Dataset[_]): ConditionalKNNModel = {
     logFit(
-      fitOptimized(dataset)
+      fitOptimized(dataset), dataset.columns.length
     )
   }
 
@@ -105,7 +105,7 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
         ))
 
       dataset.toDF().withColumn(getOutputCol, getNeighborUDF(col(getFeaturesCol), col(getConditionerCol)))
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType = {

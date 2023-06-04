@@ -84,7 +84,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
         .setFillValues(fillValues.toArray)
         .setInputCols(getInputCols)
         .setOutputCols(getOutputCols)
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Estimator[CleanMissingDataModel] = defaultCopy(extra)
@@ -179,7 +179,7 @@ class CleanMissingDataModel(val uid: String)
           }).toList
       val addedCols = dataset.select(datasetCols ::: datasetInputCols: _*)
       addedCols.na.fill(getColsToFill.zip(getFillValues).toMap)
-    })
+    }, dataset.columns.length)
   }
 
   override def transformSchema(schema: StructType): StructType =

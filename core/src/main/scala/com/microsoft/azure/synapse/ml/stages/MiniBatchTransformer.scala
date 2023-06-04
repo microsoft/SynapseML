@@ -46,7 +46,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
           }
         }
       }
-    })
+    }, dataset.columns.length)
   }
 }
 
@@ -237,7 +237,7 @@ class FlattenBatch(val uid: String)
           }
         }
       )
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)

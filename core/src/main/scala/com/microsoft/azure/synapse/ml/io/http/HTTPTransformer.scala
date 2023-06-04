@@ -137,7 +137,7 @@ class HTTPTransformer(val uid: String)
           }
         }
       }(enc)
-    })
+    }, dataset.columns.length)
   }
 
   def copy(extra: ParamMap): HTTPTransformer = defaultCopy(extra)

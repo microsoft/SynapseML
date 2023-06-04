@@ -35,6 +35,11 @@ description: SynapseML Development Setup
     `horovod` requirement in the environment.yml file, because horovod installation only
     supports Linux or macOS. Horovod is used only for namespace `synapse.ml.dl`.
     :::
+1. On Windows, install WinUtils
+    - Download [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe)
+    - Place it in C:\Program Files\Hadoop\bin
+    - Add an environment variable HADOOP_HOME with value C:\Program Files\Hadoop
+    - Append C:\Program Files\Hadoop\bin to PATH environment variable
 1. Install pre-commit
     - This repository uses the [pre-commit](https://pre-commit.com/index.html) tool to manage git hooks and enforce linting/coding styles.
     - The hooks are configured in [.pre-commit-config.yaml](https://github.com/microsoft/SynapseML/blob/master/environment.yml).
@@ -71,7 +76,11 @@ Runs all synapsemltests
 
 ### `scalastyle`
 
-Runs scalastyle check
+Runs scalastyle check on main
+
+### `test:scalastyle`
+
+Runs scalastyle check on test
 
 ### `unidoc`
 

@@ -40,7 +40,7 @@ class PartitionConsolidator(val uid: String)
           Iterator()
         }
       }(RowEncoder(dataset.schema))
-    })
+    }, dataset.columns.length)
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
