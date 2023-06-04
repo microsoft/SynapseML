@@ -61,14 +61,15 @@ trait LightGBMExecutionParams extends Wrappable {
 
   val samplingMode = new Param[String](this, "samplingMode",
     "Specify how SynapseML calculates sampled data for streaming mode. Sampled data is used to define bins. " +
+      "'global': sample from all data, 'subset': sample from first N rows, or 'fixed': Take first N rows as sample." +
       "Values can be global, subset, or fixed. Default is subset.")
   setDefault(samplingMode -> LightGBMConstants.SubsetSamplingModeSubset)
   def getSamplingMode: String = $(samplingMode)
   def setSamplingMode(value: String): this.type = set(samplingMode, value)
 
   val samplingSubsetSize = new IntParam(this, "samplingSubsetSize",
-    "Specify subset size N for the sampling mode 'subset'. 'binSampleCount' will be chosen from " +
-      "the first N values of the dataset. Used to approximate random sample without iterating through all data.")
+    "Specify subset size N for the sampling mode 'subset'. 'binSampleCount' rows will be chosen from " +
+      "the first N values of the dataset. Subset can be used when rows are expected to be random and data is huge.")
   setDefault(samplingSubsetSize -> 1000000)
   def getSamplingSubsetSize: Int = $(samplingSubsetSize)
   def setSamplingSubsetSize(value: Int): this.type = set(samplingSubsetSize, value)

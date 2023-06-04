@@ -174,6 +174,8 @@ case class DartModeParams(dropRate: Double,
   *                   constructed should be sparse or dense.
   * @param numThreads The number of threads to run the native lightgbm training with on each worker.
   * @param dataTransferMode How to transfer data to LightGBM to begin the processing.
+  * @param samplingMode How to sample data.
+  * @param samplingSetSize The size of the subset if sampling only a subset.
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
   * @param maxStreamingOMPThreads Maximum number of streaming mode OpenMP threads per Spark Task thread.

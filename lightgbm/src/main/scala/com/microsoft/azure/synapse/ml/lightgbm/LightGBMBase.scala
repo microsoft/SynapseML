@@ -196,7 +196,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       .union(categoricalIndexes).distinct
   }
 
-  def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
+  private def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
     if (getSlotNames.nonEmpty) {
       Some(getSlotNames)
     } else {
@@ -370,7 +370,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       get(maxCatToOnehot))
   }
 
-  def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+  protected def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
     new ParamsStringBuilder(prefix = "", delimiter = "=")
       .appendParamValueIfNotThere("is_pre_partition", Option("True"))
       .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
@@ -392,7 +392,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     * @param batchIndex In running in batch training mode, gets the batch number.
     * @return The LightGBM Model from the trained LightGBM Booster.
     */
-  protected def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
+  private def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
     val measures = new InstrumentationMeasures()
     setBatchPerformanceMeasure(batchIndex, measures)
 
@@ -413,7 +413,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
-    val featureNames = getSlotNamesWithMetadata(featuresSchema)
     val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
     val trainParams = addCustomTrainParams(generalTrainParams, dataset)
     log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
@@ -432,7 +431,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                     serializedReferenceDataset,
                     partitionCounts,
                     trainParams,
-                    featureNames,
                     numCols,
                     numInitScoreClasses,
                     batchIndex,
@@ -550,7 +548,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
   * @param serializedReferenceDataset The serialized reference dataset (optional).
   * @param partitionCounts The count per partition for streaming mode (optional).
   * @param trainParams Training parameters.
-  * @param featureNames The feature names (optional).
   * @param numCols Number of columns.
   * @param numInitValueClasses Number of classes for initial values (used only for multiclass).
   * @param batchIndex In running in batch training mode, gets the batch number.
@@ -564,7 +561,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                 serializedReferenceDataset: Option[Array[Byte]],
                                 partitionCounts: Option[Array[Long]],
                                 trainParams: BaseTrainParams,
-                                featureNames: Option[Array[String]],
                                 numCols: Int,
                                 numInitValueClasses: Int,
                                 batchIndex: Int,
@@ -581,7 +577,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
                                  serializedReferenceDataset,
                                  partitionCounts,
                                  trainParams,
-                                 featureNames,
+                                 getSlotNamesWithMetadata(dataframe.schema(getFeaturesCol)),
                                  numCols,
                                  numInitValueClasses,
                                  batchIndex,
