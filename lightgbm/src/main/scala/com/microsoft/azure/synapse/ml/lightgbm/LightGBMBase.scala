@@ -14,7 +14,7 @@ import org.apache.spark.ml.attribute._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
-import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
@@ -25,7 +25,8 @@ import scala.util.matching.Regex
 
 // scalastyle:off file.size.limit
 trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
-  with LightGBMParams with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
+  with LightGBMParams with ComplexParamsWritable
+  with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
 
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
