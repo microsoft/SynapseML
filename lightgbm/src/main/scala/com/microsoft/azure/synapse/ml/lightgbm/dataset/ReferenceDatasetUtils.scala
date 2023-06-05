@@ -81,7 +81,7 @@ object ReferenceDatasetUtils {
     val lightGBMDataset = deserializeReferenceDataset(
       serializedDataset,
       count,
-      ctx.trainingParams.getNumClass,
+      0,
       datasetParams)
 
     // Initialize the dataset for streaming (allocates arrays mostly)
@@ -130,7 +130,7 @@ object ReferenceDatasetUtils {
       lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
       serializedDataset.length,
       rowCount,
-      numClasses,
+      numClasses, // TODO should be 0?
       datasetParams,
       datasetVoidPtr), "Dataset create from reference")
 
