@@ -94,6 +94,8 @@ object ReferenceDatasetUtils {
       ctx.executorPartitionCount,
       maxOmpThreads),
       "LGBM_DatasetInitStreaming")
+
+    lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
     lightGBMDataset
   }
 
