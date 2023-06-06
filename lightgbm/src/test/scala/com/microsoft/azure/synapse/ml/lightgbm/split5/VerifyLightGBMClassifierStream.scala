@@ -1,17 +1,19 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.lightgbm.split4
+package com.microsoft.azure.synapse.ml.lightgbm.split5
 
+import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
 import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
-import com.microsoft.azure.synapse.ml.lightgbm.split1.LightGBMClassifierTestData
+import com.microsoft.azure.synapse.ml.lightgbm.split1._
 import org.apache.spark.TaskContext
-import org.apache.spark.ml.feature.LabeledPoint
-import org.apache.spark.ml.linalg.{DenseVector, Vectors}
+import org.apache.spark.ml.feature.{LabeledPoint, VectorAssembler}
+import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.math.exp
 
@@ -121,7 +123,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     numTasks.foreach(nTasks => assertFitWithoutErrors(baseModel.setNumTasks(nTasks), pimaDF))
   }
 
-  /*test("Verify LightGBM Classifier with max delta step parameter" + executionModeSuffix) {
+  test("Verify LightGBM Classifier with max delta step parameter" + executionModeSuffix) {
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     // DEBUG TODO remove numIterations and repartitions and matrix
@@ -442,7 +444,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
     // Verify the Age_years column that is renamed  used in some tree in the model
     assert(model.getModel.modelStr.get.contains("Age_years"))
-  }*/
+  }
 
   test("Verify LightGBM Classifier won't get stuck on empty partitions" + executionModeSuffix) {
     val baseDF = pimaDF.select(labelCol, featuresCol)
