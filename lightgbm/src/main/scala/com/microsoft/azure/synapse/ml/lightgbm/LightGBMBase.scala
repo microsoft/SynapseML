@@ -530,6 +530,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       ReferenceDatasetUtils.createReferenceDatasetFromSample(
         datasetParams,
         getFeaturesCol,
+        totalNumRows,
         numCols,
         collectedSampleData,
         measures,

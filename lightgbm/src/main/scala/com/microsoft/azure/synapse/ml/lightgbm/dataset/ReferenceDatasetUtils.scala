@@ -13,11 +13,12 @@ import org.slf4j.Logger
 object ReferenceDatasetUtils {
   def createReferenceDatasetFromSample(datasetParams: String,
                                        featuresCol: String,
+                                       numRows: Long,
                                        numCols: Int,
                                        sampledRowData: Array[Row],
                                        measures: InstrumentationMeasures,
                                        log: Logger): Array[Byte] = {
-    log.info(s"Loading sample data from broadcast with ${sampledRowData.length} samples")
+    log.info(s"For reference Dataset creation, received sample data with ${sampledRowData.length} samples")
 
     // Pre-create allocated native pointers so it's easy to clean them up
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
@@ -42,8 +43,8 @@ object ReferenceDatasetUtils {
         numCols,
         sampledData.getRowCounts,
         sampledData.numRows,
-        1, // TODO check OK
-        1, // TODO check OK
+        1, // Used for allocation and must be > 0, but we don't use this reference set for data collection
+        numRows,
         datasetParams,
         datasetVoidPtr), "Dataset create from samples")
 
