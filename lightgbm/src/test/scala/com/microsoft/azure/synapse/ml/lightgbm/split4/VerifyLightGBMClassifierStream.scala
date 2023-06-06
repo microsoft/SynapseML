@@ -90,7 +90,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     assertBinaryImprovement(scoredDF1, scoredDF2)
   }
 
-  /*test("Verify LightGBM Classifier will give reproducible results when setting seed") {
+  test("Verify LightGBM Classifier will give reproducible results when setting seed") {
     val scoredDF1 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
     (1 to 10).foreach { _ =>
       val scoredDF2 = baseModel.setSeed(1).setDeterministic(true).fit(pimaDF).transform(pimaDF)
@@ -121,7 +121,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     numTasks.foreach(nTasks => assertFitWithoutErrors(baseModel.setNumTasks(nTasks), pimaDF))
   }
 
-  test("Verify LightGBM Classifier with max delta step parameter" + executionModeSuffix) {
+  /*test("Verify LightGBM Classifier with max delta step parameter" + executionModeSuffix) {
     // If the max delta step is specified, assert AUC differs (assert parameter works)
     // Note: the final max output of leaves is learning_rate * max_delta_step, so param should reduce the effect
     // DEBUG TODO remove numIterations and repartitions and matrix
@@ -442,7 +442,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
     // Verify the Age_years column that is renamed  used in some tree in the model
     assert(model.getModel.modelStr.get.contains("Age_years"))
-  }
+  }*/
 
   test("Verify LightGBM Classifier won't get stuck on empty partitions" + executionModeSuffix) {
     val baseDF = pimaDF.select(labelCol, featuresCol)
@@ -479,7 +479,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
     // Validate fit works and doesn't get stuck
     assertFitWithoutErrors(model, df)
-  }*/
+  }
 
   test("Verify LightGBM Classifier won't get stuck on unbalanced classes in binary classification"
       + executionModeSuffix) {
