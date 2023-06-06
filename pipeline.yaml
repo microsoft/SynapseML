@@ -689,6 +689,12 @@ jobs:
       lightgbm3:
         PACKAGE: "lightgbm.split3"
         FLAKY: "true"
+      lightgbm4:
+        PACKAGE: "lightgbm.split4"
+        FLAKY: "true"
+      lightgbm5:
+        PACKAGE: "lightgbm.split5"
+        FLAKY: "true"
       opencv:
         PACKAGE: "opencv"
       recommendation:

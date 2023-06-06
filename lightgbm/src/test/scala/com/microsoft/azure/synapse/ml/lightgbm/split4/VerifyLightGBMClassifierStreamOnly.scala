@@ -1,15 +1,16 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.lightgbm.split3
+package com.microsoft.azure.synapse.ml.lightgbm.split4
 
-import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.lightgbm.split1._
-import org.apache.spark.sql.functions._
 
 // scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module in streaming mode. */
-class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
+class VerifyLightGBMClassifierStreamOnly extends LightGBMClassifierTestData {
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
 
   test("Verify LightGBMClassifier handles global sample mode correctly") {
     val df = loadBinary(breastCancerFile, "Label")
