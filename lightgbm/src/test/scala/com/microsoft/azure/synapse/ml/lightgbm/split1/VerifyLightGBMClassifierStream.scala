@@ -18,7 +18,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, abaloneFile, executionMode)) {
     verifyLearnerOnMulticlassCsvFile(abaloneFile, "Rings", 2)
   } */
-  /*test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, executionMode)) {
     verifyLearnerOnMulticlassCsvFile(breastTissueFile, "Class", .07)
   }
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, carEvaluationFile, executionMode)) {
@@ -53,7 +53,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
   test("Compare benchmark results file to generated file" + executionModeSuffix) {
     verifyBenchmarks()
-  }*/
+  }
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit" + executionModeSuffix) {
     val model = baseModel.setUseBarrierExecutionMode(true)
