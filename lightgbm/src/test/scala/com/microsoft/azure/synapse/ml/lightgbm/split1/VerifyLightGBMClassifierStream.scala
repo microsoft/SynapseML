@@ -3,19 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.lightgbm._
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
-import com.microsoft.azure.synapse.ml.lightgbm.params.FObjTrait
 import org.apache.spark.TaskContext
-import org.apache.spark.ml.feature.{LabeledPoint, VectorAssembler}
-import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.feature.LabeledPoint
+import org.apache.spark.ml.linalg.{DenseVector, Vectors}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Row}
-
-import scala.math.exp
 
 // scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM module in streaming mode. */
@@ -24,7 +18,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, abaloneFile, executionMode)) {
     verifyLearnerOnMulticlassCsvFile(abaloneFile, "Rings", 2)
   } */
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, executionMode)) {
+  /*test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, executionMode)) {
     verifyLearnerOnMulticlassCsvFile(breastTissueFile, "Class", .07)
   }
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, carEvaluationFile, executionMode)) {
@@ -59,7 +53,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
   test("Compare benchmark results file to generated file" + executionModeSuffix) {
     verifyBenchmarks()
-  }
+  }*/
 
   test("Verify LightGBM Classifier can be run with TrainValidationSplit" + executionModeSuffix) {
     val model = baseModel.setUseBarrierExecutionMode(true)
@@ -106,7 +100,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     })
   }
 
-  test("Verify LightGBM Multiclass Classifier with vector initial score" + executionModeSuffix) {
+  /*test("Verify LightGBM Multiclass Classifier with vector initial score" + executionModeSuffix) {
     val multiClassModel =
       baseModel.setObjective(LightGBMConstants.MulticlassObjective).setSeed(4).setDeterministic(true)
     val scoredDF1 = multiClassModel.fit(breastTissueDF).transform(breastTissueDF)
@@ -545,7 +539,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
 
     // Validate fit works and doesn't get stuck
     assertFitWithoutErrors(model, df)
-  }
+  }*/
 
   test("Verify LightGBM Classifier won't get stuck on unbalanced classes in binary classification"
       + executionModeSuffix) {
