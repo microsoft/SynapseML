@@ -57,7 +57,11 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "onnxmltools==1.7.0")),
     Map("pypi" -> Map("package" -> "lightgbm")),
     Map("pypi" -> Map("package" -> "mlflow")),
-    Map("pypi" -> Map("package" -> "openai"))
+    Map("pypi" -> Map("package" -> "openai")),
+    Map("pypi" -> Map("package" -> "raiwidgets")),
+    Map("pypi" -> Map("package" -> "itsdangerous==2.0.1")),
+    Map("pypi" -> Map("package" -> "hyperopt")),
+    Map("pypi" -> Map("package" -> "scikit-learn"))
   ).toJson.compactPrint
 
   // TODO: install synapse.ml.dl wheel package here
