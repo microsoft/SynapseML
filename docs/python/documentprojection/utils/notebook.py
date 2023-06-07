@@ -14,22 +14,23 @@ def get_mock_path():
 
 
 def parse_notebooks(notebooks: List[str], recursive=False) -> List[str]:
+    if type(notebooks) is not list:
+        raise ValueError(
+            f"Notebooks must be a list of paths. Received {type(notebooks)}."
+        )
     concrete_notebook_paths = []
     ignored_directories = []
     for notebook in notebooks:
+        notebook = os.path.abspath(notebook)
         if not os.path.exists(notebook):
             raise ValueError(
                 f"Specified notebook path {repr(notebook)} does not exist."
             )
         is_dir = os.path.isdir(notebook)
         if not is_dir:
-            if recursive:
-                log.warn(
-                    f"Specified notebook path {notebook.path} is not a directory, but recursive flag is set. Ignoring recursive flag."
-                )
             if not notebook.endswith(".ipynb"):
                 raise ValueError(
-                    f"Specified notebook path {notebook.path} is not a notebook. Notebooks must have a .ipynb extension."
+                    f"Specified notebook path {notebook} is not a notebook. Notebooks must have a .ipynb extension."
                 )
             concrete_notebook_paths.append(notebook)
 
@@ -56,6 +57,8 @@ def parse_notebooks(notebooks: List[str], recursive=False) -> List[str]:
         )
 
     num_notebooks = len(concrete_notebook_paths)
-    leveled_log = log.warning if num_notebooks == 0 else log.info
-    leveled_log(f"Found {num_notebooks} notebooks to process.")
+    leveled_log = log.warning if num_notebooks == 0 else log.debug
+    leveled_log(
+        f"Found {num_notebooks} notebooks to process: {repr(concrete_notebook_paths)}"
+    )
     return concrete_notebook_paths
