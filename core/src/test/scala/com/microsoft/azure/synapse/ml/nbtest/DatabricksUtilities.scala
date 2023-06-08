@@ -31,7 +31,7 @@ object DatabricksUtilities {
   val Region = "eastus"
   val PoolName = "synapseml-build-10.4"
   val GpuPoolName = "synapseml-build-10.4-gpu"
-  val AdbRuntime = "10.4.x-scala2.12"
+  val AdbRuntime = "12.2.x-scala2.12"
   val AdbGpuRuntime = "10.4.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
