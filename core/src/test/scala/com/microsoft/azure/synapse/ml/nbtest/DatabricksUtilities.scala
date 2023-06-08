@@ -80,7 +80,9 @@ object DatabricksUtilities {
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
-  val CPUNotebooks: Seq[File] = ParallelizableNotebooks.filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+  val CPUNotebooks: Seq[File] = ParallelizableNotebooks
+    .filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+    .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 
