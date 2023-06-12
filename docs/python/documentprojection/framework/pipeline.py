@@ -58,8 +58,9 @@ class DocumentProjectionPipeline:
                 }
             )
             if "metadata" in channel_config:
-                channel_metadata.update(channel_config["metadata"])
-            channel = self.channel_map[channel_config["name"]](channel_metadata)
+                cur_channel_metadata = channel_metadata.copy()
+                cur_channel_metadata.update(channel_config["metadata"])
+            channel = self.channel_map[channel_config["name"]](cur_channel_metadata)
 
             notebook_metadata = channel_config["notebooks"]
             notebooks = []

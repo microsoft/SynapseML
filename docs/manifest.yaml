@@ -1,6 +1,212 @@
 version: 0.1
 channels:
-  - name: website
+  - name: fabric
     is_active: true
+    metadata:
+      output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+      media_dir: media
     notebooks:
-      - path: "./notebooks/features/"
+      - path: ../../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
+        filename: causal-structure
+        is_active: false # error model.fit
+        metadata:
+          title: Causal Structure
+          description: Causal Structure
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      # - path: ../../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
+      #   filename: cognitive-services-create-a-multilingual-search-engine-from-forms
+      #   is_active: true
+      #   footer: ../../notebooks/fabric_template/cognitive-services-create-a-multilingual-search-engine-from-forms-end.md # platform specific content added after notebook
+      #   metadata:
+      #     title: Build a Search Engine
+      #     description: Build a Search Engine
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      # - path: ../../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
+      #   filename: cognitive-services-multivariate-anomaly-detection
+      #   is_active: true # clear
+      #   footer: ../../notebooks/fabric_template/cognitive-services-multivariate-anomaly-detection-end.md
+      #   metadata:
+      #     title: Analyze time series
+      #     description: Analyze time series
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      #   alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
+      # - path: ../../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
+      #   filename: overview-cognitive-services
+      #   is_active: true # Azure Cognitive search sample off
+      #   footer: ../../notebooks/fabric_template/overview-cognitive-services-end.md
+      #   metadata: # metadata for azure doc
+      #     title: Cognitive Services in Azure Synapse Analytics
+      #     description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      # - path: ../../notebooks/features/lightgbm/LightGBM - Overview.ipynb
+      #   filename: lightgbm-overview
+      #   is_active: true # Saving model off
+      #   footer: ../../notebooks/fabric_template/lightgbm-overview-end.md
+      #   metadata: # metadata for azure doc
+      #     title: LightGBM Overview
+      #     description: build LightGBM model with SynapseML
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      - path: ../../notebooks/features/onnx/ONNX - Inference on Spark.ipynb
+        filename: onnx-overview
+        is_active: true # clear
+        footer: ../../notebooks/fabric_template/onnx-overview-end.md
+        metadata: # metadata for azure doc
+          title: ONNX - Inference on Spark
+          description: build ONNX model with SynapseML
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      # - path: ../../notebooks/features/responsible_ai/Interpretability - Tabular SHAP explainer.ipynb
+      #   filename: tabular-shap-explainer
+      #   is_active: true # clear
+      #   footer: ../../notebooks/fabric_template/tabular-shap-explainer-end.md
+      #   metadata: # metadata for azure doc
+      #     title: Interpretability - Tabular SHAP explainer
+      #     description: Interpretability - Tabular SHAP explainer
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      - path: ../../notebooks/features/cognitive_services/CognitiveServices - OpenAI.ipynb
+        filename: open-ai
+        is_active: false # Method setDefaultAADToken([class java.lang.String]) does not exist
+        metadata: # metadata for azure doc
+          title: OpenAI
+          description: OpenAI with cognitive services
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: ../../notebooks/features/isolation_forest/IsolationForest - Multivariate Anomaly Detection.ipynb
+        filename: isolation-forest-multivariate-anomaly-detection
+        is_active: true # hide dashboard, dependency conflicts
+        footer: ../../notebooks/fabric_template/isolation-forest-multivariate-anomaly-detection-end.md
+        metadata: # metadata for azure doc
+          title: Outlier and Anomaly Detection
+          description: Outlier and Anomaly Detection
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: ../../notebooks/features/simple_deep_learning/DeepLearning - Deep Text Classification.ipynb
+        filename: deep-learning-deep-text-classification
+        is_active: false # horovod installation issue
+        metadata:
+          title: Train a Text Classifier
+          description: Train a Text Classifier
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: ../../notebooks/features/other/HyperParameterTuning - Fighting Breast Cancer.ipynb
+        filename: hyperparameter-tuning-fighting-breast-cancer
+        is_active: true # clear
+        footer: ../../notebooks/fabric_template/hyperparameter-tuning-fighting-breast-cancer-end.md
+        metadata:
+          title: Hyperparameter tuning
+          description: Hyperparameter tuning
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: ../../notebooks/features/classification/Classification - Sentiment Analysis Quickstart.ipynb
+        filename: synapseml-first-model
+        is_active: true # clear
+        footer: ../../notebooks/fabric_template/synapseml-first-model-end.md
+        metadata:
+          title: SynapseMl first model
+          description:  A quick introduction to building your first machine learning model with SynapseML
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      # - path: ../../notebooks/features/other/ConditionalKNN - Exploring Art Across Cultures.ipynb
+      #   filename: conditional-k-nearest-neighbors-exploring-art
+      #   is_active: true # clear
+      #   footer: ../../notebooks/fabric_template/conditional-knn-exploring-art-end.md
+      #   metadata:
+      #     title: Conditional KNN Exploring Art Across Cultures
+      #     description:  A guideline for match-finding via k-nearest-neighbors
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+      #   alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
+      # - path: ../../notebooks/features/classification/Classification - Before and After SynapseML.ipynb
+      #   filename: classification-before-and-after-synapseml
+      #   is_active: true # clear
+      #   footer: ../../notebooks/fabric_template/classification-before-and-after-synapseml-end.md
+      #   metadata:
+      #     title: Classification - Before and After SynapseML
+      #     description:  Perform the same classification task with and without synapseml
+      #     ms.topic: overview
+      #     ms.reviewer: jessiwang
+      #     author: JessicaXYWang
+      #     ms.author: jessiwang
+
+  # - name: azure
+  #   is_active: false
+  #   metadata:
+  #     output_dir: ../../syncdoc/articles/synapse-analytics/machine-learning #./articles/synapse-analytics
+  #     media_dir: media
+  #   notebooks:
+  #     - path: ./notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
+  #       is_active: true # include / exclude the notebook in the pipeline
+  #       header:  ./AzureDocTemplate/overview-cognitive-services_front.md # platform specific content added before notebook
+  #       footer: ./AzureDocTemplate/overview-cognitive-services_end.md # platform specific content added after notebook
+  #       metadata: # metadata for azure doc
+  #         title: Cognitive Services in Azure Synapse Analytics
+  #         description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
+  #         ms.service: synapse-analytics
+  #         ms.subservice: machine-learning
+  #         ms.topic: overview
+  #         ms.reviewer: sngun, garye, negust, ruxu
+  #         author: WilliamDAssafMSFT
+  #         ms.author: wiassaf
+  #       replace_mapping: # replace link to azure docs with relative path
+  #         https://docs.microsoft.com/azure/search/search-what-is-azure-search: ../../search/search-what-is-azure-search.md
+  #         https://docs.microsoft.com/azure/cognitive-services/big-data/getting-started: ../../cognitive-services/big-data/getting-started.md
+  #         https://docs.microsoft.com/azure/cognitive-services/language-service/text-analytics-for-health/overview: ../../cognitive-services/language-service/text-analytics-for-health/overview.md
+
+  # - name: website
+  #   is_active: false
+  #   notebooks:
+  #     - path: "./notebooks/features/"
+
+  # - name: console
+  #   is_active: true
+  #   notebooks:
+  #     - path: "./notebooks/features/causal_inference"
+  #       header: "yo"
+  #       metadata:
+  #         title: SynapseML first model
+  #         description:  A quick introduction to building your first machine learning model with SynapseML
+  #         ms.topic: overview
+  #         ms.reviewer: jessiwang
+
+  # - name: console
+  #   is_active: true
+  #   notebooks:
+  #     - path: "../../notebooks/features/causal_inference"
+  #       header: "yo"
+  #       metadata:
+  #         title: SynapseML first model
+  #         description:  A quick introduction to building your first machine learning model with SynapseML
+  #         ms.topic: overview
+  #         ms.reviewer: jessiwang
