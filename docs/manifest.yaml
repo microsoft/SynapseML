@@ -184,29 +184,18 @@ channels:
   #         https://docs.microsoft.com/azure/cognitive-services/big-data/getting-started: ../../cognitive-services/big-data/getting-started.md
   #         https://docs.microsoft.com/azure/cognitive-services/language-service/text-analytics-for-health/overview: ../../cognitive-services/language-service/text-analytics-for-health/overview.md
 
-  # - name: website
-  #   is_active: false
-  #   notebooks:
-  #     - path: "./notebooks/features/"
+  - name: website
+    is_active: false
+    notebooks:
+      - path: "./notebooks/features/"
 
-  # - name: console
-  #   is_active: true
-  #   notebooks:
-  #     - path: "./notebooks/features/causal_inference"
-  #       header: "yo"
-  #       metadata:
-  #         title: SynapseML first model
-  #         description:  A quick introduction to building your first machine learning model with SynapseML
-  #         ms.topic: overview
-  #         ms.reviewer: jessiwang
-
-  # - name: console
-  #   is_active: true
-  #   notebooks:
-  #     - path: "../../notebooks/features/causal_inference"
-  #       header: "yo"
-  #       metadata:
-  #         title: SynapseML first model
-  #         description:  A quick introduction to building your first machine learning model with SynapseML
-  #         ms.topic: overview
-  #         ms.reviewer: jessiwang
+  - name: console
+    is_active: true
+    notebooks:
+      - path: "./notebooks/features/causal_inference"
+        header: "yo"
+        metadata:
+          title: SynapseML first model
+          description:  A quick introduction to building your first machine learning model with SynapseML
+          ms.topic: overview
+          ms.reviewer: jessiwang
