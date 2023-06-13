@@ -175,7 +175,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     addIntField(groupCardinality, "group", groupCardinality.length)
   }
 
-  def setFeatureNames(featureNamesOpt: Option[Array[String]], numCols: Int): Unit = {
+  def setFeatureNames(featureNamesOpt: Option[Array[String]], numCols: Int): LightGBMDataset = {
     // Add in slot names if they exist
     featureNamesOpt.foreach { featureNamesVal =>
       if (featureNamesVal.nonEmpty) {
@@ -183,6 +183,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
           "Dataset set feature names")
       }
     }
+    this
   }
 
   override def close(): Unit = {

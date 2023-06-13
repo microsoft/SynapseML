@@ -366,6 +366,5 @@ class StreamingPartitionTask extends BasePartitionTask {
     lightgbmlib.delete_voidpp(pointer)
     val dataset = new LightGBMDataset(datasetPtr)
     dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
-    dataset
   }
 }

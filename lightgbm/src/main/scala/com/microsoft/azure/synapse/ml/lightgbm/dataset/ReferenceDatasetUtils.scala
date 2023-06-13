@@ -95,7 +95,6 @@ object ReferenceDatasetUtils {
       "LGBM_DatasetInitStreaming")
 
     lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
-    lightGBMDataset
   }
 
   private def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
