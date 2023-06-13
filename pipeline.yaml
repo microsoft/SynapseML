@@ -67,6 +67,8 @@ jobs:
         inlineScript: 'sbt scalastyle test:scalastyle'
     - template: templates/conda.yml
     - bash: |
+        set -e
+        source activate synapseml
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
