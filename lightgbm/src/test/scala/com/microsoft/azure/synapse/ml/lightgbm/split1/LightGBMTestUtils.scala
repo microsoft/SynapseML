@@ -114,6 +114,6 @@ trait LightGBMTestUtils extends TestBase {
   val validationCol = "validation"
   val seed = 42L
 
-  lazy val executionMode: String = LightGBMConstants.StreamingDataTransferMode
-  lazy val executionModeSuffix = ", " + executionMode
+  val dataTransferMode: String = LightGBMConstants.StreamingDataTransferMode
+  val executionModeSuffix = ", " + dataTransferMode
 }

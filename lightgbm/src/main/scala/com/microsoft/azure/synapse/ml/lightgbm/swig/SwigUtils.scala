@@ -29,8 +29,8 @@ object SwigUtils extends Serializable {
 
   def byteArrayToNative(array: Array[Byte]): SWIGTYPE_p_unsigned_char = {
     val colArray = lightgbmlib.new_byteArray(array.length)
-    array.zipWithIndex.foreach(ri => array.zipWithIndex.foreach(ri =>
-      lightgbmlib.byteArray_setitem(colArray, ri._2.toLong, ri._1.toShort)))
+    array.zipWithIndex.foreach(ri =>
+      lightgbmlib.byteArray_setitem(colArray, ri._2.toLong, ri._1.toShort))
     colArray
   }
 }

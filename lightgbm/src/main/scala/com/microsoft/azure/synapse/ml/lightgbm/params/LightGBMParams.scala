@@ -60,7 +60,7 @@ trait LightGBMExecutionParams extends Wrappable {
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
   val samplingMode = new Param[String](this, "samplingMode",
-    "Specify how SynapseML calculates sampled data for streaming mode. Sampled data is used to define bins. " +
+    "Data sampling for streaming mode. Sampled data is used to define bins. " +
       "'global': sample from all data, 'subset': sample from first N rows, or 'fixed': Take first N rows as sample." +
       "Values can be global, subset, or fixed. Default is subset.")
   setDefault(samplingMode -> LightGBMConstants.SubsetSamplingModeSubset)

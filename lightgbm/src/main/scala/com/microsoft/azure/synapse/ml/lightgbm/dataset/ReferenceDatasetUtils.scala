@@ -18,24 +18,22 @@ object ReferenceDatasetUtils {
                                        sampledRowData: Array[Row],
                                        measures: InstrumentationMeasures,
                                        log: Logger): Array[Byte] = {
-    log.info(s"For reference Dataset creation, received sample data with ${sampledRowData.length} samples")
+    log.info(s"Creating reference training dataset with ${sampledRowData.length} samples and config: $datasetParams")
 
     // Pre-create allocated native pointers so it's easy to clean them up
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
     val lenPtr = lightgbmlib.new_intp()
     val bufferHandlePtr = lightgbmlib.voidpp_handle()
 
-    val sampledData: SampledData = new SampledData(sampledRowData.length, numCols)
+    val sampledData = new SampledData(sampledRowData.length, numCols)
     try {
       // create properly formatted sampled data
       measures.markSamplingStart()
-      sampledRowData.zipWithIndex.foreach(rowAndIndex =>
-        sampledData.pushRow(rowAndIndex._1, rowAndIndex._2, featuresCol))
+      sampledRowData.zipWithIndex.foreach({case (row, index) => sampledData.pushRow(row, index, featuresCol)})
       measures.markSamplingStop()
 
       // Create dataset from samples
-      log.info(s"Creating reference training dataset, config:$datasetParams")
-      // Generate the dataset for features
+      // 1. Generate the dataset for features
       val datasetVoidPtr = lightgbmlib.voidpp_handle()
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
         sampledData.getSampleData,
@@ -49,7 +47,7 @@ object ReferenceDatasetUtils {
         datasetVoidPtr), "Dataset create from samples")
 
 
-      // Serialize the raw dataset to a native buffer
+      // 2. Serialize the raw dataset to a native buffer
       val datasetHandle: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
         datasetHandle,
@@ -62,7 +60,7 @@ object ReferenceDatasetUtils {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetHandle), "Free Dataset")
 
       // This will also free the buffer
-      convertToByteArray(bufferHandlePtr, bufferLen)
+      toByteArray(bufferHandlePtr, bufferLen)
     }
     finally {
       sampledData.delete()
@@ -100,7 +98,7 @@ object ReferenceDatasetUtils {
     lightGBMDataset
   }
 
-  private def convertToByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
+  private def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
     val byteArray = new Array[Byte](bufferLen)
     val valPtr = lightgbmlib.new_bytep()
     val bufferHandle = lightgbmlib.voidpp_value(buffer)
@@ -108,13 +106,13 @@ object ReferenceDatasetUtils {
     try
     {
       (0 until bufferLen).foreach(i => {
-        LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferGetAt(bufferHandle, i, valPtr), "Buffer getat")
+        LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferGetAt(bufferHandle, i, valPtr), "Buffer get-at")
         byteArray(i) = lightgbmlib.bytep_value(valPtr).toByte
       })
     }
     finally
     {
-      // We assume once converte to byte array we should clean up the native memory and buffer
+      // We assume once converted to byte array we should clean up the native memory and buffer
       lightgbmlib.delete_bytep(valPtr)
       LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferFree(bufferHandle), "Buffer free")
     }

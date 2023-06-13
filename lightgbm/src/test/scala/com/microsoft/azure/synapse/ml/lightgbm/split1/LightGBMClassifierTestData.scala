@@ -85,9 +85,6 @@ abstract class LightGBMClassifierTestData extends Benchmarks
   val transfusionFile: String = "transfusion.csv"
 
   def baseModel: LightGBMClassifier = {
-    // TODO revert once streaming sparse bug fixed
-    val matrixType = if (executionMode == LightGBMConstants.StreamingDataTransferMode) "dense"
-      else "auto"
     new LightGBMClassifier()
       .setFeaturesCol(featuresCol)
       .setRawPredictionCol(rawPredCol)
@@ -98,8 +95,8 @@ abstract class LightGBMClassifierTestData extends Benchmarks
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
       .setFeaturesShapCol(featuresShapCol)
-      .setExecutionMode(executionMode)
-      .setMatrixType(matrixType)
+      .setDataTransferMode(dataTransferMode)
+      .setMatrixType("auto")
   }
 
   def assertBinaryImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {

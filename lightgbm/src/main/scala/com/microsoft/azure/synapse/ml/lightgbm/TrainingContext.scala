@@ -46,10 +46,8 @@ case class TrainingContext(batchIndex: Int,
   val earlyStoppingRound: Int = { trainingParams.generalParams.earlyStoppingRound }
   val microBatchSize: Int = { trainingParams.executionParams.microBatchSize }
 
-  val isStreaming: Boolean =
-    trainingParams.executionParams.dataTransferMode == LightGBMConstants.StreamingDataTransferMode
-  val isBulk: Boolean =
-    trainingParams.executionParams.dataTransferMode == LightGBMConstants.BulkDataTransferMode
+  val isStreaming = trainingParams.executionParams.dataTransferMode == LightGBMConstants.StreamingDataTransferMode
+  val isBulk = trainingParams.executionParams.dataTransferMode == LightGBMConstants.BulkDataTransferMode
 
   val useSingleDatasetMode: Boolean = trainingParams.executionParams.useSingleDatasetMode || isStreaming
 

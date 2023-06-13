@@ -14,28 +14,28 @@ class VerifyLightGBMClassifierStreamBasic extends LightGBMClassifierTestData {
   test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, abaloneFile, executionMode)) {
     verifyLearnerOnMulticlassCsvFile(abaloneFile, "Rings", 2)
   } */
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, breastTissueFile, dataTransferMode)) {
     verifyLearnerOnMulticlassCsvFile(breastTissueFile, "Class", .07)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, carEvaluationFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.MulticlassObjective, carEvaluationFile, dataTransferMode)) {
     verifyLearnerOnMulticlassCsvFile(carEvaluationFile, "Col7", 2)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, pimaIndianFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, pimaIndianFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(pimaIndianFile, "Diabetes mellitus", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, banknoteFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, banknoteFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(banknoteFile, "class", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, taskFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, taskFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(taskFile, "TaskFailed10", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, breastCancerFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, breastCancerFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(breastCancerFile, "Label", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, randomForestFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, randomForestFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(randomForestFile, "#Malignant", 1)
   }
-  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, transfusionFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(LightGBMConstants.BinaryObjective, transfusionFile, dataTransferMode)) {
     verifyLearnerOnBinaryCsvFile(transfusionFile, "Donated", 1)
   }
 
