@@ -12,8 +12,9 @@ def _defaultrepr(cls):
 
 
 class Notebook:
-    def __init__(self, path):
+    def __init__(self, path, metadata: dict = {}):
         self.path: str = path
+        self.metadata: dict = metadata
         self.data: NotebookNode = Notebook._parse(self.path)
         self._repr = "Notebook(...{})".format("\\".join(self.path.split("\\")[-3:]))
 
@@ -62,7 +63,7 @@ class Publisher(ABC):
         pass
 
 
-class ChannelConfig:
+class ChannelMetadata(dict):
     def __init__(self, dict: dict):
         self.__dict__.update(dict)
 
@@ -75,11 +76,11 @@ class ChannelConfig:
 @_defaultrepr
 class Channel(ABC):
     def __init__(
-        self, formatter: Formatter, publisher: Publisher, config: ChannelConfig
+        self, formatter: Formatter, publisher: Publisher, config: ChannelMetadata
     ):
         self.formatter: Formatter = formatter
         self.publisher: Publisher = publisher
-        self.config: ChannelConfig = config
+        self.config: ChannelMetadata = config
 
     def format(self, notebook: Notebook) -> Document:
         instance_log = get_log(self.__class__.__name__)

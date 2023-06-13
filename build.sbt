@@ -481,10 +481,7 @@ setupTask := {
 
 val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmdStr("python -m pip uninstall -y documentprojection")
-  runCmdStr("python -m build docs/python")
-  runCmdStr("python -m pip install --find-links=docs/python/dist documentprojection")
-  runCmdStr("python -m documentprojection -r -p -c website . notebooks/features")
+  runCmdStr("python -m docs.python.documentprojection --customchannels docs/python/synapseml_channels -c website . docs/manifest.yaml -p")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
