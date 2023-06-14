@@ -65,12 +65,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
-    - task: UsePythonVersion@00
-      inputs:
-        versionSpec: '3.8'
-    - script: pip install -r requirements.txt
-      displayName: 'Install requirements'
+    - template: templates/conda.yml
     - bash: |
+        set -e
+        source activate synapseml
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
