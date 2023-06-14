@@ -22,8 +22,7 @@ object SwigUtils extends Serializable {
     */
   def floatArrayToNative(array: Array[Float]): SWIGTYPE_p_float = {
     val colArray = lightgbmlib.new_floatArray(array.length)
-    array.zipWithIndex.foreach({ case (value, index) =>
-      lightgbmlib.floatArray_setitem(colArray, index.toLong, value)})
+    array.zipWithIndex.foreach { case (value, index) => lightgbmlib.floatArray_setitem(colArray, index.toLong, value)}
     colArray
   }
 
@@ -34,8 +33,8 @@ object SwigUtils extends Serializable {
     */
   def byteArrayToNative(array: Array[Byte]): SWIGTYPE_p_unsigned_char = {
     val colArray = lightgbmlib.new_byteArray(array.length)
-    array.zipWithIndex.foreach({ case (value, index) =>
-      lightgbmlib.byteArray_setitem(colArray, index.toLong, value.toShort)})
+    array.zipWithIndex.foreach { case (value, index) =>
+      lightgbmlib.byteArray_setitem(colArray, index.toLong, value.toShort)}
     colArray
   }
 }

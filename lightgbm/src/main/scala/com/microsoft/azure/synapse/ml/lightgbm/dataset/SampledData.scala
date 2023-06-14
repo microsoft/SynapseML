@@ -23,7 +23,7 @@ import com.microsoft.ml.lightgbm._
   * .
   * Note: sample data row count is not expected to exceed max(Int), so we index with Ints.
   */
-class SampledData(val numRows: Int, val numCols: Int) {
+case class SampledData(numRows: Int, numCols: Int) {
 
   // Allocate full arrays for each feature column, but we will push only non-zero values and
   // keep track of actual counts in rowCounts array
@@ -67,7 +67,7 @@ class SampledData(val numRows: Int, val numCols: Int) {
       pushRowElementIfNotZero(rowData.indices(i), rowData.values(i), index))
   }
 
-  def pushRowElementIfNotZero(col: Int, value: Double, index: Int): Unit = {
+  private def pushRowElementIfNotZero(col: Int, value: Double, index: Int): Unit = {
     if (value != 0.0) {
       val nextIndex = rowCounts.getItem(col)
       sampleData.pushElement(col, nextIndex, value)

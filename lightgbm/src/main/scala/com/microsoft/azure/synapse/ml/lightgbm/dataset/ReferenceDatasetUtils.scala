@@ -25,7 +25,7 @@ object ReferenceDatasetUtils {
     val lenPtr = lightgbmlib.new_intp()
     val bufferHandlePtr = lightgbmlib.voidpp_handle()
 
-    val sampledData = new SampledData(sampledRowData.length, numCols)
+    val sampledData = SampledData(sampledRowData.length, numCols)
     try {
       // create properly formatted sampled data
       measures.markSamplingStart()
@@ -80,7 +80,6 @@ object ReferenceDatasetUtils {
     val lightGBMDataset = deserializeReferenceDataset(
       serializedDataset,
       count,
-      0,
       datasetParams)
 
     // Initialize the dataset for streaming (allocates arrays mostly)
@@ -104,10 +103,10 @@ object ReferenceDatasetUtils {
 
     try
     {
-      (0 until bufferLen).foreach(i => {
+      (0 until bufferLen).foreach { i =>
         LightGBMUtils.validate(lightgbmlib.LGBM_ByteBufferGetAt(bufferHandle, i, valPtr), "Buffer get-at")
         byteArray(i) = lightgbmlib.bytep_value(valPtr).toByte
-      })
+      }
     }
     finally
     {
@@ -121,7 +120,6 @@ object ReferenceDatasetUtils {
 
   private def deserializeReferenceDataset(serializedDataset: Array[Byte],
                                           rowCount: Int,
-                                          numClasses: Int,
                                           datasetParams: String): LightGBMDataset = {
     // Convert byte array to native memory
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
@@ -130,7 +128,7 @@ object ReferenceDatasetUtils {
       lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
       serializedDataset.length,
       rowCount,
-      numClasses, // TODO should be 0?
+      0, // Always zero since we will be using InitStreaming to do allocation
       datasetParams,
       datasetVoidPtr), "Dataset create from reference")
 

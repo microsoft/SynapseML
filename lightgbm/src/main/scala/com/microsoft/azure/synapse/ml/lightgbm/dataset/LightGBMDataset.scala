@@ -177,9 +177,9 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
 
   def setFeatureNames(featureNamesOpt: Option[Array[String]], numCols: Int): LightGBMDataset = {
     // Add in slot names if they exist
-    featureNamesOpt.foreach { featureNamesVal =>
-      if (featureNamesVal.nonEmpty) {
-        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetPtr, featureNamesVal, numCols),
+    featureNamesOpt.foreach { featureNamesArray =>
+      if (featureNamesArray.nonEmpty) {
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetPtr, featureNamesArray, numCols),
           "Dataset set feature names")
       }
     }
