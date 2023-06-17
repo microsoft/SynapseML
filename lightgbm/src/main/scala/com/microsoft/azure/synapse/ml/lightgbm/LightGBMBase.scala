@@ -24,7 +24,7 @@ import scala.math.min
 import scala.util.matching.Regex
 
 // scalastyle:off file.size.limit
-trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[TrainedModel]
+trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams] extends Estimator[TrainedModel]
   with LightGBMParams with ComplexParamsWritable
   with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
 
@@ -423,6 +423,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
       if (isStreamingMode) {
         val (referenceDataset, partitionCounts) =
           calculateRowStatistics(trainingData, trainParams, numCols, measures)
+
+        // Save the reference Dataset so it's available to client and other batches
+        if (getReferenceDataset.nonEmpty) {
+          setReferenceDataset(referenceDataset)
+        }
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
@@ -520,11 +525,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     // Either get a reference dataset (as bytes) from params, or calculate it
     val precalculatedDataset = getReferenceDataset
     val serializedReference = if (precalculatedDataset.nonEmpty) {
+      log.info(s"Using precalculated reference Dataset of length: ${precalculatedDataset.length}")
       precalculatedDataset
     } else {
       // Get sample data rows
       measures.markSamplingStart()
       val collectedSampleData = getSampledRows(dataframe, totalNumRows, trainingParams)
+      log.info(s"Using ${collectedSampleData.length} sample rows}")
       measures.markSamplingStop()
 
       ReferenceDatasetUtils.createReferenceDatasetFromSample(
@@ -725,6 +732,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel]] extends Estimator[Traine
     val samplingSubsetSize = Math.min(trainingParams.executionParams.samplingSetSize, numSamples)
 
     val samplingMode = trainingParams.executionParams.samplingMode
+    log.info(s"Using sampling mode: $samplingMode (if subset, size is $samplingSubsetSize)")
     samplingMode match {
       case LightGBMConstants.SubsetSamplingModeGlobal =>
         // sample randomly from all rows (expensive for large data sets)

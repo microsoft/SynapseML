@@ -40,4 +40,18 @@ class VerifyLightGBMClassifierStreamOnly extends LightGBMClassifierTestData {
       fitModel.transform(df)
     }
   }
+
+  test("Verify LightGBMClassifier can use cached reference dataset") {
+    val baseClassifier = baseModel
+    assert(baseClassifier.getReferenceDataset.isEmpty)
+
+    val model1 = baseClassifier.fit(pimaDF)
+
+    // Assert the generated reference dataset was saved
+    assert(baseClassifier.getReferenceDataset.nonEmpty)
+
+    // Assert we use the same reference data and get same result
+    val model2 = baseModel.fit(pimaDF)
+    assert(model1.getModel.modelStr == model2.getModel.modelStr)
+  }
 }
