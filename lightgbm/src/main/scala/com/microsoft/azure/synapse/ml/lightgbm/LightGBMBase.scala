@@ -426,6 +426,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
         // Save the reference Dataset so it's available to client and other batches
         if (getReferenceDataset.nonEmpty) {
+          log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
           setReferenceDataset(referenceDataset)
         }
         (Some(referenceDataset), Some(partitionCounts))
@@ -531,7 +532,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       // Get sample data rows
       measures.markSamplingStart()
       val collectedSampleData = getSampledRows(dataframe, totalNumRows, trainingParams)
-      log.info(s"Using ${collectedSampleData.length} sample rows}")
+      log.info(s"Using ${collectedSampleData.length} sample rows")
       measures.markSamplingStop()
 
       ReferenceDatasetUtils.createReferenceDatasetFromSample(
