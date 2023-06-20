@@ -425,7 +425,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           calculateRowStatistics(trainingData, trainParams, numCols, measures)
 
         // Save the reference Dataset so it's available to client and other batches
-        if (getReferenceDataset.nonEmpty) {
+        if (getReferenceDataset.isEmpty) {
           log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
           setReferenceDataset(referenceDataset)
         }
