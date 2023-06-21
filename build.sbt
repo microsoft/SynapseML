@@ -468,6 +468,11 @@ lazy val root = (project in file("."))
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
+    ThisBuild / credentials += Credentials(
+      "",
+      "msdata.pkgs.visualstudio.com",
+      "msdata", Secrets.adoFeedToken),
+    ThisBuild / useCoursier := false
   ))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
