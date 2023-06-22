@@ -9,6 +9,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
+import org.apache.spark.sql.{functions => F}
 
 import java.io.File
 
@@ -89,6 +90,20 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
       .select(FindBestModel.MetricsCol)
       .collect()
       .foreach(value => assert(value.getDouble(0) >= 0.5))
+
+    val highestAUC = bestModel.getAllModelMetrics
+      .select(F.max(FindBestModel.MetricsCol))
+      .collect()
+      .head
+      .getDouble(0)
+
+    val bestModelsId = bestModel.getAllModelMetrics
+      .where(F.col(FindBestModel.MetricsCol) >= highestAUC)
+      .select(FindBestModel.ModelNameCol)
+      .collect()
+      .map(_.getString(0))
+
+    assert(bestModelsId.contains(bestModel.getBestModel.uid))
   }
 
   val reader: MLReadable[_] = FindBestModel
