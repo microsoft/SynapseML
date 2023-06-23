@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
 /** Tests to validate the functionality of LightGBM module in bulk mode.
   */
 class VerifyLightGBMRegressorBulk extends VerifyLightGBMRegressorStream {
-  override lazy val executionMode: String = LightGBMConstants.BulkExecutionMode
+  override val dataTransferMode: String = LightGBMConstants.BulkDataTransferMode
   override def ignoreSerializationFuzzing: Boolean = true
   override def ignoreExperimentFuzzing: Boolean = true
 }

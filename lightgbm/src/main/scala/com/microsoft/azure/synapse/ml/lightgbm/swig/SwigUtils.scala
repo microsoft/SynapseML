@@ -22,8 +22,19 @@ object SwigUtils extends Serializable {
     */
   def floatArrayToNative(array: Array[Float]): SWIGTYPE_p_float = {
     val colArray = lightgbmlib.new_floatArray(array.length)
-    array.zipWithIndex.foreach(ri =>
-      lightgbmlib.floatArray_setitem(colArray, ri._2.toLong, ri._1))
+    array.zipWithIndex.foreach { case (value, index) => lightgbmlib.floatArray_setitem(colArray, index.toLong, value)}
+    colArray
+  }
+
+  /** Converts a Java Byte array to a native C++ array using SWIG.
+    *
+    * @param array The Java Byte Array to convert.
+    * @return The SWIG wrapper around the native array.
+    */
+  def byteArrayToNative(array: Array[Byte]): SWIGTYPE_p_unsigned_char = {
+    val colArray = lightgbmlib.new_byteArray(array.length)
+    array.zipWithIndex.foreach { case (value, index) =>
+      lightgbmlib.byteArray_setitem(colArray, index.toLong, value.toShort)}
     colArray
   }
 }
