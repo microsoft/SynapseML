@@ -98,9 +98,9 @@ parameters specifically for the Spark distributed environment and
 shouldn't be changed. Some parameters are for CLI mode only, and don't work within
 Spark. 
 
-You can mix passThroughArgs and explicit args, as shown in the example. SynapseML
+You can mix *passThroughArgs* and explicit args, as shown in the example. SynapseML
 merges them to create one argument string to send to LightGBM. If you set a parameter in
-both places, passThroughArgs takes precedence.
+both places, *passThroughArgs* takes precedence.
 
 ### Architecture
 
@@ -170,7 +170,7 @@ For streaming mode, only one Dataset is created per partition, so *useSingleData
 
 In order for LightGBM algorithm to work, it must first create a set of bin boundaries for optimization. It does this calculation by
 first sampling the data before any training or inferencing starts. ([LightGBM docs](https://github.com/Microsoft/LightGBM)). The number of
-samples to use is set using *binSampleCount*, which must be a minimal percent of the data or LightGBM will reject it.
+samples to use is set using *binSampleCount*, which must be a minimal percent of the data or LightGBM rejects it.
 
 For *bulk* mode, this sampling is automatically done over the entire data, and each executor uses its own partitions to calculate samples for only
 a subset of the features. This distributed sampling can have subtle effects since partitioning can affect the calculated bins.
@@ -207,7 +207,7 @@ The *model2* call to *fit* doesn't resample the data and uses the same bin bound
 *Caution*: Some parameters actually affect the bin boundary calculation and require the use of a new reference dataset every time.
 These parameters include *isEnableSparse*, *useMissing*, and *zeroAsMissing* that you can set from SynapseML. If you manually set
 some parameters with *passThroughArgs*, you should look at LightGBM docs to see if they affect bin boundaries. If you're setting
-any of these and reusing the same estimator, you should set referenceDataset to an empty array between calls.
+any parameter that affects bin boundaries and reusing the same estimator, you should set referenceDataset to an empty array between calls.
 
 ### Barrier Execution Mode
 
