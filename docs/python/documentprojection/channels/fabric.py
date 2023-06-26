@@ -3,6 +3,7 @@ import re
 import warnings
 from datetime import datetime
 
+import difflib
 import requests
 from nbconvert import MarkdownExporter
 from traitlets.config import Config
@@ -28,12 +29,20 @@ class FabricPublisher(Publisher):
     def publish(self, document: Document) -> bool:
         if not document.metadata['is_active']:
             return False
-        output_dir = self.get_config()['output_dir']
-        make_dir(output_dir)
-        filename = document.metadata['filename']+'.md'
-        print(filename)
-        with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
-            f.write(document.content)
+        channel_config = self.get_config()
+        # set is_testing in channel config and test_doc path in manifest file
+        # to compare generated doc with a given .md file
+        if ('is_testing' in channel_config) and channel_config['is_testing']:
+            if 'test_doc' in document.metadata:
+                print(compare_doc(document.metadata['test_doc'], document.content))
+        else:
+            output_dir = channel_config['output_dir']
+            make_dir(output_dir)
+            filename = document.metadata['filename']
+            if not filename.endswith(".md"):
+                filename += '.md'
+            with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
+                f.write(document.content)
         return True
 
 class FabricChannel(Channel):
@@ -83,15 +92,21 @@ class FabricFormatter(MarkdownFormatter):
             footer = metadata["footer"]
         except KeyError:
             footer = ""
+        try:
+            next_steps = metadata["next_steps"]
+        except KeyError:
+            next_steps = None
         media_dir = self.get_config()['media_dir']
         output_dir = self.get_config()['output_dir']
         markdown = process_img(markdown, filename, output_dir, media_dir, alt_texts)
-        markdown = self.combine_documentation(markdown, footer, manifest_mapping)
+        markdown = self.combine_documentation(markdown, footer, manifest_mapping, next_steps)
         return markdown
     
     def format(self, notebook: Notebook) -> Document:
-        markdown = FabricFormatter._to_markdown(notebook)
         metadata = self.get_metadata(notebook)
+        if ('is_active' in metadata) and (not metadata['is_active']):
+            return Document("", self.get_metadata(notebook))
+        markdown = FabricFormatter._to_markdown(notebook)
         markdown = self.clean_markdown(markdown, metadata)
         markdown = FabricFormatter._add_header(markdown, self.get_header(notebook))
         return Document(markdown, self.get_metadata(notebook))
@@ -134,11 +149,20 @@ class FabricFormatter(MarkdownFormatter):
 
         generated_metadata += "---\n"
         return generated_metadata
+    
+    def generate_next_steps(self, next_steps):
+        generated_next_steps = "## Next steps\n\n"
+        for k, v in next_steps.items():
+            generated_next_steps += "- [{k}]({v})\n".format(k=k, v=v)
+        return generated_next_steps
 
-    def combine_documentation(self, body, footer, manifest_mapping):
+
+    def combine_documentation(self, body, footer, manifest_mapping, next_steps=None):
         if footer:
             with open(footer, "r") as f:
                 end = f.read()
+        elif next_steps:
+            end = self.generate_next_steps(next_steps)
         else:
             end = ""
         generated_doc = "".join([body, end])
@@ -179,8 +203,8 @@ def process_img(nb_body, folder_name, output_dir, media_dir, alt_texts):
             r"<(?:img|image).*?src=\"(.*?)\".*?>", nb_body[start_index:end_index]
         ).group(1)
         file_name = url.split("/")[-1]
-        file_dir = "/".join([output_dir, media_dir, folder_name])
-        make_dir(file_dir)
+        # file_dir = "/".join([output_dir, media_dir, folder_name])
+        # make_dir(file_dir)
         img_azure_doc_path = "/".join([folder_name, rename(file_name)])
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
@@ -207,3 +231,14 @@ def remove_replace_content(text, manifest_mapping):
     for ori, new in replace_mapping.items():
         text = text.replace(ori, new)
     return text
+
+def compare_doc(ori, generated):
+    # compare generated doc with an local md file.
+    # TODO: switch to github file
+    with open(ori, 'r') as file:
+        ori_content = file.read()
+    differ = difflib.Differ()
+    diff = differ.compare(ori_content.splitlines(), generated.splitlines())
+    diff_with_row_numbers = [(line[0], line[2:]) for line in diff if line.startswith('+') or line.startswith('-')]
+    diff_with_row_numbers = [(line[0], line[1], index + 1) for index, line in enumerate(diff_with_row_numbers)]
+    return '\n'.join(f'{symbol} {line} (row {row_num})' for symbol, line, row_num in diff_with_row_numbers)
