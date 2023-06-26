@@ -93,14 +93,14 @@ val classifier = new LightGBMClassifier()
 ```
 
 For formatting options and specific argument documentation, see
-[LightGBM docs](https://lightgbm.readthedocs.io/en/v3.3.2/Parameters.html). Some
-parameters SynapseML will set specifically for the Spark distributed environment and
-shouldn't be changed. Some parameters are for CLI mode only, and won't work within
+[LightGBM docs](https://lightgbm.readthedocs.io/en/v3.3.2/Parameters.html). SynapseML sets some
+parameters specifically for the Spark distributed environment and
+shouldn't be changed. Some parameters are for CLI mode only, and don't work within
 Spark. 
 
-You can mix passThroughArgs and explicit args, as shown in the example. SynapseML will
-merge them to create one argument string to send to LightGBM. If you set a parameter in
-both places, the passThroughArgs will take precedence.
+You can mix passThroughArgs and explicit args, as shown in the example. SynapseML
+merges them to create one argument string to send to LightGBM. If you set a parameter in
+both places, passThroughArgs takes precedence.
 
 ### Architecture
 
@@ -130,12 +130,12 @@ can be converted to PMML format through the
 
 SynapseML must pass data from Spark partitions to LightGBM native Datasets before turning over control to
 the actual LightGBM execution code for training and inference. SynapseML has two modes
-that control how this data is transferred: "streaming" and "bulk".
+that control how this data is transferred: *streaming* and *bulk*.
 This mode doesn't affect training but can affect memory usage and overall fit/transform time.
 
 #### Bulk Execution mode
 The "Bulk" mode is older and requires accumulating all data in executor memory before creating Datasets. This mode can cause
-OOM errors for large data, especially since the data must be accumulated in its original uncompresed double-format size.
+OOM errors for large data, especially since the data must be accumulated in its original uncompressed double-format size.
 For now, "bulk" mode is the default since "streaming" is new, but SynapseML will eventually make streaming the default.
 
 For bulk mode, native LightGBM Datasets can either be created per partition (useSingleDatasetMode=false), or
@@ -164,34 +164,33 @@ You can explicitly specify Execution Mode and MicroBatch size as parameters.
     ...
     <train classifier>
 
-For streaming mode, only one Dataset is created per partition, so "useSingleDataMode" has no effect. It is always true.
+For streaming mode, only one Dataset is created per partition, so *useSingleDataMode* has no effect. It's effectively always true.
 
 ### Data Sampling
 
-In order for LightGBM algorithm to work, it must first create a set of bin boundaries for optimization. It does this by
-first sampling the data.
-([LightGBM docs](https://github.com/Microsoft/LightGBM)). This is done before any training or inferencing starts. The number of
-samples to use is controlled by *binSampleCount*. This must be a minimal percent of the data or LightGBM will reject it.
+In order for LightGBM algorithm to work, it must first create a set of bin boundaries for optimization. It does this calculation by
+first sampling the data before any training or inferencing starts. ([LightGBM docs](https://github.com/Microsoft/LightGBM)). The number of
+samples to use is set using *binSampleCount*, which must be a minimal percent of the data or LightGBM will reject it.
 
-For *bulk* mode this sampling is automatically done over the entire data, and each executor uses its own partitions to calculate samples for only
-a subset of the features. This can have subtle effects since partitioning can affect the calculated bins, although most of
-the time it will average out. Also, all data is sampled no matter what.
+For *bulk* mode, this sampling is automatically done over the entire data, and each executor uses its own partitions to calculate samples for only
+a subset of the features. This distributed sampling can have subtle effects since partitioning can affect the calculated bins.
+Also, all data is sampled no matter what.
 
-For *streaming* mode, there are more explicit user controls for this sampling, and it is all done from the driver.
-There is a *samplingMode* property to control this. The efficiency of these methods increases from first to last.
+For *streaming* mode, there are more explicit user controls for this sampling, and it's all done from the driver.
+The *samplingMode* property controls the behavior. The efficiency of these methods increases from first to last.
 - *global* - Like bulk mode, the random sample is calculated by iterating over entire data (hence data is traversed twice)
 - *subset* - (default) Samples only from the first *samplingSubsetSize* elements. Assumes this subset is representative.
-- *fixed* - There is no random sample. First *binSampleSize* rows are used. Assumes very randomized data.
-For very large row counts, *subset* and *fixed* modes can save iterations over the data.
+- *fixed* - There's no random sample. The first *binSampleSize* rows are used. Assumes randomized data.
+For large row counts, *subset* and *fixed* modes can save a first iteration over the entire data.
 
 #### Reference Dataset
 The sampling of the data to calculate bin boundaries happens every *fit* call.
-If repeating a fit many times (e.g., hyperparameter tuning), this is duplicated effort.
+If repeating a fit many times (for example, hyperparameter tuning), this calculation is duplicated effort.
 
-For *streaming* mode, there is an optimization that a client can set to use the previously calculated bin boundaries. This is called using
-the same "reference dataset". After a fit, there will be a *referenceDataset* property on the estimator that was calculated
-and used for that fit. If that is set on the next estimator (or you re-use the same one),
-it will use that instead of re-sampling the data.
+For *streaming* mode, there's an optimization that a client can set to use the previously calculated bin boundaries. The
+sampling calculation results in a *reference dataset*, which can be reused. After a fit, there will be a *referenceDataset* property
+on the estimator that was calculated and used for that fit. If that is set on the next estimator (or you reuse the same one),
+it will use that instead of resampling the data.
 
 ```python
 from synapse.ml.lightgbm import LightGBMClassifier
@@ -203,18 +202,18 @@ model1 = classifier.fit(train)
 classifier.learningRate = 0.4
 model2 = classifier.fit(train)
 ```
-The *model2* call to *fit* will not re-sample the data and will use the same bin schema as classifier1.
+The *model2* call to *fit* doesn't resample the data and uses the same bin boundaries as *model1*.
 
 *Caution*: Some parameters actually affect the bin boundary calculation and require the use of a new reference dataset every time.
-These include *isEnableSparse*, *useMissing*, and *zeroAsMissing* that you can set from SynapseML, but if you manually set
-some parameters with *passThroughArgs* you should look at LightGBM docs to see if they affect bin boundaries. If you are setting these
-and reusing the same estimator, you should set referenceDataset to an empty array between calls.
+These parameters include *isEnableSparse*, *useMissing*, and *zeroAsMissing* that you can set from SynapseML. If you manually set
+some parameters with *passThroughArgs*, you should look at LightGBM docs to see if they affect bin boundaries. If you're setting
+any of these and reusing the same estimator, you should set referenceDataset to an empty array between calls.
 
 ### Barrier Execution Mode
 
 By default LightGBM uses regular spark paradigm for launching tasks and communicates with the driver to coordinate task execution.
 The driver thread aggregates all task host:port information and then communicates the full list back to the workers in order for NetworkInit to be called.
-This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number will cause the initialization to deadlock.
+This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number causes the initialization to deadlock.
 To avoid this issue, use the `UseBarrierExecutionMode` flag, to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
 Barrier execution mode simplifies the logic to aggregate `host:port` information across all tasks.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
