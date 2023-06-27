@@ -202,7 +202,7 @@ model1 = classifier.fit(train)
 classifier.learningRate = 0.4
 model2 = classifier.fit(train)
 ```
-The *model2* call to *fit* doesn't resample the data and uses the same bin boundaries as *model1*.
+The 'model2' call to 'fit' doesn't resample the data and uses the same bin boundaries as 'model1'.
 
 *Caution*: Some parameters actually affect the bin boundary calculation and require the use of a new reference dataset every time.
 These parameters include *isEnableSparse*, *useMissing*, and *zeroAsMissing* that you can set from SynapseML. If you manually set
