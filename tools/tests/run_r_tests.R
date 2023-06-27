@@ -3,9 +3,7 @@ if (!require("sparklyr")) {
   library("sparklyr")
 }
 
-spark_install(version = 3.2, verbose=TRUE)
-spark_install(version = 3.2, verbose=TRUE)
-spark_install(version = 3.2, verbose=TRUE)
+spark_install_tar(getwd() + "/spark-3.2.4-bin-hadoop3.2.tgz")
 
 options("testthat.output_file" = "../../../../r-test-results.xml")
 devtools::test(reporter = JunitReporter$new())
