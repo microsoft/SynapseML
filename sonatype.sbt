@@ -31,7 +31,12 @@ pgpPassphrase := Some(Secrets.pgpPassword.toCharArray)
 pgpSecretRing := Secrets.pgpPrivateFile
 pgpPublicRing := Secrets.pgpPublicFile
 
-ThisBuild / publishTo := sonatypePublishToBundle.value
+if(Secrets.publishToFeed) {
+  ThisBuild / publishTo := Some("SynapseML_PublicPackages" at
+    "https://msdata.pkgs.visualstudio.com/A365/_packaging/SynapseML_PublicPackages/maven/v1")
+} else {
+  ThisBuild / publishTo := sonatypePublishToBundle.value
+}
 
 ThisBuild / dynverSonatypeSnapshots := true
 ThisBuild / dynverSeparator := "-"
