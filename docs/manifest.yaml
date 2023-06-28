@@ -109,7 +109,7 @@ channels:
           [!INCLUDE [prerequisites](includes/prerequisites.md)]
           * Go to the Data Science experience in [!INCLUDE [product-name](../includes/product-name.md)].
           * Create [a new notebook](../data-engineering/how-to-use-notebook.md#create-notebooks).
-          * An Azure OpenAI resource – request access [here](https://customervoice.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR7en2Ais5pxKtso_Pz4b1_xUOFA5Qk1UWDRBMjg0WFhPMkIzTzhKQ1dWNyQlQCN0PWcu) before [creating a resource](https://docs.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource)
+          * An Azure OpenAI resource: request access [here](https://customervoice.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR7en2Ais5pxKtso_Pz4b1_xUOFA5Qk1UWDRBMjg0WFhPMkIzTzhKQ1dWNyQlQCN0PWcu) before [creating a resource](https://docs.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource)
         next_steps:
           How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
           How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
