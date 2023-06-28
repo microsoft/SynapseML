@@ -381,6 +381,13 @@ publishBadges := {
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
 }
 
+val uploadNotebooks = TaskKey[Unit]("uploadNotebooks", "upload notebooks to blob storage")
+uploadNotebooks := {
+  val localNotebooksFolder = join(baseDirectory.value.toString, "notebooks").toString
+  val blobNotebooksFolder = version.value
+  uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "notebooks")
+}
+
 val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
@@ -486,7 +493,8 @@ setupTask := {
 
 val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmdStr("python -m docs.python.documentprojection --customchannels docs/python/synapseml_channels -c website . docs/manifest.yaml -p")
+  runCmdStr("python -m docs.python.documentprojection " +
+    "--customchannels docs/python/synapseml_channels -c website . docs/manifest.yaml -p")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
