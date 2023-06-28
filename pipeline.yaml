@@ -50,6 +50,7 @@ variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   ComponentDetection.Timeout: 900
+  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
 
 jobs:
 - job: Style
@@ -102,7 +103,7 @@ jobs:
     - bash: |
         set -e
         sbt publishBadges
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      condition: and(succeeded(), eq(variables.isMaster, true))
       displayName: Publish Badges
       env:
         STORAGE-KEY: $(storage-key)
@@ -217,7 +218,7 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      condition: startsWith(variables['gittag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Build
       inputs:
         containerRegistry: 'SynapseML MCR'
@@ -230,7 +231,7 @@ jobs:
           latest
         arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
-      condition: startsWith(variables['gittag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
         containerRegistry: 'SynapseML MCR'
@@ -255,9 +256,9 @@ jobs:
         wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
     - task: GitHubRelease@0
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         gitHubConnection: 'MMLSpark Github'
         repositoryName: '$(Build.Repository.Name)'
@@ -267,14 +268,14 @@ jobs:
         releaseNotesFile: 'CHANGELOG.md'
         isDraft: true
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       displayName: Add conda to PATH
     - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
       displayName: Fix directory permissions
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
     - task: Cache@2
       displayName: Use cached Anaconda environment
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         key: 'conda | "$(Agent.OS)" | environment.yml'
         restoreKeys: |
@@ -284,10 +285,10 @@ jobs:
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
         conda env create -f environment.yml -v -v -v
-      condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
+      condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
@@ -295,7 +296,7 @@ jobs:
         set -e
         source activate synapseml
         sbt publishPypi
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       env:
         STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
@@ -311,7 +312,7 @@ jobs:
         source activate synapseml
         sbt publishSigned
         sbt sonatypeBundleRelease
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       env:
         STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
@@ -414,7 +415,7 @@ jobs:
       inputs:
         scriptPath: tools/dotnet/dotnetSetup.sh
     - task: AzureKeyVault@1
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
