@@ -28,7 +28,7 @@ case class DMASummary(status: String,
 
 object DMAError extends SparkBindings[DMAError]
 
-case class DMAError(code: String, message: String)
+case class DMAError(code: Option[String], message: Option[String])
 
 case class DMAVariableState(variable: Option[String],
                             filledNARatio: Option[Double],
