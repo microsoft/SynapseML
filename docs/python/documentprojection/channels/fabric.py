@@ -4,8 +4,10 @@ import warnings
 from datetime import datetime
 
 import difflib
+import nbformat
 import requests
 from nbconvert import MarkdownExporter
+from nbformat.v4 import new_markdown_cell
 from traitlets.config import Config
 
 from ..framework import *
@@ -55,6 +57,14 @@ class FabricFormatter(MarkdownFormatter):
         self.config = config
 
     def _to_markdown(notebook: Notebook, hide_tag="hide-synapse-internal") -> str:
+        # add prerequisites from manifest file
+        if 'prerequisites_position' in notebook.metadata:
+            position = notebook.metadata['prerequisites_position']
+        else:
+            position = 2
+        if 'prerequisites' in notebook.metadata:
+            new_cell = new_markdown_cell(notebook.metadata['prerequisites'])
+            notebook.data.cells.insert(position, new_cell)
         c = Config()
         c.TagRemovePreprocessor.remove_cell_tags = (hide_tag,)
         c.TagRemovePreprocessor.enabled = True

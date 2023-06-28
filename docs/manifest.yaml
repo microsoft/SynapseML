@@ -83,7 +83,7 @@ channels:
         filename: tabular-shap-explainer
         is_active: false # clear
         footer: ../../notebooks/fabric_template/tabular-shap-explainer-end.md
-        metadata: # metadata for azure doc
+        metadata:
           title: Interpretability - Tabular SHAP explainer
           description: Interpretability - Tabular SHAP explainer
           ms.topic: overview
@@ -92,15 +92,28 @@ channels:
           ms.author: jessiwang
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - OpenAI.ipynb
         filename: open-ai
-        is_active: false # Method setDefaultAADToken([class java.lang.String]) does not exist
-        metadata: # metadata for azure doc
-          title: OpenAI
-          description: OpenAI with cognitive services
-          ms.topic: overview
+        is_active: true
+        metadata:
+          title: Azure OpenAI for big data
+          description: Use Azure OpenAI service to solve a large number of natural language tasks through prompting the completion API. 
+          ms.topic: how-to
           ms.custom: build-2023
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 1
+        prerequisites: |
+          ## Step 1: Prerequisites
+          The key prerequisites for this quickstart include a working Azure OpenAI resource, and an Apache Spark cluster with SynapseML installed. 
+
+          [!INCLUDE [prerequisites](includes/prerequisites.md)]
+          * Go to the Data Science experience in [!INCLUDE [product-name](../includes/product-name.md)].
+          * Create [a new notebook](../data-engineering/how-to-use-notebook.md#create-notebooks).
+          * An Azure OpenAI resource – request access [here](https://customervoice.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR7en2Ais5pxKtso_Pz4b1_xUOFA5Qk1UWDRBMjg0WFhPMkIzTzhKQ1dWNyQlQCN0PWcu) before [creating a resource](https://docs.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource)
+        next_steps:
+          How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
+          How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
+          How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md
       - path: ../../notebooks/features/isolation_forest/IsolationForest - Multivariate Anomaly Detection.ipynb
         filename: isolation-forest-multivariate-anomaly-detection
         is_active: true # hide dashboard, dependency conflicts
