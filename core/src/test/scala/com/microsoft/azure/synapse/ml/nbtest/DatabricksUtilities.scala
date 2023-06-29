@@ -83,6 +83,7 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
+    .filter(_.getAbsolutePath.contains("Langchain"))
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
 

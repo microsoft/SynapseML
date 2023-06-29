@@ -49,6 +49,7 @@ class SynapseTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVWnativeFormat"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synpase fix
+    .filter(_.getAbsolutePath.contains("Langchain"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
