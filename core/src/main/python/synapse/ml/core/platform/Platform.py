@@ -88,6 +88,7 @@ def install_pip_packages(packages):
 
     def _install_on_worker(partition):
         import subprocess
+        import sys
 
         subprocess.check_call([sys.executable, "-m", "pip", "install", *packages])
         return None
