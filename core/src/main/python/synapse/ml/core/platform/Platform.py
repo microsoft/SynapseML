@@ -78,3 +78,33 @@ def materializing_display(data):
         display(data)
     else:
         print(data)
+
+
+def install_pip_packages(packages):
+    if not isinstance(packages, list):
+        raise ValueError(f"packages argument should be a list of strings, recieved {type(packages)}")
+
+    def _install_on_worker(partition):
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", *packages])
+        return None
+
+    if running_on_databricks():
+        from IPython import get_ipython
+        get_ipython().run_line_magic('pip', f'install {" ".join(packages)}')
+    else:
+        try:
+            from IPython import get_ipython
+            from IPython.terminal.interactiveshell import TerminalInteractiveShell
+            try:
+                shell = TerminalInteractiveShell.instance()
+            except:
+                pass
+            get_ipython().run_line_magic('pip', f'install {" ".join(packages)}')
+            df = spark.createDataFrame([(1,) for i in range(1000)]).cache()
+            df.collect()
+            df.rdd.barrier().mapPartitions(_install_on_worker).collect()
+        except Exception as e:
+            print(f"Could not install packages on workers because of {e},"
+                  f" defaulting to installing on the head node only")
+            _install_on_worker(None)

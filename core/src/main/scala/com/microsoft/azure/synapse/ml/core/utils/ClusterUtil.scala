@@ -7,9 +7,10 @@ import java.net.InetAddress
 import org.apache.http.conn.util.InetAddressUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 object ClusterUtil {
   /** Get number of tasks from dummy dataset for 1 executor.
@@ -153,7 +154,12 @@ object ClusterUtil {
       .map(_ => java.lang.Runtime.getRuntime.availableProcessors).collect.head
   }
 
-  /** Returns the number of executors * number of tasks.
+  def getNumSlots(spark: SparkSession): Int = {
+    val logger = LoggerFactory.getLogger("ClusterUtils")
+    getNumExecutorTasks(spark, getNumTasksPerExecutor(spark, logger), logger)
+  }
+
+    /** Returns the number of executors * number of tasks.
     * @param spark The current spark session.
     * @param numTasksPerExec The number of tasks per executor.
     * @return The number of executors * number of tasks.

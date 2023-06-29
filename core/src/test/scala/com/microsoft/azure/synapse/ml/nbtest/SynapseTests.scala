@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.utils.ClusterUtil
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.sendAndParseJson
 import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities._
 import org.apache.http.client.methods.HttpGet
