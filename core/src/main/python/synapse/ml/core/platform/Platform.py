@@ -91,7 +91,7 @@ def install_pip_packages(packages):
         import sys
 
         subprocess.check_call([sys.executable, "-m", "pip", "install", *packages])
-        return None
+        return partition
 
     if running_on_databricks():
         from IPython import get_ipython
