@@ -381,6 +381,13 @@ publishBadges := {
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
 }
 
+val uploadNotebooks = TaskKey[Unit]("uploadNotebooks", "upload notebooks to blob storage")
+uploadNotebooks := {
+  val localNotebooksFolder = join(baseDirectory.value.toString, "notebooks").toString
+  val blobNotebooksFolder = version.value
+  uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "notebooks")
+}
+
 val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
@@ -426,7 +433,7 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.500"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.510"),
     name := "synapseml-lightgbm"
   ): _*)
 
@@ -468,6 +475,11 @@ lazy val root = (project in file("."))
   .disablePlugins(CodegenPlugin)
   .settings(settings ++ Seq(
     name := "synapseml",
+    ThisBuild / credentials += Credentials(
+      "",
+      "msdata.pkgs.visualstudio.com",
+      "msdata", Secrets.adoFeedToken),
+    ThisBuild / useCoursier := false
   ))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
@@ -481,10 +493,8 @@ setupTask := {
 
 val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmdStr("python -m pip uninstall -y documentprojection")
-  runCmdStr("python -m build docs/python")
-  runCmdStr("python -m pip install --find-links=docs/python/dist documentprojection")
-  runCmdStr("python -m documentprojection -r -p -c website . notebooks/features")
+  runCmdStr("python -m docs.python.documentprojection " +
+    "--customchannels docs/python/synapseml_channels -c website . docs/manifest.yaml -p")
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",

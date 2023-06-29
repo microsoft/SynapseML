@@ -39,15 +39,15 @@ case class TrainingContext(batchIndex: Int,
                            featureNames: Option[Array[String]],
                            numTasksPerExecutor: Int,
                            validationData: Option[Broadcast[Array[Row]]],
-                           broadcastedSampleData: Option[Broadcast[Array[Row]]],
+                           serializedReferenceDataset: Option[Array[Byte]],
                            partitionCounts: Option[Array[Long]]) extends Serializable {
   val isProvideTrainingMetric: Boolean = { trainingParams.isProvideTrainingMetric.getOrElse(false) }
   val improvementTolerance: Double = { trainingParams.generalParams.improvementTolerance }
   val earlyStoppingRound: Int = { trainingParams.generalParams.earlyStoppingRound }
   val microBatchSize: Int = { trainingParams.executionParams.microBatchSize }
 
-  val isStreaming: Boolean = trainingParams.executionParams.executionMode == LightGBMConstants.StreamingExecutionMode
-  val isBulk: Boolean = trainingParams.executionParams.executionMode == LightGBMConstants.BulkExecutionMode
+  val isStreaming = trainingParams.executionParams.dataTransferMode == LightGBMConstants.StreamingDataTransferMode
+  val isBulk = trainingParams.executionParams.dataTransferMode == LightGBMConstants.BulkDataTransferMode
 
   val useSingleDatasetMode: Boolean = trainingParams.executionParams.useSingleDatasetMode || isStreaming
 

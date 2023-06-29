@@ -19,7 +19,10 @@ class ConsoleFormatter(MarkdownFormatter):
         return "This is a test header injected by the 'console' formatter."
 
     def get_metadata(self, notebook: Notebook) -> dict:
-        return {"source_path": notebook.path, "target_path": "stdout"}
+        notebook.metadata.update(
+            {"source_path": notebook.path, "target_path": "stdout"}
+        )
+        return notebook.metadata
 
 
 class ConsolePublisher(Publisher):
@@ -29,6 +32,6 @@ class ConsolePublisher(Publisher):
 
 
 class ConsoleChannel(Channel):
-    def __init__(self):
+    def __init__(self, _):
         self.formatter = ConsoleFormatter()
         self.publisher = ConsolePublisher()

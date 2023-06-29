@@ -15,24 +15,24 @@ import org.apache.spark.sql.{DataFrame, Row}
 /** Tests to validate the functionality of LightGBM module in streaming mode.
   */
 class VerifyLightGBMRegressorStream extends LightGBMRegressorTestData {
-  test(verifyLearnerTitleTemplate.format(energyEffFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(energyEffFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(energyEffFile, "Y1", 0,
       Some(Seq("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "Y2")))
   }
-  test(verifyLearnerTitleTemplate.format(airfoilFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(airfoilFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(airfoilFile, "Scaled sound pressure level", 1)
   }
-  test(verifyLearnerTitleTemplate.format(tomsHardwareFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(tomsHardwareFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(tomsHardwareFile, "Mean Number of display (ND)", -4)
   }
-  test(verifyLearnerTitleTemplate.format(machineFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(machineFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(machineFile, "ERP", -2)
   }
   /* TODO: Spark doesn't seem to like the column names here because of '.', figure out how to read in the data
   test(verifyLearnerTitleTemplate.format(slumpFile, executionMode)) {
     verifyLearnerOnRegressionCsvFile(slumpFile, "Compressive Strength (28-day)(Mpa)", 2)
   } */
-  test(verifyLearnerTitleTemplate.format(concreteFile, executionMode)) {
+  test(verifyLearnerTitleTemplate.format(concreteFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(concreteFile, "Concrete compressive strength(MPa, megapascals)", 0)
   }
 

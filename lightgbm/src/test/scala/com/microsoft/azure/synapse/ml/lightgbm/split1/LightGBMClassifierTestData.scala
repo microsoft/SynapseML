@@ -11,7 +11,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.feature.StringIndexer
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.DataFrame
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
@@ -85,9 +85,6 @@ abstract class LightGBMClassifierTestData extends Benchmarks
   val transfusionFile: String = "transfusion.csv"
 
   def baseModel: LightGBMClassifier = {
-    // TODO revert once streaming sparse bug fixed
-    val matrixType = if (executionMode == LightGBMConstants.StreamingExecutionMode) "dense"
-      else "auto"
     new LightGBMClassifier()
       .setFeaturesCol(featuresCol)
       .setRawPredictionCol(rawPredCol)
@@ -98,8 +95,8 @@ abstract class LightGBMClassifierTestData extends Benchmarks
       .setLabelCol(labelCol)
       .setLeafPredictionCol(leafPredCol)
       .setFeaturesShapCol(featuresShapCol)
-      .setExecutionMode(executionMode)
-      .setMatrixType(matrixType)
+      .setDataTransferMode(dataTransferMode)
+      .setMatrixType("auto")
   }
 
   def assertBinaryImprovement(sdf1: DataFrame, sdf2: DataFrame): Unit = {

@@ -23,9 +23,9 @@ dependencies:
     - pytest-cov
     - nbconvert
     - nbformat
+    - pyyaml
     - PyGithub
     - tqdm
-    - build
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
@@ -44,3 +44,5 @@ dependencies:
     - huggingface-hub>=0.8.1
     - langchain==0.0.151
     - openai==0.27.5
+    - black==22.3.0
+    - black[jupyter]==22.3.0
