@@ -99,14 +99,16 @@ def install_pip_packages(packages):
         get_ipython().run_line_magic("pip", f'install {" ".join(packages)}')
     else:
         try:
-            from IPython import get_ipython
-            from IPython.terminal.interactiveshell import TerminalInteractiveShell
+            # from IPython import get_ipython
+            # from IPython.terminal.interactiveshell import TerminalInteractiveShell
+            #
+            # try:
+            #     shell = TerminalInteractiveShell.instance()
+            # except:
+            #     pass
+            # get_ipython().run_line_magic("pip", f'install {" ".join(packages)}')
+            _install_on_worker(None)
 
-            try:
-                shell = TerminalInteractiveShell.instance()
-            except:
-                pass
-            get_ipython().run_line_magic("pip", f'install {" ".join(packages)}')
             from pyspark.sql import SparkSession
 
             spark = SparkSession.builder.getOrCreate()
