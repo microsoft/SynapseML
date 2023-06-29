@@ -108,8 +108,11 @@ def install_pip_packages(packages):
                 pass
             get_ipython().run_line_magic("pip", f'install {" ".join(packages)}')
             from pyspark.sql import SparkSession
+
             spark = SparkSession.builder.getOrCreate()
-            num_slots = spark._jvm.com.microsoft.azure.synapse.ml.core.utils.ClusterUtil.getNumSlots(spark._jsparkSession)
+            num_slots = spark._jvm.com.microsoft.azure.synapse.ml.core.utils.ClusterUtil.getNumSlots(
+                spark._jsparkSession
+            )
             spark.createDataFrame([(1,) for _ in range(num_slots * 10)]).repartition(
                 num_slots
             ).rdd.barrier().mapPartitions(_install_on_worker).collect()
