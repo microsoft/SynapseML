@@ -101,9 +101,9 @@ def install_pip_packages(packages):
             except:
                 pass
             get_ipython().run_line_magic('pip', f'install {" ".join(packages)}')
-            df = spark.createDataFrame([(1,) for i in range(1000)]).cache()
-            df.collect()
-            df.rdd.barrier().mapPartitions(_install_on_worker).collect()
+            spark.createDataFrame([(1,) for i in range(10000)]) \
+                .repartition(spark._jvm.ClusterUtls.getNumSlots(spark._jsparkSession)) \
+                .rdd.barrier().mapPartitions(_install_on_worker).collect()
         except Exception as e:
             print(f"Could not install packages on workers because of {e},"
                   f" defaulting to installing on the head node only")
