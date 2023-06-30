@@ -48,17 +48,26 @@ object DatabricksUtilities {
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
 
-  val Libraries: String = List(
-    Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
-    Map("pypi" -> Map("package" -> "nltk")),
-    Map("pypi" -> Map("package" -> "bs4")),
-    Map("pypi" -> Map("package" -> "plotly")),
-    Map("pypi" -> Map("package" -> "Pillow")),
-    Map("pypi" -> Map("package" -> "onnxmltools==1.7.0")),
-    Map("pypi" -> Map("package" -> "lightgbm")),
-    Map("pypi" -> Map("package" -> "mlflow")),
-    Map("pypi" -> Map("package" -> "openai"))
-  ).toJson.compactPrint
+  val PipPackages: Seq[String] = Seq(
+    "nltk",
+    "bs4",
+    "plotly",
+    "Pillow",
+    "onnxmltools==1.7.0",
+    "lightgbm",
+    "mlflow",
+    "openai",
+    "langchain",
+    "pdf2image",
+    "pdfminer.six",
+    "pytesseract",
+    "unstructured"
+  )
+
+  val Libraries: String = (
+    List(Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository))) ++
+      PipPackages.map(p => Map("pypi" -> Map("package" -> p)))
+    ).toJson.compactPrint
 
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
@@ -285,7 +294,7 @@ object DatabricksUtilities {
       val (url, nbName) = getRunUrlAndNBName(runId)
       if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty &  //scalastyle:ignore while
+      while (finalState.isEmpty & //scalastyle:ignore while
         (System.currentTimeMillis() - startTime) < timeout &
         lifeCycleState != "INTERNAL_ERROR"
       ) {
