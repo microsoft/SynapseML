@@ -127,19 +127,19 @@ can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
 #### Dynamic Scaling Issues
-The native LightGBM library has a *distributed mode* that allows the algorithm to work over multiple *machines*. This is how SynapseML
-uses LightGBM from Spark. SynapseML gathers all the Spark executor networking information, passes that to LightGBM, and then
+The native LightGBM library has a *distributed mode* that allows the algorithm to work over multiple *machines*. SynapseML
+uses this LightGBM mode from Spark. SynapseML first gathers all the Spark executor networking information, passes that to LightGBM, and then
 waits for LightGBM to complete its work. However, the native LightGBM algorithm implementation assumes all networking is constant over the time period of a single
-training or scoring session. This is how the native LightGBM distributed mode was designed and is not a limitation of SynapseML per se.
+training or scoring session. The native LightGBM distributed mode was designed this way and isn't a limitation of SynapseML by itself.
 
 Dynamic executor changes can cause LightGBM problems if the Spark executors change during data processing. Spark can naturally
-take advantage of cluster autoscaling and can also dynamically replace any failed executor with another, but LightGBM cannot
-handle these networking changes. Large datasets are particularly affected since they are more likely to have scaling occur
-or a single executor fail during a single processing pass.
+take advantage of cluster autoscaling and can also dynamically replace any failed executor with another, but LightGBM can't
+handle these networking changes. Large datasets are affected in particular since they are more likely to cause executor scaling
+or have a single executor fail during a single processing pass.
 
-If you are experiencing problems with LightGBM as exposed through SynapseML due to this (e.g. occasional Task failures or networking hangs),
+If you're experiencing problems with LightGBM as exposed through SynapseML due to executor changes (e.g. occasional Task failures or networking hangs),
 there are several options.
-1. In the Spark platform you are using, turn off any autoscaling on the cluster you have provisioned.
+1. In the Spark platform, turn off any autoscaling on the cluster you have provisioned.
 2. Set *numTasks* manually to be smaller so that fewer executors are used (reducing probability of single executor failure).
 3. Turn off dynamic executor scaling with configuration in a notebook cell. In Synapse and Fabric, you can use:
 
@@ -152,14 +152,14 @@ there are several options.
        }
    }
 ```
-Note that setting any custom configuration can affect cluster startup time if you platform takes advantage of "live pools"
+Note: setting any custom configuration can affect cluster startup time if your platform takes advantage of "live pools"
 to improve notebook performance.
 
-If you still have problems, you can consider splitting your data into smaller segments using *numBatches*. This will increase
-processing time, but can be used to increase reliability.
+If you still have problems, you can consider splitting your data into smaller segments using *numBatches*. Splitting into multiple
+batches will increase processing time, but can potentially be used to increase reliability.
 
 #### GPU
-Although LightGBM library can be compiled to support GPUs (through CUDA), SynapseML does not currently use a GPU-enabled build. If
+Although LightGBM library can be compiled to support GPUs (through CUDA), SynapseML doesn't currently use a GPU-enabled build. If
 you wish to use GPUs, please file an issue with SynapseML so we can measure the interest.
 
 ### Data Transfer Mode
@@ -252,7 +252,7 @@ The driver thread aggregates all task host:port information and then communicate
 This procedure requires the driver to know how many tasks there are, and a mismatch between the expected number of tasks and the actual number causes
 the initialization to deadlock.
 
-If you are experiencing network issues, you can try using Spark's *barrier* execution mode. SynapseML provides a `UseBarrierExecutionMode` flag,
+If you're experiencing network issues, you can try using Spark's *barrier* execution mode. SynapseML provides a `UseBarrierExecutionMode` flag,
 to use Apache Spark's `barrier()` stage to ensure all tasks execute at the same time.
 Barrier execution mode changes the logic to aggregate `host:port` information across all tasks in a synchronized way.
 To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
@@ -263,4 +263,4 @@ To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
         .setUseBarrierExecutionMode(true)
     ...
     <train classifier>
-Note that barrier execution mode can also cause complicated issues, so use it only if needed.
+Note: barrier execution mode can also cause complicated issues, so use it only if needed.
