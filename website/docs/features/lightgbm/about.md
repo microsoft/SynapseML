@@ -134,10 +134,10 @@ training or scoring session. The native LightGBM distributed mode was designed t
 
 Dynamic executor changes can cause LightGBM problems if the Spark executors change during data processing. Spark can naturally
 take advantage of cluster autoscaling and can also dynamically replace any failed executor with another, but LightGBM can't
-handle these networking changes. Large datasets are affected in particular since they are more likely to cause executor scaling
+handle these networking changes. Large datasets are affected in particular since they're more likely to cause executor scaling
 or have a single executor fail during a single processing pass.
 
-If you're experiencing problems with LightGBM as exposed through SynapseML due to executor changes (e.g. occasional Task failures or networking hangs),
+If you're experiencing problems with LightGBM as exposed through SynapseML due to executor changes (for example, occasional Task failures or networking hangs),
 there are several options.
 1. In the Spark platform, turn off any autoscaling on the cluster you have provisioned.
 2. Set *numTasks* manually to be smaller so that fewer executors are used (reducing probability of single executor failure).
@@ -156,11 +156,11 @@ Note: setting any custom configuration can affect cluster startup time if your p
 to improve notebook performance.
 
 If you still have problems, you can consider splitting your data into smaller segments using *numBatches*. Splitting into multiple
-batches will increase processing time, but can potentially be used to increase reliability.
+batches increases processing time, but can potentially be used to increase reliability.
 
 #### GPU
 Although LightGBM library can be compiled to support GPUs (through CUDA), SynapseML doesn't currently use a GPU-enabled build. If
-you wish to use GPUs, please file an issue with SynapseML so we can measure the interest.
+you wish to use GPUs, file an issue with SynapseML so we can measure the interest.
 
 ### Data Transfer Mode
 
