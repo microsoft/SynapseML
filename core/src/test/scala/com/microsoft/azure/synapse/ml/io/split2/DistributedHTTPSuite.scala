@@ -322,7 +322,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
            |
            |
            |threads = []
-           |for i in range(4):
+           |for i in range(2):
            |    # Create new threads
            |    t = myThread(i)
            |    t.start()
@@ -333,8 +333,8 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
       FileUtilities.writeFile(pythonFile, pythonClientCode)
 
+      Runtime.getRuntime.exec("pip install requests")
       val processes = (1 to 50).map(_ => {
-        Runtime.getRuntime.exec("pip install requests")
         Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
       })
 

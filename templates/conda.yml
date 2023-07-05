@@ -13,6 +13,6 @@ steps:
 #      path: $(CONDA_CACHE_DIR)
 #      cacheHitVar: CONDA_CACHE_RESTORED
   - bash: |
-      conda env create -f environment.yml  -v -v -v
+      (timeout 15m conda env create -f environment.yml  -v)  || (timeout 15m conda env create -f environment.yml  -v)
     displayName: Create Anaconda environment
 #    condition: eq(variables.CONDA_CACHE_RESTORED, 'false')

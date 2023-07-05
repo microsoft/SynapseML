@@ -50,6 +50,7 @@ variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   ComponentDetection.Timeout: 900
+  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
 
 jobs:
 - job: Style
@@ -65,12 +66,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
-    - task: UsePythonVersion@00
-      inputs:
-        versionSpec: '3.8'
-    - script: pip install -r requirements.txt
-      displayName: 'Install requirements'
+    - template: templates/conda.yml
     - bash: |
+        set -e
+        source activate synapseml
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
@@ -83,12 +82,18 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+    - task: MavenAuthenticate@0
+      name: mavenAuthPublicPackages
+      displayName: Authenticate SynapseML_PublicPackages
+      inputs:
+        artifactsFeeds: SynapseML_PublicPackages
+        mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
     - bash: |
         set -e
         sudo apt-get install graphviz doxygen -y
         source activate synapseml
         sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython
+        sbt publishBlob publishDocs publishR publishPython uploadNotebooks
         sbt publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
@@ -100,11 +105,20 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
+    - bash: |
+        set -e
+        sbt aetherDeploy
+      displayName: Publish to Feed
+      env:
+        ADO-FEED-TOKEN: $(ado-feed-token)
+        STORAGE-KEY: $(storage-key)
+        PUBLISH-TO-FEED: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - bash: |
         set -e
         sbt publishBadges
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      condition: and(succeeded(), eq(variables.isMaster, true))
       displayName: Publish Badges
       env:
         STORAGE-KEY: $(storage-key)
@@ -113,7 +127,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
 
 - job: E2E
   timeoutInMinutes: 120
@@ -149,7 +163,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -219,7 +233,7 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      condition: startsWith(variables['gittag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Build
       inputs:
         containerRegistry: 'SynapseML MCR'
@@ -232,7 +246,7 @@ jobs:
           latest
         arguments: --build-arg SYNAPSEML_VERSION=$(version)
     - task: Docker@2
-      condition: startsWith(variables['gittag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
         containerRegistry: 'SynapseML MCR'
@@ -257,9 +271,9 @@ jobs:
         wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
     - task: GitHubRelease@0
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         gitHubConnection: 'MMLSpark Github'
         repositoryName: '$(Build.Repository.Name)'
@@ -269,14 +283,14 @@ jobs:
         releaseNotesFile: 'CHANGELOG.md'
         isDraft: true
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       displayName: Add conda to PATH
     - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
       displayName: Fix directory permissions
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
     - task: Cache@2
       displayName: Use cached Anaconda environment
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         key: 'conda | "$(Agent.OS)" | environment.yml'
         restoreKeys: |
@@ -286,10 +300,10 @@ jobs:
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
         conda env create -f environment.yml -v -v -v
-      condition: and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false'))
+      condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
@@ -297,7 +311,7 @@ jobs:
         set -e
         source activate synapseml
         sbt publishPypi
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       env:
         STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
@@ -306,14 +320,14 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         PYPI-API-TOKEN: $(pypi-api-token)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
       displayName: 'publish python package to pypi'
     - bash: |
         set -e
         source activate synapseml
         sbt publishSigned
         sbt sonatypeBundleRelease
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       env:
         STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
@@ -321,7 +335,7 @@ jobs:
         PGP-PRIVATE: $(pgp-private)
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
       displayName: 'publish jar package to maven central'
 
 - job: PythonTests
@@ -416,7 +430,7 @@ jobs:
       inputs:
         scriptPath: tools/dotnet/dotnetSetup.sh
     - task: AzureKeyVault@1
-      condition: startsWith(variables['tag'], 'v')
+      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
@@ -439,7 +453,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
       env:
-        SYNAPSEML_ENABLE_PUBLISH: true
+        SYNAPSEML-ENABLE-PUBLISH: true
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -498,6 +512,10 @@ jobs:
             (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
           fi
           sbt publishM2
+
+          SPARK_VERSION=3.2.4
+          HADOOP_VERSION=3.2
+          wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
           (timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -685,6 +703,18 @@ jobs:
         FLAKY: "true"
       lightgbm2:
         PACKAGE: "lightgbm.split2"
+        FLAKY: "true"
+      lightgbm3:
+        PACKAGE: "lightgbm.split3"
+        FLAKY: "true"
+      lightgbm4:
+        PACKAGE: "lightgbm.split4"
+        FLAKY: "true"
+      lightgbm5:
+        PACKAGE: "lightgbm.split5"
+        FLAKY: "true"
+      lightgbm6:
+        PACKAGE: "lightgbm.split6"
         FLAKY: "true"
       opencv:
         PACKAGE: "opencv"

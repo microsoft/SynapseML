@@ -1,10 +1,10 @@
 import os
 import re
 
-from ..framework import *
-from ..utils.logging import get_log
-from ..framework.markdown import MarkdownFormatter
-from ..utils.parallelism import get_lock
+from documentprojection.framework import *
+from documentprojection.utils.logging import get_log
+from documentprojection.framework.markdown import MarkdownFormatter
+from documentprojection.utils.parallelism import get_lock
 
 log = get_log(__name__)
 
@@ -23,9 +23,8 @@ class WebsiteDoc(Document):
 
 
 class WebsiteFormatter(MarkdownFormatter):
-    def __init__(self, config: ChannelConfig):
+    def __init__(self, config: ChannelMetadata):
         self.config = config
-        print(self.config)
 
     def clean_markdown(self, markdown: str) -> str:
         markdown = re.sub(r"style=\"[\S ]*?\"", "", markdown)
@@ -63,6 +62,6 @@ class WebsitePublisher(Publisher):
 
 
 class WebsiteChannel(Channel):
-    def __init__(self, config: ChannelConfig):
+    def __init__(self, config: ChannelMetadata):
         self.formatter = WebsiteFormatter(config)
         self.publisher = WebsitePublisher()

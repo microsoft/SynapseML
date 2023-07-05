@@ -15,7 +15,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
 
   lazy val embedding: OpenAIEmbedding = new OpenAIEmbedding()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName("text-search-ada-doc-001")
+    .setDeploymentName("text-embedding-ada-002")
     .setCustomServiceName(openAIServiceName)
     .setTextCol("text")
     .setOutputCol("out")

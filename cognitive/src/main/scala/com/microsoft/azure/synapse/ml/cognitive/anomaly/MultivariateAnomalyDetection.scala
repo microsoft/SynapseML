@@ -166,7 +166,7 @@ object MADUtils extends Logging {
     val modelStatus = modelInfo("status").asInstanceOf[JsString].value.toLowerCase
     modelStatus match {
       case "failed" =>
-        val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
+        val errors = modelInfo("errors").toJson.compactPrint
         throw new RuntimeException(s"Caught errors during fitting: $errors")
       case "created" | "running" =>
         throw new RuntimeException(s"model $modelId is not ready yet")
@@ -258,7 +258,6 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
       }
     } else {
       val error = IOUtils.toString(response.entity.get.content, "UTF-8")
-        .parseJson.convertTo[DMAError].toJson.compactPrint
       throw new RuntimeException(s"Caught error: $error")
     }
   }
@@ -514,7 +513,7 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
       val modelId = response("modelId").convertTo[String]
 
       if (modelInfo("status").asInstanceOf[JsString].value.toLowerCase() == "failed") {
-        val errors = modelInfo("errors").convertTo[Seq[DMAError]].toJson.compactPrint
+        val errors = modelInfo("errors").toJson.compactPrint
         throw new RuntimeException(s"Caught errors during fitting: $errors")
       }
 

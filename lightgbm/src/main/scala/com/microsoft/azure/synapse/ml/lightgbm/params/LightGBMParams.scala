@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInitScoreCol, HasValidationIndicatorCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDelegate}
+import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.DefaultParamsWritable
 
@@ -58,12 +59,42 @@ trait LightGBMExecutionParams extends Wrappable {
   def getUseBarrierExecutionMode: Boolean = $(useBarrierExecutionMode)
   def setUseBarrierExecutionMode(value: Boolean): this.type = set(useBarrierExecutionMode, value)
 
+  val samplingMode = new Param[String](this, "samplingMode",
+    "Data sampling for streaming mode. Sampled data is used to define bins. " +
+      "'global': sample from all data, 'subset': sample from first N rows, or 'fixed': Take first N rows as sample." +
+      "Values can be global, subset, or fixed. Default is subset.")
+  setDefault(samplingMode -> LightGBMConstants.SubsetSamplingModeSubset)
+  def getSamplingMode: String = $(samplingMode)
+  def setSamplingMode(value: String): this.type = set(samplingMode, value)
+
+  val samplingSubsetSize = new IntParam(this, "samplingSubsetSize",
+    "Specify subset size N for the sampling mode 'subset'. 'binSampleCount' rows will be chosen from " +
+      "the first N values of the dataset. Subset can be used when rows are expected to be random and data is huge.")
+  setDefault(samplingSubsetSize -> 1000000)
+  def getSamplingSubsetSize: Int = $(samplingSubsetSize)
+  def setSamplingSubsetSize(value: Int): this.type = set(samplingSubsetSize, value)
+
+  val referenceDataset: ByteArrayParam = new ByteArrayParam(
+    this,
+    "referenceDataset",
+    "The reference Dataset that was used for the fit. If using samplingMode=custom, this must be set before fit()."
+  )
+  setDefault(referenceDataset -> Array.empty[Byte])
+  def getReferenceDataset: Array[Byte] = $(referenceDataset)
+  def setReferenceDataset(value: Array[Byte]): this.type = set(referenceDataset, value)
+
+  @deprecated("Please use 'dataTransferMode'", since = "0.11.1")
   val executionMode = new Param[String](this, "executionMode",
-    "Specify how LightGBM is executed.  " +
-      "Values can be streaming, bulk. Default is bulk.")
-  setDefault(executionMode -> LightGBMConstants.BulkExecutionMode)
-  def getExecutionMode: String = $(executionMode)
-  def setExecutionMode(value: String): this.type = set(executionMode, value)
+    "Deprecated. Please use dataTransferMode.")
+  @deprecated("Please use 'setDataTransferMode'", since = "0.11.1")
+  def setExecutionMode(value: String): this.type = set(dataTransferMode, value)
+
+  val dataTransferMode = new Param[String](this, "dataTransferMode",
+    "Specify how SynapseML transfers data from Spark to LightGBM.  " +
+      "Values can be streaming, bulk. Default is bulk, which is the legacy mode.")
+  setDefault(dataTransferMode -> LightGBMConstants.BulkDataTransferMode)
+  def getDataTransferMode: String = $(dataTransferMode)
+  def setDataTransferMode(value: String): this.type = set(dataTransferMode, value)
 
   val microBatchSize = new IntParam(this, "microBatchSize",
     "Specify how many elements are sent in a streaming micro-batch.")

@@ -99,7 +99,7 @@ class FindBestModel(override val uid: String) extends Estimator[BestModel]
 
       val bestIndex = simpleMetrics.zipWithIndex.foldLeft(Double.NaN, -1) {
         case (best, curr) =>
-          if (best._1.isNaN || operator.gt(best._1, curr._1))
+          if (best._1.isNaN || operator.lt(best._1, curr._1))
             curr
           else
             best
