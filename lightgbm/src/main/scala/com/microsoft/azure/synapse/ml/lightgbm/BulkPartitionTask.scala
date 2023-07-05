@@ -68,7 +68,6 @@ class BulkPartitionTask extends BasePartitionTask {
       val datasetInner: LightGBMDataset = ac.generateDataset(ctx, referenceDataset)
       ctx.trainingCtx.columnParams.groupColumn.foreach(_ => datasetInner.addGroupColumn(ac.getGroups))
       datasetInner.setFeatureNames(ctx.trainingCtx.featureNames, ac.getNumCols)
-      datasetInner
     } finally {
       ac.cleanup()
     }

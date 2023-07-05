@@ -24,7 +24,7 @@ from synapse.ml.train import *
 from numpy import random
 
 df = spark.createDataFrame(
-      [(random.rand(), random.rand()) for _ in range(4096)], ["label", "prediction"]
+      [(random.rand(), random.rand()) for _ in range(2048)], ["label", "prediction"]
 )
 
 cms = (ComputeModelStatistics()
@@ -43,8 +43,8 @@ import com.microsoft.azure.synapse.ml.train._
 import scala.util.Random
 
 val rand = new Random(1337)
-val df = (Seq.fill(4096)(rand.nextDouble())
-      .zip(Seq.fill(4096)(rand.nextDouble()))
+val df = (Seq.fill(2048)(rand.nextDouble())
+      .zip(Seq.fill(2048)(rand.nextDouble()))
       .toDF("label", "prediction"))
 
 val cms = (new ComputeModelStatistics()

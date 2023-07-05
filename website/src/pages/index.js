@@ -249,15 +249,16 @@ function Home() {
                 and cloud native.
               </p>
               <p>
-                Note: SynapseML will be built-in for{" "}
-                <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-3-runtime">
-                  Azure Synapse soon.
+                Note: SynapseML is built-in for{" "}
+                <a href="https://learn.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-33-runtime">
+                  Azure Synapse Analytics.
                 </a>
               </p>
               <Tabs
                 defaultValue="Synapse"
                 values={[
                   { label: "Synapse", value: "Synapse" },
+                  { label: "Fabric", value: "Fabric" },
                   { label: "Spark Packages", value: "Spark Packages" },
                   { label: "Databricks", value: "Databricks" },
                   { label: "Docker", value: "Docker" },
@@ -268,6 +269,40 @@ function Home() {
               >
                 <TabItem value="Synapse">
                   <p>SynapseML can be installed on Synapse adding the following to the first cell of a notebook:</p>
+                  For Spark3.3 pool:
+                  <CodeSnippet
+                    snippet={`%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1-spark3.3",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  For Spark3.2 pool:
+                  <CodeSnippet
+                    snippet={`%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.1,org.apache.spark:spark-avro_2.12:3.3.1",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false",
+      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
+  }
+}`}
+                    lang="bash"
+                  ></CodeSnippet>
+                </TabItem>
+                <TabItem value="Fabric">
+                  <p>SynapseML is preinstalled on Fabric. To install a different version, adding the following to the first cell of a notebook:</p>
                   For Spark3.3 pool:
                   <CodeSnippet
                     snippet={`%%configure -f

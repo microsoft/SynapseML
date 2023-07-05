@@ -1,0 +1,6 @@
+version: 0.1
+channels:
+  - name: website
+    is_active: true
+    notebooks:
+      - path: "./notebooks/features/"

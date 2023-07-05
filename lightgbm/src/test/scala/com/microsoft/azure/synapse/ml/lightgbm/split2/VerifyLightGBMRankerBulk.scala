@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
 
 /** Tests to validate the functionality of LightGBM Ranker module in bulk mode. */
 class VerifyLightGBMRankerBulk extends VerifyLightGBMRankerStream {
-  override lazy val executionMode: String = LightGBMConstants.BulkExecutionMode
+  override val dataTransferMode: String = LightGBMConstants.BulkDataTransferMode
   override def ignoreSerializationFuzzing: Boolean = true
   override def ignoreExperimentFuzzing: Boolean = true
 }

@@ -179,7 +179,7 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
         "Contoso\nAddress:\n1 Redmond way Suite\n6000 Redmond, WA\n99243\n" +
           "Invoice For: Microsoft\n1020 Enterprise Way",
         "CustomerAddress,CustomerAddressRecipient," +
-          "CustomerName,DueDate,InvoiceDate,InvoiceId,Items,VendorAddress,VendorName")
+          "CustomerName,DueDate,InvoiceDate,InvoiceId,InvoiceTotal,Items,VendorAddress,VendorName")
     }
   }
 
