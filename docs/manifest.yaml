@@ -5,7 +5,7 @@ channels:
     metadata:
       output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
       media_dir: media
-      is_testing: false # compare generated doc with test md file and print to console. Set to false to publish docs.
+      is_testing: true # compare generated doc with test md file and print to console. Set to false to publish docs.
     notebooks:
       - path: ../../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
         filename: causal-structure
@@ -20,31 +20,45 @@ channels:
           ms.author: jessiwang
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
         filename: cognitive-services-create-a-multilingual-search-engine-from-forms
-        is_active: false
-        footer: ../../notebooks/fabric_template/cognitive-services-create-a-multilingual-search-engine-from-forms-end.md # platform specific content added after notebook
+        is_active: true
+        # repo_doc: docs/data-science/cognitive-services-create-a-multilingual-search-engine-from-forms.md
         metadata:
           title: Build a Search Engine
-          description: Build a Search Engine
+          description: Build a custom search engine and question-answering system with SynapseML.
           ms.topic: overview
+          ms.custom: build-2023
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        next_steps:
+          How to use LightGBM with SynapseML: lightgbm-overview.md
+          How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
+          How to use SynapseML to tune hyperparameters: hyperparameter-tuning-fighting-breast-cancer.md
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
         filename: cognitive-services-multivariate-anomaly-detection
-        is_active: false # clear
-        footer: ../../notebooks/fabric_template/cognitive-services-multivariate-anomaly-detection-end.md
+        is_active: true # clear
+        # repo_doc: docs/data-science/cognitive-services-multivariate-anomaly-detection.md
         metadata:
           title: Analyze time series
-          description: Analyze time series
+          description: Use SynapseML and Azure Cognitive Services for multivariate anomaly detection.
           ms.topic: overview
+          ms.custom: build-2023
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 1
+        prerequisites: |
+          ## Prerequisites
+          * An Azure subscription - [Create one for free](https://azure.microsoft.com/free/)
+          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        next_steps:
+          How to use LightGBM with SynapseML: lightgbm-overview.md
+          How to use Cognitive Services with SynapseML: overview-cognitive-services.md
+          How to use SynapseML to tune hyperparameters: hyperparameter-tuning-fighting-breast-cancer.md        
         alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
         filename: overview-cognitive-services
         is_active: false # Azure Cognitive search sample off
-        footer: ../../notebooks/fabric_template/overview-cognitive-services-end.md
         metadata: # metadata for azure doc
           title: Cognitive Services in Azure Synapse Analytics
           description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
@@ -52,24 +66,49 @@ channels:
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 3
+        prerequisites: |
+          ## Prerequisites
+          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+          * Cognitive Services Key. To obtain a Cognitive Services key, follow the [Quickstart](https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account).
       - path: ../../notebooks/features/lightgbm/LightGBM - Overview.ipynb
         filename: lightgbm-overview
         is_active: false # Saving model off
-        footer: ../../notebooks/fabric_template/lightgbm-overview-end.md
         metadata: # metadata for azure doc
           title: LightGBM Overview
           description: build LightGBM model with SynapseML
           ms.topic: overview
-          ms.reviewer: jessiwang
+          ms.reviewer: mopeakande
           author: JessicaXYWang
           ms.author: jessiwang
       - path: ../../notebooks/features/onnx/ONNX - Inference on Spark.ipynb
         filename: onnx-overview
         is_active: true # clear
-        #footer: ../../notebooks/fabric_template/onnx-overview-end.md
+        #repo_doc: docs/data-science/onnx-overview.md
         metadata: # metadata for azure doc
           title: ONNX - Inference on Spark
-          description: build ONNX model with SynapseML
+          description: Use SynapseML to build a LightGBM model, convert it to ONNX format, then perform inference.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: larryfr
+          author: JessicaXYWang
+          ms.author: jessiwang
+        prerequisites_position: 1
+        prerequisites: |
+          ## Prerequisites
+          - Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+          - You may need to install `onnxmltools` by adding `!pip install onnxmltools==1.7.0` in a code cell and then running the cell.
+        next_steps:
+          How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md
+          How to use SynapseML for multivariate anomaly detection: isolation-forest-multivariate-anomaly-detection.md
+          How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
+      - path: ../../notebooks/features/responsible_ai/Interpretability - Tabular SHAP explainer.ipynb
+        filename: tabular-shap-explainer
+        is_active: true # clear
+        repo_doc: docs/data-science/tabular-shap-explainer.md
+        metadata:
+          title: Interpretability - Tabular SHAP explainer
+          description: Use Kernel SHAP to explain a tabular classification model.
           ms.topic: overview
           ms.custom: build-2023
           ms.reviewer: jessiwang
@@ -79,17 +118,6 @@ channels:
           How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md
           How to use SynapseML for multivariate anomaly detection: isolation-forest-multivariate-anomaly-detection.md
           How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
-      - path: ../../notebooks/features/responsible_ai/Interpretability - Tabular SHAP explainer.ipynb
-        filename: tabular-shap-explainer
-        is_active: false # clear
-        footer: ../../notebooks/fabric_template/tabular-shap-explainer-end.md
-        metadata:
-          title: Interpretability - Tabular SHAP explainer
-          description: Interpretability - Tabular SHAP explainer
-          ms.topic: overview
-          ms.reviewer: jessiwang
-          author: JessicaXYWang
-          ms.author: jessiwang
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - OpenAI.ipynb
         filename: open-ai
         is_active: true
@@ -117,15 +145,19 @@ channels:
       - path: ../../notebooks/features/isolation_forest/IsolationForest - Multivariate Anomaly Detection.ipynb
         filename: isolation-forest-multivariate-anomaly-detection
         is_active: true # hide dashboard, dependency conflicts
-        #footer: ../../notebooks/fabric_template/isolation-forest-multivariate-anomaly-detection-end.md
+        # repo_doc: docs/data-science/isolation-forest-multivariate-anomaly-detection.md
         metadata: # metadata for azure doc
           title: Outlier and Anomaly Detection
-          description: Outlier and Anomaly Detection
+          description: Use SynapseML on Apache Spark for multivariate anomaly detection with Isolation Forest model.
           ms.topic: overview
           ms.custom: build-2023
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 1
+        prerequisites: |
+          ## Prerequisites
+          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
         next_steps:
           How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
           How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
@@ -144,10 +176,10 @@ channels:
       - path: ../../notebooks/features/other/HyperParameterTuning - Fighting Breast Cancer.ipynb
         filename: hyperparameter-tuning-fighting-breast-cancer
         is_active: true # clear
-        #footer: ../../notebooks/fabric_template/hyperparameter-tuning-fighting-breast-cancer-end.md
+        repo_doc: docs/data-science/hyperparameter-tuning-fighting-breast-cancer.md
         metadata:
           title: Hyperparameter tuning
-          description: Hyperparameter tuning
+          description: Identify the best combination of hyperparameters for your chosen classifiers with SynapseML.
           ms.topic: overview
           ms.custom: build-2023
           ms.reviewer: jessiwang
@@ -160,40 +192,65 @@ channels:
       - path: ../../notebooks/features/classification/Classification - Sentiment Analysis Quickstart.ipynb
         filename: synapseml-first-model
         is_active: true # clear
-        #footer: ../../notebooks/fabric_template/synapseml-first-model-end.md
-        test_doc: ../../../test_doc/synapseml-first-model.md
+        #repo_doc: docs/data-science/synapseml-first-model.md
         metadata:
           title: SynapseMl first model
-          description:  A quick introduction to building your first machine learning model with SynapseML
-          ms.topic: overview
+          description:  A quick introduction to building your first machine learning model with SynapseML.
+          ms.topic: how-to
           ms.custom: build-2023
-          ms.reviewer: jessiwang
+          ms.reviewer: mopeakande
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 1
+        prerequisites: |
+          ## Prerequisites
+          [!INCLUDE [prerequisites](includes/prerequisites.md)]
+          * Go to the Data Science experience in [!INCLUDE [product-name](../includes/product-name.md)].
+          * Create [a new notebook](../data-engineering/how-to-use-notebook.md#create-notebooks).
+          * Attach your notebook to a lakehouse. On the left side of your notebook, select **Add** to add an existing lakehouse or create a new one.
+          * Obtain an Azure Cognitive Services key by following the [Create a Cognitive Services resource using the Azure portal](/azure/cognitive-services/cognitive-services-apis-create-account) quickstart. You'll need this key for the [Use Cognitive Services to transform data in one step](#use-cognitive-services-to-transform-data-in-one-step) section of this article.
         next_steps:
           How to use LightGBM with SynapseML: lightgbm-overview.md
           How to use Cognitive Services with SynapseML: overview-cognitive-services.md
           How to perform the same classification task with and without SynapseML: classification-before-and-after-synapseml.md
+          "Quickstart: Create a Cognitive Services resource using the Azure portal" : /azure/cognitive-services/cognitive-services-apis-create-account
       - path: ../../notebooks/features/other/ConditionalKNN - Exploring Art Across Cultures.ipynb
         filename: conditional-k-nearest-neighbors-exploring-art
-        is_active: false # clear
-        footer: ../../notebooks/fabric_template/conditional-knn-exploring-art-end.md
+        is_active: true # clear
+        #repo_doc: docs/data-science/conditional-k-nearest-neighbors-exploring-art.md
         metadata:
           title: Conditional KNN Exploring Art Across Cultures
-          description:  A guideline for match-finding via k-nearest-neighbors
-          ms.topic: overview
-          ms.reviewer: jessiwang
+          description:  A guideline for match-finding via k-nearest-neighbors.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: larryfr
           author: JessicaXYWang
           ms.author: jessiwang
-        alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
+        prerequisites_position: 1
+        prerequisites: |
+          ## Prerequisites
+          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        next_steps:
+          How to use ONNX with SynapseML - Deep Learning: onnx-overview.md
+          How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md
+          How to use SynapseML for multivariate anomaly detection: isolation-forest-multivariate-anomaly-detection.md
       - path: ../../notebooks/features/classification/Classification - Before and After SynapseML.ipynb
         filename: classification-before-and-after-synapseml
-        is_active: false # clear
-        footer: ../../notebooks/fabric_template/classification-before-and-after-synapseml-end.md
+        is_active: true # clear
+        #repo_doc: docs/data-science/classification-before-and-after-synapseml.md
         metadata:
-          title: Classification - Before and After SynapseML
-          description:  Perform the same classification task with and without synapseml
-          ms.topic: overview
+          title: Classification - before and after SynapseML
+          description:  Perform the same classification task with and without SynapseML.
+          ms.topic: how-to
+          ms.custom: build-2023
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_position: 3
+        prerequisites: |
+          ## Prerequisites
+          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        next_steps:
+          How to use KNN model with SynapseML: conditional-k-nearest-neighbors-exploring-art.md
+          How to use ONNX with SynapseML - Deep Learning: onnx-overview.md
+          How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md

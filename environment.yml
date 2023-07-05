@@ -45,3 +45,4 @@ dependencies:
     - langchain==0.0.151
     - openai==0.27.5
     - traitlets==5.9.0
+    - PyGithub==1.59.0

@@ -6,6 +6,7 @@ from datetime import datetime
 import difflib
 import nbformat
 import requests
+from github import Github
 from nbconvert import MarkdownExporter
 from nbformat.v4 import new_markdown_cell
 from traitlets.config import Config
@@ -13,6 +14,10 @@ from traitlets.config import Config
 from ..framework import *
 from ..framework.markdown import MarkdownFormatter
 from ..utils.logging import get_log
+
+repo_owner = "MicrosoftDocs"
+repo_name = "fabric-docs-pr"
+token = ""
 
 log = get_log(__name__)
 
@@ -35,8 +40,10 @@ class FabricPublisher(Publisher):
         # set is_testing in channel config and test_doc path in manifest file
         # to compare generated doc with a given .md file
         if ('is_testing' in channel_config) and channel_config['is_testing']:
-            if 'test_doc' in document.metadata:
-                print(compare_doc(document.metadata['test_doc'], document.content))
+            if 'repo_doc' in document.metadata:
+                file_path = document.metadata['repo_doc']
+                md_content = read_github_file(repo_owner, repo_name, file_path, token)
+                print(compare_doc(md_content, document.content))
         else:
             output_dir = channel_config['output_dir']
             make_dir(output_dir)
@@ -213,8 +220,8 @@ def process_img(nb_body, folder_name, output_dir, media_dir, alt_texts):
             r"<(?:img|image).*?src=\"(.*?)\".*?>", nb_body[start_index:end_index]
         ).group(1)
         file_name = url.split("/")[-1]
-        # file_dir = "/".join([output_dir, media_dir, folder_name])
-        # make_dir(file_dir)
+        file_dir = "/".join([output_dir, media_dir, folder_name])
+        make_dir(file_dir)
         img_azure_doc_path = "/".join([folder_name, rename(file_name)])
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
@@ -242,13 +249,16 @@ def remove_replace_content(text, manifest_mapping):
         text = text.replace(ori, new)
     return text
 
-def compare_doc(ori, generated):
-    # compare generated doc with an local md file.
-    # TODO: switch to github file
-    with open(ori, 'r') as file:
-        ori_content = file.read()
+def compare_doc(md_content, generated):
     differ = difflib.Differ()
-    diff = differ.compare(ori_content.splitlines(), generated.splitlines())
+    diff = differ.compare(md_content.splitlines(), generated.splitlines())
     diff_with_row_numbers = [(line[0], line[2:]) for line in diff if line.startswith('+') or line.startswith('-')]
     diff_with_row_numbers = [(line[0], line[1], index + 1) for index, line in enumerate(diff_with_row_numbers)]
     return '\n'.join(f'{symbol} {line} (row {row_num})' for symbol, line, row_num in diff_with_row_numbers)
+
+def read_github_file(repo_owner, repo_name, file_path, token):
+    g = Github(token)
+    repo = g.get_repo('{repo_owner}/{repo_name}'.format(repo_owner=repo_owner, repo_name=repo_name))
+    file_contents = repo.get_contents(file_path)
+    md_content = file_contents.decoded_content.decode('utf-8')
+    return md_content
