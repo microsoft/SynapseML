@@ -5,7 +5,7 @@ channels:
     metadata:
       output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
       media_dir: media
-      is_testing: true # compare generated doc with test md file and print to console. Set to false to publish docs.
+      is_testing: false # compare generated doc with test md file and print to console. Set to false to publish docs.
     notebooks:
       - path: ../../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
         filename: causal-structure

@@ -17,7 +17,6 @@ from ..utils.logging import get_log
 
 repo_owner = "MicrosoftDocs"
 repo_name = "fabric-docs-pr"
-token = ""
 
 log = get_log(__name__)
 
