@@ -126,7 +126,7 @@ using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](ht
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
-#### Dynamic Allocation Issues
+#### Dynamic Allocation Limitations
 The native LightGBM library has a *distributed mode* that allows the algorithm to work over multiple *machines*. SynapseML
 uses this mode to call LightGBM from Spark. SynapseML first gathers all the Spark executor networking information, passes that to LightGBM, and then
 waits for LightGBM to complete its work. However, the native LightGBM algorithm implementation assumes all networking is constant over the time period of a single
