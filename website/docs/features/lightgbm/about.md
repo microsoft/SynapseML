@@ -126,13 +126,13 @@ using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](ht
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
-#### Dynamic Scaling Issues
+#### Dynamic Allocation Issues
 The native LightGBM library has a *distributed mode* that allows the algorithm to work over multiple *machines*. SynapseML
-uses this LightGBM mode from Spark. SynapseML first gathers all the Spark executor networking information, passes that to LightGBM, and then
+uses this mode to call LightGBM from Spark. SynapseML first gathers all the Spark executor networking information, passes that to LightGBM, and then
 waits for LightGBM to complete its work. However, the native LightGBM algorithm implementation assumes all networking is constant over the time period of a single
 training or scoring session. The native LightGBM distributed mode was designed this way and isn't a limitation of SynapseML by itself.
 
-Dynamic executor changes can cause LightGBM problems if the Spark executors change during data processing. Spark can naturally
+Dynamic compute changes can cause LightGBM problems if the Spark executors change during data processing. Spark can naturally
 take advantage of cluster autoscaling and can also dynamically replace any failed executor with another, but LightGBM can't
 handle these networking changes. Large datasets are affected in particular since they're more likely to cause executor scaling
 or have a single executor fail during a single processing pass.
@@ -152,15 +152,11 @@ there are several options.
        }
    }
 ```
-Note: setting any custom configuration can affect cluster startup time if your platform takes advantage of "live pools"
+Note: setting any custom configuration can affect cluster startup time if your compute platform takes advantage of "live pools"
 to improve notebook performance.
 
 If you still have problems, you can consider splitting your data into smaller segments using *numBatches*. Splitting into multiple
-batches increases processing time, but can potentially be used to increase reliability.
-
-#### GPU
-Although LightGBM library can be compiled to support GPUs (through CUDA), SynapseML doesn't currently use a GPU-enabled build. If
-you wish to use GPUs, file an issue with SynapseML so we can measure the interest.
+batches increases total processing time, but can potentially be used to increase reliability.
 
 ### Data Transfer Mode
 
