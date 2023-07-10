@@ -6,7 +6,7 @@ SynapseML (previously known as MMLSpark), is an open-source library that simplif
 
 With SynapseML, you can build scalable and intelligent systems to solve challenges in domains such as anomaly detection, computer vision, deep learning, text analytics, and others. SynapseML can train and evaluate models on single-node, multi-node, and elastically resizable clusters of computers. This lets you scale your work without wasting resources. SynapseML is usable across Python, R, Scala, Java, and .NET. Furthermore, its API abstracts over a wide variety of databases, file systems, and cloud data stores to simplify experiments no matter where data is located.
 
-SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.8+.
+SynapseML requires Scala 2.12, Spark 3.2+, and Python 3.8+. 
 
 | Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
