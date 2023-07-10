@@ -167,10 +167,10 @@ class FabricFormatter(MarkdownFormatter):
         return generated_metadata
     
     def generate_next_steps(self, next_steps):
-        generated_next_steps = "## Next steps\n\n"
+        generated_next_steps = ["## Next steps\n"]
         for k, v in next_steps.items():
-            generated_next_steps += "- [{k}]({v})\n".format(k=k, v=v)
-        return generated_next_steps
+            generated_next_steps.append("- [{k}]({v})".format(k=k, v=v))
+        return "\n".join(generated_next_steps)
 
 
     def combine_documentation(self, body, footer, manifest_mapping, next_steps=None):
