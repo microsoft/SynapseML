@@ -183,7 +183,6 @@ object NetworkManager {
     partitionList.split(",").map(str => str.toInt).sorted
   }
 
-  @tailrec
   def initLightGBMNetwork(ctx: PartitionTaskContext,
                           log: Logger,
                           retry: Int = LightGBMConstants.NetworkRetries,
