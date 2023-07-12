@@ -86,7 +86,9 @@ object HandlingUtils extends SparkLogging {
   //scalastyle:off cyclomatic.complexity
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
-                                  retriesLeft: Array[Int]): CloseableHttpResponse = {
+                                  retriesLeft: Array[Int],
+                                  extraCodesToRetry: Set[Int] = Set()
+                                 ): CloseableHttpResponse = {
     try {
       val response = client.execute(request)
       val code = response.getStatusLine.getStatusCode
@@ -116,7 +118,12 @@ object HandlingUtils extends SparkLogging {
               case _ => request.getURI
             }
           }")
-          code.toString.startsWith("4") // Retry only when code isn't a 4XX
+
+          if (extraCodesToRetry(code)) {
+            false
+          } else {
+            code.toString.startsWith("4") // Retry only when code isn't a 4XX
+          }
       }
       //scalastyle:on magic.number
       if (dontRetry || retriesLeft.isEmpty) {
