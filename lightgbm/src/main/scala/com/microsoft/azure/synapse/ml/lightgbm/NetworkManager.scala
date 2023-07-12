@@ -50,6 +50,10 @@ object NetworkManager {
     * and then sends back the information to the executors.
     *
     * @param numTasks The total number of training tasks to wait for.
+    * @param spark The Spark session.
+    * @param driverListenPort The port to listen for the driver on.
+    * @param timeout The timeout (in seconds).
+    * @param useBarrierExecutionMode Whether to use barrier mode.
     * @return The NetworkTopology.
     */
   def create(numTasks: Int,
@@ -93,7 +97,7 @@ object NetworkManager {
     * @param partitionId The partition id.
     * @param shouldExecuteTraining Whether this task should be a part of the training network.
     * @param measures Instrumentation for perf measurements.
-    * @returns Information about the network topology.
+    * @return Information about the network topology.
     */
   def getGlobalNetworkInfo(ctx: TrainingContext,
                            log: Logger,
@@ -120,7 +124,7 @@ object NetworkManager {
     out
   }
 
-  def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
+  private def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
                                        taskId: Long,
                                        partitionId: Int,
                                        localListenPort: Int,
@@ -168,7 +172,7 @@ object NetworkManager {
     }.get
   }
 
-  def parseExecutorPartitionList(partitionsByExecutorStr: String, executorId: String): Array[Int] = {
+  private def parseExecutorPartitionList(partitionsByExecutorStr: String, executorId: String): Array[Int] = {
     // extract this executors partition ids as an array, from a string that is formatter like this:
     // executor1=partition1,partition2:executor2=partition3,partition4
     val partitionsByExecutor = partitionsByExecutorStr.split(":")
@@ -225,7 +229,7 @@ object NetworkManager {
     mainPort.toInt
   }
 
-  def findOpenPort(ctx: TrainingContext, log: Logger): Option[Socket] = {
+  private def findOpenPort(ctx: TrainingContext, log: Logger): Option[Socket] = {
     val defaultListenPort: Int = ctx.networkParams.defaultListenPort
     val basePort = defaultListenPort + (LightGBMUtils.getWorkerId * ctx.numTasksPerExecutor)
     if (basePort > LightGBMConstants.MaxPort) {
@@ -257,7 +261,7 @@ object NetworkManager {
     taskServerSocket
   }
 
-  def setFinishedStatus(networkParams: NetworkParams, log: Logger): Unit = {
+  private def setFinishedStatus(networkParams: NetworkParams, log: Logger): Unit = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
       driverSocket =>
         using(new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream))) {
@@ -306,7 +310,7 @@ case class NetworkManager(numTasks: Int,
 
   // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
   // Also make sure the order is deterministic by sorting on minimum partition id
-  lazy val networkTopologyAsString: String = {
+  private lazy val networkTopologyAsString: String = {
     val hostPortsList = hostAndPorts.map(_._2).sortBy(hostPort => {
       val host = hostPort.split(":")(0)
       hostToMinPartition(host)
@@ -316,7 +320,7 @@ case class NetworkManager(numTasks: Int,
 
   // Create a string representing of the partitionsByExecutor map
   // e.g. executor1=partition1,partition2:executor2=partition3,partition4
-  lazy val partitionsByExecutorAsString: String = {
+  private lazy val partitionsByExecutorAsString: String = {
     val executorList = partitionsByExecutor.map { case (executor, partitionList) =>
       executor + "=" + partitionList.mkString(",")
     }
@@ -338,7 +342,7 @@ case class NetworkManager(numTasks: Int,
     Await.result(networkCommunicationThread, Duration(timeout, SECONDS))
   }
 
-  def waitForAllTasksToReport(): Unit = {
+  private def waitForAllTasksToReport(): Unit = {
     if (useBarrierExecutionMode) {
       log.info(s"driver using barrier execution mode for $numTasks tasks...")
 
@@ -411,7 +415,7 @@ case class NetworkManager(numTasks: Int,
     }
   }
 
-  def sendDataToExecutors(lightGBMNetworkTopology: String, partitionsByExecutor: String): Unit = {
+  private def sendDataToExecutors(lightGBMNetworkTopology: String, partitionsByExecutor: String): Unit = {
     // TODO optimize and not send for bulk mode helpers
     // Send aggregated network information back to all tasks and helper tasks on executors
     val count = hostAndPorts.length + loadOnlyHostAndPorts.length
@@ -431,7 +435,7 @@ case class NetworkManager(numTasks: Int,
     })
   }
 
-  def closeConnections(): Unit = {
+  private def closeConnections(): Unit = {
     log.info("driver closing all sockets and server socket")
     hostAndPorts.foreach(_._1.close())
     driverServerSocket.close()

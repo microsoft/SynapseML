@@ -40,15 +40,7 @@ description: SynapseML Development Setup
     - Place it in C:\Program Files\Hadoop\bin
     - Add an environment variable HADOOP_HOME with value C:\Program Files\Hadoop
     - Append C:\Program Files\Hadoop\bin to PATH environment variable
-1. Install pre-commit
-    - This repository uses the [pre-commit](https://pre-commit.com/index.html) tool to manage git hooks and enforce linting/coding styles.
-    - The hooks are configured in [.pre-commit-config.yaml](https://github.com/microsoft/SynapseML/blob/master/environment.yml).
-    - To use the hooks, run the following commands:
-    ```bash
-    pip install pre-commit
-    pre-commit install
-    ```
-    - Now `pre-commit` should automatically run on every `git commit` operation to find AND fix linting issues.
+
 
 > NOTE
 >

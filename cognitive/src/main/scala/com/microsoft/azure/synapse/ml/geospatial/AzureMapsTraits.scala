@@ -95,7 +95,8 @@ trait MapsAsyncReply extends HasAsyncReply {
     val statusRequest = new HttpGet()
     statusRequest.setURI(location)
     statusRequest.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-    val resp = convertAndClose(sendWithRetries(client, statusRequest, getBackoffs))
+    val resp = convertAndClose(sendWithRetries(
+      client, statusRequest, getBackoffs, extraCodesToRetry = Set(404))) // scalastyle:off magic.number
     statusRequest.releaseConnection()
     val status = resp.statusLine.statusCode
     if (status == 202) {
