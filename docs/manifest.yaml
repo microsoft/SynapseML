@@ -18,6 +18,9 @@ channels:
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
       - path: ../../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
         filename: cognitive-services-create-a-multilingual-search-engine-from-forms
         is_active: true
@@ -30,6 +33,9 @@ channels:
           ms.reviewer: jessiwang
           author: JessicaXYWang
           ms.author: jessiwang
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
         next_steps:
           How to use LightGBM with SynapseML: lightgbm-overview.md
           How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
@@ -47,10 +53,9 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 1
-        prerequisites: |
-          ## Prerequisites
-          * An Azure subscription - [Create one for free](https://azure.microsoft.com/free/)
-          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
         next_steps:
           How to use LightGBM with SynapseML: lightgbm-overview.md
           How to use Cognitive Services with SynapseML: overview-cognitive-services.md
@@ -67,10 +72,11 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 3
-        prerequisites: |
-          ## Prerequisites
-          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
-          * Cognitive Services Key. To obtain a Cognitive Services key, follow the [Quickstart](https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account).
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
+          ../../notebooks/documentation/prerequisites_azure_resources.ipynb:
+            - cognitive-services-prerequisites
       - path: ../../notebooks/features/lightgbm/LightGBM - Overview.ipynb
         filename: lightgbm-overview
         is_active: false # Saving model off
@@ -130,14 +136,11 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 1
-        prerequisites: |
-          ## Step 1: Prerequisites
-          The key prerequisites for this quickstart include a working Azure OpenAI resource, and an Apache Spark cluster with SynapseML installed. 
-
-          [!INCLUDE [prerequisites](includes/prerequisites.md)]
-          * Go to the Data Science experience in [!INCLUDE [product-name](../includes/product-name.md)].
-          * Create [a new notebook](../data-engineering/how-to-use-notebook.md#create-notebooks).
-          * An Azure OpenAI resource: request access [here](https://customervoice.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR7en2Ais5pxKtso_Pz4b1_xUOFA5Qk1UWDRBMjg0WFhPMkIzTzhKQ1dWNyQlQCN0PWcu) before [creating a resource](https://docs.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource)
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
+          ../../notebooks/documentation/prerequisites_azure_resources.ipynb:
+            - openai-prerequisites
         next_steps:
           How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
           How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
@@ -155,9 +158,9 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 1
-        prerequisites: |
-          ## Prerequisites
-          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
         next_steps:
           How to Build a Search Engine with SynapseML: cognitive-services-create-a-multilingual-search-engine-from-forms.md
           How to use SynapseML and Cognitive Services for multivariate anomaly detection - Analyze time series: cognitive-services-multivariate-anomaly-detection.md
@@ -202,13 +205,11 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 1
-        prerequisites: |
-          ## Prerequisites
-          [!INCLUDE [prerequisites](includes/prerequisites.md)]
-          * Go to the Data Science experience in [!INCLUDE [product-name](../includes/product-name.md)].
-          * Create [a new notebook](../data-engineering/how-to-use-notebook.md#create-notebooks).
-          * Attach your notebook to a lakehouse. On the left side of your notebook, select **Add** to add an existing lakehouse or create a new one.
-          * Obtain an Azure Cognitive Services key by following the [Create a Cognitive Services resource using the Azure portal](/azure/cognitive-services/cognitive-services-apis-create-account) quickstart. You'll need this key for the [Use Cognitive Services to transform data in one step](#use-cognitive-services-to-transform-data-in-one-step) section of this article.
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
+          ../../notebooks/documentation/prerequisites_azure_resources.ipynb:
+            - cognitive-services-prerequisites
         next_steps:
           How to use LightGBM with SynapseML: lightgbm-overview.md
           How to use Cognitive Services with SynapseML: overview-cognitive-services.md
@@ -227,10 +228,9 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 1
-        prerequisites: |
-          ## Prerequisites
-          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
-        next_steps:
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
           How to use ONNX with SynapseML - Deep Learning: onnx-overview.md
           How to use Kernel SHAP to explain a tabular classification model: tabular-shap-explainer.md
           How to use SynapseML for multivariate anomaly detection: isolation-forest-multivariate-anomaly-detection.md
@@ -247,9 +247,9 @@ channels:
           author: JessicaXYWang
           ms.author: jessiwang
         prerequisites_position: 3
-        prerequisites: |
-          ## Prerequisites
-          * Attach your notebook to a lakehouse. On the left side, select **Add** to add an existing lakehouse or create a lakehouse.
+        prerequisites_notebooks: 
+          ../../notebooks/documentation/prerequisites_platforms.ipynb: 
+            - fabric-prerequisites
         next_steps:
           How to use KNN model with SynapseML: conditional-k-nearest-neighbors-exploring-art.md
           How to use ONNX with SynapseML - Deep Learning: onnx-overview.md
