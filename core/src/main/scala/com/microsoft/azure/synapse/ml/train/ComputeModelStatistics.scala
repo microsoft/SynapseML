@@ -260,7 +260,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
                                 labelColumnName: String): DataFrame = {
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(predictionColumnName), col(labelColumnName).cast(DoubleType))
+    dataset.select(col(predictionColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
       .cache()
       .na
       .drop(Array(predictionColumnName, labelColumnName))
@@ -284,7 +284,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     // Calculate confusion matrix and output it as DataFrame
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName))
+    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
       .cache()
       .na
       .drop(Array(scoredLabelsColumnName, labelColumnName))
@@ -314,7 +314,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
                          levelsToIndexMap: Map[Any, Double]): RDD[(Double, Double)] = {
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoresColumnName), col(labelColumnName))
+    dataset.select(col(scoresColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
       .cache()
       .na
       .drop(Array(scoresColumnName, labelColumnName))
