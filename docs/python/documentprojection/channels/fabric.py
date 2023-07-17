@@ -12,7 +12,6 @@ from nbformat.v4 import new_markdown_cell
 from traitlets.config import Config
 
 from ..framework import *
-from ..framework.markdown import MarkdownFormatter
 from ..utils.logging import get_log
 
 repo_owner = "MicrosoftDocs"
@@ -33,6 +32,12 @@ class FabricPublisher(Publisher):
         return self.config
     
     def publish(self, document: Document) -> bool:
+        """
+        Write converted Markdown file, 
+        skipping notebooks with "is_active" set to False in the config file.
+        When "is_testing" is set to True for fabric channel, 
+        print difference of the converted file and the target file (repo_doc in config).
+        """
         if not document.metadata["is_active"]:
             return False
         channel_config = self.get_config()
@@ -45,7 +50,7 @@ class FabricPublisher(Publisher):
                 print(compare_doc(md_content, document.content))
         else:
             output_dir = channel_config["output_dir"]
-            make_dir(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
             filename = document.metadata["filename"]
             if not filename.endswith(".md"):
                 filename += ".md"
@@ -66,6 +71,21 @@ class FabricFormatter:
         content = f"{header}\n{markdown}"
         return content
     
+    def get_metadata(self, notebook: Notebook) -> dict:
+        notebook.metadata.update(
+            {"source_path": notebook.path, "target_path": "stdout"}
+        )
+        return notebook.metadata
+
+    def get_config(self):
+        return self.config
+    
+    def get_header(self, notebook: Notebook) -> str:
+        fabric_metadata = self.get_metadata(notebook)["metadata"]
+        self.check_required_metadata(fabric_metadata)
+        generated_metadata = self.generate_metadata(fabric_metadata)
+        return generated_metadata
+
     def to_markdown(self, notebook: Notebook) -> str:
         # add prerequisites from manifest file
         if "prerequisites_position" in notebook.metadata:
@@ -83,28 +103,18 @@ class FabricFormatter:
             hide_tag = notebook.metadata["hide_tag"]
         else:
             hide_tag = "hide-synapse-internal"
+        if "alt_texts" in notebook.metadata:
+            alt_texts = notebook.metadata["alt_texts"]
+        else:
+            alt_texts = []
         c = Config()
         c.TagRemovePreprocessor.remove_cell_tags = (hide_tag,)
         c.TagRemovePreprocessor.enabled = True
         c.MarkdownExporter.preprocessors = ["nbconvert.preprocessors.TagRemovePreprocessor"]
         exporter = MarkdownExporter(config=c)
-        markdown, _ = exporter.from_notebook_node(notebook.data)
+        markdown, resources = exporter.from_notebook_node(notebook.data)
+        markdown = self.save_support_files_update_references(markdown, resources,alt_texts)
         return markdown
-    
-    def get_config(self):
-        return self.config
-    
-    def get_header(self, notebook: Notebook) -> str:
-        fabric_metadata = self.get_metadata(notebook)["metadata"]
-        self.check_required_metadata(fabric_metadata)
-        generated_metadata = self.generate_metadata(fabric_metadata)
-        return generated_metadata
-
-    def get_metadata(self, notebook: Notebook) -> dict:
-        notebook.metadata.update(
-            {"source_path": notebook.path, "target_path": "stdout"}
-        )
-        return notebook.metadata
     
     def clean_markdown(self, markdown: str, metadata) -> str:
         filename = metadata["filename"]
@@ -130,6 +140,27 @@ class FabricFormatter:
         markdown = self.combine_documentation(markdown, footer, manifest_mapping, next_steps)
         return markdown
     
+    def save_support_files_update_references(self, markdown, resources, alt_texts):
+        alt_text_count = 0
+        media_dir = self.get_config()["media_dir"]
+        output_dir = self.get_config()["output_dir"]
+        for filename, data in resources.get("outputs", {}).items():
+            media_path = os.path.join(output_dir, media_dir, filename)
+            os.makedirs(os.path.join(output_dir, media_dir), exist_ok=True)
+            with open(media_path, "wb") as f:
+                f.write(data)
+            alt_text = alt_texts[alt_text_count]
+            markdown = self.update_image_references(markdown, media_dir, filename, alt_text)
+            alt_text_count += 1
+        return markdown
+    
+    def update_image_references(self, markdown, media_dir, filename, alt_text):
+        img_path = f"{media_dir}/{filename}"
+        template = f':::image source="{img_path}" alt-text="{alt_text}":::'
+        markdown = markdown.replace(f"![svg]({filename})", template)
+        markdown = markdown.replace(f"![png]({filename})", template)
+        return markdown
+
     def format(self, notebook: Notebook) -> Document:
         metadata = self.get_metadata(notebook)
         if ("is_active" in metadata) and (not metadata["is_active"]):
@@ -211,7 +242,6 @@ class FabricFormatter:
         combined_content = "\n".join(cell.source for cell in cells_with_tag)
         return "## Prerequisites\n" + combined_content
 
-
 def download_image(image_url, image_path):
     response = requests.get(image_url)
     image_content = response.content
@@ -246,7 +276,7 @@ def process_img(nb_body, folder_name, output_dir, media_dir, alt_texts):
         ).group(1)
         file_name = url.split("/")[-1]
         file_dir = "/".join([output_dir, media_dir, folder_name])
-        make_dir(file_dir)
+        os.makedirs(file_dir, exist_ok=True)
         img_azure_doc_path = "/".join([folder_name, rename(file_name)])
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
@@ -261,10 +291,6 @@ def process_img(nb_body, folder_name, output_dir, media_dir, alt_texts):
     process_nb_body.append(nb_body[prev:])
     return "".join(process_nb_body)
 
-def make_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
 def remove_replace_content(text, manifest_mapping):
     replace_mapping = {"from synapse.ml.core.platform import materializing_display as display":"",
                         "https://docs.microsoft.com":"", 
@@ -272,7 +298,8 @@ def remove_replace_content(text, manifest_mapping):
     replace_mapping.update(manifest_mapping)
     for ori, new in replace_mapping.items():
         text = text.replace(ori, new)
-    return text
+    result = re.sub(r'StatementMeta\(.*?Available\)', '', text)
+    return result
 
 def compare_doc(md_content, generated):
     differ = difflib.Differ()
