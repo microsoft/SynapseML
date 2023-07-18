@@ -238,7 +238,7 @@ docker run -it -p 8888:8888 -e ACCEPT_EULA=yes mcr.microsoft.com/mmlspark/releas
 ```
 
 Navigate to <http://localhost:8888/> in your web browser to run the sample
-notebooks.  See the [documentation](docs/docker.md) for more on Docker use.
+notebooks.  See the [documentation](website/docs/reference/docker.md) for more on Docker use.
 
 > To read the EULA for using the docker image, run `docker run -it -p 8888:8888 mcr.microsoft.com/mmlspark/release eula`
 
