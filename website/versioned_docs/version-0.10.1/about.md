@@ -32,11 +32,6 @@ import Link from '@docusaurus/Link';
 
 <Link to="/docs/getting_started/installation" className="button button--lg button--outline button--block button--primary">Get Started</Link>
 
-## Examples
-
-import NotebookExamples from "@theme/NotebookExamples";
-
-<NotebookExamples/>
 
 ## Explore our Features
 
