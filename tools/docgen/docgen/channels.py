@@ -1,4 +1,4 @@
-from core import Channel, ParallelChannel
+from docgen.core import ParallelChannel
 import pathlib
 import shutil
 import os

@@ -493,7 +493,8 @@ setupTask := {
 
 val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmd(Seq("python", "__main__.py"), wd=join(baseDirectory.value, "tools/docgen"))
+  runCmd(Seq("pip", "install", "-e", "."), wd=join(baseDirectory.value, "tools/docgen"))
+  runCmd(Seq("python", "__main__.py"), wd=join(baseDirectory.value, "tools/docgen/docgen"))
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",

@@ -1,4 +1,0 @@
-channels:
-  - name: website
-    input_dir: "../../docs/"
-    output_dir: "../../website/docs/"
