@@ -1,164 +1,192 @@
-const { listExamplePaths } = require('./src/plugins/examples');
-
-let cs_pages = listExamplePaths("features", "cognitive_services");
-let gs_pages = listExamplePaths("features", "geospatial_services");
-let if_pages = listExamplePaths("features", "isolation_forest");
-let rai_pages = listExamplePaths("features", "responsible_ai");
-let onnx_pages = listExamplePaths("features", "onnx");
-let lgbm_pages = listExamplePaths("features", "lightgbm");
-let vw_pages = listExamplePaths("features", "vw");
-let ss_pages = listExamplePaths("features", "spark_serving");
-let ocv_pages = listExamplePaths("features", "opencv");
-let cls_pages = listExamplePaths("features", "classification");
-let reg_pages = listExamplePaths("features", "regression");
-let dl_pages = listExamplePaths("features", "simple_deep_learning");
-let ci_pages = listExamplePaths("features", "causal_inference");
-let hpt_pages = listExamplePaths("features", "hyperparameter_tuning");
-let other_pages = listExamplePaths("features", "other");
-
 module.exports = {
-  docs: [
-    {
-      type: 'doc',
-      id: 'about',
-    },
-    {
-      type: 'category',
-      label: 'Getting Started',
-      items: [
-        'getting_started/installation',
-        'getting_started/first_example',
-        'getting_started/first_model',
-        'getting_started/dotnet_example',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Features',
-      items: [
+    docs: [
         {
-          type: 'category',
-          label: 'Cognitive Services',
-          items: cs_pages,
+            type: 'doc',
+            id: 'Overview',
+            label: 'What is SynapseML?',
         },
         {
-          type: 'category',
-          label: 'Isolation Forest',
-          items: if_pages,
+            type: 'category',
+            label: 'Get Started',
+            items: [
+                'Get Started/Create a Spark Cluster',
+                'Get Started/Install SynapseML',
+                'Get Started/Set up Cognitive Services',
+                'Get Started/Quickstart - Your First Models',
+            ],
         },
         {
-          type: 'category',
-          label: 'Geospatial Services',
-          items: gs_pages,
-        },
-        {
-          type: 'category',
-          label: 'Responsible AI',
-          items: rai_pages,
-        },
-        {
-          type: 'category',
-          label: 'ONNX',
-          items: onnx_pages,
-        },
-        {
-          type: 'category',
-          label: 'LightGBM',
-          items: lgbm_pages,
-        },
-        {
-          type: 'category',
-          label: 'Vowpal Wabbit',
-          items: vw_pages,
-        },
-        {
-          type: 'category',
-          label: 'Spark Serving',
-          items: ss_pages,
-        },
-        {
-          type: 'category',
-          label: 'OpenCV',
-          items: ocv_pages,
-        },
-        {
-          type: 'category',
-          label: 'Classification',
-          items: cls_pages,
-        },
-        {
-          type: 'category',
-          label: 'Regression',
-          items: reg_pages,
-        },
-        {
-          type: 'category',
-          label: 'Simple Deep Learning',
-          items: dl_pages,
-        },
-        {
-          type: 'category',
-          label: 'Causal Inference',
-          items: ci_pages,
-        },
-        {
-          type: 'category',
-          label: 'Hyperparameter Tuning',
-          items: hpt_pages,
-        },
-        {
-          type: 'category',
-          label: 'Other',
-          items: other_pages,
-        },
+            type: 'category',
+            label: 'Explore Algorithms',
+            items: [
+                {
+                    type: 'category',
+                    label: 'LightGBM',
+                    items: [
+                        'Explore Algorithms/LightGBM/Overview',
+                        'Explore Algorithms/LightGBM/Quickstart - Classification, Ranking, and Regression',
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'AI Services',
+                    items: [
+                        "Explore Algorithms/AI Services/Overview",
+                        "Explore Algorithms/AI Services/Geospatial Services",
+                        "Explore Algorithms/AI Services/Multivariate Anomaly Detection",
+                        "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
+                        "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
+                        "Explore Algorithms/AI Services/Quickstart - Analyze Text",
+                        "Explore Algorithms/AI Services/Quickstart - Creare a Visual Search Engine",
+                        "Explore Algorithms/AI Services/Quickstart - Create Audiobooks",
+                        "Explore Algorithms/AI Services/Quickstart - Flooding Risk",
+                        "Explore Algorithms/AI Services/Quickstart - Predictive Maintenance",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'OpenAI',
+                    items: [
+                        "Explore Algorithms/OpenAI/Langchain",
+                        "Explore Algorithms/OpenAI/OpenAI",
+                        "Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding",
+                        "Explore Algorithms/OpenAI/Quickstart - Understand and Search Forms",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Deep Learning',
+                    items: [
+                        "Explore Algorithms/Deep Learning/Getting Started",
+                        "Explore Algorithms/Deep Learning/ONNX",
+                        "Explore Algorithms/Deep Learning/Distributed Training",
+                        "Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Text Classifier",
+                        "Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Vision Classifier",
+                        "Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference",
+                        "Explore Algorithms/Deep Learning/Quickstart - Transfer Learn for Image Classification",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Responsible AI',
+                    items: [
+                        "Explore Algorithms/Responsible AI/Interpreting Model Predictions",
+                        "Explore Algorithms/Responsible AI/Tabular Explainers",
+                        "Explore Algorithms/Responsible AI/Text Explainers",
+                        "Explore Algorithms/Responsible AI/Image Explainers",
+                        "Explore Algorithms/Responsible AI/PDP and ICE Explainers",
+                        "Explore Algorithms/Responsible AI/Data Balance Analysis",
+                        "Explore Algorithms/Responsible AI/Explanation Dashboard",
+                        "Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis",
+                        "Explore Algorithms/Responsible AI/Quickstart - Snow Leopard Detection",
+                    ],
+                },
 
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Transformers',
-      items: [
-        'documentation/transformers/transformers_cognitive',
-        'documentation/transformers/transformers_core',
-        'documentation/transformers/transformers_opencv',
-        'documentation/transformers/transformers_vw',
-        'documentation/transformers/transformers_deep_learning',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Estimators',
-      items: [
-        'documentation/estimators/estimators_cognitive',
-        'documentation/estimators/estimators_core',
-        'documentation/estimators/estimators_lightgbm',
-        'documentation/estimators/estimators_vw',
-        'documentation/estimators/estimators_causal',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'MLflow',
-      items: [
-        'mlflow/introduction',
-        'mlflow/installation',
-        'mlflow/examples',
-        'mlflow/autologging'
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Reference',
-      items: [
-        'reference/developer-readme',
-        'reference/contributing_guide',
-        'reference/docker',
-        'reference/R-setup',
-        'reference/dotnet-setup',
-        'reference/SAR',
-        'reference/cyber',
-        'reference/vagrant',
-      ],
-    },
-  ],
+                {
+                    type: 'category',
+                    label: 'Causal Inference',
+                    items: [
+                        "Explore Algorithms/Causal Inference/Overview",
+                        "Explore Algorithms/Causal Inference/Quickstart - Measure Causal Effects",
+                        "Explore Algorithms/Causal Inference/Quickstart - Measure Heterogeneous Effects",
+                    ],
+                },
+
+                {
+                    type: 'category',
+                    label: 'Classification',
+                    items: [
+                        "Explore Algorithms/Classification/Quickstart - Train Classifier",
+                        "Explore Algorithms/Classification/Quickstart - SparkML vs SynapseML",
+                        "Explore Algorithms/Classification/Quickstart - Vowpal Wabbit on Tabular Data",
+                        "Explore Algorithms/Classification/Quickstart - Vowpal Wabbit on Text Data",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Regression',
+                    items: [
+                        "Explore Algorithms/Regression/Quickstart - Data Cleaning",
+                        "Explore Algorithms/Regression/Quickstart - Train Regressor",
+                        "Explore Algorithms/Regression/Quickstart - Vowpal Wabbit and LightGBM",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Anomaly Detection',
+                    items: [
+                        "Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Hyperparameter Tuning',
+                    items: [
+                        "Explore Algorithms/Hyperparameter Tuning/HyperOpt",
+                        "Explore Algorithms/Hyperparameter Tuning/Quickstart - Random Search",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'OpenCV',
+                    items: [
+                        "Explore Algorithms/OpenCV/Image Transformations",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Vowpal Wabbit',
+                    items: [
+                        "Explore Algorithms/Vowpal Wabbit/Overview",
+                        "Explore Algorithms/Vowpal Wabbit/Multi-class classification",
+                        "Explore Algorithms/Vowpal Wabbit/Contextual Bandits",
+                        "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification, Quantile Regression, and Regression",
+                        "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification using SparkML Vectors",
+                        "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification using VW-native Format",
+                    ],
+                },
+                {
+                    type: 'category',
+                    label: 'Other Algorithms',
+                    items: [
+                        "Explore Algorithms/Other Algorithms/Smart Adaptive Recommendations",
+                        "Explore Algorithms/Other Algorithms/Cyber ML",
+                        "Explore Algorithms/Other Algorithms/Quickstart - Anomalous Access Detection",
+                        "Explore Algorithms/Other Algorithms/Quickstart - Exploring Art Across Cultures",
+                    ],
+                },
+
+            ],
+        },
+        {
+            type: 'category',
+            label: 'Use with MLFlow',
+            items: [
+                "Use with MLFlow/Overview",
+                "Use with MLFlow/Install",
+                "Use with MLFlow/Autologging",
+            ],
+        },
+        {
+            type: 'category',
+            label: 'Deploy Models',
+            items: [
+                "Deploy Models/Overview",
+                "Deploy Models/Quickstart - Deploying a Classifier",
+            ],
+        },
+        {
+            type: 'category',
+            label: 'Reference',
+            items: [
+                "Reference/Contributor Guide",
+                "Reference/Developer Setup",
+                "Reference/Docker Setup",
+                "Reference/R Setup",
+                "Reference/Dotnet Setup",
+                "Reference/Quickstart - LightGBM in Dotnet",
+
+            ],
+        },
+    ],
 };

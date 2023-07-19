@@ -1,7 +1,6 @@
 const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
-const { all_examples } = require('./src/plugins/examples');
 let version = "0.11.2";
 
 module.exports = {
@@ -14,7 +13,6 @@ module.exports = {
   projectName: 'SynapseML',
   trailingSlash: true,
   customFields: {
-    examples: all_examples(),
     version: "0.11.2",
   },
   stylesheets: [
@@ -41,7 +39,7 @@ module.exports = {
         src: 'img/logo.svg',
       },
       items: [
-        { to: 'docs/about', label: 'Docs', position: 'left' },
+        { to: 'docs/Overview', label: 'Docs', position: 'left' },
         { to: 'blog', label: 'Blog', position: 'left' },
         { to: 'videos', label: 'Videos', position: 'left' },
         {
@@ -86,11 +84,11 @@ module.exports = {
           items: [
             {
               label: 'Installation',
-              to: 'docs/getting_started/installation',
+              to: 'docs/Get%20Started/install%20SynapseML',
             },
             {
               label: 'Getting Started',
-              to: 'docs/getting_started/first_example',
+              to: 'docs/Get%20Started/Quickstart%20-%20Your%20First%20Models',
             },
             {
               label: 'Python API Reference',

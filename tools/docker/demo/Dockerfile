@@ -60,8 +60,8 @@ RUN jupyter-notebook --generate-config \
 
 # Copy the init script for jupyter startup.
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
-COPY notebooks notebooks
-WORKDIR notebooks/features
+COPY docs docs
+WORKDIR docs
 
 # Jupyter Notebook UI
 EXPOSE 8888
