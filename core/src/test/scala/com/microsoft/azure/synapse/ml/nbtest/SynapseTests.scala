@@ -98,9 +98,3 @@ class SynapseTests extends TestBase {
     super.afterAll()
   }
 }
-
-class FooTest extends TestBase {
-  test("foo"){
-    SharedNotebookE2ETestUtilities.generateNotebooks()
-  }
-}
