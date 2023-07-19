@@ -83,17 +83,17 @@ object DatabricksUtilities {
   // Execution Params
   val TimeoutInMillis: Int = 40 * 60 * 1000
 
-  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
-    FileUtilities.join(
-      BuildInfo.baseDirectory.getParent, "notebooks", "features").getCanonicalFile)
+  val DocsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile()
+  val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(DocsDir)
+    .filter(_.toString.endsWith(".ipynb"))
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
-    .filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+    .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
 
   def databricksGet(path: String): JsValue = {
     val request = new HttpGet(BaseURL + path)
@@ -333,13 +333,15 @@ object DatabricksUtilities {
   //scalastyle:on cyclomatic.complexity
 
   def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
-    val destination: String = Folder + "/" + notebookFile.getName
+    val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
+    val folderToCreate = Folder + "/" + dirPaths
+    println(s"Creating folder $folderToCreate")
+    workspaceMkDir(folderToCreate)
+    val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
     val runId: Int = submitRun(clusterId, destination)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
-
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
-
     run
   }
 
@@ -409,9 +411,6 @@ abstract class DatabricksTestHelper extends TestBase {
     tryWithRetries(Seq.fill(60 * 6)(1000).toArray) { () =>
       assert(areLibrariesInstalled(clusterId))
     }
-
-    println(s"Creating folder $Folder")
-    workspaceMkDir(Folder)
 
     println(s"Submitting jobs")
     val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))

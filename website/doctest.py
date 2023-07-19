@@ -58,7 +58,7 @@ def iterate_over_documentation(folder, version):
 
 def main(version):
     cur_path = os.getcwd()
-    folder = os.path.join(cur_path, "website", "docs", "documentation")
+    folder = os.path.join(cur_path, "docs", "Quick Examples")
     iterate_over_documentation(folder, version)
     os.chdir(folder)
     os.system(
