@@ -8,7 +8,12 @@ import re
 from typing import List
 from os.path import join, dirname, isdir, basename
 
+
 class WebsiteChannel(ParallelChannel):
+    def __init__(self, input_dir: str, output_dir: str):
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+
     def list_input_files(self) -> List[str]:
         return list(pathlib.Path(self.input_dir).rglob("*"))
 
@@ -34,7 +39,3 @@ class WebsiteChannel(ParallelChannel):
             else:
                 os.makedirs(dirname(output_file), exist_ok=True)
                 shutil.copy(input_file, output_file)
-
-    def __init__(self, input_dir: str, output_dir: str):
-        self.input_dir = input_dir
-        self.output_dir = output_dir

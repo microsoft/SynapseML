@@ -55,7 +55,7 @@ model = LightGBMRegressor(application='quantile',
 ```
 
 For an end to end application, check out the LightGBM [notebook
-example](./Quickstart%20-%20Classification,%20Ranking,%20and%20Regression).
+example](../Quickstart%20-%20Classification,%20Ranking,%20and%20Regression).
 
 ### Arguments/Parameters
 

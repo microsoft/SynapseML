@@ -85,15 +85,16 @@ object DatabricksUtilities {
 
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(
     FileUtilities.join(
-      BuildInfo.baseDirectory.getParent, "notebooks", "features").getCanonicalFile)
+      BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile)
+    .filter(_.toString.endsWith(".ipynb"))
 
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
-    .filterNot(_.getAbsolutePath.contains("simple_deep_learning"))
+    .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("simple_deep_learning"))
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
 
   def databricksGet(path: String): JsValue = {
     val request = new HttpGet(BaseURL + path)

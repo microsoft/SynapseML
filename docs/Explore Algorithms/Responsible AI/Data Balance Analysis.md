@@ -32,7 +32,7 @@ In summary, Data Balance Analysis, when used as a step for building ML models, h
 
 ## Examples
 
-* [Quickstart - Data Balance Analysis](./Quickstart%20-%20Data%20Balance%20Analysis)
+* [Quickstart - Data Balance Analysis](../Quickstart%20-%20Data%20Balance%20Analysis)
 
 ## Usage
 

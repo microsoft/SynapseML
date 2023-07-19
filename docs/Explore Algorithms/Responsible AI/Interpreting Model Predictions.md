@@ -26,9 +26,9 @@ Both explainers extends from `org.apache.spark.ml.Transformer`. After setting up
 
 To see examples of model interpretability on Spark in action, take a look at these sample notebooks:
 
-- [Tabular Explainers](Tabular%20Explainers)
-- [Image Explainers](Image%20Explainers)
-- [Text Explainers](Text%20Explainers)
+- [Tabular Explainers](../Tabular%20Explainers)
+- [Image Explainers](../Image%20Explainers)
+- [Text Explainers](../Text%20Explainers)
 
 |                        | Tabular models              | Vector models             | Image models            | Text models           |
 |------------------------|-----------------------------|---------------------------|-------------------------|-----------------------|

@@ -30,13 +30,13 @@ Coordinate: com.microsoft.azure:synapseml_2.12:0.11.2
 Repository: https://mmlspark.azureedge.net/maven
 ```
 :::note
-If you install the jar package, follow the first two cells of this [sample](./Quickstart%20-%20Fine-Tune a Vision Classifier.md/#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
+If you install the jar package, follow the first two cells of this [sample](../Quickstart%20-%20Fine-Tune%20a%20Vision%20Classifier#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
 to ensure horovod recognizes SynapseML.
 :::
 
 ## 3. Try our sample notebook
 
-You could follow the rest of this [sample](./Quickstart%20-%20Fine-Tune a Vision Classifier.md) and have a try on your own dataset.
+You could follow the rest of this [sample](../Quickstart%20-%20Fine-Tune a Vision Classifier) and have a try on your own dataset.
 
 Supported models (`backbone` parameter for `DeepVisionClassifer`) should be string format of [Torchvision-supported models](https://github.com/pytorch/vision/blob/v0.12.0/torchvision/models/__init__.py);
 You could also check by running `backbone in torchvision.models.__dict__`.

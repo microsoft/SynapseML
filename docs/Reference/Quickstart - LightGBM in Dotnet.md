@@ -5,7 +5,7 @@ description: A simple example about classification with LightGBMClassifier using
 ---
 
 :::note
-Make sure you have followed the guidance in [.NET installation](./Dotnet Setup.md) before jumping into this example.
+Make sure you have followed the guidance in [.NET installation](../Dotnet%20Setup) before jumping into this example.
 :::
 
 ## Classification with LightGBMClassifier

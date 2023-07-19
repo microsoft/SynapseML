@@ -132,7 +132,7 @@ ml_train_regressor(faithful_df, labelCol="eruptions", unfit_model)
 ## Building from Source
 
 Our R bindings are built as part of the [normal build
-process](./Developer Setup.md).  To get a quick build, start at the root
+process](../Developer%20Setup).  To get a quick build, start at the root
 of the synapseml directory, and find the generated files. For instance,
 to find the R files for deep-learning, run
 

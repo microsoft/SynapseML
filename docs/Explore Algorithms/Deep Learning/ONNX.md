@@ -104,5 +104,5 @@ The below example shows how to perform the slicing manually with a direct ONNXMo
 
 ## Example
 
-- [Quickstart - Image Explainers](../Responsible%20AI/Image%20Explainers)
-- [Quickstart - ONNX Model Inference](../Deep%20Learning/Quickstart%20-%20ONNX%20Model%20Inference)
+- [Image Explainers](../../Responsible%20AI/Image%20Explainers)
+- [Quickstart - ONNX Model Inference](../Quickstart%20-%20ONNX%20Model%20Inference)
