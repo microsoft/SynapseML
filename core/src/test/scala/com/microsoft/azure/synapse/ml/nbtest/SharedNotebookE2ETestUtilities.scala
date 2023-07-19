@@ -30,7 +30,7 @@ object SharedNotebookE2ETestUtilities {
       |    from synapse.ml.core.platform import materializing_display as display
       |    from pyspark.sql import SparkSession
       |
-      |    spark = SparkSession.getOrCreate()
+      |    spark = SparkSession.builder.getOrCreate()
       |    try:
       |        shell = TerminalInteractiveShell.instance()
       |    except:
