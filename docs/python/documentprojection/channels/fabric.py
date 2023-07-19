@@ -6,6 +6,7 @@ from datetime import datetime
 
 import nbformat
 import requests
+import pandas as pd
 from github import Github
 from nbconvert import MarkdownExporter
 from nbformat.v4 import new_markdown_cell
@@ -137,6 +138,7 @@ class FabricFormatter:
         media_dir = self.get_config()["media_dir"]
         output_dir = self.get_config()["output_dir"]
         markdown = process_img(markdown, filename, output_dir, media_dir, alt_texts)
+        markdown = convert_tables_in_markdown_text(markdown)
         markdown = self.combine_documentation(markdown, footer, manifest_mapping, next_steps)
         return markdown
     
@@ -300,6 +302,20 @@ def remove_replace_content(text, manifest_mapping):
         text = text.replace(ori, new)
     result = re.sub(r'StatementMeta\(.*?Available\)', '', text)
     return result
+
+def convert_tables_to_markdown(html_table):
+    df = pd.read_html(str(html_table),index_col=0)[0]
+    markdown_table = df.to_markdown(index=True)
+    return markdown_table
+
+def convert_tables_in_markdown_text(markdown):
+    pattern = r"(?<=<div>).*?(?=<\/div>)"
+    matches = re.findall(pattern, markdown, re.DOTALL)
+    for match in matches:
+        block = "<div>" + match + "</div>"
+        markdown_table = convert_tables_to_markdown(block)
+        markdown = markdown.replace(str(block), markdown_table, 1)
+    return markdown
 
 def compare_doc(md_content, generated):
     differ = difflib.Differ()
