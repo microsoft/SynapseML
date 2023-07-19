@@ -4,23 +4,56 @@
 package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import org.apache.commons.io.FileUtils
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import scala.sys.process._
-
+import scala.io.Source
+import java.io.{BufferedWriter, File, FileWriter}
 
 object SharedNotebookE2ETestUtilities {
   val ResourcesDirectory = new File(getClass.getResource("/").toURI)
   val NotebooksDir = new File(ResourcesDirectory, "generated-notebooks")
+  val NotebookPreamble: String =
+    """
+      |# In[ ]:
+      |
+      |
+      |# This cell ensures make magic command like '%pip install' works on synapse scheduled spark jobs
+      |from synapse.ml.core.platform import running_on_synapse
+      |
+      |if running_on_synapse():
+      |    from IPython import get_ipython
+      |    from IPython.terminal.interactiveshell import TerminalInteractiveShell
+      |    from synapse.ml.core.platform import materializing_display as display
+      |
+      |    try:
+      |        shell = TerminalInteractiveShell.instance()
+      |    except:
+      |        pass
+      |
+      |""".stripMargin
+
+  def insertTextInFile(file: File, textToPrepend: String, locToInsert: Int): Unit = {
+    val existingLines = StreamUtilities.using(Source.fromFile(file)) { s =>
+      s.getLines().toList
+    }.get
+    val linesBefore = existingLines.take(locToInsert)
+    val linesAfter = existingLines.takeRight(existingLines.length - locToInsert)
+    val linesInMiddle = textToPrepend.split("\n")
+    val newText = (linesBefore ++ linesInMiddle ++ linesAfter).mkString("\n")
+    StreamUtilities.using(new BufferedWriter(new FileWriter(file))) { writer =>
+      writer.write(newText)
+    }
+  }
 
   def generateNotebooks(): Unit = {
     cleanUpGeneratedNotebooksDir()
 
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
-    FileUtilities.recursiveListFiles(docsDir)
+    val newFiles = FileUtilities.recursiveListFiles(docsDir)
       .filter(_.getName.endsWith(".ipynb"))
       .map { f =>
         val relative = docsDir.toURI.relativize(f.toURI).getPath
@@ -30,10 +63,15 @@ object SharedNotebookE2ETestUtilities {
           .replace("-", "")
           .replace(",", "")
         FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
-        newName
+        new File(NotebooksDir, newName)
       }
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
+
+    newFiles.foreach { f =>
+      insertTextInFile(new File(f.getPath.replace(".ipynb", ".py")), NotebookPreamble, 2)
+    }
+
   }
 
   def cleanUpGeneratedNotebooksDir(): Unit = {
