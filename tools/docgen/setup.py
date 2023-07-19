@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="docgen",
-    packages=['docgen'],
+    packages=["docgen"],
     version=0.1,
     description="Synapse Machine Learning Documentation Pipeline",
     long_description="SynapseML contains Microsoft's open source "
@@ -25,9 +25,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     zip_safe=True,
-    package_data={
-        "docgen": ["../LICENSE.txt", "../README.txt"]
-    },
+    package_data={"docgen": ["../LICENSE.txt", "../README.txt"]},
     python_requires=">=3.8.8",
     install_requires=["nbformat", "nbconvert", "pathlib", "argparse"],
 )
