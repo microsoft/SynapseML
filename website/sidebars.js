@@ -1,5 +1,3 @@
-const {listExamplePaths} = require('./src/plugins/examples');
-
 module.exports = {
     docs: [
         {
@@ -33,10 +31,10 @@ module.exports = {
                     type: 'category',
                     label: 'AI Services',
                     items: [
-                        "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
+                        "Explore Algorithms/AI Services/Overview",
                         "Explore Algorithms/AI Services/Geospatial Services",
                         "Explore Algorithms/AI Services/Multivariate Anomaly Detection",
-                        "Explore Algorithms/AI Services/Overview",
+                        "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Text",
                         "Explore Algorithms/AI Services/Quickstart - Creare a Visual Search Engine",
@@ -59,11 +57,11 @@ module.exports = {
                     type: 'category',
                     label: 'Deep Learning',
                     items: [
-                        "Explore Algorithms/Deep Learning/Distributed Training",
                         "Explore Algorithms/Deep Learning/Getting Started",
                         "Explore Algorithms/Deep Learning/ONNX",
+                        "Explore Algorithms/Deep Learning/Distributed Training",
                         "Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Text Classifier",
-                        "Explore Algorithms/Deep Learning/Quickstart - Fine-Tune a Vision Classifier",
+                        "Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Vision Classifier",
                         "Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference",
                         "Explore Algorithms/Deep Learning/Quickstart - Transfer Learn for Image Classification",
                     ],
@@ -72,15 +70,15 @@ module.exports = {
                     type: 'category',
                     label: 'Responsible AI',
                     items: [
-                        "Explore Algorithms/Responsible AI/Data Balance Analysis",
-                        "Explore Algorithms/Responsible AI/Explanation Dashboard",
-                        "Explore Algorithms/Responsible AI/Image Explainers",
                         "Explore Algorithms/Responsible AI/Interpreting Model Predictions",
-                        "Explore Algorithms/Responsible AI/PDP and ICE Explainers",
-                        "Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis",
-                        "Explore Algorithms/Responsible AI/Quickstart - Snow Leopard Detection",
                         "Explore Algorithms/Responsible AI/Tabular Explainers",
                         "Explore Algorithms/Responsible AI/Text Explainers",
+                        "Explore Algorithms/Responsible AI/Image Explainers",
+                        "Explore Algorithms/Responsible AI/PDP and ICE Explainers",
+                        "Explore Algorithms/Responsible AI/Data Balance Analysis",
+                        "Explore Algorithms/Responsible AI/Explanation Dashboard",
+                        "Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis",
+                        "Explore Algorithms/Responsible AI/Quickstart - Snow Leopard Detection",
                     ],
                 },
 
@@ -98,8 +96,8 @@ module.exports = {
                     type: 'category',
                     label: 'Classification',
                     items: [
-                        "Explore Algorithms/Classification/Quickstart - SparkML vs SynapseML",
                         "Explore Algorithms/Classification/Quickstart - Train Classifier",
+                        "Explore Algorithms/Classification/Quickstart - SparkML vs SynapseML",
                         "Explore Algorithms/Classification/Quickstart - Vowpal Wabbit on Tabular Data",
                         "Explore Algorithms/Classification/Quickstart - Vowpal Wabbit on Text Data",
                     ],
@@ -139,22 +137,22 @@ module.exports = {
                     type: 'category',
                     label: 'Vowpal Wabbit',
                     items: [
-                        "Explore Algorithms/Vowpal Wabbit/Contextual Bandits",
-                        "Explore Algorithms/Vowpal Wabbit/Multi-class classification",
                         "Explore Algorithms/Vowpal Wabbit/Overview",
+                        "Explore Algorithms/Vowpal Wabbit/Multi-class classification",
+                        "Explore Algorithms/Vowpal Wabbit/Contextual Bandits",
                         "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification, Quantile Regression, and Regression",
                         "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification using SparkML Vectors",
-                        "Explore Algorithms/Vowpal Wabbit/Quickstart- Classification using VW-native Format",
+                        "Explore Algorithms/Vowpal Wabbit/Quickstart - Classification using VW-native Format",
                     ],
                 },
                 {
                     type: 'category',
                     label: 'Other Algorithms',
                     items: [
+                        "Explore Algorithms/Other Algorithms/Smart Adaptive Recommendations",
                         "Explore Algorithms/Other Algorithms/Cyber ML",
                         "Explore Algorithms/Other Algorithms/Quickstart - Anomalous Access Detection",
                         "Explore Algorithms/Other Algorithms/Quickstart - Exploring Art Across Cultures",
-                        "Explore Algorithms/Other Algorithms/Smart Adaptive Recommendations",
                     ],
                 },
 
@@ -164,9 +162,9 @@ module.exports = {
             type: 'category',
             label: 'Use with MLFlow',
             items: [
-                "Use with MLFlow/Autologging",
-                "Use with MLFlow/Install",
                 "Use with MLFlow/Overview",
+                "Use with MLFlow/Install",
+                "Use with MLFlow/Autologging",
             ],
         },
         {
@@ -184,9 +182,10 @@ module.exports = {
                 "Reference/Contributor Guide",
                 "Reference/Developer Setup",
                 "Reference/Docker Setup",
+                "Reference/R Setup",
                 "Reference/Dotnet Setup",
                 "Reference/Quickstart - LightGBM in Dotnet",
-                "Reference/R Setup",
+
             ],
         },
     ],
