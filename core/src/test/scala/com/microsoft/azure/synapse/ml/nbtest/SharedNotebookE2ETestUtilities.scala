@@ -28,7 +28,9 @@ object SharedNotebookE2ETestUtilities {
       |    from IPython import get_ipython
       |    from IPython.terminal.interactiveshell import TerminalInteractiveShell
       |    from synapse.ml.core.platform import materializing_display as display
+      |    from pyspark.sql import SparkSession
       |
+      |    spark = SparkSession.getOrCreate()
       |    try:
       |        shell = TerminalInteractiveShell.instance()
       |    except:
