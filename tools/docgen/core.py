@@ -2,8 +2,8 @@ import multiprocessing
 from abc import ABC, abstractmethod
 from typing import List
 
-class Channel(ABC):
 
+class Channel(ABC):
     @abstractmethod
     def process(self, input_file: str) -> ():
         pass
@@ -16,8 +16,8 @@ class Channel(ABC):
         for input_file in self.list_input_files():
             self.process(input_file)
 
-class ParallelChannel(Channel):
 
+class ParallelChannel(Channel):
     def run(self) -> ():
         with multiprocessing.Pool() as pool:
             pool.map(self.process, self.list_input_files())

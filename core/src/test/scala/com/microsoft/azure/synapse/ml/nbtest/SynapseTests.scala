@@ -44,10 +44,12 @@ class SynapseTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("FineTune")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
     .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbit/Multiclassclassification")) // Wait for Synpase fix
     .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synpase fix
+    .filterNot(_.getAbsolutePath.contains("SetupCognitive")) // No code to run
+    .filterNot(_.getAbsolutePath.contains("CreateaSparkCluster")) // No code to run
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length

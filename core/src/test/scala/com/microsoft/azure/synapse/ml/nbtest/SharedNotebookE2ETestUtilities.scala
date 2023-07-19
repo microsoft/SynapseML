@@ -19,17 +19,18 @@ object SharedNotebookE2ETestUtilities {
   def generateNotebooks(): Unit = {
     cleanUpGeneratedNotebooksDir()
 
-    FileUtilities.recursiveListFiles(
-      FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
-    )
+    val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
+    FileUtilities.recursiveListFiles(docsDir)
       .filter(_.getName.endsWith(".ipynb"))
       .map { f =>
-        FileUtilities.copyFile(f, NotebooksDir, true)
-        val newFile = new File(NotebooksDir, f.getName)
-        val preppedName = f.getName.replace(" ", "").replace("-", "").replace(",", "")
-        val targetName = new File(NotebooksDir, preppedName)
-        newFile.renameTo(targetName)
-        targetName
+        val relative = docsDir.toURI.relativize(f.toURI).getPath
+        val newName = relative
+          .replace("/", "")
+          .replace(" ", "")
+          .replace("-", "")
+          .replace(",", "")
+        FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
+        newName
       }
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)

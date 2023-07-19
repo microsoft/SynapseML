@@ -19,7 +19,9 @@ class WebsiteChannel(ParallelChannel):
 
     def process(self, input_file: str) -> ():
         print(f"Processing {input_file} for website")
-        output_file = os.path.join(self.output_dir, os.path.relpath(input_file, self.input_dir))
+        output_file = os.path.join(
+            self.output_dir, os.path.relpath(input_file, self.input_dir)
+        )
         if str(input_file).endswith(".ipynb"):
             output_file = str(output_file).replace(".ipynb", ".md")
             parsed = read(input_file, as_version=4)

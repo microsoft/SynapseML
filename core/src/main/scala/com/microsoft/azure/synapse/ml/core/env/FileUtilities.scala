@@ -68,6 +68,13 @@ object FileUtilities {
     ()
   }
 
+  def copyAndRenameFile(from: File, toDir: File, newName: String, overwrite: Boolean = false): Unit = {
+    Files.copy(from.toPath, new File(toDir, newName).toPath,
+      (if (overwrite) Seq(StandardCopyOption.REPLACE_EXISTING)
+      else Seq()): _*)
+    ()
+  }
+
   // Perhaps this should move into a more specific place, not a generic file utils thing
   def zipFolder(dir: File, out: File): Unit = {
     import java.io.{BufferedInputStream, FileInputStream, FileOutputStream}
