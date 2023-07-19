@@ -381,11 +381,11 @@ publishBadges := {
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
 }
 
-val uploadNotebooks = TaskKey[Unit]("uploadNotebooks", "upload notebooks to blob storage")
+val uploadNotebooks = TaskKey[Unit]("uploadNotebooks", "upload docs to blob storage")
 uploadNotebooks := {
-  val localNotebooksFolder = join(baseDirectory.value.toString, "notebooks").toString
+  val localNotebooksFolder = join(baseDirectory.value.toString, "docs").toString
   val blobNotebooksFolder = version.value
-  uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "notebooks")
+  uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "docs")
 }
 
 val settings = Seq(
