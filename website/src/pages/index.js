@@ -458,7 +458,7 @@ dotnet add package SynapseML.Vw --version 0.11.2`}
                     lang="bash"
                   ></CodeSnippet>
                   For detailed installation, please refer this{" "}
-                    <a href="docs/next/reference/dotnet-setup/#installation">instruction</a>.
+                    <a href="docs/next/Reference/Dotnet%20Setup/#installation">instruction</a>.
                 </TabItem>
               </Tabs>
             </div>
