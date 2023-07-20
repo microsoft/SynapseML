@@ -13,14 +13,14 @@ class Channel(ABC):
         pass
 
     def run(self) -> ():
-        for input_file in self.list_input_files():
-            self.process(input_file)
+        for index, input_file in enumerate(self.list_input_files()):
+            self.process(input_file, index)
 
 
 class ParallelChannel(Channel):
     def run(self) -> ():
         with multiprocessing.Pool() as pool:
-            pool.map(self.process, self.list_input_files())
+            pool.map(self.process, [(f,i) for (i,f) in enumerate(self.list_input_files())])
 
 
 class DocumentProcessor:
