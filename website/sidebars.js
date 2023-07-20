@@ -35,6 +35,7 @@ module.exports = {
                         "Explore Algorithms/AI Services/Geospatial Services",
                         "Explore Algorithms/AI Services/Multivariate Anomaly Detection",
                         "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
+                        "Explore Algorithms/AI Services/Document Question and Answering with PDFs",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Text",
                         "Explore Algorithms/AI Services/Quickstart - Creare a Visual Search Engine",
