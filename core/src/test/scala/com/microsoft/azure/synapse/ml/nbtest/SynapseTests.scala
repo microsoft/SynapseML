@@ -44,11 +44,12 @@ class SynapseTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepTextClassification")) // Excluded by design task 1829306
-    .filterNot(_.getAbsolutePath.contains("DeepLearningDeepVisionClassification")) // Excluded by design task 1829306
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVWnativeFormat"))
+    .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synpase fix
     .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synpase fix
+    .filterNot(_.getAbsolutePath.contains("SetupCognitive")) // No code to run
+    .filterNot(_.getAbsolutePath.contains("CreateaSparkCluster")) // No code to run
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length

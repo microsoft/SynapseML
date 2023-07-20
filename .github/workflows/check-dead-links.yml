@@ -1,0 +1,26 @@
+name: "Check Dead Links"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master" ]
+
+jobs:
+  scan_links:
+    name: Scan Website for Dead Links
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+      - name: Scan for dead links
+        run: |
+          wget --spider --recursive --no-verbose --tries=3 --retry-connrefused --no-clobber --directory-prefix=site-check https://microsoft.github.io/SynapseML/

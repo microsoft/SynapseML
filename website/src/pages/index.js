@@ -15,7 +15,7 @@ const snippets = [
   {
     label: "Cognitive Services",
     further:
-      "docs/features/cognitive_services/CognitiveServices%20-%20Overview#text-analytics-sample",
+      "docs/Explore%20Algorithms/AI%20Services/Overview#text-analytics-sample",
     config: `from synapse.ml.cognitive import *
 
 sentiment_df = (TextSentiment()
@@ -29,7 +29,7 @@ sentiment_df = (TextSentiment()
   },
   {
     label: "Deep Learning",
-    further: "docs/features/onnx/ONNX%20-%20Inference%20on%20Spark",
+    further: "docs/Explore%20Algorithms/Deep%20Learning/ONNX",
     config: `from synapse.ml.onnx import *
 
 model_prediction_df = (ONNXModel()
@@ -42,7 +42,7 @@ model_prediction_df = (ONNXModel()
   },
   {
     label: "Responsible AI",
-    further: "docs/features/responsible_ai/Model%20Interpretation%20on%20Spark",
+    further: "docs/Explore%20Algorithms/Responsible%20AI/Interpreting%20Model%20Predictions",
     config: `from synapse.ml.explainers import *
 
 interpretation_df = (TabularSHAP()
@@ -56,7 +56,7 @@ interpretation_df = (TabularSHAP()
   },
   {
     label: "LightGBM",
-    further: "docs/features/lightgbm/about",
+    further: "docs/Explore%20Algorithms/LightGBM/Overview",
     config: `from synapse.ml.lightgbm import *
 
 quantile_df = (LightGBMRegressor()
@@ -71,7 +71,7 @@ quantile_df = (LightGBMRegressor()
   {
     label: "OpenCV",
     further:
-      "docs/features/opencv/OpenCV%20-%20Pipeline%20Image%20Transformations",
+      "docs/Explore%20Algorithms/OpenCV/Image%20Transformations",
     config: `from synapse.ml.opencv import *
 
 image_df = (ImageTransformer()
@@ -176,7 +176,7 @@ function Home() {
                     "button button--outline button--primary button--lg",
                     styles.getStarted
                   )}
-                  to={useBaseUrl("docs/getting_started/installation")}
+                  to={useBaseUrl("docs/Get%20Started/Install%20SynapseML")}
                 >
                   Get Started
                 </Link>
@@ -458,7 +458,7 @@ dotnet add package SynapseML.Vw --version 0.11.2`}
                     lang="bash"
                   ></CodeSnippet>
                   For detailed installation, please refer this{" "}
-                    <a href="docs/next/reference/dotnet-setup/#installation">instruction</a>.
+                    <a href="docs/Reference/Dotnet%20Setup/#installation">instruction</a>.
                 </TabItem>
               </Tabs>
             </div>
