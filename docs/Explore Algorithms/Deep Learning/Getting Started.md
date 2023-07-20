@@ -30,7 +30,7 @@ Coordinate: com.microsoft.azure:synapseml_2.12:0.11.2
 Repository: https://mmlspark.azureedge.net/maven
 ```
 :::note
-If you install the jar package, follow the first two cells of this [sample](../Quickstart%20-%20Fine-Tune%20a%20Vision%20Classifier#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
+If you install the jar package, follow the first two cells of this [sample](../Quickstart%20-%20Fine-tune%20a%20Vision%20Classifier#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)
 to ensure horovod recognizes SynapseML.
 :::
 

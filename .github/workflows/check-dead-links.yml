@@ -1,26 +1,26 @@
 name: "Check Dead Links"
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "master" ]
-    paths-ignore: [ "**.md" ]
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ "master" ]
-    paths-ignore: [ "**.md" ]
-
 
 jobs:
-  check:
-    name: "Check for broken links"
-    uses: "ScholliYT/Broken-Links-Crawler-Action@v3"
-    with:
-      website_url: 'https://microsoft.github.io/SynapseML'
-      include_url_prefix: 'https://microsoft.github.io/SynapseML'
-      resolve_before_filtering: 'true'
-      verbose: 'true'
-      max_retry_time: 30
-      max_retries: 5
-      max_depth: -1
+  scan_links:
+    name: Scan Website for Dead Links
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+      - name: Scan for dead links
+        run: |
+          wget --spider --recursive --no-verbose --tries=3 --retry-connrefused --no-clobber --directory-prefix=site-check https://microsoft.github.io/SynapseML/
