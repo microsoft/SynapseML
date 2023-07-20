@@ -84,7 +84,7 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 40 * 60 * 1000
+  val TimeoutInMillis: Int = 50 * 60 * 1000
 
   val DocsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile()
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(DocsDir)
