@@ -20,6 +20,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.DoubleType 
 
 object ComputeModelStatistics extends DefaultParamsReadable[ComputeModelStatistics]
 
@@ -171,7 +172,8 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
-
+  
+    
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
                               resultDF: DataFrame): DataFrame = {
@@ -184,11 +186,11 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       // Add the metrics to the DF
       simpleMetric match {
         case MetricConstants.AccuracySparkMetric =>
-          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(accuracy))
+          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(accuracy).cast(DoubleType))  // Cast to DoubleType
         case MetricConstants.PrecisionSparkMetric =>
-          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(precision))
+          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(precision).cast(DoubleType))  // Cast to DoubleType
         case MetricConstants.RecallSparkMetric =>
-          resultDF.withColumn(MetricConstants.RecallColumnName, lit(recall))
+          resultDF.withColumn(MetricConstants.RecallColumnName, lit(recall).cast(DoubleType))  // Cast to DoubleType
         case _ => resultDF
       }
     } else {
@@ -198,15 +200,17 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       // Add the metrics to the DF
       simpleMetric match {
         case MetricConstants.AccuracySparkMetric =>
-          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(microAvgAccuracy))
+          resultDF.withColumn(MetricConstants.AccuracyColumnName, lit(microAvgAccuracy).cast(DoubleType))  // Cast to DoubleType
         case MetricConstants.PrecisionSparkMetric =>
-          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(microAvgPrecision))
+          resultDF.withColumn(MetricConstants.PrecisionColumnName, lit(microAvgPrecision).cast(DoubleType))  // Cast to DoubleType
         case MetricConstants.RecallSparkMetric =>
-          resultDF.withColumn(MetricConstants.RecallColumnName, lit(microAvgRecall))
+          resultDF.withColumn(MetricConstants.RecallColumnName, lit(microAvgRecall).cast(DoubleType))  // Cast to DoubleType
         case _ => resultDF
       }
     }
   }
+
+    
 
   private def addAllClassificationMetrics(modelName: String,
                                           dataset: Dataset[_],
@@ -260,7 +264,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
                                 labelColumnName: String): DataFrame = {
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(predictionColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
+    dataset.select(col(predictionColumnName), col(labelColumnName).cast(DoubleType))
       .cache()
       .na
       .drop(Array(predictionColumnName, labelColumnName))
@@ -277,6 +281,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
   }
 
+    
   private def getPredictionAndLabels(dataset: Dataset[_],
                                      labelColumnName: String,
                                      scoredLabelsColumnName: String,
@@ -284,16 +289,17 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     // Calculate confusion matrix and output it as DataFrame
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
+    dataset.select(col(scoredLabelsColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))  // Cast to DoubleType
       .cache()
       .na
       .drop(Array(scoredLabelsColumnName, labelColumnName))
       .rdd
       .map {
-        case Row(prediction: Double, label) => (prediction, levelsToIndexMap(label))
+        case Row(prediction: Double, label: Double) => (prediction, levelsToIndexMap(label))
         case _ => throw new Exception(s"Error: prediction and label columns invalid or missing")
-    }
+      }
   }
+
 
   private def getScalarScoresAndLabels(dataset: Dataset[_],
                                        labelColumnName: String,
@@ -308,13 +314,14 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
   }
 
+
   private def getScoresAndLabels(dataset: Dataset[_],
                          labelColumnName: String,
                          scoresColumnName: String,
                          levelsToIndexMap: Map[Any, Double]): RDD[(Double, Double)] = {
     // TODO: We call cache in order to avoid a bug with catalyst where CMS seems to get stuck in a loop
     // For future spark upgrade past 2.2.0, we should try to see if the cache() call can be removed
-    dataset.select(col(scoresColumnName).cast(DoubleType), col(labelColumnName).cast(DoubleType))
+    dataset.select(col(scoresColumnName), col(labelColumnName).cast(DoubleType))  // Cast to DoubleType
       .cache()
       .na
       .drop(Array(scoresColumnName, labelColumnName))
@@ -325,12 +332,14 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       }
   }
 
+
   private def getLevelsToIndexMap(levels: Array[_]): Map[Any, Double] = {
     levels.zipWithIndex.map(t => t._1 -> t._2.toDouble).toMap
   }
 
+
   private def getMulticlassMetrics(predictionAndLabels: RDD[(Double, Double)],
-                                   confusionMatrix: Matrix): (Double, Double, Double, Double, Double, Double) = {
+                                 confusionMatrix: Matrix): (Double, Double, Double, Double, Double, Double) = {
     // Compute multiclass metrics based on paper "A systematic analysis
     // of performance measure for classification tasks", Sokolova and Lapalme
     var tpSum: Double = 0.0
@@ -344,7 +353,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     val microAvgRecall = microAvgAccuracy
 
     // Compute class counts - these are the row and column sums of the matrix, used to calculate the
-    // average accuracy, macro averaged precision and macro averaged recall
+    // average accuracy, macro averaged precision, and macro averaged recall
     val actualClassCounts = new Array[Double](confusionMatrix.numCols)
     val predictedClassCounts = new Array[Double](confusionMatrix.numRows)
     val truePositives = new Array[Double](confusionMatrix.numRows)
@@ -360,26 +369,27 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     }
 
     val (totalAccuracy, totalPrecision, totalRecall)
-        = (0 until confusionMatrix.numCols).foldLeft((0.0,0.0,0.0)) {
+      = (0 until confusionMatrix.numCols).foldLeft((0.0, 0.0, 0.0)) {
       case ((acc, prec, rec), classIndex) =>
         (// compute the class accuracy as:
-         // (true positive + true negative) / total =>
-         // (true positive + (total - (actual + predicted - true positive))) / total =>
-         // 2 * true positive + (total - (actual + predicted)) / total
-         acc + (2 * truePositives(classIndex) +
-                  (totalSum - (actualClassCounts(classIndex) + predictedClassCounts(classIndex)))) / totalSum,
-         // compute the class precision as:
-         // true positive / predicted as positive (=> tp + fp)
-         prec + truePositives(classIndex) / predictedClassCounts(classIndex),
-         // compute the class recall as:
-         // true positive / actual positive (=> tp + fn)
-         rec + truePositives(classIndex) / actualClassCounts(classIndex))
+          // (true positive + true negative) / total =>
+          // (true positive + (total - (actual + predicted - true positive))) / total =>
+          // 2 * true positive + (total - (actual + predicted)) / total
+          acc + (2 * truePositives(classIndex) +
+            (totalSum - (actualClassCounts(classIndex) + predictedClassCounts(classIndex)))) / totalSum,
+          // compute the class precision as:
+          // true positive / predicted as positive (=> tp + fp)
+          prec + truePositives(classIndex) / predictedClassCounts(classIndex),
+          // compute the class recall as:
+          // true positive / actual positive (=> tp + fn)
+          rec + truePositives(classIndex) / actualClassCounts(classIndex))
     }
     val averageAccuracy = totalAccuracy / confusionMatrix.numCols
     val macroAveragedPrecision = totalPrecision / confusionMatrix.numCols
     val macroAveragedRecall = totalRecall / confusionMatrix.numCols
     (microAvgAccuracy, microAvgPrecision, microAvgRecall, averageAccuracy, macroAveragedPrecision, macroAveragedRecall)
   }
+
 
   private def getAUC(modelName: String,
              dataset: Dataset[_],
