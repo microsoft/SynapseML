@@ -210,7 +210,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
                         options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol"
+      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "vectorCols"
     )
 
     options.keys.foreach(k =>
@@ -224,11 +224,12 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
     val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
+    val vectorColsOpt = options.get("VectorCols")
 
     val keyCol = options.get("keyCol")
     val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
     if (indexJsonOpt.isDefined) {
-      List("keyCol", "indexName").foreach(opt =>
+      List("keyCol", "indexName", "vectorCols").foreach(opt =>
         assert(!options.contains(opt), s"Cannot set both indexJson options and $opt")
       )
     }

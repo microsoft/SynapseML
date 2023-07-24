@@ -24,6 +24,12 @@ trait IndexParser {
   }
 }
 
+trait VectorColsParser {
+  def parseVectorColsJson(str: String): Seq[VectorColParams] = {
+    str.parseJson.convertTo[Seq[VectorColParams]]
+  }
+}
+
 trait IndexLister {
   def getExisting(key: String,
                   serviceName: String,
