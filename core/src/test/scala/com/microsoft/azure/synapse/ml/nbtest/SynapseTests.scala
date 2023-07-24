@@ -46,8 +46,9 @@ class SynapseTests extends TestBase {
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
     .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synpase fix
-    .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synpase fix
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synapse fix
+    .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synapse fix
+    .filterNot(_.getAbsolutePath.contains("DocumentQuestionandAnsweringwithPDFs")) // Wait for Synapse fix
     .filterNot(_.getAbsolutePath.contains("SetupCognitive")) // No code to run
     .filterNot(_.getAbsolutePath.contains("CreateaSparkCluster")) // No code to run
     .sortBy(_.getAbsolutePath)
