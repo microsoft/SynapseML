@@ -10,9 +10,7 @@ trigger:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
-    - docs/*
     - CODEOWNERS
-    - .github
 
 pr:
   branches:
