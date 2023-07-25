@@ -603,6 +603,8 @@ jobs:
         cd website
         yarn
         yarn build
+        chmod +x validate_links.sh
+        ./validate_links.sh
       displayName: 'yarn install and build'
     - bash: |
         set -e
