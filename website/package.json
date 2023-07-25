@@ -15,12 +15,11 @@
     "audit:fix": "npx yarn-audit-fix"
   },
   "dependencies": {
-    "@docusaurus/core": "^2.2.0",
-    "@docusaurus/preset-classic": "^2.2.0",
-    "@docusaurus/theme-classic": "^2.2.0",
-    "@docusaurus/theme-search-algolia": "^2.2.0",
+    "@docusaurus/core": "^2.4.1",
+    "@docusaurus/preset-classic": "^2.4.1",
+    "@docusaurus/theme-classic": "^2.4.1",
+    "@docusaurus/theme-search-algolia": "^2.4.1",
     "ansi-html-community": "^0.0.8",
-    "caniuse-lite": "^1.0.30001435",
     "classnames": "^2.3.2",
     "glob-parent": "^6.0.1",
     "got": "^11.8.5",
