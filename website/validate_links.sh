@@ -5,8 +5,8 @@ check_website_status() {
   max_retries=30
   retries=0
   while [ $retries -lt $max_retries ]; do
-    http_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/SynapseML)
-    if [ $http_status -eq 200 ]; then
+   response=$(curl -s http://localhost:3000/SynapseML)
+    if [[ $response == *"Docusaurus"* ]]; then
       echo "Website is up and running!"
       break
     else
