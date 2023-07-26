@@ -387,4 +387,25 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     retryWithBackoff(assertSize(in, 2))
   }
 
+  test("Parse vector columns option correctly") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array(1.1, 2.1, 3.1)),
+      ("upload", "1", "file1", Array(1.2, 2.2, 3.2)))
+      .toDF("searchAction", "id", "fileName", "vectorCol")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> """[{"name": "vectorCol", "dimension": 3}]"""
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
 }

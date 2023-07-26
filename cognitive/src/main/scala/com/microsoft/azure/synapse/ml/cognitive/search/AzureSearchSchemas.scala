@@ -47,10 +47,6 @@ case class VectorColParams(
                           dimension: Int
                           )
 
-//case class SeqVectorColParams(
-//                             items: Seq[VectorColParams]
-//                             )
-
 case class IndexStats(documentCount: Int, storageSize: Int)
 
 case class IndexList(`@odata.context`: String, value: Seq[IndexName])

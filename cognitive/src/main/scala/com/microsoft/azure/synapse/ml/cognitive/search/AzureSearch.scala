@@ -142,7 +142,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def responseDataType: DataType = ASResponses.schema
 }
 
-object AzureSearchWriter extends IndexParser with SLogging {
+object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging {
 
   val Logger: Logger = LogManager.getRootLogger
 
@@ -224,7 +224,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
     val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
-    val vectorColsOpt = options.get("VectorCols")
+    val vectorColsOpt = options.get("vectorCols")
 
     val keyCol = options.get("keyCol")
     val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
@@ -246,6 +246,8 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val indexJson = indexJsonOpt.getOrElse {
       dfToIndexJson(df.schema, indexName, keyCol.get, actionCol)
     }
+
+    val vectorCols = vectorColsOpt.map(parseVectorColsJson)
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
