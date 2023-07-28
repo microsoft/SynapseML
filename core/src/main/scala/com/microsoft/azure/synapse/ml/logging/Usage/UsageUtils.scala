@@ -1,4 +1,5 @@
 package com.microsoft.azure.synapse.ml.logging.Usage
+
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils.{usageGet, usagePost}
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
@@ -12,13 +13,14 @@ import com.microsoft.azure.synapse.ml.logging.Usage.MwcToken
 import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
 
 object UsageTelemetry {
-  // val sc = SparkSession.builder().getOrCreate().sparkContext
+  val sc = SparkSession.builder().getOrCreate().sparkContext
   val CapacityId = getHadoopConfig("trident.capacity.id")
   val WorkspaceId = getHadoopConfig("trident.artifact.workspace.id")
   val ArtifactId = getHadoopConfig("trident.artifact.id")
   val OnelakeEndpoint = getHadoopConfig("trident.onelake.endpoint")
-  val Region = getHadoopConfig("spark.cluster.region")
-  val PbiEnv = getHadoopConfig("spark.trident.pbienv").toLowerCase()
+  val Region = sc.getConf.get("spark.cluster.region", "")
+  val PbiEnv = sc.getConf.get("spark.trident.pbienv", "").toLowerCase()
+
 
   val SharedHost = getMlflowSharedHost(PbiEnv)
   val shared_endpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
