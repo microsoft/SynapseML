@@ -166,10 +166,12 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
   private def convertFields(fields: Seq[StructField],
                             keyCol: String,
                             searchActionCol: String,
+                            vectorCols: Option[Seq[VectorColParams]],
                             prefix: Option[String]): Seq[IndexField] = {
     fields.filterNot(_.name == searchActionCol).map { sf =>
       val fullName = prefix.map(_ + sf.name).getOrElse(sf.name)
-      val (innerType, _) = sparkTypeToEdmType(sf.dataType)
+      val isVector = vectorCols.exists(_.exists(_.name == fullName))
+      val (innerType, _) = sparkTypeToEdmType(sf.dataType, isVector)
       IndexField(
         sf.name,
         innerType,
@@ -177,7 +179,9 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
         if (keyCol == fullName) Some(true) else None,
         None, None, None, None,
         structFieldToSearchFields(sf.dataType,
-          keyCol, searchActionCol, prefix = Some(prefix.getOrElse("") + sf.name + "."))
+          keyCol, searchActionCol, None, prefix = Some(prefix.getOrElse("") + sf.name + ".")),
+        if (isVector) vectorCols.get.find(_.name == fullName).map(_.dimension) else None,
+        if (isVector) Some(AzureSearchAPIConstants.VectorConfigName) else None
       )
     }
   }
@@ -185,11 +189,13 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
   private def structFieldToSearchFields(schema: DataType,
                                         keyCol: String,
                                         searchActionCol: String,
+                                        vectorCols: Option[Seq[VectorColParams]],
                                         prefix: Option[String] = None
                                        ): Option[Seq[IndexField]] = {
     schema match {
-      case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
-      case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
+      case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, vectorCols, prefix))
+      // not supporting vector columns in complex scenarios
+      case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, None, prefix))
       case _ => None
     }
   }
@@ -197,11 +203,15 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
   private def dfToIndexJson(schema: StructType,
                             indexName: String,
                             keyCol: String,
-                            searchActionCol: String): String = {
+                            searchActionCol: String,
+                            vectorCols: Option[Seq[VectorColParams]]): String = {
+
     val is = IndexInfo(
       Some(indexName),
-      structFieldToSearchFields(schema, keyCol, searchActionCol).get,
-      None, None, None, None, None, None, None, None
+      structFieldToSearchFields(schema, keyCol, searchActionCol, vectorCols).get,
+      None, None, None, None, None, None, None, None,
+      if (vectorCols.isEmpty) None else Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
+        AzureSearchAPIConstants.VectorSearchAlgorithm))))
     )
     is.toJson.compactPrint
   }
@@ -243,11 +253,21 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
       }
     }
 
-    val indexJson = indexJsonOpt.getOrElse {
-      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol)
+    var vectorCols: Option[Seq[VectorColParams]] = None
+
+    if (indexJsonOpt.isDefined) {
+      val indexInfo = parseIndexJson(indexJsonOpt.get)
+      vectorCols = Some(indexInfo.fields
+        .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+        .map(f => VectorColParams(f.name, f.dimensions.get)))
+    }
+    else {
+      vectorCols = vectorColsOpt.map(parseVectorColsJson) //TODO: try parse..(vectorcolopt) instead
     }
 
-    val vectorCols = vectorColsOpt.map(parseVectorColsJson)
+    val indexJson = indexJsonOpt.getOrElse {
+      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol, vectorCols)
+    }
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
@@ -300,24 +320,31 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
   }
 
   private def sparkTypeToEdmType(dt: DataType,  //scalastyle:ignore cyclomatic.complexity
+                                 isVector: Boolean,
                                  allowCollections: Boolean = true): (String, Option[Seq[IndexField]]) = {
-    dt match {
-      case ArrayType(it, _) if allowCollections =>
-        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections = false)
-        (s"Collection($innerType)", innerFields)
-      case ArrayType(it, _) if !allowCollections =>
-        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections)
-        ("Edm.ComplexType", innerFields)
-      case StringType => ("Edm.String", None)
-      case BooleanType => ("Edm.Boolean", None)
-      case IntegerType => ("Edm.Int32", None)
-      case LongType => ("Edm.Int64", None)
-      case DoubleType => ("Edm.Double", None)
-      case DateType => ("Edm.DateTimeOffset", None)
-      case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
-        val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
-        IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields)
-      }))
+    if (isVector) {
+      ("Collection(Edm.Single)", None)
+    }
+    else {
+      dt match {
+        case ArrayType(it, _) if allowCollections =>
+          val (innerType, innerFields) = sparkTypeToEdmType(it, isVector, allowCollections = false)
+          (s"Collection($innerType)", innerFields)
+        case ArrayType(it, _) if !allowCollections =>
+          val (innerType, innerFields) = sparkTypeToEdmType(it, isVector, allowCollections)
+          ("Edm.ComplexType", innerFields)
+        case StringType => ("Edm.String", None)
+        case BooleanType => ("Edm.Boolean", None)
+        case IntegerType => ("Edm.Int32", None)
+        case LongType => ("Edm.Int64", None)
+        case DoubleType => ("Edm.Double", None)
+        case DateType => ("Edm.DateTimeOffset", None)
+        case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
+          val (innerType, innerFields) = sparkTypeToEdmType(f.dataType, isVector)
+          IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
+            None, None) // not supporting vectors in complex types
+        }))
+      }
     }
   }
 

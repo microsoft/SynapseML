@@ -15,6 +15,8 @@ import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
   val DefaultAPIVersion = "2019-05-06"
+  val VectorConfigName = "vectorConfig"
+  val VectorSearchAlgorithm = "hnsw"
 }
 import com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchAPIConstants._
 

@@ -23,8 +23,18 @@ case class IndexInfo(
                     tokenizers: Option[Seq[String]],
                     tokenFilters: Option[Seq[String]],
                     defaultScoringProfile: Option[Seq[String]],
-                    corsOptions: Option[Seq[String]]
+                    corsOptions: Option[Seq[String]],
+                    vectorSearch: Option[VectorSearch]
                     )
+
+case class AlgorithmConfigs(
+                           name: String,
+                           kind: String
+                           )
+
+case class VectorSearch(
+                       algorithmConfigurations: Seq[AlgorithmConfigs]
+                       )
 
 case class IndexField(
                      name: String,
@@ -39,7 +49,9 @@ case class IndexField(
                      searchAnalyzer: Option[String],
                      indexAnalyzer: Option[String],
                      synonymMap: Option[String],
-                     fields: Option[Seq[IndexField]]
+                     fields: Option[Seq[IndexField]],
+                     dimensions: Option[Int],
+                     vectorSearchConfiguration: Option[String]
                      )
 
 case class VectorColParams(
@@ -55,12 +67,15 @@ case class IndexName(name: String)
 object AzureSearchProtocol extends DefaultJsonProtocol {
   implicit val IfEnc: JsonFormat[IndexField] = lazyFormat(jsonFormat(
     IndexField,"name","type","searchable","filterable","sortable",
-    "facetable","retrievable", "key","analyzer","searchAnalyzer", "indexAnalyzer", "synonymMaps", "fields"))
-  implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat10(IndexInfo.apply)
+    "facetable","retrievable", "key","analyzer","searchAnalyzer", "indexAnalyzer", "synonymMaps", "fields",
+    "dimensions", "vectorSearchConfiguration"))
+  implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat11(IndexInfo.apply)
   implicit val IsEnc: RootJsonFormat[IndexStats] = jsonFormat2(IndexStats.apply)
   implicit val InEnc: RootJsonFormat[IndexName] = jsonFormat1(IndexName.apply)
   implicit val IlEnc: RootJsonFormat[IndexList] = jsonFormat2(IndexList.apply)
-  implicit val IvEnc: RootJsonFormat[VectorColParams] = jsonFormat2(VectorColParams.apply)
+  implicit val VcpEnc: RootJsonFormat[VectorColParams] = jsonFormat2(VectorColParams.apply)
+  implicit val AcEnc: RootJsonFormat[AlgorithmConfigs] = jsonFormat2(AlgorithmConfigs.apply)
+  implicit val VsEnc: RootJsonFormat[VectorSearch] = jsonFormat1(VectorSearch.apply)
 //  implicit object IvsEnc extends RootJsonFormat[SeqVectorColParams] {
 //    def read(value: JsValue): SeqVectorColParams = SeqVectorColParams(value.convertTo[Seq[VectorColParams]])
 //    def write(obj: SeqVectorColParams): JsValue = obj.items.toJson
