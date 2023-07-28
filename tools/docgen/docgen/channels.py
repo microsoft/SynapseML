@@ -84,9 +84,10 @@ class FabricChannel(Channel):
         os.makedirs(output_folder, exist_ok=True)
 
         if resources:
+            # resources converted from notebook
             resources_img, i = [], 0
             for img_filename, content in resources.get("outputs", {}).items():
-                img_path = os.path.join(output_folder, img_filename)
+                img_path = os.path.join(output_folder, img_filename.replace("_", "-"))
                 with open(img_path, 'wb') as img_file:
                     img_file.write(content)
                 img_path_rel = os.path.relpath(img_path, relative_to).replace(os.sep, "/")
@@ -95,14 +96,13 @@ class FabricChannel(Channel):
         img_tags = html_soup.find_all('img')
         for img_tag in img_tags:
             img_url = img_tag['src']
-            if self._is_valid_url(img_url):
+            if self._is_valid_url(img_url): #downloaded image
                 response = requests.get(img_url)
                 if response.status_code == 200:
                     img_filename = self._sentence_to_snake(img_url.split("/")[-1])
                     img_path = os.path.join(output_folder, img_filename)
                     with open(img_path, 'wb') as img_file:
                         img_file.write(response.content)
-
                     img_path_rel = os.path.relpath(img_path, relative_to).replace(os.sep, "/")
                     img_tag['src'] = img_path_rel
                     img_tag.replace_with(
@@ -111,15 +111,16 @@ class FabricChannel(Channel):
                 else:
                     raise ValueError(f"Could not download image from {img_url}")
             elif get_image_from_local:
+                # process local images
                 img_path = img_tag['src']
-                img_filename = self._sentence_to_snake(img_path.split("/")[-1])
+                img_filename = self._sentence_to_snake(img_path.split("/")[-1]).replace("_", "-")
                 file_folder = "/".join(notebook_path.split("/")[:-1])
                 img_input_path = os.path.join(self.input_dir, file_folder, img_path).replace("/", os.sep)
-                img_output_path = os.path.join(output_folder, img_filename)
-                relative_path = os.path.relpath(img_output_path, relative_to)
-                shutil.copy(img_input_path, img_output_path)
+                img_path = os.path.join(output_folder, img_filename)
+                img_path_rel = os.path.relpath(img_path, relative_to)
+                shutil.copy(img_input_path, img_path)
                 img_tag.replace_with(
-                    f':::image type="content" source="{relative_path}" '
+                    f':::image type="content" source="{img_path_rel}" '
                     f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
             else:
                 img_path_rel = resources_img[i]
@@ -174,7 +175,6 @@ class FabricChannel(Channel):
     
     def _read_rst(self, rst_file_path):
         try:
-            print("converting: " + rst_file_path)
             extra_args = ['--wrap=none']
             md_string = pypandoc.convert_file(rst_file_path, 'md', format='rst', extra_args=extra_args)
             return md_string
@@ -182,15 +182,14 @@ class FabricChannel(Channel):
             print("Error converting the RST file to Markdown:", e)
             return None
     
-    def _clean_next_steps(self, parsed_html):
-        next_steps_h2 = parsed_html.find('h2', text='Next steps')
-        if next_steps_h2:
-            ul_element = next_steps_h2.find_next_sibling('ul')
-            if ul_element:
-                for a_tag in ul_element.find_all('a'):
-                    href_value = a_tag['href']
-                    new_href_value = href_value + '.md'
-                    a_tag['href'] = new_href_value
+    def _find_add_extension(self, parsed_html):
+        for link in parsed_html.find_all('a', href=True):
+            href = link['href']
+            if not self._is_valid_url(href) and '.md' not in href:
+                split_href = href.split("#")
+                split_href[0] += ".md"
+                new_href = "#".join(split_href)
+                link['href'] = new_href
         return parsed_html
 
     def process(self, input_file: str, index: int) -> ():
@@ -204,7 +203,6 @@ class FabricChannel(Channel):
             md = self._read_rst(full_input_file)
             html = markdown.markdown(md, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
             parsed_html = BeautifulSoup(html)
-            parsed_html = self._clean_next_steps(parsed_html)
             parsed_html = self._download_and_replace_images(
                 parsed_html,
                 None,
@@ -213,6 +211,7 @@ class FabricChannel(Channel):
                 notebook_path,
                 True
             )
+            parsed_html = self._find_add_extension(parsed_html)
             def callback(el):
                 if el.contents[0].has_attr('class'):
                     return el.contents[0]["class"][0].split("-")[-1] if len(el.contents) >= 1 else None
@@ -265,8 +264,8 @@ class FabricChannel(Channel):
                 return MarkdownConverter(**options).convert_soup(soup)
 
             # Convert from HTML to MD
-            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX)
-        
+            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX, escape_underscores=False)
+
         # Add a header to MD
         metadata = self.notebooks[index]["metadata"]
         self._validate_metadata(metadata)
