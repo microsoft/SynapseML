@@ -163,10 +163,10 @@ object NetworkManager {
             // and a list of partition ids in this executor.
             val lightGbmMachineList = driverInput.readLine()
             val partitionsByExecutorStr = driverInput.readLine()
+            log.info(s"task $taskId, partition $partitionId received partition topology: '$partitionsByExecutorStr'")
+            log.info(s"task $taskId, partition $partitionId received nodes for network init: '$lightGbmMachineList'")
             val executorPartitionIds: Array[Int] =
               parseExecutorPartitionList(partitionsByExecutorStr, taskStatus.executorId)
-            log.info(s"task $taskId, partition $partitionId received nodes for network init: '$lightGbmMachineList'")
-            log.info(s"task $taskId, partition $partitionId received partition topology: '$partitionsByExecutorStr'")
             NetworkTopologyInfo(lightGbmMachineList, executorPartitionIds, localListenPort)
         }.get
     }.get
@@ -178,7 +178,7 @@ object NetworkManager {
     val partitionsByExecutor = partitionsByExecutorStr.split(":")
     val executorListStr = partitionsByExecutor.find(line => line.startsWith(executorId + "="))
     if (executorListStr.isEmpty)
-      throw new Exception(s"Could not find partitions for executor $executorListStr. List: $partitionsByExecutorStr")
+      throw new Exception(s"Could not find partitions for executor $executorId. List: $partitionsByExecutorStr")
     val partitionList = executorListStr.get.split("=")(1)
     partitionList.split(",").map(str => str.toInt).sorted
   }
