@@ -10,9 +10,7 @@ trigger:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
-    - docs/*
     - CODEOWNERS
-    - .github
 
 pr:
   branches:
@@ -21,9 +19,9 @@ pr:
   paths:
     exclude:
     - README.md
-    - docs/*
+    - CONTRIBUTORS.md
+    - SECURITY.md
     - CODEOWNERS
-    - .github
 
 schedules:
   - cron: "0 0 * * *"

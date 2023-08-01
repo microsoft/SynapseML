@@ -73,4 +73,4 @@ pred_df = deep_vision_model.transform(test_df)
 
 ## Examples
 - [Quickstart - Fine-tune a Text Classifier](../Quickstart%20-%20Fine-tune%20a%20Text%20Classifier)
-- [Quickstart - Fine-Tune a Vision Classifier](../Quickstart%20-%20Fine-Tune%20a%20Vision%20Classifier)
+- [Quickstart - Fine-tune a Vision Classifier](../Quickstart%20-%20Fine-tune%20a%20Vision%20Classifier)
