@@ -4,9 +4,9 @@ import re
 import shutil
 import warnings
 from datetime import datetime
-from os.path import basename, dirname, isdir, join
+from os.path import basename, dirname
 from typing import List
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import markdown
 import pypandoc
@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from docgen.core import Channel, ParallelChannel
 from markdownify import ATX, MarkdownConverter
 from nbconvert import MarkdownExporter
-from nbformat import NotebookNode, read
+from nbformat import read
 from traitlets.config import Config
 
 
@@ -79,6 +79,12 @@ class FabricChannel(Channel):
         except:
             return False
         
+    def _replace_img_tag(self, img_tag, img_path_rel):
+        img_tag.replace_with(
+            f':::image type="content" source="{img_path_rel}" '
+            f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
+        pass
+        
     def _download_and_replace_images(self, html_soup, resources, output_folder, relative_to, notebook_path, get_image_from_local=False):
         output_folder = output_folder.replace("/", os.sep)
         os.makedirs(output_folder, exist_ok=True)
@@ -95,40 +101,39 @@ class FabricChannel(Channel):
     
         img_tags = html_soup.find_all('img')
         for img_tag in img_tags:
-            img_url = img_tag['src']
-            if self._is_valid_url(img_url): #downloaded image
-                response = requests.get(img_url)
+            img_loc = img_tag['src']
+
+            if self._is_valid_url(img_loc):
+                 # downloaded image
+                response = requests.get(img_loc)
                 if response.status_code == 200:
-                    img_filename = self._sentence_to_snake(img_url.split("/")[-1])
+                    img_filename = self._sentence_to_snake(img_loc.split("/")[-1])
                     img_path = os.path.join(output_folder, img_filename)
                     with open(img_path, 'wb') as img_file:
                         img_file.write(response.content)
                     img_path_rel = os.path.relpath(img_path, relative_to).replace(os.sep, "/")
                     img_tag['src'] = img_path_rel
-                    img_tag.replace_with(
-                        f':::image type="content" source="{img_path_rel}" '
-                        f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
                 else:
-                    raise ValueError(f"Could not download image from {img_url}")
+                    raise ValueError(f"Could not download image from {img_loc}")
+                
             elif get_image_from_local:
                 # process local images
-                img_path = img_tag['src']
-                img_filename = self._sentence_to_snake(img_path.split("/")[-1]).replace("_", "-")
-                file_folder = "/".join(notebook_path.split("/")[:-1])
-                img_input_path = os.path.join(self.input_dir, file_folder, img_path).replace("/", os.sep)
+                img_filename = self._sentence_to_snake(img_loc.split("/")[-1]).replace("_", "-")
+                file_folder = "/".join(notebook_path.split("/")[:-1]) # path read from manifest file
+                img_input_path = os.path.join(self.input_dir, file_folder, img_loc).replace("/", os.sep)
+                if not os.path.exists(img_input_path):
+                    raise ValueError(f"Could not get image from {img_loc}")
                 img_path = os.path.join(output_folder, img_filename)
-                img_path_rel = os.path.relpath(img_path, relative_to)
+                img_path_rel = os.path.relpath(img_path, relative_to).replace(os.sep, "/")
                 shutil.copy(img_input_path, img_path)
-                img_tag.replace_with(
-                    f':::image type="content" source="{img_path_rel}" '
-                    f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
+
             else:
+                # process image got from notebook resources
                 img_path_rel = resources_img[i]
                 img_tag['src'] = img_path_rel
-                img_tag.replace_with(
-                    f':::image type="content" source="{img_path_rel}" '
-                    f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
                 i += 1
+
+            self._replace_img_tag(img_tag, img_path_rel)
 
         return html_soup
     
@@ -168,7 +173,7 @@ class FabricChannel(Channel):
         return generated_metadata
     
     def _remove_content(self, text):
-        patterns_to_remove = ['https://docs.microsoft.com', 'https://learn.microsoft.com', '{.interpreted-text role="class"}']
+        patterns_to_remove = ['https://docs.microsoft.com', 'https://learn.microsoft.com']
         for pattern in patterns_to_remove:
             text = re.sub(pattern, '', text)
         return text
@@ -176,8 +181,8 @@ class FabricChannel(Channel):
     def _read_rst(self, rst_file_path):
         try:
             extra_args = ['--wrap=none']
-            md_string = pypandoc.convert_file(rst_file_path, 'md', format='rst', extra_args=extra_args)
-            return md_string
+            html_string = pypandoc.convert_file(rst_file_path, 'html', format='rst', extra_args=extra_args)
+            return html_string
         except Exception as e:
             print("Error converting the RST file to Markdown:", e)
             return None
@@ -195,36 +200,28 @@ class FabricChannel(Channel):
     def process(self, input_file: str, index: int) -> ():
         print(f"Processing {input_file} for fabric")
         output_file = os.path.join(self.output_dir, input_file)
+        output_img_dir = self.media_dir + "/" + self._sentence_to_snake(input_file)
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]['path']
 
+        def callback(el):
+            if el.contents[0].has_attr('class'):
+                return el.contents[0]["class"][0].split("-")[-1] if len(el.contents) >= 1 else None
+            else:
+                return el['class'][0] if el.has_attr('class') else None
+        
+        def convert_soup_to_md(soup, **options):
+            return MarkdownConverter(**options).convert_soup(soup)
+
         if str(input_file).endswith(".rst"):
             output_file = self._sentence_to_snake(str(output_file).replace(".rst", ".md"))
-            md = self._read_rst(full_input_file)
-            html = markdown.markdown(md, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
-            parsed_html = BeautifulSoup(html)
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                None,
-                self.media_dir + "/" + self._sentence_to_snake(input_file),
-                os.path.dirname(output_file),
-                notebook_path,
-                True
-            )
+            html = self._read_rst(full_input_file)
+            parsed_html = markdown.markdown(html, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
+            parsed_html = BeautifulSoup(parsed_html)
+            parsed_html = self._download_and_replace_images(parsed_html, None, output_img_dir, os.path.dirname(output_file), notebook_path, True)
             parsed_html = self._find_add_extension(parsed_html)
-            def callback(el):
-                if el.contents[0].has_attr('class'):
-                    return el.contents[0]["class"][0].split("-")[-1] if len(el.contents) >= 1 else None
-                else:
-                    return el['class'][0] if el.has_attr('class') else None
-            
-            def convert_soup_to_md(soup, **options):
-                return MarkdownConverter(**options).convert_soup(soup)
-
-            # Convert from HTML to MD
-            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX)
         
-        if str(input_file).endswith(".ipynb"):
+        elif str(input_file).endswith(".ipynb"):
             output_file = self._sentence_to_snake(str(output_file).replace(".ipynb", ".md"))
             parsed = read(full_input_file, as_version=4)
 
@@ -235,17 +232,9 @@ class FabricChannel(Channel):
             md, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
             html = markdown.markdown(md, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
-
             parsed_html = BeautifulSoup(html)
             # Download images and place them in media directory while updating their links
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                resources,
-                self.media_dir + "/" + self._sentence_to_snake(input_file),
-                os.path.dirname(output_file),
-                None,
-                False
-            )
+            parsed_html = self._download_and_replace_images(parsed_html, resources, output_img_dir, os.path.dirname(output_file), None, False)
             # Remove StatementMeta
             for element in parsed_html.find_all(text=re.compile("StatementMeta\(.*?Available\)")):
                 element.extract()
@@ -254,19 +243,10 @@ class FabricChannel(Channel):
             for style_tag in parsed_html.find_all('style'):
                 style_tag.extract()
 
-            def callback(el):
-                if el.contents[0].has_attr('class'):
-                    return el.contents[0]["class"][0].split("-")[-1] if len(el.contents) >= 1 else None
-                else:
-                    return el['class'][0] if el.has_attr('class') else None
-            
-            def convert_soup_to_md(soup, **options):
-                return MarkdownConverter(**options).convert_soup(soup)
+        # Convert from HTML to MD
+        new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX, escape_underscores=False)
 
-            # Convert from HTML to MD
-            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX, escape_underscores=False)
-
-        # Add a header to MD
+        # Post processing
         metadata = self.notebooks[index]["metadata"]
         self._validate_metadata(metadata)
         new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}"
