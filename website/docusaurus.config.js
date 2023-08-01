@@ -84,7 +84,7 @@ module.exports = {
           items: [
             {
               label: 'Installation',
-              to: 'docs/Get%20Started/install%20SynapseML',
+              to: 'docs/Get%20Started/Install%20SynapseML',
             },
             {
               label: 'Getting Started',
