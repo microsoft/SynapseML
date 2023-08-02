@@ -18,6 +18,7 @@ import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.sql.functions.{col, expr, struct, to_json}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
@@ -142,7 +143,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def responseDataType: DataType = ASResponses.schema
 }
 
-object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging {
+object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorColsParser with SLogging {
 
   val Logger: Logger = LogManager.getRootLogger
 
@@ -253,34 +254,53 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
       }
     }
 
-    var vectorCols: Option[Seq[VectorColParams]] = None
+//    var vectorCols: Option[Seq[VectorColParams]] = None
+//
+//    if (indexJsonOpt.isDefined) {
+//      val indexInfo = parseIndexJson(indexJsonOpt.get)
+//      vectorCols = Some(indexInfo.fields
+//        .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+//        .map(f => VectorColParams(f.name, f.dimensions.get)))
+//    }
+//    else {
+//      vectorCols = vectorColsOpt.map(parseVectorColsJson) //TODO: try parse..(vectorcolopt) instead
+//    }
 
-    if (indexJsonOpt.isDefined) {
-      val indexInfo = parseIndexJson(indexJsonOpt.get)
-      vectorCols = Some(indexInfo.fields
-        .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
-        .map(f => VectorColParams(f.name, f.dimensions.get)))
+    var indexJson = ""
+    var castedDF: Option[DataFrame] = None
+    if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
+      indexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+      if (indexJsonOpt.isDefined) {
+        println(f"indexJsonOpt is specified, however an index for the $indexName already exists," +
+          f"we will use the index definition for the existing index instead")
+      }
+      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJson)
+      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
+    }
+    else if (indexJsonOpt.isDefined) {
+      indexJson = indexJsonOpt.get
+      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJson)
+      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
     }
     else {
-      vectorCols = vectorColsOpt.map(parseVectorColsJson) //TODO: try parse..(vectorcolopt) instead
-    }
-
-    val indexJson = indexJsonOpt.getOrElse {
-      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol, vectorCols)
+      val vectorCols = vectorColsOpt.map(parseVectorColsJson)
+      val vectorColNameTypeTuple = vectorCols.map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
+      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
+      indexJson = dfToIndexJson(castedDF.get.schema, indexName, keyCol.get, actionCol, vectorCols)
     }
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
-    checkSchemaParity(df.schema, indexJson, actionCol)
+    checkSchemaParity(castedDF.get.schema, indexJson, actionCol)
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
         .filter(_.`type`.startsWith("Collection"))
         .map(_.name)
-      collectionColumns.foldLeft(df) { (ndf, c) => filterOutNulls(ndf, c) }
+      collectionColumns.foldLeft(castedDF.get) { (ndf, c) => filterOutNulls(ndf, c) }
     } else {
-      df
+      castedDF.get
     }
 
     new AddDocuments()
@@ -295,6 +315,30 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }
+
+  private def getVectorColNameTypeTupleFromIndexJson(indexJson: String): Seq[(String, String)] = {
+    parseIndexJson(indexJson).fields
+      .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+      .map(f => (f.name, f.`type`))
+  }
+  private def castDFColsToVectorCompatibleType(vectorColNameTypeTuple: Seq[(String, String)],
+                                               df: DataFrame): DataFrame = {
+
+    vectorColNameTypeTuple.foldLeft(df) { case (accDF, (colName, colType)) =>
+      assert(accDF.columns.contains(colName), s"Column $colName not found in dataframe columns ${accDF.columns.toList}")
+//      assert((accDF.schema(colName).dataType.isInstanceOf[ArrayType]
+//        && (accDF.schema(colName).dataType.asInstanceOf[ArrayType].elementType == FloatType
+//        || accDF.schema(colName).dataType.asInstanceOf[ArrayType].elementType == DoubleType))
+//      || accDF.schema(colName).dataType == VectorType)
+      val colDataType = accDF.schema(colName).dataType
+      assert(colDataType match {
+        case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
+        case VectorType => true
+        case _ => false
+      })
+      accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+    }
+}
 
   private def isEdmCollection(t: String): Boolean = {
     t.startsWith("Collection(") && t.endsWith(")")
@@ -342,7 +386,7 @@ object AzureSearchWriter extends IndexParser with VectorColsParser with SLogging
         case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
           val (innerType, innerFields) = sparkTypeToEdmType(f.dataType, isVector)
           IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
-            None, None) // not supporting vectors in complex types
+            None, None) // right now not supporting vectors in complex types
         }))
       }
     }

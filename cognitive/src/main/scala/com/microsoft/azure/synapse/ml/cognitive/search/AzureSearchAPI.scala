@@ -47,6 +47,24 @@ trait IndexLister {
   }
 }
 
+trait IndexJsonGetter extends IndexLister {
+  def getIndexJsonFromExistingIndex(key: String,
+                                    serviceName: String,
+                                    indexName: String,
+                                    apiVersion: String = DefaultAPIVersion): String = {
+    val existingIndexNames = getExisting(key, serviceName, apiVersion)
+    assert(existingIndexNames.contains(indexName), s"Cannot find an existing index name with $indexName")
+
+    val indexJsonRequest = new HttpGet(
+      s"https://$serviceName.search.windows.net/indexes/$indexName?api-version=$apiVersion"
+    )
+    indexJsonRequest.setHeader("api-key", key)
+    indexJsonRequest.setHeader("Content-Type", "application/json")
+    val indexJsonResponse = safeSend(indexJsonRequest)
+    IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
+  }
+}
+
 object SearchIndex extends IndexParser with IndexLister {
 
   import AzureSearchProtocol._
