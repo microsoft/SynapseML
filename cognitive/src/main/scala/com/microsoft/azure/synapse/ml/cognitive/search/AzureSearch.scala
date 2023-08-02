@@ -172,7 +172,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
     fields.filterNot(_.name == searchActionCol).map { sf =>
       val fullName = prefix.map(_ + sf.name).getOrElse(sf.name)
       val isVector = vectorCols.exists(_.exists(_.name == fullName))
-      val (innerType, _) = sparkTypeToEdmType(sf.dataType, isVector)
+      val (innerType, _) = sparkTypeToEdmType(sf.dataType)
       IndexField(
         sf.name,
         innerType,
@@ -357,6 +357,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
     case "Edm.Int64" => LongType
     case "Edm.Int32" => IntegerType
     case "Edm.Double" => DoubleType
+    case "Edm.Single" => FloatType
     case "Edm.DateTimeOffset" => StringType //See if there's a way to use spark datetimes
     case "Edm.GeographyPoint" => StringType
     case "Edm.ComplexType" => StructType(fields.get.map(f =>
@@ -364,31 +365,26 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
   }
 
   private def sparkTypeToEdmType(dt: DataType,  //scalastyle:ignore cyclomatic.complexity
-                                 isVector: Boolean,
                                  allowCollections: Boolean = true): (String, Option[Seq[IndexField]]) = {
-    if (isVector) {
-      ("Collection(Edm.Single)", None)
-    }
-    else {
-      dt match {
-        case ArrayType(it, _) if allowCollections =>
-          val (innerType, innerFields) = sparkTypeToEdmType(it, isVector, allowCollections = false)
-          (s"Collection($innerType)", innerFields)
-        case ArrayType(it, _) if !allowCollections =>
-          val (innerType, innerFields) = sparkTypeToEdmType(it, isVector, allowCollections)
-          ("Edm.ComplexType", innerFields)
-        case StringType => ("Edm.String", None)
-        case BooleanType => ("Edm.Boolean", None)
-        case IntegerType => ("Edm.Int32", None)
-        case LongType => ("Edm.Int64", None)
-        case DoubleType => ("Edm.Double", None)
-        case DateType => ("Edm.DateTimeOffset", None)
-        case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
-          val (innerType, innerFields) = sparkTypeToEdmType(f.dataType, isVector)
-          IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
-            None, None) // right now not supporting vectors in complex types
-        }))
-      }
+    dt match {
+      case ArrayType(it, _) if allowCollections =>
+        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections = false)
+        (s"Collection($innerType)", innerFields)
+      case ArrayType(it, _) if !allowCollections =>
+        val (innerType, innerFields) = sparkTypeToEdmType(it, allowCollections)
+        ("Edm.ComplexType", innerFields)
+      case StringType => ("Edm.String", None)
+      case BooleanType => ("Edm.Boolean", None)
+      case IntegerType => ("Edm.Int32", None)
+      case LongType => ("Edm.Int64", None)
+      case DoubleType => ("Edm.Double", None)
+      case FloatType  => ("Edm.Single", None)
+      case DateType => ("Edm.DateTimeOffset", None)
+      case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
+        val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
+        IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
+          None, None) // right now not supporting vectors in complex types
+      }))
     }
   }
 
