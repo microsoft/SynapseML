@@ -14,7 +14,7 @@ import spray.json._
 import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
-  val DefaultAPIVersion = "2019-05-06"
+  val DefaultAPIVersion = "2023-07-01-Preview"
   val VectorConfigName = "vectorConfig"
   val VectorSearchAlgorithm = "hnsw"
 }
@@ -60,8 +60,10 @@ trait IndexJsonGetter extends IndexLister {
     )
     indexJsonRequest.setHeader("api-key", key)
     indexJsonRequest.setHeader("Content-Type", "application/json")
-    val indexJsonResponse = safeSend(indexJsonRequest)
-    IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
+    val indexJsonResponse = safeSend(indexJsonRequest, close = false)
+    val indexJson = IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
+    indexJsonResponse.close()
+    indexJson
   }
 }
 
@@ -120,7 +122,7 @@ object SearchIndex extends IndexParser with IndexLister {
       _ <- validAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validSearchAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validIndexAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
-      _ <- validSynonymMaps(field.synonymMap)
+      //_ <- validSynonymMaps(field.synonymMap)
     } yield field
   }
 

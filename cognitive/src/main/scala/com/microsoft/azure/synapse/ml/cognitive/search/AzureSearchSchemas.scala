@@ -48,7 +48,7 @@ case class IndexField(
                      analyzer: Option[String],
                      searchAnalyzer: Option[String],
                      indexAnalyzer: Option[String],
-                     synonymMap: Option[String],
+                     synonymMap: Option[Seq[String]],
                      fields: Option[Seq[IndexField]],
                      dimensions: Option[Int],
                      vectorSearchConfiguration: Option[String]

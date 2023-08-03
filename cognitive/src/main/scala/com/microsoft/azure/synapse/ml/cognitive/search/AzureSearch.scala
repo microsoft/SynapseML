@@ -272,7 +272,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       indexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
       if (indexJsonOpt.isDefined) {
         println(f"indexJsonOpt is specified, however an index for the $indexName already exists," +
-          f"we will use the index definition for the existing index instead")
+          f"we will use the index definition obtained from the existing index instead")
       }
       val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJson)
       castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
@@ -335,7 +335,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
         case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
         case VectorType => true
         case _ => false
-      })
+      }, s"Vector column $colName needs to be one of (ArrayType(FloatType), ArrayType(DoubleType), VectorType)")
       accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
     }
 }

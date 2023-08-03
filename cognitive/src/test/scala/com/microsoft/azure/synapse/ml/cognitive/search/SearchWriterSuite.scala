@@ -408,4 +408,59 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     retryWithBackoff(assertSize(in, 2))
   }
 
+  test("no vector,  index json, new index") {
+    //create new index and add docs
+    lazy val in1 = generateIndexName()
+    writeHelper(df4, in1)
+    retryWithBackoff(assertSize(in1, 4))
+  }
+
+  test("no vector, no index json, new index") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array(1.1, 2.1, 3.1)),
+      ("upload", "1", "file1", Array(1.2, 2.2, 3.2)))
+      .toDF("searchAction", "id", "fileName", "someArray")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id",
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("no vector, no index json, existing index") {
+    val testsToRun = Set(1, 2) //, 3)
+
+    def dependsOn(testNumber: Int, f: => Unit): Unit = {
+      if (testsToRun(testNumber)) {
+        println(s"Running code for test $testNumber")
+        f
+      }
+    }
+
+    //push docs to existing index
+    lazy val in2 = generateIndexName()
+    lazy val dfA = df10.limit(4)
+    lazy val dfB = df10.except(dfA)
+    dependsOn(2, writeHelper(dfA, in2))
+
+    dependsOn(2, retryWithBackoff({
+      if (getExisting(azureSearchKey, testServiceName).contains(in2)) {
+        writeHelper(dfB, in2)
+      } else {
+        throw new RuntimeException("No existing service found")
+      }
+    }))
+
+    dependsOn(2, retryWithBackoff(assertSize(in2, 10)))
+
+  }
+
 }
