@@ -59,8 +59,8 @@ Set image url in Notebook (Markdown format):
 ![image-alt-text](image_url)
 ```
 
-### Language code
-Please remove all language code under https://docs.microsoft.com and https://learn.microsoft.com
+### Remove Locale information from URLs
+Please remove all locale information from urls from https://docs.microsoft.com and https://learn.microsoft.com
 eg:
 
 ```

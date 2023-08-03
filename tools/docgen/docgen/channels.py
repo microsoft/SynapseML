@@ -14,7 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 from docgen.core import Channel, ParallelChannel
 from markdownify import ATX, MarkdownConverter
-from nbconvert import MarkdownExporter
+from nbconvert import MarkdownExporter, HTMLExporter
 from nbformat import read
 from traitlets.config import Config
 
@@ -83,7 +83,6 @@ class FabricChannel(Channel):
         img_tag.replace_with(
             f':::image type="content" source="{img_path_rel}" '
             f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::')
-        pass
         
     def _download_and_replace_images(self, html_soup, resources, output_folder, relative_to, notebook_path, get_image_from_local=False):
         output_folder = output_folder.replace("/", os.sep)
@@ -151,26 +150,20 @@ class FabricChannel(Channel):
     def _generate_metadata_header(self, metadata):
         """
         take a file and the authors name, generate metadata
-        metadata requirements: https://learn.microsoft.com/en-us/contribute/metadata
+        metadata requirements: https://learn.microsoft.com/contribute/metadata
         Azure Doc require MS authors and contributors need to make content contributions through the private repository
         so the content can be staged and validated by the current validation rules. (Jan 4th, 2023)
         """
-        generated_metadata = "---\n"
-        for k, v in metadata.items():
-            generated_metadata += "{k}: {v}\n".format(k=k, v=v)
         if "ms.date" not in metadata:
             update_date = datetime.today().strftime("%m/%d/%Y")
-            generated_metadata += "ms.date: {update_date}\n".format(
-                update_date=update_date
-            )
+            metadata["ms.date"] = update_date
         else:
             warnings.warn(
                 "ms.date is set in manifest file, the date won't be automatically updated. "
                 "to update date automatically, remove ms.date from manifest file"
             )
-
-        generated_metadata += "---\n"
-        return generated_metadata
+        formatted_list = ["---"] + ["{k}: {v}".format(k=k, v=v) for k, v in metadata.items()] + ["---\n"]
+        return "\n".join(formatted_list)
     
     def _remove_content(self, text):
         patterns_to_remove = ['https://docs.microsoft.com', 'https://learn.microsoft.com']
@@ -186,8 +179,8 @@ class FabricChannel(Channel):
         except Exception as e:
             print("Error converting the RST file to Markdown:", e)
             return None
-    
-    def _find_add_extension(self, parsed_html):
+        
+    def _convert_to_markdown_links(self, parsed_html):
         for link in parsed_html.find_all('a', href=True):
             href = link['href']
             if not self._is_valid_url(href) and '.md' not in href:
@@ -203,6 +196,8 @@ class FabricChannel(Channel):
         output_img_dir = self.media_dir + "/" + self._sentence_to_snake(input_file)
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]['path']
+        metadata = self.notebooks[index]["metadata"]
+        self._validate_metadata(metadata)
 
         def callback(el):
             if el.contents[0].has_attr('class'):
@@ -219,7 +214,7 @@ class FabricChannel(Channel):
             parsed_html = markdown.markdown(html, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
             parsed_html = BeautifulSoup(parsed_html)
             parsed_html = self._download_and_replace_images(parsed_html, None, output_img_dir, os.path.dirname(output_file), notebook_path, True)
-            parsed_html = self._find_add_extension(parsed_html)
+            parsed_html = self._convert_to_markdown_links(parsed_html)
         
         elif str(input_file).endswith(".ipynb"):
             output_file = self._sentence_to_snake(str(output_file).replace(".ipynb", ".md"))
@@ -242,13 +237,10 @@ class FabricChannel(Channel):
             # Remove extra CSS styling info
             for style_tag in parsed_html.find_all('style'):
                 style_tag.extract()
-
+        
         # Convert from HTML to MD
         new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX, escape_underscores=False)
-
         # Post processing
-        metadata = self.notebooks[index]["metadata"]
-        self._validate_metadata(metadata)
         new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}"
         output_md = self._remove_content(new_md)
 

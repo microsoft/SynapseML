@@ -47,3 +47,7 @@ dependencies:
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe
+    - pypandoc
+    - markdownify
+    - traitlets
+
