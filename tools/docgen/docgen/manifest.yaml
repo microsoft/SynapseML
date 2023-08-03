@@ -1,4 +1,7 @@
 channels:
+  - name: "channels.WebsiteChannel"
+    input_dir: "../../../docs/"
+    output_dir: "../../../website/docs/"
   - name: channels.FabricChannel
     input_dir: ../../../docs/
     output_dir: ../../../target/fabric-docs-pr/
