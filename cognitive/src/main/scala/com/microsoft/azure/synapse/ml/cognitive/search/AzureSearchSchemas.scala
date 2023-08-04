@@ -69,15 +69,11 @@ object AzureSearchProtocol extends DefaultJsonProtocol {
     IndexField,"name","type","searchable","filterable","sortable",
     "facetable","retrievable", "key","analyzer","searchAnalyzer", "indexAnalyzer", "synonymMaps", "fields",
     "dimensions", "vectorSearchConfiguration"))
+  implicit val AcEnc: RootJsonFormat[AlgorithmConfigs] = jsonFormat2(AlgorithmConfigs.apply)
+  implicit val VsEnc: RootJsonFormat[VectorSearch] = jsonFormat1(VectorSearch.apply)
   implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat11(IndexInfo.apply)
   implicit val IsEnc: RootJsonFormat[IndexStats] = jsonFormat2(IndexStats.apply)
   implicit val InEnc: RootJsonFormat[IndexName] = jsonFormat1(IndexName.apply)
   implicit val IlEnc: RootJsonFormat[IndexList] = jsonFormat2(IndexList.apply)
   implicit val VcpEnc: RootJsonFormat[VectorColParams] = jsonFormat2(VectorColParams.apply)
-  implicit val AcEnc: RootJsonFormat[AlgorithmConfigs] = jsonFormat2(AlgorithmConfigs.apply)
-  implicit val VsEnc: RootJsonFormat[VectorSearch] = jsonFormat1(VectorSearch.apply)
-//  implicit object IvsEnc extends RootJsonFormat[SeqVectorColParams] {
-//    def read(value: JsValue): SeqVectorColParams = SeqVectorColParams(value.convertTo[Seq[VectorColParams]])
-//    def write(obj: SeqVectorColParams): JsValue = obj.items.toJson
-//  }
 }

@@ -254,18 +254,6 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       }
     }
 
-//    var vectorCols: Option[Seq[VectorColParams]] = None
-//
-//    if (indexJsonOpt.isDefined) {
-//      val indexInfo = parseIndexJson(indexJsonOpt.get)
-//      vectorCols = Some(indexInfo.fields
-//        .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
-//        .map(f => VectorColParams(f.name, f.dimensions.get)))
-//    }
-//    else {
-//      vectorCols = vectorColsOpt.map(parseVectorColsJson) //TODO: try parse..(vectorcolopt) instead
-//    }
-
     var indexJson = ""
     var castedDF: Option[DataFrame] = None
     if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
@@ -326,10 +314,6 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
 
     vectorColNameTypeTuple.foldLeft(df) { case (accDF, (colName, colType)) =>
       assert(accDF.columns.contains(colName), s"Column $colName not found in dataframe columns ${accDF.columns.toList}")
-//      assert((accDF.schema(colName).dataType.isInstanceOf[ArrayType]
-//        && (accDF.schema(colName).dataType.asInstanceOf[ArrayType].elementType == FloatType
-//        || accDF.schema(colName).dataType.asInstanceOf[ArrayType].elementType == DoubleType))
-//      || accDF.schema(colName).dataType == VectorType)
       val colDataType = accDF.schema(colName).dataType
       assert(colDataType match {
         case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
