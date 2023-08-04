@@ -14,6 +14,8 @@ import scala.annotation.tailrec
 import scala.concurrent.blocking
 import scala.util.Try
 
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+
 object RESTHelpers {
   lazy val RequestTimeout = 60000
 
@@ -53,7 +55,6 @@ object RESTHelpers {
                backoffs: List[Int] = List(100, 500, 1000),  //scalastyle:ignore magic.number
                expectedCodes: Set[Int] = Set(),
                close: Boolean = true): CloseableHttpResponse = {
-
     retry(backoffs, { () =>
       val response = Client.execute(request)
       try {
@@ -78,6 +79,10 @@ object RESTHelpers {
         }
       } catch {
         case e: Exception =>
+          println(s"RESTHelpers::safeSend: getting error response parsing." +
+            s". Exception = $e")
+          SynapseMLLogging.logMessage(s"RESTHelpers::safeSend: getting error response parsing." +
+            s". Exception = $e")
           response.close()
           throw e
       } finally {
@@ -89,7 +94,18 @@ object RESTHelpers {
   }
 
   def parseResult(result: CloseableHttpResponse): String = {
-    IOUtils.toString(result.getEntity.getContent, "utf-8")
+    var res: String = ""
+    try {
+      res = IOUtils.toString(result.getEntity.getContent, "utf-8")
+    }
+    catch{
+      case e: Exception =>
+        println(s"RestHelpers::parseResult: getting exception parsing response." +
+          s"Exception = $e")
+        SynapseMLLogging.logMessage(s"RestHelpers::parseResult: getting exception parsing response." +
+          s"Exception = $e")
+    }
+    res
   }
 
   def sendAndParseJson(request: HttpRequestBase, expectedCodes: Set[Int]=Set()): JsValue = {
@@ -98,5 +114,4 @@ object RESTHelpers {
     response.close()
     output
   }
-
 }

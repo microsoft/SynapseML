@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.logging.Usage
 
 import scala.reflect.runtime.{ universe, currentMirror }
@@ -17,12 +20,12 @@ object TokenUtils {
 
   def getAccessToken(): String = {
     val token = ""
-    if (checkTokenValid(this.AADToken))
+    /*if (checkTokenValid(this.AADToken))
       this.AADToken
-    else {
-      refreshAccessToken()
-      this.AADToken
-    }
+    else {*/
+    refreshAccessToken()
+    this.AADToken
+    //}
   }
 
   def getAccessToken(tokenType: String): String = {
@@ -37,20 +40,14 @@ object TokenUtils {
     val argType = typeOf[String]
 
     val selectedMethodSymbol = methodSymbols.find { m =>
-
       m.asMethod.paramLists match {
-
         case List(List(param)) => param.typeSignature =:= argType
-
         case _ => false
-
       }
-
     }.getOrElse(throw new NoSuchMethodException(s"Method $methodName with argument type $argType not found"))
 
     val methodMirror = mirror.reflect(obj).reflectMethod(selectedMethodSymbol.asMethod)
     methodMirror(tokenType).asInstanceOf[String]
-
   }
 
   def checkTokenValid(token: String): Boolean = {
@@ -64,6 +61,7 @@ object TokenUtils {
       now < expTime - 60
     } catch {
       case e: Exception => {
+        SynapseMLLogging.logMessage(s"TokenUtils::checkTokValid: Token {$token} parsing went wrong (usage test).")
         false
       }
     }
@@ -74,41 +72,41 @@ object TokenUtils {
       if (SparkContext.getOrCreate() != null) {
         val token = getAccessToken("pbi")
         AADToken = token
-        SynapseMLLogging.logMessage("SynapseML Utils: refreshed pbi token via token library")
       } else {
         val token = new FabricTokenServiceClient().getAccessToken("pbi")
         AADToken = token
-        SynapseMLLogging.logMessage("SynapseML Utils: refreshed pbi token via direct API call")
       }
     } catch {
       case e: Exception => {
-        SynapseMLLogging.logMessage(s"failed to refresh pbi token: {e}")
+        SynapseMLLogging.logMessage(s"refreshAccessTok: failed to refresh pbi tok. Exception: {e}. (usage test)")
       }
     }
   }
 
-  def getMWCToken(shared_host: String, workspace_id: String, capacity_id: String,
+  def getMWCToken(shared_host: String, WorkspaceId: String, capacity_id: String,
                     workload_type: String): MwcToken = {
     val url: String = shared_host + "/metadata/v201606/generatemwctokenv2"
 
     val payLoad = s"""{
       |"capacityObjectId": "$capacity_id",
-      |"workspaceObjectId": "$workspace_id",
+      |"workspaceObjectId": "$WorkspaceId",
       |"workloadType": "$workload_type"
     }""".stripMargin
 
     val driverAADToken = getAccessToken()
+
     val headers = Map(
       "Content-Type" -> "application/json",
       "Authorization" -> s"""Bearer $driverAADToken""".stripMargin,
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
     )
+
     try{
       var response = usagePost(url, payLoad, headers)
-      if (response.asJsObject.fields("status_code").convertTo[String] != 200
+      /*if (response.asJsObject.fields("status_code").convertTo[String] != 200
         || response.asJsObject.fields("content").convertTo[String].isEmpty) {
         throw new Exception("Fetch access token error")
-      }
+      }*/
       var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
       targetUriHost = s"https://$targetUriHost"
       response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
@@ -117,7 +115,7 @@ object TokenUtils {
     }
     catch {
       case e: Exception =>
-        SynapseMLLogging.logMessage(s"Failed to fetch cluster details: $e")
+        SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch cluster details: $e. (usage test)")
         throw e
     }
   }

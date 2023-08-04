@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.logging.Usage
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
@@ -12,45 +15,45 @@ case class TokenServiceConfig(tokenServiceEndpoint: String,
                               sessionToken: String)
 
 object TokenServiceConfigProtocol extends DefaultJsonProtocol {
-  implicit val tokenServiceConfigFormat: RootJsonFormat[TokenServiceConfig] = jsonFormat4(TokenServiceConfig)
+  implicit val TokenServiceConfigFormat: RootJsonFormat[TokenServiceConfig] = jsonFormat4(TokenServiceConfig)
 }
 
 import TokenServiceConfigProtocol._
 
 object FabricUtils {
-  var trident_context = Map[String, String]()
+  var TridentContext = Map[String, String]()
 
   def getFabricContext(): Map[String, String] = {
-    if (trident_context.nonEmpty) {
-      trident_context
+    if (TridentContext.nonEmpty) {
+      TridentContext
     } else {
       try {
-        val lines = scala.io.Source.fromFile(FabricConstants.CONTEXT_FILE_PATH).getLines().toList
+        val lines = scala.io.Source.fromFile(FabricConstants.ContextFilePath).getLines().toList
         for (line <- lines) {
           if (line.split('=').length == 2) {
             val Array(k, v) = line.split('=')
-            trident_context += (k.trim -> v.trim)
+            TridentContext += (k.trim -> v.trim)
           }
         }
 
-        var file_content: String = Source.fromFile(FabricConstants.TOKEN_SERVICE_FILE_PATH).mkString
-        file_content = cleanJson(file_content)
-        val tokenServiceConfigJson = file_content.parseJson
+        var fileContent: String = Source.fromFile(FabricConstants.TokenServiceFilePath).mkString
+        fileContent = cleanJson(fileContent)
+        val tokenServiceConfigJson = fileContent.parseJson
 
         // Extract the values from the JSON using Spray JSON's automatic JSON-to-case-class conversion
         val tokenServiceConfig = tokenServiceConfigJson.convertTo[TokenServiceConfig]
-        // Populate the trident_context map
-        trident_context += (FabricConstants.SYNAPSE_TOKEN_SERVICE_ENDPOINT -> tokenServiceConfig.tokenServiceEndpoint)
-        trident_context += (FabricConstants.SYNAPSE_CLUSTER_TYPE -> tokenServiceConfig.clusterType)
-        trident_context += (FabricConstants.SYNAPSE_CLUSTER_IDENTIFIER -> tokenServiceConfig.clusterName)
-        trident_context += (FabricConstants.TRIDENT_SESSION_TOKEN -> tokenServiceConfig.sessionToken)
+        // Populate the TridentContext map
+        TridentContext += (FabricConstants.SynapseTokenServiceEndpoint -> tokenServiceConfig.tokenServiceEndpoint)
+        TridentContext += (FabricConstants.SynapseClusterType -> tokenServiceConfig.clusterType)
+        TridentContext += (FabricConstants.SynapseClusterIdentifier -> tokenServiceConfig.clusterName)
+        TridentContext += (FabricConstants.TridentSessionToken -> tokenServiceConfig.sessionToken)
       } catch {
         case e: Exception =>
           SynapseMLLogging.logMessage(s"Error reading Fabric context file: $e")
           throw e
       }
     }
-    trident_context
+    TridentContext
   }
 
   def cleanJson(s: String): String = {

@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.logging.Usage
 
 import java.util.UUID
@@ -28,10 +31,10 @@ class FabricTokenServiceClient {
   val processName = processDetail.substring(processDetail.indexOf('@') + 1)
 
   val fabricConbtext = FabricUtils.getFabricContext()
-  val synapseTokenserviceEndpoint = fabricConbtext(SYNAPSE_TOKEN_SERVICE_ENDPOINT)
-  val workloadEndpoint = fabricConbtext(TRIDENT_LAKEHOUSE_TOKEN_SERVICE_ENDPOINT)
-  val sessionToken = fabricConbtext(TRIDENT_SESSION_TOKEN)
-  val clusterIdentifier = fabricConbtext(SYNAPSE_CLUSTER_IDENTIFIER)
+  val synapseTokenserviceEndpoint = fabricConbtext(SynapseTokenServiceEndpoint)
+  val workloadEndpoint = fabricConbtext(TridentLakehouseTokenServiceEndpoint)
+  val sessionToken = fabricConbtext(TridentSessionToken)
+  val clusterIdentifier = fabricConbtext(SynapseClusterIdentifier)
 
   def getAccessToken(resourceParam: String): String = {
     if (!resourceMapping.contains(resourceParam)) {
@@ -60,7 +63,8 @@ class FabricTokenServiceClient {
       }
     } catch {
       case e: Exception =>
-        SynapseMLLogging.logMessage(s"Failed to fetch cluster details $e")
+        println(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
+        SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
     }
     response.asJsObject.fields("content").toString().getBytes("UTF-8").toString()
   }
