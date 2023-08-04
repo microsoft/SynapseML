@@ -13,8 +13,8 @@ class Channel(ABC):
         pass
 
     def run(self) -> ():
-        for input_file in self.list_input_files():
-            self.process(input_file)
+        for index, input_file in enumerate(self.list_input_files()):
+            self.process(input_file, index)
 
 
 class ParallelChannel(Channel):
