@@ -21,7 +21,7 @@ class ParallelChannel(Channel):
     def run(self) -> ():
         with multiprocessing.Pool() as pool:
             pool.map(
-                self.process, [(f, i) for (i, f) in enumerate(self.list_input_files())]
+                lambda p: self.process(*p), [(f, i) for (i, f) in enumerate(self.list_input_files())]
             )
 
 
