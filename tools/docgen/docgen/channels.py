@@ -300,15 +300,20 @@ class FabricChannel(Channel):
                 None,
                 False,
             )
-            # Remove StatementMeta
-            for element in parsed_html.find_all(
-                text=re.compile("StatementMeta\(.*?Available\)")
-            ):
-                element.extract()
 
-            # Remove extra CSS styling info
-            for style_tag in parsed_html.find_all("style"):
-                style_tag.extract()
+        # Remove StatementMeta
+        for element in parsed_html.find_all(
+            text=re.compile("StatementMeta\(.*?Available\)")
+        ):
+            element.extract()
+            warnings.warn(
+                f"Found StatementMeta in {input_file}, please check if you want it in the notebook.",
+                UserWarning,
+            )
+
+        # Remove extra CSS styling info
+        for style_tag in parsed_html.find_all("style"):
+            style_tag.extract()
 
         # Convert from HTML to MD
         new_md = convert_soup_to_md(
