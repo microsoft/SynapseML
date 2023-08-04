@@ -27,7 +27,7 @@ class WebsiteChannel(ParallelChannel):
     def list_input_files(self) -> List[str]:
         return list(pathlib.Path(self.input_dir).rglob("*"))
 
-    def process(self, input_file: str, index: int) -> ():
+    def process(self, input_file: str) -> ():
         print(f"Processing {input_file} for website")
         output_file = os.path.join(
             self.output_dir, os.path.relpath(input_file, self.input_dir)

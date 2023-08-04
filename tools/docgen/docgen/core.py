@@ -20,12 +20,7 @@ class Channel(ABC):
 class ParallelChannel(Channel):
     def run(self) -> ():
         with multiprocessing.Pool() as pool:
-            def process_helper(p):
-                self.process(p[0], p[1])
-                
-            pool.map(
-               process_helper, [(f, i) for (i, f) in enumerate(self.list_input_files())]
-            )
+            pool.map(self.process, self.list_input_files())
 
 
 class DocumentProcessor:
