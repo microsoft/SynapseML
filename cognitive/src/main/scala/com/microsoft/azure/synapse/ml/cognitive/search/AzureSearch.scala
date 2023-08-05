@@ -326,18 +326,23 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
   }
   private def castDFColsToVectorCompatibleType(vectorColNameTypeTuple: Seq[(String, String)],
                                                df: DataFrame): DataFrame = {
-
     vectorColNameTypeTuple.foldLeft(df) { case (accDF, (colName, colType)) =>
-      assert(accDF.columns.contains(colName), s"Column $colName not found in dataframe columns ${accDF.columns.toList}")
-      val colDataType = accDF.schema(colName).dataType
-      assert(colDataType match {
-        case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
-        case VectorType => true
-        case _ => false
-      }, s"Vector column $colName needs to be one of (ArrayType(FloatType), ArrayType(DoubleType), VectorType)")
-      accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+      if (!accDF.columns.contains(colName)) {
+        println(s"Column $colName is specified in index JSON but not found in dataframe " +
+          s"columns ${accDF.columns.toList}")
+        accDF
+      }
+      else {
+        val colDataType = accDF.schema(colName).dataType
+        assert(colDataType match {
+          case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
+          case VectorType => true
+          case _ => false
+        }, s"Vector column $colName needs to be one of (ArrayType(FloatType), ArrayType(DoubleType), VectorType)")
+        accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+      }
     }
-}
+  }
 
   private def isEdmCollection(t: String): Boolean = {
     t.startsWith("Collection(") && t.endsWith(")")

@@ -640,4 +640,26 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
       SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
     }
   }
+
+  test("Handle extra vector column in indexJson") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0"),
+      ("upload", "1", "file1"))
+      .toDF("searchAction", "id", "fileName")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> """[{"name": "vectorCol", "dimension": 3}]"""
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
 }
