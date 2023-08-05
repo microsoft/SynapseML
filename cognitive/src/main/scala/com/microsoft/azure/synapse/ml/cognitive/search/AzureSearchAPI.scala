@@ -122,6 +122,8 @@ object SearchIndex extends IndexParser with IndexLister {
       _ <- validAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validSearchAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validIndexAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
+      _ <- validVectorField(field.dimensions, field.vectorSearchConfiguration)
+      // TODO: Fix and add back validSynonymMaps check. SynonymMaps needs to be Option[Seq[String]] type
       //_ <- validSynonymMaps(field.synonymMap)
     } yield field
   }
@@ -207,6 +209,15 @@ object SearchIndex extends IndexParser with IndexLister {
       Failure(new IllegalArgumentException("Only one synonym map per field is supported"))
     } else {
       Success(sm)
+    }
+  }
+
+  private def validVectorField(d: Option[Int], v: Option[String]): Try[Option[String]] = {
+    if ((d.isDefined && v.isEmpty) || (v.isDefined && d.isEmpty)) {
+      Failure(new IllegalArgumentException("Both dimensions and vectorSearchConfig fields need to be defined for " +
+        "vector search"))
+    } else {
+      Success(v)
     }
   }
 

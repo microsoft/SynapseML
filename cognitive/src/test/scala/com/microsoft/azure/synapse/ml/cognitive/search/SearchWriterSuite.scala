@@ -566,36 +566,36 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     val badJson =
       s"""
          |{
-         |    "name": "$in",
-         |    "fields": [
-         |      {
-         |        "name": "id",
-         |        "type": "Edm.String",
-         |        "key": true,
-         |        "facetable": false
-         |      },
-         |      {
-         |        "name": "someCollection",
-         |        "type": "Edm.String"
-         |      },
-         |      {
-         |        "name": "complexField",
-         |        "type": "Edm.ComplexType",
-         |        "fields": [
-         |          {
-         |            "name": "StreetAddress",
-         |            "type": "Edm.String"
-         |          },
-         |          {
-         |            "name": "contentVector",
-         |            "type": "Collection(Edm.Single)",
-         |            "dimensions": 3,
-         |            "vectorSearchConfiguration": "vectorConfig"
-         |          }
-         |        ]
-         |      }
-         |    ]
-         |  }
+         |  "name": "$in",
+         |  "fields": [
+         |    {
+         |      "name": "id",
+         |      "type": "Edm.String",
+         |      "key": true,
+         |      "facetable": false
+         |    },
+         |    {
+         |      "name": "someCollection",
+         |      "type": "Edm.String"
+         |    },
+         |    {
+         |      "name": "complexField",
+         |      "type": "Edm.ComplexType",
+         |      "fields": [
+         |        {
+         |          "name": "StreetAddress",
+         |          "type": "Edm.String"
+         |        },
+         |        {
+         |          "name": "contentVector",
+         |          "type": "Collection(Edm.Single)",
+         |          "dimensions": 3,
+         |          "vectorSearchConfiguration": "vectorConfig"
+         |        }
+         |      ]
+         |    }
+         |  ]
+         |}
     """.stripMargin
 
     assertThrows[IllegalArgumentException] {
@@ -608,5 +608,36 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
           "indexJson" -> badJson
         ))
     }
+  }
+
+  test("Throw useful error when one of dimensions or vectorSearchConfig is not defined") {
+    val in = generateIndexName()
+    val badJson =
+      s"""
+         |{
+         |  "name": "$in",
+         |  "fields": [
+         |    {
+         |      "name": "id",
+         |      "type": "Edm.String",
+         |      "key": true,
+         |      "facetable": false
+         |    },
+         |    {
+         |      "name": "someCollection",
+         |      "type": "Edm.String"
+         |    },
+         |    {
+         |      "name": "contentVector",
+         |      "type": "Collection(Edm.Single)",
+         |      "dimensions": 3
+         |    }
+         |  ]
+         |}
+    """.stripMargin
+
+    assertThrows[IllegalArgumentException] {
+      SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
     }
+  }
 }
