@@ -277,6 +277,10 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       indexJson = dfToIndexJson(castedDF.get.schema, indexName, keyCol.get, actionCol, vectorCols)
     }
 
+    // TODO: Support vector fields in nested fields
+    // Throws an exception if any nested field is a vector in the schema
+    parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
+
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
@@ -302,6 +306,17 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       .transform(df1)
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
+  }
+
+  private def assertNoNestedVectors(fields: Seq[IndexField]): Unit = {
+    def checkVectorField(field: IndexField): Unit = {
+      if (field.dimensions.nonEmpty && field.vectorSearchConfiguration.nonEmpty) {
+        throw new IllegalArgumentException(s"Nested field ${field.name} is a vector field, vector fields in nested" +
+          s" fields are not supported.")
+      }
+      field.fields.foreach(_.foreach(checkVectorField))
+    }
+    fields.foreach(checkVectorField)
   }
 
   private def getVectorColNameTypeTupleFromIndexJson(indexJson: String): Seq[(String, String)] = {

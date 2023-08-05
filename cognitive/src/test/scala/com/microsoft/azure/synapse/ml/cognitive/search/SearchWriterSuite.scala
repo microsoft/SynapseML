@@ -561,4 +561,52 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     dependsOn(2, retryWithBackoff(assertSize(in2, 10)))
   }
 
+  test("Throw useful error when given vector columns in nested fields") {
+    val in = generateIndexName()
+    val badJson =
+      s"""
+         |{
+         |    "name": "$in",
+         |    "fields": [
+         |      {
+         |        "name": "id",
+         |        "type": "Edm.String",
+         |        "key": true,
+         |        "facetable": false
+         |      },
+         |      {
+         |        "name": "someCollection",
+         |        "type": "Edm.String"
+         |      },
+         |      {
+         |        "name": "complexField",
+         |        "type": "Edm.ComplexType",
+         |        "fields": [
+         |          {
+         |            "name": "StreetAddress",
+         |            "type": "Edm.String"
+         |          },
+         |          {
+         |            "name": "contentVector",
+         |            "type": "Collection(Edm.Single)",
+         |            "dimensions": 3,
+         |            "vectorSearchConfiguration": "vectorConfig"
+         |          }
+         |        ]
+         |      }
+         |    ]
+         |  }
+    """.stripMargin
+
+    assertThrows[IllegalArgumentException] {
+      AzureSearchWriter.write(df4,
+        Map(
+          "subscriptionKey" -> azureSearchKey,
+          "actionCol" -> "searchAction",
+          "serviceName" -> testServiceName,
+          "filterNulls" -> "true",
+          "indexJson" -> badJson
+        ))
+    }
+    }
 }
