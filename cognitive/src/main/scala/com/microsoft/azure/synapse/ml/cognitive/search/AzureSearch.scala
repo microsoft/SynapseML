@@ -328,7 +328,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
                                                df: DataFrame): DataFrame = {
     vectorColNameTypeTuple.foldLeft(df) { case (accDF, (colName, colType)) =>
       if (!accDF.columns.contains(colName)) {
-        println(s"Column $colName is specified in index JSON but not found in dataframe " +
+        println(s"Column $colName is specified in either indexJsonOpt or vectorColsOpt but not found in dataframe " +
           s"columns ${accDF.columns.toList}")
         accDF
       }
