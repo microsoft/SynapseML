@@ -7,7 +7,7 @@ Please edit the rst file to met Fabric doc requirement
 write a manifest file with filename and metadata
 ```
 channels:
-  - name: channels.FabricChannel
+  - name: docgen.channels.FabricChannel
     input_dir: path to input folder
     output_dir: path to output folder
     notebooks:
