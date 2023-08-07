@@ -195,7 +195,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
                                        ): Option[Seq[IndexField]] = {
     schema match {
       case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, vectorCols, prefix))
-      // not supporting vector columns in complex scenarios
+      // TODO: Support vector search in nested fields
       case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, None, prefix))
       case _ => None
     }
