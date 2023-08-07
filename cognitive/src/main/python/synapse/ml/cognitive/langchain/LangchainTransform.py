@@ -116,7 +116,6 @@ class LangchainTransformer(
         subscriptionKey=None,
         url=None,
         apiVersion=OPENAI_API_VERSION,
-        useFabricInternalEndpoints=True,
     ):
         super(LangchainTransformer, self).__init__()
         self.chain = Param(
@@ -127,11 +126,10 @@ class LangchainTransformer(
         self.subscriptionKey = Param(self, "subscriptionKey", "openai api key")
         self.url = Param(self, "url", "openai api base")
         self.apiVersion = Param(self, "apiVersion", "openai api version")
-        self.useFabricInternalEndpoints = Param(self, "useFabricInternalEndpoints", "use internal openai endpoints when on fabric")
         self.running_on_synapse_internal = running_on_synapse_internal()
-        if running_on_synapse_internal() and useFabricInternalEndpoints:
+        if running_on_synapse_internal():
             from synapse.ml.fabric.service_discovery import get_fabric_env_config
-            self.setUrl(get_fabric_env_config().fabric_env_config.ml_workload_endpoint + "cognitive/openai")
+            self._setDefault(url=get_fabric_env_config().fabric_env_config.ml_workload_endpoint + "cognitive/openai")
         kwargs = self._input_kwargs
         if subscriptionKey:
             kwargs["subscriptionKey"] = subscriptionKey
@@ -139,8 +137,6 @@ class LangchainTransformer(
             kwargs["url"] = url
         if apiVersion:
             kwargs["apiVersion"] = apiVersion
-        if useFabricInternalEndpoints:
-            kwargs["useFabricInternalEndpoints"] = useFabricInternalEndpoints
         self.setParams(**kwargs)
 
     @keyword_only
@@ -152,7 +148,6 @@ class LangchainTransformer(
         subscriptionKey=None,
         url=None,
         apiVersion=OPENAI_API_VERSION,
-        useFabricInternalEndpoints=True,
     ):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
@@ -162,12 +157,6 @@ class LangchainTransformer(
 
     def getChain(self):
         return self.getOrDefault(self.chain)
-
-    def setUseFabricInternalEndpoints(self, value):
-        return self._set(useFabricInternalEndpoints=value)
-
-    def getUseFabricInternalEndpoints(self):
-        return self.getOrDefault(self.useFabricInternalEndpoints)
 
     def setSubscriptionKey(self, value: str):
         """
@@ -212,7 +201,7 @@ class LangchainTransformer(
         def udfFunction(x):
             import openai
 
-            if self.running_on_synapse_internal and self.getUseFabricInternalEndpoints():
+            if self.running_on_synapse_internal and not self.isSet(self.url):
                 from synapse.ml.fabric.prerun.openai_prerun import OpenAIPrerun
                 OpenAIPrerun(api_base=self.getUrl()).init_personalized_session(None)
             else:
