@@ -31,6 +31,15 @@ channels:
           ms.author: authors' Microsoft alias
 ```
 
+## Run the tool
+
+```bash
+cd tools/docgen
+pip install -e .
+
+python -m docgen --manifest docgen-manifest.yaml
+```
+
 ## Modify input file
 
 ### Image alt text
