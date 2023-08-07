@@ -8,7 +8,7 @@ def instantiate_channel(channel_yml):
     name = channel_yml["name"]
     module_name, class_name = name.rsplit(".", 1)
 
-    module_name = f"docgen.{module_name}"
+    module_name = f"{module_name}"
     print(f"Instantiating {class_name} from module {module_name}")
     clazz = getattr(importlib.import_module(module_name), class_name)
     channel_yml.pop("name")
