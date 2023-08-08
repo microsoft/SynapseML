@@ -258,7 +258,7 @@ class FabricChannel(Channel):
                     "markdown.extensions.fenced_code",
                 ],
             )
-            parsed_html = BeautifulSoup(parsed_html)
+            parsed_html = BeautifulSoup(parsed_html, features="html.parser")
             parsed_html = self._download_and_replace_images(
                 parsed_html,
                 None,
