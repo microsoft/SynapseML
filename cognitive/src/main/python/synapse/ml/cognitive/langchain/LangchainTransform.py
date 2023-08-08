@@ -129,7 +129,11 @@ class LangchainTransformer(
         self.running_on_synapse_internal = running_on_synapse_internal()
         if running_on_synapse_internal():
             from synapse.ml.fabric.service_discovery import get_fabric_env_config
-            self._setDefault(url=get_fabric_env_config().fabric_env_config.ml_workload_endpoint + "cognitive/openai")
+
+            self._setDefault(
+                url=get_fabric_env_config().fabric_env_config.ml_workload_endpoint
+                + "cognitive/openai"
+            )
         kwargs = self._input_kwargs
         if subscriptionKey:
             kwargs["subscriptionKey"] = subscriptionKey
@@ -203,6 +207,7 @@ class LangchainTransformer(
 
             if self.running_on_synapse_internal and not self.isSet(self.url):
                 from synapse.ml.fabric.prerun.openai_prerun import OpenAIPrerun
+
                 OpenAIPrerun(api_base=self.getUrl()).init_personalized_session(None)
             else:
                 openai.api_type = "azure"
