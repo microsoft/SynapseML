@@ -3,15 +3,22 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import scala.reflect.runtime.{ universe, currentMirror }
+import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 import java.time.Instant
 import org.apache.spark.SparkContext
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import spray.json.{JsArray, JsObject, JsValue, _}
-import spray.json.DefaultJsonProtocol.{IntJsonFormat, StringJsonFormat, jsonFormat3}
+import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
+
 import java.util.UUID
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
+
+import java.util.Date
+import pdi.jwt._
+import org.json.JSONObject
+import spray.json.RootJsonFormat
+
+import scala.util.{Failure, Success, Try}
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
@@ -19,13 +26,12 @@ object TokenUtils {
   val MwcWorkloadTypeMl = "ML"
 
   def getAccessToken(): String = {
-    val token = ""
-    /*if (checkTokenValid(this.AADToken))
+    if (checkTokenValid(this.AADToken))
       this.AADToken
-    else {*/
-    refreshAccessToken()
-    this.AADToken
-    //}
+    else {
+      refreshAccessToken()
+      this.AADToken
+    }
   }
 
   def getAccessToken(tokenType: String): String = {
@@ -50,8 +56,21 @@ object TokenUtils {
     methodMirror(tokenType).asInstanceOf[String]
   }
 
-  def checkTokenValid(token: String): Boolean = {
-    if (token == null || token.isEmpty()) {
+  private def checkTokenValid(token: String): Boolean = {
+    try{
+      val expiryDate: Date = getExpiry(token)
+      val expiryEpoch = expiryDate.toInstant.getEpochSecond
+      val now = Instant.now().getEpochSecond
+      now < expiryEpoch - 60
+    }
+    catch
+    {
+      case e: Exception =>
+        SynapseMLLogging.logMessage(s"TokenUtils::checkTokValid: Token {$token} parsing went wrong (usage test). " +
+          s"Exception = $e")
+        false
+    }
+    /*if (token == null || token.isEmpty()) {
       false
     }
     try {
@@ -64,10 +83,10 @@ object TokenUtils {
         SynapseMLLogging.logMessage(s"TokenUtils::checkTokValid: Token {$token} parsing went wrong (usage test).")
         false
       }
-    }
+    }*/
   }
 
-  def refreshAccessToken(): Unit = {
+  private def refreshAccessToken(): Unit = {
     try {
       if (SparkContext.getOrCreate() != null) {
         val token = getAccessToken("pbi")
@@ -77,9 +96,8 @@ object TokenUtils {
         AADToken = token
       }
     } catch {
-      case e: Exception => {
-        SynapseMLLogging.logMessage(s"refreshAccessTok: failed to refresh pbi tok. Exception: {e}. (usage test)")
-      }
+      case e: Exception =>
+        SynapseMLLogging.logMessage(s"refreshAccessTok: failed to refresh pbi tok. Exception: {$e}. (usage test)")
     }
   }
 
@@ -102,7 +120,7 @@ object TokenUtils {
     )
 
     try{
-      var response = usagePost(url, payLoad, headers)
+      val response = usagePost(url, payLoad, headers)
       /*if (response.asJsObject.fields("status_code").convertTo[String] != 200
         || response.asJsObject.fields("content").convertTo[String].isEmpty) {
         throw new Exception("Fetch access token error")
@@ -110,13 +128,29 @@ object TokenUtils {
       var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
       targetUriHost = s"https://$targetUriHost"
       response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
-      implicit val mwcTokenFormat = jsonFormat3(MwcToken)
+
+      implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
+      //implicit val mwcTokenFormat = jsonFormat3(MwcToken)
       response.convertTo[MwcToken]
     }
     catch {
       case e: Exception =>
         SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch cluster details: $e. (usage test)")
         throw e
+    }
+  }
+
+  private def getExpiry(accessToken: String): Date = {
+    val jwtOptions = new JwtOptions(false, false, false, 0)
+    val jwtTokenDecoded: Try[(String, String, String)] = Jwt.decodeRawAll(accessToken, jwtOptions)
+    jwtTokenDecoded match {
+      case Success((_, payload, _)) =>
+        val jsonPayload: JSONObject = new JSONObject(payload)
+        val expiry = jsonPayload.get("exp").toString
+        new Date(expiry.toLong * 1000)
+      case Failure(t) =>
+        SynapseMLLogging.logMessage(t.getMessage)
+        throw t
     }
   }
 }

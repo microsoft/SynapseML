@@ -6,16 +6,13 @@ package com.microsoft.azure.synapse.ml.logging.Usage
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils.{usageGet, usagePost}
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
+import com.microsoft.azure.synapse.ml.logging.Usage.TokenUtils.getAccessToken
 import java.util.UUID
 import java.time.Instant
 import org.apache.spark.sql.SparkSession
 import spray.json._
-import spray.json.DefaultJsonProtocol.StringJsonFormat
 import spray.json.DefaultJsonProtocol._
-import com.microsoft.azure.synapse.ml.logging.Usage.TokenUtils.getAccessToken
-
-
-import scala.util.parsing.json.JSON
+import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object UsageTelemetry {
   val SC = SparkSession.builder().getOrCreate().sparkContext
