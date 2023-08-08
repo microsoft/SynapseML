@@ -19,6 +19,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.functions.vector_to_array
 import org.apache.spark.sql.functions.{col, expr, struct, to_json}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
@@ -339,7 +340,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
           case VectorType => true
           case _ => false
         }, s"Vector column $colName needs to be one of (ArrayType(FloatType), ArrayType(DoubleType), VectorType)")
-        accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+        if (colDataType.isInstanceOf[ArrayType]) {
+          accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+        } else {
+          accDF.withColumn(colName, vector_to_array(accDF(colName), edmTypeToVectordType(colType)))
+        }
       }
     }
   }
@@ -350,6 +355,13 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
 
   private def getEdmCollectionElement(t: String): String = {
     t.substring("Collection(".length).dropRight(1)
+  }
+
+  private def edmTypeToVectordType(t: String): String = {
+    t match {
+      case "Collection(Edm.Single)" => "float32"
+      case "Collection(Edm.Double)" => "float64"
+    }
   }
 
   private[ml] def edmTypeToSparkType(dt: String,  //scalastyle:ignore cyclomatic.complexity
