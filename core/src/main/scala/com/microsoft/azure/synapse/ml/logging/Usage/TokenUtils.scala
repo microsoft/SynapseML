@@ -14,12 +14,12 @@ import java.util.UUID
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
 
 import java.util.Date
-import spray.json.RootJsonFormat
+import spray.json.{DeserializationException, RootJsonFormat}
 
 import scala.util.{Failure, Success, Try}
-
 import com.microsoft.azure.synapse.ml.logging.Usage.{FabricTokenParser, InvalidJwtTokenException}
 import com.microsoft.azure.synapse.ml.logging.Usage.JwtTokenExpiryMissingException
+import spray.json.JsonParser.ParsingException
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
@@ -66,9 +66,7 @@ object TokenUtils {
       val expiryEpoch = tokenParser.getExpiry()
       val now = Instant.now().getEpochSecond
       now < expiryEpoch - 60
-    }
-    catch
-    {
+    } catch {
       case e: InvalidJwtTokenException =>
         SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token used to trigger telemetry " +
           s"endpoint is invalid. Exception = $e")
@@ -124,12 +122,21 @@ object TokenUtils {
       response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
       implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
-      //implicit val mwcTokenFormat = jsonFormat3(MwcToken)
       response.convertTo[MwcToken]
     }
     catch {
+      case e: NoSuchElementException =>
+        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: Cannot retrieve targetUriHost from MWC Token.")
+        throw e
+      case e: DeserializationException =>
+        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of response is not of type MwcToken.")
+        throw e
+      case e: ParsingException =>
+        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of json response is formed correctly.")
+        throw e
       case e: Exception =>
-        SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch cluster details: $e. (usage test)")
+        SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch MWC token that is required to " +
+          s"get cluster details: $e.")
         throw e
     }
   }

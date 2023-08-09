@@ -57,6 +57,8 @@ object UsageTelemetry {
            |}""".stripMargin
 
       val mlAdminEndpoint = getMLWorkloadEndpoint(WorkloadEndpointAdmin)
+
+      // Add the protocol and the route for the certified event telemetry endpoint
       val url = "https://" + mlAdminEndpoint + "telemetry"
       val driverAADToken = getAccessToken()
 
@@ -75,10 +77,9 @@ object UsageTelemetry {
         }*/
       } catch {
         case e: Exception =>
-          SynapseMLLogging.logMessage(s"reportUsageTelemetry: Hit an emitting usage data. " +
+          SynapseMLLogging.logMessage(s"UsageUtils.reportUsageTelemetry: Error occurred while emitting usage data. " +
             s"Exception = $e. (usage test)")
       }
-      //response.asJsObject.fields("content").toString().getBytes("UTF-8")
     }
   }
 
@@ -88,7 +89,7 @@ object UsageTelemetry {
     } else {
       val value = SC.hadoopConfiguration.get(key, "")
       if (value.isEmpty) {
-        throw new Exception(s"missing $key in hadoop config, mlflow failed to init")
+        SynapseMLLogging.logMessage(s"UsageUtils.getHadoopConfig: Hadoop configuration $key is empty.")
       }
       value
     }
@@ -119,16 +120,14 @@ object UsageTelemetry {
       "Authorization" -> s"Bearer ${TokenUtils.getAccessToken()}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
-    var response: JsValue = JsonParser("{}")
     try{
-      response = usageGet(url, headers)
-    }
-    catch
-    {
+      val response: JsValue = usageGet(url, headers)
+      response.asJsObject.fields("clusterUrl").convertTo[String]
+    } catch {
       case e: Exception =>
         SynapseMLLogging.logMessage(s"getMlflowSharedHost: Can't get ml flow shared host. Exception = $e. (usage test)")
+        ""
     }
-    response.asJsObject.fields("clusterUrl").convertTo[String]
   }
 
   def getMlflowWorkloadHost(pbienv: String, capacityId: String,
@@ -139,11 +138,16 @@ object UsageTelemetry {
     } else {
       sharedHost
     }
-    val mwcToken: MwcToken = TokenUtils.getMWCToken(clusterUrl, workspaceId, capacityId, TokenUtils.MwcWorkloadTypeMl)
-    if (mwcToken != null && mwcToken.TargetUriHost != null) {
-      mwcToken.TargetUriHost
-    } else {
-      ""
+    try {
+      val mwcToken: MwcToken = TokenUtils.getMWCToken(clusterUrl, workspaceId, capacityId, TokenUtils.MwcWorkloadTypeMl)
+      if (mwcToken != null && mwcToken.TargetUriHost != null) {
+        mwcToken.TargetUriHost
+      } else {
+        ""
+      }
+    } catch {
+      case ex: Exception =>
+        ""
     }
   }
 

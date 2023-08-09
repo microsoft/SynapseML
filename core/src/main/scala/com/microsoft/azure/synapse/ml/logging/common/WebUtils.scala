@@ -11,20 +11,12 @@ import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 object WebUtils {
-
-  val Region: String = "eastus"
-  val BaseURL: String = s"https://$Region.azuredatabricks.net/api/2.0/"
-
   def usagePost(url: String, body: String, headerPayload: Map[String, String]): JsValue = {
     val request = new HttpPost(url)
-    try {
-      for ((k, v) <- headerPayload)
+
+    for ((k, v) <- headerPayload)
         request.addHeader(k, v)
-    }
-    catch {
-      case e: IllegalArgumentException =>
-        SynapseMLLogging.logMessage(s"WebUtils::usagePost: Getting error setting in the request header. Exception = $e")
-    }
+
     request.setEntity(new StringEntity(body))
     RESTHelpers.sendAndParseJson(request)
   }
@@ -34,9 +26,7 @@ object WebUtils {
     try {
       for ((k, v) <- headerPayload)
         request.addHeader(k, v)
-    }
-    catch
-    {
+    } catch {
       case e: IllegalArgumentException =>
         SynapseMLLogging.logMessage(s"WebUtils::usageGet: Getting error setting in the request header. Exception = $e")
     }
