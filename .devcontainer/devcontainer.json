@@ -1,55 +1,46 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/anaconda
+// README at: https://github.com/devcontainers/templates/tree/main/src/java-postgres
 {
-	"name": "Anaconda (Python 3)",
+	"name": "Java & PostgreSQL",
 	"build": { 
 		"context": "..",
 		"dockerfile": "Dockerfile"
 	},
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"features": {
-		"ghcr.io/devcontainers/features/java:1": {
-			"version": "11",
-			"jdkDistro": "ms",
-			"gradleVersion": "latest",
-			"mavenVersion": "latest",
-			"antVersion": "latest"
-		},
 		"ghcr.io/devcontainers-contrib/features/sbt-sdkman:2": {
-			"version": "latest",
-			"jdkVersion": "11",
-			"jdkDistro": "ms"
+			"jdkVersion": "11"
 		},
 		"ghcr.io/devcontainers-contrib/features/scala-sdkman:2": {
-			"version": "latest",
-			"jdkVersion": "11",
-			"jdkDistro": "ms"
-		}
+			"jdkVersion": "11"
+		},
+		"ghcr.io/devcontainers-contrib/features/scalacli-sdkman:2": {
+			"jdkVersion": "11"
+		},
+		"ghcr.io/devcontainers/features/anaconda:1": {}
 	},
-	"updateContentCommand": "sbt setup",
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {}
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// This can be used to network with other containers or with the host.
+	// "forwardPorts": [
+	// 	51000,
+	// 	51001,
+	// 	51002
+	// ],
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-azuretools.vscode-docker",
+				"scalameta.metals",
 				"scala-lang.scala",
-				"vscjava.vscode-java-pack",
-				"vscjava.vscode-java-test",
-				"vscjava.vscode-java-debug"
+				"EditorConfig.EditorConfig"
 			]
 		}
 	}
-
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "python --version",
-
+	// "postCreateCommand": "java -version",
 	// Configure tool-specific properties.
 	// "customizations": {},
-
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 }
