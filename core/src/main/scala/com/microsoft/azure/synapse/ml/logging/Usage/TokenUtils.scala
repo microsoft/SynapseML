@@ -14,11 +14,12 @@ import java.util.UUID
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
 
 import java.util.Date
-import pdi.jwt._
-import org.json.JSONObject
 import spray.json.RootJsonFormat
 
 import scala.util.{Failure, Success, Try}
+
+import com.microsoft.azure.synapse.ml.logging.Usage.{FabricTokenParser, InvalidJwtTokenException}
+import com.microsoft.azure.synapse.ml.logging.Usage.JwtTokenExpiryMissingException
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
@@ -56,34 +57,27 @@ object TokenUtils {
     methodMirror(tokenType).asInstanceOf[String]
   }
 
-  private def checkTokenValid(token: String): Boolean = {
+  def checkTokenValid(token: String): Boolean = {
+    if (token == null || token.isEmpty()) {
+      false
+    }
     try{
-      val expiryDate: Date = getExpiry(token)
-      val expiryEpoch = expiryDate.toInstant.getEpochSecond
+      val tokenParser =   new FabricTokenParser(token)
+      val expiryEpoch = tokenParser.getExpiry()
       val now = Instant.now().getEpochSecond
       now < expiryEpoch - 60
     }
     catch
     {
-      case e: Exception =>
-        SynapseMLLogging.logMessage(s"TokenUtils::checkTokValid: Token {$token} parsing went wrong (usage test). " +
+      case e: InvalidJwtTokenException =>
+        SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token used to trigger telemetry " +
+          s"endpoint is invalid. Exception = $e")
+        false
+      case e: JwtTokenExpiryMissingException =>
+        SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token misses expiry. " +
           s"Exception = $e")
         false
     }
-    /*if (token == null || token.isEmpty()) {
-      false
-    }
-    try {
-      val parsedToken = token.parseJson.asJsObject()
-      val expTime = parsedToken.fields("exp").convertTo[Int]
-      val now = Instant.now().getEpochSecond()
-      now < expTime - 60
-    } catch {
-      case e: Exception => {
-        SynapseMLLogging.logMessage(s"TokenUtils::checkTokValid: Token {$token} parsing went wrong (usage test).")
-        false
-      }
-    }*/
   }
 
   private def refreshAccessToken(): Unit = {
@@ -137,20 +131,6 @@ object TokenUtils {
       case e: Exception =>
         SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch cluster details: $e. (usage test)")
         throw e
-    }
-  }
-
-  private def getExpiry(accessToken: String): Date = {
-    val jwtOptions = new JwtOptions(false, false, false, 0)
-    val jwtTokenDecoded: Try[(String, String, String)] = Jwt.decodeRawAll(accessToken, jwtOptions)
-    jwtTokenDecoded match {
-      case Success((_, payload, _)) =>
-        val jsonPayload: JSONObject = new JSONObject(payload)
-        val expiry = jsonPayload.get("exp").toString
-        new Date(expiry.toLong * 1000)
-      case Failure(t) =>
-        SynapseMLLogging.logMessage(t.getMessage)
-        throw t
     }
   }
 }

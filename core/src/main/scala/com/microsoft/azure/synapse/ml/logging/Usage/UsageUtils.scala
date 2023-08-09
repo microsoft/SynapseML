@@ -23,7 +23,6 @@ object UsageTelemetry {
   val Region = SC.getConf.get("spark.cluster.region", "")
   val PbiEnv = SC.getConf.get("spark.trident.pbienv", "").toLowerCase()
 
-
   val SharedHost = getMlflowSharedHost(PbiEnv)
   val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
   val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, SharedHost)
