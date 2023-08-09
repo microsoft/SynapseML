@@ -89,7 +89,13 @@ object RESTHelpers {
   }
 
   def parseResult(result: CloseableHttpResponse): String = {
-    IOUtils.toString(result.getEntity.getContent, "utf-8")
+    try {
+      IOUtils.toString(result.getEntity.getContent, "utf-8")
+    }
+    catch{
+      case ex: Exception =>
+        "{}"
+    }
   }
 
   def sendAndParseJson(request: HttpRequestBase, expectedCodes: Set[Int]=Set()): JsValue = {
