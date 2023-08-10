@@ -9,13 +9,13 @@
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"features": {
 		"ghcr.io/devcontainers-contrib/features/sbt-sdkman:2": {
-			"jdkVersion": "11"
+			"jdkVersion": "17"
 		},
 		"ghcr.io/devcontainers-contrib/features/scala-sdkman:2": {
-			"jdkVersion": "11"
+			"jdkVersion": "17"
 		},
 		"ghcr.io/devcontainers-contrib/features/scalacli-sdkman:2": {
-			"jdkVersion": "11"
+			"jdkVersion": "17"
 		},
 		"ghcr.io/devcontainers/features/anaconda:1": {}
 	},
