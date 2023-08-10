@@ -9,16 +9,9 @@ import java.time.Instant
 import org.apache.spark.SparkContext
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
-
 import java.util.UUID
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
-
-import java.util.Date
 import spray.json.{DeserializationException, RootJsonFormat}
-
-import scala.util.{Failure, Success, Try}
-import com.microsoft.azure.synapse.ml.logging.Usage.{FabricTokenParser, InvalidJwtTokenException}
-import com.microsoft.azure.synapse.ml.logging.Usage.JwtTokenExpiryMissingException
 import spray.json.JsonParser.ParsingException
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
@@ -26,7 +19,7 @@ object TokenUtils {
   var AADToken: String = ""
   val MwcWorkloadTypeMl = "ML"
 
-  def getAccessToken(): String = {
+  def getAccessToken: String = {
     if (checkTokenValid(this.AADToken))
       this.AADToken
     else {
@@ -58,12 +51,12 @@ object TokenUtils {
   }
 
   def checkTokenValid(token: String): Boolean = {
-    if (token == null || token.isEmpty()) {
+    if (token == null || token.isEmpty) {
       false
     }
     try{
       val tokenParser =   new FabricTokenParser(token)
-      val expiryEpoch = tokenParser.getExpiry()
+      val expiryEpoch = tokenParser.getExpiry
       val now = Instant.now().getEpochSecond
       now < expiryEpoch - 60
     } catch {
@@ -103,7 +96,7 @@ object TokenUtils {
       |"workloadType": "$workload_type"
     }""".stripMargin
 
-    val driverAADToken = getAccessToken()
+    val driverAADToken = getAccessToken
 
     val headers = Map(
       "Content-Type" -> "application/json",

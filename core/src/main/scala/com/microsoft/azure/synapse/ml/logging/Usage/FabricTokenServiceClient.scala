@@ -7,11 +7,10 @@ import java.util.UUID
 import java.net.URL
 import java.net.InetAddress
 import java.lang.management.ManagementFactory
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
 import spray.json.{JsArray, JsObject, JsValue, _}
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.{usageGet}
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 
 class FabricTokenServiceClient {
@@ -26,15 +25,15 @@ class FabricTokenServiceClient {
     "kusto" -> "kusto"
   )
 
-  val hostname = InetAddress.getLocalHost.getHostName
-  val processDetail = ManagementFactory.getRuntimeMXBean().getName()
-  val processName = processDetail.substring(processDetail.indexOf('@') + 1)
+  private val hostname = InetAddress.getLocalHost.getHostName
+  private val processDetail = ManagementFactory.getRuntimeMXBean.getName
+  private val processName = processDetail.substring(processDetail.indexOf('@') + 1)
 
-  val fabricConbtext = FabricUtils.getFabricContext()
-  val synapseTokenserviceEndpoint = fabricConbtext(SynapseTokenServiceEndpoint)
-  val workloadEndpoint = fabricConbtext(TridentLakehouseTokenServiceEndpoint)
-  val sessionToken = fabricConbtext(TridentSessionToken)
-  val clusterIdentifier = fabricConbtext(SynapseClusterIdentifier)
+  private val fabricContext = FabricUtils.getFabricContext
+  private val synapseTokenServiceEndpoint: String = fabricContext(synapseTokenServiceEndpoint)
+  private val workloadEndpoint = fabricContext(TridentLakehouseTokenServiceEndpoint)
+  private val sessionToken = fabricContext(TridentSessionToken)
+  private val clusterIdentifier = fabricContext(SynapseClusterIdentifier)
 
   def getAccessToken(resourceParam: String): String = {
     if (!resourceMapping.contains(resourceParam)) {
@@ -53,7 +52,7 @@ class FabricTokenServiceClient {
       "User-Agent" -> s"Trident Token Library - HostName:$hostname, ProcessName:$processName",
       "x-ms-client-request-id" -> rid
     )
-    var url = s"$synapseTokenserviceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=$resource"
+    var url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=$resource"
     var response: JsValue = JsonParser("")
     try {
       response = usageGet(url, headers)
@@ -66,6 +65,6 @@ class FabricTokenServiceClient {
         println(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
         SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
     }
-    response.asJsObject.fields("content").toString().getBytes("UTF-8").toString()
+    response.asJsObject.fields("content").toString().getBytes("UTF-8").toString
   }
 }

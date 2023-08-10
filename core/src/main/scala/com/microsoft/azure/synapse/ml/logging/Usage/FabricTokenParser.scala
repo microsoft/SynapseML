@@ -8,11 +8,13 @@ import spray.json._
 class InvalidJwtTokenException(message: String) extends Exception(message)
 class JwtTokenExpiryMissingException(message: String) extends Exception(message)
 class FabricTokenParser(JWToken: String) {
-  val tokens = JWToken.split("\\.")
-  var parsedToken: JsValue = JsObject.empty
+  val tokens: Array[String] = JWToken.split("\\.")
+  private var parsedToken: JsValue = JsObject.empty
 
   if (tokens.length == 3) {
+    // Getting the JWT payload which is second member of [header].[payload].[signature]
     val payload = tokens(1)
+    // Removing whitespace and url safe characters encoded that might have been added to token
     val sanitizedPayload = payload.replace('-', '+').replace('_', '/').replaceAll("\\.", "").replaceAll("\\s", "")
     val decodedPayload = java.util.Base64.getDecoder.decode(sanitizedPayload)
     val decodedJson = new String(decodedPayload)
@@ -23,7 +25,7 @@ class FabricTokenParser(JWToken: String) {
     println("Invalid JWT token input.")
   }
 
-  def getExpiry(): Long ={
+  def getExpiry: Long ={
     val exp: Option[Long] = parsedToken.asJsObject.fields.get("exp").collect { case JsNumber(value) => value.toLong }
     exp match {
       case Some(expValue) =>

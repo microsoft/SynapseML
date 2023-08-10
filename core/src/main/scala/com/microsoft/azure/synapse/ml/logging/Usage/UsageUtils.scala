@@ -15,19 +15,16 @@ import spray.json.DefaultJsonProtocol._
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object UsageTelemetry {
-  val SC = SparkSession.builder().getOrCreate().sparkContext
-  val CapacityId = getHadoopConfig("trident.capacity.id")
-  val WorkspaceId = getHadoopConfig("trident.artifact.workspace.id")
-  val ArtifactId = getHadoopConfig("trident.artifact.id")
-  val OnelakeEndpoint = getHadoopConfig("trident.onelake.endpoint")
-  val Region = SC.getConf.get("spark.cluster.region", "")
-  val PbiEnv = SC.getConf.get("spark.trident.pbienv", "").toLowerCase()
+  private val SC = SparkSession.builder().getOrCreate().sparkContext
+  private val CapacityId = getHadoopConfig("trident.capacity.id")
+  val WorkspaceId: String = getHadoopConfig("trident.artifact.workspace.id")
+  private val PbiEnv = SC.getConf.get("spark.trident.pbienv", "").toLowerCase()
 
-  val SharedHost = getMlflowSharedHost(PbiEnv)
+  private val SharedHost = getMlflowSharedHost(PbiEnv)
   val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
-  val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, SharedHost)
+  private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, SharedHost)
 
-  val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
+  private val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
   def reportUsage(payload: FeatureUsagePayload): Unit = {
     if (sys.env.getOrElse(EmitUsage, "True") == "True") {
       try {
@@ -60,7 +57,7 @@ object UsageTelemetry {
 
       // Add the protocol and the route for the certified event telemetry endpoint
       val url = "https://" + mlAdminEndpoint + "telemetry"
-      val driverAADToken = getAccessToken()
+      val driverAADToken = getAccessToken
 
       val headers = Map(
         "Content-Type" -> "application/json",
@@ -115,9 +112,8 @@ object UsageTelemetry {
     val fetchClusterDetailUri: String = "powerbi/globalservice/v201606/clusterDetails"
 
     val url = pbiGlobalServiceEndpoints.getOrElse(pbienv, defaultGlobalServiceEndpoint) + fetchClusterDetailUri
-    //val sessionToken = FabricUtils.getFabricContext()(TridentSessionToken)
     val headers = Map(
-      "Authorization" -> s"Bearer ${TokenUtils.getAccessToken()}",
+      "Authorization" -> s"Bearer ${TokenUtils.getAccessToken}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
     try{
