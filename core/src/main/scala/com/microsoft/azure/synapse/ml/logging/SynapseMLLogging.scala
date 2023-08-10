@@ -92,25 +92,30 @@ trait SynapseMLLogging extends Logging {
 
   val uid: String
 
+  protected def getPayload(methodName: String,
+                           numCols: Option[Int],
+                           exception: Option[Exception]
+                          ): Map[String, String] = {
+    val info = RequiredLogFields(uid, getClass.toString, methodName).toMap
+      .++(SynapseMLLogging.getHadoopConfEntries)
+      .++(numCols.toSeq.map(c => "numCols" -> c.toString))
+      .++(exception.map(e => new RequiredErrorFields(e).toMap).getOrElse(Map()))
+    SynapseMLLogging.LoggedClasses.add(info("className"))
+    info
+  }
+
   protected def logBase(methodName: String, numCols: Option[Int]): Unit = {
-    logBase(
-      RequiredLogFields(uid, getClass.toString, methodName).toMap
-        .++(SynapseMLLogging.getHadoopConfEntries)
-        .++(numCols.toSeq.map(c => "numCols" -> c.toString))
-    )
+    logBase(getPayload(methodName, numCols, None))
   }
 
   protected def logBase(info: Map[String, String]): Unit = {
-    SynapseMLLogging.LoggedClasses.add(info("className"))
     logInfo(info.toJson.compactPrint)
   }
 
   protected def logErrorBase(methodName: String, e: Exception): Unit = {
-    val message: String = RequiredLogFields(uid, getClass.toString, methodName).toMap
-      .++(new RequiredErrorFields(e).toMap)
-      .++(SynapseMLLogging.getHadoopConfEntries)
-      .toJson.compactPrint
-    logError(message, e)
+    logError(
+      getPayload(methodName, None, Some(e)).toJson.compactPrint,
+      e)
   }
 
   def logClass(): Unit = {
