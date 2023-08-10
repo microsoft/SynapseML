@@ -7,8 +7,10 @@ import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -59,11 +61,13 @@ object SynapseMLLogging extends Logging {
   private[ml] val LoggedClasses: mutable.Set[String] = mutable.HashSet[String]()
 
   private[ml] def getHadoopConfEntries: Map[String, String] = {
-    val hc = SparkContext.getOrCreate().hadoopConfiguration
-    //noinspection ScalaStyle
-    HadoopKeysToLog.flatMap { case (field, name) =>
-      Option(hc.get(field)).map { v: String => (name, v) }
-    }.toMap
+    SparkSession.getActiveSession.map { spark =>
+      val hc = spark.sparkContext.hadoopConfiguration
+      //noinspection ScalaStyle
+      HadoopKeysToLog.flatMap { case (field, name) =>
+        Option(hc.get(field)).map { v: String => (name, v) }
+      }.toMap
+    }.getOrElse(Map())
   }
 
   def logExternalInfo(uid: String,
