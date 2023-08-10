@@ -20,7 +20,8 @@ case class RequiredLogFields(uid: String,
       "uid" -> uid,
       "className" -> className,
       "method" -> method,
-      "version" -> BuildInfo.version,
+      "libraryVersion" -> BuildInfo.version,
+      "libraryName" -> "SynapseML",
       "protocolVersion" -> "0.0.1"
     )
   }
@@ -36,7 +37,7 @@ case class RequiredErrorFields(errorType: String,
   def toMap: Map[String, String] = {
     Map(
       "errorType" -> errorType,
-      "errorMessage" -> errorType,
+      "errorMessage" -> errorType
     )
   }
 }
@@ -52,7 +53,7 @@ object SynapseMLLogging extends Logging {
     "trident.lakehouse.id" -> "lakehouseId",
     "trident.activity.id" -> "activityId",
     "trident.artifact.type" -> "artifactType",
-    "trident.tenant.id" -> "tenantId",
+    "trident.tenant.id" -> "tenantId"
   )
 
   private[ml] val LoggedClasses: mutable.Set[String] = mutable.HashSet[String]()
@@ -112,19 +113,15 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logFit[T](f: => T, columns: Int): T = {
-    logVerb("fit", f, columns)
-  }
-
-  def logTrain[T](f: => T, columns: Int): T = {
-    logVerb("train", f, columns)
+    logVerb("fit", f, Some(columns))
   }
 
   def logTransform[T](f: => T, columns: Int): T = {
-    logVerb("transform", f, columns)
+    logVerb("transform", f, Some(columns))
   }
 
-  def logVerb[T](verb: String, f: => T, columns: Int): T = {
-    logBase(verb, Some(columns))
+  def logVerb[T](verb: String, f: => T, columns: Option[Int] = None): T = {
+    logBase(verb, columns)
     try {
       f
     } catch {
