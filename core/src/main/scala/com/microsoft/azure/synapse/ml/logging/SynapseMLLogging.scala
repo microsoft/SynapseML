@@ -108,6 +108,7 @@ trait SynapseMLLogging extends Logging {
   protected def logErrorBase(methodName: String, e: Exception): Unit = {
     val message: String = RequiredLogFields(uid, getClass.toString, methodName).toMap
       .++(new RequiredErrorFields(e).toMap)
+      .++(SynapseMLLogging.getHadoopConfEntries)
       .toJson.compactPrint
     logError(message, e)
   }
