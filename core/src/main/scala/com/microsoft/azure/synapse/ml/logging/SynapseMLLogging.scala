@@ -24,7 +24,7 @@ case class RequiredLogFields(uid: String,
       "method" -> method,
       "libraryVersion" -> BuildInfo.version,
       "libraryName" -> "SynapseML",
-      "protocolVersion" -> "0.0.1"
+      "protocolVersion" -> "0.0.1" // which version of the logging protocol this schema is
     )
   }
 }
