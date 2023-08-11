@@ -33,10 +33,28 @@
 			"extensions": [
 				"scalameta.metals",
 				"scala-lang.scala",
-				"EditorConfig.EditorConfig"
+				"EditorConfig.EditorConfig",
+				"k--kato.intellij-idea-keybindings",
+				"editorconfig.editorconfig",
+			        "github.vscode-pull-request-github",
+			        "ms-azuretools.vscode-docker",
+			        "ms-python.python",
+			        "ms-python.vscode-pylance",
+			        "ms-vsliveshare.vsliveshare",
+			        "ryanluker.vscode-coverage-gutters",
+			        "bungcip.better-toml",
+			        "GitHub.copilot",
+			        "GitHub.vscode-github-actions",
+			        "ms-vscode.azurecli",
+			        "ms-vscode.azure-account",
+			        "zokugun.explicit-folding",
+			        "MaxKless.git-squash-all",
+			        "GitHub.copilot-labs",
+			        "GitHub.codespaces"
 			]
 		}
-	}
+	},
+  	"onCreateCommand": "sbt setup"
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "java -version",
 	// Configure tool-specific properties.
