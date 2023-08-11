@@ -89,20 +89,18 @@ object RESTHelpers {
   }
 
   def parseResult(result: CloseableHttpResponse): String = {
-    try {
-      IOUtils.toString(result.getEntity.getContent, "utf-8")
-    }
-    catch{
-      case ex: Exception =>
-        "{}"
-    }
+    IOUtils.toString(result.getEntity.getContent, "utf-8")
   }
 
   def sendAndParseJson(request: HttpRequestBase, expectedCodes: Set[Int]=Set()): JsValue = {
     val response = safeSend(request, expectedCodes=expectedCodes, close=false)
-    val output = parseResult(response).parseJson
-    response.close()
-    output
+    if(response.getEntity.getContent.available() == 0){
+      JsObject()
+    }
+    else {
+      val output = parseResult(response).parseJson
+      response.close()
+      output
+    }
   }
-
 }
