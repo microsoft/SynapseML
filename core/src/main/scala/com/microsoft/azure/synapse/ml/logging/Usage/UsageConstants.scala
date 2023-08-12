@@ -35,5 +35,5 @@ object FabricConstants {
   val WorkloadEndpointLlmPlugin = "LlmPlugin"
   val WorkloadEndpointAutomatic = "Automatic"
   val WorkloadEndpointRegistry = "Registry"
-  val WorkloadEndpointAdmin = "MLAdmin"
+  val   WorkloadEndpointAdmin = "MLAdmin"
 }
