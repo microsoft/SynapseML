@@ -45,7 +45,11 @@ this process:
 
 #### Implement tests
 
+<<<<<<< HEAD
 -   Set up build environment using the [developer guide](https://microsoft.github.io/SynapseML/docs/reference/developer-readme/)
+=======
+-   Set up build environment using the (developer guide)[https://microsoft.github.io/SynapseML/docs/Reference/Developer%20Setup/]
+>>>>>>> c11317e81 (Fixed broken link for developer setup guide)
 -   Test your code locally.
 -   Add tests using ScalaTests — unit tests are required.
 -   A sample notebook is required as an end-to-end test.
