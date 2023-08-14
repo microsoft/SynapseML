@@ -43,7 +43,6 @@ abstract class RegressionBase {
     * when running on Spark 3.0.* and 3.1.*.
     * Workaround: use reflection to construct the implementation.
     */
-  //TODO: Check for spark 3.3.0
   implicit lazy val sumImpl: sum.Impl[BroadcastedColumns[BDM[Double], BDV[Double]], Transpose[BDV[Double]]] = {
     Try {
       // This works for breeze 1.2
