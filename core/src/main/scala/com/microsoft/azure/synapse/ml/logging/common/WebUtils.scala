@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.logging.common
 
-import org.apache.http.client.methods.{HttpGet, HttpPost}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import spray.json.{JsArray, JsObject, JsValue, _}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
@@ -17,7 +17,9 @@ object WebUtils {
         request.addHeader(k, v)
 
     request.setEntity(new StringEntity(body))
-    RESTHelpers.sendAndParseJson(request)
+
+    val response = RESTHelpers.safeSend(request)
+    parseResponse(response)
   }
 
   def usageGet(url: String, headerPayload: Map[String, String]): JsValue = {
@@ -29,6 +31,18 @@ object WebUtils {
       case e: IllegalArgumentException =>
         SynapseMLLogging.logMessage(s"WebUtils::usageGet: Getting error setting in the request header. Exception = $e")
     }
-    RESTHelpers.sendAndParseJson(request)
+    val response = RESTHelpers.safeSend(request)
+    parseResponse(response)
+  }
+
+  private def parseResponse(response: CloseableHttpResponse): JsValue = {
+    if (response.getEntity.getContent.available() == 0) {
+      JsObject()
+    }
+    else {
+      val output = RESTHelpers.parseResult(response).parseJson
+      response.close()
+      output
+    }
   }
 }
