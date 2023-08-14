@@ -8,10 +8,10 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.3.1"
+val sparkVersion = "3.4.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.17"
 
 val scalaMajorVersion = 2.12
 
