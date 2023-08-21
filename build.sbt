@@ -31,6 +31,7 @@ val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
+  "com.typesafe.play" %% "play-json" % "2.9.4",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8",
