@@ -26,8 +26,6 @@ import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
-import play.api.libs.json.Json
-
 
 trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
@@ -81,7 +79,7 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def sendJsonRequest(map: Map[String, Any], url: String): String = {
     val post = new HttpPost(url)
-    val params = new StringEntity(Json.stringify(Json.toJsObject(map)))
+    val params = new StringEntity(map.toJson.compactPrint)
     post.addHeader("content-type", "application/json")
     post.setEntity(params)
     val res = RESTHelpers.Client.execute(post)
