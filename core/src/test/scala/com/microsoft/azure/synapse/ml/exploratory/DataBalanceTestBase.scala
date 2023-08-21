@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.exploratory
 
-import breeze.stats.distributions.ChiSquared
+import breeze.stats.distributions.{ChiSquared, RandBasis}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.sql.functions.{col, count, lit}
 import org.apache.spark.sql.types.DoubleType
