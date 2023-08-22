@@ -37,7 +37,7 @@ val extraDependencies = Seq(
   // Although breeze 1.2 is already provided by Spark, this is needed for Azure Synapse Spark 3.2 pools.
   // Otherwise a NoSuchMethodError will be thrown by interpretability code. This problem only happens
   // to Azure Synapse Spark 3.2 pools.
-  "org.scalanlp" %% "breeze" % "1.2"
+  "org.scalanlp" %% "breeze" % "2.1.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
