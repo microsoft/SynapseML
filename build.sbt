@@ -29,6 +29,7 @@ val coreDependencies = Seq(
 val extraDependencies = Seq(
   "commons-lang" % "commons-lang" % "2.6",
   "org.scalactic" %% "scalactic" % "3.2.14",
+  "org.scalariform" %% "scalariform" % "0.2.10",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
