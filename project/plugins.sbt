@@ -7,3 +7,7 @@ addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0")
 addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.8")
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 addSbtPlugin("no.arktekk.sbt" % "aether-deploy" % "0.26.0")
+
+ThisBuild / libraryDependencySchemes ++= Seq(
+  "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
+)
