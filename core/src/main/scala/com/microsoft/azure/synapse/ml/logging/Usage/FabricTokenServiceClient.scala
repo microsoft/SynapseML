@@ -62,7 +62,6 @@ class FabricTokenServiceClient {
       }
     } catch {
       case e: Exception =>
-        println(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
         SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
     }
     response.asJsObject.fields("content").toString().getBytes("UTF-8").toString

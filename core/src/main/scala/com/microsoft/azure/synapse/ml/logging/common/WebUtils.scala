@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.logging.common
 
+import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import spray.json.{JsArray, JsObject, JsValue, _}
@@ -18,7 +19,7 @@ object WebUtils {
 
     request.setEntity(new StringEntity(body))
 
-    val response = RESTHelpers.safeSend(request)
+    val response = RESTHelpers.safeSend(request, close = false)
     parseResponse(response)
   }
 
@@ -31,18 +32,24 @@ object WebUtils {
       case e: IllegalArgumentException =>
         SynapseMLLogging.logMessage(s"WebUtils::usageGet: Getting error setting in the request header. Exception = $e")
     }
-    val response = RESTHelpers.safeSend(request)
+    val response = RESTHelpers.safeSend(request, close = false)
     parseResponse(response)
   }
 
   private def parseResponse(response: CloseableHttpResponse): JsValue = {
-    if (response.getEntity.getContent.available() == 0) {
-      JsObject()
+    var content: String = ""
+    try {
+      content = IOUtils.toString(response.getEntity.getContent, "utf-8")
     }
-    else {
-      val output = RESTHelpers.parseResult(response).parseJson
-      response.close()
-      output
+    catch {
+      case e: Exception =>
+        SynapseMLLogging.logMessage(s"RestHelpers::parseResult: getting exception parsing response." +
+          s"Exception = $e")
+    }
+    if (content.nonEmpty) {
+      content.parseJson
+    } else {
+      JsObject()
     }
   }
 }
