@@ -62,6 +62,7 @@ object DatabricksUtilities {
     "pdf2image",
     "pdfminer.six",
     "pytesseract",
+    "scikit-learn",
     "unstructured"
   )
 
