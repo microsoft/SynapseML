@@ -11,7 +11,7 @@ import spray.json._
 
 class FabricTokenParserTests extends TestBase {
 
-  case class Token(name: String, payload: String)
+  case class Token(valid: String, payload: String)
 
   object TokenJsonProtocol extends DefaultJsonProtocol {
     implicit val TokenFormat: RootJsonFormat[Token] = jsonFormat2(Token)
@@ -20,7 +20,8 @@ class FabricTokenParserTests extends TestBase {
   import TokenJsonProtocol._
 
   test("JWT Token Expiry Check"){
-    val source = Source.fromFile("../resources/UsageTestData.json")
+    val filePath = getClass.getResource("/UsageTestData.json")
+    val source = Source.fromURL(filePath)
     try {
       val jsonString = source.mkString
       val parsedTokens = jsonString.parseJson
@@ -35,7 +36,8 @@ class FabricTokenParserTests extends TestBase {
   }
 
   test("Invalid JWT Token Check."){
-    val source = Source.fromFile("../resources/UsageTestData.json")
+    val filePath = getClass.getResource("/UsageTestData.json")
+    val source = Source.fromURL(filePath)
     try {
       val jsonString = source.mkString
       val parsedTokens = jsonString.parseJson

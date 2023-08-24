@@ -12,7 +12,7 @@ class SparkHadoopUtilsTests extends TestBase {
     val capacityId = getHadoopConfig("trident.capacity.id", sc)
     val splittedCapacityId: Array[String] = capacityId.split("-")
 
-    assert(splittedCapacityId.length == 4)
+    assert(splittedCapacityId.length == 5)
     assert(splittedCapacityId(0).length == 8)
     assert(splittedCapacityId(1).length == 4)
     assert(splittedCapacityId(2).length == 4)
