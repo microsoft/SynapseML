@@ -33,7 +33,9 @@ object WebUtils {
         SynapseMLLogging.logMessage(s"WebUtils::usageGet: Getting error setting in the request header. Exception = $e")
     }
     val response = RESTHelpers.safeSend(request, close = false)
-    parseResponse(response)
+    val result = parseResponse(response)
+    response.close()
+    result
   }
 
   private def parseResponse(response: CloseableHttpResponse): JsValue = {

@@ -106,10 +106,6 @@ object TokenUtils {
 
     try{
       val response = usagePost(url, payLoad, headers)
-      /*if (response.asJsObject.fields("status_code").convertTo[String] != 200
-        || response.asJsObject.fields("content").convertTo[String].isEmpty) {
-        throw new Exception("Fetch access token error")
-      }*/
       var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
       targetUriHost = s"https://$targetUriHost"
       response.asJsObject.fields.updated("TargetUriHost", targetUriHost)

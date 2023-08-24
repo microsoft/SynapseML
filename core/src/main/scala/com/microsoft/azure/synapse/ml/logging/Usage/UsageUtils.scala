@@ -32,7 +32,7 @@ object UsageTelemetry {
     if (sys.env.getOrElse(EmitUsage, "True") == "True") {
       try {
         reportUsageTelemetry(payload.feature_name.toString,
-          payload.activity_name.toString.replace('_', '/'),
+          payload.activity_name.toString,
           payload.attributes)
       } catch {
         case runtimeError: Exception =>
@@ -68,10 +68,6 @@ object UsageTelemetry {
       var response: JsValue = JsonParser("{}")
       try {
         response = usagePost(url, data, headers)
-        /*if (response.asJsObject.fields("status_code").convertTo[String] != 200
-          || response.asJsObject.fields("content").toString().isEmpty) {
-          throw new Exception("Fetch access token error")
-        }*/
       } catch {
         case e: Exception =>
           SynapseMLLogging.logMessage(s"UsageUtils.reportUsageTelemetry: Error occurred while emitting usage data. " +
