@@ -144,7 +144,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def responseDataType: DataType = ASResponses.schema
 }
 
-object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorColsParser with SLogging {
+object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging {
 
   val Logger: Logger = LogManager.getRootLogger
 
@@ -200,6 +200,10 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, None, prefix))
       case _ => None
     }
+  }
+
+  private def parseVectorColsJson(str: String): Seq[VectorColParams] = {
+    str.parseJson.convertTo[Seq[VectorColParams]]
   }
 
   private def dfToIndexJson(schema: StructType,
