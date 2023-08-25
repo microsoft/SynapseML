@@ -208,12 +208,13 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
                             searchActionCol: String,
                             vectorCols: Option[Seq[VectorColParams]]): String = {
 
+    val vectorConfig = Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
+      AzureSearchAPIConstants.VectorSearchAlgorithm))))
     val is = IndexInfo(
       Some(indexName),
       structFieldToSearchFields(schema, keyCol, searchActionCol, vectorCols).get,
       None, None, None, None, None, None, None, None,
-      if (vectorCols.isEmpty) None else Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
-        AzureSearchAPIConstants.VectorSearchAlgorithm))))
+      if (vectorCols.isEmpty) None else vectorConfig
     )
     is.toJson.compactPrint
   }
@@ -255,27 +256,23 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
       }
     }
 
-    var indexJson = ""
-    var castedDF: Option[DataFrame] = None
-    if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
-      indexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+    val (indexJson, castedDF) = if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
       if (indexJsonOpt.isDefined) {
-        println(f"indexJsonOpt is specified, however an index for the $indexName already exists," +
+        println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
           f"we will use the index definition obtained from the existing index instead")
       }
-      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJson)
-      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
-    }
-    else if (indexJsonOpt.isDefined) {
-      indexJson = indexJsonOpt.get
-      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJson)
-      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
-    }
-    else {
+      val existingIndexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(existingIndexJson)
+      (existingIndexJson, castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
+    } else if (indexJsonOpt.isDefined) {
+      val vectorColNameTypeTuple = getVectorColNameTypeTupleFromIndexJson(indexJsonOpt.get)
+      (indexJsonOpt.get, castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
+    } else {
       val vectorCols = vectorColsOpt.map(parseVectorColsJson)
       val vectorColNameTypeTuple = vectorCols.map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
-      castedDF = Some(castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df))
-      indexJson = dfToIndexJson(castedDF.get.schema, indexName, keyCol.get, actionCol, vectorCols)
+      val newDF = castDFColsToVectorCompatibleType(vectorColNameTypeTuple, df)
+      val inferredIndexJson = dfToIndexJson(newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
+      (inferredIndexJson, newDF)
     }
 
     // TODO: Support vector fields in nested fields
@@ -285,15 +282,15 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
-    checkSchemaParity(castedDF.get.schema, indexJson, actionCol)
+    checkSchemaParity(castedDF.schema, indexJson, actionCol)
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
         .filter(_.`type`.startsWith("Collection"))
         .map(_.name)
-      collectionColumns.foldLeft(castedDF.get) { (ndf, c) => filterOutNulls(ndf, c) }
+      collectionColumns.foldLeft(castedDF) { (ndf, c) => filterOutNulls(ndf, c) }
     } else {
-      castedDF.get
+      castedDF
     }
 
     new AddDocuments()
