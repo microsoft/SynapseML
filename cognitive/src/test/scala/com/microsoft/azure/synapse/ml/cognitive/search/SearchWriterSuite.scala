@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.search
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.openai.{OpenAIAPIKey, OpenAIEmbedding}
 import com.microsoft.azure.synapse.ml.cognitive.vision.AnalyzeImage
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -27,7 +28,7 @@ trait AzureSearchKey {
 
 //scalastyle:off null
 class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGetter with IndexParser
-  with TransformerFuzzing[AddDocuments] with CognitiveKey {
+  with TransformerFuzzing[AddDocuments] with CognitiveKey with OpenAIAPIKey {
 
   import spark.implicits._
 
@@ -463,7 +464,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol").get.vectorSearchConfiguration.nonEmpty)
   }
 
-  test("Infer the structure of the index from the dataframe with vector colums") {
+  test("Infer the structure of the index from the dataframe with vector columns") {
     val in = generateIndexName()
     val phraseDF = Seq(
       ("upload", "0", "file0", Array(1.1, 2.1, 3.1), Vectors.dense(0.11, 0.21, 0.31),
@@ -631,5 +632,36 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     }
   }
 
-  // TODO: Add a test with the OpenAI embedding pipeline for vector search
+  test("pipeline with openai embedding") {
+    val in = generateIndexName()
+
+    val df = Seq(
+      ("upload", "0", "this is the first sentence"),
+      ("upload", "1", "this is the second sentence")
+    ).toDF("searchAction", "id", "content")
+
+    val tdf = new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName("text-embedding-ada-002")
+      .setCustomServiceName(openAIServiceName)
+      .setTextCol("content")
+      .setErrorCol("error")
+      .setOutputCol("vectorContent")
+      .transform(df)
+      .drop("error")
+
+    AzureSearchWriter.write(tdf,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> """[{"name": "vectorContent", "dimension": 1536}]"""
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+  }
 }

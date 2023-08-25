@@ -343,7 +343,9 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
         if (colDataType.isInstanceOf[ArrayType]) {
           accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
         } else {
-          accDF.withColumn(colName, vector_to_array(accDF(colName), edmTypeToVectordType(colType)))
+          // first cast vectorUDT to array<double>, then cast it to correct array type
+          val modifiedDF = accDF.withColumn(colName, vector_to_array(accDF(colName)))
+          modifiedDF.withColumn(colName, modifiedDF(colName).cast(edmTypeToSparkType(colType, None)))
         }
       }
     }
@@ -355,13 +357,6 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with VectorCol
 
   private def getEdmCollectionElement(t: String): String = {
     t.substring("Collection(".length).dropRight(1)
-  }
-
-  private def edmTypeToVectordType(t: String): String = {
-    t match {
-      case "Collection(Edm.Single)" => "float32"
-      case "Collection(Edm.Double)" => "float64"
-    }
   }
 
   private[ml] def edmTypeToSparkType(dt: String,  //scalastyle:ignore cyclomatic.complexity
