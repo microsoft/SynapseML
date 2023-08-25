@@ -71,5 +71,4 @@ object Secrets {
   lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
   lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
-  lazy val SecretRegexpFile: String = getSecret("secret-regexp-file")
 }

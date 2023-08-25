@@ -27,5 +27,14 @@ setup(
     zip_safe=True,
     package_data={"docgen": ["../LICENSE.txt", "../README.txt"]},
     python_requires=">=3.8.8",
-    install_requires=["nbformat", "nbconvert", "pathlib", "argparse"],
+    install_requires=[
+        "nbformat",
+        "nbconvert",
+        "pathlib",
+        "argparse",
+        "pypandoc",
+        "markdownify",
+        "markdown",
+        "traitlets",
+    ],
 )
