@@ -23,7 +23,7 @@ val excludes = Seq(
 val coreDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java"),
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
@@ -33,7 +33,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8" exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12") exclude("org.apache.spark", "spark-core_2.12"),
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8" exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12") exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12"),
   // Although breeze 1.2 is already provided by Spark, this is needed for Azure Synapse Spark 3.2 pools.
   // Otherwise a NoSuchMethodError will be thrown by interpretability code. This problem only happens
   // to Azure Synapse Spark 3.2 pools.
