@@ -51,4 +51,4 @@ dependencies:
     - markdownify
     - traitlets
     - scikit-learn
-
+    - opencv-python
