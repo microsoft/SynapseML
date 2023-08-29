@@ -19,10 +19,10 @@ _HOROVOD_AVAILABLE = _module_available("horovod")
 if _HOROVOD_AVAILABLE:
     import horovod
 
-    _HOROVOD_EQUAL_0_25_0 = horovod.__version__ == "0.25.0"
-    if not _HOROVOD_EQUAL_0_25_0:
+    _HOROVOD_EQUAL_0_28_1 = horovod.__version__ == "0.28.1"
+    if not _HOROVOD_EQUAL_0_28_1:
         raise RuntimeError(
-            "horovod should be of version 0.25.0, found: {}".format(horovod.__version__)
+            "horovod should be of version 0.28.1, found: {}".format(horovod.__version__)
         )
 else:
     raise ModuleNotFoundError("module not found: horovod")

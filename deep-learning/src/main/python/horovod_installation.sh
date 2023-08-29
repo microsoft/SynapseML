@@ -39,7 +39,7 @@ cd horovod
 # git fetch origin refs/tags/v0.25.0:tags/v0.25.0
 # git checkout tags/v0.25.0 -b v0.25.0-branch
 # fix to this commit number until they release a new version
-git checkout ab97fd15bbba3258adcdd12983f36a1cdeacbc94
+git checkout 1d217b59949986d025f6db93c49943fb6b6cc78f
 git checkout -b tmp-branch
 rm -rf build/ dist/
 HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 \
@@ -47,4 +47,4 @@ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PY
 
 readlink -f dist/horovod-*.whl
 
-pip install --no-cache-dir dist/horovod-0.25.0-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
+pip install --no-cache-dir dist/horovod-0.28.1-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
