@@ -32,7 +32,7 @@ dependencies:
     - jupyter
     - mlflow
     - numpy
-    - torch==1.11.0
+    - torch==1.13.1
     - torchvision==0.12.0
     - horovod==0.28.1
     - petastorm>=0.11.0

@@ -70,7 +70,7 @@ object PyCodegen {
          |    "cmake",
          |    "horovod==0.28.1",
          |    "pytorch_lightning>=1.5.0,<1.5.10",
-         |    "torch==1.11.0",
+         |    "torch==1.13.1",
          |    "torchvision>=0.12.0",
          |    "transformers==4.15.0",
          |    "petastorm>=0.12.0",
