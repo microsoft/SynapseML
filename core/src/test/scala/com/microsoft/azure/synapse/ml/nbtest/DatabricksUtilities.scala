@@ -78,8 +78,7 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "torchvision==0.15.2")),
     Map("pypi" -> Map("package" -> "transformers==4.32.1")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.1")),
-    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
-    Map("pypi" -> Map("package" -> "horovod==0.28.1"))
+    Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
