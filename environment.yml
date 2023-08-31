@@ -32,15 +32,15 @@ dependencies:
     - jupyter
     - mlflow
     - numpy
-    - torch==1.11.0
-    - torchvision==0.12.0
+    - torch==1.13.1
+    - torchvision==0.14.1
     - horovod==0.28.1
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
-    - transformers==4.15.0
+    - transformers==4.32.1
     - huggingface-hub>=0.8.1
     - langchain==0.0.151
     - openai==0.27.5
@@ -51,4 +51,4 @@ dependencies:
     - markdownify
     - traitlets
     - scikit-learn
-
+    - opencv-python

@@ -7,8 +7,8 @@ set -eu
 
 # Install prerequisite libraries that horovod depends on
 pip install pytorch-lightning==1.5.0
-pip install torchvision==0.12.0
-pip install transformers==4.15.0
+pip install torchvision==0.14.1
+pip install transformers==4.32.1
 pip install petastorm>=0.12.0
 pip install protobuf==3.20.3
 
