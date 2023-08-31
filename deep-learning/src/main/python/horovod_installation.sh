@@ -35,10 +35,7 @@ libcusparse-dev-11-0=11.1.1.245-1
 
 git clone --recursive https://github.com/horovod/horovod.git
 cd horovod
-# # fix version 0.25.0
-# git fetch origin refs/tags/v0.25.0:tags/v0.25.0
-# git checkout tags/v0.25.0 -b v0.25.0-branch
-# fix to this commit number until they release a new version
+# git fetch origin refs/tags/v0.28.1:tags/v0.28.1
 git checkout 1d217b59949986d025f6db93c49943fb6b6cc78f
 git checkout -b tmp-branch
 rm -rf build/ dist/

@@ -32,7 +32,7 @@ object DatabricksUtilities {
   val PoolName = "synapseml-build-13.3"
   val GpuPoolName = "synapseml-build-13.3-gpu"
   val AdbRuntime = "13.3.x-scala2.12"
-  // https://learn.microsoft.com/en-us/azure/databricks/release-notes/runtime/11.2
+  // https://docs.databricks.com/en/release-notes/runtime/13.3lts-ml.html
   val AdbGpuRuntime = "13.3.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
@@ -62,7 +62,6 @@ object DatabricksUtilities {
     "pdf2image",
     "pdfminer.six",
     "pytesseract",
-    "scikit-learn",
     "unstructured"
   )
 

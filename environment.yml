@@ -50,5 +50,4 @@ dependencies:
     - pypandoc
     - markdownify
     - traitlets
-    - scikit-learn
     - opencv-python
