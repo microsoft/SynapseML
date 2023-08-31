@@ -72,7 +72,7 @@ object PyCodegen {
          |    "pytorch_lightning>=1.5.0,<1.5.10",
          |    "torch==1.13.1",
          |    "torchvision>=0.14.1",
-         |    "transformers==4.15.0",
+         |    "transformers==4.32.1",
          |    "petastorm>=0.12.0",
          |    "huggingface-hub>=0.8.1",
          |]},
