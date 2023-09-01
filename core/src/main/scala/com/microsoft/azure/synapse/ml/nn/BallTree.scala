@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.nn
 
-import breeze.linalg.functions.euclideanDistance
 import breeze.linalg.{DenseVector, norm, _}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 

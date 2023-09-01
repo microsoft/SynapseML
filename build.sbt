@@ -8,10 +8,10 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.3"
+val sparkVersion = "3.4.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.17"
 
 val scalaMajorVersion = 2.12
 
@@ -21,23 +21,25 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
+  // Excluding protobuf-java, as spark-core is bringing the older version transitively.
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java"),
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
+  "commons-lang" % "commons-lang" % "2.6",
   "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8",
-  // Although breeze 1.2 is already provided by Spark, this is needed for Azure Synapse Spark 3.2 pools.
-  // Otherwise a NoSuchMethodError will be thrown by interpretability code. This problem only happens
-  // to Azure Synapse Spark 3.2 pools.
-  "org.scalanlp" %% "breeze" % "1.2"
+  // As isolation-forest_3.2.0 is build for Spark32, excluding incompatable jars for Spark34.
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8" exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12") exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12") exclude("org.apache.spark", "spark-sql_2.12"),
+  // Although breeze 2.1.0 is already provided by Spark, this is needed for Azure Synapse Spark 3.4 pools.
+  // Otherwise a NoSuchMethodError will be thrown by interpretability code.
+  "org.scalanlp" %% "breeze" % "2.1.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 

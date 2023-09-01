@@ -3,7 +3,7 @@ LABEL maintainer="Dalitso Banda dalitsohb@gmail.com"
 
 # Get Spark from US Apache mirror.
 ENV APACHE_SPARK_VERSION 2.4.5
-ENV HADOOP_VERSION 3.2.1
+ENV HADOOP_VERSION 3.3.4
 
 RUN echo "$LOG_TAG Getting SPARK_HOME" && \
     apt-get update && \
