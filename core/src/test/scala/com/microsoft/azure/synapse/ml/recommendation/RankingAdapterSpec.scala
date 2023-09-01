@@ -42,7 +42,7 @@ class RankingAdapterModelSpec extends RankingTestBase with TransformerFuzzing[Ra
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = {
-      // sort rows and round decimals before compare two dataframes
+      // sort rows and round decimals before comparing dataframes
       import org.apache.spark.sql.functions._
       val roundListDecimals: Seq[Float] => Seq[Float] = _.map { value =>
         BigDecimal(value.toDouble).setScale(6, BigDecimal.RoundingMode.HALF_UP).toFloat
