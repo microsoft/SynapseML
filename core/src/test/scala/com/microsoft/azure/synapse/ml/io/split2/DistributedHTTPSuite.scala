@@ -20,14 +20,14 @@ import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
 
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
-import scala.util.parsing.json.JSONObject
-
 
 trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
@@ -81,7 +81,8 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def sendJsonRequest(map: Map[String, Any], url: String): String = {
     val post = new HttpPost(url)
-    val params = new StringEntity(JSONObject(map).toString())
+    implicit val defaultFormats: DefaultFormats = DefaultFormats
+    val params = new StringEntity(Serialization.write(map))
     post.addHeader("content-type", "application/json")
     post.setEntity(params)
     val res = RESTHelpers.Client.execute(post)

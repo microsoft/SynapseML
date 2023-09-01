@@ -181,6 +181,7 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
   }
 
   protected override def beforeAll(): Unit = {
+    System.setProperty("log4j1.compatibility", "true")
     suiteElapsed = 0
   }
 
