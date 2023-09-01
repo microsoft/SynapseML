@@ -7,8 +7,8 @@ set -eu
 
 # Install prerequisite libraries that horovod depends on
 pip install pytorch-lightning==1.5.0
-pip install torchvision==0.12.0
-pip install transformers==4.15.0
+pip install torchvision==0.14.1
+pip install transformers==4.32.1
 pip install petastorm>=0.12.0
 pip install protobuf==3.20.3
 
@@ -35,11 +35,8 @@ libcusparse-dev-11-0=11.1.1.245-1
 
 git clone --recursive https://github.com/horovod/horovod.git
 cd horovod
-# # fix version 0.25.0
-# git fetch origin refs/tags/v0.25.0:tags/v0.25.0
-# git checkout tags/v0.25.0 -b v0.25.0-branch
-# fix to this commit number until they release a new version
-git checkout ab97fd15bbba3258adcdd12983f36a1cdeacbc94
+# git fetch origin refs/tags/v0.28.1:tags/v0.28.1
+git checkout 1d217b59949986d025f6db93c49943fb6b6cc78f
 git checkout -b tmp-branch
 rm -rf build/ dist/
 HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 \
@@ -47,4 +44,4 @@ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_CUDA_HOME=/usr/local/cuda-11/ HOROVOD_WITH_PY
 
 readlink -f dist/horovod-*.whl
 
-pip install --no-cache-dir dist/horovod-0.25.0-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
+pip install --no-cache-dir dist/horovod-0.28.1-cp38-cp38-linux_x86_64.whl --force-reinstall --no-deps
