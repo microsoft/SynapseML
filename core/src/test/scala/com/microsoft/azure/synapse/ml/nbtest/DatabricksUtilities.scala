@@ -174,7 +174,7 @@ object DatabricksUtilities {
                           sparkVersion: String,
                           numWorkers: Int,
                           poolId: String,
-                          initScripts: String): String = {
+                          initScripts: String = "[]"): String = {
     val body =
       s"""
          |{
