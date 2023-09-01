@@ -184,7 +184,6 @@ object SynapseUtilities {
     val excludes: String = Seq(
       "org.scala-lang:scala-reflect",
       "org.apache.spark:spark-tags_2.12",
-      "org.scalactic:scalactic_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
     val runName = abfssPath.split('/').last.replace(".py", "")
@@ -255,7 +254,7 @@ object SynapseUtilities {
        |    "nodeSizeFamily": "MemoryOptimized",
        |    "provisioningState": "Succeeded",
        |    "sessionLevelPackagesEnabled": "true",
-       |    "sparkVersion": "3.2"
+       |    "sparkVersion": "3.4"
        |  }
        |}
        |""".stripMargin
