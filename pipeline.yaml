@@ -26,6 +26,7 @@ pr:
 schedules:
   - cron: "0 0 * * *"
     displayName: Daily midnight build
+    always: true
     branches:
       include:
         - master
