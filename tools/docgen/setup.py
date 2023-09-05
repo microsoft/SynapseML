@@ -34,6 +34,7 @@ setup(
         "argparse",
         "pypandoc",
         "markdownify",
+        "markdown",
         "traitlets",
     ],
 )

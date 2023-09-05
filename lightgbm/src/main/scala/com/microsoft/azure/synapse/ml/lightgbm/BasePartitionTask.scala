@@ -324,6 +324,9 @@ abstract class BasePartitionTask extends Serializable with Logging {
         s" shouldExecuteTraining: $shouldExecuteTraining, isEmptyPartition: $isEmptyPartition")
 
     val shouldCalcValidationDataset = trainingCtx.sharedState.validationDatasetWorker.getOrElse(-1) == taskId
+    if (trainingCtx.hasValidationData)
+      log.info(s"Validation data found. Task: $taskId, PartId: $partitionId. Main task: $mainExecutorWorkerId" +
+        s" shouldCalcValidationDataset: $shouldCalcValidationDataset, isEmptyPartition: $isEmptyPartition")
 
     PartitionTaskContext(trainingCtx,
                          partitionId,
