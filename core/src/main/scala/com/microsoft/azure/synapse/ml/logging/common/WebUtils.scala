@@ -11,10 +11,10 @@ import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 
 object WebUtils {
-  def usagePost(url: String, body: String, headerPayload: Map[String, String]): JsValue = {
+  def usagePost(url: String, body: String, headers: Map[String, String]): JsValue = {
     val request = new HttpPost(url)
 
-    for ((k, v) <- headerPayload)
+    for ((k, v) <- headers)
         request.addHeader(k, v)
 
     request.setEntity(new StringEntity(body))
@@ -23,15 +23,11 @@ object WebUtils {
     parseResponse(response)
   }
 
-  def usageGet(url: String, headerPayload: Map[String, String]): JsValue = {
+  def usageGet(url: String, headers: Map[String, String]): JsValue = {
     val request = new HttpGet(url)
-    try {
-      for ((k, v) <- headerPayload)
-        request.addHeader(k, v)
-    } catch {
-      case e: IllegalArgumentException =>
-        SynapseMLLogging.logMessage(s"WebUtils::usageGet: Getting error setting in the request header. Exception = $e")
-    }
+    for ((k, v) <- headers)
+    request.addHeader(k, v)
+
     val response = RESTHelpers.safeSend(request, close = false)
     val result = parseResponse(response)
     response.close()

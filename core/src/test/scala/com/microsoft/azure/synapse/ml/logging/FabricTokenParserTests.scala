@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.logging
 
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.logging.Usage.{FabricTokenParser, InvalidJwtTokenException}
 
@@ -37,22 +38,15 @@ class FabricTokenParserTests extends TestBase {
 
   test("Invalid JWT Token Check."){
     val filePath = getClass.getResource("/UsageTestData.json")
-    val source = Source.fromURL(filePath)
-    try {
-      val jsonString = source.mkString
-      val parsedTokens = jsonString.parseJson
-      val tokens = parsedTokens.convertTo[Seq[Token]]
-      val token = tokens(1)
+    val jsonString = StreamUtilities.usingSource(scala.io.Source.fromURL(filePath)) { source =>
+      source.mkString
+    }.get
+    val parsedTokens = jsonString.parseJson
+    val tokens = parsedTokens.convertTo[Seq[Token]]
+    val token = tokens(1)
 
-      var exceptionThrown = false
-      try {
-        val fabricTokenParser = new FabricTokenParser(token.payload)
-      } catch {
-        case _: InvalidJwtTokenException => exceptionThrown = true
-      }
-      assert(exceptionThrown, "InvalidJwtTokenException was thrown.")
-    } finally {
-      source.close()
+    assertThrows[InvalidJwtTokenException]{
+      val fabricTokenParser = new FabricTokenParser(token.payload)
     }
   }
 }

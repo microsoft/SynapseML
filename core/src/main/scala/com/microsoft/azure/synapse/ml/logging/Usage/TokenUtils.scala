@@ -86,7 +86,7 @@ object TokenUtils {
     }
   }
 
-  def getMWCToken(shared_host: String, WorkspaceId: String, capacity_id: String,
+  def getMwcToken(shared_host: String, WorkspaceId: String, capacity_id: String,
                     workload_type: String): MwcToken = {
     val url: String = shared_host + "/metadata/v201606/generatemwctokenv2"
 

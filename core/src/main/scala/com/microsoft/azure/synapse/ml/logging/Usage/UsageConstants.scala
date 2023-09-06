@@ -28,12 +28,12 @@ object FabricConstants {
   val TridentSessionToken = "trident.session.token"
   val WebApi = "webapi"
   val Capacities = "Capacities"
-  val WORKLOADS = "workloads"
+  val Workloads = "workloads"
   val WorkspaceID = "workspaceid"
 
   val WorkloadEndpointMl = "ML"
   val WorkloadEndpointLlmPlugin = "LlmPlugin"
   val WorkloadEndpointAutomatic = "Automatic"
   val WorkloadEndpointRegistry = "Registry"
-  val   WorkloadEndpointAdmin = "MLAdmin"
+  val WorkloadEndpointAdmin = "MLAdmin"
 }

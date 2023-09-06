@@ -9,15 +9,12 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 
 object SparkHadoopUtils {
 
-  def getHadoopConfig(key: String, SC: SparkContext): String = {
-    if (SC == null) {
-      ""
-    } else {
-      val value = SC.hadoopConfiguration.get(key, "")
+  def getHadoopConfig(key: String, sc: SparkContext): String = {
+      val value = sc.hadoopConfiguration.get(key, "")
       if (value.isEmpty) {
         SynapseMLLogging.logMessage(s"UsageUtils.getHadoopConfig: Hadoop configuration $key is empty.")
+        throw new IllegalArgumentException(s"UsageUtils.getHadoopConfig: Hadoop configuration $key is empty.")
       }
       value
-    }
   }
 }

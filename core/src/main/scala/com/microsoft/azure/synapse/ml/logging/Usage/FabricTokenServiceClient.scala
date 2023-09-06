@@ -3,18 +3,20 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import java.util.UUID
+import java.io.IOException
+import java.lang.management.ManagementFactory
 import java.net.URL
 import java.net.InetAddress
-import java.lang.management.ManagementFactory
+import java.util.UUID
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
 import spray.json.{JsArray, JsObject, JsValue, _}
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import org.apache.hc.client5.http.ClientProtocolException
 
 class FabricTokenServiceClient {
-  val resourceMapping = Map(
+  private val resourceMapping = Map(
     "https://storage.azure.com" -> "storage",
     "storage" -> "storage",
     "https://analysis.windows.net/powerbi/api" -> "pbi",
@@ -41,9 +43,8 @@ class FabricTokenServiceClient {
     }
     val resource = resourceMapping.getOrElse(resourceParam, "")
     val rid = UUID.randomUUID().toString()
-    //to do workloadEndpoint
     val targetUrl = new URL(workloadEndpoint)
-    var headers = Map(
+    val headers: Map[String, String] = Map(
       "x-ms-cluster-identifier" -> clusterIdentifier,
       "x-ms-workload-resource-moniker" -> clusterIdentifier,
       "Content-Type" -> "application/json;charset=utf-8",
@@ -53,17 +54,25 @@ class FabricTokenServiceClient {
       "x-ms-client-request-id" -> rid
     )
     var url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=$resource"
-    var response: JsValue = JsonParser("")
     try {
-      response = usageGet(url, headers)
+      val response: JsValue = usageGet(url, headers)
       if (response.asJsObject.fields("status_code").convertTo[String] != 200
         || response.asJsObject.fields("content").convertTo[String].isEmpty) {
         throw new Exception("Fetch access token error")
       }
+      response.asJsObject.fields("content").toString().getBytes("UTF-8").toString
     } catch {
+      case e: IOException =>
+        SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Problems in executing" +
+          s" http request or the connection might have been aborted. Exception = $e.")
+        ""
+      case e: ClientProtocolException =>
+        SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. " +
+          s"HTTP protocol error. Exception = $e.")
+        ""
       case e: Exception =>
-        SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Exception = $e. (usage test)")
+        SynapseMLLogging.logMessage(s"getAccessToken: Failed to fetch cluster details. Exception = $e.")
+        ""
     }
-    response.asJsObject.fields("content").toString().getBytes("UTF-8").toString
   }
 }
