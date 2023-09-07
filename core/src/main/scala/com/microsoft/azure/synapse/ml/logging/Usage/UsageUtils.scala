@@ -42,7 +42,8 @@ object UsageTelemetry {
     }
   }
 
-  def reportUsageTelemetry(featureName: String, activityName: String, attributes: Map[String,String] = Map()): Unit = {
+  private def reportUsageTelemetry(featureName: String, activityName: String,
+                                   attributes: Map[String,String] = Map()): Unit = {
     if (sys.env.getOrElse(FabricFakeTelemetryReportCalls,"false") == "false") {
       val attributesJson = attributes.toJson.compactPrint
       val data =
@@ -64,15 +65,7 @@ object UsageTelemetry {
         "Authorization" -> s"""Bearer $driverAADToken""".stripMargin,
         "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
       )
-
-      var response: JsValue = JsonParser("{}")
-      try {
-        response = usagePost(url, data, headers)
-      } catch {
-        case e: Exception =>
-          SynapseMLLogging.logMessage(s"UsageUtils.reportUsageTelemetry: Error occurred while emitting usage data. " +
-            s"Exception = $e. (usage test)")
-      }
+      usagePost(url, data, headers)
     }
   }
 }

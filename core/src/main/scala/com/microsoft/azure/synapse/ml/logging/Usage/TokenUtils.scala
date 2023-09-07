@@ -20,7 +20,7 @@ object TokenUtils {
   val MwcWorkloadTypeMl = "ML"
 
   def getAccessToken: String = {
-    if (checkTokenValid(this.AADToken))
+    if (isTokenValid(Option(this.AADToken)))
       this.AADToken
     else {
       refreshAccessToken()
@@ -50,24 +50,26 @@ object TokenUtils {
     methodMirror(tokenType).asInstanceOf[String]
   }
 
-  def checkTokenValid(token: String): Boolean = {
-    if (token == null || token.isEmpty) {
-      false
-    }
-    try{
-      val tokenParser =   new FabricTokenParser(token)
-      val expiryEpoch = tokenParser.getExpiry
-      val now = Instant.now().getEpochSecond
-      now < expiryEpoch - 60
-    } catch {
-      case e: InvalidJwtTokenException =>
-        SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token used to trigger telemetry " +
-          s"endpoint is invalid. Exception = $e")
-        false
-      case e: JwtTokenExpiryMissingException =>
-        SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token misses expiry. " +
-          s"Exception = $e")
-        false
+  private def isTokenValid(tokenOption: Option[String]): Boolean = {
+    tokenOption match {
+      case Some(token) if token.nonEmpty =>
+        try {
+          val tokenParser = new FabricTokenParser(token)
+          val expiryEpoch = tokenParser.getExpiry
+          val now = Instant.now().getEpochSecond
+          now < expiryEpoch - 60
+        } catch {
+          case e: InvalidJwtTokenException =>
+            SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token used to trigger telemetry " +
+              s"endpoint is invalid. Exception = $e")
+            false
+          case e: JwtTokenExpiryMissingException =>
+            SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token misses expiry. " +
+              s"Exception = $e")
+            false
+        }
+      case _ =>
+        false // No value is present or the value is empty
     }
   }
 
@@ -87,7 +89,7 @@ object TokenUtils {
   }
 
   def getMwcToken(shared_host: String, WorkspaceId: String, capacity_id: String,
-                    workload_type: String): MwcToken = {
+                    workload_type: String): Option[MwcToken]= {
     val url: String = shared_host + "/metadata/v201606/generatemwctokenv2"
 
     val payLoad = s"""{
@@ -111,22 +113,23 @@ object TokenUtils {
       response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
       implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
-      response.convertTo[MwcToken]
+      val mwcToken = response.convertTo[MwcToken]
+      Some(mwcToken)
     }
     catch {
       case e: NoSuchElementException =>
         SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: Cannot retrieve targetUriHost from MWC Token.")
-        throw e
+        None
       case e: DeserializationException =>
         SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of response is not of type MwcToken.")
-        throw e
+        None
       case e: ParsingException =>
         SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of json response is formed correctly.")
-        throw e
+        None
       case e: Exception =>
         SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch MWC token that is required to " +
           s"get cluster details: $e.")
-        throw e
+        None
     }
   }
 }

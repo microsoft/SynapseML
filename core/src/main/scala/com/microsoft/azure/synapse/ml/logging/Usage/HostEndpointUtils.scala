@@ -54,15 +54,12 @@ object HostEndpointUtils {
     } else {
       sharedHost
     }
-    try {
-      val mwcToken: MwcToken = TokenUtils.getMwcToken(clusterUrl, workspaceId, capacityId, TokenUtils.MwcWorkloadTypeMl)
-      if (mwcToken != null && mwcToken.TargetUriHost != null) {
-        mwcToken.TargetUriHost
-      } else {
-        ""
-      }
-    } catch {
-      case ex: Exception =>
+    val mwcToken: Option[MwcToken] = TokenUtils.getMwcToken(clusterUrl,
+      workspaceId, capacityId, TokenUtils.MwcWorkloadTypeMl)
+    mwcToken match {
+      case Some(token) =>
+        token.TargetUriHost
+      case None =>
         ""
     }
   }
