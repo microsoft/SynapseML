@@ -14,7 +14,9 @@ import spray.json._
 import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
-  val DefaultAPIVersion = "2019-05-06"
+  val DefaultAPIVersion = "2023-07-01-Preview"
+  val VectorConfigName = "vectorConfig"
+  val VectorSearchAlgorithm = "hnsw"
 }
 import com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchAPIConstants._
 
@@ -36,6 +38,26 @@ trait IndexLister {
     val indexList = IOUtils.toString(indexListResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
     indexListResponse.close()
     for (i <- indexList.value.seq) yield i.name
+  }
+}
+
+trait IndexJsonGetter extends IndexLister {
+  def getIndexJsonFromExistingIndex(key: String,
+                                    serviceName: String,
+                                    indexName: String,
+                                    apiVersion: String = DefaultAPIVersion): String = {
+    val existingIndexNames = getExisting(key, serviceName, apiVersion)
+    assert(existingIndexNames.contains(indexName), s"Cannot find an existing index name with $indexName")
+
+    val indexJsonRequest = new HttpGet(
+      s"https://$serviceName.search.windows.net/indexes/$indexName?api-version=$apiVersion"
+    )
+    indexJsonRequest.setHeader("api-key", key)
+    indexJsonRequest.setHeader("Content-Type", "application/json")
+    val indexJsonResponse = safeSend(indexJsonRequest, close = false)
+    val indexJson = IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
+    indexJsonResponse.close()
+    indexJson
   }
 }
 
@@ -94,7 +116,9 @@ object SearchIndex extends IndexParser with IndexLister {
       _ <- validAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validSearchAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validIndexAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
-      _ <- validSynonymMaps(field.synonymMap)
+      _ <- validVectorField(field.dimensions, field.vectorSearchConfiguration)
+      // TODO: Fix and add back validSynonymMaps check. SynonymMaps needs to be Option[Seq[String]] type
+      //_ <- validSynonymMaps(field.synonymMap)
     } yield field
   }
 
@@ -179,6 +203,15 @@ object SearchIndex extends IndexParser with IndexLister {
       Failure(new IllegalArgumentException("Only one synonym map per field is supported"))
     } else {
       Success(sm)
+    }
+  }
+
+  private def validVectorField(d: Option[Int], v: Option[String]): Try[Option[String]] = {
+    if ((d.isDefined && v.isEmpty) || (v.isDefined && d.isEmpty)) {
+      Failure(new IllegalArgumentException("Both dimensions and vectorSearchConfig fields need to be defined for " +
+        "vector search"))
+    } else {
+      Success(v)
     }
   }
 

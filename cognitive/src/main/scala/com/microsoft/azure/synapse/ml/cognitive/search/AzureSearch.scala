@@ -18,6 +18,8 @@ import org.apache.spark.internal.{Logging => SLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.functions.vector_to_array
 import org.apache.spark.sql.functions.{col, expr, struct, to_json}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
@@ -142,7 +144,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   override def responseDataType: DataType = ASResponses.schema
 }
 
-object AzureSearchWriter extends IndexParser with SLogging {
+object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging {
 
   val Logger: Logger = LogManager.getRootLogger
 
@@ -166,9 +168,11 @@ object AzureSearchWriter extends IndexParser with SLogging {
   private def convertFields(fields: Seq[StructField],
                             keyCol: String,
                             searchActionCol: String,
+                            vectorCols: Option[Seq[VectorColParams]],
                             prefix: Option[String]): Seq[IndexField] = {
     fields.filterNot(_.name == searchActionCol).map { sf =>
       val fullName = prefix.map(_ + sf.name).getOrElse(sf.name)
+      val isVector = vectorCols.exists(_.exists(_.name == fullName))
       val (innerType, _) = sparkTypeToEdmType(sf.dataType)
       IndexField(
         sf.name,
@@ -177,7 +181,9 @@ object AzureSearchWriter extends IndexParser with SLogging {
         if (keyCol == fullName) Some(true) else None,
         None, None, None, None,
         structFieldToSearchFields(sf.dataType,
-          keyCol, searchActionCol, prefix = Some(prefix.getOrElse("") + sf.name + "."))
+          keyCol, searchActionCol, None, prefix = Some(prefix.getOrElse("") + sf.name + ".")),
+        if (isVector) vectorCols.get.find(_.name == fullName).map(_.dimension) else None,
+        if (isVector) Some(AzureSearchAPIConstants.VectorConfigName) else None
       )
     }
   }
@@ -185,23 +191,34 @@ object AzureSearchWriter extends IndexParser with SLogging {
   private def structFieldToSearchFields(schema: DataType,
                                         keyCol: String,
                                         searchActionCol: String,
+                                        vectorCols: Option[Seq[VectorColParams]],
                                         prefix: Option[String] = None
                                        ): Option[Seq[IndexField]] = {
     schema match {
-      case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
-      case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, prefix))
+      case StructType(fields) => Some(convertFields(fields, keyCol, searchActionCol, vectorCols, prefix))
+      // TODO: Support vector search in nested fields
+      case ArrayType(StructType(fields), _) => Some(convertFields(fields, keyCol, searchActionCol, None, prefix))
       case _ => None
     }
+  }
+
+  private def parseVectorColsJson(str: String): Seq[VectorColParams] = {
+    str.parseJson.convertTo[Seq[VectorColParams]]
   }
 
   private def dfToIndexJson(schema: StructType,
                             indexName: String,
                             keyCol: String,
-                            searchActionCol: String): String = {
+                            searchActionCol: String,
+                            vectorCols: Option[Seq[VectorColParams]]): String = {
+
+    val vectorConfig = Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
+      AzureSearchAPIConstants.VectorSearchAlgorithm))))
     val is = IndexInfo(
       Some(indexName),
-      structFieldToSearchFields(schema, keyCol, searchActionCol).get,
-      None, None, None, None, None, None, None, None
+      structFieldToSearchFields(schema, keyCol, searchActionCol, vectorCols).get,
+      None, None, None, None, None, None, None, None,
+      if (vectorCols.isEmpty) None else vectorConfig
     )
     is.toJson.compactPrint
   }
@@ -210,7 +227,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
                         options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
       "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol"
+      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "vectorCols"
     )
 
     options.keys.foreach(k =>
@@ -224,11 +241,12 @@ object AzureSearchWriter extends IndexParser with SLogging {
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
     val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
+    val vectorColsInfo = options.get("vectorCols")
 
     val keyCol = options.get("keyCol")
     val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
     if (indexJsonOpt.isDefined) {
-      List("keyCol", "indexName").foreach(opt =>
+      List("keyCol", "indexName", "vectorCols").foreach(opt =>
         assert(!options.contains(opt), s"Cannot set both indexJson options and $opt")
       )
     }
@@ -242,22 +260,41 @@ object AzureSearchWriter extends IndexParser with SLogging {
       }
     }
 
-    val indexJson = indexJsonOpt.getOrElse {
-      dfToIndexJson(df.schema, indexName, keyCol.get, actionCol)
+    val (indexJson, preppedDF) = if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
+      if (indexJsonOpt.isDefined) {
+        println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
+          f"we will use the index definition obtained from the existing index instead")
+      }
+      val existingIndexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+      val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
+      (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
+    } else if (indexJsonOpt.isDefined) {
+      val vectorColNameTypeTuple = getVectorColConf(indexJsonOpt.get)
+      (indexJsonOpt.get, makeColsCompatible(vectorColNameTypeTuple, df))
+    } else {
+      val vectorCols = vectorColsInfo.map(parseVectorColsJson)
+      val vectorColNameTypeTuple = vectorCols.map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
+      val newDF = makeColsCompatible(vectorColNameTypeTuple, df)
+      val inferredIndexJson = dfToIndexJson(newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
+      (inferredIndexJson, newDF)
     }
+
+    // TODO: Support vector search in nested fields
+    // Throws an exception if any nested field is a vector in the schema
+    parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
-    checkSchemaParity(df.schema, indexJson, actionCol)
+    checkSchemaParity(preppedDF.schema, indexJson, actionCol)
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
         .filter(_.`type`.startsWith("Collection"))
         .map(_.name)
-      collectionColumns.foldLeft(df) { (ndf, c) => filterOutNulls(ndf, c) }
+      collectionColumns.foldLeft(preppedDF) { (ndf, c) => filterOutNulls(ndf, c) }
     } else {
-      df
+      preppedDF
     }
 
     new AddDocuments()
@@ -271,6 +308,48 @@ object AzureSearchWriter extends IndexParser with SLogging {
       .transform(df1)
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
+  }
+
+  private def assertNoNestedVectors(fields: Seq[IndexField]): Unit = {
+    def checkVectorField(field: IndexField): Unit = {
+      if (field.dimensions.nonEmpty && field.vectorSearchConfiguration.nonEmpty) {
+        throw new IllegalArgumentException(s"Nested field ${field.name} is a vector field, vector fields in nested" +
+          s" fields are not supported.")
+      }
+      field.fields.foreach(_.foreach(checkVectorField))
+    }
+    fields.foreach(checkVectorField)
+  }
+
+  private def getVectorColConf(indexJson: String): Seq[(String, String)] = {
+    parseIndexJson(indexJson).fields
+      .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+      .map(f => (f.name, f.`type`))
+  }
+  private def makeColsCompatible(vectorColNameTypeTuple: Seq[(String, String)],
+                                               df: DataFrame): DataFrame = {
+    vectorColNameTypeTuple.foldLeft(df) { case (accDF, (colName, colType)) =>
+      if (!accDF.columns.contains(colName)) {
+        println(s"Column $colName is specified in either indexJson or vectorCols but not found in dataframe " +
+          s"columns ${accDF.columns.toList}")
+        accDF
+      }
+      else {
+        val colDataType = accDF.schema(colName).dataType
+        assert(colDataType match {
+          case ArrayType(elementType, _) => elementType == FloatType || elementType == DoubleType
+          case VectorType => true
+          case _ => false
+        }, s"Vector column $colName needs to be one of (ArrayType(FloatType), ArrayType(DoubleType), VectorType)")
+        if (colDataType.isInstanceOf[ArrayType]) {
+          accDF.withColumn(colName, accDF(colName).cast(edmTypeToSparkType(colType, None)))
+        } else {
+          // first cast vectorUDT to array<double>, then cast it to correct array type
+          val modifiedDF = accDF.withColumn(colName, vector_to_array(accDF(colName)))
+          modifiedDF.withColumn(colName, modifiedDF(colName).cast(edmTypeToSparkType(colType, None)))
+        }
+      }
+    }
   }
 
   private def isEdmCollection(t: String): Boolean = {
@@ -290,6 +369,7 @@ object AzureSearchWriter extends IndexParser with SLogging {
     case "Edm.Int64" => LongType
     case "Edm.Int32" => IntegerType
     case "Edm.Double" => DoubleType
+    case "Edm.Single" => FloatType
     case "Edm.DateTimeOffset" => StringType //See if there's a way to use spark datetimes
     case "Edm.GeographyPoint" => StringType
     case "Edm.ComplexType" => StructType(fields.get.map(f =>
@@ -310,10 +390,12 @@ object AzureSearchWriter extends IndexParser with SLogging {
       case IntegerType => ("Edm.Int32", None)
       case LongType => ("Edm.Int64", None)
       case DoubleType => ("Edm.Double", None)
+      case FloatType  => ("Edm.Single", None)
       case DateType => ("Edm.DateTimeOffset", None)
       case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
         val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
-        IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields)
+        IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
+          None, None) // TODO: Support vector search in nested fields
       }))
     }
   }

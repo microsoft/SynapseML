@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.search
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
 import spray.json.DefaultJsonProtocol._
-import spray.json.{JsonFormat, RootJsonFormat}
+import spray.json.{DefaultJsonProtocol, JsonFormat, RootJsonFormat}
 
 object ASResponses extends SparkBindings[ASResponses]
 
@@ -23,8 +23,18 @@ case class IndexInfo(
                     tokenizers: Option[Seq[String]],
                     tokenFilters: Option[Seq[String]],
                     defaultScoringProfile: Option[Seq[String]],
-                    corsOptions: Option[Seq[String]]
+                    corsOptions: Option[Seq[String]],
+                    vectorSearch: Option[VectorSearch]
                     )
+
+case class AlgorithmConfigs(
+                           name: String,
+                           kind: String
+                           )
+
+case class VectorSearch(
+                       algorithmConfigurations: Seq[AlgorithmConfigs]
+                       )
 
 case class IndexField(
                      name: String,
@@ -38,21 +48,32 @@ case class IndexField(
                      analyzer: Option[String],
                      searchAnalyzer: Option[String],
                      indexAnalyzer: Option[String],
-                     synonymMap: Option[String],
-                     fields: Option[Seq[IndexField]]
+                     synonymMap: Option[Seq[String]],
+                     fields: Option[Seq[IndexField]],
+                     dimensions: Option[Int],
+                     vectorSearchConfiguration: Option[String]
                      )
+
+case class VectorColParams(
+                          name: String,
+                          dimension: Int
+                          )
 
 case class IndexStats(documentCount: Int, storageSize: Int)
 
 case class IndexList(`@odata.context`: String, value: Seq[IndexName])
 case class IndexName(name: String)
 
-object AzureSearchProtocol {
+object AzureSearchProtocol extends DefaultJsonProtocol {
   implicit val IfEnc: JsonFormat[IndexField] = lazyFormat(jsonFormat(
     IndexField,"name","type","searchable","filterable","sortable",
-    "facetable","retrievable", "key","analyzer","searchAnalyzer", "indexAnalyzer", "synonymMaps", "fields"))
-  implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat10(IndexInfo.apply)
+    "facetable","retrievable", "key","analyzer","searchAnalyzer", "indexAnalyzer", "synonymMaps", "fields",
+    "dimensions", "vectorSearchConfiguration"))
+  implicit val AcEnc: RootJsonFormat[AlgorithmConfigs] = jsonFormat2(AlgorithmConfigs.apply)
+  implicit val VsEnc: RootJsonFormat[VectorSearch] = jsonFormat1(VectorSearch.apply)
+  implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat11(IndexInfo.apply)
   implicit val IsEnc: RootJsonFormat[IndexStats] = jsonFormat2(IndexStats.apply)
   implicit val InEnc: RootJsonFormat[IndexName] = jsonFormat1(IndexName.apply)
   implicit val IlEnc: RootJsonFormat[IndexList] = jsonFormat2(IndexList.apply)
+  implicit val VcpEnc: RootJsonFormat[VectorColParams] = jsonFormat2(VectorColParams.apply)
 }
