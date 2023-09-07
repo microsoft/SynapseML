@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.search
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.cognitive._
+import com.microsoft.azure.synapse.ml.cognitive.openai.{OpenAIAPIKey, OpenAIEmbedding}
 import com.microsoft.azure.synapse.ml.cognitive.vision.AnalyzeImage
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
@@ -12,6 +13,7 @@ import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.ml.linalg.Vectors
 
 import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
@@ -25,8 +27,8 @@ trait AzureSearchKey {
 }
 
 //scalastyle:off null
-class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
-  with TransformerFuzzing[AddDocuments] with CognitiveKey {
+class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGetter with IndexParser
+  with TransformerFuzzing[AddDocuments] with CognitiveKey with OpenAIAPIKey {
 
   import spark.implicits._
 
@@ -42,6 +44,12 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     (0 until numDocs)
       .map(i => ("upload", s"$i", s"file$i", s"text$i"))
       .toDF("searchAction", "id", "fileName", "text")
+  }
+
+  private def createTestDataWithVector(numDocs: Int): DataFrame = {
+    (0 until numDocs)
+      .map(i => ("upload", s"$i", s"file$i", Array(0.001, 0.002, 0.003).map(_ * i)))
+      .toDF("searchAction", "id", "fileName", "vectorCol")
   }
 
   private def createSimpleIndexJson(indexName: String): String = {
@@ -70,6 +78,43 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
        |      "facetable": false
        |    }
        |    ]
+       |  }
+    """.stripMargin
+  }
+
+  private def createSimpleIndexJsonWithVector(indexName: String): String = {
+    s"""
+       |{
+       |    "name": "$indexName",
+       |    "fields": [
+       |      {
+       |        "name": "id",
+       |        "type": "Edm.String",
+       |        "key": true,
+       |        "facetable": false
+       |      },
+       |      {
+       |        "name": "fileName",
+       |        "type": "Edm.String",
+       |        "searchable": false,
+       |        "sortable": false,
+       |        "facetable": false
+       |      },
+       |      {
+       |        "name": "vectorCol",
+       |        "type": "Collection(Edm.Single)",
+       |        "dimensions": 3,
+       |        "vectorSearchConfiguration": "vectorConfig"
+       |      }
+       |    ],
+       |    "vectorSearch": {
+       |         "algorithmConfigurations": [
+       |           {
+       |             "name": "vectorConfig",
+       |             "kind": "hnsw"
+       |           }
+       |         ]
+       |       }
        |  }
     """.stripMargin
   }
@@ -105,7 +150,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     println("Cleaning up services")
     val successfulCleanup = getExisting(azureSearchKey, testServiceName)
       .intersect(createdIndexes).map { n =>
-        deleteIndex(n)
+      deleteIndex(n)
     }.forall(_ == 204)
     cleanOldIndexes()
     super.afterAll()
@@ -173,12 +218,15 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
 
   def writeHelper(df: DataFrame,
                   indexName: String,
+                  isVectorField: Boolean,
                   extraParams: Map[String, String] = Map()): Unit = {
+    val indexJson = if (isVectorField) createSimpleIndexJsonWithVector(indexName) else createSimpleIndexJson(indexName)
     AzureSearchWriter.write(df,
       Map("subscriptionKey" -> azureSearchKey,
         "actionCol" -> "searchAction",
         "serviceName" -> testServiceName,
-        "indexJson" -> createSimpleIndexJson(indexName)) ++ extraParams)
+        "indexJson" -> indexJson)
+        ++ extraParams)
   }
 
   def assertSize(indexName: String, size: Int): Unit = {
@@ -186,15 +234,15 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     ()
   }
 
-  ignore("clean up all search indexes"){
+  ignore("clean up all search indexes") {
     getExisting(azureSearchKey, testServiceName)
       .foreach { n =>
-      val deleteRequest = new HttpDelete(
-        s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
-      deleteRequest.setHeader("api-key", azureSearchKey)
-      val response = safeSend(deleteRequest)
-      println(s"Deleted index $n, status code ${response.getStatusLine.getStatusCode}")
-    }
+        val deleteRequest = new HttpDelete(
+          s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
+        deleteRequest.setHeader("api-key", azureSearchKey)
+        val response = safeSend(deleteRequest)
+        println(s"Deleted index $n, status code ${response.getStatusLine.getStatusCode}")
+      }
   }
 
   test("Run azure-search tests with waits") {
@@ -209,17 +257,17 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
 
     //create new index and add docs
     lazy val in1 = generateIndexName()
-    dependsOn(1, writeHelper(df4, in1))
+    dependsOn(1, writeHelper(df4, in1, isVectorField=false))
 
     //push docs to existing index
     lazy val in2 = generateIndexName()
     lazy val dfA = df10.limit(4)
     lazy val dfB = df10.except(dfA)
-    dependsOn(2, writeHelper(dfA, in2))
+    dependsOn(2, writeHelper(dfA, in2, isVectorField=false))
 
     dependsOn(2, retryWithBackoff({
       if (getExisting(azureSearchKey, testServiceName).contains(in2)) {
-        writeHelper(dfB, in2)
+        writeHelper(dfB, in2, isVectorField=false)
       } else {
         throw new RuntimeException("No existing service found")
       }
@@ -227,7 +275,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
 
     //push docs with custom batch size
     lazy val in3 = generateIndexName()
-    dependsOn(3, writeHelper(bigDF, in3, Map("batchSize" -> "2000")))
+    dependsOn(3, writeHelper(bigDF, in3, isVectorField=false, Map("batchSize" -> "2000")))
 
     dependsOn(1, retryWithBackoff(assertSize(in1, 4)))
     dependsOn(2, retryWithBackoff(assertSize(in2, 10)))
@@ -276,17 +324,17 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
       .map { i => ("upload", s"$i", s"file$i", s"text$i") }
       .toDF("searchAction", "badkeyname", "fileName", "text")
     assertThrows[IllegalArgumentException] {
-      writeHelper(mismatchDF, generateIndexName())
+      writeHelper(mismatchDF, generateIndexName(), isVectorField=false)
     }
   }
 
   /**
-    * All the Edm Types are nullable in Azure Search except for Collection(Edm.String).
-    * Because it is not possible to store a null value in a Collection(Edm.String) field,
-    * there is an option to set a boolean flag, filterNulls, that will remove null values
-    * from the dataset in the Collection(Edm.String) fields before writing the data to the search index.
-    * The default value for this boolean flag is False.
-    */
+   * All the Edm Types are nullable in Azure Search except for Collection(Edm.String).
+   * Because it is not possible to store a null value in a Collection(Edm.String) field,
+   * there is an option to set a boolean flag, filterNulls, that will remove null values
+   * from the dataset in the Collection(Edm.String) fields before writing the data to the search index.
+   * The default value for this boolean flag is False.
+   */
   test("Handle null values for Collection(Edm.String) fields") {
     val in = generateIndexName()
     val phraseIndex =
@@ -387,4 +435,233 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexLister
     retryWithBackoff(assertSize(in, 2))
   }
 
+  test("Run azure-search tests with vector fields") {
+    val in1 = generateIndexName()
+    val vectorDF4 = createTestDataWithVector(4)
+
+    writeHelper(vectorDF4, in1, isVectorField=true)
+
+    val in2 = generateIndexName()
+    val vectorDF10 = createTestDataWithVector(10)
+    val dfA = vectorDF10.limit(4)
+    val dfB = vectorDF10.except(dfA)
+
+    writeHelper(dfA, in2, isVectorField=true)
+
+    retryWithBackoff({
+      if (getExisting(azureSearchKey, testServiceName).contains(in2)) {
+        writeHelper(dfB, in2, isVectorField=true)
+      } else {
+        throw new RuntimeException("No existing service found")
+      }
+    })
+
+    retryWithBackoff(assertSize(in1, 4))
+    retryWithBackoff(assertSize(in2, 10))
+
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in1))
+    // assert if vectorCol is a vector field
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol").get.vectorSearchConfiguration.nonEmpty)
+  }
+
+  test("Infer the structure of the index from the dataframe with vector columns") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array(1.1, 2.1, 3.1), Vectors.dense(0.11, 0.21, 0.31),
+        Vectors.sparse(3, Array(0, 1, 2), Array(0.11, 0.21, 0.31))),
+      ("upload", "1", "file1", Array(1.2, 2.2, 3.2), Vectors.dense(0.12, 0.22, 0.32),
+        Vectors.sparse(3, Array(0, 1, 2), Array(0.11, 0.21, 0.31))))
+      .toDF("searchAction", "id", "fileName", "vectorCol1", "vectorCol2", "vectorCol3")
+
+    val vectorCols =
+      """
+        |[
+        |  {"name": "vectorCol1", "dimension": 3},
+        |  {"name": "vectorCol2", "dimension": 3},
+        |  {"name": "vectorCol3", "dimension": 3}
+        |]
+        |""".stripMargin
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> vectorCols
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+
+    // assert if vectorCols are a vector field
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol1").get.vectorSearchConfiguration.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol2").get.vectorSearchConfiguration.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol3").get.vectorSearchConfiguration.nonEmpty)
+  }
+
+  test("Throw useful error when given vector columns in nested fields") {
+    val in = generateIndexName()
+    val badJson =
+      s"""
+         |{
+         |  "name": "$in",
+         |  "fields": [
+         |    {
+         |      "name": "id",
+         |      "type": "Edm.String",
+         |      "key": true,
+         |      "facetable": false
+         |    },
+         |    {
+         |      "name": "someCollection",
+         |      "type": "Edm.String"
+         |    },
+         |    {
+         |      "name": "complexField",
+         |      "type": "Edm.ComplexType",
+         |      "fields": [
+         |        {
+         |          "name": "StreetAddress",
+         |          "type": "Edm.String"
+         |        },
+         |        {
+         |          "name": "contentVector",
+         |          "type": "Collection(Edm.Single)",
+         |          "dimensions": 3,
+         |          "vectorSearchConfiguration": "vectorConfig"
+         |        }
+         |      ]
+         |    }
+         |  ]
+         |}
+    """.stripMargin
+
+    assertThrows[IllegalArgumentException] {
+      AzureSearchWriter.write(df4,
+        Map(
+          "subscriptionKey" -> azureSearchKey,
+          "actionCol" -> "searchAction",
+          "serviceName" -> testServiceName,
+          "filterNulls" -> "true",
+          "indexJson" -> badJson
+        ))
+    }
+  }
+
+  test("Throw useful error when one of dimensions or vectorSearchConfig is not defined") {
+    val in = generateIndexName()
+    val badJson =
+      s"""
+         |{
+         |  "name": "$in",
+         |  "fields": [
+         |    {
+         |      "name": "id",
+         |      "type": "Edm.String",
+         |      "key": true,
+         |      "facetable": false
+         |    },
+         |    {
+         |      "name": "someCollection",
+         |      "type": "Edm.String"
+         |    },
+         |    {
+         |      "name": "contentVector",
+         |      "type": "Collection(Edm.Single)",
+         |      "dimensions": 3
+         |    }
+         |  ]
+         |}
+    """.stripMargin
+
+    assertThrows[IllegalArgumentException] {
+      SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
+    }
+  }
+
+  test("Handle non-existent vector column specified in vectorCols option") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0"),
+      ("upload", "1", "file1"))
+      .toDF("searchAction", "id", "fileName")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> """[{"name": "vectorCol", "dimension": 3}]"""
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("Handle non-existing vector column specified in index JSON option") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0"),
+      ("upload", "1", "file1"))
+      .toDF("searchAction", "id", "fileName")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexJson" -> createSimpleIndexJsonWithVector(in)
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("Throw useful error when the vector column is an unsupported type") {
+    val in = generateIndexName()
+    val badDF = Seq(
+      ("upload", "0", "file0", Array("p1", "p2", "p3")),
+      ("upload", "1", "file1", Array("p4", "p5", "p6")))
+      .toDF("searchAction", "id", "fileName", "vectorCol")
+
+    assertThrows[AssertionError] {
+      writeHelper(badDF, in, isVectorField=true)
+    }
+  }
+
+  test("pipeline with openai embedding") {
+    val in = generateIndexName()
+
+    val df = Seq(
+      ("upload", "0", "this is the first sentence"),
+      ("upload", "1", "this is the second sentence")
+    ).toDF("searchAction", "id", "content")
+
+    val tdf = new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName("text-embedding-ada-002")
+      .setCustomServiceName(openAIServiceName)
+      .setTextCol("content")
+      .setErrorCol("error")
+      .setOutputCol("vectorContent")
+      .transform(df)
+      .drop("error")
+
+    AzureSearchWriter.write(tdf,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexName" -> in,
+        "keyCol" -> "id",
+        "vectorCols" -> """[{"name": "vectorContent", "dimension": 1536}]"""
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+  }
 }
