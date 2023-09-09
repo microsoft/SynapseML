@@ -21,32 +21,37 @@ class FabricTokenParserTests extends TestBase {
   import TokenJsonProtocol._
 
   test("JWT Token Expiry Check"){
-    val filePath = getClass.getResource("/UsageTestData.json")
-    val source = Source.fromURL(filePath)
-    try {
-      val jsonString = source.mkString
-      val parsedTokens = jsonString.parseJson
-      val tokens = parsedTokens.convertTo[Seq[Token]]
-      val token = tokens(0)
-      val fabricTokenParser = new FabricTokenParser(token.payload)
+      val fabricTokenParser = new FabricTokenParser(createDummyToken(true))
       val exp: Long = fabricTokenParser.getExpiry
       assert(exp > 0L)
-    } finally {
-      source.close()
-    }
   }
 
   test("Invalid JWT Token Check."){
-    val filePath = getClass.getResource("/UsageTestData.json")
-    val jsonString = StreamUtilities.usingSource(scala.io.Source.fromURL(filePath)) { source =>
-      source.mkString
-    }.get
-    val parsedTokens = jsonString.parseJson
-    val tokens = parsedTokens.convertTo[Seq[Token]]
-    val token = tokens(1)
-
     assertThrows[InvalidJwtTokenException]{
-      val fabricTokenParser = new FabricTokenParser(token.payload)
+      val fabricTokenParser = new FabricTokenParser(createDummyToken(false))
     }
+  }
+
+  def createDummyToken(createValidToken: Boolean): String = {
+    val claims = """{
+          "iss": "issuer",
+          "sub": "subject",
+          "aud": "audience",
+          "exp": 1691171109,
+          "userId": "123456789"
+        }"""
+
+    val header = encodeBase64URLSafeString ("{\"alg\":\"RS256\",\"typ\":\"JWT\"}".getBytes ("UTF-8") )
+    val payload = encodeBase64URLSafeString (claims.getBytes ("UTF-8") )
+    val dummySignature = "dummy-signature" // You can replace this with an actual signature if needed
+
+    if(createValidToken)
+      s"$header.$payload.$dummySignature"
+    else
+      s"$header.$payload"
+  }
+
+  def encodeBase64URLSafeString(bytes: Array[Byte]): String = {
+    java.util.Base64.getUrlEncoder.encodeToString(bytes)
   }
 }
