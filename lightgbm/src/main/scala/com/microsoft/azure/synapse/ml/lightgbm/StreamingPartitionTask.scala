@@ -106,7 +106,7 @@ class StreamingPartitionTask extends BasePartitionTask {
     if (!shouldExecuteTraining && !isEmptyPartition) ctx.sharedState().incrementDataPrepDoneSignal(log)
 
     // First dataset to reach here calculates the validation Dataset if needed
-    if (ctx.hasValidationData) {
+    if (ctx.hasValidationData && !isEmptyPartition) {
       ctx.sharedState().linkValidationDatasetWorker()
     }
   }
