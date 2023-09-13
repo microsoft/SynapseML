@@ -18,6 +18,10 @@ ThisBuild / developers := List(
     "synapseml-support@microsoft.com", url("https://github.com/drdarshan")),
   Developer("svotaw", "Scott Votaw",
     "synapseml-support@microsoft.com", url("https://github.com/svotaw"))
+  Developer("BrendanWalsh", "Brendan Walsh",
+    "synapseml-support@microsoft.com", url("https://github.com/BrendanWalsh"))
+  Developer("JessicaXYWang", "Jessica Wang",
+    "synapseml-support@microsoft.com", url("https://github.com/JessicaXYWang"))
 )
 
 ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
