@@ -6,7 +6,9 @@ package com.microsoft.azure.synapse.ml.core.test.base
 import breeze.linalg.norm.Impl
 import breeze.linalg.{*, norm, DenseMatrix => BDM, DenseVector => BDV}
 import breeze.math.Field
+import com.globalmentor.apache.hadoop.fs.BareLocalFileSystem
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.fs.FileSystem
 import org.apache.spark._
 import org.apache.spark.ml._
 import org.apache.spark.sql.{DataFrame, _}
@@ -67,6 +69,8 @@ trait SparkSessionManagement {
       .config(sparkConfiguration)
       .getOrCreate()
     sess.sparkContext.setLogLevel(logLevel)
+    sess.sparkContext.hadoopConfiguration
+      .setClass("fs.file.impl", classOf[BareLocalFileSystem], classOf[FileSystem])
     sess
   }
 

@@ -25,6 +25,7 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.2.14",
