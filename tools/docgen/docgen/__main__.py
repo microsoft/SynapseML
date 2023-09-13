@@ -7,6 +7,7 @@ import importlib
 def instantiate_channel(channel_yml):
     name = channel_yml["name"]
     module_name, class_name = name.rsplit(".", 1)
+
     print(f"Instantiating {class_name} from module {module_name}")
     clazz = getattr(importlib.import_module(module_name), class_name)
     channel_yml.pop("name")

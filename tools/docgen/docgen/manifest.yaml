@@ -2,3 +2,134 @@ channels:
   - name: "channels.WebsiteChannel"
     input_dir: "../../../docs/"
     output_dir: "../../../website/docs/"
+  - name: channels.FabricChannel
+    input_dir: ../../../docs/
+    output_dir: ../../../target/fabric-docs-pr/
+    notebooks:
+      - path:  Explore Algorithms/AI Services/Multivariate Anomaly Detection.ipynb
+        metadata:
+          title: Analyze time series
+          description: Use SynapseML and Azure Cognitive Services for multivariate anomaly detection.
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/AI Services/Overview.ipynb
+        metadata:
+          title: Cognitive Services in Azure Synapse Analytics
+          description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
+          ms.topic: overview
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests.ipynb
+        metadata:
+          title: Outlier and Anomaly Detection
+          description: Use SynapseML on Apache Spark for multivariate anomaly detection with Isolation Forest model.
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Causal Inference/Quickstart - Measure Causal Effects.ipynb
+        metadata:
+          title: Causal Structure
+          description: Causal Structure
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Classification/Quickstart - SparkML vs SynapseML.ipynb
+        filename: classification-before-and-after-synapseml
+        metadata:
+          title: Classification - before and after SynapseML
+          description:  Perform the same classification task with and without SynapseML.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Text Classifier.ipynb
+        metadata:
+          title: Train a Text Classifier
+          description: Train a Text Classifier
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference.ipynb
+        filename: onnx-overview
+        metadata:
+          title: ONNX - Inference on Spark
+          description: Use SynapseML to build a LightGBM model, convert it to ONNX format, then perform inference.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: larryfr
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Hyperparameter Tuning/Quickstart - Random Search.ipynb
+        metadata:
+          title: Hyperparameter tuning
+          description: Identify the best combination of hyperparameters for your chosen classifiers with SynapseML.
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/LightGBM/Quickstart - Classification, Ranking, and Regression.ipynb
+        metadata:
+          title: LightGBM Overview
+          description: build LightGBM model with SynapseML
+          ms.topic: overview
+          ms.reviewer: mopeakande
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/OpenAI/OpenAI.ipynb
+        metadata:
+          title: Azure OpenAI for big data
+          description: Use Azure OpenAI service to solve a large number of natural language tasks through prompting the completion API. 
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/OpenAI/Quickstart - Understand and Search Forms.ipynb
+        metadata:
+          title: Build a Search Engine
+          description: Build a custom search engine and question-answering system with SynapseML.
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: JessicaXYWang
+      - path: Explore Algorithms/Other Algorithms/Quickstart - Exploring Art Across Cultures.ipynb
+        filename: conditional-k-nearest-neighbors-exploring-art
+        metadata:
+          title: Conditional KNN Exploring Art Across Cultures
+          description:  A guideline for match-finding via k-nearest-neighbors.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: larryfr
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Explore Algorithms/Responsible AI/Tabular Explainers.ipynb
+        metadata:
+          title: Interpretability - Tabular SHAP explainer
+          description: Use Kernel SHAP to explain a tabular classification model.
+          ms.topic: overview
+          ms.custom: build-2023
+          ms.reviewer: jessiwang
+          author: JessicaXYWang
+          ms.author: jessiwang
+      - path: Get Started/Quickstart - Your First Models.ipynb
+        metadata:
+          title: SynapseMl first model
+          description:  A quick introduction to building your first machine learning model with SynapseML.
+          ms.topic: how-to
+          ms.custom: build-2023
+          ms.reviewer: mopeakande
+          author: JessicaXYWang
+          ms.author: jessiwang

@@ -106,7 +106,7 @@ class StreamingPartitionTask extends BasePartitionTask {
     if (!shouldExecuteTraining && !isEmptyPartition) ctx.sharedState().incrementDataPrepDoneSignal(log)
 
     // First dataset to reach here calculates the validation Dataset if needed
-    if (ctx.hasValidationData) {
+    if (ctx.hasValidationData && !isEmptyPartition) {
       ctx.sharedState().linkValidationDatasetWorker()
     }
   }
@@ -174,15 +174,12 @@ class StreamingPartitionTask extends BasePartitionTask {
     val partitionRowCount = ctx.trainingCtx.partitionCounts.get(ctx.partitionId).toInt
     val partitionRowOffset = ctx.streamingPartitionOffset
     val isSparse = ctx.sharedState.isSparse.get
-    log.info(s"Inserting rows into training Dataset from partition ${ctx.partitionId}, " +
+    log.debug(s"Inserting rows into training Dataset from partition ${ctx.partitionId}, " +
       s"size $partitionRowCount, offset: $partitionRowOffset, sparse: $isSparse, threadId: ${ctx.threadIndex}")
     val dataset = ctx.sharedState.datasetState.streamingDataset.get
 
     val stopIndex = partitionRowOffset + partitionRowCount
     insertRowsIntoDataset(ctx, dataset, inputRows, partitionRowOffset, stopIndex, ctx.threadIndex)
-
-    log.info(s"Part ${ctx.partitionId}: inserted $partitionRowCount partition ${ctx.partitionId} " +
-      s"rows into shared training dataset at offset $partitionRowOffset")
   }
 
   private def insertRowsIntoDataset(ctx: PartitionTaskContext,
@@ -213,9 +210,7 @@ class StreamingPartitionTask extends BasePartitionTask {
       if (maxBatchSize == 0) 0
       else loadOneDenseMicroBatchBuffer(state, inputRows, 0, maxBatchSize)
     if (count > 0) {
-      log.info(s"Part ${state.ctx.partitionId}: Pushing $count dense rows at $startIndex, will stop at $stopIndex")
       if (state.hasInitialScores && state.microBatchSize != count && state.numInitScoreClasses > 1) {
-        log.info(s"Part ${state.ctx.partitionId}: Adjusting $count initial scores")
         (1 until state.numInitScoreClasses).foreach { i =>
           (0 until count).foreach { j => {
             val score = state.initScoreBuffer.getItem(i * state.microBatchSize + j)
@@ -253,7 +248,6 @@ class StreamingPartitionTask extends BasePartitionTask {
     if (microBatchRowCount > 0) {
       // If we have only a partial micro-batch, and we have multi-class initial scores (i.e. numClass > 1),
       // we need to re-coalesce the data since it was stored column-wise based on original microBatchSize
-      log.info(s"Part ${state.ctx.partitionId}: Pushing $microBatchRowCount sparse rows at $startIndex")
       if (state.hasInitialScores && state.microBatchSize != microBatchRowCount && state.numInitScoreClasses > 1) {
         (1 until state.numInitScoreClasses).foreach { i =>  // TODO make this shared
           (0 until microBatchRowCount).foreach { j => {
@@ -279,8 +273,6 @@ class StreamingPartitionTask extends BasePartitionTask {
 
       // might be more rows, so continue with tail recursion at next index
       pushSparseMicroBatches(state, inputRows, startIndex + microBatchRowCount, stopIndex)
-    } else {
-      log.info(s"LightGBM pushed $startIndex in partition ${state.ctx.partitionId}")
     }
   }
 
