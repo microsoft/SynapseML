@@ -5,8 +5,8 @@ ThisBuild / sonatypeProjectHosting := Some(
 ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
+    url("https://github.com/Microsoft/SynapseML"),
+    "scm:git@github.com:Microsoft/SynapseML.git"
   )
 )
 ThisBuild / developers := List(
