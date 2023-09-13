@@ -227,7 +227,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |            if self._java_obj.getInternalServiceType() != "openai":
       |               self._java_obj.setDefaultAADToken(TokenUtils().get_aad_token())
       |            else:
-      |               self._java_obj.setDefaultCustomAuthHeader(TokenUtils().get_openai_auth_header(self.feature_name))
+      |               self._java_obj.setDefaultCustomAuthHeader(TokenUtils().get_openai_auth_header())
       |            self.setDefaultInternalEndpoint(fabric_env_config.get_mlflow_workload_endpoint())
       |        except ModuleNotFoundError as e:
       |            pass
@@ -288,7 +288,8 @@ object URLEncodingUtils {
   }
 }
 
-trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader {
+trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
+  with SynapseMLLogging {
 
   protected def paramNameToPayloadName(p: Param[_]): String = p match {
     case p: ServiceParam[_] => p.payloadName
@@ -330,8 +331,9 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def addHeaders(req: HttpRequestBase,
                            subscriptionKey: Option[String],
                            aadToken: Option[String],
-                           customAuthHeader: Option[String],
-                           contentType: String = ""): Unit = {
+                           contentType: String = "",
+                           customAuthHeader: Option[String] = None): Unit = {
+
     if (subscriptionKey.nonEmpty) {
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
     } else if (aadToken.nonEmpty) {
@@ -341,8 +343,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
       })
     } else if (customAuthHeader.nonEmpty) {
-      aadToken.foreach(s => {
-        req.setHeader(aadHeaderName, customAuthHeader.getOrElse("Default Value"))
+      customAuthHeader.foreach(s => {
+        req.setHeader(aadHeaderName, s)
         // this is required for internal workload
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
       })
@@ -359,8 +361,11 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken),
-          getValueOpt(row, CustomAuthHeader), contentType(row))
+        addHeaders(req,
+          getValueOpt(row, subscriptionKey),
+          getValueOpt(row, AADToken),
+          contentType(row),
+          getValueOpt(row, CustomAuthHeader))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
