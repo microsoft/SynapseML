@@ -10,7 +10,7 @@ jobs:
     name: Azure OpenAI PR Comment
     steps:
       - id: review
-        uses: microsoft/gpt-review@v0.9.4
+        uses: microsoft/gpt-review@v0.9.5
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AZURE_OPENAI_API: ${{ secrets.AZURE_OPENAI_API }}
