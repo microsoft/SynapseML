@@ -160,4 +160,17 @@ module.exports = {
       },
     ],
   ],
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        redirects: [
+          {
+            to: '/',
+            from: '/SynapseML',
+          },
+        ],
+      },
+    ],
+  ],
 };
