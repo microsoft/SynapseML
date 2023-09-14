@@ -166,8 +166,52 @@ module.exports = {
       {
         redirects: [
           {
-            to: '/SynapseML',
-            from: '/foo/',
+            to: '/docs/Explore Algorithms/AI Services/Quickstart - Create Audiobooks/',
+            from: '/docs/features/cognitive_services/CognitiveServices%20-%20Create%20Audiobooks/',
+          },
+          {
+            to: '/docs/Overview/',
+            from: '/docs/about/',
+          },
+          {
+            to: '/docs/Explore Algorithms/OpenAI/',
+            from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI/',
+          },
+          {
+            to: '/docs/Explore Algorithms/LightGBM/Overview/',
+            from: '/docs/features/lightgbm/about/',
+          },
+          {
+            to: '/docs/Get Started/Install SynapseML/',
+            from: '/docs/getting_started/installation/',
+          },
+          {
+            to: '/docs/Explore Algorithms/AI Services/Overview/',
+            from: '/docs/features/cognitive_services/CognitiveServices%20-%20Overview/',
+          },
+          {
+            to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
+            from: '/docs/features/isolation_forest/IsolationForest%20-%20Multivariate%20Anomaly%20Detection/',
+          },
+          {
+            to: '/docs/Quick Examples/transformers/transformers_cognitive/',
+            from: '/docs/documentation/transformers/transformers_cognitive/',
+          },
+          {
+            to: '/docs/Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding/',
+            from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/',
+          },
+          {
+            to: '/docs/Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference/',
+            from: '/docs/features/onnx/ONNX%20-%20Inference%20on%20Spark/',
+          },
+          {
+            to: '/docs/Explore Algorithms/AI Services/Geospatial Services/',
+            from: '/docs/features/geospatial_services/GeospatialServices%20-%20Overview/',
+          },
+          {
+            to: '/docs/Explore Algorithms/Responsible AI/Interpreting Model Predictions/',
+            from: '/docs/features/responsible_ai/Model%20Interpretation%20on%20Spark/',
           },
         ],
       },
