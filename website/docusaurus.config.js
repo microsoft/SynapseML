@@ -166,8 +166,8 @@ module.exports = {
       {
         redirects: [
           {
-            to: '/',
-            from: '/SynapseML',
+            to: '/SynapseML',
+            from: '/foo/',
           },
         ],
       },
