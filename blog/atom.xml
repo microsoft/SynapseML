@@ -9,7 +9,7 @@
     <icon>https://microsoft.github.io/SynapseML/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[What is SynapseML?]]></title>
-        <id>/overview</id>
+        <id>https://microsoft.github.io/SynapseML/blog/overview</id>
         <link href="https://microsoft.github.io/SynapseML/blog/overview"/>
         <updated>2021-10-18T18:07:02.000Z</updated>
         <summary type="html"><![CDATA[SynapseML (previously known as MMLSpark), is an open-source library that simplifies the creation of massively scalable machine learning (ML) pipelines. SynapseML provides simple, composable, and distributed APIs for a wide variety of different machine learning tasks such as text analytics, vision, anomaly detection, and many others. SynapseML is built on the Apache Spark distributed computing framework and shares the same API as the SparkML/MLLib library, allowing you to seamlessly embed SynapseML models into existing Apache Spark workflows.]]></summary>
@@ -17,7 +17,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Large-Scale Intelligent Microservices]]></title>
-        <id>/2020/12/01/Large-Scale Intelligent Microservices</id>
+        <id>https://microsoft.github.io/SynapseML/blog/2020/12/01/Large-Scale Intelligent Microservices</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2020/12/01/Large-Scale Intelligent Microservices"/>
         <updated>2020-12-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Large-Scale Intelligent Microservices]]></summary>
@@ -25,7 +25,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></title>
-        <id>/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton</id>
+        <id>https://microsoft.github.io/SynapseML/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/10/02/MMLSpark empowering AI for Good with Mark Hamilton"/>
         <updated>2019-10-02T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: empowering AI for Good with Mark Hamilton]]></summary>
@@ -33,7 +33,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></title>
-        <id>/2019/08/24/Welcome to Azure Cognitive Services</id>
+        <id>https://microsoft.github.io/SynapseML/blog/2019/08/24/Welcome to Azure Cognitive Services</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/08/24/Welcome to Azure Cognitive Services"/>
         <updated>2019-08-24T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Dear Spark developers: Welcome to Azure Cognitive Services]]></summary>
@@ -41,7 +41,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></title>
-        <id>/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales</id>
+        <id>https://microsoft.github.io/SynapseML/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2019/06/01/MMLSpark Unifying Machine Learning Ecosystems at Massive Scales"/>
         <updated>2019-06-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[MMLSpark: Unifying Machine Learning Ecosystems at Massive Scales]]></summary>
@@ -49,7 +49,7 @@
     </entry>
     <entry>
         <title type="html"><![CDATA[Publication - Flexible and Scalable Deep Learning with MMLSpark]]></title>
-        <id>/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark</id>
+        <id>https://microsoft.github.io/SynapseML/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark</id>
         <link href="https://microsoft.github.io/SynapseML/blog/2018/04/01/Flexible and Scalable Deep Learning with MMLSpark"/>
         <updated>2018-04-01T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Flexible and Scalable Deep Learning with MMLSpark]]></summary>
