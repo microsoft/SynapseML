@@ -55,13 +55,16 @@ object DatabricksUtilities {
     "Pillow",
     "onnxmltools==1.7.0",
     "lightgbm",
-    "mlflow",
+    "mlflow==2.6.0",
     "openai",
     "langchain",
     "pdf2image",
     "pdfminer.six",
     "pytesseract",
-    "unstructured"
+    "unstructured",
+    "sqlparse",
+    "raiwidgets",
+    "interpret-community"
   )
 
   val Libraries: String = (
