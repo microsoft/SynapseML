@@ -242,7 +242,7 @@ module.exports = {
                         from: '/docs/0.10.1/getting_started/installation/',
                     },
                     {
-                        to: '/404.html', // there is no ONNX overview, redirecting to 404
+                        to: '/docs/Explore Algorithms/Deep Learning/ONNX/',
                         from: '/docs/next/features/onnx/about/',
                     },
                     {
@@ -430,7 +430,7 @@ module.exports = {
                         from: "/docs/Explore%20Algorithms/OpenAI/",
                     },
                     {
-                        to: "/docs/Overview/",
+                        to: "/docs/Explore Algorithms/OpenCV/Image Transformations/",
                         from: "/docs/documentation/transformers/transformers_opencv/",
                     },
                     {
