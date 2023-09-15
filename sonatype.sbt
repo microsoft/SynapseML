@@ -17,9 +17,9 @@ ThisBuild / developers := List(
   Developer("drdarshan", "Sudarshan Raghunathan",
     "synapseml-support@microsoft.com", url("https://github.com/drdarshan")),
   Developer("svotaw", "Scott Votaw",
-    "synapseml-support@microsoft.com", url("https://github.com/svotaw"))
+    "synapseml-support@microsoft.com", url("https://github.com/svotaw")),
   Developer("BrendanWalsh", "Brendan Walsh",
-    "synapseml-support@microsoft.com", url("https://github.com/BrendanWalsh"))
+    "synapseml-support@microsoft.com", url("https://github.com/BrendanWalsh")),
   Developer("JessicaXYWang", "Jessica Wang",
     "synapseml-support@microsoft.com", url("https://github.com/JessicaXYWang"))
 )
