@@ -410,7 +410,7 @@ module.exports = {
                         from: "/docs/documentation/estimators/estimators_cognitive/",
                     },
                     {
-                        to: "/docs/Explore Algorithms/AI Services/Quickstart - Create a Visual Search Engine/",
+                        to: "/docs/Explore Algorithms/OpenAI/Quickstart - Understand and Search Forms/",
                         from: "/docs/features/cognitive_services/CognitiveServices%20-%20Create%20a%20Multilingual%20Search%20Engine%20from%20Forms/",
                     },
                     {
