@@ -226,7 +226,7 @@ module.exports = {
                         from: '/docs/features/vw/Vowpal%20Wabbit%20-%20Overview/',
                     },
                     {
-                        to: '/docs/Contribute/Developer Readme/',
+                        to: '/docs/Reference/Developer Setup/',
                         from: '/docs/reference/developer-readme/',
                     },
                     {
@@ -234,7 +234,7 @@ module.exports = {
                         from: '/docs/features/responsible_ai/Data%20Balance%20Analysis/',
                     },
                     {
-                        to: '/docs/Examples/MLFlow/',
+                        to: '/docs/Use with MLFlow/Overview/',
                         from: '/docs/next/mlflow/examples/',
                     },
                     {
@@ -242,7 +242,7 @@ module.exports = {
                         from: '/docs/0.10.1/getting_started/installation/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/ONNX/Overview/',
+                        to: '/404.html', // there is no ONNX overview, redirecting to 404
                         from: '/docs/next/features/onnx/about/',
                     },
                     {
@@ -250,35 +250,35 @@ module.exports = {
                         from: '/docs/features/causal_inference/about/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Transformers/Cognitive Services/',
+                        to: '/docs/Quick Examples/transformers/transformers_cognitive/',
                         from: '/docs/next/documentation/transformers/transformers_cognitive/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Tabular SHAP Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/Tabular Explainers/',
                         from: '/docs/features/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Cognitive Services/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Isolation Forest/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/next/features/isolation_forest/IsolationForest%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Model Interpretation/',
+                        to: '/docs/Explore Algorithms/Responsible AI/Interpreting Model Predictions/',
                         from: '/docs/next/features/responsible_ai/Model%20Interpretation%20on%20Spark/',
                     },
                     {
-                        to: '/docs/Get Started/First Model/',
+                        to: '/docs/Get Started/Quickstart - Your First Models/',
                         from: '/docs/getting_started/first_model/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/ONNX/Inference on Spark/',
+                        to: '/docs/Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference/',
                         from: '/docs/next/features/onnx/ONNX%20-%20Inference%20on%20Spark/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/PDP and ICE Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/PDP and ICE Explainers/',
                         from: '/docs/next/features/responsible_ai/Interpretability%20-%20PDP%20and%20ICE%20explainer/',
                     },
                     {
@@ -286,7 +286,7 @@ module.exports = {
                         from: '/docs/Explore%20Algorithms/Vowpal%20Wabbit/Contextual%20Bandits/',
                     },
                     {
-                        to: '/docs/About/Overview/',
+                        to: '/docs/Overview/',
                         from: '/docs/next/about/',
                     },
                     {
@@ -294,35 +294,35 @@ module.exports = {
                         from: '/docs/0.11.0/features/lightgbm/LightGBM%20-%20Overview/',
                     },
                     {
-                        to: '/docs/Responsible AI/Explanation Dashboard/',
+                        to: '/docs/Explore Algorithms/Responsible AI/Explanation Dashboard/',
                         from: '/docs/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/',
                     },
                     {
-                        to: '/docs/Get Started/First Example/',
+                        to: '/docs/Get Started/Quickstart - Your First Models/',
                         from: '/docs/getting_started/first_example/',
                     },
                     {
-                        to: '/docs/MLFlow/Examples/',
+                        to: '/docs/Use with MLFlow/Overview/',
                         from: '/docs/mlflow/examples/',
                     },
                     {
-                        to: '/docs/.NET/Setup/',
+                        to: '/docs/Reference/Dotnet Setup/',
                         from: '/docs/reference/dotnet-setup/',
                     },
                     {
-                        to: '/docs/Get Started/.NET Example/',
+                        to: '/docs/Reference/Quickstart - LightGBM in Dotnet/',
                         from: '/docs/0.10.0/getting_started/dotnet_example/',
                     },
                     {
-                        to: '/docs/AI Services/Quickstart - QA with PDFs/',
+                        to: '/docs/Explore Algorithms/AI Services/Quickstart - Document Question and Answering with PDFs/',
                         from: '/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Document%20Question%20and%20Answering%20with%20PDFs/',
                     },
                     {
-                        to: '/docs/Other Features/Hyperparameter Tuning/',
+                        to: '/docs/Explore Algorithms/Hyperparameter Tuning/Quickstart - Random Search/',
                         from: '/docs/features/other/HyperParameterTuning%20-%20Fighting%20Breast%20Cancer/',
                     },
                     {
-                        to: '/docs/Responsible AI/PDP and ICE Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/PDP and ICE Explainers/',
                         from: '/docs/features/responsible_ai/Interpretability%20-%20PDP%20and%20ICE%20explainer/',
                     },
                     {
@@ -330,27 +330,27 @@ module.exports = {
                         from: '/docs/next/features/lightgbm/about/',
                     },
                     {
-                        to: '/docs/Responsible AI/SHAP Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/Tabular Explainers/',
                         from: '/docs/next/features/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer/',
                     },
                     {
-                        to: '/docs/.NET/Setup/',
+                        to: '/docs/Reference/Dotnet Setup/',
                         from: '/docs/next/reference/dotnet-setup/',
                     },
                     {
-                        to: '/docs/About/',
+                        to: '/docs/Overview/',
                         from: '/docs/0.10.0/about/',
                     },
                     {
-                        to: '/docs/Responsible AI/PDP and ICE Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/PDP and ICE Explainers/',
                         from: '/docs/0.10.0/features/responsible_ai/Interpretability%20-%20PDP%20and%20ICE%20explainer/',
                     },
                     {
-                        to: '/docs/OpenCV/Image Transformations/',
+                        to: '/docs/Explore Algorithms/OpenCV/Image Transformations/',
                         from: '/docs/features/opencv/OpenCV%20-%20Pipeline%20Image%20Transformations/',
                     },
                     {
-                        to: '/docs/Spark Serving/Overview/',
+                        to: '/docs/Overview/',
                         from: '/docs/features/spark_serving/about/',
                     },
                     {
@@ -366,27 +366,27 @@ module.exports = {
                         from: '/docs/0.9.4/features/lightgbm/LightGBM%20-%20Overview/',
                     },
                     {
-                        to: '/docs/Responsible AI/SHAP Explainer/',
+                        to: '/docs/Explore Algorithms/Responsible AI/Tabular Explainers/',
                         from: '/docs/0.9.4/features/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer/',
                     },
                     {
-                        to: '/docs/Anomaly Detection/Isolation Forests/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/Explore%20Algorithms/Anomaly%20Detection/Quickstart%20-%20Isolation%20Forests/',
                     },
                     {
-                        to: '/docs/Classification/Adult Census/',
+                        to: '/docs/Explore Algorithms/Classification/Quickstart - Train Classifier/',
                         from: '/docs/features/classification/Classification%20-%20Adult%20Census/',
                     },
                     {
-                        to: '/docs/Vowpal Wabbit/Contextual Bandits/',
+                        to: '/docs/Explore Algorithms/Vowpal Wabbit/Contextual Bandits/',
                         from: '/docs/features/vw/Vowpal%20Wabbit%20-%20Contextual%20Bandits/',
                     },
                     {
-                        to: '/docs/Simple Deep Learning/Text Classification/',
+                        to: '/docs/Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Text Classifier/',
                         from: '/docs/next/features/simple_deep_learning/DeepLearning%20-%20Deep%20Text%20Classification/',
                     },
                     {
-                        to: '/docs/Get Started/Installation/',
+                        to: '/docs/Get Started/Install SynapseML/',
                         from: '/docs/next/getting_started/installation/',
                     },
                     {
@@ -394,72 +394,72 @@ module.exports = {
                         from: '/docs/0.10.1/documentation/estimators/estimators_lightgbm/',
                     },
                     {
-                        to: 'docs/Use with MLFlow/Autologging/',
+                        to: '/docs/Use with MLFlow/Autologging/',
                         from: '/docs/0.10.1/mlflow/autologging/',
                     },
                     {
-                        to: '/docs/Cognitive Services/Overview/',
-                        from: '/docs/0.9.4/features/cognitive_services/CognitiveServices%20-%20Overview/',
+                        to: "/docs/Explore Algorithms/AI Services/Overview/",
+                        from: "/docs/0.9.4/features/cognitive_services/CognitiveServices%20-%20Overview/",
                     },
                     {
-                        to: '/docs/Responsible AI/Explanation Dashboard/',
-                        from: '/docs/0.9.5/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/',
+                        to: "/docs/Explore Algorithms/Responsible AI/Explanation Dashboard/",
+                        from: "/docs/0.9.5/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/",
                     },
                     {
-                        to: '/docs/Documentation/Estimators/Cognitive/',
-                        from: '/docs/documentation/estimators/estimators_cognitive/',
+                        to: "/docs/Quick Examples/estimators/estimators_cognitive/",
+                        from: "/docs/documentation/estimators/estimators_cognitive/",
                     },
                     {
-                        to: '/docs/Cognitive Services/Multilingual Search Engine/',
-                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20Create%20a%20Multilingual%20Search%20Engine%20from%20Forms/',
+                        to: "/docs/Explore Algorithms/AI Services/Quickstart - Create a Visual Search Engine/",
+                        from: "/docs/features/cognitive_services/CognitiveServices%20-%20Create%20a%20Multilingual%20Search%20Engine%20from%20Forms/",
                     },
                     {
-                        to: '/docs/Documentation/Estimators/LightGBM/',
-                        from: '/docs/next/documentation/estimators/estimators_lightgbm/',
+                        to: "/docs/Quick Examples/estimators/estimators_lightgbm/",
+                        from: "/docs/next/documentation/estimators/estimators_lightgbm/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Explanation Dashboard/',
-                        from: '/docs/0.9.4/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/',
+                        to: "/docs/Explore Algorithms/Responsible AI/Explanation Dashboard/",
+                        from: "/docs/0.9.4/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Interpreting Model Predictions/',
-                        from: '/docs/0.9.5/features/responsible_ai/Model%20Interpretation%20on%20Spark/',
+                        to: "/docs/Explore Algorithms/Responsible AI/Interpreting Model Predictions/",
+                        from: "/docs/0.9.5/features/responsible_ai/Model%20Interpretation%20on%20Spark/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/OpenAI/',
-                        from: '/docs/Explore%20Algorithms/OpenAI/',
+                        to: "/docs/Explore Algorithms/OpenAI/",
+                        from: "/docs/Explore%20Algorithms/OpenAI/",
                     },
                     {
-                        to: '/docs/Overview/',
-                        from: '/docs/documentation/transformers/transformers_opencv/',
+                        to: "/docs/Overview/",
+                        from: "/docs/documentation/transformers/transformers_opencv/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Overview/',
-                        from: '/docs/0.10.0/features/cognitive_services/CognitiveServices%20-%20Overview/',
+                        to: "/docs/Explore Algorithms/AI Services/Overview/",
+                        from: "/docs/0.10.0/features/cognitive_services/CognitiveServices%20-%20Overview/",
                     },
                     {
-                        to: '/docs/Use with MLFlow/Autologging/',
-                        from: '/docs/0.10.0/mlflow/autologging/',
+                        to: "/docs/Use with MLFlow/Autologging/",
+                        from: "/docs/0.10.0/mlflow/autologging/",
                     },
                     {
-                        to: '/docs/Overview/',
-                        from: '/docs/0.11.0/about/',
+                        to: "/docs/Overview/",
+                        from: "/docs/0.11.0/about/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/Vowpal Wabbit/Overview/',
-                        from: '/docs/0.11.1/features/vw/Vowpal%20Wabbit%20-%20Overview/',
+                        to: "/docs/Explore Algorithms/Vowpal Wabbit/Overview/",
+                        from: "/docs/0.11.1/features/vw/Vowpal%20Wabbit%20-%20Overview/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis/',
-                        from: '/docs/0.9.4/features/responsible_ai/Data%20Balance%20Analysis/',
+                        to: "/docs/Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis/",
+                        from: "/docs/0.9.4/features/responsible_ai/Data%20Balance%20Analysis/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis/',
-                        from: '/docs/0.9.4/features/responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income/',
+                        to: "/docs/Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis/",
+                        from: "/docs/0.9.4/features/responsible_ai/DataBalanceAnalysis%20-%20Adult%20Census%20Income/",
                     },
                     {
-                        to: '/docs/Get Started/Install SynapseML/',
-                        from: '/docs/Get%20Started/Install%20SynapseML/',
+                        to: "/docs/Get Started/Install SynapseML/",
+                        from: "/docs/Get%20Started/Install%20SynapseML/",
                     },
 
                 ],
