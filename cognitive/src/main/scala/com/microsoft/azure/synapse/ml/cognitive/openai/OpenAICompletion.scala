@@ -62,6 +62,5 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
     val fullPayload = optionalParams.updated("prompt", prompt)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
-
 }
 
