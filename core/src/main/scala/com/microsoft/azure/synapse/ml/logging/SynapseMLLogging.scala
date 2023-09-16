@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
-import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
@@ -19,12 +18,12 @@ case class RequiredLogFields(uid: String,
                              method: String) {
   def toMap: Map[String, String] = {
     Map(
-      "uid" -> uid,
+      "modelUid" -> uid,
       "className" -> className,
       "method" -> method,
       "libraryVersion" -> BuildInfo.version,
       "libraryName" -> "SynapseML",
-      "protocolVersion" -> "0.0.1" // which version of the logging protocol this schema is
+      "protocolVersion" -> "0.0.1" // which version of the logging protocol this schema is,
     )
   }
 }
@@ -53,7 +52,7 @@ object SynapseMLLogging extends Logging {
     "trident.capacity.id" -> "capacityId",
     "trident.artifact.workspace.id" -> "artifactWorkspaceId",
     "trident.lakehouse.id" -> "lakehouseId",
-    "trident.activity.id" -> "activityId",
+    "trident.activity.id" -> "livyId",
     "trident.artifact.type" -> "artifactType",
     "trident.tenant.id" -> "tenantId"
   )
@@ -94,18 +93,30 @@ trait SynapseMLLogging extends Logging {
 
   protected def getPayload(methodName: String,
                            numCols: Option[Int],
+                           executionSeconds: Option[Double],
                            exception: Option[Exception]
                           ): Map[String, String] = {
     val info = RequiredLogFields(uid, getClass.toString, methodName).toMap
       .++(SynapseMLLogging.getHadoopConfEntries)
-      .++(numCols.toSeq.map(c => "numCols" -> c.toString))
+      .++(numCols.toSeq.map(nc =>
+        "dfInfo" -> Map("input" -> Map("numCols" -> nc.toString)).toJson.compactPrint
+      ).toMap)
+      .++(executionSeconds.toSeq.map(s => "executionSeconds" -> s.toString).toMap)
       .++(exception.map(e => new RequiredErrorFields(e).toMap).getOrElse(Map()))
+
     SynapseMLLogging.LoggedClasses.add(info("className"))
     info
   }
 
-  protected def logBase(methodName: String, numCols: Option[Int]): Unit = {
-    logBase(getPayload(methodName, numCols, None))
+  protected def logBase(methodName: String,
+                        numCols: Option[Int],
+                        executionSeconds: Option[Double]
+                       ): Unit = {
+    logBase(getPayload(
+      methodName,
+      numCols,
+      executionSeconds,
+      None))
   }
 
   protected def logBase(info: Map[String, String]): Unit = {
@@ -114,12 +125,12 @@ trait SynapseMLLogging extends Logging {
 
   protected def logErrorBase(methodName: String, e: Exception): Unit = {
     logError(
-      getPayload(methodName, None, Some(e)).toJson.compactPrint,
+      getPayload(methodName, None, None, Some(e)).toJson.compactPrint,
       e)
   }
 
   def logClass(): Unit = {
-    logBase("constructor", None)
+    logBase("constructor", None, None)
   }
 
   def logFit[T](f: => T, columns: Int): T = {
@@ -131,9 +142,11 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logVerb[T](verb: String, f: => T, columns: Option[Int] = None): T = {
-    logBase(verb, columns)
+    val startTime = System.nanoTime()
     try {
-      f
+      val ret = f
+      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9))
+      ret
     } catch {
       case e: Exception =>
         logErrorBase(verb, e)
