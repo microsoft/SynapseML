@@ -23,7 +23,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasOpenAITextParams
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
-  with HasSubscriptionKey with HasAADToken
+  with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with ComplexParamsWritable with SynapseMLLogging {
 
   logClass()
