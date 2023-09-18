@@ -71,7 +71,7 @@ class VowpalWabbitGeneric(override val uid: String)
   }
 
   protected def train(dataset: Dataset[_]): VowpalWabbitGenericModel = {
-    logTrain({
+    logFit({
       val model = new VowpalWabbitGenericModel(uid)
         .setInputCol(getInputCol)
 
