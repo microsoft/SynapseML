@@ -461,7 +461,26 @@ module.exports = {
                         to: "/docs/Get Started/Install SynapseML/",
                         from: "/docs/Get%20Started/Install%20SynapseML/",
                     },
-
+                    {
+                        to: '/docs/Quick Examples/transformers/transformers_core/',
+                        from: '/docs/next/documentation/transformers/transformers_core/',
+                    },
+                    {
+                        to: '/docs/Get Started/Quickstart - Your First Models/',
+                        from: '/docs/Get%20Started/Quickstart%20-%20Your%20First%20Models/',
+                    },
+                    {
+                        to: '/docs/Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding/',
+                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/',
+                    },
+                    {
+                        to: '/docs/Explore Algorithms/Deep Learning/Getting Started/',
+                        from: '/docs/features/simple_deep_learning/about/',
+                    },
+                    {
+                        to: '/docs/Explore Algorithms/AI Services/Geospatial Services/',
+                        from: '/docs/next/features/geospatial_services/GeospatialServices%20-%20Overview/',
+                    },
                 ],
             },
         ],
