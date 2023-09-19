@@ -467,11 +467,11 @@ module.exports = {
                     },
                     {
                         to: '/docs/Quick Examples/transformers/transformers_cognitive/',
-                        from: '/docs/next/documentation/transformers/transformers_cognitive/%23analyzedocument#analyzedocument',
+                        from: '/docs/next/documentation/transformers/transformers_cognitive/',
                     },
                     {
                         to: '/docs/Quick Examples/transformers/transformers_core/',
-                        from: '/docs/next/documentation/transformers/transformers_core/%23explainers#explainers',
+                        from: '/docs/next/documentation/transformers/transformers_core/',
                     },
                     {
                         to: '/docs/Get Started/Quickstart - Your First Models/',
