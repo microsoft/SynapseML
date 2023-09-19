@@ -462,14 +462,6 @@ module.exports = {
                         from: "/docs/Get%20Started/Install%20SynapseML/",
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Quickstart - Create Audiobooks/',
-                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20Create%20Audiobooks/',
-                    },
-                    {
-                        to: '/docs/Quick Examples/transformers/transformers_cognitive/',
-                        from: '/docs/next/documentation/transformers/transformers_cognitive/',
-                    },
-                    {
                         to: '/docs/Quick Examples/transformers/transformers_core/',
                         from: '/docs/next/documentation/transformers/transformers_core/',
                     },
@@ -482,16 +474,8 @@ module.exports = {
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Overview/',
-                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20Overview/',
-                    },
-                    {
                         to: '/docs/Explore Algorithms/Deep Learning/Getting Started/',
                         from: '/docs/features/simple_deep_learning/about/',
-                    },
-                    {
-                        to: '/docs/Explore Algorithms/Vowpal Wabbit/Overview/',
-                        from: '/docs/features/vw/Vowpal%20Wabbit%20-%20Overview/',
                     },
                     {
                         to: '/docs/Explore Algorithms/AI Services/Geospatial Services/',
