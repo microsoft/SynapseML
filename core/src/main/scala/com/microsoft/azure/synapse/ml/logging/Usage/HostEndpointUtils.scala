@@ -3,12 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{Capacities, Workloads, WorkloadEndpointAutomatic}
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WebApi, WorkloadEndpointMl, WorkspaceID}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-import spray.json.{JsValue, JsonParser}
+import spray.json.{JsValue}
 
 object HostEndpointUtils {
   def getMlflowSharedHost(pbienv: String): String = {
@@ -34,16 +33,9 @@ object HostEndpointUtils {
       "Authorization" -> s"Bearer ${TokenUtils.getAccessToken}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
-    var response: JsValue = JsonParser("{}")
-    try {
-      response = usageGet(url, headers)
-    } catch {
-      case e: Exception =>
-        SynapseMLLogging.logMessage(s"HostEndpointUtils.getMlflowSharedHost: " +
-          s"Can't get ml flow shared host. Exception = $e. (usage test)")
-        ""
-    }
-    response.asJsObject.fields("clusterUrl").convertTo[String]
+
+    val response: JsValue = CommonUtils.requestGet(url, headers, "clusterUrl")
+    response.convertTo[String]
   }
 
   def getMlflowWorkloadHost(pbienv: String, capacityId: String,

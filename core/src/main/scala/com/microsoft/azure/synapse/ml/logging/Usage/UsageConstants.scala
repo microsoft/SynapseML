@@ -2,17 +2,6 @@
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.azure.synapse.ml.logging.Usage
-object UsageFeatureNames extends Enumeration {
-  type UsageFeatureNames = Value
-  val Predict = Value(1)
-}
-
-object FeatureActivityName extends Enumeration {
-  type FeatureActivityName = Value
-  val API0Transform = Value(1)
-  val API0SQL = Value(2)
-  val API0UDF = Value(3)
-}
 
 object FabricConstants {
   val MlKustoTableName = "SynapseMLLogs"

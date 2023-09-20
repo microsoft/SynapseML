@@ -4,18 +4,17 @@
 package com.microsoft.azure.synapse.ml.logging.Usage
 
 import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils.getHadoopConfig
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.{usageGet, usagePost}
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usagePost
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
+import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
 import com.microsoft.azure.synapse.ml.logging.Usage.TokenUtils.getAccessToken
-import java.util.UUID
 import java.time.Instant
+import java.util.UUID
 import org.apache.spark.sql.SparkSession
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-
-import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
 
 object UsageTelemetry {
   private val SC = SparkSession.builder().getOrCreate().sparkContext
@@ -31,8 +30,8 @@ object UsageTelemetry {
   def reportUsage(payload: FeatureUsagePayload): Unit = {
     if (sys.env.getOrElse(EmitUsage, "True") == "True") {
       try {
-        reportUsageTelemetry(payload.feature_name.toString,
-          payload.activity_name.toString,
+        reportUsageTelemetry(payload.feature_name.getFeatureName,
+          payload.activity_name.getFeatureActivityName,
           payload.attributes)
       } catch {
         case runtimeError: Exception =>

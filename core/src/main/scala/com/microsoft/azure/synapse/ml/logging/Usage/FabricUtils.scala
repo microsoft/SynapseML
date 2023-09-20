@@ -6,8 +6,6 @@ package com.microsoft.azure.synapse.ml.logging.Usage
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json._
-import scala.util.matching.Regex
-import scala.io.Source
 
 case class TokenServiceConfig(tokenServiceEndpoint: String,
                               clusterType: String,
@@ -31,7 +29,7 @@ object FabricUtils {
 
       val tokenServiceConfig = StreamUtilities.usingSource(scala.io.Source.fromFile
       (FabricConstants.TokenServiceFilePath)) {
-        source => cleanJson(source.mkString).parseJson.convertTo[TokenServiceConfig]
+        source => source.mkString.parseJson.convertTo[TokenServiceConfig]
       }.get
 
       val tridentContext: Map[String, String] = linesContextFile
@@ -53,11 +51,5 @@ object FabricUtils {
         SynapseMLLogging.logMessage(s"Error reading Fabric context file: Trident context file path is missing. $e")
         throw e
     }
-  }
-
-  private def cleanJson(s: String): String = {
-    val pattern: Regex = ",[ \t\r\n]+}".r
-    val cleanedJson = pattern.replaceAllIn(s, "}")
-    cleanedJson
   }
 }

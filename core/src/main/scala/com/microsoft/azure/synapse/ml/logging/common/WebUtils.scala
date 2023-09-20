@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.logging.common
 
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
-import spray.json.{JsArray, JsObject, JsValue, _}
-import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import spray.json.{JsObject, JsValue, _}
 
 object WebUtils {
   def usagePost(url: String, body: String, headers: Map[String, String]): JsValue = {

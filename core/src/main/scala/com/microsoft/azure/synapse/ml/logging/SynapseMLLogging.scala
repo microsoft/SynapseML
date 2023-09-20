@@ -4,12 +4,12 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
 import org.apache.spark.internal.Logging
-import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
 
 case class SynapseMLLogInfo(uid: String,
                             className: String,
@@ -76,20 +76,34 @@ trait SynapseMLLogging extends Logging {
     logBase("constructor", None)
   }
 
-  def logFit[T](f: => T, columns: Int): T = {
-    logVerb("fit", f, columns)
+  def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true,
+                certifiedEventAttributes: Map[String, String] = Map()): T = {
+    logVerb("fit", f, columns, logCertifiedEvent, certifiedEventAttributes)
   }
 
-  def logTrain[T](f: => T, columns: Int): T = {
-    logVerb("train", f, columns)
+  def logTrain[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true,
+                  certifiedEventAttributes: Map[String, String] = Map()): T = {
+    logVerb("train", f, columns, logCertifiedEvent, certifiedEventAttributes)
   }
 
-  def logTransform[T](f: => T, columns: Int): T = {
-    logVerb("transform", f, columns)
+  def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true,
+                      certifiedEventAttributes: Map[String, String] = Map()): T = {
+    logVerb("transform", f, columns, logCertifiedEvent, certifiedEventAttributes)
   }
-  def logVerb[T](verb: String, f: => T, columns: Int = -1): T = {
+  def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = true,
+                 certifiedEventAttributes: Map[String, String] = Map()): T = {
     logBase(verb, if(columns == -1) None else Some(columns))
     try {
+      // Begin emitting certified event.
+      if(logCertifiedEvent)
+      {
+        import com.microsoft.azure.synapse.ml.logging.Usage.FeatureSynapseML
+        import com.microsoft.azure.synapse.ml.logging.Usage.UsageTelemetry.reportUsage
+        import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
+        val certifiedEventPayload = new FeatureUsagePayload(new FeatureSynapseML,
+          CommonUtils.getCertifiedEventActivity(verb), certifiedEventAttributes)
+        reportUsage(certifiedEventPayload)
+      }
       f
     } catch {
       case e: Exception => {

@@ -3,16 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import java.time.Instant
+import java.util.UUID
+import org.apache.spark.SparkContext
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
-import java.time.Instant
-import org.apache.spark.SparkContext
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
-import java.util.UUID
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
-import spray.json.{DeserializationException, RootJsonFormat}
-import spray.json.JsonParser.ParsingException
+import spray.json.RootJsonFormat
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
@@ -74,17 +73,12 @@ object TokenUtils {
   }
 
   private def refreshAccessToken(): Unit = {
-    try {
-      if (SparkContext.getOrCreate() != null) {
-        val token = getAccessToken("pbi")
-        AADToken = token
-      } else {
-        val token = new FabricTokenServiceClient().getAccessToken("pbi")
-        AADToken = token
-      }
-    } catch {
-      case e: Exception =>
-        SynapseMLLogging.logMessage(s"refreshAccessTok: failed to refresh pbi tok. Exception: {$e}. (usage test)")
+    if (SparkContext.getOrCreate() != null) {
+      val token = getAccessToken("pbi")
+      AADToken = token
+    } else {
+      val token = new FabricTokenServiceClient().getAccessToken("pbi")
+      AADToken = token
     }
   }
 
@@ -106,30 +100,13 @@ object TokenUtils {
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
     )
 
-    try{
-      val response = usagePost(url, payLoad, headers)
-      var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
-      targetUriHost = s"https://$targetUriHost"
-      response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
+    val response = usagePost(url, payLoad, headers)
+    var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
+    targetUriHost = s"https://$targetUriHost"
+    response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
-      implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
-      val mwcToken = response.convertTo[MwcToken]
-      Some(mwcToken)
-    }
-    catch {
-      case e: NoSuchElementException =>
-        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: Cannot retrieve targetUriHost from MWC Token.")
-        None
-      case e: DeserializationException =>
-        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of response is not of type MwcToken.")
-        None
-      case e: ParsingException =>
-        SynapseMLLogging.logMessage(s"TokenUtils.getMWCToken: The structure of json response is formed correctly.")
-        None
-      case e: Exception =>
-        SynapseMLLogging.logMessage(s"getMWCTok: Failed to fetch MWC token that is required to " +
-          s"get cluster details: $e.")
-        None
-    }
+    implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
+    val mwcToken = response.convertTo[MwcToken]
+    Some(mwcToken)
   }
 }

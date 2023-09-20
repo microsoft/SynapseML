@@ -4,17 +4,18 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WorkloadEndpointAdmin}
-import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
 
 class UsageUtilsTests extends TestBase {
 
-  val target = "f32fae846ed04406944c01e26087aa9b.pbidedicated.windows-int.net/webapi/Capacities/" +
-    "f32fae84-6ed0-4406-944c-01e26087aa9b/workloads/ML/MLAdmin/Automatic/" +
-    "workspaceid/c1aaa432-2b6e-4325-acca-1aac063d9a6e/"
-  val capacityId = "f32fae84-6ed0-4406-944c-01e26087aa9b"
-  val wlHost = "f32fae846ed04406944c01e26087aa9b.pbidedicated.windows-int.net"
-  val workspaceId = "c1aaa432-2b6e-4325-acca-1aac063d9a6e"
+  import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WorkloadEndpointAdmin}
+  import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
+
+  val target = "c528701c8f9442c0b65a1660171c306c.pbidedicated.windows-int.net/webapi/Capacities/" +
+    "c528701c-8f94-42c0-b65a-1660171c306c/workloads/ML/MLAdmin/Automatic/" +
+    "workspaceid/89b9b330-6eac-4ee1-b225-590dfd68e4be/"
+  val capacityId = "c528701c-8f94-42c0-b65a-1660171c306c"
+  val wlHost = "c528701c8f9442c0b65a1660171c306c.pbidedicated.windows-int.net"
+  val workspaceId = "89b9b330-6eac-4ee1-b225-590dfd68e4be"
   test("ML Workload Endpoint Check"){
     val url = getMLWorkloadEndpoint(this.wlHost, this.capacityId, WorkloadEndpointAdmin, this.workspaceId)
     assert(url == target)
