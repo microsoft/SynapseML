@@ -26,6 +26,7 @@ pr:
 schedules:
   - cron: "0 0 * * *"
     displayName: Daily midnight build
+    always: true
     branches:
       include:
         - master
@@ -92,7 +93,6 @@ jobs:
         source activate synapseml
         sbt packagePython
         sbt publishBlob publishDocs publishR publishPython uploadNotebooks
-        sbt publishSigned
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
       displayName: Publish Artifacts

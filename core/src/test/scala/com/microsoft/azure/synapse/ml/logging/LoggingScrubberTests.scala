@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
+
 class LoggingScrubberTests extends TestBase {
   test("SASScrubber Valid Input Test.") {
     val message = "sending {\"alignPolicy\":{},\"endTime\":\"2023-04-17T13:00:00Z\",\"slidingWindow\":300," +

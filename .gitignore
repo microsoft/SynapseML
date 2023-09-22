@@ -75,6 +75,7 @@ website/.docusaurus
 null/
 metastore_db/
 .cache/
+.trunk/
 
 # pytorch_lightning logs
 **/lightning_logs/*
@@ -86,3 +87,4 @@ metastore_db/
 **/build/*
 **/dist/*
 **/*.egg-info/*
+

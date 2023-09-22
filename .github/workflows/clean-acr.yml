@@ -31,7 +31,7 @@ jobs:
          with:
            creds: ${{ secrets.clean_acr }}
        - name: checkout repo content
-         uses: actions/checkout@v3 # checkout the repo
+         uses: actions/checkout@v4 # checkout the repo
        - name: setup python
          uses: actions/setup-python@v4
          with:
