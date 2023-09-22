@@ -6,6 +6,8 @@ package com.microsoft.azure.synapse.ml.logging
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
+import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
+import com.microsoft.azure.synapse.ml.logging.Usage.UsageTelemetry.reportUsage
 import org.apache.spark.internal.Logging
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -97,11 +99,8 @@ trait SynapseMLLogging extends Logging {
       // Begin emitting certified event.
       if(logCertifiedEvent)
       {
-        import com.microsoft.azure.synapse.ml.logging.Usage.FeatureSynapseML
-        import com.microsoft.azure.synapse.ml.logging.Usage.UsageTelemetry.reportUsage
-        import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
-        val certifiedEventPayload = new FeatureUsagePayload(new FeatureSynapseML,
-          CommonUtils.getCertifiedEventActivity(verb), certifiedEventAttributes)
+        val certifiedEventPayload = new FeatureUsagePayload("SynapseML",
+          verb, certifiedEventAttributes)
         reportUsage(certifiedEventPayload)
       }
       f

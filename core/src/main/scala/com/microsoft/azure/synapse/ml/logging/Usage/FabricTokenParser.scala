@@ -9,7 +9,7 @@ class InvalidJwtTokenException(message: String) extends Exception(message)
 class JwtTokenExpiryMissingException(message: String) extends Exception(message)
 class FabricTokenParser(JWToken: String) {
   val tokens: Array[String] = JWToken.split("\\.")
-  private var parsedToken: JsValue = tokenCheckAndDecode(tokens)
+  private val parsedToken: JsValue = tokenCheckAndDecode(tokens)
   def getExpiry: Long ={
     val exp: Option[Long] = parsedToken.asJsObject.fields.get("exp").collect { case JsNumber(value) => value.toLong }
     exp match {

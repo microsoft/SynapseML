@@ -3,11 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{Capacities, Workloads, WorkloadEndpointAutomatic}
+import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{Capacities, WorkloadEndpointAutomatic, Workloads}
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WebApi, WorkloadEndpointMl, WorkspaceID}
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-import spray.json.{JsValue}
+import spray.json.{JsValue, JsonParser}
 
 object HostEndpointUtils {
   def getMlflowSharedHost(pbienv: String): String = {
@@ -33,9 +35,8 @@ object HostEndpointUtils {
       "Authorization" -> s"Bearer ${TokenUtils.getAccessToken}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
-
-    val response: JsValue = CommonUtils.requestGet(url, headers, "clusterUrl")
-    response.convertTo[String]
+    val  response = usageGet(url, headers)
+    response.asJsObject.fields("clusterUrl").convertTo[String]
   }
 
   def getMlflowWorkloadHost(pbienv: String, capacityId: String,

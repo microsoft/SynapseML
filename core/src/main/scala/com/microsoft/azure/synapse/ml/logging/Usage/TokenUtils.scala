@@ -15,15 +15,15 @@ import spray.json.RootJsonFormat
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
-  var AADToken: String = ""
+  var AADToken: Option[String] = None
   val MwcWorkloadTypeMl = "ML"
 
   def getAccessToken: String = {
-    if (isTokenValid(Option(this.AADToken)))
-      this.AADToken
+    if (isTokenValid(AADToken))
+      this.AADToken.get
     else {
       refreshAccessToken()
-      this.AADToken
+      this.AADToken.get
     }
   }
 
@@ -75,10 +75,10 @@ object TokenUtils {
   private def refreshAccessToken(): Unit = {
     if (SparkContext.getOrCreate() != null) {
       val token = getAccessToken("pbi")
-      AADToken = token
+      AADToken = Some(token)
     } else {
       val token = new FabricTokenServiceClient().getAccessToken("pbi")
-      AADToken = token
+      AADToken = Some(token)
     }
   }
 
@@ -101,8 +101,7 @@ object TokenUtils {
     )
 
     val response = usagePost(url, payLoad, headers)
-    var targetUriHost = response.asJsObject.fields("TargetUriHost").convertTo[String]
-    targetUriHost = s"https://$targetUriHost"
+    val targetUriHost = s"https://${response.asJsObject.fields("TargetUriHost").convertTo[String]}"
     response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
     implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)

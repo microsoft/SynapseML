@@ -19,37 +19,29 @@ object TokenServiceConfigProtocol extends DefaultJsonProtocol {
 import TokenServiceConfigProtocol._
 
 object FabricUtils {
-  //private var TridentContext: Map[String, String] = Map[String, String]()
-
   def getFabricContext: Map[String, String] = {
-    try {
-      val linesContextFile = StreamUtilities.usingSource(scala.io.Source.fromFile(FabricConstants.ContextFilePath)) {
-        source => source.getLines().toList
-      }.get
+    val linesContextFile = StreamUtilities.usingSource(scala.io.Source.fromFile(FabricConstants.ContextFilePath)) {
+      source => source.getLines().toList
+    }.get
 
-      val tokenServiceConfig = StreamUtilities.usingSource(scala.io.Source.fromFile
-      (FabricConstants.TokenServiceFilePath)) {
-        source => source.mkString.parseJson.convertTo[TokenServiceConfig]
-      }.get
+    val tokenServiceConfig = StreamUtilities.usingSource(scala.io.Source.fromFile
+    (FabricConstants.TokenServiceFilePath)) {
+      source => source.mkString.parseJson.convertTo[TokenServiceConfig]
+    }.get
 
-      val tridentContext: Map[String, String] = linesContextFile
-        .filter(line => line.split('=').length == 2)
-        .map { line =>
-          val Array(k, v) = line.split('=')
-          (k.trim, v.trim)
-        }.toMap
-        .++(Seq(
-          (FabricConstants.SynapseTokenServiceEndpoint, tokenServiceConfig.tokenServiceEndpoint),
-          (FabricConstants.SynapseClusterType, tokenServiceConfig.clusterType),
-          (FabricConstants.SynapseClusterIdentifier, tokenServiceConfig.clusterName),
-          (FabricConstants.TridentSessionToken, tokenServiceConfig.sessionToken)
-        ).toMap)
+    val tridentContext: Map[String, String] = linesContextFile
+      .filter(line => line.split('=').length == 2)
+      .map { line =>
+        val Array(k, v) = line.split('=')
+        (k.trim, v.trim)
+      }.toMap
+      .++(Seq(
+        (FabricConstants.SynapseTokenServiceEndpoint, tokenServiceConfig.tokenServiceEndpoint),
+        (FabricConstants.SynapseClusterType, tokenServiceConfig.clusterType),
+        (FabricConstants.SynapseClusterIdentifier, tokenServiceConfig.clusterName),
+        (FabricConstants.TridentSessionToken, tokenServiceConfig.sessionToken)
+      ).toMap)
 
-      tridentContext
-    } catch {
-      case e: NullPointerException =>
-        SynapseMLLogging.logMessage(s"Error reading Fabric context file: Trident context file path is missing. $e")
-        throw e
-    }
+    tridentContext
   }
 }

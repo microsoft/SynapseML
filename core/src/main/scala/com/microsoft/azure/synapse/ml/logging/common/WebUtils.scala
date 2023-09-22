@@ -35,15 +35,7 @@ object WebUtils {
   }
 
   private def parseResponse(response: CloseableHttpResponse): JsValue = {
-    var content: String = ""
-    try {
-      content = IOUtils.toString(response.getEntity.getContent, "utf-8")
-    }
-    catch {
-      case e: Exception =>
-        SynapseMLLogging.logMessage(s"RestHelpers::parseResult: getting exception parsing response." +
-          s"Exception = $e")
-    }
+    val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     if (content.nonEmpty) {
       content.parseJson
     } else {

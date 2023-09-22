@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.logging.Usage
 object FabricConstants {
   val MlKustoTableName = "SynapseMLLogs"
   val EmitUsage = "EmitUsage"
+  val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
 
   val ContextFilePath = "/home/trusted-service-user/.trident-context"
   val TokenServiceFilePath = "/opt/token-service/tokenservice.config.json"

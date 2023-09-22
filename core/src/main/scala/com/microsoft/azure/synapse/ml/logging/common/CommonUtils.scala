@@ -3,10 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.logging.common
 
-import com.microsoft.azure.synapse.ml.logging.Usage.FeatureActivityName
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
-import com.microsoft.azure.synapse.ml.logging.Usage.{FeatureActivityFit, FeatureActivityTrain,
-  FeatureActivityTransform, FeatureActivityInvalid}
 import scala.util.{Success, Try}
 import spray.json.{JsValue}
 import spray.json.DefaultJsonProtocol.IntJsonFormat
@@ -21,15 +18,8 @@ object CommonUtils {
 
     (statusCode, propertyValue) match {
       case (Success(code), Success(value)) if code == 200 && !value.isEmpty => response.asJsObject.fields(property)
-      case _ => throw new Exception("Fetch access token error")
-    }
-  }
-  def getCertifiedEventActivity(verb: String): FeatureActivityName = {
-    verb match {
-      case "train" => new FeatureActivityTrain
-      case "fit" => new FeatureActivityFit
-      case "transform" => new FeatureActivityTransform
-      case _ => new FeatureActivityInvalid
+      case _ => throw new Exception(s"CommonUtils.requestGet: Failed with " +
+        s"code=$statusCode. Property looked for was = $property")
     }
   }
 }

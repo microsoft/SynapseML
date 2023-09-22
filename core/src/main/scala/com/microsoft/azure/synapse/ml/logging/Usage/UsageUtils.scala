@@ -26,12 +26,11 @@ object UsageTelemetry {
   val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
   private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, SharedHost)
 
-  private val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
   def reportUsage(payload: FeatureUsagePayload): Unit = {
-    if (sys.env.getOrElse(EmitUsage, "True") == "True") {
+    if (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") {
       try {
-        reportUsageTelemetry(payload.feature_name.getFeatureName,
-          payload.activity_name.getFeatureActivityName,
+        reportUsageTelemetry(payload.feature_name,
+          payload.activity_name,
           payload.attributes)
       } catch {
         case runtimeError: Exception =>
@@ -43,13 +42,13 @@ object UsageTelemetry {
 
   private def reportUsageTelemetry(featureName: String, activityName: String,
                                    attributes: Map[String,String] = Map()): Unit = {
-    if (sys.env.getOrElse(FabricFakeTelemetryReportCalls,"false") == "false") {
+    if (sys.env.getOrElse(FabricFakeTelemetryReportCalls,"false").toLowerCase == "false") {
       val attributesJson = attributes.toJson.compactPrint
       val data =
         s"""{
            |"timestamp":${Instant.now().getEpochSecond},
            |"feature_name":"$featureName",
-           |"activity_name":"${activityName.replace('0', '/')}",
+           |"activity_name":"$activityName",
            |"attributes":$attributesJson
            |}""".stripMargin
 
