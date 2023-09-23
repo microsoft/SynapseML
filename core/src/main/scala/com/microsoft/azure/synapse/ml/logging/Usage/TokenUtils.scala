@@ -105,7 +105,6 @@ object TokenUtils {
     response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
     implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
-    val mwcToken = response.convertTo[MwcToken]
-    Some(mwcToken)
+    Some(response.convertTo[MwcToken])
   }
 }
