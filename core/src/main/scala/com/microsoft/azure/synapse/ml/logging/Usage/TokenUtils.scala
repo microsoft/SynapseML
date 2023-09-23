@@ -74,8 +74,7 @@ object TokenUtils {
 
   private def refreshAccessToken(): Unit = {
     if (SparkContext.getOrCreate() != null) {
-      val token = getAccessToken("pbi")
-      AADToken = Some(token)
+      AADToken = Some(getAccessToken("pbi"))
     } else {
       AADToken = Some(new FabricTokenServiceClient().getAccessToken("pbi"))
     }
