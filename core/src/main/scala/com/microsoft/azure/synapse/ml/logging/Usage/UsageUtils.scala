@@ -56,7 +56,6 @@ object UsageTelemetry {
 
       // Add the protocol and the route for the certified event telemetry endpoint
       val url = "https://" + mlAdminEndpoint + "telemetry"
-      val driverAADToken = getAccessToken
 
       val headers = Map(
         "Content-Type" -> "application/json",
