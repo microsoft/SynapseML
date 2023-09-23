@@ -77,8 +77,7 @@ object TokenUtils {
       val token = getAccessToken("pbi")
       AADToken = Some(token)
     } else {
-      val token = new FabricTokenServiceClient().getAccessToken("pbi")
-      AADToken = Some(token)
+      AADToken = Some(new FabricTokenServiceClient().getAccessToken("pbi"))
     }
   }
 
