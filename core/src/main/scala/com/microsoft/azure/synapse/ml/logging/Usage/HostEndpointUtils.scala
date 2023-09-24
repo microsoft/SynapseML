@@ -35,8 +35,7 @@ object HostEndpointUtils {
       "Authorization" -> s"Bearer ${TokenUtils.getAccessToken}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
-    val  response = usageGet(url, headers)
-    response.asJsObject.fields("clusterUrl").convertTo[String]
+    usageGet(url, headers).asJsObject.fields("clusterUrl").convertTo[String]
   }
 
   def getMlflowWorkloadHost(pbienv: String, capacityId: String,
