@@ -51,7 +51,6 @@ class FabricTokenServiceClient {
     )
     val url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=${resource.get}"
 
-    val response: JsValue = requestGet(url, headers, "content")
-    response.toString().getBytes("UTF-8").toString
+    requestGet(url, headers, "content").toString().getBytes("UTF-8").toString
   }
 }

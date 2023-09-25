@@ -264,7 +264,7 @@ class VowpalWabbitContextualBandit(override val uid: String)
   }
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitContextualBanditModel = {
-    logTrain({
+    logFit({
       val model = new VowpalWabbitContextualBanditModel(uid)
         .setFeaturesCol(getFeaturesCol)
         .setAdditionalFeatures(getAdditionalFeatures)

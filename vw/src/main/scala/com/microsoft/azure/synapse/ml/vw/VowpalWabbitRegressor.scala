@@ -27,7 +27,7 @@ class VowpalWabbitRegressor(override val uid: String)
   def this() = this(Identifiable.randomUID("VowpalWabbitRegressor"))
 
   override def train(dataset: Dataset[_]): VowpalWabbitRegressionModel = {
-    logTrain({
+    logFit({
       val model = new VowpalWabbitRegressionModel(uid)
         .setFeaturesCol(getFeaturesCol)
         .setAdditionalFeatures(getAdditionalFeatures)

@@ -74,11 +74,9 @@ object TokenUtils {
 
   private def refreshAccessToken(): Unit = {
     if (SparkContext.getOrCreate() != null) {
-      val token = getAccessToken("pbi")
-      AADToken = Some(token)
+      AADToken = Some(getAccessToken("pbi"))
     } else {
-      val token = new FabricTokenServiceClient().getAccessToken("pbi")
-      AADToken = Some(token)
+      AADToken = Some(new FabricTokenServiceClient().getAccessToken("pbi"))
     }
   }
 
@@ -105,7 +103,6 @@ object TokenUtils {
     response.asJsObject.fields.updated("TargetUriHost", targetUriHost)
 
     implicit val mwcTokenFormat: RootJsonFormat[MwcToken] = jsonFormat3(MwcToken)
-    val mwcToken = response.convertTo[MwcToken]
-    Some(mwcToken)
+    Some(response.convertTo[MwcToken])
   }
 }
