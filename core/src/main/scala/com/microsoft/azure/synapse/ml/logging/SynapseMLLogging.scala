@@ -4,14 +4,16 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
 import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
 import com.microsoft.azure.synapse.ml.logging.Usage.UsageTelemetry.reportUsage
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.SparkSession
+import spray.json.DefaultJsonProtocol._
+import spray.json._
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import spray.json.{DefaultJsonProtocol, RootJsonFormat, NullOptions}
 
 case class RequiredLogFields(uid: String,
                              className: String,
@@ -154,7 +156,7 @@ trait SynapseMLLogging extends Logging {
         reportUsage(certifiedEventPayload)
       }
       val ret = f
-      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9))
+      logBase(verb, Some(columns), Some((System.nanoTime() - startTime) / 1e9))
       ret
     } catch {
       case e: Exception =>
