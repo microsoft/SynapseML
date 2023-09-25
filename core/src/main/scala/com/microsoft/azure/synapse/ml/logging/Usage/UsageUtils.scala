@@ -18,13 +18,13 @@ import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object UsageTelemetry {
   private val SC = SparkSession.builder().getOrCreate().sparkContext
-  private val CapacityId = getHadoopConfig("trident.capacity.id", SC)
-  val WorkspaceId: String = getHadoopConfig("trident.artifact.workspace.id", SC)
+  private val CapacityId = getHadoopConfig("trident.capacity.id", Some(SC))
+  private val WorkspaceId: String = getHadoopConfig("trident.artifact.workspace.id", Some(SC))
   private val PbiEnv = SC.getConf.get("spark.trident.pbienv", "").toLowerCase()
 
   private val SharedHost = getMlflowSharedHost(PbiEnv)
-  val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
-  private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, SharedHost)
+  private val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
+  private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, Some(SharedHost))
 
   def reportUsage(payload: FeatureUsagePayload): Unit = {
     if (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") {
@@ -52,7 +52,12 @@ object UsageTelemetry {
            |"attributes":$attributesJson
            |}""".stripMargin
 
-      val mlAdminEndpoint = getMLWorkloadEndpoint(WlHost, CapacityId, WorkloadEndpointAdmin, WorkspaceId)
+      val mlAdminEndpoint = WlHost match {
+        case Some(host) =>
+          getMLWorkloadEndpoint(host, CapacityId, WorkloadEndpointAdmin, WorkspaceId)
+        case None =>
+          throw new IllegalArgumentException("Workload host name is missing.")
+      }
 
       // Add the protocol and the route for the certified event telemetry endpoint
       val url = "https://" + mlAdminEndpoint + "telemetry"

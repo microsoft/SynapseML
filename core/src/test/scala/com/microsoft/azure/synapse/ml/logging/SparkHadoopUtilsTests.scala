@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils.getHadoopC
 class SparkHadoopUtilsTests extends TestBase {
   test("Hadoop Configuration Check (capacity id, and workspace id)"){
     sc.hadoopConfiguration.set("trident.capacity.id", "f32fae84-6ed0-4406-944c-01e26087aa9b")
-    val capacityId = getHadoopConfig("trident.capacity.id", sc)
+    val capacityId = getHadoopConfig("trident.capacity.id", Some(sc))
     val splitCapacityId: Array[String] = capacityId.split("-")
 
     assert(splitCapacityId.length == 5)

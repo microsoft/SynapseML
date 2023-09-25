@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils.requestGet
 import java.lang.management.ManagementFactory
 import java.net.URL
 import java.net.InetAddress
@@ -35,9 +35,9 @@ class FabricTokenServiceClient {
 
   def getAccessToken(resourceParam: String): String = {
     if (!resourceMapping.contains(resourceParam)) {
-      throw new Exception(s"$resourceParam not supported")
+      throw new IllegalArgumentException(s"$resourceParam not supported")
     }
-    val resource = resourceMapping.getOrElse(resourceParam, "")
+    val resource: Option[String] = resourceMapping.get(resourceParam)
     val rid = UUID.randomUUID().toString()
     val targetUrl = new URL(workloadEndpoint)
     val headers: Map[String, String] = Map(
@@ -49,9 +49,9 @@ class FabricTokenServiceClient {
       "User-Agent" -> s"Trident Token Library - HostName:$hostname, ProcessName:$processName",
       "x-ms-client-request-id" -> rid
     )
-    val url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=$resource"
+    val url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=${resource.get}"
 
-    val response: JsValue = CommonUtils.requestGet(url, headers, "content")
+    val response: JsValue = requestGet(url, headers, "content")
     response.toString().getBytes("UTF-8").toString
   }
 }

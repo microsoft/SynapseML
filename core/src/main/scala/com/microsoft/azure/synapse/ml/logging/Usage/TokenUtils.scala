@@ -15,7 +15,7 @@ import spray.json.RootJsonFormat
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
 object TokenUtils {
-  var AADToken: Option[String] = None
+  private var AADToken: Option[String] = None
   val MwcWorkloadTypeMl = "ML"
 
   def getAccessToken: String = {

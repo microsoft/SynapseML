@@ -3,13 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.azure.synapse.ml.logging.common.CommonUtils
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{Capacities, WorkloadEndpointAutomatic, Workloads}
 import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WebApi, WorkloadEndpointMl, WorkspaceID}
 import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-import spray.json.{JsValue, JsonParser}
 
 object HostEndpointUtils {
   def getMlflowSharedHost(pbienv: String): String = {
@@ -39,21 +36,22 @@ object HostEndpointUtils {
     response.asJsObject.fields("clusterUrl").convertTo[String]
   }
 
-  def getMlflowWorkloadHost(pbienv: String, capacityId: String,
-                            workspaceId: String,
-                            sharedHost: String = ""): String = {
-    val clusterUrl = if (sharedHost.isEmpty) {
-      getMlflowSharedHost(pbienv)
-    } else {
-      sharedHost
+  def getMlflowWorkloadHost(pbienv: String, capacityId: String, workspaceId: String,
+                            sharedHost: Option[String] = None): Option[String] = {
+    val clusterUrl = sharedHost match {
+      case Some(value) =>
+        value
+      case None =>
+        getMlflowSharedHost(pbienv)
     }
+
     val mwcToken: Option[MwcToken] = TokenUtils.getMwcToken(clusterUrl,
       workspaceId, capacityId, TokenUtils.MwcWorkloadTypeMl)
     mwcToken match {
       case Some(token) =>
-        token.TargetUriHost
+        Some(token.TargetUriHost)
       case None =>
-        ""
+        None
     }
   }
 

@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.logging.Usage
 
 object FabricConstants {
-  val MlKustoTableName = "SynapseMLLogs"
   val EmitUsage = "EmitUsage"
   val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
 
@@ -22,8 +21,6 @@ object FabricConstants {
   val WorkspaceID = "workspaceid"
 
   val WorkloadEndpointMl = "ML"
-  val WorkloadEndpointLlmPlugin = "LlmPlugin"
   val WorkloadEndpointAutomatic = "Automatic"
-  val WorkloadEndpointRegistry = "Registry"
   val WorkloadEndpointAdmin = "MLAdmin"
 }
