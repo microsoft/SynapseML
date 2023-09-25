@@ -139,15 +139,15 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logClass(): Unit = {
-    logBase("Constructor", None, None, true)
+    logBase("constructor", None, None, true)
   }
 
   def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("Fit", f, columns, logCertifiedEvent)
+    logVerb("fit", f, columns, logCertifiedEvent)
   }
 
   def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("Transform", f, columns, logCertifiedEvent)
+    logVerb("transform", f, columns, logCertifiedEvent)
   }
   def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = false): T = {
     val startTime = System.nanoTime()
