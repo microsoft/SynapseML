@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils.getHadoopConfig
+import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils
 
-class SparkHadoopUtilsTests extends TestBase {
+class SparkHadoopUtilsTests extends TestBase with SparkHadoopUtils {
   test("Hadoop Configuration Check (capacity id, and workspace id)"){
     sc.hadoopConfiguration.set("trident.capacity.id", "f32fae84-6ed0-4406-944c-01e26087aa9b")
     val capacityId = getHadoopConfig("trident.capacity.id", Some(sc))

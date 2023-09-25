@@ -3,12 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{Capacities, WorkloadEndpointAutomatic, Workloads}
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WebApi, WorkloadEndpointMl, WorkspaceID}
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usageGet
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
-object HostEndpointUtils {
+object HostEndpointUtils extends FabricConstants with WebUtils {
   def getMlflowSharedHost(pbienv: String): String = {
     val pbiGlobalServiceEndpoints = Map(
       "public" -> "https://api.powerbi.com/",
@@ -54,9 +52,9 @@ object HostEndpointUtils {
     }
   }
 
-  def getMLWorkloadEndpoint(wlHost: String, capacityId: String, endpoint: String,  workspaceID: String): String = {
-    val mlWorkloadEndpoint = s"$wlHost/$WebApi/$Capacities/$capacityId/$Workloads/" +
-      s"$WorkloadEndpointMl/$endpoint/$WorkloadEndpointAutomatic/${WorkspaceID}/$workspaceID/"
+  def getMLWorkloadEndpoint(wlHost: String, capacityId: String, endpoint: String,  workspaceId: String): String = {
+    val mlWorkloadEndpoint = s"$wlHost/$webApi/$capacities/$capacityId/$workloads/" +
+      s"$workloadEndpointMl/$endpoint/$workloadEndpointAutomatic/${workspaceID}/$workspaceId/"
     mlWorkloadEndpoint
   }
 }

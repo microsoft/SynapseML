@@ -3,12 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils.getHadoopConfig
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.usagePost
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
 import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
 import com.microsoft.azure.synapse.ml.logging.Usage.TokenUtils.getAccessToken
+import com.microsoft.azure.synapse.ml.logging.common.SparkHadoopUtils
+
 import java.time.Instant
 import java.util.UUID
 import org.apache.spark.sql.SparkSession
@@ -16,7 +16,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
-object UsageTelemetry {
+object UsageTelemetry extends FabricConstants with SparkHadoopUtils with WebUtils {
   private val SC = SparkSession.builder().getOrCreate().sparkContext
   private val CapacityId = getHadoopConfig("trident.capacity.id", Some(SC))
   private val WorkspaceId: String = getHadoopConfig("trident.artifact.workspace.id", Some(SC))
@@ -27,7 +27,7 @@ object UsageTelemetry {
   private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, Some(SharedHost))
 
   def reportUsage(payload: FeatureUsagePayload): Unit = {
-    if (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") {
+    if (sys.env.getOrElse(emitUsage, "true").toLowerCase == "true") {
       try {
         reportUsageTelemetry(payload.feature_name,
           payload.activity_name,
@@ -42,7 +42,7 @@ object UsageTelemetry {
 
   private def reportUsageTelemetry(featureName: String, activityName: String,
                                    attributes: Map[String,String] = Map()): Unit = {
-    if (sys.env.getOrElse(FabricFakeTelemetryReportCalls,"false").toLowerCase == "false") {
+    if (sys.env.getOrElse(fabricFakeTelemetryReportCalls,"false").toLowerCase == "false") {
       val attributesJson = attributes.toJson.compactPrint
       val data =
         s"""{
@@ -54,7 +54,7 @@ object UsageTelemetry {
 
       val mlAdminEndpoint = WlHost match {
         case Some(host) =>
-          getMLWorkloadEndpoint(host, CapacityId, WorkloadEndpointAdmin, WorkspaceId)
+          getMLWorkloadEndpoint(host, CapacityId, workloadEndpointAdmin, WorkspaceId)
         case None =>
           throw new IllegalArgumentException("Workload host name is missing.")
       }

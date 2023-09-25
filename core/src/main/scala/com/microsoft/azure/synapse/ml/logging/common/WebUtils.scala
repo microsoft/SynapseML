@@ -12,7 +12,7 @@ import scala.util.{Success, Try}
 import spray.json.DefaultJsonProtocol.{IntJsonFormat, StringJsonFormat}
 import spray.json.{JsObject, JsValue, _}
 
-object WebUtils {
+trait WebUtils {
   def usagePost(url: String, body: String, headers: Map[String, String]): JsValue = {
     val request = new HttpPost(url)
 

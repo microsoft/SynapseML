@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.logging.Usage
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json._
 
 case class TokenServiceConfig(tokenServiceEndpoint: String,
@@ -18,14 +17,14 @@ object TokenServiceConfigProtocol extends DefaultJsonProtocol {
 
 import TokenServiceConfigProtocol._
 
-object FabricUtils {
-  def getFabricContext: Map[String, String] = {
-    val linesContextFile = StreamUtilities.usingSource(scala.io.Source.fromFile(FabricConstants.ContextFilePath)) {
+object FabricUtils extends FabricConstants {
+  lazy val FabricContext: Map[String, String] = {
+    val linesContextFile = StreamUtilities.usingSource(scala.io.Source.fromFile(contextFilePath)) {
       source => source.getLines().toList
     }.get
 
     val tokenServiceConfig = StreamUtilities.usingSource(scala.io.Source.fromFile
-    (FabricConstants.TokenServiceFilePath)) {
+    (tokenServiceFilePath)) {
       source => source.mkString.parseJson.convertTo[TokenServiceConfig]
     }.get
 
@@ -36,10 +35,10 @@ object FabricUtils {
         (k.trim, v.trim)
       }.toMap
       .++(Seq(
-        (FabricConstants.SynapseTokenServiceEndpoint, tokenServiceConfig.tokenServiceEndpoint),
-        (FabricConstants.SynapseClusterType, tokenServiceConfig.clusterType),
-        (FabricConstants.SynapseClusterIdentifier, tokenServiceConfig.clusterName),
-        (FabricConstants.TridentSessionToken, tokenServiceConfig.sessionToken)
+        (synapseTokenServiceEndpoint, tokenServiceConfig.tokenServiceEndpoint),
+        (synapseClusterType, tokenServiceConfig.clusterType),
+        (synapseClusterIdentifier, tokenServiceConfig.clusterName),
+        (tridentSessionToken, tokenServiceConfig.sessionToken)
       ).toMap)
 
     tridentContext

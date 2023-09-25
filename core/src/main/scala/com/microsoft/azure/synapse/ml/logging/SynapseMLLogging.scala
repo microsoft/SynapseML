@@ -112,16 +112,23 @@ trait SynapseMLLogging extends Logging {
 
   protected def logBase(methodName: String,
                         numCols: Option[Int],
-                        executionSeconds: Option[Double]
+                        executionSeconds: Option[Double],
+                        logCertifiedEvent: Boolean = false
                        ): Unit = {
     logBase(getPayload(
       methodName,
       numCols,
       executionSeconds,
-      None))
+      None), logCertifiedEvent)
   }
 
-  protected def logBase(info: Map[String, String]): Unit = {
+  protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
+    if (logCertifiedEvent) {
+      val certifiedEventPayload = new FeatureUsagePayload(info.get("libraryName").get,
+        info.get("method").get, info -- Seq("libraryName", "method"))
+      reportUsage(certifiedEventPayload)
+    }
+
     logInfo(info.toJson.compactPrint)
   }
 
@@ -132,32 +139,22 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logClass(): Unit = {
-    logBase("constructor", None, None)
+    logBase("Constructor", None, None, true)
   }
 
-  def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true,
-                certifiedEventAttributes: Map[String, String] = Map()): T = {
-    logVerb("fit", f, columns, logCertifiedEvent, certifiedEventAttributes)
+  def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
+    logVerb("Fit", f, columns, logCertifiedEvent)
   }
 
-  def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true,
-                      certifiedEventAttributes: Map[String, String] = Map()): T = {
-    logVerb("transform", f, columns, logCertifiedEvent, certifiedEventAttributes)
+  def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
+    logVerb("Transform", f, columns, logCertifiedEvent)
   }
-  def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = true,
-                 certifiedEventAttributes: Map[String, String] = Map()): T = {
+  def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = false): T = {
     val startTime = System.nanoTime()
     try {
       // Begin emitting certified event.
-      if(logCertifiedEvent)
-      {
-        val certifiedEventPayload = new FeatureUsagePayload("SynapseML",
-          verb, certifiedEventAttributes)
-        reportUsage(certifiedEventPayload)
-      }
-      val ret = f
-      logBase(verb, Some(columns), Some((System.nanoTime() - startTime) / 1e9))
-      ret
+      logBase(verb, Some(columns), Some((System.nanoTime() - startTime) / 1e9), logCertifiedEvent)
+      f
     } catch {
       case e: Exception =>
         logErrorBase(verb, e)

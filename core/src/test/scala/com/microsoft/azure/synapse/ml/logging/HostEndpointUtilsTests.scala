@@ -4,10 +4,9 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants
 
-class UsageUtilsTests extends TestBase {
-
-  import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants.{WorkloadEndpointAdmin}
+class UsageUtilsTests extends TestBase with FabricConstants {
   import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
 
   val target = "c528701c8f9442c0b65a1660171c306c.pbidedicated.windows-int.net/webapi/Capacities/" +
@@ -17,7 +16,7 @@ class UsageUtilsTests extends TestBase {
   val wlHost = "c528701c8f9442c0b65a1660171c306c.pbidedicated.windows-int.net"
   val workspaceId = "89b9b330-6eac-4ee1-b225-590dfd68e4be"
   test("ML Workload Endpoint Check"){
-    val url = getMLWorkloadEndpoint(this.wlHost, this.capacityId, WorkloadEndpointAdmin, this.workspaceId)
+    val url = getMLWorkloadEndpoint(this.wlHost, this.capacityId, workloadEndpointAdmin, this.workspaceId)
     assert(url == target)
   }
 }

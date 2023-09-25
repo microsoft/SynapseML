@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils._
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import java.time.Instant
 import java.util.UUID
@@ -14,7 +14,7 @@ import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
 import spray.json.RootJsonFormat
 
 case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
-object TokenUtils {
+object TokenUtils extends WebUtils {
   private var AADToken: Option[String] = None
   val MwcWorkloadTypeMl = "ML"
 

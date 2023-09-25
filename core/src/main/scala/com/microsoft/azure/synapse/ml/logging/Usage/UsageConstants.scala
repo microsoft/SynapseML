@@ -3,24 +3,24 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-object FabricConstants {
-  val EmitUsage = "EmitUsage"
-  val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
+trait FabricConstants {
+  val emitUsage = "EmitUsage"
+  val fabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
 
-  val ContextFilePath = "/home/trusted-service-user/.trident-context"
-  val TokenServiceFilePath = "/opt/token-service/tokenservice.config.json"
+  val contextFilePath = "/home/trusted-service-user/.trident-context"
+  val tokenServiceFilePath = "/opt/token-service/tokenservice.config.json"
 
-  val SynapseTokenServiceEndpoint = "synapse.tokenServiceEndpoint"
-  val SynapseClusterIdentifier = "synapse.clusterIdentifier"
-  val SynapseClusterType = "synapse.clusterType"
-  val TridentLakehouseTokenServiceEndpoint = "trident.lakehouse.tokenservice.endpoint"
-  val TridentSessionToken = "trident.session.token"
-  val WebApi = "webapi"
-  val Capacities = "Capacities"
-  val Workloads = "workloads"
-  val WorkspaceID = "workspaceid"
+  val synapseTokenServiceEndpoint = "synapse.tokenServiceEndpoint"
+  val synapseClusterIdentifier = "synapse.clusterIdentifier"
+  val synapseClusterType = "synapse.clusterType"
+  val tridentLakehouseTokenServiceEndpoint = "trident.lakehouse.tokenservice.endpoint"
+  val tridentSessionToken = "trident.session.token"
+  val webApi = "webapi"
+  val capacities = "Capacities"
+  val workloads = "workloads"
+  val workspaceID = "workspaceid"
 
-  val WorkloadEndpointMl = "ML"
-  val WorkloadEndpointAutomatic = "Automatic"
-  val WorkloadEndpointAdmin = "MLAdmin"
+  val workloadEndpointMl = "ML"
+  val workloadEndpointAutomatic = "Automatic"
+  val workloadEndpointAdmin = "MLAdmin"
 }

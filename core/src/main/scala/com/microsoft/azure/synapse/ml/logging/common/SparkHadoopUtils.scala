@@ -7,7 +7,7 @@ import org.apache.spark.SparkContext
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.sql.SparkSession
 
-object SparkHadoopUtils {
+trait SparkHadoopUtils {
 
   def getHadoopConfig(key: String, sc: Option[SparkContext]): String = {
     lazy val hadoopConfig: String = sc match{

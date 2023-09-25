@@ -3,15 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.logging.Usage
 
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants._
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils.requestGet
+import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import java.lang.management.ManagementFactory
 import java.net.URL
 import java.net.InetAddress
 import java.util.UUID
-import spray.json.{JsArray, JsObject, JsValue, _}
 
-class FabricTokenServiceClient {
+class FabricTokenServiceClient extends FabricConstants with WebUtils {
   private val resourceMapping = Map(
     "https://storage.azure.com" -> "storage",
     "storage" -> "storage",
@@ -27,11 +25,11 @@ class FabricTokenServiceClient {
   private val processDetail = ManagementFactory.getRuntimeMXBean.getName
   private val processName = processDetail.substring(processDetail.indexOf('@') + 1)
 
-  private val fabricContext = FabricUtils.getFabricContext
-  private val synapseTokenServiceEndpoint: String = fabricContext(synapseTokenServiceEndpoint)
-  private val workloadEndpoint = fabricContext(TridentLakehouseTokenServiceEndpoint)
-  private val sessionToken = fabricContext(TridentSessionToken)
-  private val clusterIdentifier = fabricContext(SynapseClusterIdentifier)
+  private val fabricContext = FabricUtils.FabricContext
+  private val synapseTokServiceEndpoint: String = fabricContext(synapseTokenServiceEndpoint)
+  private val workloadEndpoint = fabricContext(tridentLakehouseTokenServiceEndpoint)
+  private val sessionToken = fabricContext(tridentSessionToken)
+  private val clusterIdentifier = fabricContext(synapseClusterIdentifier)
 
   def getAccessToken(resourceParam: String): String = {
     if (!resourceMapping.contains(resourceParam)) {
@@ -49,7 +47,7 @@ class FabricTokenServiceClient {
       "User-Agent" -> s"Trident Token Library - HostName:$hostname, ProcessName:$processName",
       "x-ms-client-request-id" -> rid
     )
-    val url = s"$synapseTokenServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=${resource.get}"
+    val url = s"$synapseTokServiceEndpoint/api/v1/proxy${targetUrl.getPath}/access?resource=${resource.get}"
 
     requestGet(url, headers, "content").toString().getBytes("UTF-8").toString
   }
