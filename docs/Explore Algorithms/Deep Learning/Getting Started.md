@@ -21,12 +21,12 @@ Restarting the cluster automatically installs horovod v0.25.0 with pytorch_light
 You could install the single synapseml-deep-learning wheel package to get the full functionality of deep vision classification.
 Run the following command:
 ```powershell
-pip install synapseml==0.11.2
+pip install synapseml==0.11.3
 ```
 
 An alternative is installing the SynapseML jar package in library management section, by adding:
 ```
-Coordinate: com.microsoft.azure:synapseml_2.12:0.11.2
+Coordinate: com.microsoft.azure:synapseml_2.12:0.11.3
 Repository: https://mmlspark.azureedge.net/maven
 ```
 :::note
