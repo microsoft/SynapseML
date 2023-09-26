@@ -89,6 +89,19 @@ jobs:
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
     - bash: |
         set -e
+        sbt publishSigned
+        python tools/esrp/prepare_jar.py
+      displayName: ESRP release
+      env:
+        STORAGE-KEY: $(storage-key)
+        NEXUS-UN: $(nexus-un)
+        NEXUS-PW: $(nexus-pw)
+        PGP-PRIVATE: $(pgp-private)
+        PGP-PUBLIC: $(pgp-public)
+        PGP-PW: $(pgp-pw)
+        SYNAPSEML-ENABLE-PUBLISH: true
+    - bash: |
+        set -e
         sudo apt-get install graphviz doxygen -y
         source activate synapseml
         sbt packagePython
