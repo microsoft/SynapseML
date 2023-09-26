@@ -44,7 +44,9 @@ def flatten_dir(top_dir):
                     # Find a new destination path that does not exist yet
                     while os.path.exists(new_destination):
                         counter += 1
-                        new_destination = os.path.join(top_dir, f"{base}_{counter}{ext}")
+                        new_destination = os.path.join(
+                            top_dir, f"{base}_{counter}{ext}"
+                        )
 
                     destination = new_destination
 

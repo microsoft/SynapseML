@@ -92,34 +92,11 @@ jobs:
         sudo apt-get install graphviz doxygen -y
         source activate synapseml
         sbt packagePython
-        sbt publishLocalSigned
-        python tools/esrp/prepare_jar.py
-      displayName: ESRP release prep
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
-    - task: EsrpRelease@3
-      inputs:
-        ConnectedServiceName: 'DataScienceESRPRelease'
-        Intent: 'PackageDistribution'
-        ContentType: 'Maven'
-        PackageLocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'admukund@microsoft.com,richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
-        ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
-        MainPublisher: 'synapseml'
-        DomainTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-      displayName: 'ESRP Publish Package'
-    - bash: |
-        set -e
         sbt publishBlob publishDocs publishR publishPython uploadNotebooks
         sbt genBuildInfo
         echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+        sbt publishLocalSigned
+        python tools/esrp/prepare_jar.py
       displayName: Publish Artifacts
       env:
         STORAGE-KEY: $(storage-key)
