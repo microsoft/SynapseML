@@ -103,18 +103,6 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
-    - task: EsrpRelease@3
-      inputs:
-        ConnectedServiceName: 'DataScienceESRPRelease'
-        Intent: 'PackageDistribution'
-        ContentType: 'Maven'
-        PackageLocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'admukund@microsoft.com,richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
-        ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
-        MainPublisher: 'synapseml'
-        DomainTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-      displayName: 'ESRP Publish Package'
     - bash: |
         set -e
         sbt publishBlob publishDocs publishR publishPython uploadNotebooks
@@ -348,8 +336,8 @@ jobs:
     - bash: |
         set -e
         source activate synapseml
-        sbt publishSigned
-        sbt sonatypeBundleRelease
+        sbt publishLocalSigned
+        python tools/esrp/prepare_jar.py
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       env:
         STORAGE-KEY: $(storage-key)
@@ -360,6 +348,18 @@ jobs:
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish jar package to maven central'
+    - task: EsrpRelease@3
+      inputs:
+        ConnectedServiceName: 'DataScienceESRPRelease'
+        Intent: 'PackageDistribution'
+        ContentType: 'Maven'
+        PackageLocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
+        Owners: 'admukund@microsoft.com,richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+        Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
+        ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
+        MainPublisher: 'synapseml'
+        DomainTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
+      displayName: 'ESRP Publish Package'
 
 - job: PythonTests
   timeoutInMinutes: 120
