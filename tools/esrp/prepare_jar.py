@@ -7,9 +7,20 @@ current_username = getpass.getuser()
 
 root_dir = f"/home/{current_username}/.ivy2/local/com.microsoft.azure/"
 
-version = list(glob.glob(os.path.join(root_dir, "*", "*")))[0].split("/")[-2]
 
-print(version)
+def find_second_level_folder(root):
+    # Walk through the root directory
+    for foldername, subfolders, filenames in os.walk(root):
+        # Check if the current folder is a second-level folder by comparing its depth to the root's depth
+        if foldername.count(os.path.sep) == root.count(os.path.sep) + 1:
+            # Return the name of the second-level folder
+            return os.path.basename(foldername)
+    # Return None if no such folder is found
+    return None
+
+
+version = find_second_level_folder(root_dir)
+
 
 def flatten_dir(top_dir):
     # Collect directories to delete
@@ -65,5 +76,3 @@ for top_dir in os.listdir(root_dir):
             new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
             new_file_path = os.path.join(path_to_jars, new_file)
             shutil.move(old_file_path, new_file_path)
-
-
