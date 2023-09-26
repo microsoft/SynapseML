@@ -1,11 +1,15 @@
 import getpass
 import os
 import shutil
+import glob
 
 current_username = getpass.getuser()
 
 root_dir = f"/home/{current_username}/.ivy2/local/com.microsoft.azure/"
 
+version = list(glob.glob(os.path.join(root_dir, "*", "*")))[0].split("/")[-2]
+
+print(version)
 
 def flatten_dir(top_dir):
     # Collect directories to delete
@@ -51,14 +55,14 @@ for top_dir in os.listdir(root_dir):
     flatten_dir(path_to_jars)
 
     for file in os.listdir(path_to_jars):
-        if "_2.12" in file and top_dir not in file:
+        if "_2.12" in file and version not in file:
             old_file_path = os.path.join(path_to_jars, file)
             name_parts = file.split("_2.12")
             if name_parts[1].startswith(".") or name_parts[1].startswith("-"):
                 sep_char = ""
             else:
                 sep_char = "-"
-            new_file = f"{name_parts[0]}_2.12-{top_dir}{sep_char}{name_parts[1]}"
+            new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
             new_file_path = os.path.join(path_to_jars, new_file)
             shutil.move(old_file_path, new_file_path)
 
