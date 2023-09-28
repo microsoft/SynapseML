@@ -22,7 +22,6 @@ object UsageTelemetry extends FabricConstants with WebUtils {
   private lazy val PbiEnv = SC.getConf.get("spark.trident.pbienv", "").toLowerCase()
 
   private lazy val SharedHost = getMlflowSharedHost(PbiEnv)
-  private val SharedEndpoint = f"{SharedHost}/metadata/workspaces/{WorkspaceId}/artifacts"
   private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, Some(SharedHost))
 
   def reportUsage(payload: FeatureUsagePayload): Unit = {

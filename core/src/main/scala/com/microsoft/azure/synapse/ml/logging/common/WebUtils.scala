@@ -4,7 +4,6 @@
 package com.microsoft.azure.synapse.ml.logging.common
 
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
