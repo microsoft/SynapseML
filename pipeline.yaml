@@ -59,6 +59,14 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     - task: AzureCLI@2
+      displayName: Azure CLI2
+      inputs:
+        azureSubscription: Azure
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az get-access-token
+    - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
         azureSubscription: 'SynapseML Build'
