@@ -8,13 +8,6 @@ trait FabricConstants {
   val fabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
 
   val contextFilePath = "/home/trusted-service-user/.trident-context"
-  val tokenServiceFilePath = "/opt/token-service/tokenservice.config.json"
-
-  val synapseTokenServiceEndpoint = "synapse.tokenServiceEndpoint"
-  val synapseClusterIdentifier = "synapse.clusterIdentifier"
-  val synapseClusterType = "synapse.clusterType"
-  val tridentLakehouseTokenServiceEndpoint = "trident.lakehouse.tokenservice.endpoint"
-  val tridentSessionToken = "trident.session.token"
   val webApi = "webapi"
   val capacities = "Capacities"
   val workloads = "workloads"

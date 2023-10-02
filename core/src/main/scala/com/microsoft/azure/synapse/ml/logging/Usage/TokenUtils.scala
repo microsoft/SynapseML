@@ -7,7 +7,6 @@ import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import java.time.Instant
 import java.util.UUID
-import org.apache.spark.SparkContext
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
@@ -73,11 +72,7 @@ object TokenUtils extends WebUtils {
   }
 
   private def refreshAccessToken(): Unit = {
-    if (SparkContext.getOrCreate() != null) {
-      AADToken = Some(getAccessToken("pbi"))
-    } else {
-      AADToken = Some(new FabricTokenServiceClient().getAccessToken("pbi"))
-    }
+    AADToken = Some(getAccessToken("pbi"))
   }
 
   def getMwcToken(shared_host: String, WorkspaceId: String, capacity_id: String,
