@@ -3,8 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.logging.fabric
 
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import java.time.Instant
 import java.util.UUID
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
@@ -16,15 +14,6 @@ case class MwcToken(TargetUriHost: String, CapacityObjectId: String, Token: Stri
 object TokenUtils extends WebUtils {
   private var AADToken: Option[String] = None
   val MwcWorkloadTypeMl = "ML"
-
-  def getAccessToken: String = {
-    if (isTokenValid(AADToken))
-      this.AADToken.get
-    else {
-      refreshAccessToken()
-      this.AADToken.get
-    }
-  }
 
   def getAccessToken(tokenType: String): String = {
 
@@ -48,33 +37,6 @@ object TokenUtils extends WebUtils {
     methodMirror(tokenType).asInstanceOf[String]
   }
 
-  private def isTokenValid(tokenOption: Option[String]): Boolean = {
-    tokenOption match {
-      case Some(token) if token.nonEmpty =>
-        try {
-          val tokenParser = new FabricTokenParser(token)
-          val expiryEpoch = tokenParser.getExpiry
-          val now = Instant.now().getEpochSecond
-          now < expiryEpoch - 60
-        } catch {
-          case e: InvalidJwtTokenException =>
-            SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token used to trigger telemetry " +
-              s"endpoint is invalid. Exception = $e")
-            false
-          case e: JwtTokenExpiryMissingException =>
-            SynapseMLLogging.logMessage(s"TokenUtils::checkTokenValid: Token misses expiry. " +
-              s"Exception = $e")
-            false
-        }
-      case _ =>
-        false // No value is present or the value is empty
-    }
-  }
-
-  private def refreshAccessToken(): Unit = {
-    AADToken = Some(getAccessToken("pbi"))
-  }
-
   def getMwcToken(sharedHost: String,
                   workspaceId: String,
                   capacityId: String,
@@ -88,7 +50,7 @@ object TokenUtils extends WebUtils {
          |"workloadType": "$workloadType"
     }""".stripMargin
 
-    val driverAADToken = getAccessToken
+    val driverAADToken = getAccessToken("pbi")
 
     val headers = Map(
       "Content-Type" -> "application/json",

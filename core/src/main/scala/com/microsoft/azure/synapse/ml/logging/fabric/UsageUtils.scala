@@ -65,7 +65,7 @@ object UsageTelemetry extends FabricConstants with WebUtils {
 
       val headers = Map(
         "Content-Type" -> "application/json",
-        "Authorization" -> s"""Bearer ${getAccessToken}""".stripMargin,
+        "Authorization" -> s"""Bearer ${getAccessToken("pbi")}""".stripMargin,
         "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
       )
       usagePost(url, data, headers)

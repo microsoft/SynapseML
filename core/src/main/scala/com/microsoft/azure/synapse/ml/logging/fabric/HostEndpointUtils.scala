@@ -26,7 +26,7 @@ object HostEndpointUtils extends FabricConstants with WebUtils {
 
     val url = pbiGlobalServiceEndpoints.getOrElse(pbienv, defaultGlobalServiceEndpoint) + fetchClusterDetailUri
     val headers = Map(
-      "Authorization" -> s"Bearer ${TokenUtils.getAccessToken}",
+      "Authorization" -> s"Bearer ${TokenUtils.getAccessToken("pbi")}",
       "RequestId" -> java.util.UUID.randomUUID().toString
     )
     usageGet(url, headers).asJsObject.fields("clusterUrl").convertTo[String]
