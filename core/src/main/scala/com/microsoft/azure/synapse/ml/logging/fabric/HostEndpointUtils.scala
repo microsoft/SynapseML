@@ -1,9 +1,8 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.logging.Usage
+package com.microsoft.azure.synapse.ml.logging.fabric
 
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object HostEndpointUtils extends FabricConstants with WebUtils {
@@ -52,7 +51,7 @@ object HostEndpointUtils extends FabricConstants with WebUtils {
     }
   }
 
-  def getMLWorkloadEndpoint(wlHost: String, capacityId: String, endpoint: String,  workspaceId: String): String = {
+  def getMLWorkloadEndpoint(wlHost: String, capacityId: String, endpoint: String, workspaceId: String): String = {
     val mlWorkloadEndpoint = s"$wlHost/$webApi/$capacities/$capacityId/$workloads/" +
       s"$workloadEndpointMl/$endpoint/$workloadEndpointAutomatic/${workspaceID}/$workspaceId/"
     mlWorkloadEndpoint

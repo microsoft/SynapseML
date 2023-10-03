@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.logging.Usage.{FabricTokenParser, InvalidJwtTokenException}
+import com.microsoft.azure.synapse.ml.logging.fabric.{FabricTokenParser, InvalidJwtTokenException}
 
 import scala.io.Source
 import spray.json._

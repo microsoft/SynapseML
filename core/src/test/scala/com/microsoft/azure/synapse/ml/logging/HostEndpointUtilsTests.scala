@@ -4,10 +4,10 @@
 package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.logging.Usage.FabricConstants
+import com.microsoft.azure.synapse.ml.logging.fabric.FabricConstants
 
 class UsageUtilsTests extends TestBase with FabricConstants {
-  import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
+  import com.microsoft.azure.synapse.ml.logging.fabric.HostEndpointUtils._
 
   val target = "c528701c8f9442c0b65a1660171c306c.pbidedicated.windows-int.net/webapi/Capacities/" +
     "c528701c-8f94-42c0-b65a-1660171c306c/workloads/ML/MLAdmin/Automatic/" +

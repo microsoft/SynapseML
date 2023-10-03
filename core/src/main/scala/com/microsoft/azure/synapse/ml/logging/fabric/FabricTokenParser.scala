@@ -1,16 +1,19 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.logging.Usage
+package com.microsoft.azure.synapse.ml.logging.fabric
 
 import spray.json._
 
 class InvalidJwtTokenException(message: String) extends Exception(message)
+
 class JwtTokenExpiryMissingException(message: String) extends Exception(message)
+
 class FabricTokenParser(JWToken: String) {
   private val tokens: Array[String] = JWToken.split("\\.")
   private val parsedToken: JsValue = tokenCheckAndDecode(Some(tokens))
-  def getExpiry: Long ={
+
+  def getExpiry: Long = {
     val exp: Option[Long] = parsedToken.asJsObject.fields.get("exp").collect { case JsNumber(value) => value.toLong }
     exp match {
       case Some(expValue) =>
@@ -21,7 +24,7 @@ class FabricTokenParser(JWToken: String) {
     }
   }
 
-  private def tokenCheckAndDecode(tokens: Option[Array[String]]): JsValue ={
+  private def tokenCheckAndDecode(tokens: Option[Array[String]]): JsValue = {
     tokens match {
       case Some(tokens) =>
         if (tokens.length == 3) {

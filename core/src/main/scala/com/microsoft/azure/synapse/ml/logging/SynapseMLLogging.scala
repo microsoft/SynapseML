@@ -5,8 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
-import com.microsoft.azure.synapse.ml.logging.Usage.FeatureUsagePayload
-import com.microsoft.azure.synapse.ml.logging.Usage.UsageTelemetry.reportUsage
+import com.microsoft.azure.synapse.ml.logging.fabric.UsageTelemetry.reportUsage
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
@@ -124,9 +123,11 @@ trait SynapseMLLogging extends Logging {
 
   protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
     if (logCertifiedEvent) {
-      val certifiedEventPayload = new FeatureUsagePayload(info.get("libraryName").get,
-        info.get("method").get, info -- Seq("libraryName", "method"))
-      reportUsage(certifiedEventPayload)
+      reportUsage(
+        info("libraryName"),
+        info("method"),
+        info -- Seq("libraryName", "method")
+      )
     }
 
     logInfo(info.toJson.compactPrint)
@@ -149,6 +150,7 @@ trait SynapseMLLogging extends Logging {
   def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
     logVerb("transform", f, columns, logCertifiedEvent)
   }
+
   def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = false): T = {
     val startTime = System.nanoTime()
     try {

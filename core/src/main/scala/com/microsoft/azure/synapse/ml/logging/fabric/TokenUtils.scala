@@ -1,9 +1,8 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.logging.Usage
+package com.microsoft.azure.synapse.ml.logging.fabric
 
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import java.time.Instant
 import java.util.UUID
@@ -12,7 +11,8 @@ import scala.reflect.runtime.universe._
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, jsonFormat3}
 import spray.json.RootJsonFormat
 
-case class MwcToken (TargetUriHost: String, CapacityObjectId: String, Token: String)
+case class MwcToken(TargetUriHost: String, CapacityObjectId: String, Token: String)
+
 object TokenUtils extends WebUtils {
   private var AADToken: Option[String] = None
   val MwcWorkloadTypeMl = "ML"
@@ -75,14 +75,17 @@ object TokenUtils extends WebUtils {
     AADToken = Some(getAccessToken("pbi"))
   }
 
-  def getMwcToken(shared_host: String, WorkspaceId: String, capacity_id: String,
-                    workload_type: String): Option[MwcToken]= {
-    val url: String = shared_host + "/metadata/v201606/generatemwctokenv2"
+  def getMwcToken(sharedHost: String,
+                  workspaceId: String,
+                  capacityId: String,
+                  workloadType: String): Option[MwcToken] = {
+    val url: String = sharedHost + "/metadata/v201606/generatemwctokenv2"
 
-    val payLoad = s"""{
-      |"capacityObjectId": "$capacity_id",
-      |"workspaceObjectId": "$WorkspaceId",
-      |"workloadType": "$workload_type"
+    val payLoad =
+      s"""{
+         |"capacityObjectId": "$capacityId",
+         |"workspaceObjectId": "$workspaceId",
+         |"workloadType": "$workloadType"
     }""".stripMargin
 
     val driverAADToken = getAccessToken

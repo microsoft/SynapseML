@@ -1,12 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.logging.Usage
+package com.microsoft.azure.synapse.ml.logging.fabric
 
-import com.microsoft.azure.synapse.ml.logging.common.WebUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import com.microsoft.azure.synapse.ml.logging.Usage.HostEndpointUtils._
-import com.microsoft.azure.synapse.ml.logging.Usage.TokenUtils.getAccessToken
+import com.microsoft.azure.synapse.ml.logging.fabric.HostEndpointUtils._
+import com.microsoft.azure.synapse.ml.logging.fabric.TokenUtils.getAccessToken
 
 import java.time.Instant
 import java.util.UUID
@@ -24,12 +23,15 @@ object UsageTelemetry extends FabricConstants with WebUtils {
   private lazy val SharedHost = getMlflowSharedHost(PbiEnv)
   private val WlHost = getMlflowWorkloadHost(PbiEnv, CapacityId, WorkspaceId, Some(SharedHost))
 
-  def reportUsage(payload: FeatureUsagePayload): Unit = {
+  def reportUsage(featureName: String,
+                  activityName: String,
+                  attributes: Map[String, String]): Unit = {
     if (sys.env.getOrElse(emitUsage, "true").toLowerCase == "true") {
       try {
-        reportUsageTelemetry(payload.feature_name,
-          payload.activity_name,
-          payload.attributes)
+        reportUsageTelemetry(
+          featureName,
+          activityName,
+          attributes)
       } catch {
         case runtimeError: Exception =>
           SynapseMLLogging.logMessage(s"UsageTelemetry::reportUsage: Hit issue emitting usage telemetry." +
@@ -38,9 +40,10 @@ object UsageTelemetry extends FabricConstants with WebUtils {
     }
   }
 
-  private def reportUsageTelemetry(featureName: String, activityName: String,
-                                   attributes: Map[String,String] = Map()): Unit = {
-    if (sys.env.getOrElse(fabricFakeTelemetryReportCalls,"false").toLowerCase == "false") {
+  private def reportUsageTelemetry(featureName: String,
+                                   activityName: String,
+                                   attributes: Map[String, String]): Unit = {
+    if (sys.env.getOrElse(fabricFakeTelemetryReportCalls, "false").toLowerCase == "false") {
       val attributesJson = attributes.toJson.compactPrint
       val data =
         s"""{
