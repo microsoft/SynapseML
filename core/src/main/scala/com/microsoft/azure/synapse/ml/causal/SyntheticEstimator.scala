@@ -22,7 +22,6 @@ trait SyntheticEstimator {
   private[causal] lazy val postTreatment = col(getPostTreatmentCol)
   private[causal] lazy val treatment = col(getTreatmentCol)
   private[causal] lazy val outcome = col(getOutcomeCol)
-  private[causal] val interactionCol = "interaction"
   private[causal] val weightsCol = "weights"
   private[causal] val epsilon = 1E-10
 
@@ -61,12 +60,7 @@ trait SyntheticEstimator {
     val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
     val outcomePre = indexedPreControl
-      .select(
-        col(UnitIdxCol).as("i"),
-        col(TimeIdxCol).as("j"),
-        col(getOutcomeCol).as("value")
-      )
-      .as[MatrixEntry]
+      .toDMatrix(UnitIdxCol, TimeIdxCol, getOutcomeCol)
 
     val outcomePostMean = indexedControlDf.filter(postTreatment)
       .groupBy(col(UnitIdxCol).as("i"))
@@ -100,8 +94,7 @@ trait SyntheticEstimator {
 
 
     val outcomePreControl = indexedPreDf.filter(not(treatment))
-      .select(col(TimeIdxCol).as("i"), col(UnitIdxCol).as("j"), outcome.as("value"))
-      .as[MatrixEntry]
+      .toDMatrix(TimeIdxCol, UnitIdxCol, getOutcomeCol)
 
     val outcomePreTreatMean = indexedPreDf.filter(treatment)
       .groupBy(col(TimeIdxCol).as("i"))

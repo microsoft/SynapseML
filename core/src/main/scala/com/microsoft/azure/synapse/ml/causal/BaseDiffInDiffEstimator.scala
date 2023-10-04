@@ -5,9 +5,8 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{LongType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 abstract class BaseDiffInDiffEstimator(override val uid: String)
   extends Estimator[DiffInDiffModel]
@@ -17,7 +16,7 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 
   override def copy(extra: ParamMap): Estimator[DiffInDiffModel] = defaultCopy(extra)
 
-  val interactionCol = "interaction"
+  private[causal] val interactionCol = "interaction"
 
   private[causal] def fitLinearModel(did_data: DataFrame, weightCol: Option[String] = None) = {
     val assembler = new VectorAssembler()

@@ -2,10 +2,12 @@ package com.microsoft.azure.synapse.ml.causal.linalg
 
 import breeze.linalg.{norm, DenseVector => BDV, max => bmax, sum => bsum}
 import breeze.numerics.{abs => babs, exp => bexp}
-import breeze.stats.distributions.{Rand, RandBasis}
+import breeze.stats.distributions.RandBasis
 import breeze.stats.{mean => bmean}
 import org.apache.spark.mllib.random.RandomRDDs.uniformRDD
-import org.apache.spark.sql.functions.{coalesce, col, lit}
+import org.apache.spark.sql.functions.{
+  coalesce, col, lit, exp => sexp, mean => smean, sum => ssum, max => smax, abs => sabs
+}
 import org.apache.spark.sql.{Encoder, Encoders, Row, SparkSession}
 
 case class VectorEntry(i: Long, value: Double)
@@ -47,7 +49,7 @@ object DVectorOps extends VectorOps[DVector] {
     */
   def nrm2(vector: DVector): Double = {
     val Row(sumOfSquares: Double) = vector
-      .agg(org.apache.spark.sql.functions.sum(col("value") * col("value")))
+      .agg(ssum(col("value") * col("value")))
       .head
     math.sqrt(sumOfSquares)
   }
@@ -56,42 +58,38 @@ object DVectorOps extends VectorOps[DVector] {
     * alpha * x + y
     */
   def axpy(x: DVector, yOpt: Option[DVector], alpha: Double = 1d): DVector = {
-    val ax = x.select(col("i"), (lit(alpha) * col("value")).as("value"))
+    val ax = x.toDVector(col("i"), lit(alpha) * col("value"))
 
     yOpt.map {
         y =>
           ax.as("l")
             .join(y.as("r"), col("l.i") === col("r.i"), "outer")
-            .select(
-              coalesce(col("l.i"), col("r.i")).as("i"),
-              (coalesce(col("l.value"), lit(0d))
-                + coalesce(col("r.value"), lit(0d))).as("value")
+            .toDVector(
+              coalesce(col("l.i"), col("r.i")),
+              coalesce(col("l.value"), lit(0d))
+                + coalesce(col("r.value"), lit(0d))
             )
       }
       .getOrElse(ax)
-      .as[VectorEntry]
   }
 
   def maxAbs(vec: DVector): Double = {
     val Row(value: Double) = vec
-      .agg(org.apache.spark.sql.functions.max(org.apache.spark.sql.functions.abs(col("value"))))
+      .agg(smax(sabs(col("value"))))
       .head
     value
   }
 
   def sum(vec: DVector): Double = {
     val Row(value: Double) = vec
-      .agg(org.apache.spark.sql.functions.sum(col("value")))
+      .agg(ssum(col("value")))
       .head
     value
   }
 
   def elementwiseProduct(vec1: DVector, vec2: DVector): DVector = {
     vec1.as("l").join(vec2.as("r"), col("l.i") === col("r.i"), "inner")
-      .select(
-        col("l.i").as("i"),
-        (col("l.value") * col("r.value")).alias("value")
-      ).as[VectorEntry]
+      .toDVector(col("l.i"), col("l.value") * col("r.value"))
   }
 
   def uniformRandom(size: Long, seed: Long = util.Random.nextLong): DVector = {
@@ -102,29 +100,29 @@ object DVectorOps extends VectorOps[DVector] {
   }
 
   override def exp(vec: DVector): DVector = {
-    vec.select(
+    vec.toDVector(
       col("i"),
-      org.apache.spark.sql.functions.exp(col("value")).as("value")
-    ).as[VectorEntry]
+      sexp(col("value"))
+    )
   }
 
   override def center(vec: DVector): DVector = {
     val m = mean(vec)
-    vec.select(
+    vec.toDVector(
       col("i"),
-      (col("value") - lit(m)).as("value")
-    ).as[VectorEntry]
+      col("value") - lit(m)
+    )
   }
 
   override def mean(vec: DVector): Double = {
-    val Row(mean: Double) = vec.agg(org.apache.spark.sql.functions.mean(col("value"))).head
+    val Row(mean: Double) = vec.agg(smean(col("value"))).head
     mean
   }
 
   override def dot(vec1: DVector, vec2: DVector): Double = {
     val Row(dot: Double) = vec1.as("l")
       .join(vec2.as("r"), col("l.i") === col("r.i"), "inner")
-      .agg(org.apache.spark.sql.functions.sum(col("l.value") * col("r.value")).as("value"))
+      .agg(ssum(col("l.value") * col("r.value")).as("value"))
       .head
     dot
   }

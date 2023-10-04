@@ -2,7 +2,7 @@ package com.microsoft.azure.synapse.ml.causal.linalg
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import breeze.stats.mean
-import org.apache.spark.sql.functions.{col, lit, sum}
+import org.apache.spark.sql.functions.{col, lit, sum, mean => smean, max => smax}
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{Encoder, Encoders, Row}
 
@@ -32,7 +32,6 @@ trait MatrixOps[TMatrix, TVector] {
 }
 
 object DMatrixOps extends MatrixOps[DMatrix, DVector] {
-  private implicit val MatrixEntryEncoder: Encoder[MatrixEntry] = Encoders.product[MatrixEntry]
   private implicit val VectorEntryEncoder: Encoder[VectorEntry] = Encoders.product[VectorEntry]
 
   /**
@@ -52,31 +51,29 @@ object DMatrixOps extends MatrixOps[DMatrix, DVector] {
       .as[VectorEntry]
 
     yOpt.map {
-        y =>
-          DVectorOps.axpy(y, Some(alphaAx), beta)
-      }.getOrElse(alphaAx)
-      .as[VectorEntry]
+      y =>
+        DVectorOps.axpy(y, Some(alphaAx), beta)
+    }.getOrElse(alphaAx)
   }
 
   def transpose(matrix: DMatrix): DMatrix = {
-    matrix.select(
-      col("j").as("i"),
-      col("i").as("j"),
-      col("value")
-    ).as[MatrixEntry]
+    matrix.toDMatrix("j", "i", "value")
   }
 
   override def centerColumns(matrix: DMatrix): DMatrix = {
     val colMean = matrix.groupBy(col("j")).agg(
-      org.apache.spark.sql.functions.mean(col("value")).as("value")
+      smean(col("value")).as("value")
     )
 
-    matrix.as("l").join(colMean.as("r"), col("l.j") === col("r.j"), "inner")
-      .select(
-        col("l.i").as("i"),
-        col("l.j").as("j"),
-        (col("l.value") - col("r.value")).as("value")
-      ).as[MatrixEntry]
+    matrix.as("l").join(
+      colMean.as("r"),
+      col("l.j") === col("r.j"),
+      "inner"
+    ).toDMatrix(
+      col("l.i"),
+      col("l.j"),
+      col("l.value") - col("r.value")
+    )
   }
 
   /**
@@ -84,17 +81,14 @@ object DMatrixOps extends MatrixOps[DMatrix, DVector] {
     */
   override def colMean(matrix: DMatrix): DVector = {
     matrix.groupBy(col("j")).agg(
-      org.apache.spark.sql.functions.mean(col("value")).as("value")
-    ).select(
-      col("j").as("i"),
-      col("value")
-    ).as[VectorEntry]
+      smean(col("value")).as("value")
+    ).toDVector("j", "value")
   }
 
   override def size(matrix: DMatrix): (Long, Long) = {
     val Row(m: Long, n: Long) = matrix.agg(
-      org.apache.spark.sql.functions.max(col("i")).cast(LongType) + 1,
-      org.apache.spark.sql.functions.max(col("j")).cast(LongType) + 1
+      smax(col("i")).cast(LongType) + 1,
+      smax(col("j")).cast(LongType) + 1
     ).head
 
     (m, n)
