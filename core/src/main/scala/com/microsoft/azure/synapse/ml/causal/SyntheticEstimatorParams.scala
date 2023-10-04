@@ -1,7 +1,9 @@
 package com.microsoft.azure.synapse.ml.causal
 
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
+import org.apache.spark.ml.param.{IntParam, LongParam, Param, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.{HasMaxIter, HasStepSize, HasTol}
+
+import scala.util.Random
 
 trait SyntheticEstimatorParams extends Params
   with HasUnitCol
@@ -28,6 +30,33 @@ trait SyntheticEstimatorParams extends Params
 
   def setNumIterNoChange(value: Int): this.type = set(numIterNoChange, value)
 
+  /**
+    * Param for creating the randomized initial solution to the constrained least square problem.
+    * @group expertParam
+    */
+  final val seed = new LongParam(this, "seed", "seed for randomized initial solution")
+
+  /** @group expertGetParam */
+  def getSeed: Long = $(seed)
+
+  /** @group expertGetParam */
+  def setSeed(value: Long): this.type = set(seed, value)
+
+  /**
+    * Param for deciding whether to collect part of data on driver node and solve the constrained least square problems
+    * locally on driver.
+    * @group expertParam
+    */
+  final val localSolverThreshold = new LongParam(this, "localSolverThreshold",
+    "threshold for using local solver on driver node. Local solver is faster but relies on part of data " +
+      "being collected on driver node.")
+
+  /** @group expertGetParam */
+  def getLocalSolverThreshold: Long = $(localSolverThreshold)
+
+  /** @group expertGetParam */
+  def setLocalSolverThreshold(value: Long): this.type = set(localSolverThreshold, value)
+
   def setMaxIter(value: Int): this.type = set(maxIter, value)
 
   def setStepSize(value: Double): this.type = set(stepSize, value)
@@ -38,6 +67,8 @@ trait SyntheticEstimatorParams extends Params
     stepSize -> 0.5,
     tol -> 1E-3,
     maxIter -> 100,
-    handleMissingOutcome -> "zero"
+    handleMissingOutcome -> "zero",
+    seed -> Random.nextLong,
+    localSolverThreshold -> 1000 * 1000
   )
 }

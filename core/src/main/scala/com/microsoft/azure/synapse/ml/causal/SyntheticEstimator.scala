@@ -28,8 +28,9 @@ trait SyntheticEstimator {
 
   private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, seed: Long): (DVector, Double) = {
     val size = matrixOps.size(A)
-    if (size._1 * size._2 <= 1000000) {
-      // If matrix size is less than 1M, collect the data on the driver node and solve it locally, where matrix-vector
+    if (size._1 * size._2 <= getLocalSolverThreshold) {
+      // If matrix size is less than LocalSolverThreshold (defaults to 1M),
+      // collect the data on the driver node and solve it locally, where matrix-vector
       // multiplication is done with breeze. It's much faster than solving with Spark at scale.
       implicit val bzMatrixOps: MatrixOps[BDM[Double], BDV[Double]] = BzMatrixOps
       implicit val bzVectorOps: VectorOps[BDV[Double]] = BzVectorOps

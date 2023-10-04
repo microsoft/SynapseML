@@ -35,7 +35,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String) extends BaseDiffInD
     // fit time weights
     val (timeWeights, timeIntercept) = fitTimeWeights(
       handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt),
-      seed = 47
+      seed = getSeed
     )
 
     // fit unit weights
@@ -44,7 +44,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String) extends BaseDiffInD
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta,
       fitIntercept = true,
-      seed = 47
+      seed = getSeed
     )
 
     // join weights

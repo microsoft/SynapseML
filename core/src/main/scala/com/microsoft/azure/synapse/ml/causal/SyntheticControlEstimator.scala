@@ -33,7 +33,7 @@ class SyntheticControlEstimator(override val uid: String)
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta = 0d,
       fitIntercept = false,
-      seed = 47
+      seed = getSeed
     )
 
     // join weights
