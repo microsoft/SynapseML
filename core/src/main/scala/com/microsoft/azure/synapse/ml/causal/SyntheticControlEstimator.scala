@@ -37,9 +37,8 @@ class SyntheticControlEstimator(override val uid: String)
     )
 
     // join weights
-    val Row(_: Long, u: Long) = df.agg(
-      countDistinct(when(postTreatment, col(getTimeCol))),
-      countDistinct(when(treatment, col(getUnitCol))),
+    val Row(u: Long) = df.agg(
+      countDistinct(when(treatment, col(getUnitCol)))
     ).head
 
     val indexedDf = df.join(unitIdx, df(getUnitCol) === unitIdx(getUnitCol), "left_outer")
