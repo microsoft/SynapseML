@@ -3,38 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasLabelCol, HasWeightCol}
+import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasWeightCol}
 import com.microsoft.azure.synapse.ml.param.EstimatorParam
-import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
-import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.ParamInjections.HasParallelismInjected
-import org.apache.spark.ml.param.shared.{HasMaxIter, HasPredictionCol}
-import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, Param, Params}
+import org.apache.spark.ml.classification.{LogisticRegression, ProbabilisticClassifier}
+import org.apache.spark.ml.param.shared.HasMaxIter
+import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, Params}
 import org.apache.spark.ml.regression.Regressor
-
-trait HasTreatmentCol extends Params {
-  val treatmentCol = new Param[String](this, "treatmentCol", "treatment column")
-  def getTreatmentCol: String = $(treatmentCol)
-
-  /**
-   * Set name of the column which will be used as treatment
-   *
-   * @group setParam
-   */
-  def setTreatmentCol(value: String): this.type = set(treatmentCol, value)
-}
-
-trait HasOutcomeCol extends Params {
-  val outcomeCol: Param[String] = new Param[String](this, "outcomeCol", "outcome column")
-  def getOutcomeCol: String = $(outcomeCol)
-
-  /**
-   * Set name of the column which will be used as outcome
-   *
-   * @group setParam
-   */
-  def setOutcomeCol(value: String): this.type = set(outcomeCol, value)
-}
+import org.apache.spark.ml.{Estimator, Model}
 
 trait DoubleMLParams extends Params
   with HasTreatmentCol with HasOutcomeCol with HasFeaturesCol
@@ -86,7 +62,7 @@ trait DoubleMLParams extends Params
   def setSampleSplitRatio(value: Array[Double]): this.type = set(sampleSplitRatio, value)
 
   private[causal] object DoubleMLModelTypes extends Enumeration {
-    type TreatmentType = Value
+    type DoubleMLModelTypes = Value
     val Binary, Continuous = Value
   }
 
