@@ -57,7 +57,7 @@ object CertifiedEventClient extends RESTUtils {
   private def getHeaders: Map[String, String] = {
     Map(
       "Authorization" -> s"""Bearer $getAccessToken""".stripMargin,
-      "RequestId" -> java.util.UUID.randomUUID().toString,
+      "RequestId" -> UUID.randomUUID().toString,
       "Content-Type" -> "application/json",
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
     )
