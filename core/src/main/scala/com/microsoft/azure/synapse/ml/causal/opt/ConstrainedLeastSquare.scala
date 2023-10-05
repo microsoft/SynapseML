@@ -27,7 +27,7 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
     throw new IllegalArgumentException("numIterNoChange must be positive if defined.")
   }
 
-  private def getLossFunc(A: TMat, b: TVec, lambda: Double)
+  private[causal] def getLossFunc(A: TMat, b: TVec, lambda: Double)
                          (implicit matrixOps: MatrixOps[TMat, TVec], vectorOps: VectorOps[TVec])
   : DiffFunction[TVec] = {
     if (lambda < 0) throw new IllegalArgumentException("lambda must be positive.")

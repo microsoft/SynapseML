@@ -27,7 +27,7 @@ private[opt] class MirrorDescent[TVec](private val func: DiffFunction[TVec],
     throw new IllegalArgumentException("numIterNoChange must be positive if defined.")
   }
 
-  private case class State(x: TVec, valueAt: Double, gradientAt: TVec)
+  private[causal] case class State(x: TVec, valueAt: Double, gradientAt: TVec)
 
   private object State{
     def apply(x: TVec): State = {
@@ -36,7 +36,7 @@ private[opt] class MirrorDescent[TVec](private val func: DiffFunction[TVec],
     }
   }
 
-  @transient private val history: ArrayBuffer[State] = ArrayBuffer.empty
+  @transient private[causal] val history: ArrayBuffer[State] = ArrayBuffer.empty
   @transient private lazy val logger = LogManager.getLogger(getClass.getName)
 
   private def solveSingleIteration(curr: State, i: Int): State = {
