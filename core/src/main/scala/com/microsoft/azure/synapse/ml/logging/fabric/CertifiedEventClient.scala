@@ -9,6 +9,7 @@ import spray.json._
 
 import java.time.Instant
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 
@@ -91,12 +92,14 @@ object CertifiedEventClient extends RESTUtils {
   }
 
 
-  private[ml] def reportUsage(featureName: String,
-                              activityName: String,
-                              attributes: Map[String, String]): Unit = {
+  private[ml] def logToCertifiedEvents(featureName: String,
+                                       activityName: String,
+                                       attributes: Map[String, String]): Unit = {
 
-    val shouldReport = (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") &&
+    val shouldReport = (
+      (sys.env.getOrElse(EmitUsage, "false").toLowerCase == "true") &&
       (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false")
+      )
 
     if (shouldReport) {
       val payload =

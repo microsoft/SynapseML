@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
-import com.microsoft.azure.synapse.ml.logging.fabric.CertifiedEventClient.reportUsage
+import com.microsoft.azure.synapse.ml.logging.fabric.CertifiedEventClient.logToCertifiedEvents
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
@@ -13,6 +13,8 @@ import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 case class RequiredLogFields(uid: String,
                              className: String,
@@ -123,7 +125,16 @@ trait SynapseMLLogging extends Logging {
 
   protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
     if (logCertifiedEvent) {
-      reportUsage(
+      //      Future {
+      //        logToCertifiedEvents(
+      //          info("libraryName"),
+      //          info("method"),
+      //          info -- Seq("libraryName", "method")
+      //        )
+      //      }.failed.map {
+      //        case e: Exception => logErrorBase("certifiedEventLogging", e)
+      //      }
+      logToCertifiedEvents(
         info("libraryName"),
         info("method"),
         info -- Seq("libraryName", "method")
