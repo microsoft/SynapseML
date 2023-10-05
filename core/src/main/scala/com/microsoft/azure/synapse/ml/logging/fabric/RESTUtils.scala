@@ -9,7 +9,7 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import spray.json.{JsObject, JsValue, _}
 
-trait WebUtils {
+trait RESTUtils {
   def usagePost(url: String, body: String, headers: Map[String, String]): JsValue = {
     val request = new HttpPost(url)
 

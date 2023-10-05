@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
-import com.microsoft.azure.synapse.ml.logging.fabric.UsageTelemetry.reportUsage
+import com.microsoft.azure.synapse.ml.logging.fabric.CertifiedEventClient.reportUsage
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
