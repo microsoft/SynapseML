@@ -13,6 +13,8 @@ import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetection
+
 object CertifiedEventClient extends RESTUtils {
 
   private val EmitUsage = "EmitUsage"
@@ -96,12 +98,13 @@ object CertifiedEventClient extends RESTUtils {
                                        activityName: String,
                                        attributes: Map[String, String]): Unit = {
 
-    val shouldReport = (
+    val shouldeEmitCertifiedEvent = (
       (sys.env.getOrElse(EmitUsage, "false").toLowerCase == "true") &&
-      (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false")
+      (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false") &&
+      (PlatformDetection.runningOnFabric)
       )
 
-    if (shouldReport) {
+    if (shouldeEmitCertifiedEvent) {
       val payload =
         s"""{
            |"timestamp":${Instant.now().getEpochSecond},
