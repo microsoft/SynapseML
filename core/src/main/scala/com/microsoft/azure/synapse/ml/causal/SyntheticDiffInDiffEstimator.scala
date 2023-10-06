@@ -91,7 +91,8 @@ class SyntheticDiffInDiffEstimator(override val uid: String) extends BaseDiffInD
       Some(unitIntercept)
     )
 
-    val model = new DiffInDiffModel(this.uid, summary).setParent(this)
-    copyValues(model)
+    copyValues(new DiffInDiffModel(this.uid))
+      .setSummary(Some(summary))
+      .setParent(this)
   }
 }
