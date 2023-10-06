@@ -36,7 +36,7 @@ trait SyntheticEstimator {
       implicit val cacheOps: CacheOps[BDV[Double]] = BDVCacheOps
 
       val bzA = convertToBDM(A.collect())
-      val bzb = convertToBDV(b.collect())
+      val bzb = convertToBDV(b.collect()) // b is assumed to be non-sparse
       val solver = new ConstrainedLeastSquare[BDM[Double], BDV[Double]](
         step = this.getStepSize, maxIter = this.getMaxIter,
         numIterNoChange = getNumIterNoChange, tol = this.getTol
@@ -124,7 +124,7 @@ trait SyntheticEstimator {
         // Only impute the control_pre group.
         val controlPre = indexed.filter(not(treatment) and not(postTreatment))
 
-        val imputed = imputeTimeSeries(controlPre, maxTimeLength)
+        val imputed = imputeTimeSeries(controlPre, maxTimeLength, getOutcomeCol)
           .withColumn(getTreatmentCol, lit(false))
           .withColumn(getPostTreatmentCol, lit(false))
 
@@ -141,48 +141,57 @@ trait SyntheticEstimator {
         )
     }
   }
-
-  private def imputeTimeSeries(df: DataFrame, maxTimeLength: Int): DataFrame = {
-    val impute: UserDefinedFunction = udf((timeIndex: Seq[Int], values: Seq[Double]) => {
-      val valueMap = timeIndex.zip(values).toMap
-      val range = 0 until maxTimeLength
-      range.map { i => valueMap.getOrElse(i, imputeMissingValue(i, valueMap, range)) }
-    })
-
-    df.groupBy(UnitIdxCol).agg(
-        collect_list(TimeIdxCol).as(TimeIdxCol), collect_list(outcome).as(getOutcomeCol)
-      )
-      .select(col(UnitIdxCol), explode(impute(col(TimeIdxCol), outcome)).as("exploded"))
-      .select(
-        col(UnitIdxCol),
-        col("exploded._1").as(TimeIdxCol),
-        col("exploded._2").as(getOutcomeCol)
-      )
-  }
 }
 
 object SyntheticEstimator {
   val UnitIdxCol = "Unit_idx"
   val TimeIdxCol = "Time_idx"
 
-  private def imputeMissingValue(i: Int, valueMap: Map[Int, Double], range: Range): (Int, Double) = {
+  private[causal] def imputeTimeSeries(df: DataFrame, maxTimeLength: Int, outcomeCol: String): DataFrame = {
+    val impute: UserDefinedFunction = udf(imputeMissingValues(maxTimeLength) _)
+
+    df
+      // zip time and outcomes
+      .select(col(UnitIdxCol), struct(col(TimeIdxCol), col(outcomeCol)).as(outcomeCol))
+      .groupBy(UnitIdxCol)
+      // construct a map of time -> outcome per unit
+      .agg(map_from_entries(collect_set(col(outcomeCol))).as(outcomeCol))
+      // impute and explode back
+      .select(col(UnitIdxCol), explode(impute(col(outcomeCol))).as("exploded"))
+      .select(
+        col(UnitIdxCol),
+        col("exploded._1").as(TimeIdxCol),
+        col("exploded._2").as(outcomeCol)
+      )
+  }
+
+  private[causal] def imputeMissingValues(maxLength: Int)(values: Map[Int, Double]): Seq[(Int, Double)] = {
+    val range = 0 until maxLength
+
     // Find the nearest neighbors using collectFirst
-    def findNeighbor(direction: Int): Option[Double] = {
+    def findNeighbor(direction: Int, curr: Int): Option[Double] = {
       val searchRange = if (direction == -1) range.reverse else range
       searchRange.collectFirst {
-        case j if j * direction > i * direction && valueMap.contains(j) => valueMap(j)
+        case j if j * direction > curr * direction && values.contains(j) => values(j)
       }
     }
 
-    (findNeighbor(-1), findNeighbor(1)) match {
-      case (Some(left), Some(right)) => (i, (left + right) / 2.0)
-      case (Some(left), None) => (i, left)
-      case (None, Some(right)) => (i, right)
-      case (None, None) => (i, 0.0) // Should never happen
+    range.map {
+      i =>
+        if (values.contains(i))
+          (i, values(i))
+        else {
+          (findNeighbor(-1, i), findNeighbor(1, i)) match {
+            case (Some(left), Some(right)) => (i, (left + right) / 2.0)
+            case (Some(left), None) => (i, left)
+            case (None, Some(right)) => (i, right)
+            case (None, None) => (i, 0.0) // Should never happen
+          }
+        }
     }
   }
 
-  private def convertToBDM(mat: Array[MatrixEntry]): BDM[Double] = {
+  private[causal] def convertToBDM(mat: Array[MatrixEntry]): BDM[Double] = {
     val numRows = mat.map(_.i).max.toInt + 1
     val numCols = mat.map(_.j).max.toInt + 1
     val denseMatrix = BDM.zeros[Double](numRows, numCols)
@@ -193,7 +202,8 @@ object SyntheticEstimator {
     denseMatrix
   }
 
-  private def convertToBDV(vec: Array[VectorEntry]): BDV[Double] = {
+  private[causal] def convertToBDV(vec: Array[VectorEntry]): BDV[Double] = {
+    // assuming vec is not sparse.
     val length = vec.map(_.i).max.toInt + 1
     val denseVector = BDV.zeros[Double](length)
 
@@ -204,7 +214,7 @@ object SyntheticEstimator {
     denseVector
   }
 
-  private def assignRowIndex(df: DataFrame, colName: String): DataFrame = {
+  private[causal] def assignRowIndex(df: DataFrame, colName: String): DataFrame = {
     df.sqlContext.createDataFrame(
       df.rdd.zipWithIndex.map(element =>
         Row.fromSeq(Seq(element._2) ++ element._1.toSeq)
