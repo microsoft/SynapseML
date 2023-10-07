@@ -2,12 +2,8 @@ package com.microsoft.azure.synapse.ml.causal.linalg
 
 import breeze.linalg.{norm, DenseVector => BDV, max => bmax, sum => bsum}
 import breeze.numerics.{abs => babs, exp => bexp}
-import breeze.stats.distributions.RandBasis
 import breeze.stats.{mean => bmean}
-import org.apache.spark.mllib.random.RandomRDDs.uniformRDD
-import org.apache.spark.sql.functions.{
-  coalesce, col, lit, exp => sexp, mean => smean, sum => ssum, max => smax, abs => sabs
-}
+import org.apache.spark.sql.functions.{coalesce, col, lit, abs => sabs, exp => sexp, max => smax, mean => smean, sum => ssum}
 import org.apache.spark.sql.{Encoder, Encoders, Row, SparkSession}
 
 case class VectorEntry(i: Long, value: Double)
@@ -37,7 +33,7 @@ trait VectorOps[T] {
 
   def dot(vec1: T, vec2: T): Double
 
-  def uniformRandom(size: Long, seed: Long = util.Random.nextLong): T
+  def make(size: Long, value: => Double): T
 }
 
 object DVectorOps extends VectorOps[DVector] {
@@ -92,21 +88,26 @@ object DVectorOps extends VectorOps[DVector] {
       .toDVector(col("l.i"), col("l.value") * col("r.value"))
   }
 
-  def uniformRandom(size: Long, seed: Long = util.Random.nextLong): DVector = {
+  def make(size: Long, value: => Double): DVector = {
     val spark = SparkSession.active
     import spark.implicits._
-    val rdd = uniformRDD(spark.sparkContext, size, seed = seed).zipWithIndex.map(t => t.swap)
-    rdd.toDF("i", "value").as[VectorEntry]
+    val data = 0L until size
+    spark
+      .sparkContext
+      .parallelize(data)
+      .toDF("i")
+      .withColumn("value", lit(value))
+      .as[VectorEntry]
   }
 
-  override def exp(vec: DVector): DVector = {
+  def exp(vec: DVector): DVector = {
     vec.toDVector(
       col("i"),
       sexp(col("value"))
     )
   }
 
-  override def center(vec: DVector): DVector = {
+  def center(vec: DVector): DVector = {
     val m = mean(vec)
     vec.toDVector(
       col("i"),
@@ -114,12 +115,12 @@ object DVectorOps extends VectorOps[DVector] {
     )
   }
 
-  override def mean(vec: DVector): Double = {
+  def mean(vec: DVector): Double = {
     val Row(mean: Double) = vec.agg(smean(col("value"))).head
     mean
   }
 
-  override def dot(vec1: DVector, vec2: DVector): Double = {
+  def dot(vec1: DVector, vec2: DVector): Double = {
     val Row(dot: Double) = vec1.as("l")
       .join(vec2.as("r"), col("l.i") === col("r.i"), "inner")
       .agg(ssum(col("l.value") * col("r.value")).as("value"))
@@ -132,46 +133,45 @@ object BzVectorOps extends VectorOps[BDV[Double]] {
   /**
     * sqrt( x'*x )
     */
-  override def nrm2(vector: BDV[Double]): Double = norm(vector, 2)
+  def nrm2(vector: BDV[Double]): Double = norm(vector, 2)
 
   /**
     * alpha * x + y
     */
-  override def axpy(x: BDV[Double], yOpt: Option[BDV[Double]], alpha: Double = 1d): BDV[Double] = {
+  def axpy(x: BDV[Double], yOpt: Option[BDV[Double]], alpha: Double = 1d): BDV[Double] = {
     val ax = x * alpha
     yOpt.map(_ + ax).getOrElse(ax)
   }
 
-  override def maxAbs(vec: BDV[Double]): Double = {
+  def maxAbs(vec: BDV[Double]): Double = {
     bmax(babs(vec))
   }
 
-  override def sum(vec: BDV[Double]): Double = {
+  def sum(vec: BDV[Double]): Double = {
     bsum(vec)
   }
 
-  override def elementwiseProduct(vec1: BDV[Double], vec2: BDV[Double]): BDV[Double] = {
+  def elementwiseProduct(vec1: BDV[Double], vec2: BDV[Double]): BDV[Double] = {
     vec1 *:* vec2
   }
 
-  override def uniformRandom(size: Long, seed: Long = util.Random.nextLong): BDV[Double] = {
-    val r = RandBasis.withSeed(seed.toInt).uniform
-    BDV.rand(size.toInt, r)
+  def make(size: Long, value: => Double): BDV[Double] = {
+    BDV.fill(size.toInt)(value)
   }
 
-  override def exp(vec: BDV[Double]): BDV[Double] = {
+  def exp(vec: BDV[Double]): BDV[Double] = {
     bexp(vec)
   }
 
-  override def center(vec: BDV[Double]): BDV[Double] = {
+  def center(vec: BDV[Double]): BDV[Double] = {
     vec - bmean(vec)
   }
 
-  override def mean(vec: BDV[Double]): Double = {
+  def mean(vec: BDV[Double]): Double = {
     bmean(vec)
   }
 
-  override def dot(vec1: BDV[Double], vec2: BDV[Double]): Double = {
+  def dot(vec1: BDV[Double], vec2: BDV[Double]): Double = {
     vec1 dot vec2
   }
 }

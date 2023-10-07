@@ -54,8 +54,7 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
 
   def solve(A: TMat, b: TVec,
             lambda: Double = 0d,
-            fitIntercept: Boolean = false,
-            seed: Long = util.Random.nextLong): (TVec, Double) = {
+            fitIntercept: Boolean = false): (TVec, Double) = {
 
     val aCentered = if (fitIntercept) matrixOps.centerColumns(A) else A
     val bCentered = if (fitIntercept) vectorOps.center(b) else b
@@ -65,7 +64,7 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
     val lossFunc = getLossFunc(aCentered, bCentered, lambda)
     val md = new MirrorDescent[TVec](lossFunc, step, maxIter, numIterNoChange, tol)
 
-    val init = vectorOps.uniformRandom(xSize, seed)
+    val init = vectorOps.make(xSize, 1d / xSize)
     val x = md.solve(init)
 
     if (fitIntercept){

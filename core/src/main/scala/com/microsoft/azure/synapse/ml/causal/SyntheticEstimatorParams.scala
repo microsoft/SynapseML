@@ -26,21 +26,9 @@ trait SyntheticEstimatorParams extends Params
   final val numIterNoChange = new IntParam(this, "numIterNoChange",
     "Early termination when number of iterations without change reached.", ParamValidators.gt(0))
 
-  def getNumIterNoChange: Option[Int] = get(numIterNoChange)
+  def getNumIterNoChange: Int = $(numIterNoChange)
 
   def setNumIterNoChange(value: Int): this.type = set(numIterNoChange, value)
-
-  /**
-    * Param for creating the randomized initial solution to the constrained least square problem.
-    * @group expertParam
-    */
-  final val seed = new LongParam(this, "seed", "seed for randomized initial solution")
-
-  /** @group expertGetParam */
-  def getSeed: Long = $(seed)
-
-  /** @group expertGetParam */
-  def setSeed(value: Long): this.type = set(seed, value)
 
   /**
     * Param for deciding whether to collect part of data on driver node and solve the constrained least square problems
@@ -49,7 +37,7 @@ trait SyntheticEstimatorParams extends Params
     */
   final val localSolverThreshold = new LongParam(this, "localSolverThreshold",
     "threshold for using local solver on driver node. Local solver is faster but relies on part of data " +
-      "being collected on driver node.")
+      "being collected on driver node.", ParamValidators.gt(0))
 
   /** @group expertGetParam */
   def getLocalSolverThreshold: Long = $(localSolverThreshold)
@@ -68,7 +56,6 @@ trait SyntheticEstimatorParams extends Params
     tol -> 1E-3,
     maxIter -> 100,
     handleMissingOutcome -> "zero",
-    seed -> Random.nextLong,
     localSolverThreshold -> 1000 * 1000
   )
 }

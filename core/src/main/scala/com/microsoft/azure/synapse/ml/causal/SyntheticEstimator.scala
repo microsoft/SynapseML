@@ -25,7 +25,7 @@ trait SyntheticEstimator {
   private[causal] val weightsCol = "weights"
   private[causal] val epsilon = 1E-10
 
-  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, seed: Long): (DVector, Double) = {
+  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean): (DVector, Double) = {
     val size = matrixOps.size(A)
     if (size._1 * size._2 <= getLocalSolverThreshold) {
       // If matrix size is less than LocalSolverThreshold (defaults to 1M),
@@ -39,24 +39,24 @@ trait SyntheticEstimator {
       val bzb = convertToBDV(b.collect()) // b is assumed to be non-sparse
       val solver = new ConstrainedLeastSquare[BDM[Double], BDV[Double]](
         step = this.getStepSize, maxIter = this.getMaxIter,
-        numIterNoChange = getNumIterNoChange, tol = this.getTol
+        numIterNoChange = get(numIterNoChange), tol = this.getTol
       )
 
-      val (x, intercept) = solver.solve(bzA, bzb, lambda, fitIntercept, seed)
+      val (x, intercept) = solver.solve(bzA, bzb, lambda, fitIntercept)
       val xdf = A.sparkSession.createDataset[VectorEntry](x.mapPairs((i, v) => VectorEntry(i, v)).toArray.toSeq)
       (xdf, intercept)
     } else {
       implicit val cacheOps: CacheOps[DVector] = DVectorCacheOps
       val solver = new ConstrainedLeastSquare[DMatrix, DVector](
         step = this.getStepSize, maxIter = this.getMaxIter,
-        numIterNoChange = getNumIterNoChange, tol = this.getTol
+        numIterNoChange = get(numIterNoChange), tol = this.getTol
       )
 
-      solver.solve(A, b, lambda, fitIntercept, seed)
+      solver.solve(A, b, lambda, fitIntercept)
     }
   }
 
-  private[causal] def fitTimeWeights(indexedControlDf: DataFrame, seed: Long = Random.nextLong): (DVector, Double) = {
+  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double) = {
     val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
     val outcomePre = indexedPreControl
@@ -67,7 +67,7 @@ trait SyntheticEstimator {
       .agg(avg(col(getOutcomeCol)).as("value"))
       .as[VectorEntry]
 
-    solveCLS(outcomePre, outcomePostMean, lambda = 0d, fitIntercept = true, seed)
+    solveCLS(outcomePre, outcomePostMean, lambda = 0d, fitIntercept = true)
   }
 
   private[causal] def calculateRegularization(data: DataFrame): Double = {
@@ -89,8 +89,7 @@ trait SyntheticEstimator {
 
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
                                    zeta: Double,
-                                   fitIntercept: Boolean,
-                                   seed: Long = Random.nextLong): (DVector, Double) = {
+                                   fitIntercept: Boolean): (DVector, Double) = {
 
 
     val outcomePreControl = indexedPreDf.filter(not(treatment))
@@ -106,7 +105,7 @@ trait SyntheticEstimator {
       zeta * zeta * t_pre
     }
 
-    val (weights, intercept) = solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept, seed)
+    val (weights, intercept) = solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept)
     (weights, intercept)
   }
 

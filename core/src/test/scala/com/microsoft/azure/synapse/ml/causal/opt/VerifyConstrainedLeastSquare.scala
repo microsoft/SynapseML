@@ -5,6 +5,7 @@ import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.causal._
 import com.microsoft.azure.synapse.ml.causal.linalg._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import org.apache.log4j.{Level, Logger}
 import org.scalactic.{Equality, TolerantNumerics}
 
 class VerifyConstrainedLeastSquare extends TestBase {
@@ -15,20 +16,43 @@ class VerifyConstrainedLeastSquare extends TestBase {
   private implicit val cacheOps: CacheOps[BDV[Double]] = BDVCacheOps
   private implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
 
+  spark.sparkContext.setLogLevel("INFO")
+  Logger.getLogger("org").setLevel(Level.WARN)
+  Logger.getLogger("akka").setLevel(Level.WARN)
+
   test("Fit CLS without intercept") {
-    val cls = new ConstrainedLeastSquare(1.5, 1000)
-    val solution = cls.solve(matrixA, vectorB, seed = 47)
+    val cls = new ConstrainedLeastSquare(0.5, 1000)
+    val solution = cls.solve(matrixA, vectorB)
     assert(solution._2 === 0d)
     assert(sum(solution._1) === 1.0)
     assert(solution._1.forall(0 <= _ && _ <= 1))
     val lossFunc = cls.getLossFunc(matrixA, vectorB, 0d)
-    assert(lossFunc(solution._1) === 6.0854513873062155)
+    assert(lossFunc(solution._1) === 6.087082814745372)
+  }
+
+  test("Fit CLS without intercept distributed") {
+    val mA = matrixA.toDMatrix
+    val vB = vectorB.toDVector
+
+    implicit val dMatrixOps: MatrixOps[DMatrix, DVector] = DMatrixOps
+    implicit val dVectorOps: VectorOps[DVector] = DVectorOps
+    implicit val dCacheOps: CacheOps[DVector] = DVectorCacheOps
+
+    val cls = new ConstrainedLeastSquare[DMatrix, DVector](0.5, 10)
+
+    val solution = cls.solve(mA, vB)
+    assert(solution._2 === 0d)
+    val weights = solution._1.toBreeze
+    assert(sum(weights) === 1.0)
+    assert(weights.forall(0 <= _ && _ <= 1))
+    val lossFunc = cls.getLossFunc(mA, vB, 0d)
+    assert(lossFunc(solution._1) === 6.672597868965775)
   }
 
   test("Fit CLS with intercept") {
     val cls = new ConstrainedLeastSquare(1.5, 1000)
-    val solution = cls.solve(matrixA, vectorB, fitIntercept = true, seed = 47)
-    assert(solution._2 === 0.025653849372480997)
+    val solution = cls.solve(matrixA, vectorB, fitIntercept = true)
+    assert(solution._2 === 0.025647456560875026)
     assert(sum(solution._1) === 1.0)
     assert(solution._1.forall(0 <= _ && _ <= 1))
 
@@ -39,16 +63,16 @@ class VerifyConstrainedLeastSquare extends TestBase {
     )
 
     val loss = math.pow(vectorOps.nrm2(error), 2)
-    assert(loss === 6.027842402810429)
+    assert(loss === 6.027794680382836)
   }
 
   test("Fit CLS with L2 regularization") {
     val cls = new ConstrainedLeastSquare(1.5, 1000)
-    val solution = cls.solve(matrixA, vectorB, lambda = 1.5, seed = 47)
+    val solution = cls.solve(matrixA, vectorB, lambda = 1.5)
     assert(solution._2 === 0d)
     assert(sum(solution._1) === 1.0)
     assert(solution._1.forall(0 <= _ && _ <= 1))
     val lossFunc = cls.getLossFunc(matrixA, vectorB, 1.5)
-    assert(lossFunc(solution._1) === 6.219637309765119)
+    assert(lossFunc(solution._1) === 6.219635205398321)
   }
 }

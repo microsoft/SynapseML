@@ -38,11 +38,11 @@ class VerifyMirrorDescent extends TestBase {
     implicit val cacheOps: CacheOps[BDV[Double]] = BDVCacheOps
     val md = new MirrorDescent(loss, 0.5, 1000)
 
-    val initial = BDV.rand[Double](50, RandBasis.withSeed(47).uniform)
+    val initial = BDV.fill(50, 1d/50)
     val solution = md.solve(initial)
     assert(sum(solution) === 1.0)
     assert(solution.forall(0 <= _ && _ <= 1))
-    assert(loss(solution) === 6.087454460148611)
+    assert(loss(solution) === 6.087082814745372)
     val lossHistory = md.history.map(_.valueAt)
     assert(lossHistory.length === 1001)
   }
@@ -50,12 +50,12 @@ class VerifyMirrorDescent extends TestBase {
   test("MirrorDescent finds constrained solution with early stopping") {
     implicit val cacheOps: CacheOps[BDV[Double]] = BDVCacheOps
     val md = new MirrorDescent(loss, 0.5, 1000, Some(5), tol = 1E-2)
-    val initial = BDV.rand[Double](50, RandBasis.withSeed(47).uniform)
+    val initial = BDV.fill(50, 1d/50)
     val solution = md.solve(initial)
     assert(sum(solution) === 1.0)
     assert(solution.forall(0 <= _ && _ <= 1))
-    assert(loss(solution) === 6.1839598830745794)
+    assert(loss(solution) === 6.186123997006668)
     val lossHistory = md.history.map(_.valueAt)
-    assert(lossHistory.length === 59)
+    assert(lossHistory.length === 55)
   }
 }

@@ -64,9 +64,9 @@ class VerifyVectorOps extends TestBase {
 
   test("VectorOps.uniformRandom computes correctly") {
     implicit val VectorOps: VectorOps[DVector] = DVectorOps
-    val result1 = DVectorOps.uniformRandom(20, 47).toBreeze
-    val result2 = BzVectorOps.uniformRandom(20, 47)
-    assert(result1.length === result2.length)
+    val result1 = DVectorOps.make(20, 1d/20).toBreeze
+    val result2 = BzVectorOps.make(20, 1d/20)
+    assert(result1 === result2)
     assert(result1.forall(0 <= _ && _ <= 1))
     assert(result2.forall(0 <= _ && _ <= 1))
   }

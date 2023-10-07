@@ -1,22 +1,31 @@
 package com.microsoft.azure.synapse.ml.causal
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.{BooleanType, IntegerType}
 import org.apache.spark.sql.{Dataset, Row}
 
 class SyntheticControlEstimator(override val uid: String)
   extends BaseDiffInDiffEstimator(uid)
     with SyntheticEstimator
     with DiffInDiffEstimatorParams
-    with SyntheticEstimatorParams {
+    with SyntheticEstimatorParams
+    with ComplexParamsWritable
+    with Wrappable
+    with SynapseMLLogging {
 
   import SyntheticEstimator._
 
   def this() = this(Identifiable.randomUID("sc"))
 
   override def fit(dataset: Dataset[_]): DiffInDiffModel = {
-    val df = dataset.toDF
+    val df = dataset
+      .withColumn(getTreatmentCol, treatment.cast(BooleanType))
+      .withColumn(getPostTreatmentCol, postTreatment.cast(BooleanType))
+      .toDF
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
     val controlPreDf = controlDf.filter(not(postTreatment)).cache
@@ -32,8 +41,7 @@ class SyntheticControlEstimator(override val uid: String)
     val (unitWeights, unitIntercept) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta = 0d,
-      fitIntercept = false,
-      seed = getSeed
+      fitIntercept = false
     )
 
     // join weights
@@ -80,3 +88,5 @@ class SyntheticControlEstimator(override val uid: String)
       .setParent(this)
   }
 }
+
+object SyntheticControlEstimator extends ComplexParamsReadable[SyntheticControlEstimator]
