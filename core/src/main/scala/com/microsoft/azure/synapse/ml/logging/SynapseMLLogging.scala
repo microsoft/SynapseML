@@ -125,20 +125,15 @@ trait SynapseMLLogging extends Logging {
 
   protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
     if (logCertifiedEvent) {
-      //      Future {
-      //        logToCertifiedEvents(
-      //          info("libraryName"),
-      //          info("method"),
-      //          info -- Seq("libraryName", "method")
-      //        )
-      //      }.failed.map {
-      //        case e: Exception => logErrorBase("certifiedEventLogging", e)
-      //      }
-      logToCertifiedEvents(
-        info("libraryName"),
-        info("method"),
-        info -- Seq("libraryName", "method")
-      )
+      Future {
+        logToCertifiedEvents(
+          info("libraryName"),
+          info("method"),
+          info -- Seq("libraryName", "method")
+        )
+      }.failed.map {
+        case e: Exception => logErrorBase("certifiedEventLogging", e)
+      }
     }
 
     logInfo(info.toJson.compactPrint)

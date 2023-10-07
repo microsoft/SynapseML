@@ -10,14 +10,13 @@ object Constants {
   val PlatformBinder = "binder"
   val PlatformDatabricks = "databricks"
   val PlatformUnknown = "unknown"
-  val SecretStore = "mmlspark-build-keys"
   val SynapseProjectName = "Microsoft.ProjectArcadia"
 }
-object PlatformDetection {
+object PlatformDetails {
 
   import Constants._
 
-  def currentPlatform(): String = {
+  private def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
     azureService match {
       case Some(serviceName) if serviceName == SynapseProjectName =>
@@ -30,13 +29,9 @@ object PlatformDetection {
     }
   }
 
-  def runningOnSynapseInternal(): Boolean = currentPlatform() == PlatformSynapseInternal
+  private def runningOnSynapseInternal(): Boolean = currentPlatform() == PlatformSynapseInternal
 
-  def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
+  private def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
 
-  // def runningOnBinder(): Boolean = currentPlatform() == PlatformBinder
-
-  def runningOnDatabricks(): Boolean = currentPlatform() == PlatformDatabricks
-
-  def runningOnFabric(): Boolean = runningOnSynapseInternal || runningOnSynapse || runningOnDatabricks
+  private[ml] def runningOnFabric(): Boolean = runningOnSynapseInternal || runningOnSynapse
 }

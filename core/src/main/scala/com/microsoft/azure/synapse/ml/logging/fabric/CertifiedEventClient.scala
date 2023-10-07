@@ -9,11 +9,10 @@ import spray.json._
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.ExecutionContext
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 
-import com.microsoft.azure.synapse.ml.logging.common.PlatformDetection
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFabric
 
 object CertifiedEventClient extends RESTUtils {
 
@@ -98,13 +97,13 @@ object CertifiedEventClient extends RESTUtils {
                                        activityName: String,
                                        attributes: Map[String, String]): Unit = {
 
-    val shouldeEmitCertifiedEvent = (
-      (sys.env.getOrElse(EmitUsage, "false").toLowerCase == "true") &&
-      (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false") &&
-      (PlatformDetection.runningOnFabric)
+    val shouldEmitCertifiedEvent = (
+      (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") &&
+      (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false")
+        && runningOnFabric
       )
 
-    if (shouldeEmitCertifiedEvent) {
+    if (shouldEmitCertifiedEvent) {
       val payload =
         s"""{
            |"timestamp":${Instant.now().getEpochSecond},
