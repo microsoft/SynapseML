@@ -20,7 +20,7 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
       s"Column ${field.name} must be numeric type or boolean type, but got $dataType instead.")
   }
 
-  private def validateFieldNumericType(field: StructField): Unit = {
+  protected def validateFieldNumericType(field: StructField): Unit = {
     val dataType = field.dataType
     require(dataType.isInstanceOf[NumericType],
       s"Column ${field.name} must be numeric type, but got $dataType instead.")

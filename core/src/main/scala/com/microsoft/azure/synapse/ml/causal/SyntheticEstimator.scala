@@ -7,10 +7,10 @@ import org.apache.spark.sql.types._
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.causal.linalg._
 import com.microsoft.azure.synapse.ml.causal.opt.ConstrainedLeastSquare
-import scala.util.Random
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 
-trait SyntheticEstimator {
-  this: DiffInDiffEstimatorParams with SyntheticEstimatorParams =>
+trait SyntheticEstimator extends SynapseMLLogging {
+  this: BaseDiffInDiffEstimator with SyntheticEstimatorParams =>
 
   import SyntheticEstimator._
 
@@ -56,7 +56,7 @@ trait SyntheticEstimator {
     }
   }
 
-  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double) = {
+  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double) = logVerb("fitTimeWeights", {
     val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
     val outcomePre = indexedPreControl
@@ -68,9 +68,9 @@ trait SyntheticEstimator {
       .as[VectorEntry]
 
     solveCLS(outcomePre, outcomePostMean, lambda = 0d, fitIntercept = true)
-  }
+  })
 
-  private[causal] def calculateRegularization(data: DataFrame): Double = {
+  private[causal] def calculateRegularization(data: DataFrame): Double = logVerb("calculateRegularization", {
     val Row(firstDiffStd: Double) = data
       .filter(not(treatment) and not(postTreatment))
       .select(
@@ -85,11 +85,11 @@ trait SyntheticEstimator {
     val nTreatedPost = data.filter(treatment and postTreatment).count
     val zeta = math.pow(nTreatedPost, 0.25) * firstDiffStd
     zeta
-  }
+  })
 
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
                                    zeta: Double,
-                                   fitIntercept: Boolean): (DVector, Double) = {
+                                   fitIntercept: Boolean): (DVector, Double) = logVerb("fitUnitWeights", {
 
 
     val outcomePreControl = indexedPreDf.filter(not(treatment))
@@ -107,7 +107,7 @@ trait SyntheticEstimator {
 
     val (weights, intercept) = solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept)
     (weights, intercept)
-  }
+  })
 
   private[causal] def handleMissingOutcomes(indexed: DataFrame, maxTimeLength: Int): DataFrame = {
     // "skip", "zero", "impute"

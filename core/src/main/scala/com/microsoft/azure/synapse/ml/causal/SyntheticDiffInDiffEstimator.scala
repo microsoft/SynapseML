@@ -1,20 +1,28 @@
 package com.microsoft.azure.synapse.ml.causal
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.{BooleanType, IntegerType}
 import org.apache.spark.sql.{Dataset, Row}
 
-class SyntheticDiffInDiffEstimator(override val uid: String) extends BaseDiffInDiffEstimator(uid)
-  with SyntheticEstimator
-  with SyntheticEstimatorParams {
+class SyntheticDiffInDiffEstimator(override val uid: String)
+  extends BaseDiffInDiffEstimator(uid)
+    with SyntheticEstimator
+    with SyntheticEstimatorParams
+    with ComplexParamsWritable
+    with Wrappable {
 
   import SyntheticEstimator._
 
-  def this() = this(Identifiable.randomUID("sdid"))
+  def this() = this(Identifiable.randomUID("syndid"))
 
-  override def fit(dataset: Dataset[_]): DiffInDiffModel = {
-    val df = dataset.toDF
+  override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
+    val df = dataset
+      .withColumn(getTreatmentCol, treatment.cast(BooleanType))
+      .withColumn(getPostTreatmentCol, postTreatment.cast(BooleanType))
+      .toDF
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
     val controlPreDf = controlDf.filter(not(postTreatment)).cache
@@ -92,5 +100,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String) extends BaseDiffInD
     copyValues(new DiffInDiffModel(this.uid))
       .setSummary(Some(summary))
       .setParent(this)
-  }
+  }, dataset.columns.length)
 }
+
+object SyntheticDiffInDiffEstimator extends ComplexParamsReadable[SyntheticDiffInDiffEstimator]

@@ -1,7 +1,6 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
@@ -11,17 +10,15 @@ import org.apache.spark.sql.{Dataset, Row}
 class SyntheticControlEstimator(override val uid: String)
   extends BaseDiffInDiffEstimator(uid)
     with SyntheticEstimator
-    with DiffInDiffEstimatorParams
     with SyntheticEstimatorParams
     with ComplexParamsWritable
-    with Wrappable
-    with SynapseMLLogging {
+    with Wrappable {
 
   import SyntheticEstimator._
 
-  def this() = this(Identifiable.randomUID("sc"))
+  def this() = this(Identifiable.randomUID("syncon"))
 
-  override def fit(dataset: Dataset[_]): DiffInDiffModel = {
+  override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
     val df = dataset
       .withColumn(getTreatmentCol, treatment.cast(BooleanType))
       .withColumn(getPostTreatmentCol, postTreatment.cast(BooleanType))
@@ -86,7 +83,7 @@ class SyntheticControlEstimator(override val uid: String)
     copyValues(new DiffInDiffModel(this.uid))
       .setSummary(Some(summary))
       .setParent(this)
-  }
+  }, dataset.columns.length)
 }
 
 object SyntheticControlEstimator extends ComplexParamsReadable[SyntheticControlEstimator]
