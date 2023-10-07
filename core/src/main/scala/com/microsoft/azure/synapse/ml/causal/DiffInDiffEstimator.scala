@@ -14,6 +14,8 @@ class DiffInDiffEstimator(override val uid: String)
     with Wrappable
     with SynapseMLLogging {
 
+  logClass()
+
   def this() = this(Identifiable.randomUID("did"))
 
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({

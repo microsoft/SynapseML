@@ -14,6 +14,8 @@ class SyntheticControlEstimator(override val uid: String)
     with ComplexParamsWritable
     with Wrappable {
 
+  logClass()
+
   import SyntheticEstimator._
 
   def this() = this(Identifiable.randomUID("syncon"))
