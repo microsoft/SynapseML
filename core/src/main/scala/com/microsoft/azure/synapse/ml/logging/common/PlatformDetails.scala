@@ -33,5 +33,5 @@ object PlatformDetails {
 
   private def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
 
-  private[ml] def runningOnFabric(): Boolean = runningOnSynapseInternal || runningOnSynapse
+  private[ml] def runningOnFabric(): Boolean = runningOnSynapseInternal
 }
