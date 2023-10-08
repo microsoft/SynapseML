@@ -214,7 +214,7 @@ object SyntheticEstimator {
   }
 
   private[causal] def assignRowIndex(df: DataFrame, colName: String): DataFrame = {
-    df.sqlContext.createDataFrame(
+    df.sparkSession.createDataFrame(
       df.rdd.zipWithIndex.map(element =>
         Row.fromSeq(Seq(element._2) ++ element._1.toSeq)
       ),
@@ -225,6 +225,10 @@ object SyntheticEstimator {
   }
 
   private[causal] def createIndex(data: DataFrame, inputCol: String, indexCol: String): DataFrame = {
+    // The orderBy operation is needed here when creating index for Time. When fitting unit weights,
+    // we need to compute the regularization term zeta, which depends on the first order difference of
+    // the outcome, ordered by time. If we don't order the data by time when creating the time index,
+    // the regularization term will be incorrect.
     assignRowIndex(data.select(col(inputCol)).distinct.orderBy(col(inputCol)), indexCol)
   }
 }

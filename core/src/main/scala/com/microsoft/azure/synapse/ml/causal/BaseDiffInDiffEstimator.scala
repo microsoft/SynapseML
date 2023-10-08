@@ -1,6 +1,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.causal.linalg.DVector
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.ParamMap
@@ -63,7 +64,10 @@ case class DiffInDiffSummary(treatmentEffect: Double, standardError: Double,
 
 class DiffInDiffModel(override val uid: String)
   extends Model[DiffInDiffModel]
+    with Wrappable
     with ComplexParamsWritable {
+
+  override protected lazy val pyInternalWrapper = true
 
   def this() = this(Identifiable.randomUID("did"))
 
