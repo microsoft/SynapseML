@@ -4,17 +4,13 @@
 package com.microsoft.azure.synapse.ml.logging.common
 
 import org.apache.spark.sql.SparkSession
-object Constants {
+object PlatformDetails {
   val PlatformSynapseInternal = "synapse_internal"
   val PlatformSynapse = "synapse"
   val PlatformBinder = "binder"
   val PlatformDatabricks = "databricks"
   val PlatformUnknown = "unknown"
   val SynapseProjectName = "Microsoft.ProjectArcadia"
-}
-object PlatformDetails {
-
-  import Constants._
 
   private def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
