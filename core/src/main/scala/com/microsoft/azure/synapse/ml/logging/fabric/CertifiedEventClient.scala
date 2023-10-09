@@ -97,13 +97,7 @@ object CertifiedEventClient extends RESTUtils {
                                        activityName: String,
                                        attributes: Map[String, String]): Unit = {
 
-    val shouldEmitCertifiedEvent = (
-      (sys.env.getOrElse(EmitUsage, "true").toLowerCase == "true") &&
-      (sys.env.getOrElse(FabricFakeTelemetryReportCalls, "false").toLowerCase == "false")
-        && runningOnFabric
-      )
-
-    if (shouldEmitCertifiedEvent) {
+  if (runningOnFabric) {
       val payload =
         s"""{
            |"timestamp":${Instant.now().getEpochSecond},
