@@ -16,7 +16,6 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFa
 
 object CertifiedEventClient extends RESTUtils {
 
-
   private val PbiGlobalServiceEndpoints = Map(
     "public" -> "https://api.powerbi.com/",
     "fairfax" -> "https://api.powerbigov.us",
