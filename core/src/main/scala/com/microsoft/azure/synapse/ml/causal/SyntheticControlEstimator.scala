@@ -85,6 +85,8 @@ class SyntheticControlEstimator(override val uid: String)
     copyValues(new DiffInDiffModel(this.uid))
       .setSummary(Some(summary))
       .setParent(this)
+      .setTimeIndex(timeIdx)
+      .setUnitIndex(unitIdx)
   }, dataset.columns.length)
 }
 

@@ -2,6 +2,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.causal.linalg.DVector
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.ParamMap
@@ -59,13 +60,25 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 }
 
 case class DiffInDiffSummary(treatmentEffect: Double, standardError: Double,
-                             timeWeights: Option[DVector] = None, timeIntercept: Option[Double] = None,
-                             unitWeights: Option[DVector] = None, unitIntercept: Option[Double] = None)
+                             timeWeights: Option[DVector] = None,
+                             timeIntercept: Option[Double] = None,
+                             unitWeights: Option[DVector] = None,
+                             unitIntercept: Option[Double] = None)
 
 class DiffInDiffModel(override val uid: String)
   extends Model[DiffInDiffModel]
+    with HasUnitCol
+    with HasTimeCol
     with Wrappable
     with ComplexParamsWritable {
+
+  final val timeIndex = new DataFrameParam(this, "timeIndex", "time index")
+  def getTimeIndex: DataFrame = $(timeIndex)
+  def setTimeIndex(value: DataFrame): this.type = set(timeIndex, value)
+
+  final val unitIndex = new DataFrameParam(this, "unitIndex", "unit index")
+  def getUnitIndex: DataFrame = $(unitIndex)
+  def setUnitIndex(value: DataFrame): this.type = set(unitIndex, value)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -92,6 +105,36 @@ class DiffInDiffModel(override val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF
 
   override def transformSchema(schema: StructType): StructType = schema
+
+  def getTimeWeights: Option[DataFrame] = {
+    (get(timeIndex), getSummary.timeWeights) match {
+      case (Some(idxDf), Some(timeWeights)) =>
+        Some(
+          idxDf.join(timeWeights, idxDf(SyntheticEstimator.TimeIdxCol) === timeWeights("i"), "left_outer")
+            .select(
+              idxDf(getTimeCol),
+              timeWeights("value")
+            )
+        )
+      case _ =>
+        None
+    }
+  }
+
+  def getUnitWeights: Option[DataFrame] = {
+    (get(unitIndex), getSummary.unitWeights) match {
+      case (Some(idxDf), Some(unitWeights)) =>
+        Some(
+          idxDf.join(unitWeights, idxDf(SyntheticEstimator.UnitIdxCol) === unitWeights("i"), "left_outer")
+            .select(
+              idxDf(getUnitCol),
+              unitWeights("value")
+            )
+        )
+      case _ =>
+        None
+    }
+  }
 }
 
 object DiffInDiffModel extends ComplexParamsReadable[DiffInDiffModel]
