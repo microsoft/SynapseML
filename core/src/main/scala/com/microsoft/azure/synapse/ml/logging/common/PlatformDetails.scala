@@ -13,7 +13,7 @@ object PlatformDetails {
   val PlatformUnknown = "unknown"
   val SynapseProjectName = "Microsoft.ProjectArcadia"
 
-  private def currentPlatform(): String = {
+  def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
     azureService match {
       case Some(serviceName) if serviceName == SynapseProjectName =>
@@ -26,9 +26,9 @@ object PlatformDetails {
     }
   }
 
-  private def runningOnSynapseInternal(): Boolean = currentPlatform() == PlatformSynapseInternal
+  def runningOnSynapseInternal(): Boolean = currentPlatform() == PlatformSynapseInternal
 
-  private def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
+  def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
 
-  private[ml] def runningOnFabric(): Boolean = runningOnSynapseInternal
+  def runningOnFabric(): Boolean = runningOnSynapseInternal
 }
