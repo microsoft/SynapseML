@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.logging.common
 
 import org.apache.spark.sql.SparkSession
+
 object PlatformDetails {
   val PlatformSynapseInternal = "synapse_internal"
   val PlatformSynapse = "synapse"
