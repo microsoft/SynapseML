@@ -12,6 +12,8 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estima
 import org.apache.spark.sql.types.{BooleanType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
+import java.util
+
 abstract class BaseDiffInDiffEstimator(override val uid: String)
   extends Estimator[DiffInDiffModel]
     with DiffInDiffEstimatorParams {
@@ -63,7 +65,19 @@ case class DiffInDiffSummary(treatmentEffect: Double, standardError: Double,
                              timeWeights: Option[DVector] = None,
                              timeIntercept: Option[Double] = None,
                              unitWeights: Option[DVector] = None,
-                             unitIntercept: Option[Double] = None)
+                             unitIntercept: Option[Double] = None,
+                             lossHistoryTimeWeights: Option[List[Double]] = None,
+                             lossHistoryUnitWeights: Option[List[Double]] = None) {
+  import scala.collection.JavaConverters._
+
+  def getLossHistoryTimeWeightsJava: Option[util.List[Double]] = {
+    lossHistoryTimeWeights.map(_.asJava)
+  }
+
+  def getLossHistoryUnitWeightsJava: Option[util.List[Double]] = {
+    lossHistoryUnitWeights.map(_.asJava)
+  }
+}
 
 class DiffInDiffModel(override val uid: String)
   extends Model[DiffInDiffModel]

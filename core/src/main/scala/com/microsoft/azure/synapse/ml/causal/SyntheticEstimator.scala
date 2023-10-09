@@ -25,7 +25,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] val weightsCol = "weights"
   private[causal] val epsilon = 1E-10
 
-  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean): (DVector, Double) = {
+  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean): (DVector, Double, Seq[Double]) = {
     val size = matrixOps.size(A)
     if (size._1 * size._2 <= getLocalSolverThreshold) {
       // If matrix size is less than LocalSolverThreshold (defaults to 1M),
@@ -42,9 +42,9 @@ trait SyntheticEstimator extends SynapseMLLogging {
         numIterNoChange = get(numIterNoChange), tol = this.getTol
       )
 
-      val (x, intercept) = solver.solve(bzA, bzb, lambda, fitIntercept)
+      val (x, intercept, lossHistory) = solver.solve(bzA, bzb, lambda, fitIntercept)
       val xdf = A.sparkSession.createDataset[VectorEntry](x.mapPairs((i, v) => VectorEntry(i, v)).toArray.toSeq)
-      (xdf, intercept)
+      (xdf, intercept, lossHistory)
     } else {
       implicit val cacheOps: CacheOps[DVector] = DVectorCacheOps
       val solver = new ConstrainedLeastSquare[DMatrix, DVector](
@@ -56,7 +56,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
     }
   }
 
-  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double) = logVerb("fitTimeWeights", {
+  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double, Seq[Double]) = logVerb("fitTimeWeights", {
     val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
     val outcomePre = indexedPreControl
@@ -89,7 +89,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
 
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
                                    zeta: Double,
-                                   fitIntercept: Boolean): (DVector, Double) = logVerb("fitUnitWeights", {
+                                   fitIntercept: Boolean): (DVector, Double, Seq[Double]) = logVerb("fitUnitWeights", {
 
 
     val outcomePreControl = indexedPreDf.filter(not(treatment))
@@ -105,8 +105,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
       zeta * zeta * t_pre
     }
 
-    val (weights, intercept) = solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept)
-    (weights, intercept)
+    solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept)
   })
 
   private[causal] def handleMissingOutcomes(indexed: DataFrame, maxTimeLength: Int): DataFrame = {

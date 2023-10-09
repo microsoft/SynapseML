@@ -37,7 +37,7 @@ class SyntheticControlEstimator(override val uid: String)
       .select(UnitIdxCol, TimeIdxCol, getTreatmentCol, getPostTreatmentCol, getOutcomeCol)
       .localCheckpoint(true)
 
-    val (unitWeights, unitIntercept) = fitUnitWeights(
+    val (unitWeights, unitIntercept, lossHistory) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta = 0d,
       fitIntercept = false
@@ -76,10 +76,9 @@ class SyntheticControlEstimator(override val uid: String)
     val summary = DiffInDiffSummary(
       treatmentEffect,
       standardError,
-      None,
-      None,
-      Some(unitWeights),
-      Some(unitIntercept)
+      unitWeights = Some(unitWeights),
+      unitIntercept = Some(unitIntercept),
+      lossHistoryUnitWeights = Some(lossHistory.toList)
     )
 
     copyValues(new DiffInDiffModel(this.uid))

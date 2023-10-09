@@ -54,7 +54,7 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
 
   def solve(A: TMat, b: TVec,
             lambda: Double = 0d,
-            fitIntercept: Boolean = false): (TVec, Double) = {
+            fitIntercept: Boolean = false): (TVec, Double, Seq[Double]) = {
 
     val aCentered = if (fitIntercept) matrixOps.centerColumns(A) else A
     val bCentered = if (fitIntercept) vectorOps.center(b) else b
@@ -70,9 +70,9 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
     if (fitIntercept){
       val colMean = matrixOps.colMean(A)
       val bMean = vectorOps.mean(b)
-      (x, bMean - vectorOps.dot(x, colMean))
+      (x, bMean - vectorOps.dot(x, colMean), md.history.map(_.valueAt))
     } else {
-      (x, 0d)
+      (x, 0d, md.history.map(_.valueAt))
     }
   }
 }

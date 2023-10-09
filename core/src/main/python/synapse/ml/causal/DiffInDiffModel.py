@@ -24,7 +24,6 @@ class DiffInDiffModel(_DiffInDiffModel):
 
     def __init__(self, java_obj=None) -> None:
         super(DiffInDiffModel, self).__init__(java_obj = java_obj)
-        # self.summary = DiffInDiffSummary(javaSummary=java_obj.getSummary())
         self.summary = java_obj.getSummary()
         self.treatmentEffect = self.summary.treatmentEffect()
         self.standardError = self.summary.standardError()
@@ -32,3 +31,5 @@ class DiffInDiffModel(_DiffInDiffModel):
         self.unitIntercept = DiffInDiffModel._unwrapOption(self.summary.unitIntercept())
         self.timeWeights = DiffInDiffModel._mapOption(java_obj.getTimeWeights(), lambda x: DataFrame(x, SparkSession.getActiveSession()))
         self.unitWeights = DiffInDiffModel._mapOption(java_obj.getUnitWeights(), lambda x: DataFrame(x, SparkSession.getActiveSession()))
+        self.lossHistoryTimeWeights = DiffInDiffModel._unwrapOption(self.summary.getLossHistoryTimeWeightsJava())
+        self.lossHistoryUnitWeights = DiffInDiffModel._unwrapOption(self.summary.getLossHistoryUnitWeightsJava())

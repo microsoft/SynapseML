@@ -43,13 +43,13 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .localCheckpoint(true)
 
     // fit time weights
-    val (timeWeights, timeIntercept) = fitTimeWeights(
+    val (timeWeights, timeIntercept, lossHistoryTimeWeights) = fitTimeWeights(
       handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt)
     )
 
     // fit unit weights
     val zeta = calculateRegularization(df)
-    val (unitWeights, unitIntercept) = fitUnitWeights(
+    val (unitWeights, unitIntercept, lossHistoryUnitWeights) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta,
       fitIntercept = true
@@ -93,10 +93,12 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     val summary = DiffInDiffSummary(
       treatmentEffect,
       standardError,
-      Some(timeWeights),
-      Some(timeIntercept),
-      Some(unitWeights),
-      Some(unitIntercept)
+      timeWeights = Some(timeWeights),
+      timeIntercept = Some(timeIntercept),
+      unitWeights = Some(unitWeights),
+      unitIntercept = Some(unitIntercept),
+      lossHistoryTimeWeights = Some(lossHistoryTimeWeights.toList),
+      lossHistoryUnitWeights = Some(lossHistoryUnitWeights.toList)
     )
 
     copyValues(new DiffInDiffModel(this.uid))
