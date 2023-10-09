@@ -16,9 +16,6 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFa
 
 object CertifiedEventClient extends RESTUtils {
 
-  private val EmitUsage = "EmitUsage"
-
-  private val FabricFakeTelemetryReportCalls = "fabric_fake_usage_telemetry"
 
   private val PbiGlobalServiceEndpoints = Map(
     "public" -> "https://api.powerbi.com/",
