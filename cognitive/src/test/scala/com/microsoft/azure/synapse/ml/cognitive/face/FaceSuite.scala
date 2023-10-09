@@ -44,6 +44,8 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     val results = face.transform(df)
     val fromRow = Face.makeFromRowConverter
 
+    results.show(truncate=false)
+
     val f1 = fromRow(results.select("face").collect().head.getSeq[Row](0).head)
     assert(f1.faceAttributes.get.age.get > 20)
 
