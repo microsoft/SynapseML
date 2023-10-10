@@ -95,11 +95,6 @@ class VerifySyntheticDiffInDiffEstimator
 
     assert(summary.treatmentEffect === -14.92249952070377)
     assert(summary.standardError === 0.28948753364970986)
-
-    import scala.collection.JavaConverters._
-
-    scala.collection.JavaConverters.seqAsJavaList(summary.lossHistoryTimeWeights.get)
-
   }
 
   override def testObjects(): Seq[TestObject[SyntheticDiffInDiffEstimator]] = Seq(

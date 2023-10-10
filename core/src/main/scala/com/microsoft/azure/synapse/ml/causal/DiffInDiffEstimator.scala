@@ -30,7 +30,7 @@ class DiffInDiffEstimator(override val uid: String)
       )
       .withColumn(interactionCol, treatment * postTreatment)
 
-    val linearModel = fitLinearModel(didData)
+    val linearModel = fitLinearModel(didData, Array(getPostTreatmentCol, getTreatmentCol, interactionCol), fitIntercept = true)
 
     val treatmentEffect = linearModel.coefficients(2)
     val standardError = linearModel.summary.coefficientStandardErrors(2)

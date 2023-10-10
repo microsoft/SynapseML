@@ -1,8 +1,8 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{BooleanType, IntegerType}
 import org.apache.spark.sql.{Dataset, Row}
@@ -51,6 +51,7 @@ class SyntheticControlEstimator(override val uid: String)
     val indexedDf = df.join(unitIdx, df(getUnitCol) === unitIdx(getUnitCol), "left_outer")
 
     val didData = indexedDf.select(
+        col(getTimeCol),
         col(UnitIdxCol),
         postTreatment.cast(IntegerType).as(getPostTreatmentCol),
         treatment.cast(IntegerType).as(getTreatmentCol),
@@ -58,6 +59,8 @@ class SyntheticControlEstimator(override val uid: String)
       ).as("l")
       .join(unitWeights.as("u"), col(s"l.$UnitIdxCol") === col("u.i"), "left_outer")
       .select(
+        col(getTimeCol),
+        col(UnitIdxCol),
         postTreatment,
         treatment,
         outcome,
@@ -68,10 +71,26 @@ class SyntheticControlEstimator(override val uid: String)
         (treatment * postTreatment).as(interactionCol)
       )
 
-    val linearModel = fitLinearModel(didData, Some(weightsCol))
+    val meanDf = didData.groupBy(getTimeCol).agg(
+      mean(interactionCol).as(s"mean_$interactionCol"),
+      mean(getOutcomeCol).as(s"mean_$getOutcomeCol")
+    )
 
-    val treatmentEffect = linearModel.coefficients(2)
-    val standardError = linearModel.summary.coefficientStandardErrors(2)
+    val demeaned = didData.as("l").join(meanDf.as("r"),
+        col(s"l.$getTimeCol") === col(s"r.$getTimeCol"), "inner")
+      .select(
+        col(s"l.$getTimeCol").as(getTimeCol),
+        postTreatment,
+        treatment,
+        (col(interactionCol) - col(s"mean_$interactionCol")).as(interactionCol),
+        (col(getOutcomeCol) - col(s"mean_$getOutcomeCol")).as(getOutcomeCol),
+        col(weightsCol)
+      )
+
+    val linearModel = fitLinearModel(demeaned, Array(interactionCol), fitIntercept = false, Some(weightsCol))
+
+    val treatmentEffect = linearModel.coefficients(0)
+    val standardError = linearModel.summary.coefficientStandardErrors(0)
 
     val summary = DiffInDiffSummary(
       treatmentEffect,

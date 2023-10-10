@@ -85,7 +85,12 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
         (treatment * postTreatment).as(interactionCol)
       )
 
-    val linearModel = fitLinearModel(didData, Some(weightsCol))
+    val linearModel = fitLinearModel(
+      didData,
+      Array(getPostTreatmentCol, getTreatmentCol, interactionCol),
+      fitIntercept = true,
+      Some(weightsCol)
+    )
 
     val treatmentEffect = linearModel.coefficients(2)
     val standardError = linearModel.summary.coefficientStandardErrors(2)

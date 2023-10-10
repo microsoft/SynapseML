@@ -41,9 +41,9 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 
   private[causal] val interactionCol = "interaction"
 
-  private[causal] def fitLinearModel(df: DataFrame, weightCol: Option[String] = None) = {
+  private[causal] def fitLinearModel(df: DataFrame, featureCols: Array[String], fitIntercept: Boolean, weightCol: Option[String] = None) = {
     val assembler = new VectorAssembler()
-      .setInputCols(Array(getPostTreatmentCol, getTreatmentCol, interactionCol))
+      .setInputCols(featureCols)
       .setOutputCol("features")
 
     val regression = weightCol
@@ -53,7 +53,7 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
     regression
       .setFeaturesCol("features")
       .setLabelCol(getOutcomeCol)
-      .setFitIntercept(true)
+      .setFitIntercept(fitIntercept)
       .setLoss("squaredError")
       .setRegParam(0.0)
 
