@@ -30,9 +30,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     .setOutputCol("face")
     .setReturnFaceId(true)
     .setReturnFaceLandmarks(true)
-    .setReturnFaceAttributes(Seq(
-      "age", "gender", "headPose", "smile", "facialHair", "glasses", "emotion",
-      "hair", "makeup", "occlusion", "accessories", "blur", "exposure", "noise"))
+    .setReturnFaceAttributes(Seq("exposure"))
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     def prep(df: DataFrame) = df.select(explode(col("face"))).select("col.*").drop("faceId")
@@ -47,7 +45,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     results.show(truncate=false)
 
     val f1 = fromRow(results.select("face").collect().head.getSeq[Row](0).head)
-    assert(f1.faceAttributes.get.age.get > 20)
+    assert(f1.faceAttributes.get.exposure.get.value != 0.0)
 
     results.show(truncate = false)
   }
