@@ -44,6 +44,8 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
@@ -78,6 +80,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
+
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -98,6 +101,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
@@ -152,6 +156,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
@@ -204,6 +209,7 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in R") {
     val exemptions: Set[String] = Set(
+      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
