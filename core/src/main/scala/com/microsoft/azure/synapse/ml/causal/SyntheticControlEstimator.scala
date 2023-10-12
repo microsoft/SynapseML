@@ -1,11 +1,12 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Pipeline}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{BooleanType, IntegerType}
-import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 class SyntheticControlEstimator(override val uid: String)
   extends BaseDiffInDiffEstimator(uid)
@@ -60,7 +61,6 @@ class SyntheticControlEstimator(override val uid: String)
       .join(unitWeights.as("u"), col(s"l.$UnitIdxCol") === col("u.i"), "left_outer")
       .select(
         col(getTimeCol),
-        col(UnitIdxCol),
         postTreatment,
         treatment,
         outcome,
@@ -71,23 +71,14 @@ class SyntheticControlEstimator(override val uid: String)
         (treatment * postTreatment).as(interactionCol)
       )
 
-    val meanDf = didData.groupBy(getTimeCol).agg(
-      mean(interactionCol).as(s"mean_$interactionCol"),
-      mean(getOutcomeCol).as(s"mean_$getOutcomeCol")
+    val timeEncoded = encodeTimeEffect(didData)
+
+    val linearModel = fitLinearModel(
+      timeEncoded,
+      Array(interactionCol, getTimeCol + "_enc"),
+      fitIntercept = true,
+      Some(weightsCol)
     )
-
-    val demeaned = didData.as("l").join(meanDf.as("r"),
-        col(s"l.$getTimeCol") === col(s"r.$getTimeCol"), "inner")
-      .select(
-        col(s"l.$getTimeCol").as(getTimeCol),
-        postTreatment,
-        treatment,
-        (col(interactionCol) - col(s"mean_$interactionCol")).as(interactionCol),
-        (col(getOutcomeCol) - col(s"mean_$getOutcomeCol")).as(getOutcomeCol),
-        col(weightsCol)
-      )
-
-    val linearModel = fitLinearModel(demeaned, Array(interactionCol), fitIntercept = false, Some(weightsCol))
 
     val treatmentEffect = linearModel.coefficients(0)
     val standardError = linearModel.summary.coefficientStandardErrors(0)
@@ -106,6 +97,22 @@ class SyntheticControlEstimator(override val uid: String)
       .setTimeIndex(timeIdx)
       .setUnitIndex(unitIdx)
   }, dataset.columns.length)
+
+  private def encodeTimeEffect(didData: DataFrame): DataFrame = {
+    val stringIndexer = new StringIndexer()
+      .setInputCol(getTimeCol)
+      .setOutputCol(getTimeCol + "idx")
+    val oneHotEncoder = new OneHotEncoder()
+      .setInputCol(getTimeCol + "idx")
+      .setOutputCol(getTimeCol + "_enc")
+      .setDropLast(false)
+
+    val timeEncoded = new Pipeline()
+      .setStages(Array(stringIndexer, oneHotEncoder))
+      .fit(didData)
+      .transform(didData)
+    timeEncoded
+  }
 }
 
 object SyntheticControlEstimator extends ComplexParamsReadable[SyntheticControlEstimator]

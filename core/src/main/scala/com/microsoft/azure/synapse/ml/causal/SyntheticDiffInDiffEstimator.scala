@@ -61,10 +61,10 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       countDistinct(when(treatment, col(getUnitCol))),
     ).head
 
-    val indexed_df = df.join(timeIdx, df(getTimeCol) === timeIdx(getTimeCol), "left_outer")
+    val indexedDf = df.join(timeIdx, df(getTimeCol) === timeIdx(getTimeCol), "left_outer")
       .join(unitIdx, df(getUnitCol) === unitIdx(getUnitCol), "left_outer")
 
-    val didData = indexed_df.select(
+    val didData = indexedDf.select(
         col(UnitIdxCol),
         col(TimeIdxCol),
         postTreatment.cast(IntegerType).as(getPostTreatmentCol),

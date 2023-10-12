@@ -52,7 +52,7 @@ trait SyntheticEstimatorParams extends Params
   def setTol(value: Double): this.type = set(tol, value)
 
   setDefault(
-    stepSize -> 0.5,
+    stepSize -> 1.0,
     tol -> 1E-3,
     maxIter -> 100,
     handleMissingOutcome -> "zero",
