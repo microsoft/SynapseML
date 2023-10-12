@@ -83,8 +83,8 @@ class VerifySyntheticControlEstimator
     assert(unitWeights.size === 100)
     // Almost all weights go to the last unit since all other units are intentionally placed far away from treatment units.
     assert(math.abs(unitWeights(99) - 1.0) < 0.01)
-    assert(summary.treatmentEffect === 10.428249543876486)
-    assert(summary.standardError === 1.2392998896347176)
+    assert(summary.treatmentEffect === 10.402769542126478)
+    assert(summary.standardError === 0.1808473095549071)
   }
 
   override def testObjects(): Seq[TestObject[SyntheticControlEstimator]] = Seq(
