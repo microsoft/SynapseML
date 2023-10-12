@@ -102,16 +102,16 @@ class SyntheticControlEstimator(override val uid: String)
     val stringIndexer = new StringIndexer()
       .setInputCol(getTimeCol)
       .setOutputCol(getTimeCol + "idx")
+
     val oneHotEncoder = new OneHotEncoder()
       .setInputCol(getTimeCol + "idx")
       .setOutputCol(getTimeCol + "_enc")
       .setDropLast(false)
 
-    val timeEncoded = new Pipeline()
+    new Pipeline()
       .setStages(Array(stringIndexer, oneHotEncoder))
       .fit(didData)
       .transform(didData)
-    timeEncoded
   }
 }
 
