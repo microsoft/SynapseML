@@ -36,6 +36,8 @@ class SharedState(trainParams: BaseTrainParams) {
   val datasetState: SharedDatasetState = new SharedDatasetState(trainParams, isForValidation = false)
   val validationDatasetState: SharedDatasetState = new SharedDatasetState(trainParams, isForValidation = true)
 
+  lazy val groupIdManager: GroupIdManager = new GroupIdManager()
+
   @volatile var isSparse: Option[Boolean] = None
   @volatile var mainExecutorWorker: Option[Long] = None
   @volatile var validationDatasetWorker: Option[Long] = None

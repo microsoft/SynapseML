@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split2
 
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.countCardinality
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vectors
@@ -14,6 +15,7 @@ import scala.language.postfixOps
 //scalastyle:off magic.number
 /** Tests to validate the functionality of LightGBM Ranker module in streaming mode. */
 class VerifyLightGBMRankerStream extends LightGBMRankerTestData {
+  override val dataTransferMode: String = LightGBMConstants.StreamingDataTransferMode
 
   import spark.implicits._
 
@@ -74,6 +76,11 @@ class VerifyLightGBMRankerStream extends LightGBMRankerTestData {
   test("verify cardinality counts: int" + executionModeSuffix) {
     val counts = countCardinality(Seq(1, 1, 2, 2, 2, 3))
    assert(counts === Seq(2, 3, 1))
+  }
+
+  test("verify cardinality counts: long" + executionModeSuffix) {
+    val counts = countCardinality(Seq(1L, 1L, 2L, 2L, 2L, 3L))
+    assert(counts === Seq(2, 3, 1))
   }
 
   test("verify cardinality counts: string" + executionModeSuffix) {
