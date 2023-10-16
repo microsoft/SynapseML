@@ -270,8 +270,14 @@ trait HasStringIndexType extends HasServiceParams {
   def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object TextSentiment extends ComplexParamsReadable[TextSentiment]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -302,8 +308,14 @@ class TextSentiment(override val uid: String)
 
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -319,8 +331,14 @@ class KeyPhraseExtractor(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/keyPhrases"
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object NER extends ComplexParamsReadable[NER]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class NER(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -336,8 +354,14 @@ class NER(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/entities/recognition/general"
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object PII extends ComplexParamsReadable[PII]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class PII(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -363,8 +387,14 @@ class PII(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/entities/recognition/pii"
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class LanguageDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -380,8 +410,14 @@ class LanguageDetector(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/languages"
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object EntityDetector extends ComplexParamsReadable[EntityDetector]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class EntityDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
   logClass()
@@ -397,8 +433,14 @@ class EntityDetector(override val uid: String)
   override def urlPath: String = "/text/analytics/v3.1/entities/linking"
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object AnalyzeHealthText extends ComplexParamsReadable[AnalyzeHealthText]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class AnalyzeHealthText(override val uid: String)
   extends TextAnalyticsBaseNoBinding(uid)
     with HasUnpackedBinding
@@ -441,8 +483,14 @@ class AnalyzeHealthText(override val uid: String)
 
 }
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
 
+@deprecated("This is an older version of the text analytics cognitive service" +
+  " and will be removed in v1.0.0 please use" +
+  " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(uid)
   with BasicAsyncReply {
   logClass()
