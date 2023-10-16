@@ -8,7 +8,7 @@ import scala.language.existentials
 
 /** Class for converting column values to group ID.
   *
-  * Ints can just be returned, but a map of Long and String values is maintains so that unique and
+  * Ints can just be returned, but a map of Long and String values is maintained so that unique and
   * consistent values can be returned.
   */
 class GroupIdManager {
