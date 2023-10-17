@@ -92,7 +92,7 @@ trait LightGBMExecutionParams extends Wrappable {
   val dataTransferMode = new Param[String](this, "dataTransferMode",
     "Specify how SynapseML transfers data from Spark to LightGBM.  " +
       "Values can be streaming, bulk. Default is bulk, which is the legacy mode.")
-  setDefault(dataTransferMode -> LightGBMConstants.StreamingDataTransferMode) // TODO change
+  setDefault(dataTransferMode -> LightGBMConstants.StreamingDataTransferMode)
   def getDataTransferMode: String = $(dataTransferMode)
   def setDataTransferMode(value: String): this.type = set(dataTransferMode, value)
 
