@@ -150,19 +150,19 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("fit", f, columns, logCertifiedEvent)
+    logVerb("fit", f, Some(columns), logCertifiedEvent)
   }
 
   def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("transform", f, columns, logCertifiedEvent)
+    logVerb("transform", f, Some(columns), logCertifiedEvent)
   }
 
-  def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = false): T = {
+  def logVerb[T](verb: String, f: => T, columns: Option[Int] = None, logCertifiedEvent: Boolean = false): T = {
     val startTime = System.nanoTime()
     try {
-      // Begin emitting certified event.
-      logBase(verb, Some(columns), Some((System.nanoTime() - startTime) / 1e9), logCertifiedEvent)
-      f
+      val ret = f
+      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9), logCertifiedEvent)
+      ret
     } catch {
       case e: Exception =>
         logErrorBase(verb, e)
