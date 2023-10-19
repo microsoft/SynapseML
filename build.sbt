@@ -8,7 +8,7 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.2.3"
+val sparkVer = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.15"
@@ -21,10 +21,10 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "org.apache.spark" %% "spark-core" % sparkVer % "compile",
+  "org.apache.spark" %% "spark-mllib" % sparkVer % "compile",
+  "org.apache.spark" %% "spark-avro" % sparkVer % "provided",
+  "org.apache.spark" %% "spark-tags" % sparkVer % "test",
   "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
@@ -76,6 +76,8 @@ ThisBuild / datasetDir := {
   join((Compile / packageBin / artifactPath).value.getParentFile,
     "datasets", datasetName.split(".".toCharArray.head).head)
 }
+val sparkVersion = settingKey[String]("The spark version")
+ThisBuild / sparkVersion := { sparkVer }
 
 getDatasetsTask := {
   val d = datasetDir.value.getParentFile
@@ -415,7 +417,8 @@ lazy val core = (project in file("core"))
       version,
       scalaVersion,
       sbtVersion,
-      baseDirectory
+      baseDirectory,
+      sparkVersion
     ),
     name := "synapseml-core",
     buildInfoPackage := "com.microsoft.azure.synapse.ml.build"
