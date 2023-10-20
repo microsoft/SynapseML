@@ -40,7 +40,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val numBatches = if (isMultiBatch) getNumBatches else 1
     setBatchPerformanceMeasures(Array.fill(numBatches)(None))
 
-    logTrain({
+    logFit({
       getOptGroupCol.foreach(DatasetUtils.validateGroupColumn(_, dataset.schema))
       if (isMultiBatch) {
         val ratio = 1.0 / numBatches

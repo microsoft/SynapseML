@@ -14,7 +14,7 @@ object Secrets {
   private val KvName = "mmlspark-keys"
   private val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
   private val PgpFileExtension = ".asc"
-  private val EnablePublishEnvVar = "SYNAPSEML-ENABLE-PUBLISH"
+  private val EnablePublishEnvVar = "SYNAPSEML_ENABLE_PUBLISH"
 
   lazy private val publishingEnabled: Boolean = sys.env.getOrElse(EnablePublishEnvVar, "false").toBoolean
 

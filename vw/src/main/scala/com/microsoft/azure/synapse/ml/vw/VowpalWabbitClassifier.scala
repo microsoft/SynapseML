@@ -61,7 +61,7 @@ class VowpalWabbitClassifier(override val uid: String)
   }
 
   override protected def train(dataset: Dataset[_]): VowpalWabbitClassificationModel = {
-    logTrain({
+    logFit({
       val model = new VowpalWabbitClassificationModel(uid)
         .setFeaturesCol(getFeaturesCol)
         .setAdditionalFeatures(getAdditionalFeatures)
