@@ -50,4 +50,3 @@ dependencies:
     - pypandoc
     - markdownify
     - traitlets
-

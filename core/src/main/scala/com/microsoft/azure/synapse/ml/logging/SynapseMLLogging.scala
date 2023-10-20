@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.logging.common.SASScrubber
+import com.microsoft.azure.synapse.ml.logging.fabric.CertifiedEventClient.logToCertifiedEvents
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol._
@@ -12,6 +13,8 @@ import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 case class RequiredLogFields(uid: String,
                              className: String,
@@ -110,16 +113,29 @@ trait SynapseMLLogging extends Logging {
 
   protected def logBase(methodName: String,
                         numCols: Option[Int],
-                        executionSeconds: Option[Double]
+                        executionSeconds: Option[Double],
+                        logCertifiedEvent: Boolean = false
                        ): Unit = {
     logBase(getPayload(
       methodName,
       numCols,
       executionSeconds,
-      None))
+      None), logCertifiedEvent)
   }
 
-  protected def logBase(info: Map[String, String]): Unit = {
+  protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
+    if (logCertifiedEvent) {
+      Future {
+        logToCertifiedEvents(
+          info("libraryName"),
+          info("method"),
+          info -- Seq("libraryName", "method")
+        )
+      }.failed.map {
+        case e: Exception => logErrorBase("certifiedEventLogging", e)
+      }
+    }
+
     logInfo(info.toJson.compactPrint)
   }
 
@@ -130,22 +146,22 @@ trait SynapseMLLogging extends Logging {
   }
 
   def logClass(): Unit = {
-    logBase("constructor", None, None)
+    logBase("constructor", None, None, true)
   }
 
-  def logFit[T](f: => T, columns: Int): T = {
-    logVerb("fit", f, Some(columns))
+  def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
+    logVerb("fit", f, Some(columns), logCertifiedEvent)
   }
 
-  def logTransform[T](f: => T, columns: Int): T = {
-    logVerb("transform", f, Some(columns))
+  def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
+    logVerb("transform", f, Some(columns), logCertifiedEvent)
   }
 
-  def logVerb[T](verb: String, f: => T, columns: Option[Int] = None): T = {
+  def logVerb[T](verb: String, f: => T, columns: Option[Int] = None, logCertifiedEvent: Boolean = false): T = {
     val startTime = System.nanoTime()
     try {
       val ret = f
-      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9))
+      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9), logCertifiedEvent)
       ret
     } catch {
       case e: Exception =>
