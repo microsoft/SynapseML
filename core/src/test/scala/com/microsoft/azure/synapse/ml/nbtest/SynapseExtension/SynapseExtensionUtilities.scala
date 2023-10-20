@@ -73,11 +73,8 @@ object SynapseExtensionUtilities {
   def updateSJDArtifact(path: String, artifactId: String, storeId: String): Artifact = {
     val eTag = getETagFromArtifact(artifactId)
     val store = Secrets.ArtifactStore.capitalize
-    val majorMinorRegex = "(\\d+\\.\\d+)".r
-    val sparkVersion = BuildInfo.version match {
-      case majorMinorRegex(major, minor) => s"$major.$minor"
-    }
-
+    val majorMinorPattern = "^(\\d+\\.\\d+)(.*)".r
+    val sparkVersion = majorMinorPattern.replaceAllIn(BuildInfo.sparkVersion, m => m.group(1))
     val excludes: String = "org.scala-lang:scala-reflect," +
       "org.apache.spark:spark-tags_2.12," +
       "org.scalactic:scalactic_2.12," +
@@ -89,7 +86,7 @@ object SynapseExtensionUtilities {
          |"{
          |  'Default${store}ArtifactId': '$storeId',
          |  'ExecutableFile': '$path',
-         |  'SparkVersion':'3.2',
+         |  'SparkVersion':'$sparkVersion',
          |  'SparkSettings': {
          |    'spark.jars.packages' : '$SparkMavenPackageList',
          |    'spark.jars.repositories' : '$SparkMavenRepositoryList',
