@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split2
 
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMRegressionModel}
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
@@ -15,6 +15,8 @@ import org.apache.spark.sql.{DataFrame, Row}
 /** Tests to validate the functionality of LightGBM module in streaming mode.
   */
 class VerifyLightGBMRegressorStream extends LightGBMRegressorTestData {
+  override val dataTransferMode: String = LightGBMConstants.StreamingDataTransferMode
+
   test(verifyLearnerTitleTemplate.format(energyEffFile, dataTransferMode)) {
     verifyLearnerOnRegressionCsvFile(energyEffFile, "Y1", 0,
       Some(Seq("X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "Y2")))
