@@ -326,7 +326,7 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 - [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
 
-- [Recommenders](https://github.com/Microsoft/Recommenders)
+- [Recommenders](https://github.com/recommenders-team/Recommenders)
 
 - [JPMML-SparkML plugin for converting SynapseML LightGBM models to PMML](https://github.com/alipay/jpmml-sparkml-lightgbm)
 

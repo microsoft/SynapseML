@@ -5,8 +5,8 @@ ThisBuild / sonatypeProjectHosting := Some(
 ThisBuild / homepage := Some(url("https://github.com/Microsoft/SynapseML"))
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/Azure/SynapseML"),
-    "scm:git@github.com:Azure/SynapseML.git"
+    url("https://github.com/Microsoft/SynapseML"),
+    "scm:git@github.com:Microsoft/SynapseML.git"
   )
 )
 ThisBuild / developers := List(
@@ -17,7 +17,11 @@ ThisBuild / developers := List(
   Developer("drdarshan", "Sudarshan Raghunathan",
     "synapseml-support@microsoft.com", url("https://github.com/drdarshan")),
   Developer("svotaw", "Scott Votaw",
-    "synapseml-support@microsoft.com", url("https://github.com/svotaw"))
+    "synapseml-support@microsoft.com", url("https://github.com/svotaw")),
+  Developer("BrendanWalsh", "Brendan Walsh",
+    "synapseml-support@microsoft.com", url("https://github.com/BrendanWalsh")),
+  Developer("JessicaXYWang", "Jessica Wang",
+    "synapseml-support@microsoft.com", url("https://github.com/JessicaXYWang"))
 )
 
 ThisBuild / licenses += ("MIT", url("https://github.com/Microsoft/SynapseML/blob/master/LICENSE"))
