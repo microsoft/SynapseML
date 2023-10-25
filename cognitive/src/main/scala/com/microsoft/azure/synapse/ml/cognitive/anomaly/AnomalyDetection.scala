@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.cognitive.anomaly.AnomalyDetectorProtocol.
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.injections.UDFUtils
@@ -148,7 +148,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
 class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
@@ -165,7 +165,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
 class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
@@ -183,7 +183,7 @@ object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   with HasOutputCol with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 

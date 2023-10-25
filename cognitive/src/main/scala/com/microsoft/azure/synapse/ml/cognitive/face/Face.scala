@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.face
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.vision.HasImageUrl
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -21,7 +21,7 @@ class DetectFace(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageUrl with HasServiceParams
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Face)
 
   def this() = this(Identifiable.randomUID("DetectFace"))
 
@@ -100,7 +100,7 @@ class FindSimilarFace(override val uid: String)
     with HasMaxNumOfCandidatesReturned with HasFaceIds
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Face)
 
   def this() = this(Identifiable.randomUID("FindSimilarFace"))
 
@@ -189,7 +189,7 @@ class GroupFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasFaceIds with HasSetLocation
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with SynapseMLLogging with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Face)
 
   def this() = this(Identifiable.randomUID("GroupFaces"))
 
@@ -212,7 +212,7 @@ class IdentifyFaces(override val uid: String)
     with HasMaxNumOfCandidatesReturned with HasFaceIds
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Face)
 
   def this() = this(Identifiable.randomUID("IdentifyFaces"))
 
@@ -281,7 +281,7 @@ class VerifyFaces(override val uid: String)
   extends CognitiveServicesBase(uid) with HasServiceParams
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Face)
 
   def this() = this(Identifiable.randomUID("VerifyFaces"))
 

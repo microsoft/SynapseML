@@ -14,7 +14,7 @@ import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.{Client, retry}
 import com.microsoft.azure.synapse.ml.io.http._
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.stages._
 import com.microsoft.azure.synapse.ml.param.CognitiveServiceStructParam
 import org.apache.commons.io.IOUtils
@@ -416,7 +416,7 @@ object SimpleFitMultivariateAnomaly extends ComplexParamsReadable[SimpleFitMulti
 
 class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[SimpleDetectMultivariateAnomaly]
   with MADBase {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleFitMultivariateAnomaly"))
 
@@ -569,7 +569,7 @@ object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetec
 
 class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
   with MADBase with HasHandler with DetectMAParams {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
 
@@ -654,7 +654,7 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
   with HasSetLocation with HasCognitiveServiceInput with HasBatchSize
   with ComplexParamsWritable with Wrappable
   with HasErrorCol with SynapseMLLogging with DetectMAParams {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectLastMultivariateAnomaly"))
 

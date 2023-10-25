@@ -3,10 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.cognitive.{
-  CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser
-}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -24,7 +22,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 class OpenAIChatCompletion(override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAITextParams with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.OpenAI)
 
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +

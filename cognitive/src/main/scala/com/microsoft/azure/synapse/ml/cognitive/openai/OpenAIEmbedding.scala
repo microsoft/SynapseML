@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.cognitive.openai
 import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput, HasServiceParams}
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -24,7 +24,7 @@ object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAISharedParams with HasCognitiveServiceInput  with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 

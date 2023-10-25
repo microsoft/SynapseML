@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, SharedSingleton}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
@@ -23,7 +23,7 @@ class PartitionConsolidator(val uid: String)
   extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol
     with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("PartitionConsolidator"))
 

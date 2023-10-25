@@ -4,9 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, LightGBMModelParams, LightGBMPredictionParams, RegressorTrainParams}
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
@@ -39,7 +38,7 @@ object LightGBMRegressor extends DefaultParamsReadable[LightGBMRegressor]
 class LightGBMRegressor(override val uid: String)
   extends BaseRegressor[Vector, LightGBMRegressor, LightGBMRegressionModel]
     with LightGBMBase[LightGBMRegressionModel] with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.LightGBM)
 
   def this() = this(Identifiable.randomUID("LightGBMRegressor"))
 
@@ -98,7 +97,7 @@ class LightGBMRegressionModel(override val uid: String)
     with LightGBMModelMethods
     with LightGBMPredictionParams
     with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.LightGBM)
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
 

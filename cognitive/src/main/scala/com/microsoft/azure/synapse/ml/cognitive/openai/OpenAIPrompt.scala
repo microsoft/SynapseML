@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
@@ -26,7 +26,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with ComplexParamsWritable with SynapseMLLogging {
 
-  logClass()
+  logClass(FeatureNames.CognitiveServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
 

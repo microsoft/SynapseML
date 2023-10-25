@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.ParamMap
@@ -25,7 +25,7 @@ class VowpalWabbitInteractions(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
   with Wrappable with ComplexParamsWritable with SynapseMLLogging
 {
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   def this() = this(Identifiable.randomUID("VowpalWabbitInteractions"))
 

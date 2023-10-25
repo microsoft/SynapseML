@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.cognitive.search.HasServiceName
 import com.microsoft.azure.synapse.ml.cognitive.vision.BasicAsyncReply
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.{convertAndClose, sendWithRetries}
 import com.microsoft.azure.synapse.ml.io.http.{HTTPResponseData, HeaderValues}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpGet
@@ -57,7 +57,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
 
   import TranslatorJsonProtocol._
 
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Translate)
 
   def this() = this(Identifiable.randomUID("DocumentTranslator"))
 

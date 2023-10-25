@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.form
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.vision.{BasicAsyncReply, HasImageInput}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ByteArrayEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -38,7 +38,7 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
   with HasPrebuiltModelID with HasPages with HasLocale with HasAPIVersion
   with HasImageInput with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
-  logClass()
+  logClass(FeatureNames.CognitiveServices.Anomaly)
 
   setDefault(apiVersion -> Left("2022-08-31"))
 

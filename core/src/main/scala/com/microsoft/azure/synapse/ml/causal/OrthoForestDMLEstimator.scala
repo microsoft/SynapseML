@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.TransformerArrayParam
 import com.microsoft.azure.synapse.ml.stages.DropColumns
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
@@ -32,7 +32,7 @@ class OrthoForestDMLEstimator(override val uid: String)
   extends Estimator[OrthoForestDMLModel] with ComplexParamsWritable
     with OrthoForestDMLParams with Wrappable with SynapseMLLogging with HasOutcomeCol {
 
-  logClass()
+  logClass(FeatureNames.Causal)
 
   type EstimatorWithPC = Estimator[_ <: Model[_] with HasPredictionCol] with HasPredictionCol
 
@@ -160,7 +160,7 @@ class OrthoForestDMLModel(val uid: String)
   extends Model[OrthoForestDMLModel] with OrthoForestDMLParams
     with ComplexParamsWritable with Wrappable with SynapseMLLogging {
 
-  logClass()
+  logClass(FeatureNames.Causal)
 
   override protected lazy val pyInternalWrapper = false
 

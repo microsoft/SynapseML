@@ -4,9 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm
 
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
-import com.microsoft.azure.synapse.ml.lightgbm.params.{
-  BaseTrainParams, ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, ClassifierTrainParams, LightGBMModelParams, LightGBMPredictionParams}
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
@@ -27,7 +26,7 @@ object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 class LightGBMClassifier(override val uid: String)
   extends ProbabilisticClassifier[Vector, LightGBMClassifier, LightGBMClassificationModel]
   with LightGBMBase[LightGBMClassificationModel] with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.LightGBM)
 
   def this() = this(Identifiable.randomUID("LightGBMClassifier"))
 
@@ -102,7 +101,7 @@ class LightGBMClassificationModel(override val uid: String)
     extends ProbabilisticClassificationModel[Vector, LightGBMClassificationModel]
       with LightGBMModelParams with LightGBMModelMethods with LightGBMPredictionParams
       with HasActualNumClasses with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.LightGBM)
 
   def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
 

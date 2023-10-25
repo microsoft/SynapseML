@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants._
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalColumnInfo, CategoricalUtilities}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -28,7 +28,7 @@ object IndexToValue extends DefaultParamsReadable[IndexToValue]
 
 class IndexToValue(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Featurize)
 
   def this() = this(Identifiable.randomUID("IndexToValue"))
 

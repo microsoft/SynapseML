@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -34,7 +34,7 @@ class AggregateBalanceMeasure(override val uid: String)
     with Wrappable
     with SynapseMLLogging {
 
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("AggregateBalanceMeasure"))
 
