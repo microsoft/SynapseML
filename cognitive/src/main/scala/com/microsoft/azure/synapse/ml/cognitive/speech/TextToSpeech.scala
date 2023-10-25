@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.speech
 
-import com.microsoft.azure.synapse.ml.cognitive.{HasServiceParams, HasSetLinkedServiceUsingLocation, HasSetLocation, HasSubscriptionKey}
+import com.microsoft.azure.synapse.ml.cognitive.{HasServiceParams, HasSetLinkedServiceUsingLocation, HasSetLocation,
+  HasSubscriptionKey}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.{HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}

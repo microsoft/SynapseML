@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.cognitive.search
 
 import com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchProtocol._
-import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser, HasServiceParams}
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput,
+  HasInternalJsonOutputParser, HasServiceParams}
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.io.powerbi.StreamMaterializer
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}

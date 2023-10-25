@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput,
+  HasInternalJsonOutputParser}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
