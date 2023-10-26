@@ -7,7 +7,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
 import com.microsoft.azure.synapse.ml.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
 import org.apache.spark.SparkException
@@ -37,7 +37,7 @@ import scala.util.control.NonFatal
   */
 class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperparametersModel]
   with Wrappable with ComplexParamsWritable with HasEvaluationMetric with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.AutoML)
 
   def this() = this(Identifiable.randomUID("TuneHyperparameters"))
 
@@ -231,7 +231,7 @@ object TuneHyperparameters extends ComplexParamsReadable[TuneHyperparameters]
 class TuneHyperparametersModel(val uid: String)
   extends Model[TuneHyperparametersModel] with ComplexParamsWritable
     with Wrappable with HasBestModel with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.AutoML)
 
   def this() = this(Identifiable.randomUID("TuneHyperparametersModel"))
 

@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -101,7 +101,7 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
 class SummarizeData(override val uid: String)
   extends Transformer
     with SummarizeDataParams with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("SummarizeData"))
 

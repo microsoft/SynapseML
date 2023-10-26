@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.Aggregator
 import org.apache.spark.sql.{Encoder, Encoders}
@@ -19,7 +19,7 @@ class Ips
     with SynapseMLLogging {
   override val uid: String = Identifiable.randomUID("BanditEstimatorIps")
 
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   def zero: IpsBuffer = IpsBuffer(0, 0)
 

@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.explainers
 
 import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -27,7 +28,7 @@ class TextLIME(override val uid: String)
     with TextLIMEParams
     with TextExplainer {
 
-  logClass()
+  logClass(FeatureNames.Explainers)
 
   def this() = {
     this(Identifiable.randomUID("TextLIME"))
