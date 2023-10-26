@@ -28,7 +28,8 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] val weightsCol = "weights"
   private[causal] val epsilon = 1E-10
 
-  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, size: (Long, Long)): (DVector, Double, Seq[Double]) = {
+  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, size: (Long, Long))
+    : (DVector, Double, Seq[Double]) = {
     if (size._1 * size._2 <= getLocalSolverThreshold) {
       // If matrix size is less than LocalSolverThreshold (defaults to 1M),
       // collect the data on the driver node and solve it locally, where matrix-vector

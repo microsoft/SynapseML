@@ -6,7 +6,9 @@ package com.microsoft.azure.synapse.ml.causal.linalg
 import breeze.linalg.{norm, DenseVector => BDV, max => bmax, sum => bsum}
 import breeze.numerics.{abs => babs, exp => bexp}
 import breeze.stats.{mean => bmean}
-import org.apache.spark.sql.functions.{coalesce, col, lit, abs => sabs, exp => sexp, max => smax, mean => smean, sum => ssum}
+import org.apache.spark.sql.functions.{
+  coalesce, col, lit, abs => sabs, exp => sexp, max => smax, mean => smean, sum => ssum
+}
 import org.apache.spark.sql.{Encoder, Encoders, Row, SparkSession}
 
 case class VectorEntry(i: Long, value: Double)

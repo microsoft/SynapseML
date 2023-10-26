@@ -25,6 +25,7 @@ class SyntheticControlEstimator(override val uid: String)
 
   def this() = this(Identifiable.randomUID("syncon"))
 
+  // scalastyle:off method.length
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
     val df = dataset
       .withColumn(getTreatmentCol, treatment.cast(BooleanType))

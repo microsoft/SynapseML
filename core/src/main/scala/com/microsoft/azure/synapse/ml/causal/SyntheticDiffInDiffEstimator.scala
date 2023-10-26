@@ -24,6 +24,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
 
   def this() = this(Identifiable.randomUID("syndid"))
 
+  // scalastyle:off method.length
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
     val df = dataset
       .withColumn(getTreatmentCol, treatment.cast(BooleanType))
@@ -32,9 +33,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
     val timeIdx = createIndex(preDf, getTimeCol, TimeIdxCol).cache
-    timeIdx.show(100, false)
     val unitIdx = createIndex(controlDf, getUnitCol, UnitIdxCol).cache
-    unitIdx.show(100, false)
     val size = (unitIdx.count, timeIdx.count)
 
     // indexing
@@ -49,7 +48,6 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .localCheckpoint(true)
 
     // fit time weights
-
     val (timeWeights, timeIntercept, lossHistoryTimeWeights) = fitTimeWeights(
       handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt), size
     )
@@ -66,7 +64,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     // join weights
     val Row(t: Long, u: Long) = df.agg(
       countDistinct(when(postTreatment, col(getTimeCol))),
-      countDistinct(when(treatment, col(getUnitCol))),
+      countDistinct(when(treatment, col(getUnitCol)))
     ).head
 
     val indexedDf = df.join(timeIdx, df(getTimeCol) === timeIdx(getTimeCol), "left_outer")

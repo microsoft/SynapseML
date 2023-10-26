@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.causal.opt
 
+// scalastyle:off non.ascii.character.disallowed
 import breeze.optimize.DiffFunction
 import com.microsoft.azure.synapse.ml.causal.CacheOps
 import com.microsoft.azure.synapse.ml.causal.linalg.{MatrixOps, VectorOps}
 
-// scalastyle:off non.ascii.character.disallowed
 /**
   * Solver for the following constrained least square problem:
   * minimize ||Ax-b||^2^ + λ||x||^2^, s.t. 1^T^x = 1, 0 ≤ x ≤ 1
@@ -16,7 +16,6 @@ import com.microsoft.azure.synapse.ml.causal.linalg.{MatrixOps, VectorOps}
   * @param numIterNoChange max number of iteration without change in loss function allowed before termination.
   * @param tol tolerance for loss function
   */
-// scalastyle:on
 private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
                                          maxIter: Int,
                                          numIterNoChange: Option[Int] = None,
