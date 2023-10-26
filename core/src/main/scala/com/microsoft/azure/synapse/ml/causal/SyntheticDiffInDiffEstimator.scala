@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
@@ -17,7 +18,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     with ComplexParamsWritable
     with Wrappable {
 
-  logClass()
+  logClass(FeatureNames.Causal)
 
   import SyntheticEstimator._
 
