@@ -23,7 +23,7 @@ class SpeakerEmotionInference(override val uid: String)
   extends CognitiveServicesBase(uid)
     with HasLocaleCol with HasVoiceNameCol with HasTextCol with HasSetLocation
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Speech)
+  logClass(FeatureNames.AiServices.Speech)
 
   def this() = this(Identifiable.randomUID(classOf[SpeakerEmotionInference].getSimpleName))
 

@@ -209,7 +209,7 @@ object Translate extends ComplexParamsReadable[Translate]
 
 class Translate(override val uid: String) extends TextTranslatorBase(uid)
   with TextAsOnlyEntity with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("Translate"))
 
@@ -384,7 +384,7 @@ object Transliterate extends ComplexParamsReadable[Transliterate]
 
 class Transliterate(override val uid: String) extends TextTranslatorBase(uid)
   with TextAsOnlyEntity with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("Transliterate"))
 
@@ -419,7 +419,7 @@ object Detect extends ComplexParamsReadable[Detect]
 
 class Detect(override val uid: String) extends TextTranslatorBase(uid)
   with TextAsOnlyEntity with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("Detect"))
 
@@ -432,7 +432,7 @@ object BreakSentence extends ComplexParamsReadable[BreakSentence]
 
 class BreakSentence(override val uid: String) extends TextTranslatorBase(uid)
   with TextAsOnlyEntity with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("BreakSentence"))
 
@@ -461,7 +461,7 @@ object DictionaryLookup extends ComplexParamsReadable[DictionaryLookup]
 
 class DictionaryLookup(override val uid: String) extends TextTranslatorBase(uid)
   with TextAsOnlyEntity with HasFromLanguage with HasToLanguage with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("DictionaryLookup"))
 
@@ -495,7 +495,7 @@ object DictionaryExamples extends ComplexParamsReadable[DictionaryExamples]
 class DictionaryExamples(override val uid: String) extends TextTranslatorBase(uid)
   with HasTextAndTranslationInput with HasFromLanguage with HasToLanguage
   with HasCognitiveServiceInput with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("DictionaryExamples"))
 

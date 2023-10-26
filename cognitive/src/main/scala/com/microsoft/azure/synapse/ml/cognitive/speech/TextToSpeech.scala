@@ -31,7 +31,7 @@ class TextToSpeech(override val uid: String)
     with HasSetLocation with HasServiceParams
     with HasErrorCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with SynapseMLLogging
     with HasSetLinkedServiceUsingLocation {
-  logClass(FeatureNames.CognitiveServices.Speech)
+  logClass(FeatureNames.AiServices.Speech)
 
   setDefault(errorCol -> (uid + "_errors"))
 

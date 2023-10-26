@@ -38,7 +38,7 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
   with HasPrebuiltModelID with HasPages with HasLocale with HasAPIVersion
   with HasImageInput with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   setDefault(apiVersion -> Left("2022-08-31"))
 

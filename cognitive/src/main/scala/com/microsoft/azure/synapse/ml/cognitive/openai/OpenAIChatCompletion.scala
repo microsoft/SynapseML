@@ -23,7 +23,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 class OpenAIChatCompletion(override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAITextParams with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.OpenAI)
+  logClass(FeatureNames.AiServices.OpenAI)
 
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +

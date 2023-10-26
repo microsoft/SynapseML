@@ -90,7 +90,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasActionCol with HasServiceName with HasIndexName with HasBatchSize
   with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Search)
+  logClass(FeatureNames.AiServices.Search)
 
   def this() = this(Identifiable.randomUID("AddDocuments"))
 

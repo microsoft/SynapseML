@@ -57,7 +57,7 @@ class DocumentTranslator(override val uid: String) extends CognitiveServicesBase
 
   import TranslatorJsonProtocol._
 
-  logClass(FeatureNames.CognitiveServices.Translate)
+  logClass(FeatureNames.AiServices.Translate)
 
   def this() = this(Identifiable.randomUID("DocumentTranslator"))
 

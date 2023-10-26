@@ -191,7 +191,7 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
   with HasLanguage with HasImageInput with HasDetectOrientation
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
   with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("OCR"))
 
@@ -370,7 +370,7 @@ class RecognizeText(override val uid: String)
     with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("RecognizeText"))
 
@@ -416,7 +416,7 @@ class ReadImage(override val uid: String)
     with BasicAsyncReply
     with HasImageInput with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("ReadImage"))
 
@@ -449,7 +449,7 @@ class GenerateThumbnails(override val uid: String)
     with HasWidth with HasHeight with HasSmartCropping
     with HasCognitiveServiceInput with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("GenerateThumbnails"))
 
@@ -466,7 +466,7 @@ class AnalyzeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasInternalJsonOutputParser with HasCognitiveServiceInput with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   val visualFeatures = new ServiceParam[Seq[String]](
     this, "visualFeatures", "what visual feature types to return",
@@ -565,7 +565,7 @@ class RecognizeDomainSpecificContent(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasServiceParams with HasCognitiveServiceInput
     with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("RecognizeDomainSpecificContent"))
 
@@ -590,7 +590,7 @@ class TagImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasImageInput
     with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
@@ -618,7 +618,7 @@ class DescribeImage(override val uid: String)
   extends CognitiveServicesBase(uid) with HasCognitiveServiceInput
     with HasImageInput with HasInternalJsonOutputParser with HasSetLocation with SynapseMLLogging
     with HasSetLinkedService {
-  logClass(FeatureNames.CognitiveServices.Vision)
+  logClass(FeatureNames.AiServices.Vision)
 
   def this() = this(Identifiable.randomUID("DescribeImage"))
 

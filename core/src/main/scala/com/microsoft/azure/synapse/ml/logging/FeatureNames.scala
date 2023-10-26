@@ -4,18 +4,18 @@
 package com.microsoft.azure.synapse.ml.logging
 
 object FeatureNames {
-  object CognitiveServices {
-    val Anomaly = "cognitive-anomalydetection"
-    val BingImage = "cognitive-bingimage"
-    val Face = "cognitive-face"
-    val Form = "cognitive-form"
-    val Language = "cognitive-language"
-    val OpenAI = "cognitive-openai"
-    val Search = "cognitive-search"
-    val Speech = "cognitive-speech"
-    val Text = "cognitive-text"
-    val Translate = "cognitive-translate"
-    val Vision = "cognitive-vision"
+  object AiServices {
+    val Anomaly = "aiservice-anomalydetection"
+    val BingImage = "aiservice-bingimage"
+    val Face = "aiservice-face"
+    val Form = "aiservice-form"
+    val Language = "aiservice-language"
+    val OpenAI = "aiservice-openai"
+    val Search = "aiservice-search"
+    val Speech = "aiservice-speech"
+    val Text = "aiservice-text"
+    val Translate = "aiservice-translate"
+    val Vision = "aiservice-vision"
   }
 
   val AutoML = "automl"

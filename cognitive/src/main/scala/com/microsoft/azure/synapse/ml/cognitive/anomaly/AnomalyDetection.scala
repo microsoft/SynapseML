@@ -148,7 +148,7 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
 class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectLastAnomaly"))
 
@@ -165,7 +165,7 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
 class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectAnomalies"))
 
@@ -183,7 +183,7 @@ object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies
 
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   with HasOutputCol with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleDetectAnomalies"))
 

@@ -22,7 +22,7 @@ object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.OpenAI)
+  logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
 

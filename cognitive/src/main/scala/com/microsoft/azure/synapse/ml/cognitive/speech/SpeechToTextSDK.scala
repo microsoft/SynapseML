@@ -436,7 +436,7 @@ abstract class SpeechSDKBase extends Transformer
 }
 
 class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Speech)
+  logClass(FeatureNames.AiServices.Speech)
 
   override type ResponseType = SpeechResponse
 
@@ -509,7 +509,7 @@ class SpeechToTextSDK(override val uid: String) extends SpeechSDKBase with Synap
 object ConversationTranscription extends ComplexParamsReadable[ConversationTranscription]
 
 class ConversationTranscription(override val uid: String) extends SpeechSDKBase with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Speech)
+  logClass(FeatureNames.AiServices.Speech)
 
   override type ResponseType = TranscriptionResponse
 

@@ -24,7 +24,7 @@ object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAISharedParams with HasCognitiveServiceInput  with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.OpenAI)
+  logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 

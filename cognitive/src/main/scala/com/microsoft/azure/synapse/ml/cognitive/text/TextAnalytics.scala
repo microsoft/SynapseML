@@ -281,7 +281,7 @@ object TextSentiment extends ComplexParamsReadable[TextSentiment]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class TextSentiment(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = TextSentimentScoredDoc
 
@@ -319,7 +319,7 @@ object KeyPhraseExtractor extends ComplexParamsReadable[KeyPhraseExtractor]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class KeyPhraseExtractor(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = KeyPhraseScoredDoc
 
@@ -342,7 +342,7 @@ object NER extends ComplexParamsReadable[NER]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class NER(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = NERScoredDoc
 
@@ -365,7 +365,7 @@ object PII extends ComplexParamsReadable[PII]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class PII(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = PIIScoredDoc
 
@@ -398,7 +398,7 @@ object LanguageDetector extends ComplexParamsReadable[LanguageDetector]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class LanguageDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = LanguageDetectorScoredDoc
 
@@ -421,7 +421,7 @@ object EntityDetector extends ComplexParamsReadable[EntityDetector]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class EntityDetector(override val uid: String)
   extends TextAnalyticsBase(uid) with HasStringIndexType with HasHandler {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = EntityDetectorScoredDoc
 
@@ -446,7 +446,7 @@ class AnalyzeHealthText(override val uid: String)
   extends TextAnalyticsBaseNoBinding(uid)
     with HasUnpackedBinding
     with HasStringIndexType with BasicAsyncReply {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   type T = AnalyzeHealthTextScoredDoc
 
@@ -494,7 +494,7 @@ object TextAnalyze extends ComplexParamsReadable[TextAnalyze]
   " com.microsoft.azure.synapse.ml.cognitive.language.AnalyzeText instead", "v0.11.3")
 class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(uid)
   with BasicAsyncReply {
-  logClass(FeatureNames.CognitiveServices.Text)
+  logClass(FeatureNames.AiServices.Text)
 
   def this() = this(Identifiable.randomUID("TextAnalyze"))
 

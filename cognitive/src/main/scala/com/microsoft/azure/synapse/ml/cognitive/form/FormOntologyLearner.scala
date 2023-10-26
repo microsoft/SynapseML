@@ -42,7 +42,7 @@ object FormOntologyLearner extends DefaultParamsReadable[FormOntologyLearner] {
 
 class FormOntologyLearner(override val uid: String) extends Estimator[FormOntologyTransformer]
   with SynapseMLLogging with DefaultParamsWritable with HasInputCol with HasOutputCol with Wrappable {
-  logClass(FeatureNames.CognitiveServices.Form)
+  logClass(FeatureNames.AiServices.Form)
 
   def this() = this(Identifiable.randomUID("FormOntologyLearner"))
 
@@ -87,7 +87,7 @@ object FormOntologyTransformer extends ComplexParamsReadable[FormOntologyTransfo
 
 class FormOntologyTransformer(override val uid: String) extends Model[FormOntologyTransformer]
   with SynapseMLLogging with ComplexParamsWritable with HasInputCol with HasOutputCol with Wrappable {
-  logClass(FeatureNames.CognitiveServices.Form)
+  logClass(FeatureNames.AiServices.Form)
 
   val ontology: DataTypeParam = new DataTypeParam(
     parent = this,

@@ -416,7 +416,7 @@ object SimpleFitMultivariateAnomaly extends ComplexParamsReadable[SimpleFitMulti
 
 class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[SimpleDetectMultivariateAnomaly]
   with MADBase {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleFitMultivariateAnomaly"))
 
@@ -569,7 +569,7 @@ object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetec
 
 class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
   with MADBase with HasHandler with DetectMAParams {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("SimpleDetectMultivariateAnomaly"))
 
@@ -654,7 +654,7 @@ class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveS
   with HasSetLocation with HasCognitiveServiceInput with HasBatchSize
   with ComplexParamsWritable with Wrappable
   with HasErrorCol with SynapseMLLogging with DetectMAParams {
-  logClass(FeatureNames.CognitiveServices.Anomaly)
+  logClass(FeatureNames.AiServices.Anomaly)
 
   def this() = this(Identifiable.randomUID("DetectLastMultivariateAnomaly"))
 

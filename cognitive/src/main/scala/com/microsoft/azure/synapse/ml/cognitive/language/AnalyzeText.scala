@@ -127,7 +127,7 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
   with HasAPIVersion with HasCountryHint with TextAnalyticsAutoBatch with HasBatchSize
   with AnalyzeTextTaskParameters with SynapseMLLogging {
-  logClass(FeatureNames.CognitiveServices.Language)
+  logClass(FeatureNames.AiServices.Language)
 
   def this() = this(Identifiable.randomUID("AnalyzeText"))
 
