@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.io.http
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.UDFParam
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
@@ -96,7 +96,7 @@ class HTTPTransformer(val uid: String)
   extends Transformer with ConcurrencyParams with HasInputCol
     with HasOutputCol with HasHandler
     with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   setDefault(handler -> HandlingUtils.advancedUDF(100, 500, 1000)) //scalastyle:ignore magic.number
 

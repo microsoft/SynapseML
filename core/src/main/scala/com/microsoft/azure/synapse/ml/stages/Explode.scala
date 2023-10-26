@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
@@ -17,7 +17,7 @@ object Explode extends DefaultParamsReadable[Explode]
 
 class Explode(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with DefaultParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("Explode"))
 

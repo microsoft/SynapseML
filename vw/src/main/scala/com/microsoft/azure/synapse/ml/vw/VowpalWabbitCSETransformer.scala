@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.policyeval.PolicyEvalUDAFUtil
 import org.apache.spark.ml.param.{DoubleParam, FloatParam, ParamMap, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
@@ -24,7 +24,7 @@ class VowpalWabbitCSETransformer(override val uid: String)
   import VowpalWabbitDSJsonTransformer._
   import VowpalWabbitCSETransformer._
 
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   def this() = this(Identifiable.randomUID("VowpalWabbitCSETransformer"))
 

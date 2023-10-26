@@ -3,10 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.openai
 
-import com.microsoft.azure.synapse.ml.cognitive.{
-  CognitiveServicesBase, HasCognitiveServiceInput, HasInternalJsonOutputParser
-}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase,
+  HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -23,7 +22,7 @@ object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(uid)
   with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
 

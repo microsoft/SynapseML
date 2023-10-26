@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.recommendation.{BaseRecommendationModel, Constants}
@@ -22,7 +22,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
   */
 class SARModel(override val uid: String) extends Model[SARModel]
   with BaseRecommendationModel with Wrappable with SARParams with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   override protected lazy val pyInternalWrapper = true
 
