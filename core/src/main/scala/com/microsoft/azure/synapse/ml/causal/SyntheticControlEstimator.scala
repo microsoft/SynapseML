@@ -28,9 +28,9 @@ class SyntheticControlEstimator(override val uid: String)
       .toDF
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
-    val controlPreDf = controlDf.filter(not(postTreatment)).cache
-    val timeIdx = createIndex(controlPreDf, getTimeCol, TimeIdxCol).cache
-    val unitIdx = createIndex(controlPreDf, getUnitCol, UnitIdxCol).cache
+    val timeIdx = createIndex(preDf, getTimeCol, TimeIdxCol).cache
+    val unitIdx = createIndex(controlDf, getUnitCol, UnitIdxCol).cache
+    val size = (timeIdx.count, unitIdx.count)
 
     // indexing
     val indexedPreDf = preDf.join(timeIdx, preDf(getTimeCol) === timeIdx(getTimeCol), "left_outer")
@@ -41,7 +41,8 @@ class SyntheticControlEstimator(override val uid: String)
     val (unitWeights, unitIntercept, lossHistory) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta = 0d,
-      fitIntercept = false
+      fitIntercept = false,
+      size
     )
 
     // join weights

@@ -25,8 +25,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] val weightsCol = "weights"
   private[causal] val epsilon = 1E-10
 
-  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean): (DVector, Double, Seq[Double]) = {
-    val size = matrixOps.size(A)
+  private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, size: (Long, Long)): (DVector, Double, Seq[Double]) = {
     if (size._1 * size._2 <= getLocalSolverThreshold) {
       // If matrix size is less than LocalSolverThreshold (defaults to 1M),
       // collect the data on the driver node and solve it locally, where matrix-vector
@@ -35,8 +34,8 @@ trait SyntheticEstimator extends SynapseMLLogging {
       implicit val bzVectorOps: VectorOps[BDV[Double]] = BzVectorOps
       implicit val cacheOps: CacheOps[BDV[Double]] = BDVCacheOps
 
-      val bzA = convertToBDM(A.collect())
-      val bzb = convertToBDV(b.collect()) // b is assumed to be non-sparse
+      val bzA = convertToBDM(A.collect(), size)
+      val bzb = convertToBDV(b.collect(), size._1)
       val solver = new ConstrainedLeastSquare[BDM[Double], BDV[Double]](
         step = this.getStepSize, maxIter = this.getMaxIter,
         numIterNoChange = get(numIterNoChange), tol = this.getTol
@@ -56,19 +55,20 @@ trait SyntheticEstimator extends SynapseMLLogging {
     }
   }
 
-  private[causal] def fitTimeWeights(indexedControlDf: DataFrame): (DVector, Double, Seq[Double]) = logVerb("fitTimeWeights", {
-    val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
+  private[causal] def fitTimeWeights(indexedControlDf: DataFrame, size: (Long, Long)): (DVector, Double, Seq[Double]) =
+    logVerb("fitTimeWeights", {
+      val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
-    val outcomePre = indexedPreControl
-      .toDMatrix(UnitIdxCol, TimeIdxCol, getOutcomeCol)
+      val outcomePre = indexedPreControl
+        .toDMatrix(UnitIdxCol, TimeIdxCol, getOutcomeCol)
 
-    val outcomePostMean = indexedControlDf.filter(postTreatment)
-      .groupBy(col(UnitIdxCol).as("i"))
-      .agg(avg(col(getOutcomeCol)).as("value"))
-      .as[VectorEntry]
+      val outcomePostMean = indexedControlDf.filter(postTreatment)
+        .groupBy(col(UnitIdxCol).as("i"))
+        .agg(avg(col(getOutcomeCol)).as("value"))
+        .as[VectorEntry]
 
-    solveCLS(outcomePre, outcomePostMean, lambda = 0d, fitIntercept = true)
-  })
+      solveCLS(outcomePre, outcomePostMean, lambda = 0d, fitIntercept = true, size)
+    })
 
   private[causal] def calculateRegularization(data: DataFrame): Double = logVerb("calculateRegularization", {
     val Row(firstDiffStd: Double) = data
@@ -88,25 +88,25 @@ trait SyntheticEstimator extends SynapseMLLogging {
   })
 
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
-                                   zeta: Double,
-                                   fitIntercept: Boolean): (DVector, Double, Seq[Double]) = logVerb("fitUnitWeights", {
+                                     zeta: Double,
+                                     fitIntercept: Boolean,
+                                     size: (Long, Long)): (DVector, Double, Seq[Double]) =
+    logVerb("fitUnitWeights", {
+      val outcomePreControl = indexedPreDf.filter(not(treatment))
+        .toDMatrix(TimeIdxCol, UnitIdxCol, getOutcomeCol)
 
+      val outcomePreTreatMean = indexedPreDf.filter(treatment)
+        .groupBy(col(TimeIdxCol).as("i"))
+        .agg(avg(outcome).as("value"))
+        .as[VectorEntry]
 
-    val outcomePreControl = indexedPreDf.filter(not(treatment))
-      .toDMatrix(TimeIdxCol, UnitIdxCol, getOutcomeCol)
+      val lambda = if (zeta == 0) 0d else {
+        val t_pre = matrixOps.size(outcomePreControl)._1 // # of time periods pre-treatment
+        zeta * zeta * t_pre
+      }
 
-    val outcomePreTreatMean = indexedPreDf.filter(treatment)
-      .groupBy(col(TimeIdxCol).as("i"))
-      .agg(avg(outcome).as("value"))
-      .as[VectorEntry]
-
-    val lambda = if (zeta == 0) 0d else {
-      val t_pre = matrixOps.size(outcomePreControl)._1 // # of time periods pre-treatment
-      zeta * zeta * t_pre
-    }
-
-    solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept)
-  })
+      solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept, size)
+    })
 
   private[causal] def handleMissingOutcomes(indexed: DataFrame, maxTimeLength: Int): DataFrame = {
     // "skip", "zero", "impute"
@@ -189,10 +189,9 @@ object SyntheticEstimator {
     }
   }
 
-  private[causal] def convertToBDM(mat: Array[MatrixEntry]): BDM[Double] = {
-    val numRows = mat.map(_.i).max.toInt + 1
-    val numCols = mat.map(_.j).max.toInt + 1
-    val denseMatrix = BDM.zeros[Double](numRows, numCols)
+  private[causal] def convertToBDM(mat: Array[MatrixEntry], size: (Long, Long)): BDM[Double] = {
+
+    val denseMatrix = BDM.zeros[Double](size._1.toInt, size._2.toInt)
     mat.foreach(entry => {
       denseMatrix(entry.i.toInt, entry.j.toInt) = entry.value
     })
@@ -200,10 +199,8 @@ object SyntheticEstimator {
     denseMatrix
   }
 
-  private[causal] def convertToBDV(vec: Array[VectorEntry]): BDV[Double] = {
-    // assuming vec is not sparse.
-    val length = vec.map(_.i).max.toInt + 1
-    val denseVector = BDV.zeros[Double](length)
+  private[causal] def convertToBDV(vec: Array[VectorEntry], size: Long): BDV[Double] = {
+    val denseVector = BDV.zeros[Double](size.toInt)
 
     vec.foreach(entry => {
       denseVector(entry.i.toInt) = entry.value

@@ -27,9 +27,11 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .toDF
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
-    val controlPreDf = controlDf.filter(not(postTreatment)).cache
-    val timeIdx = createIndex(controlPreDf, getTimeCol, TimeIdxCol).cache
-    val unitIdx = createIndex(controlPreDf, getUnitCol, UnitIdxCol).cache
+    val timeIdx = createIndex(preDf, getTimeCol, TimeIdxCol).cache
+    timeIdx.show(100, false)
+    val unitIdx = createIndex(controlDf, getUnitCol, UnitIdxCol).cache
+    unitIdx.show(100, false)
+    val size = (unitIdx.count, timeIdx.count)
 
     // indexing
     val indexedControlDf = controlDf.join(timeIdx, controlDf(getTimeCol) === timeIdx(getTimeCol), "left_outer")
@@ -43,8 +45,9 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .localCheckpoint(true)
 
     // fit time weights
+
     val (timeWeights, timeIntercept, lossHistoryTimeWeights) = fitTimeWeights(
-      handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt)
+      handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt), size
     )
 
     // fit unit weights
@@ -52,7 +55,8 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     val (unitWeights, unitIntercept, lossHistoryUnitWeights) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
       zeta,
-      fitIntercept = true
+      fitIntercept = true,
+      size.swap
     )
 
     // join weights

@@ -56,7 +56,7 @@ class VerifySyntheticEstimator extends TestBase {
       MatrixEntry(0, 0, 3.0),
       MatrixEntry(1, 1, 3.0),
       MatrixEntry(2, 2, 3.0)
-    ))
+    ), (3, 3))
 
     assert(
       bdm === (BDM.eye[Double](3) *:* 3d)
@@ -68,7 +68,7 @@ class VerifySyntheticEstimator extends TestBase {
       VectorEntry(0, 3.0),
       VectorEntry(1, 3.0),
       VectorEntry(2, 3.0)
-    ))
+    ), 3)
 
     assert(
       bdv === (BDV.ones[Double](3) *:* 3d)

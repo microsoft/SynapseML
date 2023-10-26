@@ -21,15 +21,12 @@ class VerifySyntheticDiffInDiffEstimator
   private implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
 
   private lazy val data = {
-
-    // 101 - 110
     val rand1 = rb.gaussian(100, 1)
     val controlPre1 = for {
       unit <- 1 to 99
       time <- 1 to 10
     } yield (unit, time, 0, 0, rand1.sample + time)
 
-    // 51 - 60
     val rand2 = rb.gaussian(50, 1)
     val controlPre2 = for {
       unit <- 100 to 100
@@ -80,21 +77,21 @@ class VerifySyntheticDiffInDiffEstimator
     implicit val VectorOps: VectorOps[DVector] = DVectorOps
 
     val summary = estimator.fit(df).getSummary
-    assert(summary.timeIntercept.get === 4.945419871092341)
+    assert(summary.timeIntercept.get === 4.948917186627611)
 
     val timeWeights = summary.timeWeights.get.toBreeze
     assert(sum(timeWeights) === 1.0)
     assert(timeWeights.size === 10)
     assert(timeWeights.forall(0 <= _ && _ <= 1))
 
-    assert(summary.unitIntercept.get === -54.712303815108314)
+    assert(summary.unitIntercept.get === -54.625356763024584)
     val unitWeights = summary.unitWeights.get.toBreeze
     assert(sum(unitWeights) === 1.0)
     assert(unitWeights.size === 100)
     assert(unitWeights.forall(0 <= _ && _ <= 1))
 
-    assert(summary.treatmentEffect === -14.92249952070377)
-    assert(summary.standardError === 0.28948753364970986)
+    assert(summary.treatmentEffect === -14.934064851225985)
+    assert(summary.standardError === 0.30221430259614196)
   }
 
   override def testObjects(): Seq[TestObject[SyntheticDiffInDiffEstimator]] = Seq(
