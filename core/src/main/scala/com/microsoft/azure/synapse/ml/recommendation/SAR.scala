@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.recommendation
 
 import breeze.linalg.{CSCMatrix => BSM}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.recommendation.{RecommendationParams, Constants => C}
@@ -35,7 +35,7 @@ import scala.language.existentials
   */
 class SAR(override val uid: String) extends Estimator[SARModel]
   with SARParams with DefaultParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   /** @group getParam */
   def getSimilarityFunction: String = $(similarityFunction)

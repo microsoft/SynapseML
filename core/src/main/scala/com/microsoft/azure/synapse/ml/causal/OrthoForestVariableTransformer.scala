@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -23,7 +23,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 class OrthoForestVariableTransformer(override val uid: String) extends Transformer
   with HasOutputCol with DefaultParamsWritable with Wrappable with SynapseMLLogging {
 
-  logClass()
+  logClass(FeatureNames.Causal)
 
   def this() = this(Identifiable.randomUID("OrthoForestVariableTransformer"))
 

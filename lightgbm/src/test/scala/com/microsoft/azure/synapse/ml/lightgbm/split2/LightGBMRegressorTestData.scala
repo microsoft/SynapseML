@@ -29,6 +29,7 @@ abstract class LightGBMRegressorTestData extends Benchmarks
       .setLabelCol(labelCol)
       .setFeaturesCol(featuresCol)
       .setDefaultListenPort(getAndIncrementPort())
+      .setDataTransferMode(dataTransferMode)
       .setNumLeaves(5)
       .setNumIterations(10)
   }

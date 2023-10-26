@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.explainers
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.TypedArrayParam
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
@@ -134,7 +134,7 @@ class ICETransformer(override val uid: String) extends Transformer
   with Wrappable
   with ComplexParamsWritable
   with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Explainers)
 
   override protected lazy val pyInternalWrapper = true
 

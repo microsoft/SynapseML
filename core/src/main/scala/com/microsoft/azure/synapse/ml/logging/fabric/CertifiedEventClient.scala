@@ -3,14 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.logging.fabric
 
+import com.microsoft.azure.synapse.ml.fabric.TokenLibrary
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, _}
 import spray.json._
 
 import java.time.Instant
 import java.util.UUID
-import scala.reflect.runtime.currentMirror
-import scala.reflect.runtime.universe._
 
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFabric
 
@@ -33,28 +32,9 @@ object CertifiedEventClient extends RESTUtils {
 
   private lazy val CertifiedEventUri = getCertifiedEventUri
 
-  private def getAccessToken: String = {
-    val objectName = "com.microsoft.azure.trident.tokenlibrary.TokenLibrary"
-    val mirror = currentMirror
-    val module = mirror.staticModule(objectName)
-    val obj = mirror.reflectModule(module).instance
-    val objType = mirror.reflect(obj).symbol.toType
-    val methodName = "getAccessToken"
-    val methodSymbols = objType.decl(TermName(methodName)).asTerm.alternatives
-    val argType = typeOf[String]
-    val selectedMethodSymbol = methodSymbols.find { m =>
-      m.asMethod.paramLists match {
-        case List(List(param)) => param.typeSignature =:= argType
-        case _ => false
-      }
-    }.getOrElse(throw new NoSuchMethodException(s"Method $methodName with argument type $argType not found"))
-    val methodMirror = mirror.reflect(obj).reflectMethod(selectedMethodSymbol.asMethod)
-    methodMirror("pbi").asInstanceOf[String]
-  }
-
   private def getHeaders: Map[String, String] = {
     Map(
-      "Authorization" -> s"Bearer $getAccessToken",
+      "Authorization" -> s"Bearer ${TokenLibrary.getAccessToken}",
       "RequestId" -> UUID.randomUUID().toString,
       "Content-Type" -> "application/json",
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString

@@ -114,21 +114,21 @@ trait SynapseMLLogging extends Logging {
   protected def logBase(methodName: String,
                         numCols: Option[Int],
                         executionSeconds: Option[Double],
-                        logCertifiedEvent: Boolean = false
+                        featureName: Option[String]
                        ): Unit = {
     logBase(getPayload(
       methodName,
       numCols,
       executionSeconds,
-      None), logCertifiedEvent)
+      None), featureName)
   }
 
-  protected def logBase(info: Map[String, String], logCertifiedEvent: Boolean): Unit = {
-    if (logCertifiedEvent) {
+  protected def logBase(info: Map[String, String], featureName: Option[String]): Unit = {
+    if (featureName.isDefined) {
       Future {
         logToCertifiedEvents(
           info("libraryName"),
-          info("method"),
+          featureName.get,
           info -- Seq("libraryName", "method")
         )
       }.failed.map {
@@ -145,24 +145,24 @@ trait SynapseMLLogging extends Logging {
       e)
   }
 
-  def logClass(): Unit = {
-    logBase("constructor", None, None, true)
+  def logClass(featureName: String): Unit = {
+    logBase("constructor", None, None, Some(featureName))
   }
 
-  def logFit[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("fit", f, columns, logCertifiedEvent)
+  def logFit[T](f: => T, columns: Int): T = {
+    logVerb("fit", f, Some(columns))
   }
 
-  def logTransform[T](f: => T, columns: Int, logCertifiedEvent: Boolean = true): T = {
-    logVerb("transform", f, columns, logCertifiedEvent)
+  def logTransform[T](f: => T, columns: Int): T = {
+    logVerb("transform", f, Some(columns))
   }
 
-  def logVerb[T](verb: String, f: => T, columns: Int = -1, logCertifiedEvent: Boolean = false): T = {
+  def logVerb[T](verb: String, f: => T, columns: Option[Int] = None): T = {
     val startTime = System.nanoTime()
     try {
-      // Begin emitting certified event.
-      logBase(verb, Some(columns), Some((System.nanoTime() - startTime) / 1e9), logCertifiedEvent)
-      f
+      val ret = f
+      logBase(verb, columns, Some((System.nanoTime() - startTime) / 1e9), None)
+      ret
     } catch {
       case e: Exception =>
         logErrorBase(verb, e)

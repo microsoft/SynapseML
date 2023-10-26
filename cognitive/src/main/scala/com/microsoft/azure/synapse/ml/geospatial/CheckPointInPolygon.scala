@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.geospatial
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.io.http.{CustomInputParser, HTTPInputParser, HeaderValues}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util.Identifiable
@@ -21,7 +21,7 @@ class CheckPointInPolygon(override val uid: String)
   extends CognitiveServicesBase(uid)
     with HasInternalJsonOutputParser with SynapseMLLogging with HasServiceParams
     with HasSubscriptionKey with HasSetGeography with HasLatLonPairInput with HasUserDataIdInput {
-  logClass()
+  logClass(FeatureNames.Geospatial)
 
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>

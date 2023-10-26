@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.findUnusedColumnName
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.opencv.ImageTransformer
 import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.linalg.DenseVector
@@ -33,7 +33,7 @@ object ImageFeaturizer extends ComplexParamsReadable[ImageFeaturizer]
   */
 class ImageFeaturizer(val uid: String) extends Transformer with HasInputCol with HasOutputCol
   with Wrappable with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.DeepLearning)
 
   def this() = this(Identifiable.randomUID("ImageFeaturizer"))
 

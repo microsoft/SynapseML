@@ -331,7 +331,10 @@ class StreamingPartitionTask extends BasePartitionTask {
   private def loadOneMetadataRow(state: StreamingState, row: Row, index: Int): Unit = {
     state.labelBuffer.setItem(index, row.getDouble(state.labelIndex).toFloat)
     if (state.hasWeights) state.weightBuffer.setItem(index, row.getDouble(state.weightIndex).toFloat)
-    if (state.hasGroups) state.groupBuffer.setItem(index, row.getAs[Int](state.groupIndex))
+    if (state.hasGroups) {
+      val groupIdManager = state.ctx.sharedState.groupIdManager
+      state.groupBuffer.setItem(index, groupIdManager.getUniqueIdForGroup(row.getAs[Any](state.groupIndex)))
+    }
 
     // Initial scores are passed in column-based format, where the score for each class is contiguous
     if (state.hasInitialScores) {
