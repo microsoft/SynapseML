@@ -70,7 +70,7 @@ pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
 val datasetName = "datasets-2023-04-03.tgz"
-val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
+val datasetUrl = new URI(s"https://mmlspark.blob.core.windows.net/installers/$datasetName").toURL()
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
   join((Compile / packageBin / artifactPath).value.getParentFile,
@@ -221,7 +221,7 @@ publishDotnetBase := {
   packDotnetAssemblyCmd(join(dotnetBaseDir, "target").getAbsolutePath, dotnetBaseDir)
   val packagePath = join(dotnetBaseDir,
     // Update the version whenever there's a new release
-    "target", s"SynapseML.DotnetBase.${dotnetedVersion("0.11.3")}.nupkg").getAbsolutePath
+    "target", s"SynapseML.DotnetBase.${dotnetedVersion("0.11.4")}.nupkg").getAbsolutePath
   publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
