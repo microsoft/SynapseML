@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.causal.linalg.DVector
@@ -41,7 +44,10 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 
   private[causal] val interactionCol = "interaction"
 
-  private[causal] def fitLinearModel(df: DataFrame, featureCols: Array[String], fitIntercept: Boolean, weightCol: Option[String] = None) = {
+  private[causal] def fitLinearModel(df: DataFrame,
+                                     featureCols: Array[String],
+                                     fitIntercept: Boolean,
+                                     weightCol: Option[String] = None) = {
     val assembler = new VectorAssembler()
       .setInputCols(featureCols)
       .setOutputCol("features")

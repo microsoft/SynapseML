@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
@@ -30,7 +33,11 @@ class DiffInDiffEstimator(override val uid: String)
       )
       .withColumn(interactionCol, treatment * postTreatment)
 
-    val linearModel = fitLinearModel(didData, Array(getPostTreatmentCol, getTreatmentCol, interactionCol), fitIntercept = true)
+    val linearModel = fitLinearModel(
+      didData,
+      Array(getPostTreatmentCol, getTreatmentCol, interactionCol),
+      fitIntercept = true
+    )
 
     val treatmentEffect = linearModel.coefficients(2)
     val standardError = linearModel.summary.coefficientStandardErrors(2)
