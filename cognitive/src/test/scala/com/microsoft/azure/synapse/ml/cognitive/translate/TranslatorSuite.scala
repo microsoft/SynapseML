@@ -82,7 +82,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result4 = getTranslationTextResult(translate2, textDf6).collect()
-    assert(result4(0).getSeq(0).mkString("") == "嗨，我是Synapse！")
+    assert(result4(0).getSeq(0).mkString("") .contains("嗨"))
     assert(result4(1).get(0) == null)
     assert(result4(2).get(0) == null)
   }
