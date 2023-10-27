@@ -72,7 +72,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
-    assert(result3(0).getSeq(0).mkString("\n") .contains("嗨"))
+    assert(result3(0).getSeq(0).mkString("\n").contains("嗨"))
 
     val translate2: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
