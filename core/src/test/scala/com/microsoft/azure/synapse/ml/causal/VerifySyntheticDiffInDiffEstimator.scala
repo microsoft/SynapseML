@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import breeze.linalg.sum
@@ -18,7 +21,7 @@ class VerifySyntheticDiffInDiffEstimator
   Logger.getLogger("akka").setLevel(Level.WARN)
 
   private lazy val rb = RandBasis.withSeed(47)
-  private implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
+  private implicit val equalityDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
 
   private lazy val data = {
     val rand1 = rb.gaussian(100, 1)
@@ -61,7 +64,7 @@ class VerifySyntheticDiffInDiffEstimator
   }
 
   private lazy val df = data.toDF("Unit", "Time", "treatment", "postTreatment", "outcome")
-  
+
   private lazy val estimator = new SyntheticDiffInDiffEstimator()
     .setTreatmentCol("treatment")
     .setPostTreatmentCol("postTreatment")
@@ -74,7 +77,7 @@ class VerifySyntheticDiffInDiffEstimator
   // .setLocalSolverThreshold(1)
 
   test("SyntheticDiffInDiffEstimator can estimate the treatment effect") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
 
     val summary = estimator.fit(df).getSummary
     assert(summary.timeIntercept.get === 4.948917186627611)

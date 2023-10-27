@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal.linalg
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
@@ -17,8 +20,8 @@ class VerifyMatrixOps extends TestBase {
   private lazy val testBzMatrix = BDM.rand(10, 20, RandBasis.withSeed(79).gaussian)
   private lazy val testDMatrix = testBzMatrix.toDMatrix
 
-  implicit val BDVEquality: Equality[BDV[Double]] = breezeVectorEq(1E-8)
-  implicit val BDMEquality: Equality[BDM[Double]] = breezeMatrixEq(1E-8)
+  implicit val equalityBDV: Equality[BDV[Double]] = breezeVectorEq(1E-8)
+  implicit val equalityBDM: Equality[BDM[Double]] = breezeMatrixEq(1E-8)
 
   test("MatrixOps.size computes correctly") {
     assert(DMatrixOps.size(testDMatrix) === BzMatrixOps.size(testBzMatrix))
@@ -30,7 +33,7 @@ class VerifyMatrixOps extends TestBase {
   }
 
   test("MatrixOps.colMean computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     assert(DMatrixOps.colMean(testDMatrix).toBreeze === BzMatrixOps.colMean(testBzMatrix))
   }
 
@@ -40,7 +43,7 @@ class VerifyMatrixOps extends TestBase {
   }
 
   test("MatrixOps.gemv computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result1 = DMatrixOps.gemv(testDMatrix, testDVector1, Some(testDVector2), 2.0, 3.0).toBreeze
     val result2 = BzMatrixOps.gemv(testBzMatrix, testBzVector1, Some(testBzVector2), 2.0, 3.0)
     assert(result1 === result2)

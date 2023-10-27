@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal.opt
 
 import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
@@ -13,7 +16,7 @@ class VerifyMirrorDescent extends TestBase {
   private val vectorB = BDV.rand(100, RandBasis.withSeed(59).uniform)
   private implicit val matrixOps: MatrixOps[BDM[Double], BDV[Double]] = BzMatrixOps
   private implicit val vectorOps: VectorOps[BDV[Double]] = BzVectorOps
-  private implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
+  private implicit val equalityDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
 
   private def getLossFunc(A: BDM[Double], b: BDV[Double])
   : DiffFunction[BDV[Double]] = {

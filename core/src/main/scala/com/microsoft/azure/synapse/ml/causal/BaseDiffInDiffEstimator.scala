@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.causal.linalg.DVector
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
@@ -90,7 +91,10 @@ class DiffInDiffModel(override val uid: String)
     with HasUnitCol
     with HasTimeCol
     with Wrappable
-    with ComplexParamsWritable {
+    with ComplexParamsWritable
+    with SynapseMLLogging {
+
+  logClass(FeatureNames.Causal)
 
   final val timeIndex = new DataFrameParam(this, "timeIndex", "time index")
   def getTimeIndex: DataFrame = $(timeIndex)

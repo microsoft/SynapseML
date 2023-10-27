@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal.linalg
 
 import breeze.linalg.{DenseVector => BDV}
@@ -14,8 +17,8 @@ class VerifyVectorOps extends TestBase {
   private lazy val testBzVector2 = BDV.rand(20, RandBasis.withSeed(47).gaussian)
   private lazy val testDVector2 = testBzVector2.toDVector
 
-  implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
-  implicit val BDVEquality: Equality[BDV[Double]] = breezeVectorEq(1E-8)
+  implicit val equalityDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
+  implicit val equalityBDV: Equality[BDV[Double]] = breezeVectorEq(1E-8)
 
 
   test("VectorOps.nrm2 computes correctly") {
@@ -39,31 +42,31 @@ class VerifyVectorOps extends TestBase {
   }
 
   test("VectorOps.axpy computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result = DVectorOps.axpy(testDVector1, Some(testDVector2), 2.5)
     assert(result.toBreeze === BzVectorOps.axpy(testBzVector1, Some(testBzVector2), 2.5))
   }
 
   test("VectorOps.center computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result = DVectorOps.center(testDVector1)
     assert(result.toBreeze === BzVectorOps.center(testBzVector1))
   }
 
   test("VectorOps.elementwiseProduct computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result = DVectorOps.elementwiseProduct(testDVector1, testDVector2)
     assert(result.toBreeze === BzVectorOps.elementwiseProduct(testBzVector1, testBzVector2))
   }
 
   test("VectorOps.exp computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result = DVectorOps.exp(testDVector1)
     assert(result.toBreeze === BzVectorOps.exp(testBzVector1))
   }
 
   test("VectorOps.uniformRandom computes correctly") {
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val result1 = DVectorOps.make(20, 1d/20).toBreeze
     val result2 = BzVectorOps.make(20, 1d/20)
     assert(result1 === result2)

@@ -47,6 +47,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
       "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
@@ -103,6 +104,7 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparametersModel",
@@ -213,6 +215,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
+      "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
       "com.microsoft.azure.synapse.ml.train.TrainedRegressorModel",
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",

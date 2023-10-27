@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.causal
 
 import breeze.linalg.sum
@@ -17,7 +20,7 @@ class VerifySyntheticControlEstimator
   Logger.getLogger("akka").setLevel(Level.WARN)
 
   private lazy val rb = RandBasis.withSeed(47)
-  private implicit val DoubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
+  private implicit val equalityDouble: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-8)
 
   private lazy val data = {
     val rand1 = rb.gaussian(100, 2)
@@ -77,11 +80,12 @@ class VerifySyntheticControlEstimator
 
     assert(summary.unitIntercept.get === 0d)
 
-    implicit val VectorOps: VectorOps[DVector] = DVectorOps
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
     val unitWeights = summary.unitWeights.get.toBreeze
     assert(sum(unitWeights) === 1d)
     assert(unitWeights.size === 100)
-    // Almost all weights go to the last unit since all other units are intentionally placed far away from treatment units.
+    // Almost all weights go to the last unit
+    // since all other units are intentionally placed far away from treatment units.
     assert(math.abs(unitWeights(99) - 1.0) < 0.01)
     assert(summary.treatmentEffect === 10.402769542126478)
     assert(summary.standardError === 0.1808473095549071)
