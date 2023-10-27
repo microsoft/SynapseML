@@ -11,9 +11,9 @@ from pyspark.ml.common import inherit_doc
 from pyspark.sql import SparkSession, DataFrame
 from pyspark import SparkContext, SQLContext
 
+
 @inherit_doc
 class DiffInDiffModel(_DiffInDiffModel):
-
     @staticmethod
     def _mapOption(option, func):
         return func(option.get()) if option.isDefined() else None
