@@ -23,7 +23,7 @@ class DiffInDiffModel(_DiffInDiffModel):
         return DiffInDiffModel._mapOption(option, lambda x: x)
 
     def __init__(self, java_obj=None) -> None:
-        super(DiffInDiffModel, self).__init__(java_obj = java_obj)
+        super(DiffInDiffModel, self).__init__(java_obj=java_obj)
 
         ctx = SparkContext._active_spark_context
         sql_ctx = SQLContext.getOrCreate(ctx)
