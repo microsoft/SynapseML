@@ -33,7 +33,15 @@ class DiffInDiffModel(_DiffInDiffModel):
         self.standardError = self.summary.standardError()
         self.timeIntercept = DiffInDiffModel._unwrapOption(self.summary.timeIntercept())
         self.unitIntercept = DiffInDiffModel._unwrapOption(self.summary.unitIntercept())
-        self.timeWeights = DiffInDiffModel._mapOption(java_obj.getTimeWeights(), lambda x: DataFrame(x, sql_ctx))
-        self.unitWeights = DiffInDiffModel._mapOption(java_obj.getUnitWeights(), lambda x: DataFrame(x, sql_ctx))
-        self.lossHistoryTimeWeights = DiffInDiffModel._unwrapOption(self.summary.getLossHistoryTimeWeightsJava())
-        self.lossHistoryUnitWeights = DiffInDiffModel._unwrapOption(self.summary.getLossHistoryUnitWeightsJava())
+        self.timeWeights = DiffInDiffModel._mapOption(
+            java_obj.getTimeWeights(), lambda x: DataFrame(x, sql_ctx)
+        )
+        self.unitWeights = DiffInDiffModel._mapOption(
+            java_obj.getUnitWeights(), lambda x: DataFrame(x, sql_ctx)
+        )
+        self.lossHistoryTimeWeights = DiffInDiffModel._unwrapOption(
+            self.summary.getLossHistoryTimeWeightsJava()
+        )
+        self.lossHistoryUnitWeights = DiffInDiffModel._unwrapOption(
+            self.summary.getLossHistoryUnitWeightsJava()
+        )
