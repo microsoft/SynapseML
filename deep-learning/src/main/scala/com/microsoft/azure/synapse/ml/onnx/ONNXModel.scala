@@ -11,7 +11,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.onnx.ONNXRuntime._
 import com.microsoft.azure.synapse.ml.onnx.ONNXUtils._
 import com.microsoft.azure.synapse.ml.param.{ByteArrayParam, StringStringMapParam}
@@ -151,7 +151,7 @@ class ONNXModel(override val uid: String)
 
   override protected lazy val pyInternalWrapper = true
 
-  logClass()
+  logClass(FeatureNames.DeepLearning)
 
   def this() = this(Identifiable.randomUID("ONNXModel"))
 

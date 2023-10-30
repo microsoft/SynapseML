@@ -4,11 +4,11 @@
 package com.microsoft.azure.synapse.ml.cognitive.search
 
 import com.microsoft.azure.synapse.ml.cognitive.search.AzureSearchProtocol._
-import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase,
-  HasCognitiveServiceInput, HasInternalJsonOutputParser, HasServiceParams}
+import com.microsoft.azure.synapse.ml.cognitive.{CognitiveServicesBase, HasCognitiveServiceInput,
+  HasInternalJsonOutputParser, HasServiceParams}
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.io.powerbi.StreamMaterializer
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, HasBatchSize, Lambda}
 import org.apache.http.Consts
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
@@ -90,7 +90,7 @@ class AddDocuments(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasActionCol with HasServiceName with HasIndexName with HasBatchSize
   with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.AiServices.Search)
 
   def this() = this(Identifiable.randomUID("AddDocuments"))
 

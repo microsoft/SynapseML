@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.image
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.ImageSchemaUtils
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{DoubleParam, ParamMap, Params}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -37,7 +37,7 @@ trait HasModifier extends Params {
 class SuperpixelTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol
   with Wrappable with DefaultParamsWritable with HasCellSize with HasModifier with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Image)
 
   def this() = this(Identifiable.randomUID("SuperpixelTransformer"))
 

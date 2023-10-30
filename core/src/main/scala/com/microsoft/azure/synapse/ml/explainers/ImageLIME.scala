@@ -7,6 +7,7 @@ import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, ImageSchemaUtils}
 import com.microsoft.azure.synapse.ml.image.{HasCellSize, HasModifier, SuperpixelData}
 import com.microsoft.azure.synapse.ml.io.image.ImageUtils
+import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.image.ImageSchema
@@ -39,7 +40,7 @@ class ImageLIME(override val uid: String)
   extends LIMEBase(uid)
     with ImageLIMEParams
     with ImageExplainer {
-  logClass()
+  logClass(FeatureNames.Explainers)
 
   def this() = {
     this(Identifiable.randomUID("ImageLIME"))

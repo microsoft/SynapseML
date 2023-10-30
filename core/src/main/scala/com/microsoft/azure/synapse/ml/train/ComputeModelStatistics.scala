@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
 import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
@@ -57,7 +57,7 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
 /** Evaluates the given scored dataset. */
 class ComputeModelStatistics(override val uid: String) extends Transformer
   with ComputeModelStatisticsParams with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("ComputeModelStatistics"))
 

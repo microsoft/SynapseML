@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.policyeval
 
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.policyeval
 import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.spark.ml.util.Identifiable
@@ -21,7 +21,7 @@ class CressieRead
     with SynapseMLLogging {
   override val uid: String = Identifiable.randomUID("BanditEstimatorCressieRead")
 
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   def zero: CressieReadBuffer = policyeval.CressieReadBuffer()
 

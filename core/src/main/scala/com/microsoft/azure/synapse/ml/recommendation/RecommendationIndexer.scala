@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.attribute.NominalAttribute
 import org.apache.spark.ml.feature.{StringIndexer, StringIndexerModel}
@@ -18,7 +18,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 class RecommendationIndexer(override val uid: String)
   extends Estimator[RecommendationIndexerModel] with RecommendationIndexerBase with Wrappable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   def this() = this(Identifiable.randomUID("RecommendationIndexer"))
 
@@ -53,7 +53,7 @@ object RecommendationIndexer extends ComplexParamsReadable[RecommendationIndexer
 
 class RecommendationIndexerModel(override val uid: String) extends Model[RecommendationIndexerModel] with
   RecommendationIndexerBase with Wrappable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   override def copy(extra: ParamMap): RecommendationIndexerModel = defaultCopy(extra)
 

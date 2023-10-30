@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.opencv
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.{BinaryFileSchema, ImageSchemaUtils}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{ArrayMapParam, DataTypeParam}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
@@ -428,7 +428,7 @@ object ImageTransformer extends DefaultParamsReadable[ImageTransformer] {
   */
 class ImageTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.OpenCV)
 
   import ImageTransformer._
   import ImageTransformerStage._
