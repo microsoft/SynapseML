@@ -531,6 +531,7 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
                        ): Iterator[TranscriptionResponse] = {
     val speechConfig = getSpeechConfig(uri, speechKey, language, profanity, wordLevelTimestamps, format)
     speechConfig.setProperty("ConversationTranscriptionInRoomAndOnline", "true")
+
     speechConfig.setServiceProperty("transcriptionMode",
       "RealTimeAndAsync", ServicePropertyChannel.UriQueryParameter)
 
@@ -544,14 +545,15 @@ class ConversationTranscription(override val uid: String) extends SpeechSDKBase 
 
     val pullStream = getPullStream(stream, audioFormat, defaultAudioFormat)
     val audioConfig = AudioConfig.fromStreamInput(pullStream)
+    audioConfig.setProperty("f0f5debc-f8c9-4892-ac4b-90a7ab359fd2", "true")
 
     val transcriber = new ConversationTranscriber(audioConfig)
 
-    // TODO fix this spelling in 1.15 update
-    conversation.getProperties.setProperty("DifferenciateGuestSpeakers", "true")
+    conversation.getProperties.setProperty("DifferentiateGuestSpeakers", "true")
 
     transcriber.joinConversationAsync(conversation).get()
     val connection = Connection.fromRecognizer(transcriber)
+
     connection.setMessageProperty("speech.config", "application",
       s"""{"name":"synapseml", "version": "${BuildInfo.version}"}""")
     val queue = new LinkedBlockingQueue[Option[String]]()

@@ -4,29 +4,26 @@
 package com.microsoft.azure.synapse.ml.cognitive.speech
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, RequestBuilder}
-import org.apache.http.entity.mime.content.FileBody
-import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
+import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost}
+import org.apache.http.entity.ByteArrayEntity
 import spray.json._
 
 import java.io.File
+import java.nio.file.Files
 
 object SpeechAPI {
 
-  import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
-
-  def getSpeakerProfile(data: File, key: String): String = {
+  def getSpeakerProfile(data: File, key: String, region: String): String = {
     retry(List(100, 500, 1000), { () => //scalastyle:ignore magic.number
-      val request = RequestBuilder
-        .post("https://signature.eastus.cts.speech.microsoft.com" +
-          "/api/v1/Signature/GenerateVoiceSignatureFromFormData")
-        .setEntity(MultipartEntityBuilder.create()
-          .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
-          .addPart("file", new FileBody(data))
-          .build())
-        .addHeader("Ocp-Apim-Subscription-Key", key)
-        .build()
+      val httpsURL = s"https://signature.$region.cts.speech.microsoft.com" +
+        s"/api/v1/Signature/GenerateVoiceSignatureFromByteArray"
+      val voiceSampleData = Files.readAllBytes(data.toPath)
+
+      val request = new HttpPost(httpsURL)
+      request.setEntity(new ByteArrayEntity(voiceSampleData))
+      request.addHeader("Ocp-Apim-Subscription-Key", key)
 
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
@@ -44,5 +41,6 @@ object SpeechAPI {
       }.get
     })
   }
+
 
 }
