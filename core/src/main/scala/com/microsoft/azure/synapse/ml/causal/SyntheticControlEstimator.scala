@@ -23,7 +23,7 @@ class SyntheticControlEstimator(override val uid: String)
 
   import SyntheticEstimator._
 
-  def this() = this(Identifiable.randomUID("syncon"))
+  def this() = this(Identifiable.randomUID("SyntheticControlEstimator"))
 
   // scalastyle:off method.length
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
