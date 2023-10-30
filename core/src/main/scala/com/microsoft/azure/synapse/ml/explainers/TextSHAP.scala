@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -26,7 +27,7 @@ class TextSHAP(override val uid: String)
     with TextSHAPParams
     with TextExplainer {
 
-  logClass()
+  logClass(FeatureNames.Explainers)
 
   def this() = {
     this(Identifiable.randomUID("TextSHAP"))

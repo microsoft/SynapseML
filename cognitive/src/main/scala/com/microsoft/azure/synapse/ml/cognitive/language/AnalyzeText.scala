@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.cognitive.language
 
 import com.microsoft.azure.synapse.ml.cognitive._
 import com.microsoft.azure.synapse.ml.cognitive.text.{TADocument, TextAnalyticsAutoBatch}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
@@ -127,7 +127,7 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with HasSetLocation
   with HasAPIVersion with HasCountryHint with TextAnalyticsAutoBatch with HasBatchSize
   with AnalyzeTextTaskParameters with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.AiServices.Language)
 
   def this() = this(Identifiable.randomUID("AnalyzeText"))
 

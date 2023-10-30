@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.policyeval
 
 import breeze.stats.distributions.FDistribution
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.policyeval
 import com.microsoft.azure.synapse.ml.vw.KahanSum
 import org.apache.spark.ml.util.Identifiable
@@ -24,7 +24,7 @@ class CressieReadInterval(empiricalBounds: Boolean)
     with SynapseMLLogging {
   override val uid: String = Identifiable.randomUID("BanditEstimatorCressieReadInterval")
 
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   val alpha = 0.05
   val atol = 1e-9

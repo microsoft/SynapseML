@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.http.client.methods.HttpRequestBase
@@ -35,7 +35,7 @@ object JSONInputParser extends ComplexParamsReadable[JSONInputParser]
 
 class JSONInputParser(val uid: String) extends HTTPInputParser
   with HasURL with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("JSONInputParser"))
 
@@ -92,7 +92,7 @@ class JSONInputParser(val uid: String) extends HTTPInputParser
 object CustomInputParser extends ComplexParamsReadable[CustomInputParser] with Serializable
 
 class CustomInputParser(val uid: String) extends HTTPInputParser with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("CustomInputParser"))
 
@@ -154,7 +154,7 @@ abstract class HTTPOutputParser extends Transformer with HasInputCol with HasOut
 object JSONOutputParser extends ComplexParamsReadable[JSONOutputParser]
 
 class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -209,7 +209,7 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
 object StringOutputParser extends ComplexParamsReadable[StringOutputParser]
 
 class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("StringOutputParser"))
 
@@ -230,7 +230,7 @@ class StringOutputParser(val uid: String) extends HTTPOutputParser with ComplexP
 object CustomOutputParser extends ComplexParamsReadable[CustomOutputParser] with Serializable
 
 class CustomOutputParser(val uid: String) extends HTTPOutputParser with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("CustomOutputParser"))
 
