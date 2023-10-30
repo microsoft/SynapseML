@@ -5,11 +5,12 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.causal.linalg.DVector
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
@@ -43,22 +44,24 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 
   override def copy(extra: ParamMap): Estimator[DiffInDiffModel] = defaultCopy(extra)
 
-  private[causal] val interactionCol = "interaction"
+  private[causal] val findInteractionCol = DatasetExtensions.findUnusedColumnName("interaction") _
 
   private[causal] def fitLinearModel(df: DataFrame,
                                      featureCols: Array[String],
                                      fitIntercept: Boolean,
                                      weightCol: Option[String] = None) = {
+
+    val featuresCol = DatasetExtensions.findUnusedColumnName("features", df)
     val assembler = new VectorAssembler()
       .setInputCols(featureCols)
-      .setOutputCol("features")
+      .setOutputCol(featuresCol)
 
     val regression = weightCol
       .map(new LinearRegression().setWeightCol)
       .getOrElse(new LinearRegression())
 
     regression
-      .setFeaturesCol("features")
+      .setFeaturesCol(featuresCol)
       .setLabelCol(getOutcomeCol)
       .setFitIntercept(fitIntercept)
       .setLoss("squaredError")
@@ -162,3 +165,8 @@ class DiffInDiffModel(override val uid: String)
 }
 
 object DiffInDiffModel extends ComplexParamsReadable[DiffInDiffModel]
+
+trait DiffInDiffEstimatorParams extends Params
+  with HasTreatmentCol
+  with HasOutcomeCol
+  with HasPostTreatmentCol

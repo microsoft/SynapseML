@@ -70,6 +70,8 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     val indexedDf = df.join(timeIdx, df(getTimeCol) === timeIdx(getTimeCol), "left_outer")
       .join(unitIdx, df(getUnitCol) === unitIdx(getUnitCol), "left_outer")
 
+    val interactionCol = findInteractionCol(indexedDf.columns.toSet)
+    val weightsCol = findWeightsCol(indexedDf.columns.toSet)
     val didData = indexedDf.select(
         col(UnitIdxCol),
         col(TimeIdxCol),
@@ -86,7 +88,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
         (
           coalesce(col("t.value"), lit(1d / t)) * // time weights
             coalesce(col("u.value"), lit(1d / u)) + // unit weights
-            lit(epsilon) // avoid zero weights
+            lit(getEpsilon) // avoid zero weights
           ).as(weightsCol),
         (treatment * postTreatment).as(interactionCol)
       )

@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
@@ -22,6 +23,7 @@ class DiffInDiffEstimator(override val uid: String)
   def this() = this(Identifiable.randomUID("DiffInDiffEstimator"))
 
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
+    val interactionCol = findInteractionCol(dataset.columns.toSet)
     val postTreatment = col(getPostTreatmentCol)
     val treatment = col(getTreatmentCol)
     val outcome = col(getOutcomeCol)

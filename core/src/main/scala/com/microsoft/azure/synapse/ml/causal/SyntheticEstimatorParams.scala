@@ -3,10 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import org.apache.spark.ml.param.{IntParam, LongParam, Param, ParamValidators, Params}
+import org.apache.spark.ml.param.{DoubleParam, IntParam, LongParam, Param, ParamValidators, Params}
 import org.apache.spark.ml.param.shared.{HasMaxIter, HasStepSize, HasTol}
-
-import scala.util.Random
 
 trait SyntheticEstimatorParams extends Params
   with HasUnitCol
@@ -48,6 +46,15 @@ trait SyntheticEstimatorParams extends Params
   /** @group expertGetParam */
   def setLocalSolverThreshold(value: Long): this.type = set(localSolverThreshold, value)
 
+  final val epsilon = new DoubleParam(this, "epsilon",
+    "This value is added to the weights when we fit the final linear model for " +
+      "SyntheticControlEstimator and SyntheticDiffInDiffEstimator in order to avoid " +
+      "zero weights.", ParamValidators.gt(0d))
+
+  def getEpsilon: Double = $(epsilon)
+
+  def setEpsilon(value: Double): this.type = set(epsilon, value)
+
   def setMaxIter(value: Int): this.type = set(maxIter, value)
 
   def setStepSize(value: Double): this.type = set(stepSize, value)
@@ -59,6 +66,7 @@ trait SyntheticEstimatorParams extends Params
     tol -> 1E-3,
     maxIter -> 100,
     handleMissingOutcome -> "zero",
-    localSolverThreshold -> 1000 * 1000
+    localSolverThreshold -> 1000 * 1000,
+    epsilon -> 1E-10
   )
 }

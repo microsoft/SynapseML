@@ -10,6 +10,7 @@ import org.apache.spark.sql.types._
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import com.microsoft.azure.synapse.ml.causal.linalg._
 import com.microsoft.azure.synapse.ml.causal.opt.ConstrainedLeastSquare
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 
 trait SyntheticEstimator extends SynapseMLLogging {
@@ -25,8 +26,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] lazy val postTreatment = col(getPostTreatmentCol)
   private[causal] lazy val treatment = col(getTreatmentCol)
   private[causal] lazy val outcome = col(getOutcomeCol)
-  private[causal] val weightsCol = "weights"
-  private[causal] val epsilon = 1E-10
+  private[causal] val findWeightsCol = DatasetExtensions.findUnusedColumnName("weights") _
 
   private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, size: (Long, Long))
     : (DVector, Double, Seq[Double]) = {

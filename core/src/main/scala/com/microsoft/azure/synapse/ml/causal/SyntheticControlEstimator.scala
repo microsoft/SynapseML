@@ -57,6 +57,8 @@ class SyntheticControlEstimator(override val uid: String)
 
     val indexedDf = df.join(unitIdx, df(getUnitCol) === unitIdx(getUnitCol), "left_outer")
 
+    val interactionCol = findInteractionCol(indexedDf.columns.toSet)
+    val weightsCol = findWeightsCol(indexedDf.columns.toSet)
     val didData = indexedDf.select(
         col(getTimeCol),
         col(UnitIdxCol),
@@ -72,7 +74,7 @@ class SyntheticControlEstimator(override val uid: String)
         outcome,
         (
           coalesce(col("u.value"), lit(1d / u)) + // unit weights
-            lit(epsilon) // avoid zero weights
+            lit(getEpsilon) // avoid zero weights
           ).as(weightsCol),
         (treatment * postTreatment).as(interactionCol)
       )
