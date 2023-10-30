@@ -75,15 +75,16 @@ trait SyntheticEstimator extends SynapseMLLogging {
     })
 
   private[causal] def calculateRegularization(data: DataFrame): Double = logVerb("calculateRegularization", {
+    val diffCol = DatasetExtensions.findUnusedColumnName("diff", data)
     val Row(firstDiffStd: Double) = data
       .filter(not(treatment) and not(postTreatment))
       .select(
         (outcome -
           lag(outcome, 1).over(
             Window.partitionBy(col(getUnitCol)).orderBy(col(getTimeCol))
-          )).as("diff")
+          )).as(diffCol)
       )
-      .agg(stddev_samp(col("diff")))
+      .agg(stddev_samp(col(diffCol)))
       .head
 
     val nTreatedPost = data.filter(treatment and postTreatment).count
@@ -116,10 +117,11 @@ trait SyntheticEstimator extends SynapseMLLogging {
     // "skip", "zero", "impute"
     getHandleMissingOutcome match {
       case "skip" =>
-        indexed.withColumn("time_count", count(col(TimeIdxCol)).over(Window.partitionBy(col(UnitIdxCol))))
+        val timeCountCol = DatasetExtensions.findUnusedColumnName("time_count", indexed)
+        indexed.withColumn(timeCountCol, count(col(TimeIdxCol)).over(Window.partitionBy(col(UnitIdxCol))))
           // Only skip units from the control_pre group where there is missing data.
-          .filter(col("time_count") === lit(maxTimeLength) or treatment or postTreatment)
-          .drop("time_count")
+          .filter(col(timeCountCol) === lit(maxTimeLength) or treatment or postTreatment)
+          .drop(timeCountCol)
       case "zero" =>
         indexed
       case "impute" =>
