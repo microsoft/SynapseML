@@ -19,7 +19,7 @@ class DiffInDiffEstimator(override val uid: String)
 
   logClass(FeatureNames.Causal)
 
-  def this() = this(Identifiable.randomUID("did"))
+  def this() = this(Identifiable.randomUID("DiffInDiffEstimator"))
 
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
     val postTreatment = col(getPostTreatmentCol)
