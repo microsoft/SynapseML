@@ -22,7 +22,7 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
 
   import SyntheticEstimator._
 
-  def this() = this(Identifiable.randomUID("syndid"))
+  def this() = this(Identifiable.randomUID("SyntheticDiffInDiffEstimator"))
 
   // scalastyle:off method.length
   override def fit(dataset: Dataset[_]): DiffInDiffModel = logFit({
