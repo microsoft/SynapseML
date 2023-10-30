@@ -315,6 +315,7 @@ trait TranscriptionSecrets {
     Secrets.ConversationTranscriptionUrl)
   lazy val conversationTranscriptionKey: String = sys.env.getOrElse("CONVERSATION_TRANSCRIPTION_KEY",
     Secrets.ConversationTranscriptionKey)
+  lazy val conversationTranscriptionRegion: String = "centralus"
 }
 
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
@@ -342,8 +343,10 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
   }
 
   test("dialogue with participants") {
-    val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
-    val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
+    val profile1 = SpeechAPI.getSpeakerProfile(
+      audioPaths(4), conversationTranscriptionKey, conversationTranscriptionRegion)
+    val profile2 = SpeechAPI.getSpeakerProfile(
+      audioPaths(5), conversationTranscriptionKey, conversationTranscriptionRegion)
     val fromRow = TranscriptionResponse.makeFromRowConverter
     val speakers = sdk
       .setParticipants(Seq(
@@ -361,8 +364,10 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
   }
 
   test("dialogue with participant col") {
-    val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
-    val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
+    val profile1 = SpeechAPI.getSpeakerProfile(
+      audioPaths(4), conversationTranscriptionKey, conversationTranscriptionRegion)
+    val profile2 = SpeechAPI.getSpeakerProfile(
+      audioPaths(5), conversationTranscriptionKey, conversationTranscriptionRegion)
     val participantDf = Seq(
       (1, Seq(TranscriptionParticipant("user1", "en-US", profile1),
         TranscriptionParticipant("user2", "en-US", profile2))),
