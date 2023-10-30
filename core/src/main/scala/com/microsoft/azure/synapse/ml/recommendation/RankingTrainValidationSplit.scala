@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.recommendation
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{ModelParam, TypedDoubleArrayParam}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
@@ -25,7 +25,7 @@ import scala.util.Random
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
   with RecommendationParams with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   override lazy val pyInternalWrapper: Boolean = true
 
@@ -293,7 +293,7 @@ class RankingTrainValidationSplitModel(
                                         override val uid: String)
   extends Model[RankingTrainValidationSplitModel] with Wrappable
     with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Recommendation)
 
   override protected lazy val pyInternalWrapper = true
 

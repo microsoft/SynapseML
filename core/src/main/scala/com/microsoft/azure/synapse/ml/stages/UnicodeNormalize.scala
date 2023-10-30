@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -21,7 +21,7 @@ object UnicodeNormalize extends ComplexParamsReadable[UnicodeNormalize]
   */
 class UnicodeNormalize(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol with Wrappable with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("UnicodeNormalize"))
 

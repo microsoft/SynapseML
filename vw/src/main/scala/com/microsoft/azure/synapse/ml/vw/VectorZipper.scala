@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCols, HasOutputCol}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -20,7 +20,7 @@ object VectorZipper extends ComplexParamsReadable[VectorZipper]
   */
 class VectorZipper(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with Wrappable with ComplexParamsWritable with SynapseMLLogging {
-  logClass()
+  logClass(FeatureNames.VowpalWabbit)
 
   def this() = this(Identifiable.randomUID("VectorZipper"))
 

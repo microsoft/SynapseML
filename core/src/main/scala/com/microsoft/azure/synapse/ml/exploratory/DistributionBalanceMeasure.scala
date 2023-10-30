@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 import breeze.stats.distributions.ChiSquared
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ArrayMapParam
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -45,7 +45,7 @@ class DistributionBalanceMeasure(override val uid: String)
     with Wrappable
     with SynapseMLLogging {
 
-  logClass()
+  logClass(FeatureNames.Core)
 
   def this() = this(Identifiable.randomUID("DistributionBalanceMeasure"))
 

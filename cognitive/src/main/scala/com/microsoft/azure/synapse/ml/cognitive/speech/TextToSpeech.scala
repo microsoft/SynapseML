@@ -3,11 +3,11 @@
 
 package com.microsoft.azure.synapse.ml.cognitive.speech
 
-import com.microsoft.azure.synapse.ml.cognitive.{HasServiceParams,
-  HasSetLinkedServiceUsingLocation, HasSetLocation, HasSubscriptionKey}
+import com.microsoft.azure.synapse.ml.cognitive.{HasServiceParams, HasSetLinkedServiceUsingLocation, HasSetLocation,
+  HasSubscriptionKey}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.io.http.{HasErrorCol, HasURL}
-import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.cognitiveservices.speech._
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -31,7 +31,7 @@ class TextToSpeech(override val uid: String)
     with HasSetLocation with HasServiceParams
     with HasErrorCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with SynapseMLLogging
     with HasSetLinkedServiceUsingLocation {
-  logClass()
+  logClass(FeatureNames.AiServices.Speech)
 
   setDefault(errorCol -> (uid + "_errors"))
 
