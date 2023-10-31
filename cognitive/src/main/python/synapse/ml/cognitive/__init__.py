@@ -1,11 +1,12 @@
 import warnings
+import sys
 from synapse.ml.services import *
 
-# Raise a deprecation warning for any import from this module
-warnings.warn("Importing from 'synapse.ml.cognitive' is deprecated. Use 'synapse.ml.services' instead.", DeprecationWarning)
+class CognitiveModuleRedirector:
+    def __getattr__(self, name):
+        # Raise a deprecation warning
+        warnings.warn(f"Importing from 'synapse.ml.cognitive' is deprecated. Use 'synapse.ml.services' instead.", DeprecationWarning)
+        # Redirect the import to synapse.ml.services
+        return getattr(sys.modules['synapse.ml.services'], name)
 
-# Populate the current namespace with the attributes from synapse.ml.services
-for name, value in globals().items():
-    if name.startswith("_"):
-        continue
-    globals()[name] = value
+sys.modules[__name__] = CognitiveModuleRedirector()
