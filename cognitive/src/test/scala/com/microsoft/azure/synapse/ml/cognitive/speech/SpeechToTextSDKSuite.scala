@@ -315,6 +315,7 @@ trait TranscriptionSecrets {
     Secrets.ConversationTranscriptionUrl)
   lazy val conversationTranscriptionKey: String = sys.env.getOrElse("CONVERSATION_TRANSCRIPTION_KEY",
     Secrets.ConversationTranscriptionKey)
+  lazy val conversationTranscriptionRegion: String = "centralus"
 }
 
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
@@ -341,9 +342,11 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  ignore("dialogue with participants") {
-    val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
-    val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
+  test("dialogue with participants") {
+    val profile1 = SpeechAPI.getSpeakerProfile(
+      audioPaths(4), conversationTranscriptionKey, conversationTranscriptionRegion)
+    val profile2 = SpeechAPI.getSpeakerProfile(
+      audioPaths(5), conversationTranscriptionKey, conversationTranscriptionRegion)
     val fromRow = TranscriptionResponse.makeFromRowConverter
     val speakers = sdk
       .setParticipants(Seq(
@@ -360,9 +363,11 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     assert(Seq("user1", "user2").forall(speakers.toSet))
   }
 
-  ignore("dialogue with participant col") {
-    val profile1 = SpeechAPI.getSpeakerProfile(audioPaths(4), conversationTranscriptionKey)
-    val profile2 = SpeechAPI.getSpeakerProfile(audioPaths(5), conversationTranscriptionKey)
+  test("dialogue with participant col") {
+    val profile1 = SpeechAPI.getSpeakerProfile(
+      audioPaths(4), conversationTranscriptionKey, conversationTranscriptionRegion)
+    val profile2 = SpeechAPI.getSpeakerProfile(
+      audioPaths(5), conversationTranscriptionKey, conversationTranscriptionRegion)
     val participantDf = Seq(
       (1, Seq(TranscriptionParticipant("user1", "en-US", profile1),
         TranscriptionParticipant("user2", "en-US", profile2))),
@@ -386,7 +391,7 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     assert(Seq("user1", "user2").forall(speakers.toSet))
   }
 
-  ignore("dialogue without profiles") {
+  test("dialogue without profiles") {
     val fromRow = TranscriptionResponse.makeFromRowConverter
     sdk
       .setFileType("mp3").transform(dialogueDf)
@@ -396,25 +401,25 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
       .foreach(println)
   }
 
-  ignore("Simple SDK Usage Audio 1") {
+  test("Simple SDK Usage Audio 1") {
     dfTest("simple", audioDf1, text1)
   }
 
-  ignore("Simple SDK Usage Audio 2") {
+  test("Simple SDK Usage Audio 2") {
     dfTest("simple", audioDf2, text2)
   }
 
-  ignore("Simple SDK Usage without streaming") {
+  test("Simple SDK Usage without streaming") {
     dfTest("simple", audioDf1, text1, sdk = sdk.setStreamIntermediateResults(false))
   }
 
-  ignore("URI based access") {
+  test("URI based access") {
     val uriDf = Seq(Tuple1(audioPaths(1).toURI.toString))
       .toDF("audio")
     dfTest("simple", uriDf, text2)
   }
 
-  ignore("URL based access") {
+  test("URL based access") {
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1("https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"))
         .toDF("audio")
@@ -422,7 +427,7 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  ignore("SAS URL based access") {
+  test("SAS URL based access") {
     val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
       "?sv=2019-12-12&st=2021-01-25T16%3A40%3A13Z&se=2024-01-26T16%3A40%3A00Z&sr=b&sp=r" +
       "&sig=NpFm%2FJemAJOGIya1ykQ6f80YdvwpiAuJjnb2RVDtKro%3D"
@@ -434,11 +439,11 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  ignore("Detailed SDK with mp3 (Linux only)") {
+  test("Detailed SDK with mp3 (Linux only)") {
     dfTest("simple", audioDf3, text3, sdk = sdk.setFileType("mp3"), verbose = true, threshold = .6)
   }
 
-  ignore("m3u8 based access") {
+  test("m3u8 based access") {
     val sdk2 = sdk.setExtraFfmpegArgs(Array("-t", "60"))
       .setLanguage("en-US")
     // 20 seconds of streaming
@@ -451,7 +456,7 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
     }
   }
 
-  ignore("m3u8 file writing") {
+  test("m3u8 file writing") {
     val outputMp3 = new File(savePath, "output.mp3")
     val outputJson = new File(savePath, "output.json")
 
