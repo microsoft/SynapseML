@@ -1,7 +1,5 @@
-# cognitive.py
-
+import sys
 import warnings
-import synapse.ml.services as services_module
 
 warnings.warn(
     "The cognitive namespace has been deprecated. Please change "
@@ -9,7 +7,8 @@ warnings.warn(
     DeprecationWarning
 )
 
-# Mimic the module structure and behavior of synapse.ml.services
-for name in dir(services_module):
-    if name[0] != '_':  # Exclude private attributes
-        globals()[name] = getattr(services_module, name)
+# Import everything from synapse.ml.services
+from synapse.ml.services import *
+
+# Update the sys.modules to point to the current module for synapse.ml.cognitive
+sys.modules["synapse.ml.cognitive"] = sys.modules[__name__]
