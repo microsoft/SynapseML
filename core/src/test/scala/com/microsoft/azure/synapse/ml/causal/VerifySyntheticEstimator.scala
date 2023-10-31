@@ -10,17 +10,17 @@ import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 class VerifySyntheticEstimator extends TestBase {
   import spark.implicits._
 
-  private val UnitIdxCol = "Unit_Idx"
-  private val TimeIdxCol = "Time_Idx"
+  private val unitIdxCol = "Unit_Idx"
+  private val timeIdxCol = "Time_Idx"
 
   test("imputeTimeSeries") {
     val df = Seq(
       (0, 3, 1.0),
       (0, 5, 2.0),
       (0, 8, 5.0)
-    ) toDF (UnitIdxCol, TimeIdxCol, "Outcome")
+    ) toDF (unitIdxCol, timeIdxCol, "Outcome")
 
-    val result = SyntheticEstimator.imputeTimeSeries(df, 10, "Outcome", UnitIdxCol, TimeIdxCol)
+    val result = SyntheticEstimator.imputeTimeSeries(df, 10, "Outcome", unitIdxCol, timeIdxCol)
 
     val expected = Seq(
       (0, 0, 1.0),
@@ -33,7 +33,7 @@ class VerifySyntheticEstimator extends TestBase {
       (0, 7, 3.5),
       (0, 8, 5.0),
       (0, 9, 5.0)
-    ) toDF (UnitIdxCol, TimeIdxCol, "Outcome")
+    ) toDF (unitIdxCol, timeIdxCol, "Outcome")
 
     super.verifyResult(expected, result)
   }
