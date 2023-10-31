@@ -40,7 +40,7 @@ object PyCodegen {
         .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n").mkString("")
     }
     val initFile = new File(dir, "__init__.py")
-    if (packageFolder != "") {
+    if (packageFolder != "" && packageFolder != "/cognitive") {
       writeFile(initFile, conf.packageHelp(importStrings))
     } else if (initFile.exists()) {
       initFile.delete()
