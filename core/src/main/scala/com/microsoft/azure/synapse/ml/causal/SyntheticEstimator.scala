@@ -60,15 +60,16 @@ trait SyntheticEstimator extends SynapseMLLogging {
   }
 
   private[causal] def fitTimeWeights(indexedControlDf: DataFrame, size: (Long, Long))
+                                    (unitIdxCol: String, timeIdxCol: String)
   : (DVector, Double, Double, Seq[Double]) =
     logVerb("fitTimeWeights", {
       val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
       val outcomePre = indexedPreControl
-        .toDMatrix(UnitIdxCol, TimeIdxCol, getOutcomeCol)
+        .toDMatrix(unitIdxCol, timeIdxCol, getOutcomeCol)
 
       val outcomePostMean = indexedControlDf.filter(postTreatment)
-        .groupBy(col(UnitIdxCol).as("i"))
+        .groupBy(col(unitIdxCol).as("i"))
         .agg(avg(col(getOutcomeCol)).as("value"))
         .as[VectorEntry]
 
@@ -96,13 +97,14 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
                                      zeta: Double,
                                      fitIntercept: Boolean,
-                                     size: (Long, Long)): (DVector, Double, Double, Seq[Double]) =
+                                     size: (Long, Long))
+                                    (unitIdxCol: String, timeIdxCol: String): (DVector, Double, Double, Seq[Double]) =
     logVerb("fitUnitWeights", {
       val outcomePreControl = indexedPreDf.filter(not(treatment))
-        .toDMatrix(TimeIdxCol, UnitIdxCol, getOutcomeCol)
+        .toDMatrix(timeIdxCol, unitIdxCol, getOutcomeCol)
 
       val outcomePreTreatMean = indexedPreDf.filter(treatment)
-        .groupBy(col(TimeIdxCol).as("i"))
+        .groupBy(col(timeIdxCol).as("i"))
         .agg(avg(outcome).as("value"))
         .as[VectorEntry]
 
@@ -114,12 +116,13 @@ trait SyntheticEstimator extends SynapseMLLogging {
       solveCLS(outcomePreControl, outcomePreTreatMean, lambda, fitIntercept, size)
     })
 
-  private[causal] def handleMissingOutcomes(indexed: DataFrame, maxTimeLength: Int): DataFrame = {
+  private[causal] def handleMissingOutcomes(indexed: DataFrame, maxTimeLength: Int)
+                                           (unitIdxCol: String, timeIdxCol: String): DataFrame = {
     // "skip", "zero", "impute"
     getHandleMissingOutcome match {
       case "skip" =>
         val timeCountCol = DatasetExtensions.findUnusedColumnName("time_count", indexed)
-        indexed.withColumn(timeCountCol, count(col(TimeIdxCol)).over(Window.partitionBy(col(UnitIdxCol))))
+        indexed.withColumn(timeCountCol, count(col(timeIdxCol)).over(Window.partitionBy(col(unitIdxCol))))
           // Only skip units from the control_pre group where there is missing data.
           .filter(col(timeCountCol) === lit(maxTimeLength) or treatment or postTreatment)
           .drop(timeCountCol)
@@ -129,17 +132,17 @@ trait SyntheticEstimator extends SynapseMLLogging {
         // Only impute the control_pre group.
         val controlPre = indexed.filter(not(treatment) and not(postTreatment))
 
-        val imputed = imputeTimeSeries(controlPre, maxTimeLength, getOutcomeCol)
+        val imputed = imputeTimeSeries(controlPre, maxTimeLength, getOutcomeCol, unitIdxCol, timeIdxCol)
           .withColumn(getTreatmentCol, lit(false))
           .withColumn(getPostTreatmentCol, lit(false))
 
         indexed.as("l").join(
           imputed.as("r"),
-          col(s"l.$UnitIdxCol") === col(s"r.$UnitIdxCol") and col(s"l.$TimeIdxCol") === col(s"r.$TimeIdxCol"),
+          col(s"l.$unitIdxCol") === col(s"r.$unitIdxCol") and col(s"l.$timeIdxCol") === col(s"r.$timeIdxCol"),
           "full_outer"
         ).select(
-          coalesce(col(s"l.$UnitIdxCol"), col(s"r.$UnitIdxCol")).as(UnitIdxCol),
-          coalesce(col(s"l.$TimeIdxCol"), col(s"r.$TimeIdxCol")).as(TimeIdxCol),
+          coalesce(col(s"l.$unitIdxCol"), col(s"r.$unitIdxCol")).as(unitIdxCol),
+          coalesce(col(s"l.$timeIdxCol"), col(s"r.$timeIdxCol")).as(timeIdxCol),
           coalesce(col(s"l.$getOutcomeCol"), col(s"r.$getOutcomeCol")).as(getOutcomeCol),
           coalesce(col(s"l.$getTreatmentCol"), col(s"r.$getTreatmentCol")).as(getTreatmentCol),
           coalesce(col(s"l.$getPostTreatmentCol"), col(s"r.$getPostTreatmentCol")).as(getPostTreatmentCol)
@@ -149,23 +152,21 @@ trait SyntheticEstimator extends SynapseMLLogging {
 }
 
 object SyntheticEstimator {
-  val UnitIdxCol = "Unit_idx"
-  val TimeIdxCol = "Time_idx"
-
-  private[causal] def imputeTimeSeries(df: DataFrame, maxTimeLength: Int, outcomeCol: String): DataFrame = {
+  private[causal] def imputeTimeSeries(df: DataFrame, maxTimeLength: Int,
+                                       outcomeCol: String, unitIdxCol: String, timeIdxCol: String): DataFrame = {
     val impute: UserDefinedFunction = udf(imputeMissingValues(maxTimeLength) _)
 
     df
       // zip time and outcomes
-      .select(col(UnitIdxCol), struct(col(TimeIdxCol), col(outcomeCol)).as(outcomeCol))
-      .groupBy(UnitIdxCol)
+      .select(col(unitIdxCol), struct(col(timeIdxCol), col(outcomeCol)).as(outcomeCol))
+      .groupBy(unitIdxCol)
       // construct a map of time -> outcome per unit
       .agg(map_from_entries(collect_set(col(outcomeCol))).as(outcomeCol))
       // impute and explode back
-      .select(col(UnitIdxCol), explode(impute(col(outcomeCol))).as("exploded"))
+      .select(col(unitIdxCol), explode(impute(col(outcomeCol))).as("exploded"))
       .select(
-        col(UnitIdxCol),
-        col("exploded._1").as(TimeIdxCol),
+        col(unitIdxCol),
+        col("exploded._1").as(timeIdxCol),
         col("exploded._2").as(outcomeCol)
       )
   }

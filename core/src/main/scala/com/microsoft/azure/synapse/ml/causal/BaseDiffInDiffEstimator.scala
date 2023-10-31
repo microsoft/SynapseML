@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.param.{ParamMap, Params}
+import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
@@ -106,9 +106,17 @@ class DiffInDiffModel(override val uid: String)
   def getTimeIndex: DataFrame = $(timeIndex)
   def setTimeIndex(value: DataFrame): this.type = set(timeIndex, value)
 
+  final val timeIndexCol = new Param[String](this, "timeIndexCol", "time index column")
+  def getTimeIndexCol: String = $(timeIndexCol)
+  def setTimeIndexCol(value: String): this.type = set(timeIndexCol, value)
+
   final val unitIndex = new DataFrameParam(this, "unitIndex", "unit index")
   def getUnitIndex: DataFrame = $(unitIndex)
   def setUnitIndex(value: DataFrame): this.type = set(unitIndex, value)
+
+  final val unitIndexCol = new Param[String](this, "unitIndexCol", "unit index column")
+  def getUnitIndexCol: String = $(unitIndexCol)
+  def setUnitIndexCol(value: String): this.type = set(unitIndexCol, value)
 
   override protected lazy val pyInternalWrapper = true
 
@@ -140,7 +148,7 @@ class DiffInDiffModel(override val uid: String)
     (get(timeIndex), getSummary.timeWeights) match {
       case (Some(idxDf), Some(timeWeights)) =>
         Some(
-          idxDf.join(timeWeights, idxDf(SyntheticEstimator.TimeIdxCol) === timeWeights("i"), "left_outer")
+          idxDf.join(timeWeights, idxDf(getTimeIndexCol) === timeWeights("i"), "left_outer")
             .select(
               idxDf(getTimeCol),
               timeWeights("value")
@@ -155,7 +163,7 @@ class DiffInDiffModel(override val uid: String)
     (get(unitIndex), getSummary.unitWeights) match {
       case (Some(idxDf), Some(unitWeights)) =>
         Some(
-          idxDf.join(unitWeights, idxDf(SyntheticEstimator.UnitIdxCol) === unitWeights("i"), "left_outer")
+          idxDf.join(unitWeights, idxDf(getUnitIndexCol) === unitWeights("i"), "left_outer")
             .select(
               idxDf(getUnitCol),
               unitWeights("value")

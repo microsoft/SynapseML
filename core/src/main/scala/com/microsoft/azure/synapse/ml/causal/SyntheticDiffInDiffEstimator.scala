@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import org.apache.spark.ml.param.{DoubleParam, ParamValidators, Params}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
@@ -45,34 +46,37 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .toDF
     val controlDf = df.filter(not(treatment)).cache
     val preDf = df.filter(not(postTreatment)).cache
-    val timeIdx = createIndex(preDf, getTimeCol, TimeIdxCol).cache
-    val unitIdx = createIndex(controlDf, getUnitCol, UnitIdxCol).cache
+    val timeIdxCol = DatasetExtensions.findUnusedColumnName("Time_idx", df)
+    val unitIdxCol = DatasetExtensions.findUnusedColumnName("Unit_idx", df)
+    val timeIdx = createIndex(preDf, getTimeCol, timeIdxCol).cache
+    val unitIdx = createIndex(controlDf, getUnitCol, unitIdxCol).cache
     val size = (unitIdx.count, timeIdx.count)
 
     // indexing
     val indexedControlDf = controlDf.join(timeIdx, controlDf(getTimeCol) === timeIdx(getTimeCol), "left_outer")
       .join(unitIdx, controlDf(getUnitCol) === unitIdx(getUnitCol), "left_outer")
-      .select(UnitIdxCol, TimeIdxCol, getTreatmentCol, getPostTreatmentCol, getOutcomeCol)
+      .select(unitIdxCol, timeIdxCol, getTreatmentCol, getPostTreatmentCol, getOutcomeCol)
       .localCheckpoint(true)
 
     val indexedPreDf = preDf.join(timeIdx, preDf(getTimeCol) === timeIdx(getTimeCol), "left_outer")
       .join(unitIdx, preDf(getUnitCol) === unitIdx(getUnitCol), "left_outer")
-      .select(UnitIdxCol, TimeIdxCol, getTreatmentCol, getPostTreatmentCol, getOutcomeCol)
+      .select(unitIdxCol, timeIdxCol, getTreatmentCol, getPostTreatmentCol, getOutcomeCol)
       .localCheckpoint(true)
 
     // fit time weights
     val (timeWeights, timeIntercept, timeRMSE, lossHistoryTimeWeights) = fitTimeWeights(
-      handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt), size
-    )
+      handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt)(unitIdxCol, timeIdxCol),
+      size
+    )(unitIdxCol, timeIdxCol)
 
     // fit unit weights
     val zetaValue = this.get(zeta).getOrElse(calculateRegularization(df))
     val (unitWeights, unitIntercept, unitRMSE, lossHistoryUnitWeights) = fitUnitWeights(
-      handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
+      handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt)(unitIdxCol, timeIdxCol),
       zetaValue,
       fitIntercept = true,
       size.swap
-    )
+    )(unitIdxCol, timeIdxCol)
 
     // join weights
     val Row(t: Long, u: Long) = df.agg(
@@ -86,14 +90,14 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
     val interactionCol = findInteractionCol(indexedDf.columns.toSet)
     val weightsCol = findWeightsCol(indexedDf.columns.toSet)
     val didData = indexedDf.select(
-        col(UnitIdxCol),
-        col(TimeIdxCol),
+        col(unitIdxCol),
+        col(timeIdxCol),
         postTreatment.cast(IntegerType).as(getPostTreatmentCol),
         treatment.cast(IntegerType).as(getTreatmentCol),
         outcome
       ).as("l")
-      .join(timeWeights.as("t"), col(s"l.$TimeIdxCol") === col("t.i"), "left_outer")
-      .join(unitWeights.as("u"), col(s"l.$UnitIdxCol") === col("u.i"), "left_outer")
+      .join(timeWeights.as("t"), col(s"l.$timeIdxCol") === col("t.i"), "left_outer")
+      .join(unitWeights.as("u"), col(s"l.$unitIdxCol") === col("u.i"), "left_outer")
       .select(
         postTreatment,
         treatment,
@@ -134,7 +138,9 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .setSummary(Some(summary))
       .setParent(this)
       .setTimeIndex(timeIdx)
+      .setTimeIndexCol(timeIdxCol)
       .setUnitIndex(unitIdx)
+      .setUnitIndexCol(unitIdxCol)
   }, dataset.columns.length)
 }
 
