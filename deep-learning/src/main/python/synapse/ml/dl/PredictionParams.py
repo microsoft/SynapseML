@@ -5,7 +5,6 @@ from pyspark.ml.param import Param, Params, TypeConverters
 
 
 class HasLabelColParam(Params):
-
     label_col = Param(
         Params._dummy(),
         "label_col",
@@ -31,7 +30,6 @@ class HasLabelColParam(Params):
 
 
 class HasImageColParam(Params):
-
     image_col = Param(
         Params._dummy(),
         "image_col",
@@ -58,7 +56,6 @@ class HasImageColParam(Params):
 
 ## TODO: Potentially generalize to support multiple text columns as input
 class HasTextColParam(Params):
-
     text_col = Param(
         Params._dummy(),
         "text_col",
@@ -84,7 +81,6 @@ class HasTextColParam(Params):
 
 
 class HasPredictionColParam(Params):
-
     prediction_col = Param(
         Params._dummy(),
         "prediction_col",

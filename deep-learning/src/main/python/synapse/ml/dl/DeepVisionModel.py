@@ -14,7 +14,6 @@ from synapse.ml.dl.utils import keywords_catch
 
 
 class DeepVisionModel(TorchModel, VisionPredictionParams):
-
     transform_fn = Param(
         Params._dummy(),
         "transform_fn",

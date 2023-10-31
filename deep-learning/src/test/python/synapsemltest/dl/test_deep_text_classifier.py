@@ -27,7 +27,6 @@ def test_bert_base_cased():
     ]
 
     with local_store() as store:
-
         checkpoint = "bert-base-uncased"
 
         deep_text_classifier = DeepTextClassifier(

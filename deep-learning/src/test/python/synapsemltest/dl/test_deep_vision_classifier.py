@@ -80,7 +80,6 @@ def test_mobilenet_v2(get_data_path):
     train_folder, test_folder = get_data_path
 
     with local_store() as store:
-
         deep_vision_classifier = DeepVisionClassifier(
             backbone="mobilenet_v2",
             store=store,
