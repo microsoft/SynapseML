@@ -537,7 +537,7 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
           val json = textAndTranslations.head.getClass.getTypeName match {
-            case "com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation" => textAndTranslations.map(
+            case "com.microsoft.azure.synapse.ml.services.translate.TextAndTranslation" => textAndTranslations.map(
               t => Map("Text" -> t.text, "Translation" -> t.translation)).toJson.compactPrint
             case _ => textAndTranslations.asInstanceOf[Seq[Row]].map(
               s => Map("Text" -> s.getString(0), "Translation" -> s.getString(1))).toJson.compactPrint
