@@ -90,6 +90,7 @@ module.exports = {
                         "Explore Algorithms/Causal Inference/Overview",
                         "Explore Algorithms/Causal Inference/Quickstart - Measure Causal Effects",
                         "Explore Algorithms/Causal Inference/Quickstart - Measure Heterogeneous Effects",
+                        "Explore Algorithms/Causal Inference/Quickstart - Synthetic difference in differences",
                     ],
                 },
 
