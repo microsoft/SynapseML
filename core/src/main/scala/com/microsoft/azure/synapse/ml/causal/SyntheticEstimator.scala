@@ -29,7 +29,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] val findWeightsCol = DatasetExtensions.findUnusedColumnName("weights") _
 
   private def solveCLS(A: DMatrix, b: DVector, lambda: Double, fitIntercept: Boolean, size: (Long, Long))
-    : (DVector, Double, Seq[Double]) = {
+    : (DVector, Double, Double, Seq[Double]) = {
     if (size._1 * size._2 <= getLocalSolverThreshold) {
       // If matrix size is less than LocalSolverThreshold (defaults to 1M),
       // collect the data on the driver node and solve it locally, where matrix-vector
@@ -45,9 +45,9 @@ trait SyntheticEstimator extends SynapseMLLogging {
         numIterNoChange = get(numIterNoChange), tol = this.getTol
       )
 
-      val (x, intercept, lossHistory) = solver.solve(bzA, bzb, lambda, fitIntercept)
+      val (x, intercept, rmse, lossHistory) = solver.solve(bzA, bzb, lambda, fitIntercept)
       val xdf = A.sparkSession.createDataset[VectorEntry](x.mapPairs((i, v) => VectorEntry(i, v)).toArray.toSeq)
-      (xdf, intercept, lossHistory)
+      (xdf, intercept, rmse, lossHistory)
     } else {
       implicit val cacheOps: CacheOps[DVector] = DVectorCacheOps
       val solver = new ConstrainedLeastSquare[DMatrix, DVector](
@@ -59,7 +59,8 @@ trait SyntheticEstimator extends SynapseMLLogging {
     }
   }
 
-  private[causal] def fitTimeWeights(indexedControlDf: DataFrame, size: (Long, Long)): (DVector, Double, Seq[Double]) =
+  private[causal] def fitTimeWeights(indexedControlDf: DataFrame, size: (Long, Long))
+  : (DVector, Double, Double, Seq[Double]) =
     logVerb("fitTimeWeights", {
       val indexedPreControl = indexedControlDf.filter(not(postTreatment)).cache
 
@@ -95,7 +96,7 @@ trait SyntheticEstimator extends SynapseMLLogging {
   private[causal] def fitUnitWeights(indexedPreDf: DataFrame,
                                      zeta: Double,
                                      fitIntercept: Boolean,
-                                     size: (Long, Long)): (DVector, Double, Seq[Double]) =
+                                     size: (Long, Long)): (DVector, Double, Double, Seq[Double]) =
     logVerb("fitUnitWeights", {
       val outcomePreControl = indexedPreDf.filter(not(treatment))
         .toDMatrix(TimeIdxCol, UnitIdxCol, getOutcomeCol)

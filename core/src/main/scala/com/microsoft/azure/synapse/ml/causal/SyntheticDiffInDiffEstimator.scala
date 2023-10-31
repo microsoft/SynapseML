@@ -5,16 +5,29 @@ package com.microsoft.azure.synapse.ml.causal
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.FeatureNames
+import org.apache.spark.ml.param.{DoubleParam, ParamValidators, Params}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{BooleanType, IntegerType}
 import org.apache.spark.sql.{Dataset, Row}
 
+trait SyntheticDiffInDiffEstimatorParams extends SyntheticEstimatorParams {
+  final val zeta = new DoubleParam(this, "zeta",
+    "The zeta value for regularization term when fitting unit weights. " +
+      "If not specified, a default value will be computed based on formula (2.2) specified in " +
+      "https://www.nber.org/system/files/working_papers/w25532/w25532.pdf. " +
+      "For large scale data, one may want to tune the zeta value, minimizing the loss of the unit weights regression.",
+    ParamValidators.gtEq(0))
+
+  def getZeta: Double = $(zeta)
+  def setZeta(value: Double): this.type = set(zeta, value)
+}
+
 class SyntheticDiffInDiffEstimator(override val uid: String)
   extends BaseDiffInDiffEstimator(uid)
     with SyntheticEstimator
-    with SyntheticEstimatorParams
+    with SyntheticDiffInDiffEstimatorParams
     with ComplexParamsWritable
     with Wrappable {
 
@@ -48,15 +61,15 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       .localCheckpoint(true)
 
     // fit time weights
-    val (timeWeights, timeIntercept, lossHistoryTimeWeights) = fitTimeWeights(
+    val (timeWeights, timeIntercept, timeRMSE, lossHistoryTimeWeights) = fitTimeWeights(
       handleMissingOutcomes(indexedControlDf, timeIdx.count.toInt), size
     )
 
     // fit unit weights
-    val zeta = calculateRegularization(df)
-    val (unitWeights, unitIntercept, lossHistoryUnitWeights) = fitUnitWeights(
+    val zetaValue = this.get(zeta).getOrElse(calculateRegularization(df))
+    val (unitWeights, unitIntercept, unitRMSE, lossHistoryUnitWeights) = fitUnitWeights(
       handleMissingOutcomes(indexedPreDf, timeIdx.count.toInt),
-      zeta,
+      zetaValue,
       fitIntercept = true,
       size.swap
     )
@@ -108,8 +121,11 @@ class SyntheticDiffInDiffEstimator(override val uid: String)
       standardError,
       timeWeights = Some(timeWeights),
       timeIntercept = Some(timeIntercept),
+      timeRMSE = Some(timeRMSE),
       unitWeights = Some(unitWeights),
       unitIntercept = Some(unitIntercept),
+      unitRMSE = Some(unitRMSE),
+      zeta = Some(zetaValue),
       lossHistoryTimeWeights = Some(lossHistoryTimeWeights.toList),
       lossHistoryUnitWeights = Some(lossHistoryUnitWeights.toList)
     )

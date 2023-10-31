@@ -58,25 +58,29 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
 
   def solve(A: TMat, b: TVec,
             lambda: Double = 0d,
-            fitIntercept: Boolean = false): (TVec, Double, Seq[Double]) = {
+            fitIntercept: Boolean = false): (TVec, Double, Double, Seq[Double]) = {
 
     val aCentered = if (fitIntercept) matrixOps.centerColumns(A) else A
     val bCentered = if (fitIntercept) vectorOps.center(b) else b
 
-    val xSize = matrixOps.size(aCentered)._2
+    val (m, n) = matrixOps.size(aCentered)
 
     val lossFunc = getLossFunc(aCentered, bCentered, lambda)
     val md = new MirrorDescent[TVec](lossFunc, step, maxIter, numIterNoChange, tol)
 
-    val init = vectorOps.make(xSize, 1d / xSize)
+    val init = vectorOps.make(n, 1d / n)
     val x = md.solve(init)
+    val lossHistory = md.history.map(_.valueAt)
+
+    val rmse = vectorOps.nrm2(matrixOps.gemv(A, x, Some(b), beta = -1)) / math.sqrt(m)
 
     if (fitIntercept){
       val colMean = matrixOps.colMean(A)
       val bMean = vectorOps.mean(b)
-      (x, bMean - vectorOps.dot(x, colMean), md.history.map(_.valueAt))
+      val intercept = bMean - vectorOps.dot(x, colMean)
+      (x, intercept, rmse, lossHistory)
     } else {
-      (x, 0d, md.history.map(_.valueAt))
+      (x, 0d, rmse, lossHistory)
     }
   }
 }

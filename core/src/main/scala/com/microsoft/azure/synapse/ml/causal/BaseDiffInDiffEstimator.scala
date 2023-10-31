@@ -74,8 +74,11 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
 case class DiffInDiffSummary(treatmentEffect: Double, standardError: Double,
                              timeWeights: Option[DVector] = None,
                              timeIntercept: Option[Double] = None,
+                             timeRMSE: Option[Double] = None,
                              unitWeights: Option[DVector] = None,
                              unitIntercept: Option[Double] = None,
+                             unitRMSE: Option[Double] = None,
+                             zeta: Option[Double] = None,
                              lossHistoryTimeWeights: Option[List[Double]] = None,
                              lossHistoryUnitWeights: Option[List[Double]] = None) {
   import scala.collection.JavaConverters._

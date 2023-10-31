@@ -39,6 +39,9 @@ class DiffInDiffModel(_DiffInDiffModel):
         self.unitWeights = DiffInDiffModel._mapOption(
             java_obj.getUnitWeights(), lambda x: DataFrame(x, sql_ctx)
         )
+        self.timeRSME = DiffInDiffModel._unwrapOption(self.summary.timeRMSE())
+        self.unitRSME = DiffInDiffModel._unwrapOption(self.summary.unitRSME())
+        self.zeta = DiffInDiffModel._unwrapOption(self.summary.zeta())
         self.lossHistoryTimeWeights = DiffInDiffModel._unwrapOption(
             self.summary.getLossHistoryTimeWeightsJava()
         )
