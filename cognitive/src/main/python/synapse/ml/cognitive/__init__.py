@@ -1,17 +1,19 @@
 import sys
 import warnings
+import types
 
 warnings.warn(
     "The cognitive namespace has been deprecated. Please change "
     "synapse.ml.cognitive to synapse.ml.services",
 )
 import synapse.ml.services
+from synapse.ml.services import *
 
-# This function will be called when an attribute is not found in synapse.ml.cognitive
-def __getattr__(name):
-    return getattr(synapse.ml.services, name)
+# Create a proxy module to handle attribute access
+class CognitiveModuleProxy(types.ModuleType):
+    def __getattr__(self, name):
+        # Redirect attribute access to synapse.ml.services
+        return getattr(synapse.ml.services, name)
 
-# Set the __getattr__ function to the cognitive module
-sys.modules["synapse.ml.cognitive"].__getattr__ = __getattr__
-
-sys.modules["synapse.ml.cognitive"] = synapse.ml.services
+# Replace the synapse.ml.cognitive entry in sys.modules with the proxy module
+sys.modules["synapse.ml.cognitive"] = CognitiveModuleProxy("synapse.ml.cognitive")
