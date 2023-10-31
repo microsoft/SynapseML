@@ -30,7 +30,6 @@ class CallbackBackend(object):
 
 
 def _download_dataset():
-
     urllib.request.urlretrieve(
         "https://mmlspark.blob.core.windows.net/publicwasb/17flowers.tgz",
         dataset_dir + "17flowers.tgz",

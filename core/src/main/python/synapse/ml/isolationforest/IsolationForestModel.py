@@ -7,7 +7,6 @@ from pyspark.ml.common import inherit_doc
 
 @inherit_doc
 class IsolationForestModel(_IsolationForestModel):
-
     # The generated implementation does not work. Override it to return the java object.
     def getInnerModel(self):
         return self._java_obj.getInnerModel()

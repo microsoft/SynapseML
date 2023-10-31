@@ -41,7 +41,6 @@ class ComplementAccessTransformer(Transformer):
         indexed_col_names_arr: List[str],
         complementset_factor: int,
     ):
-
         super().__init__()
 
         # we assume here that all indices of the columns are continuous within their partition_key

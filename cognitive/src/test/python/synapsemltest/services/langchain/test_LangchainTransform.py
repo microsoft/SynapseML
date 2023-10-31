@@ -8,6 +8,7 @@ from langchain.llms import AzureOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
 from synapsemltest.spark import *
 
+
 #######################################################
 # this part is to correct a bug in langchain,
 # where the llm type of AzureOpenAI was set

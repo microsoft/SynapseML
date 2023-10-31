@@ -47,7 +47,6 @@ def running_on_databricks():
 
 
 def find_secret(secret_name, keyvault):
-
     if running_on_synapse() or running_on_synapse_internal():
         from notebookutils.mssparkutils.credentials import getSecret
 

@@ -25,7 +25,6 @@ else:
 
 
 class DeepTextClassifier(TorchEstimator, TextPredictionParams):
-
     checkpoint = Param(
         Params._dummy(), "checkpoint", "checkpoint of the deep text classifier"
     )
@@ -230,7 +229,6 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         )
 
     def _update_transformation_fn(self):
-
         text_col = self.getTextCol()
         label_col = self.getLabelCol()
         max_token_len = self.getMaxTokenLen()

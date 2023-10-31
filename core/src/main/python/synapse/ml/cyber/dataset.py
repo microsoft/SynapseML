@@ -19,7 +19,6 @@ class DataFactory:
         num_eng_resources: int = 50,
         single_component: bool = True,
     ):
-
         self.hr_users = ["hr_user_" + str(i) for i in range(num_hr_users)]
         self.hr_resources = ["hr_res_" + str(i) for i in range(num_hr_resources)]
 
@@ -67,7 +66,6 @@ class DataFactory:
         full_node_coverage: bool,
         not_set: Optional[Set[Tuple[str, str]]] = None,
     ) -> List[Tuple[str, str, float]]:
-
         import itertools
 
         if len(users) == 0 or len(resources) == 0:
@@ -92,7 +90,6 @@ class DataFactory:
             and (len(seen_users) < len(users))
             or (len(seen_resources) < len(resources))
         ):
-
             if cart is not None:
                 assert len(cart) > 0, cart
                 ii = self.rand.randint(0, len(cart) - 1)
