@@ -29,7 +29,7 @@ object PyCodegen {
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
-    val importStrings = if (packageFolder == "/cognitive") {
+    val importStrings = if (packageFolder == "/services") {
       dir.listFiles.filter(_.isDirectory)
         .filter(folder => folder.getName != "langchain").sorted
         .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n").mkString("")

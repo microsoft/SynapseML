@@ -15,7 +15,7 @@ namespace SynapseML.Dotnet.Utils
         public Dictionary<string, string> Parameters { get; init; }
 
         public TextAnalyzeTask(Dictionary<string, string> parameters)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask", parameters.ToJavaHashMap()))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.text.TextAnalyzeTask", parameters.ToJavaHashMap()))
         {
         }
 
@@ -46,7 +46,7 @@ namespace SynapseML.Dotnet.Utils
         public double Value { get; init; }
 
         public TimeSeriesPoint(string timestamp, double value)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.TimeSeriesPoint", timestamp, value))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.anomaly.TimeSeriesPoint", timestamp, value))
         {
         }
 
@@ -68,7 +68,7 @@ namespace SynapseML.Dotnet.Utils
         public string Translation { get; init; }
 
         public TextAndTranslation(string text, string translation)
-            : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation", text, translation))
+            : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.translate.TextAndTranslation", text, translation))
         {
         }
 
@@ -92,7 +92,7 @@ namespace SynapseML.Dotnet.Utils
         public string? StorageSource { get; init; }
 
         public TargetInput(string targetUrl, string language, string? category = null, Glossary[]? glossaries = null, string? storageSource = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.TargetInput", targetUrl, language, category, glossaries, storageSource))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.translate.TargetInput", targetUrl, language, category, glossaries, storageSource))
         {
         }
 
@@ -123,7 +123,7 @@ namespace SynapseML.Dotnet.Utils
         public string? Version { get; init; }
 
         public Glossary(string format, string glossaryUrl, string? storageSource = null, string? version = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.translate.Glossary", format, glossaryUrl, storageSource, version))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.translate.Glossary", format, glossaryUrl, storageSource, version))
         {
         }
 
@@ -204,7 +204,7 @@ namespace SynapseML.Dotnet.Utils
         public double[]? LatenciesInSeconds { get; init; }
 
         public ModelState(int[]? epochIds = null, double[]? trainLosses = null, double[]? validationLosses = null, double[]? latenciesInSeconds = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.ModelState", epochIds, trainLosses, validationLosses, latenciesInSeconds))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.anomaly.ModelState", epochIds, trainLosses, validationLosses, latenciesInSeconds))
         {
         }
 
@@ -231,7 +231,7 @@ namespace SynapseML.Dotnet.Utils
 
 
         public DMAVariableState(string? variable = null, double? filledNARatio = null, int? effectiveCount = null, string? firstTimestamp = null, string? lastTimestamp = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.DMAVariableState", variable, filledNARatio, effectiveCount, firstTimestamp, lastTimestamp))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.anomaly.DMAVariableState", variable, filledNARatio, effectiveCount, firstTimestamp, lastTimestamp))
         {
         }
 
@@ -255,7 +255,7 @@ namespace SynapseML.Dotnet.Utils
         public DMAVariableState? VariableStates { get; init; }
 
         public DiagnosticsInfo(ModelState? modelState = null, DMAVariableState? variableStates = null)
-        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo", modelState, variableStates))
+        : this(SparkEnvironment.JvmBridge.CallConstructor("com.microsoft.azure.synapse.ml.services.anomaly.DiagnosticsInfo", modelState, variableStates))
         {
         }
 

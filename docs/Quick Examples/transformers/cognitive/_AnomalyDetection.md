@@ -20,7 +20,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 from pyspark.sql.functions import lit
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
@@ -61,40 +61,40 @@ dla.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectLastAnomaly
+import com.microsoft.azure.synapse.ml.services.anomaly.DetectLastAnomaly
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, collect_list, lit, sort_array, struct}
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
 val df = (Seq(
-    ("1972-01-01T00:00:00Z", 826.0),
-    ("1972-02-01T00:00:00Z", 799.0),
-    ("1972-03-01T00:00:00Z", 890.0),
-    ("1972-04-01T00:00:00Z", 900.0),
-    ("1972-05-01T00:00:00Z", 766.0),
-    ("1972-06-01T00:00:00Z", 805.0),
-    ("1972-07-01T00:00:00Z", 821.0),
-    ("1972-08-01T00:00:00Z", 20000.0),
-    ("1972-09-01T00:00:00Z", 883.0),
-    ("1972-10-01T00:00:00Z", 898.0),
-    ("1972-11-01T00:00:00Z", 957.0),
-    ("1972-12-01T00:00:00Z", 924.0),
-    ("1973-01-01T00:00:00Z", 881.0),
-    ("1973-02-01T00:00:00Z", 837.0),
-    ("1973-03-01T00:00:00Z", 90000.0)
-  ).toDF("timestamp","value")
-    .withColumn("group", lit(1))
-    .withColumn("inputs", struct(col("timestamp"), col("value")))
-    .groupBy(col("group"))
-    .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
+  ("1972-01-01T00:00:00Z", 826.0),
+  ("1972-02-01T00:00:00Z", 799.0),
+  ("1972-03-01T00:00:00Z", 890.0),
+  ("1972-04-01T00:00:00Z", 900.0),
+  ("1972-05-01T00:00:00Z", 766.0),
+  ("1972-06-01T00:00:00Z", 805.0),
+  ("1972-07-01T00:00:00Z", 821.0),
+  ("1972-08-01T00:00:00Z", 20000.0),
+  ("1972-09-01T00:00:00Z", 883.0),
+  ("1972-10-01T00:00:00Z", 898.0),
+  ("1972-11-01T00:00:00Z", 957.0),
+  ("1972-12-01T00:00:00Z", 924.0),
+  ("1973-01-01T00:00:00Z", 881.0),
+  ("1973-02-01T00:00:00Z", 837.0),
+  ("1973-03-01T00:00:00Z", 90000.0)
+).toDF("timestamp", "value")
+  .withColumn("group", lit(1))
+  .withColumn("inputs", struct(col("timestamp"), col("value")))
+  .groupBy(col("group"))
+  .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
 
 val dla = (new DetectLastAnomaly()
-            .setSubscriptionKey(anomalyKey)
-            .setLocation("westus2")
-            .setOutputCol("anomalies")
-            .setSeriesCol("inputs")
-            .setGranularity("monthly")
-            .setErrorCol("errors"))
+  .setSubscriptionKey(anomalyKey)
+  .setLocation("westus2")
+  .setOutputCol("anomalies")
+  .setSeriesCol("inputs")
+  .setGranularity("monthly")
+  .setErrorCol("errors"))
 
 dla.transform(df).show()
 ```
@@ -124,7 +124,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -163,38 +163,38 @@ da.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.anomaly.DetectAnomalies
+import com.microsoft.azure.synapse.ml.services.anomaly.DetectAnomalies
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
 val df = (Seq(
-    ("1972-01-01T00:00:00Z", 826.0),
-    ("1972-02-01T00:00:00Z", 799.0),
-    ("1972-03-01T00:00:00Z", 890.0),
-    ("1972-04-01T00:00:00Z", 900.0),
-    ("1972-05-01T00:00:00Z", 766.0),
-    ("1972-06-01T00:00:00Z", 805.0),
-    ("1972-07-01T00:00:00Z", 821.0),
-    ("1972-08-01T00:00:00Z", 20000.0),
-    ("1972-09-01T00:00:00Z", 883.0),
-    ("1972-10-01T00:00:00Z", 898.0),
-    ("1972-11-01T00:00:00Z", 957.0),
-    ("1972-12-01T00:00:00Z", 924.0),
-    ("1973-01-01T00:00:00Z", 881.0),
-    ("1973-02-01T00:00:00Z", 837.0),
-    ("1973-03-01T00:00:00Z", 90000.0)
-  ).toDF("timestamp","value")
-    .withColumn("group", lit(1))
-    .withColumn("inputs", struct(col("timestamp"), col("value")))
-    .groupBy(col("group"))
-    .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
+  ("1972-01-01T00:00:00Z", 826.0),
+  ("1972-02-01T00:00:00Z", 799.0),
+  ("1972-03-01T00:00:00Z", 890.0),
+  ("1972-04-01T00:00:00Z", 900.0),
+  ("1972-05-01T00:00:00Z", 766.0),
+  ("1972-06-01T00:00:00Z", 805.0),
+  ("1972-07-01T00:00:00Z", 821.0),
+  ("1972-08-01T00:00:00Z", 20000.0),
+  ("1972-09-01T00:00:00Z", 883.0),
+  ("1972-10-01T00:00:00Z", 898.0),
+  ("1972-11-01T00:00:00Z", 957.0),
+  ("1972-12-01T00:00:00Z", 924.0),
+  ("1973-01-01T00:00:00Z", 881.0),
+  ("1973-02-01T00:00:00Z", 837.0),
+  ("1973-03-01T00:00:00Z", 90000.0)
+).toDF("timestamp", "value")
+  .withColumn("group", lit(1))
+  .withColumn("inputs", struct(col("timestamp"), col("value")))
+  .groupBy(col("group"))
+  .agg(sort_array(collect_list(col("inputs"))).alias("inputs")))
 
 val da = (new DetectAnomalies()
-            .setSubscriptionKey(anomalyKey)
-            .setLocation("westus2")
-            .setOutputCol("anomalies")
-            .setSeriesCol("inputs")
-            .setGranularity("monthly"))
+  .setSubscriptionKey(anomalyKey)
+  .setLocation("westus2")
+  .setOutputCol("anomalies")
+  .setSeriesCol("inputs")
+  .setGranularity("monthly"))
 
 da.transform(df).show()
 ```
@@ -224,7 +224,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 df = (spark.createDataFrame([
@@ -274,37 +274,37 @@ sda.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectAnomalies
+import com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectAnomalies
 import spark.implicits._
 
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
 val baseSeq = Seq(
-    ("1972-01-01T00:00:00Z", 826.0),
-    ("1972-02-01T00:00:00Z", 799.0),
-    ("1972-03-01T00:00:00Z", 890.0),
-    ("1972-04-01T00:00:00Z", 900.0),
-    ("1972-05-01T00:00:00Z", 766.0),
-    ("1972-06-01T00:00:00Z", 805.0),
-    ("1972-07-01T00:00:00Z", 821.0),
-    ("1972-08-01T00:00:00Z", 20000.0),
-    ("1972-09-01T00:00:00Z", 883.0),
-    ("1972-10-01T00:00:00Z", 898.0),
-    ("1972-11-01T00:00:00Z", 957.0),
-    ("1972-12-01T00:00:00Z", 924.0),
-    ("1973-01-01T00:00:00Z", 881.0),
-    ("1973-02-01T00:00:00Z", 837.0),
-    ("1973-03-01T00:00:00Z", 9000.0)
-  )
-val df = (baseSeq.map(p => (p._1,p._2,1.0))
-    .++(baseSeq.map(p => (p._1,p._2,2.0)))
-    .toDF("timestamp","value","group"))
+  ("1972-01-01T00:00:00Z", 826.0),
+  ("1972-02-01T00:00:00Z", 799.0),
+  ("1972-03-01T00:00:00Z", 890.0),
+  ("1972-04-01T00:00:00Z", 900.0),
+  ("1972-05-01T00:00:00Z", 766.0),
+  ("1972-06-01T00:00:00Z", 805.0),
+  ("1972-07-01T00:00:00Z", 821.0),
+  ("1972-08-01T00:00:00Z", 20000.0),
+  ("1972-09-01T00:00:00Z", 883.0),
+  ("1972-10-01T00:00:00Z", 898.0),
+  ("1972-11-01T00:00:00Z", 957.0),
+  ("1972-12-01T00:00:00Z", 924.0),
+  ("1973-01-01T00:00:00Z", 881.0),
+  ("1973-02-01T00:00:00Z", 837.0),
+  ("1973-03-01T00:00:00Z", 9000.0)
+)
+val df = (baseSeq.map(p => (p._1, p._2, 1.0))
+  .++(baseSeq.map(p => (p._1, p._2, 2.0)))
+  .toDF("timestamp", "value", "group"))
 
 val sda = (new SimpleDetectAnomalies()
-            .setSubscriptionKey(anomalyKey)
-            .setLocation("westus2")
-            .setOutputCol("anomalies")
-            .setGroupbyCol("group")
-            .setGranularity("monthly"))
+  .setSubscriptionKey(anomalyKey)
+  .setLocation("westus2")
+  .setOutputCol("anomalies")
+  .setGroupbyCol("group")
+  .setGranularity("monthly"))
 
 sda.transform(df).show()
 ```

@@ -20,7 +20,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 
@@ -42,21 +42,21 @@ ocr.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.OCR
+import com.microsoft.azure.synapse.ml.services.vision.OCR
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg"
+).toDF("url")
 
 
 val ocr = (new OCR()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setDetectOrientation(true)
-        .setOutputCol("ocr"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setDetectOrientation(true)
+  .setOutputCol("ocr"))
 
 ocr.transform(df).show()
 ```
@@ -87,7 +87,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -113,24 +113,24 @@ ai.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.AnalyzeImage
+import com.microsoft.azure.synapse.ml.services.vision.AnalyzeImage
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null),
-    ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
-  ).toDF("url", "language")
+  ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", "en"),
+  ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", null),
+  ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", "en")
+).toDF("url", "language")
 
 val ai = (new AnalyzeImage()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setLanguageCol("language")
-        .setVisualFeatures(Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
-        .setDetails(Seq("Celebrities", "Landmarks"))
-        .setOutputCol("features"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setLanguageCol("language")
+  .setVisualFeatures(Seq("Categories", "Tags", "Description", "Faces", "ImageType", "Color", "Adult", "Objects", "Brands"))
+  .setDetails(Seq("Celebrities", "Landmarks"))
+  .setOutputCol("features"))
 
 ai.transform(df).select("url", "features").show()
 ```
@@ -161,7 +161,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -185,23 +185,23 @@ rt.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.RecognizeText
+import com.microsoft.azure.synapse.ml.services.vision.RecognizeText
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+).toDF("url")
 
 val rt = (new RecognizeText()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setMode("Printed")
-        .setOutputCol("ocr")
-        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setMode("Printed")
+  .setOutputCol("ocr")
+  .setConcurrency(5))
 
 rt.transform(df).show()
 ```
@@ -232,7 +232,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -255,22 +255,22 @@ ri.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.ReadImage
+import com.microsoft.azure.synapse.ml.services.vision.ReadImage
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
-    "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
+  "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
+).toDF("url")
 
 val ri = (new ReadImage()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setOutputCol("ocr")
-        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setOutputCol("ocr")
+  .setConcurrency(5))
 
 ri.transform(df).show()
 ```
@@ -301,7 +301,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -322,20 +322,20 @@ celeb.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.RecognizeDomainSpecificContent
+import com.microsoft.azure.synapse.ml.services.vision.RecognizeDomainSpecificContent
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg"
+).toDF("url")
 
 val celeb = (new RecognizeDomainSpecificContent()
-                .setSubscriptionKey(cognitiveKey)
-                .setModel("celebrities")
-                .setLocation("eastus")
-                .setImageUrlCol("url")
-                .setOutputCol("celebs"))
+  .setSubscriptionKey(cognitiveKey)
+  .setModel("celebrities")
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setOutputCol("celebs"))
 
 celeb.transform(df).show()
 ```
@@ -366,7 +366,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -389,22 +389,22 @@ gt.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.GenerateThumbnails
+import com.microsoft.azure.synapse.ml.services.vision.GenerateThumbnails
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+).toDF("url")
 
 val gt = (new GenerateThumbnails()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setHeight(50)
-        .setWidth(50)
-        .setSmartCropping(true)
-        .setImageUrlCol("url")
-        .setOutputCol("thumbnails"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setHeight(50)
+  .setWidth(50)
+  .setSmartCropping(true)
+  .setImageUrlCol("url")
+  .setOutputCol("thumbnails"))
 
 gt.transform(df).show()
 ```
@@ -435,7 +435,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -455,19 +455,19 @@ ti.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.TagImage
+import com.microsoft.azure.synapse.ml.services.vision.TagImage
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+).toDF("url")
 
 val ti = (new TagImage()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setOutputCol("tags"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("url")
+  .setOutputCol("tags"))
 
 ti.transform(df).show()
 ```
@@ -498,7 +498,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -519,20 +519,20 @@ di.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.vision.DescribeImage
+import com.microsoft.azure.synapse.ml.services.vision.DescribeImage
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"
+).toDF("url")
 
 val di = (new DescribeImage()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setMaxCandidates(3)
-        .setImageUrlCol("url")
-        .setOutputCol("descriptions"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setMaxCandidates(3)
+  .setImageUrlCol("url")
+  .setOutputCol("descriptions"))
 
 di.transform(df).show()
 ```

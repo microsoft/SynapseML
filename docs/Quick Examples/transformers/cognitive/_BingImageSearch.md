@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 bingSearchKey = os.environ.get("BING_SEARCH_KEY", getSecret("bing-search-key"))
 
@@ -55,7 +55,7 @@ pipeline.transform(bingParameters).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
 import spark.implicits._
 
 val bingSearchKey = sys.env.getOrElse("BING_SEARCH_KEY", None)
@@ -63,17 +63,17 @@ val bingSearchKey = sys.env.getOrElse("BING_SEARCH_KEY", None)
 // Number of images Bing will return per query
 val imgsPerBatch = 10
 // A list of offsets, used to page into the search results
-val offsets = (0 until 100).map(i => i*imgsPerBatch)
+val offsets = (0 until 100).map(i => i * imgsPerBatch)
 // Since web content is our data, we create a dataframe with options on that data: offsets
 val bingParameters = Seq(offsets).toDF("offset")
 
 // Run the Bing Image Search service with our text query
 val bingSearch = (new BingImageSearch()
-              .setSubscriptionKey(bingSearchKey)
-              .setOffsetCol("offset")
-              .setQuery("Martin Luther King Jr. quotes")
-              .setCount(imgsPerBatch)
-              .setOutputCol("images"))
+  .setSubscriptionKey(bingSearchKey)
+  .setOffsetCol("offset")
+  .setQuery("Martin Luther King Jr. quotes")
+  .setCount(imgsPerBatch)
+  .setOutputCol("images"))
 
 // Transformer that extracts and flattens the richly structured output of Bing Image Search into a simple URL column
 val getUrls = BingImageSearch.getUrlTransformer("images", "url")

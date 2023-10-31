@@ -648,44 +648,44 @@ jobs:
         PACKAGE: "automl"
       causal:
         PACKAGE: "causal"
-      geospatial:
-        PACKAGE: "geospatial"
       onnx:
         PACKAGE: "onnx"
+      geospatial:
+        PACKAGE: "services.geospatial"
       anomaly:
-        PACKAGE: "cognitive.anomaly"
+        PACKAGE: "services.anomaly"
         FLAKY: "true"
       bing:
-        PACKAGE: "cognitive.bing"
+        PACKAGE: "services.bing"
         FLAKY: "true"
       face:
-        PACKAGE: "cognitive.face"
+        PACKAGE: "services.face"
         FLAKY: "true"
       form:
-        PACKAGE: "cognitive.form"
+        PACKAGE: "services.form"
         FLAKY: "true"
       language:
-        PACKAGE: "cognitive.language"
+        PACKAGE: "services.language"
         FLAKY: "true"
       openai:
-        PACKAGE: "cognitive.openai"
+        PACKAGE: "services.openai"
         FLAKY: "true"
       search:
-        PACKAGE: "cognitive.search"
+        PACKAGE: "services.search"
         FFMPEG: "true"
         FLAKY: "true"
       speech:
-        PACKAGE: "cognitive.speech"
+        PACKAGE: "services.speech"
         FFMPEG: "true"
         FLAKY: "true"
       text:
-        PACKAGE: "cognitive.text"
+        PACKAGE: "services.text"
         FLAKY: "true"
       translate:
-        PACKAGE: "cognitive.translate"
+        PACKAGE: "services.translate"
         FLAKY: "true"
       vision:
-        PACKAGE: "cognitive.vision"
+        PACKAGE: "services.vision"
         FLAKY: "true"
       core:
         PACKAGE: "core"

@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 anomalyKey = os.environ.get("ANOMALY_API_KEY", getSecret("anomaly-api-key"))
 startTime = "2021-01-01T00:00:00Z"
@@ -47,7 +47,7 @@ simpleFitMultivariateAnomaly = (SimpleFitMultivariateAnomaly()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.anomaly.FitMultivariateAnomaly
+import com.microsoft.azure.synapse.ml.services.anomaly.FitMultivariateAnomaly
 
 val startTime: String = "2021-01-01T00:00:00Z"
 val endTime: String = "2021-01-02T12:00:00Z"
@@ -57,29 +57,29 @@ val intermediateSaveDir: String = "wasbs://madtest@anomalydetectiontest.blob.cor
 val anomalyKey = sys.env.getOrElse("ANOMALY_API_KEY", None)
 
 val simpleFitMultivariateAnomaly = (new SimpleFitMultivariateAnomaly()
-    .setSubscriptionKey(anomalyKey)
-    .setLocation("westus2")
-    .setOutputCol("result")
-    .setStartTime(startTime)
-    .setEndTime(endTime)
-    .setIntermediateSaveDir(intermediateSaveDir)
-    .setTimestampCol(timestampColumn)
-    .setInputCols(inputColumns)
-    .setSlidingWindow(50))
+  .setSubscriptionKey(anomalyKey)
+  .setLocation("westus2")
+  .setOutputCol("result")
+  .setStartTime(startTime)
+  .setEndTime(endTime)
+  .setIntermediateSaveDir(intermediateSaveDir)
+  .setTimestampCol(timestampColumn)
+  .setInputCols(inputColumns)
+  .setSlidingWindow(50))
 
 val df = (spark.read.format("csv")
-      .option("header", True)
-      .load("wasbs://datasets@mmlspark.blob.core.windows.net/MAD/mad_example.csv"))
+  .option("header", True)
+  .load("wasbs://datasets@mmlspark.blob.core.windows.net/MAD/mad_example.csv"))
 
 val model = simpleFitMultivariateAnomaly.fit(df)
 
 val result = (model
-      .setStartTime(startTime)
-      .setEndTime(endTime)
-      .setOutputCol("result")
-      .setTimestampCol(timestampColumn)
-      .setInputCols(inputColumns)
-      .transform(df))
+  .setStartTime(startTime)
+  .setEndTime(endTime)
+  .setOutputCol("result")
+  .setTimestampCol(timestampColumn)
+  .setInputCols(inputColumns)
+  .transform(df))
 
 result.show()
 
