@@ -168,7 +168,7 @@ namespace SynapseMLApp
                 {
                     new GenericRow(new object[] {"I am so happy today, its sunny!", "en-US"}),
                     new GenericRow(new object[] {"I am frustrated by this rush hour traffic", "en-US"}),
-                    new GenericRow(new object[] {"The cognitive services on spark aint bad", "en-US"})
+                    new GenericRow(new object[] {"The Azure AI services on spark aint bad", "en-US"})
                 },
                 new StructType(new List<StructField>
                 {
@@ -234,7 +234,7 @@ When your app runs, the sentiment analysis result is written to the console.
 +-----------------------------------------+--------+-----+--------------------------------------------------+
 |          I am so happy today, its sunny!|   en-US| null|[{positive, null, {0.99, 0.0, 0.0}, [{I am so h...|
 |I am frustrated by this rush hour traffic|   en-US| null|[{negative, null, {0.0, 0.0, 0.99}, [{I am frus...|
-| The cognitive services on spark aint bad|   en-US| null|[{negative, null, {0.0, 0.01, 0.99}, [{The cogn...|
+| The Azure AI services on spark aint bad|   en-US| null|[{positive, null, {0.99, 0.01, 0.00}, [{The cogn...|
 +-----------------------------------------+--------+-----+--------------------------------------------------+
 ```
 Congratulations! You successfully authored and ran a .NET for SynapseML app.
