@@ -4,9 +4,8 @@
 package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.Secrets.getSynapseExtensionSecret
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils.SparkMavenRepositoryList
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
@@ -23,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 
 object SynapseExtensionUtilities {
@@ -31,40 +31,84 @@ object SynapseExtensionUtilities {
 
   object Environment extends Enumeration {
     type Environment = Value
-    val Dev, Daily, Weekly = Value
+    val EDog, Daily, DXT, MSIT = Value
+
     def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
   }
 
-  lazy val TimeoutInMillis: Int = 30 * 60 * 1000
+  object Resource extends Enumeration {
+    type Resource = Value
+    val SSPHost, WorkspaceId, UxHost, TenantId, Password, AadAccessTokenResource, Login = Value
 
-  lazy val BaseUri: String = s"$SSPHost/metadata"
-  lazy val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts"
-
-  lazy val AadAccessTokenResource: String = Secrets.AadResource
-  lazy val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
-
-  lazy val DefaultEnvironment = Environment.Daily
-  lazy val SynapseEnvironment = getWorkingEnvironment(DefaultEnvironment)
-
-  lazy val EnvironmentString = SynapseEnvironment match {
-    case Environment.Dev => "dev"
-    case Environment.Daily => "daily"
-    case Environment.Weekly => "weekly"
+    def withNameOpt(s: String): Option[Value] = values.find(_.toString.toLowerCase == s.toLowerCase)
   }
 
-  lazy val SSPHost: String = getSynapseExtensionSecret(EnvironmentString, "ssp-host")
-  lazy val WorkspaceId: String = getSynapseExtensionSecret(EnvironmentString, "workspace-id")
-  lazy val UxHost: String = getSynapseExtensionSecret(EnvironmentString, "ux-host")
-  lazy val TenantId: String = getSynapseExtensionSecret(EnvironmentString, "tenant-id")
-  lazy val Password: String = getSynapseExtensionSecret(EnvironmentString, "password")
+  val TimeoutInMillis: Int = 60 * 60 * 1000
+  val DefaultLogin = "login.microsoftonline.com"
+  val PpeLogin = "login.windows-ppe.net"
 
-  lazy val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
-  lazy val StorageAccount: String = "mmlsparkbuildsynapse"
-  lazy val StorageContainer: String = "synapse-extension"
+  // TODO: Edog is not yet available.
+  // Details: 401 Unauthorized upon creating the lakehouse
+  lazy val EdogResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionEdogSspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionEdogWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionEdogUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionEdogTenantId,
+    Resource.Password -> Secrets.SynapseExtensionEdogPassword,
+    Resource.AadAccessTokenResource -> "https://analysis.windows-int.net/powerbi/api",
+    Resource.Login -> PpeLogin)
+
+  lazy val DailyResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionDailySspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionDailyWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionDailyUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionDailyTenantId,
+    Resource.Password -> Secrets.SynapseExtensionDailyPassword,
+    Resource.AadAccessTokenResource -> Secrets.AadResource,
+    Resource.Login -> DefaultLogin)
+
+  lazy val DxtResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionDxtSspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionDxtWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionDxtUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionDxtTenantId,
+    Resource.Password -> Secrets.SynapseExtensionDxtPassword,
+    Resource.AadAccessTokenResource -> Secrets.AadResource,
+    Resource.Login -> DefaultLogin)
+
+  // TODO: MSIT is not yet available.
+  // Details: We get PowerBiFeatureDisabled and a 404 upon creating the lakehouse
+  lazy val MsitResources = HashMap(
+    Resource.SSPHost -> Secrets.SynapseExtensionMsitSspHost,
+    Resource.WorkspaceId -> Secrets.SynapseExtensionMsitWorkspaceId,
+    Resource.UxHost -> Secrets.SynapseExtensionMsitUxHost,
+    Resource.TenantId -> Secrets.SynapseExtensionMsitTenantId,
+    Resource.Password -> Secrets.SynapseExtensionMsitPassword,
+    Resource.AadAccessTokenResource -> Secrets.AadResource,
+    Resource.Login -> DefaultLogin)
+
+  val DefaultEnvironment = Environment.Daily
+  val ResourceMap = getResources(DefaultEnvironment)
+  val SSPHost: String = ResourceMap(Resource.SSPHost)
+  val WorkspaceId: String = ResourceMap(Resource.WorkspaceId)
+  val UxHost: String = ResourceMap(Resource.UxHost)
+  val TenantId: String = ResourceMap(Resource.TenantId)
+  val Password: String = ResourceMap(Resource.Password)
+  val AadAccessTokenResource: String = ResourceMap(Resource.AadAccessTokenResource)
+  val Login: String = ResourceMap(Resource.Login)
+
+  val BaseUri: String = s"$SSPHost/metadata"
+  val ArtifactsUri: String = s"$BaseUri/workspaces/$WorkspaceId/artifacts?"
+
+  val AadAccessTokenClientId: String = "1950a258-227b-4e31-a9cf-717495945fc2"
+
+  val Folder: String = s"build_${BuildInfo.version}/synapseextension/notebooks"
+  val StorageAccount: String = "mmlsparkbuildsynapse"
+  val StorageContainer: String = "synapse-extension"
 
   lazy val AccessToken: String = getAccessToken
 
-  lazy val Platform = Secrets.Platform.toUpperCase
+  val Platform: String = Secrets.Platform.toUpperCase
 
   def createSJDArtifact(path: String): String = {
     createSJDArtifact(path, "SparkJobDefinition")
@@ -73,27 +117,22 @@ object SynapseExtensionUtilities {
   def updateSJDArtifact(path: String, artifactId: String, storeId: String): Artifact = {
     val eTag = getETagFromArtifact(artifactId)
     val store = Secrets.ArtifactStore.capitalize
-    val excludes: String = "org.scala-lang:scala-reflect," +
-      "org.apache.spark:spark-tags_2.12," +
-      "org.scalatest:scalatest_2.12," +
-      "org.slf4j:slf4j-api"
+    val sparkVersion = "3.4"
+    val packages: String = "com.microsoft.azure:synapseml_2.12:" + BuildInfo.version
 
     val workloadPayload =
       s"""
          |"{
          |  'Default${store}ArtifactId': '$storeId',
          |  'ExecutableFile': '$path',
-         |  'SparkVersion':'3.4',
+         |  'SparkVersion': '$sparkVersion',
          |  'SparkSettings': {
-         |    'spark.jars.packages' : '$SparkMavenPackageList',
+         |    'spark.jars.packages' : '$packages',
          |    'spark.jars.repositories' : '$SparkMavenRepositoryList',
-         |    'spark.jars.excludes': '$excludes',
-         |    'spark.dynamicAllocation.enabled': 'false',
-         |    'spark.yarn.user.classpath.first': 'true',
          |    'spark.executorEnv.IS_$Platform': 'true',
-         |    'spark.sql.parquet.outputwriter':
-         |    'org.apache.spark.sql.execution.datasources.parquet.ParquetOutputWriter',
-         |    'spark.sql.parquet.vorder.enabled': 'false'
+         |    'spark.sql.extensions': 'com.microsoft.azure.synapse.ml.predict.PredictExtension',
+         |    'spark.synapse.ml.predict.enabled': 'true',
+         |    'spark.executor.heartbeatInterval': '60s',
          |   }
          |}"
     """.stripMargin
@@ -124,6 +163,7 @@ object SynapseExtensionUtilities {
          |}
          |""".stripMargin
     val response = postRequest(ArtifactsUri, reqBody).asJsObject().convertTo[Artifact]
+    println(s"Created SJD for $runName: ${getSparkJobDefinitionLink(response.objectId)}")
     response.objectId
   }
 
@@ -278,21 +318,31 @@ object SynapseExtensionUtilities {
   }
 
   def getAccessToken: String = {
-    val createRequest = new HttpPost(s"https://login.microsoftonline.com/$TenantId/oauth2/token")
+    val createRequest = new HttpPost(s"https://$Login/$TenantId/oauth2/token")
     createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
     createRequest.setEntity(
       new UrlEncodedFormEntity(
         List(
-          ("resource", s"$AadAccessTokenResource"),
-          ("client_id", s"$AadAccessTokenClientId"),
+          ("resource", AadAccessTokenResource),
+          ("client_id", AadAccessTokenClientId),
           ("grant_type", "password"),
-          ("username", s"SynapseMLE2ETestUser@$TenantId"),
-          ("password", s"$Password"),
+          ("username", s"AdminUser@$TenantId"),
+          ("password", Password),
           ("scope", "openid")
         ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
     )
     "Bearer " + RESTHelpers.sendAndParseJson(createRequest).asJsObject()
       .fields("access_token").convertTo[String]
+  }
+
+  def getResources(defaultEnv: Environment.Value): HashMap[Resource.Value, String] = {
+    val environment = getWorkingEnvironment(defaultEnv)
+    environment match {
+      case Environment.EDog => EdogResources
+      case Environment.Daily => DailyResources
+      case Environment.DXT => DxtResources
+      case Environment.MSIT => MsitResources
+    }
   }
 
   def getWorkingEnvironment(defaultEnv: Environment.Value): Environment.Value = {
@@ -305,7 +355,6 @@ object SynapseExtensionUtilities {
     }
     val result = if (envValue != None) envValue.get else defaultEnv
     println(s"Using environment ${result.toString}")
-
     result
   }
 }
@@ -313,6 +362,7 @@ object SynapseExtensionUtilities {
 object SynapseJsonProtocol extends DefaultJsonProtocol {
   implicit object LocalDateTimeFormat extends RootJsonFormat[LocalDateTime] {
     def write(dt: LocalDateTime): JsValue = JsString(dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+
     def read(value: JsValue): LocalDateTime =
       LocalDateTime.parse(value.toString().replaceAll("^\"+|\"+$", ""),
         DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -322,4 +372,5 @@ object SynapseJsonProtocol extends DefaultJsonProtocol {
     jsonFormat3(Artifact.apply)
   implicit val SparkJobDefinitionExecutionResponseFormat: RootJsonFormat[SparkJobDefinitionExecutionResponse] =
     jsonFormat3(SparkJobDefinitionExecutionResponse.apply)
+
 }

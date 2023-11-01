@@ -21,7 +21,6 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
 import java.util.concurrent.{TimeUnit, TimeoutException}
-import scala.collection.immutable.Map
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
