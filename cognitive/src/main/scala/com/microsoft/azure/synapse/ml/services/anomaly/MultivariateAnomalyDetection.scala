@@ -412,8 +412,12 @@ trait MADBase extends HasOutputCol with TimeConverter
 
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object SimpleFitMultivariateAnomaly extends ComplexParamsReadable[SimpleFitMultivariateAnomaly] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[SimpleDetectMultivariateAnomaly]
   with MADBase {
   logClass(FeatureNames.AiServices.Anomaly)
@@ -565,8 +569,12 @@ trait DetectMAParams extends Params {
   setDefault(topContributorCount -> 10)
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object SimpleDetectMultivariateAnomaly extends ComplexParamsReadable[SimpleDetectMultivariateAnomaly] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[SimpleDetectMultivariateAnomaly]
   with MADBase with HasHandler with DetectMAParams {
   logClass(FeatureNames.AiServices.Anomaly)
@@ -647,8 +655,12 @@ class SimpleDetectMultivariateAnomaly(override val uid: String) extends Model[Si
 
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object DetectLastMultivariateAnomaly extends ComplexParamsReadable[DetectLastMultivariateAnomaly] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class DetectLastMultivariateAnomaly(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with TimeConverter with HasTimestampCol
   with HasSetLocation with HasCognitiveServiceInput with HasBatchSize

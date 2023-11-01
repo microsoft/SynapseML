@@ -145,8 +145,12 @@ abstract class AnomalyDetectorBase(override val uid: String) extends CognitiveSe
   }
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object DetectLastAnomaly extends ComplexParamsReadable[DetectLastAnomaly] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
   logClass(FeatureNames.AiServices.Anomaly)
 
@@ -162,8 +166,12 @@ class DetectLastAnomaly(override val uid: String) extends AnomalyDetectorBase(ui
 
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object DetectAnomalies extends ComplexParamsReadable[DetectAnomalies] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid) with SynapseMLLogging {
   logClass(FeatureNames.AiServices.Anomaly)
 
@@ -179,8 +187,12 @@ class DetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
 
 }
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 object SimpleDetectAnomalies extends ComplexParamsReadable[SimpleDetectAnomalies] with Serializable
 
+@deprecated("The Anomaly Detection Service will be shutting down in 2026," +
+  " please use IsolationForest for anomaly detection", "v1.0.0")
 class SimpleDetectAnomalies(override val uid: String) extends AnomalyDetectorBase(uid)
   with HasOutputCol with SynapseMLLogging {
   logClass(FeatureNames.AiServices.Anomaly)
