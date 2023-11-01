@@ -221,7 +221,7 @@ publishDotnetBase := {
   packDotnetAssemblyCmd(join(dotnetBaseDir, "target").getAbsolutePath, dotnetBaseDir)
   val packagePath = join(dotnetBaseDir,
     // Update the version whenever there's a new release
-    "target", s"SynapseML.DotnetBase.${dotnetedVersion("0.11.4")}.nupkg").getAbsolutePath
+    "target", s"SynapseML.DotnetBase.${dotnetedVersion("1.0.0")}.nupkg").getAbsolutePath
   publishDotnetAssemblyCmd(packagePath, genSleetConfig.value)
 }
 
