@@ -160,11 +160,11 @@ with mlflow.start_run():
     mlflow.log_metric("accuracy", metrics[0]['accuracy'])
 ```
 
-### Cognitive Services
+### Azure AI Services
 
 ```python
 import mlflow
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 with mlflow.start_run():
 
