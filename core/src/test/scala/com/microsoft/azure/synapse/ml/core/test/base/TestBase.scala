@@ -80,9 +80,9 @@ trait SparkSessionManagement {
 
   private var sparkInternal: Option[SparkSession] = None
 
-  def resetSparkSession(numRetries: Int = 1, numCores: Option[Int] = None): Unit = {
+  def resetSparkSession(numRetries: Int = 1, logLevel: String="WARN", numCores: Option[Int] = None): Unit = {
     sparkInternal.foreach(_.close())
-    sparkInternal = Some(getSession(s"$this", numRetries = numRetries, numCores = numCores)
+    sparkInternal = Some(getSession(s"$this", logLevel = logLevel, numRetries = numRetries, numCores = numCores)
     )
   }
 
@@ -185,6 +185,7 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
   }
 
   protected override def beforeAll(): Unit = {
+    System.setProperty("log4j1.compatibility", "true")
     suiteElapsed = 0
   }
 

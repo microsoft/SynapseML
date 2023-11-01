@@ -16,12 +16,12 @@ _TORCHVISION_AVAILABLE = _module_available("torchvision")
 if _TORCHVISION_AVAILABLE:
     import torchvision
 
-    _TORCHVISION_GREATER_EQUAL_0_12_0 = torchvision.__version__ >= "0.12.0"
-    if _TORCHVISION_GREATER_EQUAL_0_12_0:
+    _TORCHVISION_GREATER_EQUAL_0_14_1 = torchvision.__version__ >= "0.14.1"
+    if _TORCHVISION_GREATER_EQUAL_0_14_1:
         from torchvision import models
     else:
         raise RuntimeError(
-            "torchvision should be >= 0.12.0, found: {}".format(torchvision.__version__)
+            "torchvision should be >= 0.14.1, found: {}".format(torchvision.__version__)
         )
 else:
     raise ModuleNotFoundError("module not found: torchvision")
