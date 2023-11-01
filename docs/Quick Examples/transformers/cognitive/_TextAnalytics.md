@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -40,21 +40,21 @@ entity.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.EntityDetector
+import com.microsoft.azure.synapse.ml.services.text.EntityDetector
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("1", "Microsoft released Windows 10"),
-    ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
-  ).toDF("id", "text")
+  ("1", "Microsoft released Windows 10"),
+  ("2", "In 1975, Bill Gates III and Paul Allen founded the company.")
+).toDF("id", "text")
 
 val entity = (new EntityDetector()
-            .setSubscriptionKey(textKey)
-            .setLocation("eastus")
-            .setLanguage("en")
-            .setOutputCol("replies"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setLanguage("en")
+  .setOutputCol("replies"))
 
 entity.transform(df).show()
 ```
@@ -83,7 +83,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -106,22 +106,22 @@ keyPhrase.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.KeyPhraseExtractor
+import com.microsoft.azure.synapse.ml.services.text.KeyPhraseExtractor
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("en", "Hello world. This is some input text that I love."),
-    ("fr", "Bonjour tout le monde"),
-    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
-    ("en", null)
-  ).toDF("lang", "text")
+  ("en", "Hello world. This is some input text that I love."),
+  ("fr", "Bonjour tout le monde"),
+  ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+  ("en", null)
+).toDF("lang", "text")
 
 val keyPhrase = (new KeyPhraseExtractor()
-                  .setSubscriptionKey(textKey)
-                  .setLocation("eastus")
-                  .setLanguageCol("lang")
-                  .setOutputCol("replies"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setLanguageCol("lang")
+  .setOutputCol("replies"))
 
 keyPhrase.transform(df).show()
 ```
@@ -152,7 +152,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -178,21 +178,21 @@ language.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.LanguageDetector
+import com.microsoft.azure.synapse.ml.services.text.LanguageDetector
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    "Hello World",
-    "Bonjour tout le monde",
-    "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
-    ":) :( :D"
-  ).toDF("text")
+  "Hello World",
+  "Bonjour tout le monde",
+  "La carretera estaba atascada. Había mucho tráfico el día de ayer.",
+  ":) :( :D"
+).toDF("text")
 
 val language = (new LanguageDetector()
-      .setSubscriptionKey(textKey)
-      .setLocation("eastus")
-      .setOutputCol("replies"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setOutputCol("replies"))
 
 language.transform(df).show()
 ```
@@ -223,7 +223,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -245,20 +245,20 @@ ner.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.NER
+import com.microsoft.azure.synapse.ml.services.text.NER
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("1", "en", "I had a wonderful trip to Seattle last week."),
-    ("2", "en", "I visited Space Needle 2 times.")
-  ).toDF("id", "language", "text")
+  ("1", "en", "I had a wonderful trip to Seattle last week."),
+  ("2", "en", "I visited Space Needle 2 times.")
+).toDF("id", "language", "text")
 
 val ner = (new NER()
-            .setSubscriptionKey(textKey)
-            .setLocation("eastus")
-            .setLanguage("en")
-            .setOutputCol("response"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setLanguage("en")
+  .setOutputCol("response"))
 
 ner.transform(df).show()
 ```
@@ -289,7 +289,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -312,22 +312,22 @@ pii.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.PII
+import com.microsoft.azure.synapse.ml.services.text.PII
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("1", "en", "My SSN is 859-98-0987"),
-    ("2", "en",
-      "Your ABA number - 111000025 - is the first 9 digits in the lower left hand corner of your personal check."),
-    ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
-  ).toDF("id", "language", "text")
+  ("1", "en", "My SSN is 859-98-0987"),
+  ("2", "en",
+    "Your ABA number - 111000025 - is the first 9 digits in the lower left hand corner of your personal check."),
+  ("3", "en", "Is 998.214.865-68 your Brazilian CPF number?")
+).toDF("id", "language", "text")
 
 val pii = (new PII()
-            .setSubscriptionKey(textKey)
-            .setLocation("eastus")
-            .setLanguage("en")
-            .setOutputCol("response"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setLanguage("en")
+  .setOutputCol("response"))
 
 pii.transform(df).show()
 ```
@@ -358,7 +358,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 textKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 df = spark.createDataFrame([
@@ -382,26 +382,26 @@ sentiment.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.text.TextSentiment
+import com.microsoft.azure.synapse.ml.services.text.TextSentiment
 import spark.implicits._
 
 val textKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df = Seq(
-    ("en", "Hello world. This is some input text that I love."),
-    ("fr", "Bonjour tout le monde"),
-    ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
-    (null, "ich bin ein berliner"),
-    (null, null),
-    ("en", null)
-  ).toDF("lang", "text")
+  ("en", "Hello world. This is some input text that I love."),
+  ("fr", "Bonjour tout le monde"),
+  ("es", "La carretera estaba atascada. Había mucho tráfico el día de ayer."),
+  (null, "ich bin ein berliner"),
+  (null, null),
+  ("en", null)
+).toDF("lang", "text")
 
 val sentiment = (new TextSentiment()
-            .setSubscriptionKey(textKey)
-            .setLocation("eastus")
-            .setLanguageCol("lang")
-            .setModelVersion("latest")
-            .setShowStats(true)
-            .setOutputCol("replies"))
+  .setSubscriptionKey(textKey)
+  .setLocation("eastus")
+  .setLanguageCol("lang")
+  .setModelVersion("latest")
+  .setShowStats(true)
+  .setOutputCol("replies"))
 
 sentiment.transform(df).show()
 ```

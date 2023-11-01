@@ -11,7 +11,6 @@ from transformers import AutoTokenizer
 
 
 class DeepTextModel(TorchModel, TextPredictionParams):
-
     tokenizer = Param(Params._dummy(), "tokenizer", "tokenizer")
 
     checkpoint = Param(

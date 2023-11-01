@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = spark.createDataFrame([
@@ -44,7 +44,7 @@ translate = (Translate()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.Translate
+import com.microsoft.azure.synapse.ml.services.translate.Translate
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -52,18 +52,18 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?", "Bye")).toDF("text")
 
 val translate = (new Translate()
-                  .setSubscriptionKey(translatorKey)
-                  .setLocation("eastus")
-                  .setTextCol("text")
-                  .setToLanguage(Seq("zh-Hans", "fr"))
-                  .setOutputCol("translation")
-                  .setConcurrency(5))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setTextCol("text")
+  .setToLanguage(Seq("zh-Hans", "fr"))
+  .setOutputCol("translation")
+  .setConcurrency(5))
 
 (translate
-      .transform(df)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation")).show()
+  .transform(df)
+  .withColumn("translation", flatten(col("translation.translations")))
+  .withColumn("translation", col("translation.text"))
+  .select("translation")).show()
 ```
 
 </TabItem>
@@ -92,7 +92,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -119,7 +119,7 @@ transliterate = (Transliterate()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.Transliterate
+import com.microsoft.azure.synapse.ml.services.translate.Transliterate
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -127,19 +127,19 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("こんにちは", "さようなら")).toDF("text")
 
 val transliterate = (new Transliterate()
-                        .setSubscriptionKey(translatorKey)
-                        .setLocation("eastus")
-                        .setLanguage("ja")
-                        .setFromScript("Jpan")
-                        .setToScript("Latn")
-                        .setTextCol("text")
-                        .setOutputCol("result"))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setLanguage("ja")
+  .setFromScript("Jpan")
+  .setToScript("Latn")
+  .setTextCol("text")
+  .setOutputCol("result"))
 
 (transliterate
-    .transform(df)
-    .withColumn("text", col("result.text"))
-    .withColumn("script", col("result.script"))
-    .select("text", "script")).show()
+  .transform(df)
+  .withColumn("text", col("result.text"))
+  .withColumn("script", col("result.script"))
+  .select("text", "script")).show()
 ```
 
 </TabItem>
@@ -168,7 +168,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -191,7 +191,7 @@ detect = (Detect()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.Detect
+import com.microsoft.azure.synapse.ml.services.translate.Detect
 import spark.implicits._
 import org.apache.spark.sql.functions.col
 
@@ -199,15 +199,15 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?")).toDF("text")
 
 val detect = (new Detect()
-            .setSubscriptionKey(translatorKey)
-            .setLocation("eastus")
-            .setTextCol("text")
-            .setOutputCol("result"))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setTextCol("text")
+  .setOutputCol("result"))
 
 (detect
-    .transform(df)
-    .withColumn("language", col("result.language"))
-    .select("language")).show()
+  .transform(df)
+  .withColumn("language", col("result.language"))
+  .select("language")).show()
 ```
 
 </TabItem>
@@ -236,7 +236,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df =  spark.createDataFrame([
@@ -259,7 +259,7 @@ breakSentence = (BreakSentence()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.BreakSentence
+import com.microsoft.azure.synapse.ml.services.translate.BreakSentence
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -267,15 +267,15 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("Hello, what is your name?")).toDF("text")
 
 val breakSentence = (new BreakSentence()
-                        .setSubscriptionKey(translatorKey)
-                        .setLocation("eastus")
-                        .setTextCol("text")
-                        .setOutputCol("result"))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setTextCol("text")
+  .setOutputCol("result"))
 
 (breakSentence
-    .transform(df)
-    .withColumn("sentLen", flatten(col("result.sentLen")))
-    .select("sentLen")).show()
+  .transform(df)
+  .withColumn("sentLen", flatten(col("result.sentLen")))
+  .select("sentLen")).show()
 ```
 
 </TabItem>
@@ -304,7 +304,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = spark.createDataFrame([
@@ -330,7 +330,7 @@ dictionaryLookup = (DictionaryLookup()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.DictionaryLookup
+import com.microsoft.azure.synapse.ml.services.translate.DictionaryLookup
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -338,18 +338,18 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List("fly")).toDF("text")
 
 val dictionaryLookup = (new DictionaryLookup()
-                        .setSubscriptionKey(translatorKey)
-                        .setLocation("eastus")
-                        .setFromLanguage("en")
-                        .setToLanguage("es")
-                        .setTextCol("text")
-                        .setOutputCol("result"))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setFromLanguage("en")
+  .setToLanguage("es")
+  .setTextCol("text")
+  .setOutputCol("result"))
 
 (dictionaryLookup
-      .transform(df)
-      .withColumn("translations", flatten(col("result.translations")))
-      .withColumn("normalizedTarget", col("translations.normalizedTarget"))
-      .select("normalizedTarget")).show()
+  .transform(df)
+  .withColumn("translations", flatten(col("result.translations")))
+  .withColumn("normalizedTarget", col("translations.normalizedTarget"))
+  .select("normalizedTarget")).show()
 ```
 
 </TabItem>
@@ -378,7 +378,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 df = (spark.createDataFrame([
@@ -404,7 +404,7 @@ dictionaryExamples = (DictionaryExamples()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.{DictionaryExamples, TextAndTranslation}
+import com.microsoft.azure.synapse.ml.services.translate.{DictionaryExamples, TextAndTranslation}
 import spark.implicits._
 import org.apache.spark.sql.functions.{col, flatten}
 
@@ -412,17 +412,17 @@ val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val df = Seq(List(TextAndTranslation("fly", "volar"))).toDF("textAndTranslation")
 
 val dictionaryExamples = (new DictionaryExamples()
-                        .setSubscriptionKey(translatorKey)
-                        .setLocation("eastus")
-                        .setFromLanguage("en")
-                        .setToLanguage("es")
-                        .setTextAndTranslationCol("textAndTranslation")
-                        .setOutputCol("result"))
+  .setSubscriptionKey(translatorKey)
+  .setLocation("eastus")
+  .setFromLanguage("en")
+  .setToLanguage("es")
+  .setTextAndTranslationCol("textAndTranslation")
+  .setOutputCol("result"))
 
 (dictionaryExamples
-    .transform(df)
-    .withColumn("examples", flatten(col("result.examples")))
-    .select("examples")).show()
+  .transform(df)
+  .withColumn("examples", flatten(col("result.examples")))
+  .select("examples")).show()
 ```
 
 </TabItem>
@@ -451,7 +451,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 translatorName = os.environ.get("TRANSLATOR_NAME", "mmlspark-translator")
@@ -468,18 +468,18 @@ documentTranslator = (DocumentTranslator()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator
+import com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator
 import spark.implicits._
 
 val translatorKey = sys.env.getOrElse("TRANSLATOR_KEY", None)
 val translatorName = sys.env.getOrElse("TRANSLATOR_NAME", None)
 
 val documentTranslator = (new DocumentTranslator()
-                        .setSubscriptionKey(translatorKey)
-                        .setServiceName(translatorName)
-                        .setSourceUrlCol("sourceUrl")
-                        .setTargetsCol("targets")
-                        .setOutputCol("translationStatus"))
+  .setSubscriptionKey(translatorKey)
+  .setServiceName(translatorName)
+  .setSourceUrlCol("sourceUrl")
+  .setTargetsCol("targets")
+  .setOutputCol("translationStatus"))
 ```
 
 </TabItem>

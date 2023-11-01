@@ -138,9 +138,9 @@ class ServiceParam[T: TypeTag](parent: Params,
     case "Seq[Int]" => "int[]"
     case "Seq[Seq[Int]]" => "int[][]"
     case "Array[Byte]" => "byte[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.anomaly.TimeSeriesPoint]" => "TimeSeriesPoint[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.translate.TargetInput]" => "TargetInput[]"
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.translate.TextAndTranslation]" => "TextAndTranslation[]"
+    case "Seq[com.microsoft.azure.synapse.ml.services.anomaly.TimeSeriesPoint]" => "TimeSeriesPoint[]"
+    case "Seq[com.microsoft.azure.synapse.ml.services.translate.TargetInput]" => "TargetInput[]"
+    case "Seq[com.microsoft.azure.synapse.ml.services.translate.TextAndTranslation]" => "TextAndTranslation[]"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
   //scalastyle:on cyclomatic.complexity
@@ -220,15 +220,15 @@ class CognitiveServiceStructParam[T: TypeTag](parent: Params,
 
   override private[ml] def dotnetTestSetterLine(v: T): String = {
     typeOf[T].toString match {
-      case t if t == "Seq[com.microsoft.azure.synapse.ml.cognitive.TextAnalyzeTask]" =>
+      case t if t == "Seq[com.microsoft.azure.synapse.ml.services.TextAnalyzeTask]" =>
         s"""Set${dotnetName(v).capitalize}(new TextAnalyzeTask[]{${dotnetTestValue(v)}})"""
       case _ => s"""Set${dotnetName(v).capitalize}(${dotnetTestValue(v)})"""
     }
   }
 
   private[ml] def dotnetType: String = typeOf[T].toString match {
-    case "Seq[com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyzeTask]" => "TextAnalyzeTask[]"
-    case "com.microsoft.azure.synapse.ml.cognitive.anomaly.DiagnosticsInfo" => "DiagnosticsInfo"
+    case "Seq[com.microsoft.azure.synapse.ml.services.text.TextAnalyzeTask]" => "TextAnalyzeTask[]"
+    case "com.microsoft.azure.synapse.ml.services.anomaly.DiagnosticsInfo" => "DiagnosticsInfo"
     case _ => throw new Exception(s"unsupported type ${typeOf[T].toString}, please add implementation")
   }
 }

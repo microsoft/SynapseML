@@ -352,7 +352,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
            |mlflow_model = mlflow.pyfunc.load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
-        case "cognitive" =>
+        case "services" =>
           s"""
              |pipeline_model = PipelineModel(stages=[model])
              |mlflow.spark.save_model(pipeline_model, "mlflow-save-model-$num")
@@ -531,7 +531,7 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
            |#mlflow_model <- mlflow_load_model("mlflow-save-model-$num")
            |""".stripMargin
       case _: Transformer => stage.getClass.getName.split(".".toCharArray).dropRight(1).last match {
-        case "cognitive" =>
+        case "services" =>
           s"""
              |# TODO: restore when mlflow supports spark flavor
              |#pipeline_model <- ml_pipeline(model)

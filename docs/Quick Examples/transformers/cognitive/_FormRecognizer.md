@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -45,20 +45,20 @@ analyzeLayout = (AnalyzeLayout()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeLayout
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeLayout
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
+).toDF("source")
 
 val analyzeLayout = (new AnalyzeLayout()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setImageUrlCol("source")
-                        .setOutputCol("layout")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("layout")
+  .setConcurrency(5))
 
 analyzeLayout.transform(imageDf).show()
 ```
@@ -89,7 +89,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -111,21 +111,21 @@ analyzeReceipts.transform(imageDf).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeReceipts
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeReceipts
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png",
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png",
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/receipt1.png"
+).toDF("source")
 
 val analyzeReceipts = (new AnalyzeReceipts()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setImageUrlCol("source")
-                        .setOutputCol("receipts")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("receipts")
+  .setConcurrency(5))
 
 analyzeReceipts.transform(imageDf).show()
 ```
@@ -156,7 +156,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -177,20 +177,20 @@ analyzeBusinessCards.transform(imageDf).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeBusinessCards
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeBusinessCards
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/business_card.jpg"
+).toDF("source")
 
 val analyzeBusinessCards = (new AnalyzeBusinessCards()
-                              .setSubscriptionKey(cognitiveKey)
-                              .setLocation("eastus")
-                              .setImageUrlCol("source")
-                              .setOutputCol("businessCards")
-                              .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("businessCards")
+  .setConcurrency(5))
 
 analyzeBusinessCards.transform(imageDf).show()
 ```
@@ -219,7 +219,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -243,20 +243,20 @@ analyzeInvoices = (AnalyzeInvoices()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeInvoices
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeInvoices
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
+).toDF("source")
 
 val analyzeInvoices = (new AnalyzeInvoices()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setImageUrlCol("source")
-                        .setOutputCol("invoices")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("invoices")
+  .setConcurrency(5))
 
 analyzeInvoices.transform(imageD4).show()
 ```
@@ -285,7 +285,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -309,20 +309,20 @@ analyzeIDDocuments = (AnalyzeIDDocuments()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeIDDocuments
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeIDDocuments
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/id1.jpg"
+).toDF("source")
 
 val analyzeIDDocuments = (new AnalyzeIDDocuments()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setImageUrlCol("source")
-                        .setOutputCol("ids")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("ids")
+  .setConcurrency(5))
 
 analyzeIDDocuments.transform(imageDf).show()
 ```
@@ -353,7 +353,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" # put your own modelId here
@@ -382,22 +382,22 @@ analyzeCustomModel = (AnalyzeCustomModel()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeCustomModel
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" // put your own modelId here
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/invoice2.png"
+).toDF("source")
 
 val analyzeCustomModel = (new AnalyzeCustomModel()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setModelId(modelId)
-                        .setImageUrlCol("source")
-                        .setOutputCol("output")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setModelId(modelId)
+  .setImageUrlCol("source")
+  .setOutputCol("output")
+  .setConcurrency(5))
 
 analyzeCustomModel.transform(imageDf).show()
 ```
@@ -428,7 +428,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" # put your own modelId here
@@ -453,7 +453,7 @@ getCustomModel = (GetCustomModel()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.GetCustomModel
+import com.microsoft.azure.synapse.ml.services.form.GetCustomModel
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
@@ -461,12 +461,12 @@ val modelId = "02bc2f58-2beb-4ae3-84fb-08f011b2f7b8" // put your own modelId her
 val emptyDf = Seq("").toDF()
 
 val getCustomModel = (new GetCustomModel()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setModelId(modelId)
-                        .setIncludeKeys(true)
-                        .setOutputCol("model")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setModelId(modelId)
+  .setIncludeKeys(true)
+  .setOutputCol("model")
+  .setConcurrency(5))
 
 getCustomModel.transform(emptyDf).show()
 ```
@@ -497,7 +497,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 emptyDf = spark.createDataFrame([("",)])
@@ -519,18 +519,18 @@ listCustomModels = (ListCustomModels()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.ListCustomModels
+import com.microsoft.azure.synapse.ml.services.form.ListCustomModels
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val emptyDf = Seq("").toDF()
 
 val listCustomModels = (new ListCustomModels()
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setOp("full")
-                        .setOutputCol("models")
-                        .setConcurrency(5))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setOp("full")
+  .setOutputCol("models")
+  .setConcurrency(5))
 
 listCustomModels.transform(emptyDf).show()
 ```
@@ -560,7 +560,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 imageDf = spark.createDataFrame([
@@ -587,21 +587,21 @@ analyzeDocument = (AnalyzeDocument()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.form.AnalyzeDocument
+import com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument
 import spark.implicits._
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val imageDf = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
-  ).toDF("source")
+  "https://mmlspark.blob.core.windows.net/datasets/FormRecognizer/layout1.jpg"
+).toDF("source")
 
 val analyzeDocument = (new AnalyzeDocument()
-                        .setPrebuiltModelId("prebuilt-layout")
-                        .setSubscriptionKey(cognitiveKey)
-                        .setLocation("eastus")
-                        .setImageUrlCol("source")
-                        .setOutputCol("result")
-                        .setConcurrency(5))
+  .setPrebuiltModelId("prebuilt-layout")
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setImageUrlCol("source")
+  .setOutputCol("result")
+  .setConcurrency(5))
 
 analyzeDocument.transform(imageDf).show()
 ```

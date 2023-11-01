@@ -18,7 +18,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 import requests
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
@@ -42,7 +42,7 @@ stt.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToText
+import com.microsoft.azure.synapse.ml.services.speech.SpeechToText
 import org.apache.commons.compress.utils.IOUtils
 import spark.implicits._
 import java.net.URL
@@ -51,16 +51,16 @@ val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val audioBytes = IOUtils.toByteArray(new URL("https://mmlspark.blob.core.windows.net/datasets/Speech/test1.wav").openStream())
 
 val df: DataFrame = Seq(
-    Tuple1(audioBytes)
-  ).toDF("audio")
+  Tuple1(audioBytes)
+).toDF("audio")
 
 val stt = (new SpeechToText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOutputCol("text")
-    .setAudioDataCol("audio")
-    .setLanguage("en-US")
-    .setFormat("simple"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setOutputCol("text")
+  .setAudioDataCol("audio")
+  .setLanguage("en-US")
+  .setFormat("simple"))
 
 stt.transform(df).show()
 ```
@@ -91,7 +91,7 @@ values={[
 <!--pytest-codeblocks:cont-->
 
 ```python
-from synapse.ml.cognitive import *
+from synapse.ml.services import *
 import requests
 
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
@@ -113,23 +113,23 @@ speech_to_text.transform(df).show()
 <TabItem value="scala">
 
 ```scala
-import com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK
+import com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDK
 import spark.implicits._
 import org.apache.commons.compress.utils.IOUtils
 import java.net.URL
 
 val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
 val df: DataFrame = Seq(
-    "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"
-  ).toDF("url")
+  "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav"
+).toDF("url")
 
 val speech_to_text = (new SpeechToTextSDK()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
-    .setOutputCol("text")
-    .setAudioDataCol("url")
-    .setLanguage("en-US")
-    .setProfanity("Masked"))
+  .setSubscriptionKey(cognitiveKey)
+  .setLocation("eastus")
+  .setOutputCol("text")
+  .setAudioDataCol("url")
+  .setLanguage("en-US")
+  .setProfanity("Masked"))
 
 speech_to_text.transform(df).show()
 ```

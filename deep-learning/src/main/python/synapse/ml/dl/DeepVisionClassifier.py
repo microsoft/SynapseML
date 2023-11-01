@@ -29,7 +29,6 @@ else:
 
 
 class DeepVisionClassifier(TorchEstimator, VisionPredictionParams):
-
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
     )
