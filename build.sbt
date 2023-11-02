@@ -34,7 +34,10 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.4.1" % "3.0.3",
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.4.1" % "3.0.3"
+    exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
+    exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
+    exclude("org.apache.spark", "spark-sql_2.12"),
   // Although breeze 2.1.0 is already provided by Spark, this is needed for Azure Synapse Spark 3.4 pools.
   // Otherwise a NoSuchMethodError will be thrown by interpretability code.
   "org.scalanlp" %% "breeze" % "2.1.0"
