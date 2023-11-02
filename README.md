@@ -104,22 +104,6 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 }
 ```
 
-- For Spark 3.2 Pools:
-
-```bash
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1,org.apache.spark:spark-avro_2.12:3.3.1",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false",
-      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
-  }
-}
-```
 
 
 To install at the pool level instead of the notebook level [add the spark properties listed above to the pool configuration](https://techcommunity.microsoft.com/t5/azure-synapse-analytics-blog/how-to-set-spark-pyspark-custom-configs-in-synapse-workspace/ba-p/2114434).
@@ -161,22 +145,6 @@ In Microsoft Fabric notebooks please place the following in the first cell of yo
 }
 ```
 
-- For Spark 3.2 Pools:
-
-```bash
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1,org.apache.spark:spark-avro_2.12:3.3.1",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false",
-      "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
-  }
-}
-```
 
 ### Python Standalone
 
