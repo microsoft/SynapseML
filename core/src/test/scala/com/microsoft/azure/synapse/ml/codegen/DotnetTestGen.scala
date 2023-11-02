@@ -89,7 +89,7 @@ object DotnetTestGen {
          |      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
          |    </PackageReference>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
-         |    <PackageReference Include="SynapseML.DotnetBase" Version="1.0.0" />
+         |    <PackageReference Include="SynapseML.DotnetBase" Version="1.0.1" />
          |    <PackageReference Include="SynapseML.DotnetE2ETest" Version="${conf.dotnetVersion}" />
          |    <PackageReference Include="SynapseML.$curProject" Version="${conf.dotnetVersion}" />
          |    $referenceCore
