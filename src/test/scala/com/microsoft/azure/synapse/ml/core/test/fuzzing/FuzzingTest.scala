@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.cognitive.{HasAADToken, HasSubscriptionKey}
+import com.microsoft.azure.synapse.ml.services.{HasAADToken, HasSubscriptionKey}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -44,13 +44,13 @@ class FuzzingTest extends TestBase {
 
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
-      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
-      "com.microsoft.azure.synapse.ml.cognitive.DocumentTranslator",
-      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.services.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.cntk.train.CNTKLearner",
@@ -60,7 +60,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.train.TrainedClassifierModel",
       "com.microsoft.azure.synapse.ml.featurize.DataConversion",
       "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase",
-      "com.microsoft.azure.synapse.ml.cognitive.LocalNER",
+      "com.microsoft.azure.synapse.ml.services.LocalNER",
       "com.microsoft.azure.synapse.ml.nn.KNNModel",
       "com.microsoft.azure.synapse.ml.nn.ConditionalKNNModel",
       "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
@@ -78,8 +78,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.stages.TimerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
-      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
 
     )
@@ -111,7 +111,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
       "com.microsoft.azure.synapse.ml.cntk.train.CNTKLearner",
-      "com.microsoft.azure.synapse.ml.cognitive.LocalNER",
+      "com.microsoft.azure.synapse.ml.services.LocalNER",
       "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
@@ -132,10 +132,10 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitClassificationModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
-      "com.microsoft.azure.synapse.ml.cognitive.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.DetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.services.DetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -158,8 +158,8 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in python") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
-      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
@@ -186,8 +186,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
-      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -212,8 +212,8 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in R") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
-      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
@@ -240,8 +240,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
-      "com.microsoft.azure.synapse.ml.cognitive.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -374,12 +374,12 @@ class FuzzingTest extends TestBase {
   test("Verify all classes extending HasSubscriptionKey also extend HasAADToken") {
     val exemptions = Set[String](
       // MVAD doesn't support aad token for now
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.cognitive.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       // TO BE VERIFIED
-      "com.microsoft.azure.synapse.ml.cognitive.speech.ConversationTranscription",
-      "com.microsoft.azure.synapse.ml.cognitive.speech.SpeechToTextSDK",
-      "com.microsoft.azure.synapse.ml.cognitive.speech.TextToSpeech"
+      "com.microsoft.azure.synapse.ml.services.speech.ConversationTranscription",
+      "com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDK",
+      "com.microsoft.azure.synapse.ml.services.speech.TextToSpeech"
     )
     val subClazz = classOf[HasSubscriptionKey]
     val clazz = classOf[HasAADToken]

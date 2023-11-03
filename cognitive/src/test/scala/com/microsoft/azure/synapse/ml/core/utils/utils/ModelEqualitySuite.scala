@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.utils.utils
 
-import com.microsoft.azure.synapse.ml.cognitive.text.TextSentiment
+import com.microsoft.azure.synapse.ml.services.text.TextSentiment
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities.join
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.ModelEquality
@@ -21,7 +21,7 @@ class ModelEqualitySuite extends TestBase {
     val p2 = join(tmpDir.toString, "1_m2.model").toString
     m1.write.overwrite().save(p1)
     m2.write.overwrite().save(p2)
-    ModelEquality.assertEqual("com.microsoft.azure.synapse.ml.cognitive.text.TextSentiment", p1, p2)
+    ModelEquality.assertEqual("com.microsoft.azure.synapse.ml.services.text.TextSentiment", p1, p2)
   }
 
   test("Basic equality") {

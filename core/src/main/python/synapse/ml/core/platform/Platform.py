@@ -46,10 +46,7 @@ def running_on_databricks():
     return current_platform() is PLATFORM_DATABRICKS
 
 
-def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
-    if override is not None:
-        return override
-
+def find_secret(secret_name, keyvault):
     if running_on_synapse() or running_on_synapse_internal():
         from notebookutils.mssparkutils.credentials import getSecret
 
@@ -63,9 +60,17 @@ def find_secret(secret_name, keyvault=SECRET_STORE, override=None):
         return dbutils.secrets.get(scope=keyvault, key=secret_name)
     else:
         raise RuntimeError(
-            f"Could not find {secret_name} in keyvault or overrides. If you are running this demo "
-            f"and would like to manually specify your key for Azure KeyVault or Databricks Secrets,"
-            f'please add the override="YOUR_KEY_HERE" to the arguments of the find_secret() method'
+            f"Could not find {secret_name} in keyvault {keyvault}. "
+            f"If you are trying to use the mmlspark-buil-keys keyvault, you cant! "
+            f"You need to make your own keyvaukt with secrets or replace this call with a string. "
+            f"Make sure your notebook has access to a "
+            f"keyvault named {keyvault} which contains a secret named {secret_name}. "
+            f"On synapse, use a linked service keyvault, "
+            f"on databricks use their secrets management sdk, "
+            f"on fabric make sure your azure identity can access your azure keyvault. "
+            f"If you want to avoid making a keyvault, replace this call to find secret with your secret as a string "
+            f"like my_secret = 'jdiej38dnal.....'. Note that this has "
+            f"security implications for publishing and sharing notebooks!"
         )
 
 

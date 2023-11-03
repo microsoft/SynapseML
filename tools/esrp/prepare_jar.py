@@ -28,7 +28,6 @@ def flatten_dir(top_dir):
 
     # Walk through all subdirectories
     for foldername, subfolders, filenames in os.walk(top_dir, topdown=False):
-
         # If we are not in the top-level directory, move files to the top-level directory
         if foldername != top_dir:
             for filename in filenames:

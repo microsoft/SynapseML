@@ -39,7 +39,6 @@ class PerPartitionScalarScalerModel(ABC, Transformer, HasSetInputCol, HasSetOutp
         per_group_stats: Union[DataFrame, Dict[str, float]],
         use_pandas: bool = True,
     ):
-
         super().__init__()
         ExplainBuilder.build(
             self,
@@ -128,7 +127,6 @@ class PerPartitionScalarScalerEstimator(
         output_col: str,
         use_pandas: bool = True,
     ):
-
         super().__init__()
         ExplainBuilder.build(
             self,
@@ -193,7 +191,6 @@ class StandardScalarScalerModel(PerPartitionScalarScalerModel):
         coefficient_factor: float = 1.0,
         use_pandas: bool = True,
     ):
-
         super().__init__(
             input_col,
             partition_key,
@@ -250,7 +247,6 @@ class StandardScalarScaler(PerPartitionScalarScalerEstimator):
         coefficient_factor: float = 1.0,
         use_pandas: bool = True,
     ):
-
         super().__init__(input_col, partition_key, output_col, use_pandas)
         self.coefficient_factor = coefficient_factor
 
@@ -292,7 +288,6 @@ class LinearScalarScalerModel(PerPartitionScalarScalerModel):
         max_required_value: float,
         use_pandas: bool = True,
     ):
-
         super().__init__(
             input_col,
             partition_key,
@@ -382,7 +377,6 @@ class LinearScalarScaler(PerPartitionScalarScalerEstimator):
         max_required_value: float = 1.0,
         use_pandas: bool = True,
     ):
-
         super().__init__(input_col, partition_key, output_col, use_pandas)
         self.min_required_value = min_required_value
         self.max_required_value = max_required_value

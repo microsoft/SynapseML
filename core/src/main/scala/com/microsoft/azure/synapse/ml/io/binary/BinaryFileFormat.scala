@@ -194,7 +194,7 @@ private[ml] class HadoopFileReader(file: PartitionedFile,
 
   private val iterator = {
     val fileSplit = new FileSplit(
-      new Path(new URI(file.filePath)),
+      new Path(new URI(file.filePath.toString())),
       file.start,
       file.length,
       Array.empty)

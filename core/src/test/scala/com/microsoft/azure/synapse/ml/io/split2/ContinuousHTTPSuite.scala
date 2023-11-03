@@ -17,7 +17,7 @@ import scala.concurrent.Await
 // scalastyle:off magic.number
 class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
 
-  def baseReader: DataStreamReader ={
+  def baseReader: DataStreamReader = {
     spark
       .readStream
       .continuousServer
@@ -32,42 +32,42 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       .queryName("foo")
       .option("checkpointLocation", new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
 
-     if (continuous){
-       writer.trigger(Trigger.Continuous("10 seconds")).start()
-     } else{
-       writer.start()
-     }
+    if (continuous) {
+      writer.trigger(Trigger.Continuous("10 seconds")).start()
+    } else {
+      writer.start()
+    }
   }
 
-  test("continuous mode"){
+  test("continuous mode") {
     val server = baseWrite(baseReader
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo"))
 
-    using(server){
+    using(server) {
       Thread.sleep(10000)
       val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest())
       assertLatency(responsesWithLatencies, 5)
     }
   }
 
-  test("continuous mode with files"){
+  test("continuous mode with files") {
     val server = baseWrite(baseReader
       .load()
       .parseRequest(apiName, BinaryType)
       .withColumn("length", length(col("bytes")))
       .makeReply("length"))
 
-    using(server){
+    using(server) {
       Thread.sleep(5000)
-      val responsesWithLatencies = (1 to 30).map(_ =>  sendFileRequest())
+      val responsesWithLatencies = (1 to 30).map(_ => sendFileRequest())
       assertLatency(responsesWithLatencies, 100)
     }
 
   }
 
-  ignore("forwarding ports to vm"){
+  ignore("forwarding ports to vm") {
     val server = baseWrite(baseReader
       .address("0.0.0.0", 9010, apiPath)
       .option("forwarding.enabled", value = true)
@@ -78,16 +78,18 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo"))
 
-    using(server){Thread.sleep(10000)}
+    using(server) {
+      Thread.sleep(10000)
+    }
   }
 
-  test("async"){
+  test("async") {
     val server = baseWrite(baseReader
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo"))
 
-    using(server){
+    using(server) {
       Thread.sleep(5000)
       val futures = (1 to 10).map(_ =>
         sendStringRequestAsync()
@@ -99,14 +101,14 @@ class ContinuousHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     }
   }
 
-  test("non continuous mode"){
+  test("non continuous mode") {
     val server = baseWrite(baseReader
       .option("numPartitions", 1)
       .load()
       .withColumn("foo", col("id.requestId"))
       .makeReply("foo"), continuous = false)
 
-    using(server){
+    using(server) {
       Thread.sleep(10000)
       println(server.status)
       val responsesWithLatencies = (1 to 500).map(_ => sendStringRequest())

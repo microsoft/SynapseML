@@ -44,7 +44,6 @@ import synapse.ml
 
 
 def iterate_over_documentation(folder, version):
-
     cur_folders = [folder]
     while cur_folders:
         cur_dir = cur_folders.pop(0)

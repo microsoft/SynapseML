@@ -20,22 +20,22 @@ import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
 
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
-import scala.util.parsing.json.JSONObject
-
 
 trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def waitForServer(server: StreamingQuery, maxTimeWaited: Int = 20000, checkEvery: Int = 100): Unit = {
     var waited = 0
-    while (waited < maxTimeWaited) {  //scalastyle:ignore while
+    while (waited < maxTimeWaited) { //scalastyle:ignore while
       if (!server.isActive) throw server.exception.get
-      if (server.recentProgress.length > 1) return  //scalastyle:ignore return
+      if (server.recentProgress.length > 1) return //scalastyle:ignore return
       Thread.sleep(checkEvery.toLong)
       waited += checkEvery
     }
@@ -55,7 +55,7 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
     assert(targetCode === res.getStatusLine.getStatusCode)
     val out = if (targetCode == res.getStatusLine.getStatusCode && !targetCode.toString.startsWith("2")) {
-      null  //scalastyle:ignore null
+      null //scalastyle:ignore null
     } else {
       new BasicResponseHandler().handleResponse(res)
     }
@@ -81,7 +81,8 @@ trait HTTPTestUtils extends TestBase with WithFreeUrl {
 
   def sendJsonRequest(map: Map[String, Any], url: String): String = {
     val post = new HttpPost(url)
-    val params = new StringEntity(JSONObject(map).toString())
+    implicit val defaultFormats: DefaultFormats = DefaultFormats
+    val params = new StringEntity(Serialization.write(map))
     post.addHeader("content-type", "application/json")
     post.setEntity(params)
     val res = RESTHelpers.Client.execute(post)
@@ -210,12 +211,12 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         sendJsonRequest(Map("foo" -> 3, "bar" -> "hereee"), url),
         sendJsonRequest(Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
-      val correctResponses = List(27, 28, 29, 30).map(_.toString)
+      val correctResponses = List(22, 23, 24, 25).map(_.toString)
 
       assert(responses === correctResponses)
 
       (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
-        .foreach(resp => assert(resp === "27"))
+        .foreach(resp => assert(resp === "22"))
     }
   }
 
@@ -234,12 +235,12 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         sendJsonRequest(Map("foo" -> 3, "bar" -> "hereee"), url),
         sendJsonRequest(Map("foo" -> 4, "bar" -> "hereeee"), url)
       )
-      val correctResponses = List(27, 28, 29, 30).map(_.toString)
+      val correctResponses = List(22, 23, 24, 25).map(_.toString)
 
       assert(responses === correctResponses)
 
       (1 to 20).map(_ => sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url))
-        .foreach(resp => assert(resp === "27"))
+        .foreach(resp => assert(resp === "22"))
     }
 
   }
@@ -361,14 +362,14 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       )
 
       val responses = futures.map(f => Await.result(f, Duration.Inf))
-      val correctResponses = List(27, 28, 29, 30).map(_.toString)
+      val correctResponses = List(22, 23, 24, 25).map(_.toString)
 
       assert(responses === correctResponses)
 
       (1 to 20).map(_ => sendJsonRequestAsync(Map("foo" -> 1, "bar" -> "here")))
         .foreach { f =>
           val resp = Await.result(f, Duration(10, TimeUnit.SECONDS))
-          assert(resp === "27")
+          assert(resp === "22")
         }
     }
   }

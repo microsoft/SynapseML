@@ -37,7 +37,7 @@ class HTTPSuite extends TestBase with HTTPTestUtils {
     val p3 = sendJsonRequest(Map("foo" -> 1, "bar" -> "hereee"), url)
     val p4 = sendJsonRequest(Map("foo" -> 1, "bar" -> "hereeee"), url)
     val posts = List(p1, p2, p3, p4)
-    val correctResponses = List(27, 28, 29, 30)
+    val correctResponses = List(22, 23, 24, 25)
 
     posts.zip(correctResponses).foreach { p =>
       assert(p._1 === p._2.toString)
