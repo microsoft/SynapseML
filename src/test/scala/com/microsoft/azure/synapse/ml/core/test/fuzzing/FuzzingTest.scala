@@ -45,7 +45,6 @@ class FuzzingTest extends TestBase {
   test("Verify stage fitting and transforming") {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
-      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
@@ -102,8 +101,8 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be serialized") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.cognitive.text.TextAnalyze",
-      "com.microsoft.azure.synapse.ml.cognitive.translate.DocumentTranslator",
+      "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
+      "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
