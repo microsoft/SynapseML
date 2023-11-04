@@ -125,11 +125,11 @@ object NetworkManager {
   }
 
   private def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
-                                       taskId: Long,
-                                       partitionId: Int,
-                                       localListenPort: Int,
-                                       log: Logger,
-                                       shouldExecuteTraining: Boolean): NetworkTopologyInfo = {
+                                               taskId: Long,
+                                               partitionId: Int,
+                                               localListenPort: Int,
+                                               log: Logger,
+                                               shouldExecuteTraining: Boolean): NetworkTopologyInfo = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
       driverSocket =>
         usingMany(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
@@ -163,6 +163,12 @@ object NetworkManager {
             // and a list of partition ids in this executor.
             val lightGbmMachineList = driverInput.readLine()
             val partitionsByExecutorStr = driverInput.readLine()
+            if (partitionsByExecutorStr == null || lightGbmMachineList == null) {
+              val message = s"Received bad network information. Task $taskId, partition $partitionId received" +
+                s"partition topology: '$partitionsByExecutorStr', nodes for network init: '$lightGbmMachineList'"
+              throw new Exception(message)
+            }
+
             log.info(s"task $taskId, partition $partitionId received partition topology: '$partitionsByExecutorStr'")
             log.info(s"task $taskId, partition $partitionId received nodes for network init: '$lightGbmMachineList'")
             val executorPartitionIds: Array[Int] =
