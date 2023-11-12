@@ -243,7 +243,8 @@ class PIISuite extends TATestBase[PII] {
   test("Basic Usage") {
     val results = prepResults(model.transform(df))
     val testDoc = results.map(_.get.document.get).head
-    val testEntity = testDoc.entities.head
+    //val testEntity = testDoc.entities.head
+    val testEntity = testDoc.entities.maxBy(_.confidenceScore)
     assert(testDoc.redactedText === "My SSN is ***********")
     assert(testEntity.text === "859-98-0987")
     assert(testEntity.offset === 10)
