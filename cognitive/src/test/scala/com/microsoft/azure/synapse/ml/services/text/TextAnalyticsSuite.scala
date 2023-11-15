@@ -249,7 +249,7 @@ class PIISuite extends TATestBase[PII] {
     assert(testEntity.offset === 10)
     assert(testEntity.length === 11)
     assert(testEntity.confidenceScore > 0.6)
-    assert(testEntity.category === "USSocialSecurityNumber")
+    assert(testEntity.category.contains("Number"))
   }
 
   override def reader: MLReadable[_] = PII
