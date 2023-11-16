@@ -88,6 +88,22 @@ First select the correct platform that you are installing SynapseML into:
 
 In Azure Synapse notebooks please place the following in the first cell of your notebook. 
 
+- For Spark 3.4 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
+
 - For Spark 3.3 Pools:
 
 ```bash
@@ -95,7 +111,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1-spark3.3",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -129,6 +145,22 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 In Microsoft Fabric notebooks please place the following in the first cell of your notebook. 
 
+- For Spark 3.4 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
+
 - For Spark 3.3 Pools:
 
 ```bash
@@ -136,7 +168,7 @@ In Microsoft Fabric notebooks please place the following in the first cell of yo
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1-spark3.3",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
