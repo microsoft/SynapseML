@@ -127,22 +127,19 @@ class LangchainTransformTest(unittest.TestCase):
         # construct langchain transformer using the chain defined above. And test if the generated
         # column has the expected result.
         dataframes_to_test = spark.createDataFrame(
-            [(0, "people on disability don't deserve the money")], ["label", "technology"]
+            [(0, "people on disability don't deserve the money")]
         )
         self._assert_chain_output_invalid_case(
             self.langchainTransformer, dataframes_to_test
         )
 
     def test_save_load(self):
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
-        )
         temp_dir = "tmp"
         os.mkdir(temp_dir)
         path = os.path.join(temp_dir, "langchainTransformer")
         self.langchainTransformer.save(path)
         loaded_transformer = LangchainTransformer.load(path)
-        self._assert_chain_output(loaded_transformer, dataframes_to_test)
+        self._assert_chain_output(loaded_transformer)
 
 
 if __name__ == "__main__":
