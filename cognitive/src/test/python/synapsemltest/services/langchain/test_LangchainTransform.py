@@ -95,6 +95,44 @@ class LangchainTransformTest(unittest.TestCase):
         # column has the expected result.
         self._assert_chain_output(self.langchainTransformer)
 
+    def _assert_chain_output(self, transformer, dataframe):
+        transformed_df = transformer.transform(dataframe)
+        input_col_values = [row.technology for row in transformed_df.collect()]
+        output_col_values = [row.copied_technology for row in transformed_df.collect()]
+
+        for i in range(len(input_col_values)):
+            assert (
+                input_col_values[i] in output_col_values[i].lower()
+            ), f"output column value {output_col_values[i]} doesn't contain input column value {input_col_values[i]}"
+
+    def test_langchainTransform(self):
+        # construct langchain transformer using the chain defined above. And test if the generated
+        # column has the expected result.
+        dataframes_to_test = spark.createDataFrame(
+            [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
+        )
+        self._assert_chain_output(self.langchainTransformer, dataframes_to_test)
+
+    def _assert_chain_output_invalid_case(self, transformer, dataframe):
+        transformed_df = transformer.transform(dataframe)
+        input_col_values = [row.technology for row in transformed_df.collect()]
+        output_col_values = [row.copied_technology for row in transformed_df.collect()]
+
+        for i in range(len(input_col_values)):
+            assert (
+                "the response was filtered" in output_col_values[i].lower()
+            ), f"output column value {output_col_values[i]} doesn't properly show that the request is Invalid"
+
+    def test_langchainTransformErrorHandling(self):
+        # construct langchain transformer using the chain defined above. And test if the generated
+        # column has the expected result.
+        dataframes_to_test = spark.createDataFrame(
+            [(0, "people on disability don't deserve the money")]
+        )
+        self._assert_chain_output_invalid_case(
+            self.langchainTransformer, dataframes_to_test
+        )
+
     def test_save_load(self):
         temp_dir = "tmp"
         os.mkdir(temp_dir)
