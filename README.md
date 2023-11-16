@@ -242,6 +242,8 @@ better integrate with intellij and SBT.
 
 - [Flexible and Scalable Deep Learning with SynapseML](https://arxiv.org/abs/1804.04031)
 
+- [Large-Scale Automatic Audiobook Creation](https://arxiv.org/abs/2309.03926) 
+
 ## Learn More
 
 - Visit our [website].
