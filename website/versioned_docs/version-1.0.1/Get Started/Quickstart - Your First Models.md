@@ -53,12 +53,13 @@ Alternatively, for these kinds of tasks that have a prebuilt solution, you can u
 
 
 ```python
-from synapse.ml.services.text import TextSentiment
+from synapse.ml.services.language import AnalyzeText
 from synapse.ml.core.platform import find_secret
 
-model = TextSentiment(
+model = AnalyzeText(
     textCol="text",
     outputCol="sentiment",
+    kind="SentimentAnalysis",
     subscriptionKey=find_secret(
         secret_name="ai-services-api-key", keyvault="mmlspark-build-keys"
     ),  # Replace the call to find_secret with your key as a python string.
