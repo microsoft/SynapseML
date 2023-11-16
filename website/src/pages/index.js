@@ -248,14 +248,8 @@ function Home() {
                 <a href="https://github.com/microsoft/SynapseML">Open source</a>{" "}
                 and cloud native.
               </p>
-              <p>
-                Note: SynapseML is built-in for{" "}
-                <a href="https://learn.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-33-runtime">
-                  Azure Synapse Analytics.
-                </a>
-              </p>
               <Tabs
-                defaultValue="Synapse"
+                defaultValue="Fabric"
                 values={[
                   { label: "Synapse", value: "Synapse" },
                   { label: "Fabric", value: "Fabric" },
@@ -301,29 +295,13 @@ function Home() {
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="Fabric">
-                  <p>SynapseML is preinstalled on Fabric. To install a different version, adding the following to the first cell of a notebook:</p>
-                  For Spark3.4 pool:
+                  <p>SynapseML is preinstalled on Fabric. To install a different version, add the following to the first cell of a notebook:</p>
                   <CodeSnippet
                     snippet={`%%configure -f
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false"
-  }
-}`}
-                    lang="bash"
-                  ></CodeSnippet>
-                  For Spark3.3 pool:
-                  <CodeSnippet
-                    snippet={`%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:[THE_SYNAPSEML_VERSION_YOU_WANT]",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",

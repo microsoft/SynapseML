@@ -4,17 +4,15 @@ description: Install SynapseML
 ---
 ## Microsoft Fabric
 
-In Microsoft Fabric notebooks please place the following in the first cell of your notebook. 
+SynapseML is already installed in Microsoft Fabric notebooks. To change the version please place the following in the first cell of your notebook: 
 
-
-- For Spark 3.4 Pools:
 
 ```bash
 %%configure -f
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.1",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:<THE_SYNAPSEML_VERSION_YOU_WANT>",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -23,29 +21,12 @@ In Microsoft Fabric notebooks please place the following in the first cell of yo
 }
 ```
 
-
-- For Spark 3.3 Pools:
-
-```bash
-%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false"
-  }
-}
-```
 
 ## Synapse
 
-SynapseML can be conveniently installed on Synapse:
+SynapseML is already installed in Synapse Analytics notebooks. To change the version please place the following in the first cell of your notebook:
 
-
-For Spark3.4 pools:
+For Spark3.4 pools
 ```python
 %%configure -f
 {
