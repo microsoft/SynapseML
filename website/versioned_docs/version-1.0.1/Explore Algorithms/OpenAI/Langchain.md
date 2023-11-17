@@ -22,13 +22,13 @@ The key prerequisites for this quickstart include a working Azure OpenAI resourc
 
 The next step is to add this code into your Spark cluster. You can either create a notebook in your Spark platform and copy the code into this notebook to run the demo. Or download the notebook and import it into Synapse Analytics
 
-1. Import the notebook [into the Synapse Workspace](https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-development-using-notebooks#create-a-notebook) or if using Databricks [into the Databricks Workspace](https://docs.microsoft.com/en-us/azure/databricks/notebooks/notebooks-manage#create-a-notebook)
-1. Install SynapseML on your cluster. Please see the installation instructions for Synapse at the bottom of [the SynapseML website](https://microsoft.github.io/SynapseML/). Note that this requires pasting an additional cell at the top of the notebook you just imported
+1. Import the notebook into [Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/how-to-use-notebook), [Synapse Workspace](https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-development-using-notebooks#create-a-notebook) or if using Databricks into the [Databricks Workspace](https://docs.microsoft.com/en-us/azure/databricks/notebooks/notebooks-manage#create-a-notebook).
+1. Install SynapseML on your cluster. Please see the installation instructions for Synapse at the bottom of [the SynapseML website](https://microsoft.github.io/SynapseML/). Note that this requires pasting an additional cell at the top of the notebook you just imported.
 1. Connect your notebook to a cluster and follow along, editing and running the cells below.
 
 
 ```python
-%pip install openai langchain pdf2image pdfminer.six unstructured==0.10.24 pytesseract numpy==1.22.4
+%pip install openai==0.28.1 langchain==0.0.331 pdf2image pdfminer.six unstructured==0.10.24 pytesseract numpy==1.22.4
 ```
 
 
@@ -50,6 +50,8 @@ Next, please edit the cell in the notebook to point to your service. In particul
 `openai_api_key = "99sj2w82o...."`
 
 `bing_subscription_key = "..."`
+
+Note that you also need to set up your Bing search to gain access to your [Bing Search subscription key](https://learn.microsoft.com/en-us/bing/search-apis/bing-web-search/create-bing-search-service-resource).
 
 
 ```python

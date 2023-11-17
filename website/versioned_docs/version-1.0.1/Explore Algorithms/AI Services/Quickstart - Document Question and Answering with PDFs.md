@@ -18,7 +18,7 @@ We start by installing the necessary python libraries.
 
 
 ```python
-%pip install langchain openai
+%pip install openai==0.28.1 langchain==0.0.331
 ```
 
 ### Step 1: Provide the keys for Azure AI Services and Azure OpenAI to authenticate the applications.

@@ -150,6 +150,7 @@ object ONNXUtils {
     inferredShapes.length.toLong +: inferredShapes.head
   }
 
+  // scalastyle:off cyclomatic.complexity
   private[onnx] def loadTensorBuffer(env: OrtEnvironment,
                                      tensorInfo: TensorInfo,
                                      batchedValues: Seq[_],
@@ -168,8 +169,15 @@ object ONNXUtils {
         assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
         OnnxTensor.createTensor(env, buffer, shape)
+      case OnnxJavaType.BOOL =>
+        val buffer = ByteBuffer.allocateDirect(size)
+        val bool2byte: Boolean => Byte = b => if (b) 1.toByte else 0.toByte
+        val actualCount = writeNestedSeqToBuffer[Boolean](batchedValues, (bool2byte andThen buffer.put)(_))
+        assertBufferElementsWritten(size, actualCount, shape)
+        buffer.rewind()
+        OnnxTensor.createTensor(env, buffer, shape, OnnxJavaType.BOOL)
       case OnnxJavaType.INT8 =>
-        val buffer = ByteBuffer.allocate(size)
+        val buffer = ByteBuffer.allocateDirect(size)
         val actualCount = writeNestedSeqToBuffer[Byte](batchedValues, buffer.put(_))
         assertBufferElementsWritten(size, actualCount, shape)
         buffer.rewind()
@@ -197,7 +205,7 @@ object ONNXUtils {
         OnnxTensor.createTensor(env, flattened, shape)
       case other =>
         throw new NotImplementedError(s"Tensor input type $other not supported. " +
-          s"Only FLOAT, DOUBLE, INT8, INT16, INT32, INT64, STRING types are supported.")
+          s"Only FLOAT, DOUBLE, BOOL, INT8, INT16, INT32, INT64, STRING types are supported.")
     }
   }
 
