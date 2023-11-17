@@ -127,7 +127,8 @@ class LangchainTransformTest(unittest.TestCase):
         # construct langchain transformer using the chain defined above. And test if the generated
         # column has the expected result.
         dataframes_to_test = spark.createDataFrame(
-            [(0, "people on disability don't deserve the money")], ["label", "technology"]
+            [(0, "people on disability don't deserve the money")],
+            ["label", "technology"],
         )
         self._assert_chain_output_invalid_case(
             self.langchainTransformer, dataframes_to_test
