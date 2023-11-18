@@ -116,12 +116,12 @@ class LangchainTransformTest(unittest.TestCase):
     def _assert_chain_output_invalid_case(self, transformer, dataframe):
         transformed_df = transformer.transform(dataframe)
         input_col_values = [row.technology for row in transformed_df.collect()]
-        output_col_values = [row.copied_technology for row in transformed_df.collect()]
+        error_col_values = [row.errorCol for row in transformed_df.collect()]
 
         for i in range(len(input_col_values)):
             assert (
-                "the response was filtered" in output_col_values[i].lower()
-            ), f"output column value {output_col_values[i]} doesn't properly show that the request is Invalid"
+                "the response was filtered" in error_col_values[i].lower()
+            ), f"output column value {error_col_values[i]} doesn't properly show that the request is Invalid"
 
     def test_langchainTransformErrorHandling(self):
         # construct langchain transformer using the chain defined above. And test if the generated
