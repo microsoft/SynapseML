@@ -56,7 +56,7 @@ def find_secret(secret_name, keyvault):
         from notebookutils.mssparkutils.credentials import getToken
 
         access_token = getToken("keyvault")
-        keyVaultURL = "https://{}.vault.azure.net/".format(keyvault)
+        keyVaultURL = f"https://{keyvault}.vault.azure.net/"
         return PyTridentTokenLibrary.get_secret_with_token(
             keyVaultURL, secret_name, access_token
         )
