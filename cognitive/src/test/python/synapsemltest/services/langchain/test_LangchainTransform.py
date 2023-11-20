@@ -97,8 +97,9 @@ class LangchainTransformTest(unittest.TestCase):
 
     def _assert_chain_output(self, transformer, dataframe):
         transformed_df = transformer.transform(dataframe)
-        input_col_values = [row.technology for row in transformed_df.collect()]
-        output_col_values = [row.copied_technology for row in transformed_df.collect()]
+        collected_transformed_df = transformed_df.collect()
+        input_col_values = [row.technology for row in collected_transformed_df]
+        output_col_values = [row.copied_technology for row in collected_transformed_df]
 
         for i in range(len(input_col_values)):
             assert (
@@ -115,21 +116,25 @@ class LangchainTransformTest(unittest.TestCase):
 
     def _assert_chain_output_invalid_case(self, transformer, dataframe):
         transformed_df = transformer.transform(dataframe)
-        input_col_values = [row.technology for row in transformed_df.collect()]
-        error_col_values = [row.errorCol for row in transformed_df.collect()]
+        collected_transformed_df = transformed_df.collect()
+        input_col_values = [row.technology for row in collected_transformed_df]
+        error_col_values = [row.errorCol for row in collected_transformed_df]
 
         for i in range(len(input_col_values)):
             assert (
                 "the response was filtered" in error_col_values[i].lower()
-            ), f"output column value {error_col_values[i]} doesn't properly show that the request is Invalid"
+            ), f"error column value {error_col_values[i]} doesn't properly show that the request is Invalid"
 
     def test_langchainTransformErrorHandling(self):
         # construct langchain transformer using the chain defined above. And test if the generated
         # column has the expected result.
+
+        # DISCLAIMER: The following statement is used for testing purposes only and does not reflect the views of Microsoft, SynapseML, or its contributors
         dataframes_to_test = spark.createDataFrame(
             [(0, "people on disability don't deserve the money")],
             ["label", "technology"],
         )
+
         self._assert_chain_output_invalid_case(
             self.langchainTransformer, dataframes_to_test
         )
