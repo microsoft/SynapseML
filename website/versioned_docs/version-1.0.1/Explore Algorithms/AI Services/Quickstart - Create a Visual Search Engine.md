@@ -1,5 +1,5 @@
 ---
-title: Quickstart - Creare a Visual Search Engine
+title: Quickstart - Create a Visual Search Engine
 hide_title: true
 status: stable
 ---

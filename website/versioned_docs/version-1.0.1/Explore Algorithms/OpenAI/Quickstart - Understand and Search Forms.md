@@ -19,7 +19,7 @@ We start by importing packages and connecting to the Azure resources used in thi
 
 
 ```python
-%pip install openai
+%pip install openai==0.28.1
 ```
 
 

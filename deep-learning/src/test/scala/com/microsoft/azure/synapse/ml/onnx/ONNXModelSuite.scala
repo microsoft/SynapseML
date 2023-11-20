@@ -38,6 +38,7 @@ class ONNXModelSuite extends TestBase
     new TestObject(onnxMNIST, testDfMNIST),
     new TestObject(onnxAdultsIncome, testDfAdultsIncome),
     new TestObject(onnxGH1902, testDfGH1902),
+    new TestObject(onnxGH1996, testDfGH1996),
     new TestObject(onnxResNet50, testDfResNet50)
   )
 
@@ -285,6 +286,17 @@ class ONNXModelSuite extends TestBase
       .setMiniBatchSize(5000)
   }
 
+  private lazy val onnxGH1996 = {
+    spark
+    val model = downloadModel("GH1996.onnx", baseUrl)
+    new ONNXModel()
+      .setModelLocation(model.getPath)
+      .setDeviceType("CPU")
+      .setFeedDict(Map("A" -> "i1", "B" -> "i2"))
+      .setFetchDict(Map("Output" -> "Y"))
+      .setMiniBatchSize(5)
+  }
+
   private lazy val testDfGH1902 = {
     val testDf = Seq(
       (39L, " State-gov", 77516L, " Bachelors", 13L, " Never-married", " Adm-clerical",
@@ -295,6 +307,8 @@ class ONNXModelSuite extends TestBase
 
     testDf
   }
+
+  private lazy val testDfGH1996 = Seq((true, true), (true, false), (false, false)).toDF("i1", "i2")
 
   test("ONNXModel can run transform for issue 1902") {
     val Array(row1, row2) = onnxGH1902.transform(testDfGH1902)
@@ -308,6 +322,17 @@ class ONNXModelSuite extends TestBase
 
     assert(row2._1 === Seq(0.16954122483730316, 0.8304587006568909))
     assert(row2._2 === 1.0)
+  }
+
+  test("ONNXModel can run transform on boolean type (GH1996)") {
+    val Array(row1, row2, row3) = onnxGH1996.transform(testDfGH1996)
+      .orderBy(col("i1"), col("i2"), col("Output"))
+      .as[(Boolean, Boolean, Boolean)]
+      .collect()
+
+    assert(row1 === (false, false, false))
+    assert(row2 === (true, false, false))
+    assert(row3 === (true, true, true))
   }
 
   test("ONNXModel can translate zipmap output properly") {

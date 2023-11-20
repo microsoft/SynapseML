@@ -21,12 +21,12 @@ from synapse.ml.explainers import *
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
+from pyspark.ml.functions import vector_to_array
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
 import pandas as pd
 
 vec_access = udf(lambda v, i: float(v[i]), FloatType())
-vec2array = udf(lambda vec: vec.toArray().tolist(), ArrayType(FloatType()))
 ```
 
 Now let's read the data and train a simple binary classification model.
@@ -112,7 +112,7 @@ For each observation, the first element in the SHAP values vector is the base va
 ```python
 shaps = (
     shap_df.withColumn("probability", vec_access(col("probability"), lit(1)))
-    .withColumn("shapValues", vec2array(col("shapValues").getItem(0)))
+    .withColumn("shapValues", vector_to_array(col("shapValues").getItem(0)))
     .select(
         ["shapValues", "probability", "label"] + categorical_features + numeric_features
     )

@@ -89,7 +89,7 @@ display(analyzer.setConcurrency(3).transform(image_df))
 
 
 ```
-from synapse.ml.services.text import TextSentiment
+from synapse.ml.services.language import AnalyzeText
 
 # Create a dataframe
 text_df = spark.createDataFrame(
@@ -102,7 +102,8 @@ text_df = spark.createDataFrame(
 )
 
 sentiment = (
-    TextSentiment()
+    AnalyzeText()
+    .setKind("SentimentAnalysis")
     .setTextCol("text")
     .setLocation(service_loc)
     .setSubscriptionKey(service_key)
@@ -112,14 +113,13 @@ sentiment = (
 )
 
 # Show the results of your text query
-display(sentiment.transform(text_df).select("text", "sentiment.document.sentiment"))
+display(sentiment.transform(text_df).select("text", "sentiment.documents.sentiment"))
 ```
 
 ## Step 5: Multi-Key
 
 
 ```
-from synapse.ml.services.text import TextSentiment
 from pyspark.sql.functions import udf
 import random
 
