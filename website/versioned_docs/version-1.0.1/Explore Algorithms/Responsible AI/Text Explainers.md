@@ -15,11 +15,11 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
+from pyspark.ml.functions import vector_to_array
 from synapse.ml.explainers import *
 from synapse.ml.featurize.text import TextFeaturizer
 from synapse.ml.core.platform import *
 
-vec2array = udf(lambda vec: vec.toArray().tolist(), ArrayType(FloatType()))
 vec_access = udf(lambda v, i: float(v[i]), FloatType())
 ```
 
@@ -100,7 +100,7 @@ lime_results = (
     lime.transform(explain_instances)
     .select("tokens", "weights", "r2", "probability", "text")
     .withColumn("probability", vec_access("probability", lit(1)))
-    .withColumn("weights", vec2array(col("weights").getItem(0)))
+    .withColumn("weights", vector_to_array(col("weights").getItem(0)))
     .withColumn("r2", vec_access("r2", lit(0)))
     .withColumn("tokens_weights", arrays_zip("tokens", "weights"))
 )
@@ -128,7 +128,7 @@ shap_results = (
     shap.transform(explain_instances)
     .select("tokens", "shaps", "r2", "probability", "text")
     .withColumn("probability", vec_access("probability", lit(1)))
-    .withColumn("shaps", vec2array(col("shaps").getItem(0)))
+    .withColumn("shaps", vector_to_array(col("shaps").getItem(0)))
     .withColumn("shaps", slice(col("shaps"), lit(2), size(col("shaps"))))
     .withColumn("r2", vec_access("r2", lit(0)))
     .withColumn("tokens_shaps", arrays_zip("tokens", "shaps"))

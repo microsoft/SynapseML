@@ -3,9 +3,9 @@ title: Set up Cognitive Services
 hide_title: true
 status: stable
 ---
-# Setting up Cognitive Services and Azure OpenAI resources for SynapseML 
+# Setting up Azure AI Services and Azure OpenAI resources for SynapseML 
 
-In order to use SynapseML's OpenAI or Cognitive Services features, specific Azure resources are required. This documentation walks you through the process of setting up these resources and acquiring the necessary credentials.
+In order to use SynapseML's OpenAI or Azure AI Services features, specific Azure resources are required. This documentation walks you through the process of setting up these resources and acquiring the necessary credentials.
 
 First, create an Azure subscription to create resources.
 * A valid Azure subscription - [Create one for free](https://azure.microsoft.com/free/cognitive-services/).
@@ -19,9 +19,9 @@ To set up your Azure OpenAI Resource for SynapseML usage you need to:
 * [Create an Azure OpenAI resource](https://docs.microsoft.com/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) 
 * Get your Azure OpenAI resource's key. After your resource is successfully deployed, select **Next Steps** > **Go to resource**. Once at the resource, you can get the key from **Resource Management** > **Keys and Endpoint**. Copy the key and paste it into the notebook. Store keys securely and do not share them. 
 
-## Cognitive Services
+## Azure AI Services
 
-To set up [Cognitive Services](https://azure.microsoft.com/products/cognitive-services/) for use with SynapseML you first need to:
-* [Assign yourself the Cognitive Services Contributor role](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-steps) to agree to the responsible AI terms and create a resource. 
-* [Create an Azure Cognitive multi-service (Decision, Language, Speech, Vision) resource](https://portal.azure.com/#create/Microsoft.CognitiveServicesAllInOne). Alternatively, you can follow the steps to [create Single-service resource](https://learn.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account?tabs=decision%2Canomaly-detector%2Clanguage-service%2Ccomputer-vision%2Cwindows#create-a-new-azure-cognitive-services-resource). 
-* Get your Cognitive Service resource's key. After your resource is successfully deployed, select **Next Steps** > **Go to resource**. Once at the resource, you can get the key from **Resource Management** > **Keys and Endpoint**. Copy the key and paste it into the notebook. Store keys securely and do not share them. 
+To set up [Azure AI Services](https://azure.microsoft.com/en-us/products/ai-services) for use with SynapseML you first need to:
+* [Assign yourself the Azure AI Services Contributor role](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-steps) to agree to the responsible AI terms and create a resource. 
+* [Create Azure AI service (Decision, Language, Speech, Vision) resource](https://ms.portal.azure.com/#create/Microsoft.CognitiveServicesAllInOne). You can follow the steps at [Create a multi-service resource for Azure AI services](https://learn.microsoft.com/en-us/azure/ai-services/multi-service-resource?tabs=windows&pivots=azportal#create-a-new-azure-cognitive-services-resource). 
+* Get your Azure AI Services resource's key. After your resource is successfully deployed, select **Next Steps** > **Go to resource**. Once at the resource, you can get the key from **Resource Management** > **Keys and Endpoint**. Copy the key and paste it into the notebook. Store keys securely and do not share them. 

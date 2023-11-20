@@ -470,10 +470,6 @@ module.exports = {
                         from: '/docs/Get%20Started/Quickstart%20-%20Your%20First%20Models/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding/',
-                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/',
-                    },
-                    {
                         to: '/docs/Explore Algorithms/Deep Learning/Getting Started/',
                         from: '/docs/features/simple_deep_learning/about/',
                     },
