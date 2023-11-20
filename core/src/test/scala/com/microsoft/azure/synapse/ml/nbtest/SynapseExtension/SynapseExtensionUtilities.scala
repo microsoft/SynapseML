@@ -133,6 +133,7 @@ object SynapseExtensionUtilities {
          |    'spark.sql.extensions': 'com.microsoft.azure.synapse.ml.predict.PredictExtension',
          |    'spark.synapse.ml.predict.enabled': 'true',
          |    'spark.executor.heartbeatInterval': '60s',
+         |    'spark.yarn.user.classpath.first': 'true',
          |   }
          |}"
     """.stripMargin
