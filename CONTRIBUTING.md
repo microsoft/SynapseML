@@ -62,7 +62,7 @@ this process:
 
 -   In most cases, you should squash your commits into one.
 -   Open a pull request, and link it to the discussion issue you created earlier.
--   An SynapseML core team member will trigger a build to test your changes.
+-   A SynapseML core team member will trigger a build to test your changes.
 -   Fix any build failures.  (The pull request will have comments from the build
     with useful links.)
 -   Wait for code reviews from core team members and others.

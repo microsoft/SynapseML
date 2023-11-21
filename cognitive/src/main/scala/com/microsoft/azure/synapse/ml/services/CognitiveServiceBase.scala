@@ -26,7 +26,6 @@ import java.net.URI
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.language.existentials
-import scala.reflect.internal.util.ScalaClassLoader
 
 trait HasServiceParams extends Params {
   def getVectorParam(p: ServiceParam[_]): String = {
@@ -419,11 +418,15 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
 
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
-    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-    val endpointMethod = linkedServiceClass.get.getMethod("getEndpoint", v.getClass)
-    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
-    val endpoint = endpointMethod.invoke(linkedServiceClass.get, v).toString
-    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    val cognitiveServiceClassLoader = new java.net.URLClassLoader(
+      Array(new java.io.File(classPath).toURI.toURL),
+      getClass.getClassLoader
+    )
+    val linkedServiceClass = cognitiveServiceClassLoader.loadClass("mssparkutils.cognitiveService")
+    val endpointMethod = linkedServiceClass.getMethod("getEndpoint", v.getClass)
+    val keyMethod = linkedServiceClass.getMethod("getKey", v.getClass)
+    val endpoint = endpointMethod.invoke(linkedServiceClass, v).toString
+    val key = keyMethod.invoke(linkedServiceClass, v).toString
     setUrl(endpoint + urlPath)
     setSubscriptionKey(key)
   }
@@ -432,11 +435,15 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
 trait HasSetLinkedServiceUsingLocation extends HasSetLinkedService with HasSetLocation {
   override def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
-    val linkedServiceClass = ScalaClassLoader(getClass.getClassLoader).tryToLoadClass(classPath)
-    val locationMethod = linkedServiceClass.get.getMethod("getLocation", v.getClass)
-    val keyMethod = linkedServiceClass.get.getMethod("getKey", v.getClass)
-    val location = locationMethod.invoke(linkedServiceClass.get, v).toString
-    val key = keyMethod.invoke(linkedServiceClass.get, v).toString
+    val cognitiveServiceClassLoader = new java.net.URLClassLoader(
+      Array(new java.io.File(classPath).toURI.toURL),
+      getClass.getClassLoader
+    )
+    val linkedServiceClass = cognitiveServiceClassLoader.loadClass("mssparkutils.cognitiveService")
+    val locationMethod = linkedServiceClass.getMethod("getLocation", v.getClass)
+    val keyMethod = linkedServiceClass.getMethod("getKey", v.getClass)
+    val location = locationMethod.invoke(linkedServiceClass, v).toString
+    val key = keyMethod.invoke(linkedServiceClass, v).toString
     setLocation(location)
     setSubscriptionKey(key)
   }
