@@ -30,7 +30,6 @@ Example Usage:
 
 import json
 from os import error
-import uuid
 from langchain.chains.loading import load_chain_from_config
 from pyspark import keyword_only
 from pyspark.ml import Transformer
@@ -268,13 +267,11 @@ class LangchainTransformer(
         errorCol = self.getErrorCol()
         inCol = dataset[self.getInputCol()]
 
-        temp_col_name = "result_" + str(uuid.uuid4())
-
         return (
-            dataset.withColumn(temp_col_name, udfFunction(inCol))
-            .withColumn(outCol, col(f"{temp_col_name}.result"))
-            .withColumn(errorCol, col(f"{temp_col_name}.error_message"))
-            .drop(temp_col_name)
+            dataset.withColumn("result", udfFunction(inCol))
+            .withColumn(outCol, col("result.result"))
+            .withColumn(errorCol, col("result.error_message"))
+            .drop("result")
         )
 
     def write(self) -> LangchainTransformerParamsWriter:
