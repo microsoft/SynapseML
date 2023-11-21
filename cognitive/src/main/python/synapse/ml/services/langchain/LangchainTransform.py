@@ -267,11 +267,13 @@ class LangchainTransformer(
         errorCol = self.getErrorCol()
         inCol = dataset[self.getInputCol()]
 
+        temp_col_name = "result_" + str(self.uid)
+
         return (
-            dataset.withColumn("result", udfFunction(inCol))
-            .withColumn(outCol, col("result.result"))
-            .withColumn(errorCol, col("result.error_message"))
-            .drop("result")
+            dataset.withColumn(temp_col_name, udfFunction(inCol))
+            .withColumn(outCol, col(f"{temp_col_name}.result"))
+            .withColumn(errorCol, col(f"{temp_col_name}.error_message"))
+            .drop(temp_col_name)
         )
 
     def write(self) -> LangchainTransformerParamsWriter:
