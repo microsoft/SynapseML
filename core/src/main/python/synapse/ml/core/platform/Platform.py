@@ -52,14 +52,10 @@ def find_secret(secret_name, keyvault):
 
         return getSecret(keyvault, secret_name)
     elif running_on_synapse_internal():
-        from trident_token_library_wrapper import PyTridentTokenLibrary
-        from notebookutils.mssparkutils.credentials import getToken
+        from notebookutils.mssparkutils.credentials import getSecret
 
-        access_token = getToken("keyvault")
         keyVaultURL = f"https://{keyvault}.vault.azure.net/"
-        return PyTridentTokenLibrary.get_secret_with_token(
-            keyVaultURL, secret_name, access_token
-        )
+        return getSecret(keyVaultURL, secret_name)
     elif running_on_databricks():
         from pyspark.sql import SparkSession
         from pyspark.dbutils import DBUtils
