@@ -14,14 +14,14 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   import spark.implicits._
 
   lazy val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
-    .setDeploymentName(deploymentName)
-    .setCustomServiceName(openAIServiceName)
+    .setDeploymentName(deploymentNameGpt4)
+    .setCustomServiceName(openAIServiceNameGpt4)
     .setApiVersion("2023-05-15")
     .setMaxTokens(5000)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
-    .setSubscriptionKey(openAIAPIKey)
+    .setSubscriptionKey(openAIAPIKeyGpt4)
 
 
   lazy val goodDf: DataFrame = Seq(
