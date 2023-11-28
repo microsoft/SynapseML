@@ -13,9 +13,9 @@ import org.scalactic.Equality
 
 trait OpenAIAPIKey {
   lazy val openAIAPIKey: String = sys.env.getOrElse("OPENAI_API_KEY", Secrets.OpenAIApiKey)
-  lazy val openAIServiceName: String = "synapseml-openai"
-  lazy val deploymentName: String = "gpt-35-turbo"
-  lazy val modelName: String = "gpt-35-turbo"
+  lazy val openAIServiceName: String = "synapseml-openai-2"
+  lazy val deploymentName: String = "gpt-4"
+  lazy val modelName: String = "gpt-4"
 }
 
 class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with OpenAIAPIKey with Flaky {

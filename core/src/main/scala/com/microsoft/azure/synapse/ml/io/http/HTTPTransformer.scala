@@ -74,7 +74,7 @@ trait ConcurrencyParams extends Wrappable {
     case None => clear(concurrentTimeout)
   }
 
-  setDefault(concurrency -> 1, timeout -> 60.0)
+  setDefault(concurrency -> 1, timeout -> 360.0)
 
 }
 
