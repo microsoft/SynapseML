@@ -25,6 +25,8 @@ class OpenAIChatCompletion(override val uid: String) extends CognitiveServicesBa
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
+  setDefault(timeout -> 360.0)
+
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +
       " in the chat format. This column should have type Array(Struct(role: String, content: String)).")
