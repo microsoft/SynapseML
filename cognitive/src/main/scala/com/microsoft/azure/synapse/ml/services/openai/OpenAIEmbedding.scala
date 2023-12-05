@@ -22,11 +22,9 @@ import scala.language.existentials
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
-class OpenAIEmbedding (override val uid: String) extends CognitiveServicesBase(uid)
+class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAISharedParams with HasCognitiveServiceInput  with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
-
-  setDefault(timeout -> 360.0)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 

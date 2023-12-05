@@ -19,12 +19,10 @@ import scala.language.existentials
 
 object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 
-class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(uid)
+class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
-
-  setDefault(timeout -> 360.0)
 
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
 

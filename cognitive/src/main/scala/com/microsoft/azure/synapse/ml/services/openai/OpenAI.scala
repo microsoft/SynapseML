@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
-import com.microsoft.azure.synapse.ml.services.{HasAPIVersion, HasServiceParams}
+import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion, HasServiceParams}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.spark.sql.Row
 import spray.json.DefaultJsonProtocol._
@@ -244,3 +244,6 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   }
 }
 
+abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String) {
+  setDefault(timeout -> 360.0)
+}

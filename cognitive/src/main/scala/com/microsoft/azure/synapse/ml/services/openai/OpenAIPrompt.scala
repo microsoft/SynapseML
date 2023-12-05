@@ -26,8 +26,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with ComplexParamsWritable with SynapseMLLogging {
 
-  setDefault(timeout -> 360.0)
-
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
@@ -75,7 +73,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     postProcessingOptions -> Map.empty,
     outputCol -> (this.uid + "_output"),
     errorCol -> (this.uid + "_error"),
-    dropPrompt -> true
+    dropPrompt -> true,
+    timeout -> 360.0
   )
 
   override def setCustomServiceName(v: String): this.type = {

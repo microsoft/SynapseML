@@ -20,12 +20,10 @@ import scala.language.existentials
 
 object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
-class OpenAIChatCompletion(override val uid: String) extends CognitiveServicesBase(uid)
+class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParams with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
-
-  setDefault(timeout -> 360.0)
 
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +
