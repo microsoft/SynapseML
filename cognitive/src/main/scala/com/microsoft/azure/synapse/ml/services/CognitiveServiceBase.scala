@@ -537,6 +537,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
         .setHandler(handlingFunc _)
         .setConcurrency(getConcurrency)
         .setConcurrentTimeout(get(concurrentTimeout))
+        .setTimeout(getTimeout)
         .setErrorCol(getErrorCol),
       new DropColumns().setCol(dynamicParamColName)
     )
