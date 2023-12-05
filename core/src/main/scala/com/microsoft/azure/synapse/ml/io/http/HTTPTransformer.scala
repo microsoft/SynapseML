@@ -73,9 +73,7 @@ trait ConcurrencyParams extends Wrappable {
     case Some(v) => setConcurrentTimeout(v)
     case None => clear(concurrentTimeout)
   }
-
   setDefault(concurrency -> 1, timeout -> 60.0)
-  
 }
 
 trait HasURL extends Params {
