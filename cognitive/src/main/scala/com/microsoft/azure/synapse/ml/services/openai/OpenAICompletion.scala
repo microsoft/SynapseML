@@ -24,6 +24,8 @@ class OpenAICompletion(override val uid: String) extends CognitiveServicesBase(u
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
+  setDefault(timeout -> 360.0)
+
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
 
   def urlPath: String = ""

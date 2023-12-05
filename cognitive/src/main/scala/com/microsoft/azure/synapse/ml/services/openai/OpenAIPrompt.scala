@@ -26,6 +26,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with ComplexParamsWritable with SynapseMLLogging {
 
+  setDefault(timeout -> 360.0)
+
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
