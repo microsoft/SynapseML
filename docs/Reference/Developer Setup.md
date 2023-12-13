@@ -29,7 +29,7 @@ description: Developer Setup
 1. Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
-    - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
+    - Create the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
     :::note
     If you're using a Windows machine, remove
     `horovod` requirement in the environment.yml file, because horovod installation only
