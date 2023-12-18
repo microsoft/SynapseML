@@ -10,6 +10,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.ml.util.MLReadable
 import org.scalactic.{Equality, TolerantNumerics}
 import com.microsoft.azure.synapse.ml.causal.linalg._
+import org.apache.spark.ml.param.ParamMap
 
 class VerifySyntheticDiffInDiffEstimator
   extends EstimatorFuzzing[SyntheticDiffInDiffEstimator] {
@@ -72,11 +73,8 @@ class VerifySyntheticDiffInDiffEstimator
     .setUnitCol("Unit")
     .setTimeCol("Time")
     .setMaxIter(500)
-  // Set LocalSolverThreshold to 1 to force Spark mode
-  // Spark mode and breeze mode should get same loss history and same solution
-  // .setLocalSolverThreshold(1)
 
-  test("SyntheticDiffInDiffEstimator can estimate the treatment effect") {
+  test("SyntheticDiffInDiffEstimator can estimate the treatment effect in local mode") {
     implicit val vectorOps: VectorOps[DVector] = DVectorOps
 
     val summary = estimator.fit(df).getSummary
@@ -95,6 +93,36 @@ class VerifySyntheticDiffInDiffEstimator
 
     assert(summary.treatmentEffect === -14.934064851225985)
     assert(summary.standardError === 0.30221430259614196)
+  }
+
+  test("SyntheticDiffInDiffEstimator can estimate the treatment effect in distributed mode") {
+    // Set LocalSolverThreshold to 1 to force Spark mode
+    val distributedEstimator = estimator.copy(ParamMap.empty)
+      .asInstanceOf[SyntheticDiffInDiffEstimator]
+      .setLocalSolverThreshold(1)
+      // Set maxIter to smaller value to reduce unit test time. Result will be slightly different than local mode.
+      .setMaxIter(20)
+
+    implicit val vectorOps: VectorOps[DVector] = DVectorOps
+
+    val summary = distributedEstimator.fit(df).getSummary
+    assert(summary.timeIntercept.get === 4.924434349260821)
+
+    val timeWeights = summary.timeWeights.get.toBreeze
+    assert(sum(timeWeights) === 1.0)
+    assert(timeWeights.size === 10)
+    assert(timeWeights.forall(0 <= _ && _ <= 1))
+
+    assert(summary.unitIntercept.get === -54.83322195267364)
+    val unitWeights = summary.unitWeights.get.toBreeze
+
+    assert(sum(unitWeights) === 1.0)
+    assert(unitWeights.size === 100)
+    assert(unitWeights.forall(0 <= _ && _ <= 1))
+
+    // The values slightly differ from local mode since we're running less iterations to save time.
+    assert(summary.treatmentEffect === -14.886230487053334)
+    assert(summary.standardError === 0.27395418857682896)
   }
 
   override def testObjects(): Seq[TestObject[SyntheticDiffInDiffEstimator]] = Seq(

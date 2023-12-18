@@ -120,7 +120,7 @@ class DiffInDiffModel(override val uid: String)
 
   override protected lazy val pyInternalWrapper = true
 
-  def this() = this(Identifiable.randomUID("did"))
+  def this() = this(Identifiable.randomUID("DiffInDiffModel"))
 
   private final var summary: Option[DiffInDiffSummary] = None
 
@@ -135,7 +135,7 @@ class DiffInDiffModel(override val uid: String)
   }
 
   override def copy(extra: ParamMap): DiffInDiffModel = {
-    copyValues(new DiffInDiffModel(uid))
+    copyValues(new DiffInDiffModel(uid), extra)
       .setSummary(this.summary)
       .setParent(parent)
   }

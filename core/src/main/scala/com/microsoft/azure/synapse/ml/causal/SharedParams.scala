@@ -43,14 +43,16 @@ trait HasPostTreatmentCol extends Params {
 
 trait HasUnitCol extends Params {
   final val unitCol = new Param[String](this, "unitCol",
-    "Column that identifies the units in panel data")
+    "Specify the name of the column which contains an identifier for each observed unit in the panel data. " +
+      "For example, if the observed units are users, this column could be the UserId column.")
   def getUnitCol: String = $(unitCol)
   def setUnitCol(value: String): this.type = set(unitCol, value)
 }
 
 trait HasTimeCol extends Params {
   final val timeCol = new Param[String](this, "timeCol",
-    "Column that identifies the time when outcome is measured in panel data")
+    "Specify the column that identifies the time when outcome is measured in the panel data. " +
+      "For example, if the outcome is measured daily, this column could be the Date column.")
   def getTimeCol: String = $(timeCol)
   def setTimeCol(value: String): this.type = set(timeCol, value)
 }
