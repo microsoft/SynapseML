@@ -47,10 +47,15 @@ def running_on_databricks():
 
 
 def find_secret(secret_name, keyvault):
-    if running_on_synapse() or running_on_synapse_internal():
+    if running_on_synapse():
         from notebookutils.mssparkutils.credentials import getSecret
 
         return getSecret(keyvault, secret_name)
+    elif running_on_synapse_internal():
+        from notebookutils.mssparkutils.credentials import getSecret
+
+        keyVaultURL = f"https://{keyvault}.vault.azure.net/"
+        return getSecret(keyVaultURL, secret_name)
     elif running_on_databricks():
         from pyspark.sql import SparkSession
         from pyspark.dbutils import DBUtils

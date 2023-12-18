@@ -39,7 +39,7 @@ Starting on the 20th of September, 2023 you won’t be able to create new Anomal
 
 
 ### Language
-[**Text Analytics**](https://azure.microsoft.com/services/cognitive-services/text-analytics/)
+[**AI Language**](https://azure.microsoft.com/products/ai-services/ai-language)
 - Language detection: detects language of the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.1/scala/com/microsoft/azure/synapse/ml/services/text/LanguageDetector.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.1/pyspark/synapse.ml.services.text.html#module-synapse.ml.services.text.LanguageDetector))
 - Key phrase extraction: identifies the key talking points in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.1/scala/com/microsoft/azure/synapse/ml/services/text/KeyPhraseExtractor.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.1/pyspark/synapse.ml.services.text.html#module-synapse.ml.services.text.KeyPhraseExtractor))
 - Named entity recognition: identifies known entities and general named entities in the input text ([Scala](https://mmlspark.blob.core.windows.net/docs/1.0.1/scala/com/microsoft/azure/synapse/ml/services/text/NER.html), [Python](https://mmlspark.blob.core.windows.net/docs/1.0.1/pyspark/synapse.ml.services.text.html#module-synapse.ml.services.text.NER))
@@ -138,7 +138,7 @@ search_key = find_secret(
 
 ## Perform sentiment analysis on text
 
-The [Text Analytics](https://azure.microsoft.com/services/ai-services/text-analytics/) service provides several algorithms for extracting intelligent insights from text. For example, we can find the sentiment of given input text. The service will return a score between 0.0 and 1.0 where low scores indicate negative sentiment and high score indicates positive sentiment.  This sample uses three simple sentences and returns the sentiment for each.
+The [AI Language](https://azure.microsoft.com/products/ai-services/ai-language/) service provides several algorithms for extracting intelligent insights from text. For example, we can find the sentiment of given input text. The service will return a score between 0.0 and 1.0 where low scores indicate negative sentiment and high score indicates positive sentiment.  This sample uses three simple sentences and returns the sentiment for each.
 
 
 ```python
@@ -154,7 +154,8 @@ df = spark.createDataFrame(
 
 # Run the Text Analytics service with options
 sentiment = (
-    TextSentiment()
+    AnalyzeText()
+    .setKind("SentimentAnalysis")
     .setTextCol("text")
     .setLocation(service_loc)
     .setSubscriptionKey(service_key)
@@ -166,7 +167,7 @@ sentiment = (
 # Show the results of your text query in a table format
 display(
     sentiment.transform(df).select(
-        "text", col("sentiment.document.sentiment").alias("sentiment")
+        "text", col("sentiment.documents.sentiment").alias("sentiment")
     )
 )
 ```

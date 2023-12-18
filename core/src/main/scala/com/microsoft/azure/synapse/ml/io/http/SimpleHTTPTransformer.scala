@@ -128,6 +128,7 @@ class SimpleHTTPTransformer(val uid: String)
       .setHandler(getHandler)
       .setConcurrency(getConcurrency)
       .setConcurrentTimeout(get(concurrentTimeout))
+      .setTimeout(getTimeout)
       .setInputCol(parsedInputCol)
       .setOutputCol(unparsedOutputCol))
 
