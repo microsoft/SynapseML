@@ -12,8 +12,7 @@ def retrieve_secret_from_keyvault(vault_url, secret_name):
     try:
         return SecretClient(vault_url=vault_url, credential=DefaultAzureCredential()).get_secret(secret_name).value
     except Exception as e:
-        print(f"Error: Failed to retrieve the secret from Azure Key Vault. {e}")
-        return None
+        raise Exception("Failed to retrieve the secret from Azure Key Vault. Ensure you are logged in with an appropiate account with 'az login'")
 
 def generate_qr_code(text):
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -28,8 +27,6 @@ def main():
     if keyvault_secret_value is not None:
         qr_img = generate_qr_code(keyvault_secret_value)
         qr_img.show()
-    else:
-        print("Error: Failed to retrieve the secret from Azure Key Vault. Make sure you are logged in with `az login` and have access to the Azure Key Vault.")
 
 if __name__ == "__main__":
     main()
