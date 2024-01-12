@@ -33,7 +33,7 @@ trait BaseWrappable extends Params {
       .find(c => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")(
         c.getSuperclass.getSimpleName))
       .get
-    val typeArgs = thisStage.getClass.getGenericSuperclass.asInstanceOf[ParameterizedType].getActualTypeArguments
+    val typeArgs = superClass.getGenericSuperclass.asInstanceOf[ParameterizedType].getActualTypeArguments
     val modelTypeArg = superClass.getSuperclass.getSimpleName match {
       case "Estimator" =>
         typeArgs.head
