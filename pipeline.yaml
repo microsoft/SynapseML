@@ -69,7 +69,7 @@ jobs:
     - bash: |
         set -e
         source activate synapseml
-        black --diff --color . && black --check -q .
+        sbt pythonStyle
       displayName: 'Python Style Check'
 
 - job: Publish
