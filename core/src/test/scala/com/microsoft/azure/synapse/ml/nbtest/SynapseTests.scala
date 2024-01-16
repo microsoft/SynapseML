@@ -66,12 +66,10 @@ class SynapseTests extends TestBase {
   selectedPythonFiles.foreach(println)
 
   // Cleanup old stray spark pools lying around due to ungraceful test shutdown
-//  tryDeleteOldSparkPools()
+  tryDeleteOldSparkPools()
 
   println(s"Creating $expectedPoolCount Spark Pools...")
-  // val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
-  val sparkPools: Seq[String] = Seq.fill(expectedPoolCount)("synapseml34pool")
-
+  val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
 
   val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
     SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
@@ -94,16 +92,16 @@ class SynapseTests extends TestBase {
   }
 
   protected override def afterAll(): Unit = {
-    //    println("Synapse E2E Test Suite finished. Deleting Spark Pools...")
-    //    val failures = sparkPools.map(pool => Try(deleteSparkPool(pool)))
-    //      .filter(_.isFailure)
-    //    if (failures.isEmpty) {
-    //      println("All Spark Pools deleted successfully.")
-    //    } else {
-    //      println("Failed to delete all spark pools cleanly:")
-    //      failures.foreach(failure =>
-    //        println(failure.failed.get.getMessage))
-    //    }
+    println("Synapse E2E Test Suite finished. Deleting Spark Pools...")
+    val failures = sparkPools.map(pool => Try(deleteSparkPool(pool)))
+      .filter(_.isFailure)
+    if (failures.isEmpty) {
+      println("All Spark Pools deleted successfully.")
+    } else {
+      println("Failed to delete all spark pools cleanly:")
+      failures.foreach(failure =>
+        println(failure.failed.get.getMessage))
+    }
     super.afterAll()
   }
 }
