@@ -18,7 +18,8 @@ def retrieve_secret_from_keyvault(vault_url, secret_name):
         )
     except Exception as e:
         raise Exception(
-            "Failed to retrieve the secret from Azure Key Vault. Ensure you are logged in with an appropiate account with 'az login'"
+            "Failed to retrieve the secret from Azure Key Vault. Ensure you are logged in with an appropiate account with 'az login'",
+            e,
         )
 
 
