@@ -6,12 +6,13 @@ import unittest
 
 import logging
 from synapse.ml.core.logging.SynapseMLLogger import SynapseMLLogger
+from synapsemltest.spark import *
 
 
 class SampleTransformer(SynapseMLLogger):
     def __init__(self):
         super().__init__(log_level=logging.DEBUG)
-        self.log_class('SampleTransformer')
+        self.log_class("SampleTransformer")
 
     @SynapseMLLogger.log_transform()
     def transform(self, df):
@@ -37,7 +38,7 @@ class LoggingTest(unittest.TestCase):
         try:
             t.test_throw()
         except Exception as e:
-            assert f'{e}' == "test exception"
+            assert f"{e}" == "test exception"
 
 
 if __name__ == "__main__":
