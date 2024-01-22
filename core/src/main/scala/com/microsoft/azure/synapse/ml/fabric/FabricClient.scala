@@ -6,6 +6,7 @@ import spray.json.DefaultJsonProtocol.StringJsonFormat
 import java.util.UUID
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
+import spray.json.JsValue
 
 object FabricClient extends RESTUtils {
   private val PbiGlobalServiceEndpoints = Map(
@@ -137,5 +138,9 @@ object FabricClient extends RESTUtils {
 
   def getMLWorkloadEndpoint(endpointType: String): String = {
     s"$MLWorkloadHost/webapi/capacities/$CapacityID/workloads/ML/$endpointType/Automatic/workspaceid/$WorkspaceID/"
+  }
+
+  def usagePost(url: String, body: String): JsValue = {
+    usagePost(url, body, getHeaders);
   }
 }
