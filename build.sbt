@@ -511,5 +511,6 @@ testWebsiteDocs := {
 
 val pythonStyle = TaskKey[Unit]("pythonStyle", "run python style check")
 pythonStyle := {
-  runCmd(activateCondaEnv ++ "black --diff --color . && black --check -q .".split(" ").toSeq)
+  runCmd(activateCondaEnv ++ "black --diff --color .")
+  runCmd("black --check -q .".split(" ").toSeq)
 }
