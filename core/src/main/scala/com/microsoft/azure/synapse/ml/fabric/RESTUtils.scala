@@ -1,13 +1,10 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See LICENSE in project root for information.
-
-package com.microsoft.azure.synapse.ml.logging.fabric
+package com.microsoft.azure.synapse.ml.fabric
 
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
-import spray.json.{JsObject, JsValue, _}
+import spray.json.{JsObject, JsValue, JsonParser}
 
 trait RESTUtils {
   def usagePost(url: String, body: String, headers: Map[String, String]): JsValue = {
@@ -38,7 +35,7 @@ trait RESTUtils {
   private def parseResponse(response: CloseableHttpResponse): JsValue = {
     val content: String = IOUtils.toString(response.getEntity.getContent, "utf-8")
     if (content.nonEmpty) {
-      content.parseJson
+      JsonParser(content)
     } else {
       JsObject()
     }

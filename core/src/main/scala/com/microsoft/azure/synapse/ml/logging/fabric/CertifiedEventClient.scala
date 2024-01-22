@@ -3,14 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.logging.fabric
 
-import com.microsoft.azure.synapse.ml.fabric.TokenLibrary
+import com.microsoft.azure.synapse.ml.fabric.{RESTUtils, TokenLibrary}
 import org.apache.spark.sql.SparkSession
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, _}
 import spray.json._
 
 import java.time.Instant
 import java.util.UUID
-
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFabric
 
 object CertifiedEventClient extends RESTUtils {
