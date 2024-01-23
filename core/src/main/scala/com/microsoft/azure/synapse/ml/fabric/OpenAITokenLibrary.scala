@@ -5,7 +5,6 @@ import org.json.JSONObject
 import pdi.jwt.{Jwt, JwtOptions}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
-import java.io.IOException
 import java.util.Date
 import scala.util.{Failure, Success, Try}
 
@@ -27,12 +26,12 @@ object OpenAITokenLibrary extends SynapseMLLogging{
            |"openAIFeatureName": "$OpenAIFeatureName",
            |}""".stripMargin
 
-      val url: String = (FabricClient.getMLWorkloadEndpoint(FabricClient.MLWorkloadEndpointML) +
-        "cognitive/openai/generatemwctoken");
+      val url: String = FabricClient.MLWorkloadEndpointML + "cognitive/openai/generatemwctoken";
 
       try {
-        FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
+        var token = FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
         logInfo("successfully fetch openai mwc token")
+        token
       } catch {
         case e: Throwable =>
           logInfo("openai mwc token not available, using aad token", e)
@@ -64,9 +63,9 @@ object OpenAITokenLibrary extends SynapseMLLogging{
     }
     catch {
       case t: Throwable =>
-        throw new IOException("Error while getting token expiry time", t)
+        logInfo("Error while getting token expiry time", t)
+        true
     }
-    false
   }
 
   //noinspection ScalaStyle

@@ -48,7 +48,7 @@ object FabricClient extends RESTUtils {
   private val ContextFilePath = "/home/trusted-service-user/.trident-context";
   private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
 
-  lazy val logger: Logger = Logger.getLogger(this.getClass.getName);
+  lazy val MyLogger: Logger = Logger.getLogger(this.getClass.getName);
 
   readFabricContextFile();
   readFabricSparkConfFile();
@@ -75,10 +75,10 @@ object FabricClient extends RESTUtils {
           source.close()
         } catch {
           case e: Exception =>
-            logger.error("Error reading Fabric context file", e)
+            MyLogger.error("Error reading Fabric context file", e)
         }
       case Failure(exception) =>
-        logger.error("Error opening Fabric context file", exception)
+        MyLogger.error("Error opening Fabric context file", exception)
     }
   }
 
@@ -98,10 +98,10 @@ object FabricClient extends RESTUtils {
           source.close()
         } catch {
           case e: Exception =>
-            logger.error("Error reading Fabric spark conf file", e)
+            MyLogger.error("Error reading Fabric spark conf file", e)
         }
       case Failure(exception) =>
-        logger.error("Error opening Fabric spark conf file", exception)
+        MyLogger.error("Error opening Fabric spark conf file", exception)
     }
   }
 
