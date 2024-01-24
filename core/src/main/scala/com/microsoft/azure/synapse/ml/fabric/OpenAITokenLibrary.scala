@@ -1,19 +1,19 @@
 package com.microsoft.azure.synapse.ml.fabric
 
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import org.json.JSONObject
+import spray.json._
 import pdi.jwt.{Jwt, JwtOptions}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 import java.util.Date
 import scala.util.{Failure, Success, Try}
 
-object OpenAITokenLibrary extends SynapseMLLogging{
+object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
   var MLMWCToken = "";
   val BackgroundRefreshExpiryCushionInMillis: Long = 5 * 60 * 1000L
   val OpenAIFeatureName = "SparkCodeFirst"
 
-  def getAccessToken: String = {
+  def getAuthHeader: String = {
     if (MLMWCToken != "" && !isTokenExpired(MLMWCToken)) {
       logInfo("using cached openai mwc token")
       MLMWCToken
@@ -29,13 +29,13 @@ object OpenAITokenLibrary extends SynapseMLLogging{
       val url: String = FabricClient.MLWorkloadEndpointML + "cognitive/openai/generatemwctoken";
 
       try {
-        var token = FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
+        val token = FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
         logInfo("successfully fetch openai mwc token")
-        token
+        "MwcToken " + token
       } catch {
         case e: Throwable =>
           logInfo("openai mwc token not available, using aad token", e)
-          TokenLibrary.getAccessToken;
+          "Bearer" + TokenLibrary.getAccessToken;
       }
     }
   }
@@ -46,8 +46,7 @@ object OpenAITokenLibrary extends SynapseMLLogging{
     val jwtTokenDecoded: Try[(String, String, String)] = Jwt.decodeRawAll(accessToken, jwtOptions)
     jwtTokenDecoded match {
       case Success((_, payload, _)) =>
-        val jsonPayload: JSONObject = new JSONObject(payload)
-        val expiry = jsonPayload.get("exp").toString
+        val expiry =  payload.parseJson.asJsObject().fields("exp").convertTo[String]
         new Date(expiry.toLong * 1000)
       case Failure(t) =>
         throw t

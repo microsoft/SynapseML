@@ -6,8 +6,10 @@ package com.microsoft.azure.synapse.ml.services
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.fabric.{FabricClient, TokenLibrary}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
@@ -218,18 +220,6 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    return self
       |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
-      |    if running_on_synapse_internal():
-      |        try:
-      |            from synapse.ml.fabric.token_utils import TokenUtils
-      |            from synapse.ml.fabric.service_discovery import get_fabric_env_config
-      |            fabric_env_config = get_fabric_env_config().fabric_env_config
-      |            if self._java_obj.getInternalServiceType() != "openai":
-      |               self._java_obj.setDefaultAADToken(TokenUtils().get_aad_token())
-      |            else:
-      |               self._java_obj.setDefaultCustomAuthHeader(TokenUtils().get_openai_auth_header())
-      |            self.setDefaultInternalEndpoint(fabric_env_config.get_mlflow_workload_endpoint())
-      |        except ModuleNotFoundError as e:
-      |            pass
       |    return super()._transform(dataset)
       |""".stripMargin
   }
@@ -327,6 +317,15 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   protected def contentType: Row => String = { _ => "application/json" }
 
+  protected def getCustomAuthHeader(row: Row): Option[String] = {
+    var customHeader = getValueOpt(row, CustomAuthHeader)
+    if (customHeader.isEmpty && PlatformDetails.runningOnFabric()) {
+      customHeader = Option(TokenLibrary.getAuthHeader)
+      logInfo("Using Default AAD Token On Fabric")
+    }
+    customHeader
+  }
+
   protected def addHeaders(req: HttpRequestBase,
                            subscriptionKey: Option[String],
                            aadToken: Option[String],
@@ -364,7 +363,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getValueOpt(row, CustomAuthHeader))
+          getCustomAuthHeader(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
@@ -501,7 +500,12 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
 
   setDefault(
     outputCol -> (this.uid + "_output"),
-    errorCol -> (this.uid + "_error"))
+    errorCol -> (this.uid + "_error")
+  )
+
+  if(PlatformDetails.runningOnFabric()) {
+    setDefaultInternalEndpoint(FabricClient.MLWorkloadEndpointML)
+  }
 
   protected def handlingFunc(client: CloseableHttpClient,
                              request: HTTPRequestData): HTTPResponseData
