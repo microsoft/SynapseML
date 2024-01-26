@@ -35,7 +35,7 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
       } catch {
         case e: Throwable =>
           logInfo("openai mwc token not available, using aad token", e)
-          "Bearer" + TokenLibrary.getAccessToken;
+          "Bearer " + TokenLibrary.getAccessToken;
       }
     }
   }

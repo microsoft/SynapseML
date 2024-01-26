@@ -1,12 +1,13 @@
 package com.microsoft.azure.synapse.ml.fabric
 
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import org.apache.log4j.Logger
 import spray.json.DefaultJsonProtocol.StringJsonFormat
+import spray.json.JsValue
 
 import java.util.UUID
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
-import spray.json.JsValue
 
 object FabricClient extends RESTUtils {
   private val PbiGlobalServiceEndpoints = Map(
@@ -50,9 +51,11 @@ object FabricClient extends RESTUtils {
 
   lazy val MyLogger: Logger = Logger.getLogger(this.getClass.getName);
 
-  readFabricContextFile();
-  readFabricSparkConfFile();
-  init();
+  if(PlatformDetails.runningOnFabric()) {
+    readFabricContextFile();
+    readFabricSparkConfFile();
+    init();
+  }
 
   def init(): Unit ={
     this.CapacityID = this.FabricContext.getOrElse("trident.capacity.id", "");
