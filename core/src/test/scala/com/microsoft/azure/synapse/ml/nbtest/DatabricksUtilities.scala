@@ -89,7 +89,7 @@ object DatabricksUtilities {
 
   val GPUInitScripts: String = List(
     Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh")),
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/rapids_installation.sh"))
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/init-rapidsml-cuda-11.8.sh"))
   ).toJson.compactPrint
 
   // Execution Params
