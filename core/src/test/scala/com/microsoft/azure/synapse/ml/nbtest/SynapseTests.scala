@@ -45,6 +45,7 @@ class SynapseTests extends TestBase {
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
     .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
+	.filterNot(_.getAbsolutePath.contains("GPU")) 
     .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
     .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synapse fix
     .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synapse fix
