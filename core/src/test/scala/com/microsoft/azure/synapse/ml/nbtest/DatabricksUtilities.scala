@@ -88,7 +88,8 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   val GPUInitScripts: String = List(
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"),
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/rapids_installation.sh"))	
   ).toJson.compactPrint
 
   // Execution Params
@@ -102,9 +103,12 @@ object DatabricksUtilities {
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
+    .filterNot(_.getAbsolutePath.contains("GPU based KNN"))	
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
+ val GPUNotebooks: Seq[File] = ParallelizableNotebooks	
+    .filter(_.getAbsolutePath.contains("Fine-tune"))
+    .filter(_.getAbsolutePath.contains("GPU based KNN"))	
 
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpGet(baseURL(apiVersion) + path)
