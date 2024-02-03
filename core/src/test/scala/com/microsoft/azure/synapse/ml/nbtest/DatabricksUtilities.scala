@@ -107,6 +107,7 @@ object DatabricksUtilities {
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filter(file =>
+     file.getAbsolutePath.contains("Fine-tune") ||
      file.getAbsolutePath.contains("GPU"))
 
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
