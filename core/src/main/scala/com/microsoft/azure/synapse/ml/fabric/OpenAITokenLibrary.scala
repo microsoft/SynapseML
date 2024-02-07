@@ -16,7 +16,7 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
   def getAuthHeader: String = {
     if (MLMWCToken != "" && !isTokenExpired(MLMWCToken)) {
       logInfo("using cached openai mwc token")
-      MLMWCToken
+      "MwcToken " + MLMWCToken
     }
     else {
       val artifactId = FabricClient.ArtifactID
@@ -30,7 +30,8 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
 
       try {
         val token = FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
-        logInfo("successfully fetch openai mwc token")
+        logInfo("successfully fetch openai mwc token");
+        MLMWCToken = token;
         "MwcToken " + token
       } catch {
         case e: Throwable =>

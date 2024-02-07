@@ -8,6 +8,7 @@ import spray.json.JsValue
 import java.util.UUID
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
+import java.net.URL
 
 object FabricClient extends RESTUtils {
   private val PbiGlobalServiceEndpoints = Map(
@@ -29,6 +30,7 @@ object FabricClient extends RESTUtils {
   var ArtifactID = "";
   var PbiEnv = "";
   var FabricContext: Map[String, String] = Map[String, String]();
+  var MLWorkloadHost = "";
 
   private val WorkloadEndpointTypeML = "ML";
   private val WorkloadEndpointTypeLLMPlugin = "LlmPlugin"
@@ -37,7 +39,7 @@ object FabricClient extends RESTUtils {
   private val WorkloadEndpointTypeAdmin = "MLAdmin"
 
   lazy val PbiSharedHost: String = getPbiSharedHost;
-  lazy val MLWorkloadHost: String = getMLWorkloadHost;
+
   lazy val MLWorkloadEndpointML: String = getMLWorkloadEndpoint(WorkloadEndpointTypeML);
   lazy val MLWorkloadEndpointLLMPlugin: String = getMLWorkloadEndpoint(WorkloadEndpointTypeLLMPlugin);
   lazy val MLWorkloadEndpointAutomatic: String = getMLWorkloadEndpoint(WorkloadEndpointTypeAutomatic);
@@ -62,6 +64,22 @@ object FabricClient extends RESTUtils {
     this.WorkspaceID = this.FabricContext.getOrElse("trident.artifact.workspace.id", "");
     this.ArtifactID = this.FabricContext.getOrElse("trident.artifact.id", "");
     this.PbiEnv = this.FabricContext.getOrElse("spark.trident.pbienv", "public").toLowerCase();
+    this.MLWorkloadHost = this.extractSchemeAndHost(
+      this.FabricContext.getOrElse("trident.lakehouse.tokenservice.endpoint", "https://")
+    ).getOrElse("");
+  }
+
+  def extractSchemeAndHost(urlString: String): Option[String] = {
+    try {
+      val url = new URL(urlString)
+      val scheme = url.getProtocol
+        val host = url.getHost
+        Some(s"$scheme://$host")
+    } catch {
+      case _: Exception =>
+        // Handle MalformedURLException or other exceptions
+        None
+    }
   }
 
   def readFabricContextFile(): Unit = {
@@ -121,22 +139,6 @@ object FabricClient extends RESTUtils {
     val clusterDetailUrl = s"${PbiGlobalServiceEndpoints(PbiEnv)}powerbi/globalservice/v201606/clusterDetails";
     val headers = getHeaders;
     usageGet(clusterDetailUrl, headers).asJsObject.fields("clusterUrl").convertTo[String];
-  }
-
-  def getMLWorkloadHost: String = {
-    val payload =
-      s"""{
-         |"capacityObjectId": "$CapacityID",
-         |"workspaceObjectId": "$WorkspaceID",
-         |"workloadType": "ML"
-         |}""".stripMargin
-
-    val tokenUrl: String = s"$PbiSharedHost/metadata/v201606/generatemwctokenv2"
-
-    val targetHost: String = usagePost(tokenUrl, payload, getHeaders)
-      .asJsObject.fields("TargetUriHost").convertTo[String];
-
-    s"https://$targetHost"
   }
 
   def getMLWorkloadEndpoint(endpointType: String): String = {
