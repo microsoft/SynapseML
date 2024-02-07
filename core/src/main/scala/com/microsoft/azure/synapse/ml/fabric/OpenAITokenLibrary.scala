@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.fabric
 
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
@@ -68,6 +71,6 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
     }
   }
 
-  //noinspection ScalaStyle
+  // scalastyle:off
   override val uid: String = "OpenAITokenLibrary";
 }
