@@ -9,10 +9,10 @@ class DatabricksRapidsTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, RapidsInitScripts)
   val jobIdsToCancel: ListBuffer[Long] = databricksTestHelper(
-    clusterId, GPULibraries, GPUNotebooks)
+    clusterId, GPULibraries, RapidsNotebooks)
 
   protected override def afterAll(): Unit = {
-    afterAllHelper(jobIdsToCancel, clusterId, GPUClusterName)
+    afterAllHelper(jobIdsToCancel, clusterId, RapidsClusterName)
     super.afterAll()
   }
 
