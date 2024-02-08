@@ -87,7 +87,7 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
   ).toJson.compactPrint
 
-  val GPUInitScripts: String = List(
+  val RapidsInitScripts: String = List(
     Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/init-rapidsml-cuda-11.8.sh"))
   ).toJson.compactPrint
 
@@ -105,10 +105,9 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks
-    .filter(file =>
-     file.getAbsolutePath.contains("Fine-tune") ||
-     file.getAbsolutePath.contains("GPU"))
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
+
+  val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpGet(baseURL(apiVersion) + path)
