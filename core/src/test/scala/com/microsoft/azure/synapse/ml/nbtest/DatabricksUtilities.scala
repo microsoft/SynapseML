@@ -46,6 +46,7 @@ object DatabricksUtilities {
   lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
+  lazy val RapidsClusterName = s"mmlspark-build-rapids-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
