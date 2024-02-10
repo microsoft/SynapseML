@@ -254,7 +254,7 @@ object SynapseUtilities {
        |    "nodeSizeFamily": "MemoryOptimized",
        |    "provisioningState": "Succeeded",
        |    "sessionLevelPackagesEnabled": "true",
-       |    "sparkVersion": "3.4"
+       |    "sparkVersion": "3.3"
        |  }
        |}
        |""".stripMargin

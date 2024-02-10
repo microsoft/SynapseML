@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 
 import java.io._
 import scala.collection.JavaConverters._
+import breeze.linalg.functions.euclideanDistance
 
 private case class Query(point: DenseVector[Double],
                          normOfQueryPoint: Double,
@@ -100,16 +101,16 @@ trait BallTreeBase[V] {
 }
 
 /** Performs fast lookups of nearest neighbors using the Ball Tree algorithm for space partitioning
-  *
-  * Note that this code borrows heavily from
-  * https://github.com/felixmaximilian/mips
-  *
-  * @author Felix Maximilian
-  */
+ *
+ * Note that this code borrows heavily from
+ * https://github.com/felixmaximilian/mips
+ *
+ * @author Felix Maximilian
+ */
 case class BallTree[V](override val keys: IndexedSeq[DenseVector[Double]],
                        override val values: IndexedSeq[V],
                        override val leafSize: Int = 50)  //scalastyle:ignore magic.number
-                       extends Serializable with BallTreeBase[V] {
+  extends Serializable with BallTreeBase[V] {
 
   private val root: Node = makeBallTree(pointIdx)
 
