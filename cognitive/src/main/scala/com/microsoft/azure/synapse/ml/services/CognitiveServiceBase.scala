@@ -248,7 +248,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |
       |            if self.checkUsingDefaultModelEndpoint():
       |               deployment_name = self._java_obj.getDeploymentName()
-      |               if not self.checkFabricModelStatus(self, deployment_name):
+      |               if not self.checkFabricModelStatus(deployment_name):
       |                   raise PermissionError("Please check fabric LLM setting or switch to Azure OpenAI endpoint")
       |        except ModuleNotFoundError as e:
       |            pass
