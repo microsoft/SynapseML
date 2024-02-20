@@ -68,7 +68,6 @@ jobs:
     - template: templates/conda.yml
     - bash: |
         set -e
-        source activate synapseml
         sbt pythonStyle
       displayName: 'Python Style Check'
 
