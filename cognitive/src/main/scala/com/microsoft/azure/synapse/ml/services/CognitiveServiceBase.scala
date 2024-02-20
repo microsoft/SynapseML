@@ -217,6 +217,23 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setDefaultInternalEndpoint(value)
       |    return self
       |
+      |def checkFabricModelStatus(self, model_name):
+      |    if running_on_synapse_internal():
+      |        from synapse.ml.mlflow import get_mlflow_env_config
+      |        import requests
+      |        mlflow_env_configs = get_mlflow_env_config()
+      |        AADtoken = mlflow_env_configs.driver_aad_token
+      |        url = mlflow_env_configs.workload_endpoint + "cognitive/openai/tenantsetting"
+      |        headers = {"Authorization": f"Bearer {AADtoken}"}
+      |        ModelNames=[model_name]
+      |        response = requests.post(url, headers=headers, json=ModelNames)
+      |        return eval(response.content)[model_name] == 'Allowed'
+      |
+      |def checkUsingDefaultModelEndpoint(self):
+      |    from synapse.ml.fabric.service_discovery import get_fabric_env_config
+      |    url = get_fabric_env_config().fabric_env_config.get_mlflow_workload_endpoint()  + "/cognitive/openai/"
+      |    return url == self._java_obj.getUrl()
+      |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
       |    if running_on_synapse_internal():
       |        try:
@@ -228,6 +245,11 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |            else:
       |               self._java_obj.setDefaultCustomAuthHeader(TokenUtils().get_openai_auth_header())
       |            self.setDefaultInternalEndpoint(fabric_env_config.get_mlflow_workload_endpoint())
+      |
+      |            if self.checkUsingDefaultModelEndpoint():
+      |               deployment_name = self._java_obj.getDeploymentName()
+      |               if not checkFabricModelStatus(self, deployment_name):
+      |                   raise PermissionError("Please check fabric LLM setting or switch to Azure OpenAI endpoint")
       |        except ModuleNotFoundError as e:
       |            pass
       |    return super()._transform(dataset)
