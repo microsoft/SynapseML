@@ -4,12 +4,7 @@
 package com.microsoft.azure.synapse.ml.fabric
 
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
-import spray.json._
-import pdi.jwt.{Jwt, JwtOptions}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
-
-import java.util.Date
-import scala.util.{Failure, Success, Try}
 
 object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
   var MLMWCToken = "";
@@ -44,25 +39,17 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
     }
   }
 
-  def getExpiryTime(accessToken: String): Date = {
+  def getExpiryTime(accessToken: String): Long = {
     //Extract expiry time
-    val jwtOptions = new JwtOptions(false, false, false, 0)
-    val jwtTokenDecoded: Try[(String, String, String)] = Jwt.decodeRawAll(accessToken, jwtOptions)
-    jwtTokenDecoded match {
-      case Success((_, payload, _)) =>
-        val expiry =  payload.parseJson.asJsObject().fields("exp").convertTo[String]
-        new Date(expiry.toLong * 1000)
-      case Failure(t) =>
-        throw t
-    }
+    val parser = new FabricTokenParser(accessToken);
+    parser.getExpiry
   }
 
   def isTokenExpired(accessToken: String, expiryCushionInMillis: Long = 0): Boolean = {
     try {
-      val expiry: Date = getExpiryTime(accessToken)
+      val expiry: Long = getExpiryTime(accessToken)
       val currentTime: Long = System.currentTimeMillis()
-      val expiryTimeMillis: Long = expiry.getTime()
-      currentTime > expiryTimeMillis - expiryCushionInMillis
+      currentTime > expiry - expiryCushionInMillis
     }
     catch {
       case t: Throwable =>
