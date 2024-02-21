@@ -263,13 +263,28 @@ function Home() {
               >
                 <TabItem value="Synapse">
                   <p>SynapseML can be installed on Synapse adding the following to the first cell of a notebook:</p>
-                  For Spark3.4 pools:
+                  For Spark3.5 pools:
                   <CodeSnippet
                     snippet={`%%configure -f
 {
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.2",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  For Spark3.4 pools:
+                  <CodeSnippet
+                    snippet={`%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.2-spark3.4",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -315,7 +330,7 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.2 # Please use 1.0.2 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.2 # Please use 1.0.2 version for Spark3.5, 1.0.2-spark3.4 version for Spark3.4, and 0.11.4-spark3.3 version for Spark3.3
 pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.2
 spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                     lang="bash"
@@ -343,9 +358,14 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                   </p>
                   <p>
                     <p>For the coordinates:</p>
-                    Spark 3.4 Cluster:
+                    Spark 3.5 Cluster:
                     <CodeSnippet
                       snippet={`com.microsoft.azure:synapseml_2.12:1.0.2`}
+                      lang="bash"
+                    ></CodeSnippet>
+                    Spark 3.4 Cluster:
+                    <CodeSnippet
+                      snippet={`com.microsoft.azure:synapseml_2.12:1.0.2-spark3.4`}
                       lang="bash"
                     ></CodeSnippet>
                     Spark 3.3 Cluster:
@@ -406,7 +426,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.2") # Please use 1.0.2 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.2") # Please use 1.0.2 version for Spark3.5, 1.0.2-spark3.4 version for Spark3.4, and 0.11.4-spark3.3 version for Spark3.3
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 import synapse.ml`}
@@ -418,7 +438,7 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.0.2" // Please use 1.0.2 version for Spark3.2 and 1.0.2-spark3.3 version for Spark3.3`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.0.2" // Please use 1.0.2 version for Spark3.5, 1.0.2-spark3.4 version for Spark3.4, and 0.11.4-spark3.3 version for Spark3.3`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
