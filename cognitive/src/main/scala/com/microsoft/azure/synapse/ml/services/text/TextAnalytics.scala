@@ -659,7 +659,7 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(u
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row),
+          getCustomAuthHeader(row)
         )
         val tasks = TextAnalyzeTasks(
           entityRecognitionTasks = getTaskHelper(getIncludeEntityRecognition, getEntityRecognitionParams),
