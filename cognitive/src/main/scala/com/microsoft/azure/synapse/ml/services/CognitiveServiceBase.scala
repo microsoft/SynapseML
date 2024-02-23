@@ -318,12 +318,13 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
-    var customHeader = getValueOpt(row, CustomAuthHeader)
-    if (customHeader.isEmpty && PlatformDetails.runningOnFabric()) {
-      customHeader = Option(TokenLibrary.getAuthHeader)
+    val providedCustomHeader = getValueOpt(row, CustomAuthHeader)
+    if (providedCustomHeader .isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
+      Option(TokenLibrary.getAuthHeader)
+    } else {
+      providedCustomHeader
     }
-    customHeader
   }
 
   protected def addHeaders(req: HttpRequestBase,

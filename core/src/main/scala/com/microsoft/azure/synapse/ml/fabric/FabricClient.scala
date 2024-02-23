@@ -3,15 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.fabric
 
-import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import org.apache.log4j.Logger
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 import spray.json.JsValue
 
+import java.net.URL
 import java.util.UUID
 import scala.io.Source
-import scala.util.{Failure, Success, Try}
-import java.net.URL
 
 object FabricClient extends RESTUtils {
   private val PbiGlobalServiceEndpoints = Map(
@@ -28,21 +25,22 @@ object FabricClient extends RESTUtils {
     "console" -> "http://localhost:5001/",
     "daily" -> "https://dailyapi.powerbi.com/")
 
-  var CapacityID = "";
-  var WorkspaceID = "";
-  var ArtifactID = "";
-  var PbiEnv = "";
-  var FabricContext: Map[String, String] = Map[String, String]();
-  var MLWorkloadHost = "";
-
   private val WorkloadEndpointTypeML = "ML";
   private val WorkloadEndpointTypeLLMPlugin = "LlmPlugin"
   private val WorkloadEndpointTypeAutomatic = "Automatic"
   private val WorkloadEndpointTypeRegistry = "Registry"
   private val WorkloadEndpointTypeAdmin = "MLAdmin"
+  private val ContextFilePath = "/home/trusted-service-user/.trident-context";
+  private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
+
+  lazy val CapacityID: Option[String] = getCapacityID;
+  lazy val WorkspaceID: Option[String] = getWorkspaceID;
+  lazy val ArtifactID: Option[String] = getArtifactID;
+  lazy val PbiEnv: String = getPbiEnv;
+  lazy val FabricContext: Map[String, String] = getFabricContextFile;
+  lazy val MLWorkloadHost: Option[String] = getMLWorkloadHost;
 
   lazy val PbiSharedHost: String = getPbiSharedHost;
-
   lazy val MLWorkloadEndpointML: String = getMLWorkloadEndpoint(WorkloadEndpointTypeML);
   lazy val MLWorkloadEndpointLLMPlugin: String = getMLWorkloadEndpoint(WorkloadEndpointTypeLLMPlugin);
   lazy val MLWorkloadEndpointAutomatic: String = getMLWorkloadEndpoint(WorkloadEndpointTypeAutomatic);
@@ -51,81 +49,82 @@ object FabricClient extends RESTUtils {
   lazy val MLWorkloadEndpointCognitive: String = s"${MLWorkloadEndpointML}cognitive/";
   lazy val MLWorkloadEndpointOpenAI: String = s"${MLWorkloadEndpointML}cognitive/openai/";
 
-  private val ContextFilePath = "/home/trusted-service-user/.trident-context";
-  private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
-
-  lazy val MyLogger: Logger = Logger.getLogger(this.getClass.getName);
-
-  if(PlatformDetails.runningOnFabric()) {
-    readFabricContextFile();
-    readFabricSparkConfFile();
-    init();
-  }
-
-  def init(): Unit ={
-    this.CapacityID = this.FabricContext.getOrElse("trident.capacity.id", "");
-    this.WorkspaceID = this.FabricContext.getOrElse("trident.artifact.workspace.id", "");
-    this.ArtifactID = this.FabricContext.getOrElse("trident.artifact.id", "");
-    this.PbiEnv = this.FabricContext.getOrElse("spark.trident.pbienv", "public").toLowerCase();
-    this.MLWorkloadHost = this.extractSchemeAndHost(
-      this.FabricContext.getOrElse("trident.lakehouse.tokenservice.endpoint", "https://")
-    ).getOrElse("");
-  }
-
-  def extractSchemeAndHost(urlString: String): Option[String] = {
-    try {
-      val url = new URL(urlString)
-      val scheme = url.getProtocol
-        val host = url.getHost
-        Some(s"$scheme://$host")
-    } catch {
-      case _: Exception =>
-        // Handle MalformedURLException or other exceptions
+  def extractSchemeAndHost(urlString: Option[String]): Option[String] = {
+    urlString match {
+      case Some(urlStr) =>
+        try {
+          val url = new URL(urlStr)
+          val scheme = url.getProtocol
+          val host = url.getHost
+          Some(s"$scheme://$host")
+        } catch {
+          case _: Exception =>
+            // Handle MalformedURLException or other exceptions
+            None
+        }
+      case None =>
         None
     }
+
   }
 
-  def readFabricContextFile(): Unit = {
-    Try(Source.fromFile(ContextFilePath)) match {
-      case Success(source) =>
-        try {
-          for (line <- source.getLines()) {
-            val keyValue = line.split('=')
-            if (keyValue.length == 2) {
-              val Array(k, v) = keyValue.map(_.trim)
-              FabricContext += (k -> v)
-            }
-          }
-          source.close()
-        } catch {
-          case e: Exception =>
-            MyLogger.error("Error reading Fabric context file", e)
+  def getFabricContextFile: Map[String, String] = {
+    readFabricContextFile() ++ readFabricSparkConfFile()
+  }
+
+  def getCapacityID: Option[String] = {
+    FabricContext.get("trident.capacity.id");
+  }
+
+  def getWorkspaceID: Option[String] = {
+    FabricContext.get("trident.artifact.workspace.id");
+  }
+
+  def getArtifactID: Option[String] = {
+    FabricContext.get("trident.artifact.id");
+  }
+
+  def getPbiEnv: String = {
+    FabricContext.getOrElse("spark.trident.pbienv", "public").toLowerCase();
+  }
+
+  def getMLWorkloadHost: Option[String] = {
+    extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
+  }
+
+  def readFabricContextFile(): Map[String, String] = {
+    val source = Source.fromFile(ContextFilePath)
+    try {
+      source.getLines().flatMap { line =>
+        line.split("=", 2) match {
+          case Array(_, value) if value.contains("=") =>
+            None
+          case Array(key, value) =>
+            Some(key.trim -> value.trim)
+          case _ =>
+            None
         }
-      case Failure(exception) =>
-        MyLogger.error("Error opening Fabric context file", exception)
+      }.toMap
+    } finally {
+      source.close()
     }
   }
 
-  def readFabricSparkConfFile(): Unit = {
-    Try(Source.fromFile(SparkConfPath)) match {
-      case Success(source) =>
-        try {
-          for (line <- source.getLines()) {
-            val trimmedLine = line.trim();
-            if (trimmedLine.nonEmpty && !trimmedLine.startsWith("#")) {
-              val content = trimmedLine.split(' ');
-              if (content.length == 2) {
-                FabricContext += (content(0).trim() -> content(1).trim());
-              }
-            }
-          }
-          source.close()
-        } catch {
-          case e: Exception =>
-            MyLogger.error("Error reading Fabric spark conf file", e)
+  def readFabricSparkConfFile(): Map[String, String] = {
+    val source = Source.fromFile(SparkConfPath)
+    try {
+      source.getLines().map(_.trim).filterNot(_.startsWith("#")).flatMap { line =>
+        line.split(" ", 2) match {
+          case Array(_, value) if value.contains(" ") =>
+            None
+          case Array(key, value) =>
+            Some(key.trim -> value.trim)
+          case _ =>
+            None // Handle lines without "=" or lines with more than one "="
         }
-      case Failure(exception) =>
-        MyLogger.error("Error opening Fabric spark conf file", exception)
+      }.toMap
+    } finally {
+      source.close()
     }
   }
 
@@ -145,7 +144,8 @@ object FabricClient extends RESTUtils {
   }
 
   def getMLWorkloadEndpoint(endpointType: String): String = {
-    s"$MLWorkloadHost/webapi/capacities/$CapacityID/workloads/ML/$endpointType/Automatic/workspaceid/$WorkspaceID/"
+    s"${MLWorkloadHost.getOrElse("")}/webapi/capacities" +
+      s"/${CapacityID.getOrElse("")}/workloads/ML/$endpointType/Automatic/workspaceid/${WorkspaceID.getOrElse("")}/"
   }
 
   def usagePost(url: String, body: String): JsValue = {

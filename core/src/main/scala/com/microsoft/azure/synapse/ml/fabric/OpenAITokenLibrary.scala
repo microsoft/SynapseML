@@ -7,36 +7,39 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
-  var MLMWCToken = "";
+  var MLToken: Option[String] = None;
+  var IsMWCTokenEnabled: Boolean = true;
   val BackgroundRefreshExpiryCushionInMillis: Long = 5 * 60 * 1000L
   val OpenAIFeatureName = "SparkCodeFirst"
 
-  def getAuthHeader: String = {
-    if (MLMWCToken != "" && !isTokenExpired(MLMWCToken)) {
-      logInfo("using cached openai mwc token")
-      "MwcToken " + MLMWCToken
+  private def buildAuthHeader: String = {
+    if(IsMWCTokenEnabled) {
+      "MwcToken " + MLToken.getOrElse("")
+    } else {
+      "Bearer " + TokenLibrary.getAccessToken;
     }
-    else {
+  }
+
+  def getAuthHeader: String = {
+    if (isTokenExpired(MLToken, BackgroundRefreshExpiryCushionInMillis)) {
       val artifactId = FabricClient.ArtifactID
       val payload =
         s"""{
-           |"artifactObjectId": "$artifactId",
+           |"artifactObjectId": "${artifactId.getOrElse("")}",
            |"openAIFeatureName": "$OpenAIFeatureName",
            |}""".stripMargin
 
       val url: String = FabricClient.MLWorkloadEndpointML + "cognitive/openai/generatemwctoken";
-
       try {
         val token = FabricClient.usagePost(url, payload).asJsObject.fields("Token").convertTo[String];
-        logInfo("successfully fetch openai mwc token");
-        MLMWCToken = token;
-        "MwcToken " + token
+        MLToken = Some(token)
+        IsMWCTokenEnabled = true
       } catch {
         case e: Throwable =>
-          logInfo("openai mwc token not available, using aad token", e)
-          "Bearer " + TokenLibrary.getAccessToken;
+          IsMWCTokenEnabled = false
       }
     }
+    buildAuthHeader
   }
 
   def getExpiryTime(accessToken: String): Long = {
@@ -45,17 +48,23 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
     parser.getExpiry
   }
 
-  def isTokenExpired(accessToken: String, expiryCushionInMillis: Long = 0): Boolean = {
-    try {
-      val expiry: Long = getExpiryTime(accessToken)
-      val currentTime: Long = System.currentTimeMillis()
-      currentTime > expiry - expiryCushionInMillis
-    }
-    catch {
-      case t: Throwable =>
-        logInfo("Error while getting token expiry time", t)
+  def isTokenExpired(accessToken: Option[String], expiryCushionInMillis: Long = 0): Boolean = {
+    accessToken match {
+      case Some(accessToken) =>
+        try {
+          val expiry: Long = getExpiryTime(accessToken)
+          val currentTime: Long = System.currentTimeMillis()
+          currentTime > expiry - expiryCushionInMillis
+        }
+        catch {
+          case t: Throwable =>
+            logInfo("Error while getting token expiry time", t)
+            true
+        }
+      case None =>
         true
     }
+
   }
 
   // scalastyle:off

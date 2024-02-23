@@ -14,7 +14,9 @@ class FabricTokenParser(JWToken: String) {
   private val parsedToken: JsValue = tokenCheckAndDecode(Some(tokens))
 
   def getExpiry: Long = {
-    val exp: Option[Long] = parsedToken.asJsObject.fields.get("exp").collect { case JsNumber(value) => value.toLong }
+    val exp: Option[Long] = parsedToken.asJsObject.fields.get("exp").collect {
+      case JsNumber(value) => value.toLong * 1000L
+    }
     exp match {
       case Some(expValue) =>
         expValue
