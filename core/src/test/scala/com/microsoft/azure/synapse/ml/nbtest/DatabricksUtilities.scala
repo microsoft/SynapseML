@@ -45,6 +45,7 @@ object DatabricksUtilities {
   lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
+  lazy val RapidsClusterName = s"mmlspark-build-rapids-${LocalDateTime.now()}"
 
   val Folder = s"/SynapseMLBuild/build_${BuildInfo.version}"
   val ScalaVersion: String = BuildInfo.scalaVersion.split(".".toCharArray).dropRight(1).mkString(".")
@@ -57,8 +58,8 @@ object DatabricksUtilities {
     "onnxmltools==1.7.0",
     "lightgbm",
     "mlflow==2.6.0",
-    "openai",
-    "langchain",
+    "openai==0.28.1",
+    "langchain==0.0.331",
     "pdf2image",
     "pdfminer.six",
     "sqlparse",
@@ -86,8 +87,8 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
   ).toJson.compactPrint
 
-  val GPUInitScripts: String = List(
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/horovod-fix-commit/horovod_installation.sh"))
+  val RapidsInitScripts: String = List(
+    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/init-rapidsml-cuda-11.8.sh"))
   ).toJson.compactPrint
 
   // Execution Params
@@ -101,9 +102,12 @@ object DatabricksUtilities {
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
+    .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
+
+  val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpGet(baseURL(apiVersion) + path)

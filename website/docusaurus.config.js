@@ -1,7 +1,7 @@
 const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
-let version = "1.0.0";
+let version = "1.0.2";
 
 module.exports = {
     title: 'SynapseML',
@@ -13,7 +13,7 @@ module.exports = {
     projectName: 'SynapseML',
     trailingSlash: true,
     customFields: {
-        version: "1.0.0",
+        version: "1.0.2",
     },
     stylesheets: [
         {
@@ -92,11 +92,11 @@ module.exports = {
                         },
                         {
                             label: 'Python API Reference',
-                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.0/pyspark/index.html',
+                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.2/pyspark/index.html',
                         },
                         {
                             label: 'Scala API Reference',
-                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.0/scala/index.html',
+                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.2/scala/index.html',
                         },
                     ],
                 },
@@ -468,10 +468,6 @@ module.exports = {
                     {
                         to: '/docs/Get Started/Quickstart - Your First Models/',
                         from: '/docs/Get%20Started/Quickstart%20-%20Your%20First%20Models/',
-                    },
-                    {
-                        to: '/docs/Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding/',
-                        from: '/docs/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding/',
                     },
                     {
                         to: '/docs/Explore Algorithms/Deep Learning/Getting Started/',
