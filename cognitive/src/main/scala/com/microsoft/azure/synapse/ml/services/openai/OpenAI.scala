@@ -249,7 +249,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
 trait HasOpenAICognitiveServiceInput extends HasCognitiveServiceInput {
   override protected def getCustomAuthHeader(row: Row): Option[String] = {
-    var providedCustomHeader = getValueOpt(row, CustomAuthHeader)
+    val providedCustomHeader = getValueOpt(row, CustomAuthHeader)
     if (providedCustomHeader.isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default OpenAI Token On Fabric")
       Option(OpenAITokenLibrary.getAuthHeader)

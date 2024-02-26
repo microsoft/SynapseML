@@ -13,12 +13,12 @@ import java.time.Instant
 object CertifiedEventClient {
   private lazy val CertifiedEventUri = getCertifiedEventUri
 
-  def getCertifiedEventUri: String = {
+  private[ml] def getCertifiedEventUri: String = {
     s"${FabricClient.MLWorkloadEndpointAdmin}/telemetry"
   }
 
 
-  def logToCertifiedEvents(featureName: String,
+  private[ml] def logToCertifiedEvents(featureName: String,
                                        activityName: String,
                                        attributes: Map[String, String]): Unit = {
 

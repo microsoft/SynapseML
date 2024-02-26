@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.fabric
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 import spray.json.JsValue
 
-import java.net.URL
+import java.net.{MalformedURLException, URL}
 import java.util.UUID
 import scala.io.Source
 
@@ -49,50 +49,42 @@ object FabricClient extends RESTUtils {
   lazy val MLWorkloadEndpointCognitive: String = s"${MLWorkloadEndpointML}cognitive/";
   lazy val MLWorkloadEndpointOpenAI: String = s"${MLWorkloadEndpointML}cognitive/openai/";
 
-  def extractSchemeAndHost(urlString: Option[String]): Option[String] = {
-    urlString match {
-      case Some(urlStr) =>
-        try {
-          val url = new URL(urlStr)
-          val scheme = url.getProtocol
-          val host = url.getHost
-          Some(s"$scheme://$host")
-        } catch {
-          case _: Exception =>
-            // Handle MalformedURLException or other exceptions
-            None
-        }
-      case None =>
-        None
+  private def extractSchemeAndHost(urlString: Option[String]): Option[String] = {
+    try {
+      urlString.map(url => {
+        val urlObject = new URL(url)
+        s"${urlObject.getProtocol}://${urlObject.getHost}"
+      })
+    } catch {
+      case _: MalformedURLException => None
     }
-
   }
 
-  def getFabricContextFile: Map[String, String] = {
+  private def getFabricContextFile: Map[String, String] = {
     readFabricContextFile() ++ readFabricSparkConfFile()
   }
 
-  def getCapacityID: Option[String] = {
+  private def getCapacityID: Option[String] = {
     FabricContext.get("trident.capacity.id");
   }
 
-  def getWorkspaceID: Option[String] = {
+  private def getWorkspaceID: Option[String] = {
     FabricContext.get("trident.artifact.workspace.id");
   }
 
-  def getArtifactID: Option[String] = {
+  private def getArtifactID: Option[String] = {
     FabricContext.get("trident.artifact.id");
   }
 
-  def getPbiEnv: String = {
+  private def getPbiEnv: String = {
     FabricContext.getOrElse("spark.trident.pbienv", "public").toLowerCase();
   }
 
-  def getMLWorkloadHost: Option[String] = {
+  private def getMLWorkloadHost: Option[String] = {
     extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
   }
 
-  def readFabricContextFile(): Map[String, String] = {
+  private def readFabricContextFile(): Map[String, String] = {
     val source = Source.fromFile(ContextFilePath)
     try {
       source.getLines().flatMap { line =>
@@ -110,7 +102,7 @@ object FabricClient extends RESTUtils {
     }
   }
 
-  def readFabricSparkConfFile(): Map[String, String] = {
+  private def readFabricSparkConfFile(): Map[String, String] = {
     val source = Source.fromFile(SparkConfPath)
     try {
       source.getLines().map(_.trim).filterNot(_.startsWith("#")).flatMap { line =>
@@ -137,13 +129,13 @@ object FabricClient extends RESTUtils {
     )
   }
 
-  def getPbiSharedHost: String = {
+  private def getPbiSharedHost: String = {
     val clusterDetailUrl = s"${PbiGlobalServiceEndpoints(PbiEnv)}powerbi/globalservice/v201606/clusterDetails";
     val headers = getHeaders;
     usageGet(clusterDetailUrl, headers).asJsObject.fields("clusterUrl").convertTo[String];
   }
 
-  def getMLWorkloadEndpoint(endpointType: String): String = {
+  private def getMLWorkloadEndpoint(endpointType: String): String = {
     s"${MLWorkloadHost.getOrElse("")}/webapi/capacities" +
       s"/${CapacityID.getOrElse("")}/workloads/ML/$endpointType/Automatic/workspaceid/${WorkspaceID.getOrElse("")}/"
   }

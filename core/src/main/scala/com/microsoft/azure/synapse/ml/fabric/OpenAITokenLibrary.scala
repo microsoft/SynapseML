@@ -7,8 +7,8 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import spray.json.DefaultJsonProtocol.StringJsonFormat
 
 object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
-  var MLToken: Option[String] = None;
-  var IsMWCTokenEnabled: Boolean = true;
+  private var MLToken: Option[String] = None;
+  private var IsMWCTokenEnabled: Boolean = true;
   val BackgroundRefreshExpiryCushionInMillis: Long = 5 * 60 * 1000L
   val OpenAIFeatureName = "SparkCodeFirst"
 
@@ -42,13 +42,13 @@ object OpenAITokenLibrary extends SynapseMLLogging with AuthHeaderProvider {
     buildAuthHeader
   }
 
-  def getExpiryTime(accessToken: String): Long = {
+  private def getExpiryTime(accessToken: String): Long = {
     //Extract expiry time
     val parser = new FabricTokenParser(accessToken);
     parser.getExpiry
   }
 
-  def isTokenExpired(accessToken: Option[String], expiryCushionInMillis: Long = 0): Boolean = {
+  private def isTokenExpired(accessToken: Option[String], expiryCushionInMillis: Long = 0): Boolean = {
     accessToken match {
       case Some(accessToken) =>
         try {
