@@ -60,7 +60,7 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
   def versionModel: LanguageDetector = new LanguageDetector()
     .setSubscriptionKey(textKey)
     .setLocation(textApiLocation)
-    .setModelVersion("2021-11-20")
+    .setModelVersion("latest")
     .setOutputCol("output")
 
   test("Set Model Version"){

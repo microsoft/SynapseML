@@ -3,25 +3,24 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasCognitiveServiceInput,
-  HasInternalJsonOutputParser}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
+import com.microsoft.azure.synapse.ml.services.HasInternalJsonOutputParser
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
-import spray.json._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.language.existentials
 
 object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAITextParams with HasCognitiveServiceInput
+  with HasOpenAITextParams with HasOpenAICognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
