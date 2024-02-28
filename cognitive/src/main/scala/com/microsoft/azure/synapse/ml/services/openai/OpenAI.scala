@@ -4,7 +4,10 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
-import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion, HasServiceParams}
+import com.microsoft.azure.synapse.ml.fabric.OpenAITokenLibrary
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
+import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion,
+  HasCognitiveServiceInput, HasServiceParams}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.spark.sql.Row
 import spray.json.DefaultJsonProtocol._
@@ -241,6 +244,19 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     ).++(Seq(
       getValueOpt(r, logProbs).map(v => ("logprobs", v))
     ).flatten).toMap
+  }
+}
+
+trait HasOpenAICognitiveServiceInput extends HasCognitiveServiceInput {
+  override protected def getCustomAuthHeader(row: Row): Option[String] = {
+    val providedCustomHeader = getValueOpt(row, CustomAuthHeader)
+    if (providedCustomHeader.isEmpty && PlatformDetails.runningOnFabric()) {
+      logInfo("Using Default OpenAI Token On Fabric")
+      Option(OpenAITokenLibrary.getAuthHeader)
+    } else {
+      providedCustomHeader
+    }
+
   }
 }
 
