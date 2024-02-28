@@ -46,13 +46,13 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
         "<mstts:express-as role='female' style='calm'>\"This is an example of a sentence with unmatched quotes,\"" +
         "</mstts:express-as> she said.\"</voice></speak>\n"))
 
-  lazy val df: DataFrame = testData.map(e => e._1).toSeq.toDF("text")
+  lazy val df: DataFrame = testData.keys.toSeq.toDF("text")
 
   test("basic") {
     val transformed = ssmlGenerator.transform(df)
     transformed.show(truncate = false)
     transformed.collect().map(row => {
-      val actual = testData.get(row.getString(0)).getOrElse("")
+      val actual = testData.getOrElse(row.getString(0), "")
       val expected = row.getString(2)
       assert(actual.equals(expected))
     })

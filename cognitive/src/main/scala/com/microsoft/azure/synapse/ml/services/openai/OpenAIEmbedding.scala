@@ -3,27 +3,25 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasCognitiveServiceInput, HasServiceParams}
-import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import org.apache.spark.ml.linalg.{Vector, Vectors}
 
 import scala.language.existentials
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAISharedParams with HasCognitiveServiceInput  with SynapseMLLogging {
+  with HasOpenAISharedParams with HasOpenAICognitiveServiceInput  with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))

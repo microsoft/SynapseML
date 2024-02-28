@@ -12,23 +12,33 @@ object PlatformDetails {
   val PlatformDatabricks = "databricks"
   val PlatformUnknown = "unknown"
   val SynapseProjectName = "Microsoft.ProjectArcadia"
+  lazy val CurrentPlatform: String = currentPlatform()
 
   def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
     azureService match {
       case Some(serviceName) if serviceName == SynapseProjectName =>
-        val spark = SparkSession.builder.getOrCreate()
-        val clusterType = spark.conf.get("spark.cluster.type")
-        if (clusterType == "synapse") PlatformSynapse else PlatformSynapseInternal
+        defineSynapsePlatform()
       case _ if new java.io.File("/dbfs").exists() => PlatformDatabricks
-      case _ if sys.env.get("BINDER_LAUNCH_HOST").isDefined => PlatformBinder
+      case _ if new java.io.File("/home/trusted-service-user/.trident-context").exists() => PlatformSynapseInternal
+      case _ if sys.env.contains("BINDER_LAUNCH_HOST") => PlatformBinder
       case _ => PlatformUnknown
     }
   }
 
-  def runningOnSynapseInternal(): Boolean = currentPlatform() == PlatformSynapseInternal
+  def defineSynapsePlatform(): String = {
+    val spark = SparkSession.getActiveSession
+    if (spark.isDefined) {
+      val clusterType = spark.get.conf.get("spark.cluster.type")
+      if (clusterType == "synapse") PlatformSynapse else PlatformSynapseInternal
+    } else {
+      PlatformUnknown
+    }
+  }
 
-  def runningOnSynapse(): Boolean = currentPlatform() == PlatformSynapse
+  def runningOnSynapseInternal(): Boolean = CurrentPlatform == PlatformSynapseInternal
 
-  def runningOnFabric(): Boolean = runningOnSynapseInternal
+  def runningOnSynapse(): Boolean = CurrentPlatform == PlatformSynapse
+
+  def runningOnFabric(): Boolean = runningOnSynapseInternal()
 }
