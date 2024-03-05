@@ -27,7 +27,7 @@ jobs:
      runs-on: ubuntu-latest
      steps:
        - name: Azure Login
-         uses: azure/login@v1
+         uses: azure/login@v2
          with:
            creds: ${{ secrets.clean_acr }}
        - name: checkout repo content
