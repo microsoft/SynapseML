@@ -4,12 +4,16 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
-import com.microsoft.azure.synapse.ml.fabric.OpenAITokenLibrary
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.fabric.{FabricClient, FabricTenantSetting, OpenAITokenLibrary}
+import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion,
-  HasCognitiveServiceInput, HasServiceParams}
+import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion, HasCognitiveServiceInput, HasServiceParams}
+import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import org.apache.spark.sql.Row
+import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
@@ -256,10 +260,53 @@ trait HasOpenAICognitiveServiceInput extends HasCognitiveServiceInput {
     } else {
       providedCustomHeader
     }
-
   }
 }
 
-abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String) {
+abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
+  with HasOpenAISharedParams with FabricTenantSetting {
   setDefault(timeout -> 360.0)
+
+  private def usingDefaultOpenAIEndpoint(): Boolean = {
+    getUrl == FabricClient.MLWorkloadEndpointML + "/cognitive/openai/"
+  }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
+    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
+    assert(badColumns.isEmpty,
+      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
+
+    val missingRequiredParams = this.getRequiredParams.filter {
+      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
+    }
+    assert(missingRequiredParams.isEmpty,
+      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
+
+    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
+      case Nil => Seq(lit(false).alias("placeholder"))
+      case l => l
+    }
+
+    if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
+      getModelStatus(getDeploymentName)
+    }
+
+    val stages = Array(
+      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
+      new SimpleHTTPTransformer()
+        .setInputCol(dynamicParamColName)
+        .setOutputCol(getOutputCol)
+        .setInputParser(getInternalInputParser(schema))
+        .setOutputParser(getInternalOutputParser(schema))
+        .setHandler(handlingFunc _)
+        .setConcurrency(getConcurrency)
+        .setConcurrentTimeout(get(concurrentTimeout))
+        .setTimeout(getTimeout)
+        .setErrorCol(getErrorCol),
+      new DropColumns().setCol(dynamicParamColName),
+    )
+
+    NamespaceInjections.pipelineModel(stages)
+  }
 }

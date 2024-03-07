@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.fabric.{FabricClient, TokenLibrary, FabricTenantSetting}
+import com.microsoft.azure.synapse.ml.fabric.{FabricClient, TokenLibrary}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
@@ -219,18 +219,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |    self._java_obj = self._java_obj.setDefaultInternalEndpoint(value)
       |    return self
       |
-      |def checkUsingDefaultModelEndpoint(self):
-      |    from synapse.ml.fabric.service_discovery import get_fabric_env_config
-      |    url = get_fabric_env_config().fabric_env_config.get_mlflow_workload_endpoint()  + "/cognitive/openai/"
-      |    return url == self._java_obj.getUrl()
-      |
       |def _transform(self, dataset: DataFrame) -> DataFrame:
-      |    if running_on_synapse_internal():
-      |       if self.checkUsingDefaultModelEndpoint():
-      |          deployment_name = self._java_obj.getDeploymentName()
-      |          if not self._java_obj.getModelStatus(deployment_name):
-      |              raise PermissionError("Please check fabric LLM setting or switch to Azure OpenAI endpoint")
-      |
       |    return super()._transform(dataset)
       |""".stripMargin
   }
@@ -508,7 +497,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol
   with HasAADToken with HasCustomCogServiceDomain
-  with SynapseMLLogging with FabricTenantSetting {
+  with SynapseMLLogging {
 
   setDefault(
     outputCol -> (this.uid + "_output"),

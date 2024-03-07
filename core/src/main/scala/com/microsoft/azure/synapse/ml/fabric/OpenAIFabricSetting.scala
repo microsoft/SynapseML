@@ -27,22 +27,23 @@ trait FabricTenantSetting extends RESTUtils {
     // Allowed, Disallowed, DisallowedForCrossGeo, ModelNotFound, InvalidResult
     val resultString: String = modelStatus match {
       case JsString(value) => value
+      case _ => throw new RuntimeException("Unexpected result from type conversion " +
+        "when checking the fabric tenant settings API.")
     }
 
     resultString match {
-      case "Disallowed" => throw new Exception(s"Default OpenAI model ${modelName} is Disallowed, " +
+      case "Disallowed" => throw new RuntimeException(s"Default OpenAI model ${modelName} is Disallowed, " +
         s"please contact your admin if you want to use default fabric LLM model. " +
         s"Or you can set your Azure OpenAI credentials.")
-      case "DisallowedForCrossGeo" => throw new Exception(s"Default OpenAI model ${modelName} is Disallowed " +
+      case "DisallowedForCrossGeo" => throw new RuntimeException(s"Default OpenAI model ${modelName} is Disallowed " +
         s"for Cross Geo, please contact your admin if you want to use default fabric LLM model. " +
         s"Or you can set your Azure OpenAI credentials.")
-      case "ModelNotFound" => throw new Exception(s"Default OpenAI model ${modelName} not found, " +
+      case "ModelNotFound" => throw new RuntimeException(s"Default OpenAI model ${modelName} not found, " +
         s"please check your deployment name.")
-      case "InvalidResult" => throw new Exception("Cannot get tenant admin setting status correctly")
-      case _ => ()
+      case "InvalidResult" => throw new RuntimeException("Cannot get tenant admin setting status correctly")
+      case "Allowed" => true
+      case _ => throw new RuntimeException("Unexpected result from checking the Fabric tenant settings API.")
     }
-
-    resultString == "Allowed"
   }
 
 }
