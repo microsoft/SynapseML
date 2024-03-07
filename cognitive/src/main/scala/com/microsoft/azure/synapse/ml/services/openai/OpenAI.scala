@@ -5,15 +5,16 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.fabric.{FabricClient, FabricTenantSetting, OpenAITokenLibrary}
+import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting, OpenAITokenLibrary}
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.services.{CognitiveServicesBase, HasAPIVersion, HasCognitiveServiceInput, HasServiceParams}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
@@ -264,7 +265,7 @@ trait HasOpenAICognitiveServiceInput extends HasCognitiveServiceInput {
 }
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
-  with HasOpenAISharedParams with FabricTenantSetting {
+  with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)
 
   private def usingDefaultOpenAIEndpoint(): Boolean = {

@@ -2,7 +2,7 @@ package com.microsoft.azure.synapse.ml.fabric
 
 import spray.json.{JsValue, JsString}
 
-trait FabricTenantSetting extends RESTUtils {
+trait OpenAIFabricSetting extends RESTUtils {
 
   private def getHeaders: Map[String, String] = {
     Map(
