@@ -273,41 +273,8 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
   }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    val dynamicParamColName = DatasetExtensions.findUnusedColumnName("dynamic", schema)
-    val badColumns = getVectorParamMap.values.toSet.diff(schema.fieldNames.toSet)
-    assert(badColumns.isEmpty,
-      s"Could not find dynamic columns: $badColumns in columns: ${schema.fieldNames.toSet}")
-
-    val missingRequiredParams = this.getRequiredParams.filter {
-      p => this.get(p).isEmpty && this.getDefault(p).isEmpty
-    }
-    assert(missingRequiredParams.isEmpty,
-      s"Missing required params: ${missingRequiredParams.map(s => s.name).mkString("(", ", ", ")")}")
-
-    val dynamicParamCols = getVectorParamMap.values.toList.map(col) match {
-      case Nil => Seq(lit(false).alias("placeholder"))
-      case l => l
-    }
-
     if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
       getModelStatus(getDeploymentName)
     }
-
-    val stages = Array(
-      Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc _)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setTimeout(getTimeout)
-        .setErrorCol(getErrorCol),
-      new DropColumns().setCol(dynamicParamColName)
-    )
-
-    NamespaceInjections.pipelineModel(stages)
-  }
+    super.getInternalTransformer(schema)
 }
