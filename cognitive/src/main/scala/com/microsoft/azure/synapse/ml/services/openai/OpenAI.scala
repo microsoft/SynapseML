@@ -273,4 +273,5 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
       getModelStatus(getDeploymentName)
     }
     super.getInternalTransformer(schema)
+  }
 }
