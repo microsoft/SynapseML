@@ -4,16 +4,12 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting, OpenAITokenLibrary}
-import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
-import org.apache.spark.ml.{NamespaceInjections, PipelineModel}
+import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, lit, struct}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 
