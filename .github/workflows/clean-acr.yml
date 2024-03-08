@@ -37,7 +37,7 @@ jobs:
          with:
            python-version: '3.x'
        - name: Execute clean-acr.py
-         uses: azure/CLI@v1
+         uses: azure/CLI@v2
          with:
            inlineScript: |
              python -m venv acr-env
