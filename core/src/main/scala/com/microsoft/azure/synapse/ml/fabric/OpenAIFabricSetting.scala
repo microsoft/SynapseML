@@ -42,7 +42,9 @@ trait OpenAIFabricSetting extends RESTUtils {
         s"for Cross Geo, please contact your admin if you want to use default fabric LLM model. " +
         s"Or you can set your Azure OpenAI credentials.")
       case "ModelNotFound" => throw new RuntimeException(s"Default OpenAI model ${modelName} not found, " +
-        s"please check your deployment name.")
+        s"please check your deployment name. " +
+        s"Refer to https://learn.microsoft.com/en-us/fabric/data-science/ai-services/ai-services-overview " +
+        s"for the models available.")
       case "InvalidResult" => throw new RuntimeException("Cannot get tenant admin setting status correctly")
       case "Allowed" => true
       case _ => throw new RuntimeException("Unexpected result from checking the Fabric tenant settings API.")
