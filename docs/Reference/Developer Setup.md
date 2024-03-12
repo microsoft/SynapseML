@@ -106,6 +106,10 @@ Installs generated python wheel into existing env
 
 Generates and runs python tests
 
+### `pythonStyle`
+
+Checks style of python code
+
 ## Environment + Publishing Commands
 
 ### `getDatasets`
