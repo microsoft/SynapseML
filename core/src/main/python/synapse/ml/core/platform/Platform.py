@@ -76,8 +76,8 @@ def find_secret(secret_name, keyvault):
             f"on fabric make sure your azure identity can access your azure keyvault. "
             f"If you want to avoid making a keyvault, replace this call to find secret with your secret as a string "
             f"like my_secret = 'jdiej38dnal.....'. Note that this has "
-            f"security implications for publishing and sharing notebooks!"
-            f"Please see the documentation for more information."
+            f"security implications for publishing and sharing notebooks! "
+            f"Please see the documentation for more information. "
             f"https://microsoft.github.io/SynapseML/docs/Get%20Started/Set%20up%20Cognitive%20Services/"
         )
 
