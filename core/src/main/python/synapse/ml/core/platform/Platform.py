@@ -47,27 +47,28 @@ def running_on_databricks():
 
 
 def find_secret(secret_name, keyvault):
-    if running_on_synapse():
-        from notebookutils.mssparkutils.credentials import getSecret
+    try:
+        if running_on_synapse():
+            from notebookutils.mssparkutils.credentials import getSecret
 
-        return getSecret(keyvault, secret_name)
-    elif running_on_synapse_internal():
-        from notebookutils.mssparkutils.credentials import getSecret
+            return getSecret(keyvault, secret_name)
+        elif running_on_synapse_internal():
+            from notebookutils.mssparkutils.credentials import getSecret
 
-        keyVaultURL = f"https://{keyvault}.vault.azure.net/"
-        return getSecret(keyVaultURL, secret_name)
-    elif running_on_databricks():
-        from pyspark.sql import SparkSession
-        from pyspark.dbutils import DBUtils
+            keyVaultURL = f"https://{keyvault}.vault.azure.net/"
+            return getSecret(keyVaultURL, secret_name)
+        elif running_on_databricks():
+            from pyspark.sql import SparkSession
+            from pyspark.dbutils import DBUtils
 
-        spark = SparkSession.builder.getOrCreate()
-        dbutils = DBUtils(spark)
-        return dbutils.secrets.get(scope=keyvault, key=secret_name)
-    else:
+            spark = SparkSession.builder.getOrCreate()
+            dbutils = DBUtils(spark)
+            return dbutils.secrets.get(scope=keyvault, key=secret_name)
+    except:
         raise RuntimeError(
             f"Could not find {secret_name} in keyvault {keyvault}. "
             f"If you are trying to use the mmlspark-buil-keys keyvault, you cant! "
-            f"You need to make your own keyvaukt with secrets or replace this call with a string. "
+            f"You need to make your own keyvault with secrets or replace this call with a string. "
             f"Make sure your notebook has access to a "
             f"keyvault named {keyvault} which contains a secret named {secret_name}. "
             f"On synapse, use a linked service keyvault, "
@@ -76,6 +77,8 @@ def find_secret(secret_name, keyvault):
             f"If you want to avoid making a keyvault, replace this call to find secret with your secret as a string "
             f"like my_secret = 'jdiej38dnal.....'. Note that this has "
             f"security implications for publishing and sharing notebooks!"
+            f"Please see the documentation for more information."
+            f"https://microsoft.github.io/SynapseML/docs/Get%20Started/Set%20up%20Cognitive%20Services/"
         )
 
 
