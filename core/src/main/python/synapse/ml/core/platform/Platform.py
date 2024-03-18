@@ -64,6 +64,8 @@ def find_secret(secret_name, keyvault):
             spark = SparkSession.builder.getOrCreate()
             dbutils = DBUtils(spark)
             return dbutils.secrets.get(scope=keyvault, key=secret_name)
+        else:
+            raise RuntimeError("get secret is not supported on this platform.")
     except:
         raise RuntimeError(
             f"Could not find {secret_name} in keyvault {keyvault}. "
