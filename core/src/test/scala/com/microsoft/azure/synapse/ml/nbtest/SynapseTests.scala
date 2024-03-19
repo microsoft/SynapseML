@@ -71,7 +71,7 @@ class SynapseTests extends TestBase {
 
   println(s"Creating $expectedPoolCount Spark Pools...")
   // val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
-  val sparkPools: Seq[String] = Seq.fill(expectedPoolCount)("synapseml34pool")
+  val sparkPools: Seq[String] = Seq.fill(expectedPoolCount)("sml34pool3")
 
 
   val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
