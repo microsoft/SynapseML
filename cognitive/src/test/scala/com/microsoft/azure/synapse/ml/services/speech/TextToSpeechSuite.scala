@@ -43,7 +43,7 @@ class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveK
     """<speak xmlns="http://www.w3.org/2001/10/synthesis" """ +
       """xmlns:mstts="http://www.w3.org/2001/mstts" """ +
       """xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US">""" +
-      """<voice name="en-US-JennyNeural"><mstts:express-as role='female' style='terrified'>""" +
+      """<voice name="en-US-JaneNeural"><mstts:express-as role='female' style='terrified'>""" +
       """This is how I sound right now.</mstts:express-as></voice></speak>""",
     new File(saveDir, "test1.mp3").toString)).toDF("text", "filename")
 
