@@ -5,7 +5,12 @@ package com.microsoft.azure.synapse.ml.fabric
 
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
-object TokenLibrary {
+
+trait AuthHeaderProvider {
+  def getAuthHeader: String
+}
+
+object TokenLibrary extends AuthHeaderProvider {
   def getAccessToken: String = {
     val objectName = "com.microsoft.azure.trident.tokenlibrary.TokenLibrary"
     val mirror = currentMirror
@@ -24,4 +29,7 @@ object TokenLibrary {
     val methodMirror = mirror.reflect(obj).reflectMethod(selectedMethodSymbol.asMethod)
     methodMirror("pbi").asInstanceOf[String]
   }
+
+
+  def getAuthHeader: String = "Bearer " + getAccessToken
 }
