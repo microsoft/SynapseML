@@ -30,11 +30,11 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-13.3"
-  val GpuPoolName = "synapseml-build-13.3-gpu"
-  val AdbRuntime = "13.3.x-scala2.12"
-  // https://docs.databricks.com/en/release-notes/runtime/13.3lts-ml.html
-  val AdbGpuRuntime = "13.3.x-gpu-ml-scala2.12"
+  val PoolName = "synapseml-build-14.3"
+  val GpuPoolName = "synapseml-build-14.3-gpu"
+  val AdbRuntime = "14.3.x-scala2.12"
+  // https://docs.databricks.com/en/release-notes/runtime/14.3lts-ml.html
+  val AdbGpuRuntime = "14.3.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -64,7 +64,7 @@ object DatabricksUtilities {
     "pdf2image",
     "pdfminer.six",
     "sqlparse",
-    "raiwidgets",
+    // "raiwidgets", // Broken on ADB
     "interpret-community",
     "numpy==1.22.4",
     "unstructured==0.10.24",
@@ -105,6 +105,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
+    .filterNot(_.getAbsolutePath.contains("Isolation Forests")) // TODO Remove this exclusion when raiwidgets is fixed
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
 

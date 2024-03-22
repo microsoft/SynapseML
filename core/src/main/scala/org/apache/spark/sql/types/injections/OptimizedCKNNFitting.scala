@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.nn._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.catalyst.types.PhysicalDataType
 import org.apache.spark.sql.types._
 
 trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
@@ -35,12 +36,12 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
 
   protected def fitOptimized(dataset: Dataset[_]): ConditionalKNNModel = {
 
-    val vt = dataset.schema(getValuesCol).dataType
-    val lt = dataset.schema(getLabelCol).dataType
+    val vt = PhysicalDataType.apply(dataset.schema(getValuesCol).dataType)
+    val lt = PhysicalDataType.apply(dataset.schema(getLabelCol).dataType)
     (vt, lt) match {
-      case (avt: AtomicType, alt: AtomicType) => fitGeneric[avt.InternalType, alt.InternalType](dataset)
-      case (avt: AtomicType, _) => fitGeneric[avt.InternalType, Any](dataset)
-      case (_, alt: AtomicType) => fitGeneric[Any, alt.InternalType](dataset)
+      case (avt: PhysicalDataType, alt: PhysicalDataType) => fitGeneric[avt.InternalType, alt.InternalType](dataset)
+      case (avt: PhysicalDataType, _) => fitGeneric[avt.InternalType, Any](dataset)
+      case (_, alt: PhysicalDataType) => fitGeneric[Any, alt.InternalType](dataset)
       case _ => fitGeneric[Any, Any](dataset)
     }
   }
@@ -69,8 +70,8 @@ trait OptimizedKNNFitting extends KNNParams with SynapseMLLogging {
 
   protected def fitOptimized(dataset: Dataset[_]): KNNModel = {
 
-    dataset.schema(getValuesCol).dataType match {
-      case avt: AtomicType => fitGeneric[avt.InternalType](dataset)
+    PhysicalDataType.apply(dataset.schema(getValuesCol).dataType) match {
+      case avt: PhysicalDataType => fitGeneric[avt.InternalType](dataset)
       case _ => fitGeneric[Any](dataset)
     }
   }

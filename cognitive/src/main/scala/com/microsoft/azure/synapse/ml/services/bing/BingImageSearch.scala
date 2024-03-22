@@ -15,7 +15,7 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
@@ -44,7 +44,7 @@ object BingImageSearch extends ComplexParamsReadable[BingImageSearch] with Seria
                       ): Lambda = {
     Lambda({ df =>
       val outputSchema = df.schema.add(bytesCol, BinaryType, nullable = true)
-      val encoder = RowEncoder(outputSchema)
+      val encoder = ExpressionEncoder(outputSchema)
       df.toDF().mapPartitions { rows =>
         val futures = rows.map { row: Row =>
           (Future {

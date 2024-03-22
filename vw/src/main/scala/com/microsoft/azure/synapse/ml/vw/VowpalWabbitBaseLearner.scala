@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.utils.{FaultToleranceUtils, ParamsStr
 import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.param.{Param, StringArrayParam}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions.{col, lit, spark_partition_id}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row, SparkSession}
@@ -312,7 +312,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
     // construct buffer & schema for buffered predictions
     val predictionBuffer = createPredictionBuffer(schema)
-    val encoder = RowEncoder(predictionBuffer.schema)
+    val encoder = ExpressionEncoder(predictionBuffer.schema)
 
     // always include preserve perf counters to make sure all information is retained in serialized model for
     // model merging

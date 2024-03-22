@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.vw
 
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.{StructField}
 import org.vowpalwabbit.spark.VowpalWabbitExample
@@ -41,7 +41,7 @@ trait VowpalWabbitBaseModelSpark
     val outputSchema = dataset.schema.add(StructField(vowpalWabbitPredictionCol, schemaForPredictionType, false))
 
     // create a fitting row encoder
-    val rowEncoder = RowEncoder(outputSchema)
+    val rowEncoder = ExpressionEncoder(outputSchema)
 
     dataset.toDF.mapPartitions(inputRows => {
       inputRows.map { row => {
