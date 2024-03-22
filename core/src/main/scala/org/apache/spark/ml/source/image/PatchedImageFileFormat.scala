@@ -13,7 +13,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.sources._
@@ -118,7 +118,7 @@ class PatchedImageFileFormat extends ImageFileFormat with Serializable with Logg
         if (requiredSchema.isEmpty) {
           filteredResult.map(_ => emptyUnsafeRow)
         } else {
-          val converter = RowEncoder(requiredSchema)
+          val converter = ExpressionEncoder(requiredSchema)
           filteredResult.map(row => converter.createSerializer()(row))
         }
       }

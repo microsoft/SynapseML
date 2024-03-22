@@ -11,7 +11,7 @@ dependencies:
   - r-devtools=2.4.2
   - pip:
     - pyarrow>=0.15.0
-    - pyspark==3.4.1
+    - pyspark==3.5.0
     - pandas==1.2.5
     - wheel
     - sphinx==4.2.0
