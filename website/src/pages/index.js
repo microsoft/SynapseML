@@ -269,7 +269,7 @@ function Home() {
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.2",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.3",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -315,9 +315,9 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.2 # Please use 1.0.2 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
-pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.2
-spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.3 # Please use 1.0.3 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
+pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.3
+spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.3 MyApp.jar `}
                     lang="bash"
                   ></CodeSnippet>
                   This can be used in other Spark contexts too. For example, you
@@ -345,7 +345,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                     <p>For the coordinates:</p>
                     Spark 3.4 Cluster:
                     <CodeSnippet
-                      snippet={`com.microsoft.azure:synapseml_2.12:1.0.2`}
+                      snippet={`com.microsoft.azure:synapseml_2.12:1.0.3`}
                       lang="bash"
                     ></CodeSnippet>
                     Spark 3.3 Cluster:
@@ -368,7 +368,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                   notebooks. To get started with our example notebooks import
                   the following databricks archive:
                   <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.0.2.dbc`}
+                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.0.3.dbc`}
                     lang="bash"
                   ></CodeSnippet>
                 </TabItem>
@@ -406,7 +406,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.2") # Please use 1.0.2 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.3") # Please use 1.0.3 version for Spark3.4 and 0.11.4-spark3.3 version for Spark3.3
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 import synapse.ml`}
@@ -418,19 +418,19 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.0.2" // Please use 1.0.2 version for Spark3.2 and 1.0.2-spark3.3 version for Spark3.3`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.0.3" // Please use 1.0.3 version for Spark3.2 and 1.0.3-spark3.3 version for Spark3.3`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="dotnet">
                   To try out SynapseML with .NET, you should add SynapseML's assembly into reference:
                   <CodeSnippet
-                    snippet={`dotnet add package SynapseML.Cognitive --version 1.0.2
-dotnet add package SynapseML.Core --version 1.0.2
-dotnet add package SynapseML.Lightgbm --version 1.0.2
-dotnet add package SynapseML.DeepLearning --version 1.0.2
-dotnet add package SynapseML.Opencv --version 1.0.2
-dotnet add package SynapseML.Vw --version 1.0.2`}
+                    snippet={`dotnet add package SynapseML.Cognitive --version 1.0.3
+dotnet add package SynapseML.Core --version 1.0.3
+dotnet add package SynapseML.Lightgbm --version 1.0.3
+dotnet add package SynapseML.DeepLearning --version 1.0.3
+dotnet add package SynapseML.Opencv --version 1.0.3
+dotnet add package SynapseML.Vw --version 1.0.3`}
                     lang="bash"
                   ></CodeSnippet>
                   For detailed installation, please refer this{" "}

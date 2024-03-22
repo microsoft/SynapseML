@@ -120,7 +120,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.2",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.3",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -175,7 +175,7 @@ the above example, or from python:
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.2") \
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.3") \
             .getOrCreate()
 import synapse.ml
 ```
@@ -186,9 +186,9 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.2
-pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.2
-spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.2 MyApp.jar
+spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.3
+pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.3
+spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.3 MyApp.jar
 ```
 
 ### SBT
@@ -197,7 +197,7 @@ If you are building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "1.0.2"
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "1.0.3"
 ```
 
 ### Apache Livy and HDInsight
@@ -211,7 +211,7 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "synapseml",
     "conf": {
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.2",
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.3",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind"
     }
 }
