@@ -26,9 +26,9 @@ SynapseML requires Scala 2.12, Spark 3.4+, and Python 3.8+.
   - [Features](#features)
   - [Documentation and Examples](#documentation-and-examples)
   - [Setup and installation](#setup-and-installation)
+    - [Microsoft Fabric](#microsoft-fabric)
     - [Synapse Analytics](#synapse-analytics)
     - [Databricks](#databricks)
-    - [Microsoft Fabric](#microsoft-fabric)
     - [Python Standalone](#python-standalone)
     - [Spark Submit](#spark-submit)
     - [SBT](#sbt)
@@ -72,17 +72,25 @@ For quickstarts, documentation, demos, and examples please see our [website](htt
 
 First select the correct platform that you are installing SynapseML into:
 <!--ts-->
-- [Microsoft Fabric](#microsoft-fabric)
-- [Synapse Analytics](#synapse-analytics)
-- [Databricks](#databricks)
-- [Python Standalone](#python-standalone)
-- [Spark Submit](#spark-submit)
-- [SBT](#sbt)
-- [Apache Livy and HDInsight](#apache-livy-and-hdinsight)
-- [Docker](#docker)
-- [R](#r)
-- [C# (.NET)](#c-net)
-- [Building from source](#building-from-source)
+- [Synapse Machine Learning](#synapse-machine-learning)
+  - [Features](#features)
+  - [Documentation and Examples](#documentation-and-examples)
+  - [Setup and installation](#setup-and-installation)
+    - [Microsoft Fabric](#microsoft-fabric)
+    - [Synapse Analytics](#synapse-analytics)
+    - [Databricks](#databricks)
+    - [Python Standalone](#python-standalone)
+    - [Spark Submit](#spark-submit)
+    - [SBT](#sbt)
+    - [Apache Livy and HDInsight](#apache-livy-and-hdinsight)
+    - [Docker](#docker)
+    - [R](#r)
+    - [C# (.NET)](#c-net)
+    - [Building from source](#building-from-source)
+  - [Papers](#papers)
+  - [Learn More](#learn-more)
+  - [Contributing \& feedback](#contributing--feedback)
+  - [Other relevant projects](#other-relevant-projects)
 <!--te-->
 
 
@@ -112,6 +120,22 @@ In Microsoft Fabric notebooks SynapseML is already installed. To change the vers
 ### Synapse Analytics
 
 In Azure Synapse notebooks please place the following in the first cell of your notebook. 
+
+- For Spark 3.5 Pools:
+
+```bash
+%%configure -f
+{
+  "name": "synapseml",
+  "conf": {
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.3",
+      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.yarn.user.classpath.first": "true",
+      "spark.sql.parquet.enableVectorizedReader": "false"
+  }
+}
+```
 
 - For Spark 3.4 Pools:
 
