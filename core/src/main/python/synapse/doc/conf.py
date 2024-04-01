@@ -31,8 +31,8 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project = "Microsoft Machine Learning for Apache Spark"
-copyright = "2017, Microsoft"
+project = "Synapse Machine Learning"
+copyright = "2024, Microsoft"
 author = "Microsoft"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -51,7 +51,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # These patterns also affect html_static_path and html_extra_path
-exclude_patterns = []
+exclude_patterns = ["cognitive/src/main/python/synapse/ml/cognitive/*"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
