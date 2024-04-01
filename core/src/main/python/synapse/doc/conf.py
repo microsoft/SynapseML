@@ -51,7 +51,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # These patterns also affect html_static_path and html_extra_path
-exclude_patterns = ["cognitive/src/main/python/synapse/ml/cognitive/*"]
+exclude_patterns = ["../../../../../../cognitive/src/main/python/synapse/ml/cognitive/"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
