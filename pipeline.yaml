@@ -392,6 +392,7 @@ jobs:
           sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 40
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -513,6 +514,7 @@ jobs:
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Test R Code'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -758,6 +760,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@2
       displayName: 'Unit Test'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 90
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -770,9 +773,7 @@ jobs:
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
-
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
