@@ -53,7 +53,7 @@ object DotnetCodegen {
          |
          |  <ItemGroup>
          |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
-         |    <PackageReference Include="SynapseML.DotnetBase" Version="1.0.2" />
+         |    <PackageReference Include="SynapseML.DotnetBase" Version="1.0.3" />
          |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
          |    $newtonsoftDep
          |  </ItemGroup>
