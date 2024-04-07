@@ -139,3 +139,14 @@ Publishes the library to Sonatype staging repo
 ### `sonatypeRelease`
 
 Promotes the published Sonatype artifact
+
+## Debugging sbt Commands in IDEA
+To debug sbt commands directly in eclipse you must use remote jvm debugging.
+1. Create a new remote run/debug configuration in IDEA with the following arguments for the remote JVM
+
+   ```-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005```
+3. Run sbt in the terminal with `sbt -jvm-debug 5005`
+4. Run the newly created run/debug configuration. It should say something like
+
+   ```Connected to the target VM, address: 'localhost:5005', transport: 'socket'```
+6. Set breakpoints and run your sbt command from the debug-enabled terminal session. The debug configuration is tied to the remote sbt session, so you can run the command multiple times without restarting the debug session.
