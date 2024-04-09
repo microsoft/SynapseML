@@ -128,7 +128,7 @@ object CodegenPlugin extends AutoPlugin {
     Def.task {
       (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyCodegen $arg").value
     }
-  } tag (RCodeGenTag)
+  } tag (PyCodeGenTag)
 
   def pyTestGenImpl: Def.Initialize[Task[Unit]] = Def.taskDyn {
     (Compile / compile).value
