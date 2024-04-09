@@ -3,14 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.regression.{RegressionModel, Regressor}
 import org.apache.spark.sql.Dataset
 
-class TestRegressorModel()
-  extends RegressionModel[Vector, TestRegressorModel] {
+private[codegen] class TestRegressorModel extends RegressionModel[Vector, TestRegressorModel] {
   override def predict(features: Vector): Double = 0.0
 
   override def copy(extra: ParamMap): TestRegressorModel = defaultCopy(extra)
@@ -18,18 +16,12 @@ class TestRegressorModel()
   override val uid: String = "test"
 }
 
-class TestRegressor
-  extends Regressor[Vector, TestRegressor, TestRegressorModel]
-    with Wrappable {
+private[codegen] class TestRegressor extends Regressor[Vector, TestRegressor, TestRegressorModel] with Wrappable {
   override def copy(extra: ParamMap): TestRegressor = defaultCopy(extra)
 
-  override protected def train(dataset: Dataset[_]): TestRegressorModel = {
-    new TestRegressorModel()
-  }
+  override protected def train(dataset: Dataset[_]): TestRegressorModel = new TestRegressorModel()
 
-  def getCompanionModelClassName(): String = {
-    this.companionModelClassName
-  }
+  def getCompanionModelClassName(): String = this.companionModelClassName
 
   override val uid: String = "test"
 }

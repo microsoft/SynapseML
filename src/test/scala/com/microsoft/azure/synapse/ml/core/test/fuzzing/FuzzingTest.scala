@@ -3,26 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.core.test.fuzzing
 
-import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.services.{HasAADToken, HasSubscriptionKey}
 import com.microsoft.azure.synapse.ml.core.contracts.{HasFeaturesCol, HasInputCol, HasLabelCol, HasOutputCol}
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
+import com.microsoft.azure.synapse.ml.services.{HasAADToken, HasSubscriptionKey}
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
-import java.io.File
 import java.lang.reflect.ParameterizedType
-import java.nio.charset.MalformedInputException
-import java.nio.file.Files
-import scala.collection.JavaConverters._
-import scala.io.Source
 import scala.language.existentials
-import scala.util.matching.Regex
 
 /** Tests to validate fuzzing of modules. */
 class FuzzingTest extends TestBase {
@@ -79,7 +70,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.automl.BestModel" //TODO add proper interfaces to all of these
+      "com.microsoft.azure.synapse.ml.automl.BestModel", //TODO add proper interfaces to all of these
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
 
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
@@ -135,7 +128,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel"
+      "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -187,7 +182,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
+      "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -241,7 +238,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics"
+      "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -334,7 +333,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.exploratory.AggregateBalanceMeasure",
       "com.microsoft.azure.synapse.ml.exploratory.DistributionBalanceMeasure",
       "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure",
-      "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel"
+      "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
     )
 
     pipelineStages.foreach { stage =>
@@ -356,7 +357,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.MixedParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
-      "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase"
+      "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
     )
     val clazz = classOf[SynapseMLLogging]
 
