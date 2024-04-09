@@ -72,8 +72,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel", //TODO add proper interfaces to all of these
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
-
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
