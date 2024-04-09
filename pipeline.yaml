@@ -10,6 +10,10 @@ trigger:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
+    - "docs/Reference/Contributor Guide.md"
+    - "docs/Reference/Developer Setup.md"
+    - "docs/Reference/Docker Setup.md"
+    - "docs/Reference/Dotnet Setup.md"
     - CODEOWNERS
 
 pr:
@@ -21,6 +25,10 @@ pr:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
+    - "docs/Reference/Contributor Guide.md"
+    - "docs/Reference/Developer Setup.md"
+    - "docs/Reference/Docker Setup.md"
+    - "docs/Reference/Dotnet Setup.md"
     - CODEOWNERS
 
 schedules:
