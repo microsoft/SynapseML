@@ -130,7 +130,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -184,7 +184,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -240,7 +240,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -335,7 +335,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.exploratory.FeatureBalanceMeasure",
       "com.microsoft.azure.synapse.ml.isolationforest.IsolationForestModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
 
     pipelineStages.foreach { stage =>
@@ -359,7 +359,7 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.core.serialize.StandardParamTest",
       "com.microsoft.azure.synapse.ml.core.serialize.TestEstimatorBase",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
-      "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
+      "com.microsoft.azure.synapse.ml.codegen.TestRegressor"
     )
     val clazz = classOf[SynapseMLLogging]
 
