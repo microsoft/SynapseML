@@ -14,7 +14,7 @@ dependencies:
     - pyspark==3.4.1
     - pandas==1.4.0
     - wheel
-    - sphinx==4.2.0
+    - sphinx==5.0.2
     - sphinx_paramlinks==0.5.2
     - sphinx_rtd_theme
     - coverage
