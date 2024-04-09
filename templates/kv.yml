@@ -1,5 +1,6 @@
 steps:
   - task: AzureKeyVault@1
+    retryCountOnTaskFailure: 3
     inputs:
       azureSubscription: 'SynapseML Build'
       keyVaultName: mmlspark-keys

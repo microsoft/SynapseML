@@ -66,7 +66,7 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   def setUserCol(v: String): this.type = setVectorParam(user, v)
 
-  setDefault(apiVersion -> Left("2023-03-15-preview"))
+  setDefault(apiVersion -> Left("2024-02-01"))
 
 }
 
