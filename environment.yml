@@ -12,7 +12,7 @@ dependencies:
   - pip:
     - pyarrow>=0.15.0
     - pyspark==3.4.1
-    - pandas==1.2.5
+    - pandas==1.4.0
     - wheel
     - sphinx==4.2.0
     - sphinx_paramlinks==0.5.2
@@ -32,9 +32,9 @@ dependencies:
     - jupyter
     - mlflow
     - numpy
-    - torch==1.13.1
-    - torchvision==0.14.1
-    - horovod==0.28.1
+    - torch==2.0.0
+    - torchvision==0.15.1
+    # - horovod==0.28.1
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
