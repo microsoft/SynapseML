@@ -461,7 +461,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt codegen
           sbt publishM2
-          SPARK_VERSION=3.4.1
+          SPARK_VERSION=3.3.3
           HADOOP_VERSION=3
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
