@@ -63,7 +63,7 @@ object Secrets {
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
   lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
-  lazy val SynapseSpnKey: String = getSecret("synapse-spn-key")
+
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
 
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")

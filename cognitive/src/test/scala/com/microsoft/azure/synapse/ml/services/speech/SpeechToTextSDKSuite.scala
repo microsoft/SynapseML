@@ -232,9 +232,9 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   }
 
   test("SAS URL based access") {
-    val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav?sv=2019-12-12" +
-      "&st=2021-01-25T16%3A40%3A13Z&se=2024-01-26T16%3A40%3A00Z" +
-      "&sr=b&sp=r&sig=NpFm%2FJemAJOGIya1ykQ6f80YdvwpiAuJjnb2RVDtKro%3D"
+    val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
+      "?sp=r&st=2024-03-18T20:17:56Z&se=9999-03-19T04:17:56Z&spr=https&sv=2022-11-02" +
+      "&sr=b&sig=JUU1ojKzTbb45bSP7rOAVXajwrUEp9Ux20oCiD8%2Bb%2FM%3D"
 
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1(sasURL))
@@ -429,8 +429,8 @@ class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTran
 
   test("SAS URL based access") {
     val sasURL = "https://mmlspark.blob.core.windows.net/datasets/Speech/audio2.wav" +
-      "?sv=2019-12-12&st=2021-01-25T16%3A40%3A13Z&se=2024-01-26T16%3A40%3A00Z&sr=b&sp=r" +
-      "&sig=NpFm%2FJemAJOGIya1ykQ6f80YdvwpiAuJjnb2RVDtKro%3D"
+      "?sp=r&st=2024-03-18T20:17:56Z&se=9999-03-19T04:17:56Z&spr=https&sv=2022-11-02" +
+      "&sr=b&sig=JUU1ojKzTbb45bSP7rOAVXajwrUEp9Ux20oCiD8%2Bb%2FM%3D"
 
     tryWithRetries(Array(100, 500)) { () => //For handling flaky build machines
       val uriDf = Seq(Tuple1(sasURL))

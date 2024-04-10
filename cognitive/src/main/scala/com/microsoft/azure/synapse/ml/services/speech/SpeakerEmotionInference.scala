@@ -29,7 +29,7 @@ class SpeakerEmotionInference(override val uid: String)
 
   setDefault(
     locale -> Left("en-US"),
-    voiceName -> Left("en-US-JennyNeural"),
+    voiceName -> Left("en-US-JaneNeural"),
     text -> Left(this.uid + "_text"))
 
   def urlPath: String = "cognitiveservices/v1"
@@ -54,7 +54,7 @@ class SpeakerEmotionInference(override val uid: String)
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { row =>
     val body: String =
       s"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts'" +
-        s" xml:lang='en-US'><voice name='Microsoft Server Speech Text to Speech Voice (en-US, JennyNeural)'>" +
+        s" xml:lang='en-US'><voice name='Microsoft Server Speech Text to Speech Voice (en-US, JaneNeural)'>" +
         s"<mstts:task name ='RoleStyle'/>${getValue(row, text)}</voice></speak>"
     Some(new StringEntity(body))
   }
