@@ -18,50 +18,50 @@ sidebar_label: CyberML
    In other words, it returns a sample from the complement set.
 
 ## feature engineering: [indexers.py](https://github.com/microsoft/SynapseML/blob/master/core/src/main/python/synapse/ml/cyber/feature/indexers.py)
-1. [IdIndexer](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.IdIndexer)
+1. [IdIndexer](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.IdIndexer)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Given a dataframe, it creates an IdIndexerModel (described next) for categorical features. The model
    maps each partition and column seen in the given dataframe to an ID,
    for each partition or one consecutive range for all partition and column values.
-2. [IdIndexerModel](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.IdIndexerModel)
+2. [IdIndexerModel](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.IdIndexerModel)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe maps each partition and column field to a consecutive integer ID.
    Partitions or column values not encountered in the estimator are mapped to 0.
    The model can operate in two modes, either create consecutive integer ID independently
-3. [MultiIndexer](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.MultiIndexer)
+3. [MultiIndexer](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.MultiIndexer)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Uses multiple IdIndexers to generate a MultiIndexerModel (described next) for categorical features. The model
    contains multiple IdIndexers for multiple partitions and columns.
-4. [MultiIndexerModel](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.MultiIndexerModel)
+4. [MultiIndexerModel](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.indexers.MultiIndexerModel)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe maps each partition and column field to a consecutive integer ID.
    Partitions or column values not encountered in the estimator are mapped to 0.
    The model can operate in two modes, either create consecutive integer ID independently
 
 ## feature engineering: [scalers.py](https://github.com/microsoft/SynapseML/blob/master/core/src/main/python/synapse/ml/cyber/feature/scalers.py)
-1. [StandardScalarScaler](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.StandardScalarScaler)
+1. [StandardScalarScaler](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.StandardScalarScaler)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Given a dataframe it creates a StandardScalarScalerModel (described next) which normalizes
    any given dataframe according to the mean and standard deviation calculated on the
    dataframe given to the estimator.
-2. [StandardScalarScalerModel](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.StandardScalarScalerModel)
+2. [StandardScalarScalerModel](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.StandardScalarScalerModel)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe with a value column x, the transformer changes its value as follows:
    x'=(x-mean)/stddev.  That is, if the transformer is given the same dataframe the estimator
    was given then the value column will have a mean of 0.0 and a standard deviation of 1.0.
-3. [LinearScalarScaler](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.LinearScalarScaler)
+3. [LinearScalarScaler](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.LinearScalarScaler)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Given a dataframe it creates a LinearScalarScalerModel (described next) which normalizes
    any given dataframe according to the minimum and maximum values calculated on the
    dataframe given to the estimator.
-4. [LinearScalarScalerModel](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.LinearScalarScalerModel)
+4. [LinearScalarScalerModel](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.feature.html#synapse.ml.cyber.feature.scalers.LinearScalarScalerModel)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe with a value column x, the transformer changes its value such that
    if the transformer is given the same dataframe the estimator
    was given then the value column will be scaled linearly to the given ranges.
 
 ## access anomalies: [collaborative_filtering.py](https://github.com/microsoft/SynapseML/blob/master/core/src/main/python/synapse/ml/cyber/anomaly/collaborative_filtering.py)
-1. [AccessAnomaly](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomaly)
+1. [AccessAnomaly](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomaly)
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Given a dataframe, the estimator generates an AccessAnomalyModel (described next). The model
    can detect anomalous access of users to resources where the access
@@ -69,14 +69,14 @@ sidebar_label: CyberML
    a resource from Finance. This result is based solely on access patterns rather than explicit features.
    Internally, the code is based on Collaborative Filtering as implemented in Spark, using
    Matrix Factorization with Alternating Least Squares.
-2. [AccessAnomalyModel](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomalyModel)
+2. [AccessAnomalyModel](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomalyModel)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    Given a dataframe the transformer computes a value between (-inf, inf) where positive
    values indicate an anomaly score. Anomaly scores are computed to have a mean of 1.0
    and a standard deviation of 1.0 over the original dataframe given to the estimator.
-3. [ModelNormalizeTransformer](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.ModelNormalizeTransformer)
+3. [ModelNormalizeTransformer](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.ModelNormalizeTransformer)
    is a SparkML [Transformer](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Transformer.html).
    This transformer is used internally by AccessAnomaly to normalize a model to generate
    anomaly scores with mean 0.0 and standard deviation of 1.0.
-4. [AccessAnomalyConfig](https://mmlspark.blob.core.windows.net/docs/1.0.3/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomalyConfig)
+4. [AccessAnomalyConfig](https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomalyConfig)
    contains the default values for AccessAnomaly.
