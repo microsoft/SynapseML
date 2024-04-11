@@ -72,4 +72,7 @@ object Secrets {
   lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
   lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
+  lazy val FabricIntegrationPassword: String = getSecret("synapse-extension-SynapseMLFabricIntegration-password")
+
+
 }

@@ -39,20 +39,6 @@ schedules:
       include:
         - master
 
-parameters:
-  - name: runSynapseExtensionE2ETests
-    displayName: Run Synapse Extension E2E Tests
-    type: boolean
-    default: true
-  - name: SYNAPSE_ENVIRONMENT
-    displayName: Synapse Extension E2E Test Environment
-    type: string
-    default: weekly
-    values:
-      - dev
-      - daily
-      - weekly
-
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
@@ -152,9 +138,8 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
+      synapse-internal:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
