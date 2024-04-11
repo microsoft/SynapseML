@@ -421,6 +421,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -550,6 +551,7 @@ jobs:
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
     - task: AzureCLI@2
+      retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -592,6 +594,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -790,6 +793,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
