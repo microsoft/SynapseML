@@ -762,6 +762,7 @@ jobs:
     - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
