@@ -9,7 +9,7 @@ import org.apache.spark.ml.param._
 
 import scala.reflect.ClassTag
 
-case class ParamInfo[T <: Param[_] : ClassTag](pyType: String,
+case class ParamInfo[T <: Param[_]: ClassTag](pyType: String,
                                                pyTypeConverter: Option[String],
                                                rTypeConverter: Option[String],
                                                example: Any) {
