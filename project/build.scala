@@ -1,6 +1,7 @@
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
+import java.lang.Thread
 
 object BuildUtils {
   def join(root: File, folders: String*): File = {
@@ -70,10 +71,13 @@ object BuildUtils {
       workDir)
   }
 
+
   def uploadToBlob(source: String,
                    dest: String,
                    container: String,
-                   accountName: String = "mmlspark"): Unit = {
+                   accountName: String = "mmlspark",
+                   maxRetries: Int = 3,
+                   attempt: Int = 0): Unit = {
     val command = Seq("az", "storage", "blob", "upload-batch",
       "--source", source,
       "--destination", container,
@@ -82,7 +86,17 @@ object BuildUtils {
       "--overwrite", "true",
       "--auth-mode", "login"
     )
-    runCmd(osPrefix ++ command)
+
+    try {
+      runCmd(osPrefix ++ command)
+    } catch {
+      case e: RuntimeException if e.getMessage.contains("AADSTS700024") && attempt < maxRetries =>
+        println(s"Authentication error: $e, retrying in 5 seconds...")
+        Thread.sleep(5000)
+        uploadToBlob(source, dest, container, accountName, maxRetries, attempt + 1)
+      case e: RuntimeException =>
+        throw new RuntimeException(s"Failed after $attempt retries: ${e.getMessage}", e)
+    }
   }
 
   def downloadFromBlob(source: String,
@@ -138,7 +152,8 @@ object BuildUtils {
       val in = new BufferedInputStream(new FileInputStream(file), bufferSize)
       var b = 0
       while (b >= 0) {
-        zip.write(data, 0, b); b = in.read(data, 0, bufferSize)
+        zip.write(data, 0, b);
+        b = in.read(data, 0, bufferSize)
       }
       in.close()
       zip.closeEntry()
