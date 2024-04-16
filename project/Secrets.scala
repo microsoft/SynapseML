@@ -161,7 +161,6 @@ object Secrets {
   lazy val nexusUsername: String = getSecret(NexusUsernameEnvVarName, NexusUsernameSecretName)
   lazy val nexusPassword: String = getSecret(NexusPasswordEnvVarName, NexusPasswordSecretName)
   lazy val pgpPassword: String = getSecret(PgpPasswordEnvVarName, PgpPasswordSecretName)
-  lazy val storageKey: String = getSecret(StorageKeyEnvVarName, StorageKeySecretName)
   lazy val pypiApiToken: String = getSecret(PypiApiEnvVarName, PypiApiSecretName)
 
   lazy val pgpPrivateFile: File = getPgpSecretFile(PgpPrivateSecretName, PgpPrivateEnvVarName)
@@ -181,8 +180,6 @@ object Secrets {
   val PgpPrivateEnvVarName: String = "PGP-PRIVATE"
   val PgpPublicSecretName: String = "pgp-public"
   val PgpPublicEnvVarName: String = "PGP-PUBLIC"
-  val StorageKeySecretName: String = "storage-key"
-  val StorageKeyEnvVarName: String = "STORAGE-KEY"
   val PypiApiSecretName: String = "pypi-api-token"
   val PypiApiEnvVarName: String = "PYPI-API-TOKEN"
   val PublishToFeed: String = "PUBLISH-TO-FEED"

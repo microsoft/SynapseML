@@ -16,8 +16,7 @@ import scala.reflect.runtime.universe.typeTag
   * types but not Array of ParamMaps.
   */
 class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Array[ParamMap] => Boolean)
-  extends ComplexParam[Array[ParamMap]](parent, name, doc, isValid) with ParamEquality[Array[ParamMap]]
-    with ExternalDotnetWrappableParam[Array[ParamMap]]  {
+  extends ComplexParam[Array[ParamMap]](parent, name, doc, isValid) with ParamEquality[Array[ParamMap]] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Array[ParamMap]) => true)
@@ -31,47 +30,6 @@ class ArrayParamMapParam(parent: Params, name: String, doc: String, isValid: Arr
       case _ =>
         throw new AssertionError("Values do not extend from Evaluator type")
     }
-  }
-
-  override private[ml] def dotnetType: String = "ParamMap[]"
-
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    s"""|public $dotnetClassName Set$capName($dotnetType value)
-        |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetGetter(capName: String): String = {
-    s"""|public $dotnetReturnType Get$capName()
-        |{
-        |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-        |    var result = new ParamMap[jvmObjects.Length];
-        |    for (int i=0; i < jvmObjects.Length; i++)
-        |    {
-        |        result[i] = new ParamMap(jvmObjects[i]);
-        |    }
-        |    return result;
-        |}
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetTestValue(v: Array[ParamMap]): String = {
-    s"""${name}Param"""
-  }
-
-  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
-    s"""var ${name}ParamLoaded = (JvmObjectReference[])_jvm.CallStaticJavaMethod(
-       |    "com.microsoft.azure.synapse.ml.param.ArrayParamMapParam",
-       |    "loadForTest",
-       |    _spark,
-       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-       |var ${name}Param = new ParamMap[${name}ParamLoaded.Length];
-       |for (int i = 0; i < ${name}ParamLoaded.Length; i++)
-       |{
-       |    ${name}Param[i] = new ParamMap(${name}ParamLoaded[i]);
-       |}""".stripMargin
   }
 
 }

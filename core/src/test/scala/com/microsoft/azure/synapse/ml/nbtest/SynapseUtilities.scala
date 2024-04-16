@@ -178,7 +178,7 @@ object SynapseUtilities {
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
       " --overwrite true " +
-      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+      s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
     val excludes: String = Seq(

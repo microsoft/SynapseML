@@ -259,7 +259,7 @@ object SynapseExtensionUtilities {
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
       " --overwrite true " +
-      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+      s" --account-name $StorageAccount")
     s"https://$StorageAccount.blob.core.windows.net/$StorageContainer/$dest"
   }
 

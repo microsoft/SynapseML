@@ -30,15 +30,6 @@ object BuildUtils {
     }
   }
 
-  def dotnetedVersion(version: String): String = {
-    version match {
-      case s if s.contains("-") => {
-        val versionArray = s.split("-".toCharArray)
-        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
-      }
-      case s => s
-    }
-  }
 
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
@@ -79,17 +70,6 @@ object BuildUtils {
       workDir)
   }
 
-  def packDotnetAssemblyCmd(outputDir: String,
-                            workDir: File): Unit =
-    runCmd(Seq("dotnet", "pack", "--output", outputDir), workDir)
-
-  def publishDotnetAssemblyCmd(packagePath: String,
-                               sleetConfigFile: File): Unit =
-    runCmd(
-      Seq("sleet", "push", packagePath, "--config", sleetConfigFile.getAbsolutePath,
-        "--source", "SynapseMLNuget", "--force")
-    )
-
   def uploadToBlob(source: String,
                    dest: String,
                    container: String,
@@ -99,7 +79,6 @@ object BuildUtils {
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey,
       "--overwrite", "true"
     )
     runCmd(osPrefix ++ command)
@@ -113,8 +92,7 @@ object BuildUtils {
       "--destination", dest,
       "--pattern", source,
       "--source", container,
-      "--account-name", accountName,
-      "--account-key", Secrets.storageKey)
+      "--account-name", accountName)
     runCmd(osPrefix ++ command)
   }
 
@@ -128,7 +106,6 @@ object BuildUtils {
       "--container-name", container,
       "--name", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey,
       "--overwrite", "true"
     ) ++ extraArgs
     runCmd(osPrefix ++ command)

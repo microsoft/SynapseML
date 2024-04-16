@@ -7,7 +7,6 @@ function DocTable(props) {
   const version = context.siteConfig.customFields.version;
   let pyLink = `https://mmlspark.blob.core.windows.net/docs/${version}/pyspark/${py}`;
   let scalaLink = `https://mmlspark.blob.core.windows.net/docs/${version}/scala/${scala}`;
-  let csharpLink = `https://mmlspark.blob.core.windows.net/docs/${version}/dotnet/${csharp}`;
 
   return (
     <table>
@@ -22,12 +21,6 @@ function DocTable(props) {
           <td>
             <strong>Scala API: </strong>
             <a href={scalaLink}>
-              {className}
-            </a>
-          </td>
-          <td>
-            <strong>.NET API: </strong>
-            <a href={csharpLink}>
               {className}
             </a>
           </td>

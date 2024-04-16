@@ -142,17 +142,6 @@ class DataFrameParam(parent: Params, name: String, doc: String, isValid: DataFra
        """.stripMargin
   }
 
-  override private[ml] def dotnetTestValue(v: DataFrame): String = {
-    s"""${name}DF"""
-  }
-
-  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
-    s"""var ${name}DF = _spark.Read().Parquet(
-       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
-  }
-
-  override private[ml] def dotnetType: String = "DataFrame"
-
   override def assertEquality(v1: Any, v2: Any): Unit = {
     (v1, v2) match {
       case (df1: Dataset[_], df2: Dataset[_]) =>

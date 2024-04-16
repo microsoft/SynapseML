@@ -26,7 +26,6 @@ class ICENumericFeaturesParam(parent: Params,
                               doc: String,
                               isValid: Seq[ICENumericFeature] => Boolean = _.forall(_.validate)) extends
   TypedArrayParam[ICENumericFeature](parent, name, doc, isValid) {
-  override private[ml] def dotnetType = "ICENumericFeature[]"
 }
 
 class ICECategoricalFeaturesParam(parent: Params,
@@ -34,7 +33,6 @@ class ICECategoricalFeaturesParam(parent: Params,
                                   doc: String,
                                   isValid: Seq[ICECategoricalFeature] => Boolean = _.forall(_.validate)) extends
   TypedArrayParam[ICECategoricalFeature](parent, name, doc, isValid) {
-  override private[ml] def dotnetType = "ICECategoricalFeature[]"
 }
 
 

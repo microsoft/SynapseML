@@ -113,7 +113,6 @@ class VerifyOrthoDMLEstimator extends EstimatorFuzzing[OrthoForestDMLEstimator] 
       .setMinSamplesLeaf(100),
       ppfit, ppfit))
 
-  override def dotnetTestObjects(): Seq[TestObject[OrthoForestDMLEstimator]] = Seq()
 
   override def reader: MLReadable[_] = OrthoForestDMLEstimator
 

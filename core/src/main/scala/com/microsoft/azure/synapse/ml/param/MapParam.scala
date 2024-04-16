@@ -31,39 +31,7 @@ class MapParam[K, V](parent: Params, name: String, doc: String, isValid: Map[K, 
     json.parseJson.convertTo[Map[K, V]]
   }
 
-  private[ml] def dotnetType: String = "Dictionary<object, object>"
-
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    s"""|public $dotnetClassName Set$capName($dotnetType value) =>
-        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaHashMap()));
-        |""".stripMargin
-  }
-
   protected def valuesType = "object"
-
-  override private[ml] def dotnetGetter(capName: String): String = {
-    s"""|public $dotnetReturnType Get$capName()
-        |{
-        |    var jvmObject = (JvmObjectReference)Reference.Invoke(\"get$capName\");
-        |    var hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-        |        "org.apache.spark.api.dotnet.DotnetUtils", "convertToJavaMap", jvmObject);
-        |    var keySet = (JvmObjectReference[])(
-        |        (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
-        |    var result = new $dotnetReturnType();
-        |    foreach (var k in keySet)
-        |    {
-        |        result.Add((string)k.Invoke("toString"), ($valuesType)hashMap.Invoke("get", k));
-        |    }
-        |    return result;
-        |}
-        |""".stripMargin
-  }
-
-  private[ml] def dotnetTestValue(v: Map[K, V]): String =
-    s"""new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 
 }
 
@@ -72,8 +40,6 @@ class StringStringMapParam(parent: Params, name: String, doc: String, isValid: M
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Map[String, String]) => true)
-
-  override private[ml] def dotnetType: String = "Dictionary<string, string>"
 
   override protected def valuesType = "string"
 
@@ -84,8 +50,6 @@ class StringIntMapParam(parent: Params, name: String, doc: String, isValid: Map[
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Map[String, Int]) => true)
-
-  override private[ml] def dotnetType: String = "Dictionary<string, int>"
 
   override protected def valuesType = "int"
 
