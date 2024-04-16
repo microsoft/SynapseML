@@ -79,7 +79,8 @@ object BuildUtils {
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--overwrite", "true"
+      "--overwrite", "true",
+      "--auth-mode", "login"
     )
     runCmd(osPrefix ++ command)
   }
@@ -92,7 +93,9 @@ object BuildUtils {
       "--destination", dest,
       "--pattern", source,
       "--source", container,
-      "--account-name", accountName)
+      "--account-name", accountName,
+      "--auth-mode", "login"
+    )
     runCmd(osPrefix ++ command)
   }
 
@@ -106,7 +109,8 @@ object BuildUtils {
       "--container-name", container,
       "--name", dest,
       "--account-name", accountName,
-      "--overwrite", "true"
+      "--overwrite", "true",
+      "--auth-mode", "login"
     ) ++ extraArgs
     runCmd(osPrefix ++ command)
   }
