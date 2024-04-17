@@ -6,7 +6,6 @@ import spray.json.DefaultJsonProtocol.*
 
 import java.io.{File, IOException, PrintWriter}
 import java.util.Base64
-import scala.annotation.tailrec
 import scala.io.Source
 import scala.sys.process.*
 
@@ -19,7 +18,6 @@ object Secrets {
 
   lazy private val publishingEnabled: Boolean = sys.env.getOrElse(EnablePublishEnvVar, "false").toBoolean
 
-  @tailrec
   protected def exec(command: String, maxRetries: Int = 2, attempt: Int = 0): String = {
     val osCommand = sys.props("os.name").toLowerCase match {
       case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command)

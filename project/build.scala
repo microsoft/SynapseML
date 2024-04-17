@@ -1,7 +1,6 @@
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import scala.annotation.tailrec
 
 object BuildUtils {
   def join(root: File, folders: String*): File = {
@@ -35,8 +34,8 @@ object BuildUtils {
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
              envVars: Map[String, String] = Map(),
-             retries: Int = 3): Unit = {
-    @tailrec
+             retries: Int = 0): Unit = {
+
     def executeAttempt(remainingRetries: Int): Unit = {
       val pb = new ProcessBuilder()
         .directory(wd)
@@ -88,9 +87,7 @@ object BuildUtils {
   def uploadToBlob(source: String,
                    dest: String,
                    container: String,
-                   accountName: String = "mmlspark",
-                   maxRetries: Int = 3,
-                   attempt: Int = 0): Unit = {
+                   accountName: String = "mmlspark"): Unit = {
     val command = Seq("az", "storage", "blob", "upload-batch",
       "--source", source,
       "--destination", container,
@@ -100,7 +97,7 @@ object BuildUtils {
       "--auth-mode", "login"
     )
 
-    runCmd(osPrefix ++ command)
+    runCmd(osPrefix ++ command, retries=2)
 
   }
 
@@ -115,7 +112,7 @@ object BuildUtils {
       "--account-name", accountName,
       "--auth-mode", "login"
     )
-    runCmd(osPrefix ++ command)
+    runCmd(osPrefix ++ command, retries=2)
   }
 
   def singleUploadToBlob(source: String,
@@ -131,7 +128,7 @@ object BuildUtils {
       "--overwrite", "true",
       "--auth-mode", "login"
     ) ++ extraArgs
-    runCmd(osPrefix ++ command)
+    runCmd(osPrefix ++ command, retries=2)
   }
 
 
