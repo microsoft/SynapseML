@@ -93,7 +93,7 @@ jobs:
       inputs:
         artifactsFeeds: SynapseML_PublicPackages
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
-    - task: AzureCLI@2
+    - task: AzureCLI@1
       displayName: 'Publish Artifacts'
       inputs:
         azureSubscription: 'SynapseML Build'
