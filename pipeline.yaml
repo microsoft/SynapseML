@@ -93,14 +93,21 @@ jobs:
       inputs:
         artifactsFeeds: SynapseML_PublicPackages
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
-    - bash: |
-        set -e
-        sudo apt-get install graphviz doxygen -y
-        source activate synapseml
-        sbt packagePython
-      displayName: Package python
     - task: AzureCLI@2
-      displayName: 'Publish Artifacts'
+      displayName: 'Publish Artifacts 1'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          sudo apt-get install graphviz doxygen -y
+          source activate synapseml
+          sbt packagePython uploadNotebooks
+      env:
+        SYNAPSEML_ENABLE_PUBLISH: true
+    - task: AzureCLI@2
+      displayName: 'Publish Artifacts 2'
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -108,31 +115,10 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython uploadNotebooks
+          sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
           sbt genBuildInfo
           echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
           sbt -DskipCodegen=true publishLocalSigned
-          python tools/esrp/prepare_jar.py
-      env:
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
-    - task: AzureCLI@2
-      displayName: 'Publish Artifacts'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          source activate synapseml
-          sbt publishBlob publishDocs publishR publishPython uploadNotebooks
-          sbt genBuildInfo
-          echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
-          sbt publishLocalSigned
           python tools/esrp/prepare_jar.py
       env:
         NEXUS-UN: $(nexus-un)
