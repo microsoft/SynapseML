@@ -93,7 +93,7 @@ jobs:
       inputs:
         artifactsFeeds: SynapseML_PublicPackages
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
-    - task: AzureCLI@1
+    - task: AzureCLI@2
       displayName: 'Publish Artifacts'
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -101,6 +101,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
+          az account get-access-token --scope https://storage.azure.com/.default --output none
           sudo apt-get install graphviz doxygen -y
           source activate synapseml
           sbt packagePython
@@ -701,6 +702,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
+          az account get-access-token --scope https://vault.azure.net/.default --output none
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
