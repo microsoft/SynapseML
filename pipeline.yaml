@@ -457,11 +457,11 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
-      displayName: 'Test R Code'
+      displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'Prepare for tests'
+        azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
