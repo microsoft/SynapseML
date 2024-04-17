@@ -48,7 +48,6 @@ object BuildUtils {
       try {
         val result = pb.start().waitFor()
         if (result != 0) {
-          println(s"Error: result code: $result")
           throw new Exception(s"Execution resulted in non-zero exit code: $result")
         }
       } catch {
