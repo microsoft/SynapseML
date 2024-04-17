@@ -258,7 +258,7 @@ object SynapseExtensionUtilities {
     val dest = s"$Folder/${notebook.getName}"
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
-      " --overwrite true " +
+      " --overwrite true --auth-mode login" +
       s" --account-name $StorageAccount")
     s"https://$StorageAccount.blob.core.windows.net/$StorageContainer/$dest"
   }

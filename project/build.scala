@@ -1,7 +1,7 @@
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import java.lang.Thread
+import scala.annotation.tailrec
 
 object BuildUtils {
   def join(root: File, folders: String*): File = {
@@ -9,7 +9,7 @@ object BuildUtils {
   }
 
   def join(folders: String*): File = {
-    join(new File(folders.head), folders.tail: _*)
+    join(new File(folders.head), folders.tail *)
   }
 
   def isWindows: Boolean = {
@@ -34,19 +34,32 @@ object BuildUtils {
 
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
-             envVars: Map[String, String] = Map()): Unit = {
-    val pb = new ProcessBuilder()
-      .directory(wd)
-      .command(cmd: _*)
-      .redirectError(Redirect.INHERIT)
-      .redirectOutput(Redirect.INHERIT)
-    val env = pb.environment()
-    envVars.foreach(p => env.put(p._1, p._2))
-    val result = pb.start().waitFor()
-    if (result != 0) {
-      println(s"Error: result code: ${result}")
-      throw new Exception(s"Execution resulted in non-zero exit code: ${result}")
+             envVars: Map[String, String] = Map(),
+             retries: Int = 3): Unit = {
+    @tailrec
+    def executeAttempt(remainingRetries: Int): Unit = {
+      val pb = new ProcessBuilder()
+        .directory(wd)
+        .command(cmd *)
+        .redirectError(Redirect.INHERIT)
+        .redirectOutput(Redirect.INHERIT)
+      val env = pb.environment()
+      envVars.foreach(p => env.put(p._1, p._2))
+
+      try {
+        val result = pb.start().waitFor()
+        if (result != 0) {
+          println(s"Error: result code: $result")
+          throw new Exception(s"Execution resulted in non-zero exit code: $result")
+        }
+      } catch {
+        case e: Exception if (e.getMessage.contains("AADSTS700024") && remainingRetries > 0) =>
+          println(s"Warning: Retrying due to error - ${e.getMessage}")
+          executeAttempt(remainingRetries - 1)
+      }
     }
+
+    executeAttempt(retries)
   }
 
   def runCmdStr(cmd: String): Unit = runCmd(cmd.split(" "), new File("."), Map())
@@ -87,16 +100,8 @@ object BuildUtils {
       "--auth-mode", "login"
     )
 
-    try {
-      runCmd(osPrefix ++ command)
-    } catch {
-      case e: RuntimeException if e.getMessage.contains("AADSTS700024") && attempt < maxRetries =>
-        println(s"Authentication error: $e, retrying in 5 seconds...")
-        Thread.sleep(5000)
-        uploadToBlob(source, dest, container, accountName, maxRetries, attempt + 1)
-      case e: RuntimeException =>
-        throw new RuntimeException(s"Failed after $attempt retries: ${e.getMessage}", e)
-    }
+    runCmd(osPrefix ++ command)
+
   }
 
   def downloadFromBlob(source: String,
@@ -130,7 +135,7 @@ object BuildUtils {
   }
 
 
-  def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
+  def allFiles(dir: File, pred: File => Boolean = null): Array[File] = {
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
       (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)

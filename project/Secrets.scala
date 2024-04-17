@@ -1,13 +1,14 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-import spray.json.DefaultJsonProtocol._
-import spray.json._
+import spray.json.*
+import spray.json.DefaultJsonProtocol.*
 
 import java.io.{File, IOException, PrintWriter}
 import java.util.Base64
+import scala.annotation.tailrec
 import scala.io.Source
-import scala.sys.process._
+import scala.sys.process.*
 
 //scalastyle:off field.name
 object Secrets {
@@ -18,11 +19,20 @@ object Secrets {
 
   lazy private val publishingEnabled: Boolean = sys.env.getOrElse(EnablePublishEnvVar, "false").toBoolean
 
-  protected def exec(command: String): String = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command !!
+  @tailrec
+  protected def exec(command: String, maxRetries: Int = 2, attempt: Int = 0): String = {
+    val osCommand = sys.props("os.name").toLowerCase match {
+      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command)
+      case _ => Seq("bash", "-c", command)
+    }
+
+    try {
+      osCommand.!!
+    } catch {
+      case e: RuntimeException if attempt < maxRetries =>
+        println(s"Retrying after error: $e")
+        Thread.sleep(1000)
+        exec(command, maxRetries, attempt + 1)
     }
   }
 
