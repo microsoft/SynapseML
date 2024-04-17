@@ -461,7 +461,7 @@ jobs:
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'Prepare for tests'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -474,10 +474,21 @@ jobs:
             (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
           fi
           sbt publishM2
-
           SPARK_VERSION=3.4.1
           HADOOP_VERSION=3
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+    - task: AzureCLI@2
+      displayName: 'Test R Code'
+      retryCountOnTaskFailure: 1
+      timeoutInMinutes: 60
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          source activate synapseml
           (timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -702,6 +713,9 @@ jobs:
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (${FFMPEG:-false} && sudo apt-get update && \
+          sudo apt-get install ffmpeg libgstreamer1.0-0 \
+          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -712,9 +726,6 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
