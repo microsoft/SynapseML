@@ -52,7 +52,7 @@ object BuildUtils {
           throw new Exception(s"Execution resulted in non-zero exit code: $result")
         }
       } catch {
-        case e: Exception if (e.getMessage.contains("AADSTS700024") && remainingRetries > 0) =>
+        case e: Exception if remainingRetries > 0 =>
           println(s"Warning: Retrying due to error - ${e.getMessage}")
           executeAttempt(remainingRetries - 1)
       }
