@@ -8,5 +8,5 @@ steps:
       versionSpec: '8'
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
-  - bash: pip install azure-cli==2.40.0
+  - bash: pip install azure-cli==2.59.0
     displayName: 'Upgrade Azure CLI'

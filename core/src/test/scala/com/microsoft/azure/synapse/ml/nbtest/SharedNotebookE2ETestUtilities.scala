@@ -118,12 +118,20 @@ object SharedNotebookE2ETestUtilities {
     }
   }
 
+  private[ml] def exec(command: String, maxRetries: Int = 0, attempt: Int = 0): String = {
+    val osCommand = sys.props("os.name").toLowerCase match {
+      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command)
+      case _ => Seq("bash", "-c", command)
+    }
 
-  def exec(command: String): String = {
-    val os = sys.props("os.name").toLowerCase
-    os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command.!!
+    try {
+      osCommand.!!
+    } catch {
+      case e: RuntimeException if attempt < maxRetries =>
+        println(s"Retrying after error: $e")
+        Thread.sleep(1000)
+        exec(command, maxRetries, attempt + 1)
     }
   }
+
 }

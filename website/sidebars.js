@@ -186,9 +186,6 @@ module.exports = {
                 "Reference/Developer Setup",
                 "Reference/Docker Setup",
                 "Reference/R Setup",
-                "Reference/Dotnet Setup",
-                "Reference/Quickstart - LightGBM in Dotnet",
-
             ],
         },
     ],

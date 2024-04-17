@@ -8,7 +8,7 @@ object BuildUtils {
   }
 
   def join(folders: String*): File = {
-    join(new File(folders.head), folders.tail: _*)
+    join(new File(folders.head), folders.tail *)
   }
 
   def isWindows: Boolean = {
@@ -30,31 +30,34 @@ object BuildUtils {
     }
   }
 
-  def dotnetedVersion(version: String): String = {
-    version match {
-      case s if s.contains("-") => {
-        val versionArray = s.split("-".toCharArray)
-        versionArray.head + "-rc" + versionArray.drop(1).dropRight(1).mkString("")
-      }
-      case s => s
-    }
-  }
 
   def runCmd(cmd: Seq[String],
              wd: File = new File("."),
-             envVars: Map[String, String] = Map()): Unit = {
-    val pb = new ProcessBuilder()
-      .directory(wd)
-      .command(cmd: _*)
-      .redirectError(Redirect.INHERIT)
-      .redirectOutput(Redirect.INHERIT)
-    val env = pb.environment()
-    envVars.foreach(p => env.put(p._1, p._2))
-    val result = pb.start().waitFor()
-    if (result != 0) {
-      println(s"Error: result code: ${result}")
-      throw new Exception(s"Execution resulted in non-zero exit code: ${result}")
+             envVars: Map[String, String] = Map(),
+             retries: Int = 0): Unit = {
+
+    def executeAttempt(remainingRetries: Int): Unit = {
+      val pb = new ProcessBuilder()
+        .directory(wd)
+        .command(cmd *)
+        .redirectError(Redirect.INHERIT)
+        .redirectOutput(Redirect.INHERIT)
+      val env = pb.environment()
+      envVars.foreach(p => env.put(p._1, p._2))
+
+      try {
+        val result = pb.start().waitFor()
+        if (result != 0) {
+          throw new Exception(s"Execution resulted in non-zero exit code: $result")
+        }
+      } catch {
+        case e: Exception if remainingRetries > 0 =>
+          println(s"Warning: Retrying due to error - ${e.getMessage}")
+          executeAttempt(remainingRetries - 1)
+      }
     }
+
+    executeAttempt(retries)
   }
 
   def runCmdStr(cmd: String): Unit = runCmd(cmd.split(" "), new File("."), Map())
@@ -79,16 +82,6 @@ object BuildUtils {
       workDir)
   }
 
-  def packDotnetAssemblyCmd(outputDir: String,
-                            workDir: File): Unit =
-    runCmd(Seq("dotnet", "pack", "--output", outputDir), workDir)
-
-  def publishDotnetAssemblyCmd(packagePath: String,
-                               sleetConfigFile: File): Unit =
-    runCmd(
-      Seq("sleet", "push", packagePath, "--config", sleetConfigFile.getAbsolutePath,
-        "--source", "SynapseMLNuget", "--force")
-    )
 
   def uploadToBlob(source: String,
                    dest: String,
@@ -99,10 +92,12 @@ object BuildUtils {
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey,
-      "--overwrite", "true"
+      "--overwrite", "true",
+      "--auth-mode", "login"
     )
-    runCmd(osPrefix ++ command)
+
+    runCmd(osPrefix ++ command, retries=2)
+
   }
 
   def downloadFromBlob(source: String,
@@ -114,8 +109,9 @@ object BuildUtils {
       "--pattern", source,
       "--source", container,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey)
-    runCmd(osPrefix ++ command)
+      "--auth-mode", "login"
+    )
+    runCmd(osPrefix ++ command, retries=2)
   }
 
   def singleUploadToBlob(source: String,
@@ -128,14 +124,14 @@ object BuildUtils {
       "--container-name", container,
       "--name", dest,
       "--account-name", accountName,
-      "--account-key", Secrets.storageKey,
-      "--overwrite", "true"
+      "--overwrite", "true",
+      "--auth-mode", "login"
     ) ++ extraArgs
-    runCmd(osPrefix ++ command)
+    runCmd(osPrefix ++ command, retries=2)
   }
 
 
-  def allFiles(dir: File, pred: (File => Boolean) = null): Array[File] = {
+  def allFiles(dir: File, pred: File => Boolean = null): Array[File] = {
     def loop(dir: File): Array[File] = {
       val (dirs, files) = dir.listFiles.sorted.partition(_.isDirectory)
       (if (pred == null) files else files.filter(pred)) ++ dirs.flatMap(loop)
@@ -157,7 +153,8 @@ object BuildUtils {
       val in = new BufferedInputStream(new FileInputStream(file), bufferSize)
       var b = 0
       while (b >= 0) {
-        zip.write(data, 0, b); b = in.read(data, 0, bufferSize)
+        zip.write(data, 0, b);
+        b = in.read(data, 0, bufferSize)
       }
       in.close()
       zip.closeEntry()
