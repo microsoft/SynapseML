@@ -185,11 +185,17 @@ object CodegenPlugin extends AutoPlugin {
         art))
     },
     codegen := (Def.taskDyn {
-      (Compile / compile).value
-      (Test / compile).value
-      val arg = codegenArgs.value
-      Def.task {
-        (Compile / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.CodeGen $arg").value
+      if (sys.props.getOrElse("skipCodegen", "false") != "true") {
+        (Compile / compile).value
+        (Test / compile).value
+        val arg = codegenArgs.value
+        Def.task {
+          (Compile / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.CodeGen $arg").value
+        }
+      } else {
+        Def.task {
+          streams.value.log.info("Skipping codegen.")
+        }
       }
     }.value),
     testgen := testGenImpl.value,
