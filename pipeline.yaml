@@ -479,8 +479,8 @@ jobs:
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      retryCountOnTaskFailure: 1
-      timeoutInMinutes: 60
+      retryCountOnTaskFailure: 3
+      timeoutInMinutes: 20
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -489,7 +489,7 @@ jobs:
           set -e
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
-          (timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR)
+          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
