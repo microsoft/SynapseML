@@ -94,7 +94,7 @@ jobs:
         artifactsFeeds: SynapseML_PublicPackages
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
     - task: AzureCLI@2
-      displayName: 'Publish Artifacts 1'
+      displayName: 'Publish Artifacts'
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -104,17 +104,6 @@ jobs:
           sudo apt-get install graphviz doxygen -y
           source activate synapseml
           sbt packagePython uploadNotebooks
-      env:
-        SYNAPSEML_ENABLE_PUBLISH: true
-    - task: AzureCLI@2
-      displayName: 'Publish Artifacts 2'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          source activate synapseml
           sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
           sbt genBuildInfo
           echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
