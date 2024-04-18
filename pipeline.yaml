@@ -469,10 +469,7 @@ jobs:
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          # tests in opencv and deep-learning source R wrappers from core, so core wrappers must exist
-          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]]; then
-            (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
-          fi
+          sbt codegen
           sbt publishM2
           SPARK_VERSION=3.4.1
           HADOOP_VERSION=3
