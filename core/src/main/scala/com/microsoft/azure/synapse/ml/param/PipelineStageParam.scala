@@ -17,11 +17,6 @@ class PipelineStageParam(parent: Params, name: String, doc: String, isValid: Pip
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: PipelineStage) => true)
 
-  override private[ml] def dotnetType: String = "JavaPipelineStage"
-
-  override private[ml] def dotnetGetter(capName: String): String =
-    dotnetGetterHelper(dotnetReturnType, dotnetReturnType, capName)
-
   override def rLoadLine(modelNum: Int): String = {
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))

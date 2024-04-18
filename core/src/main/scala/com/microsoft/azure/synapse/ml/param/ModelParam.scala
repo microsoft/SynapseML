@@ -18,19 +18,5 @@ class ModelParam(parent: Params, name: String, doc: String, isValid: Model[_ <: 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Model[_ <: Model[_]]) => true)
 
-  override private[ml] def dotnetType: String = "JavaModel<M>"
-
-  override private[ml] def dotnetReturnType: String = "IModel<object>"
-
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    s"""|public $dotnetClassName Set$capName<M>($dotnetType value) where M : JavaModel<M> =>
-        |    $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value));
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetGetter(capName: String): String =
-    dotnetGetterHelper(dotnetReturnType, "JavaPipelineStage", capName)
 
 }

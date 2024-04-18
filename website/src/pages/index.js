@@ -258,7 +258,6 @@ function Home() {
                   { label: "Docker", value: "Docker" },
                   { label: "Python", value: "Python" },
                   { label: "SBT", value: "SBT" },
-                  { label: ".NET", value: "dotnet" }
                 ]}
               >
                 <TabItem value="Synapse">
@@ -421,20 +420,6 @@ import synapse.ml`}
 libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.0.4" // Please use 1.0.4 version for Spark3.2 and 1.0.4-spark3.3 version for Spark3.3`}
                     lang="jsx"
                   ></CodeSnippet>
-                </TabItem>
-                <TabItem value="dotnet">
-                  To try out SynapseML with .NET, you should add SynapseML's assembly into reference:
-                  <CodeSnippet
-                    snippet={`dotnet add package SynapseML.Cognitive --version 1.0.4
-dotnet add package SynapseML.Core --version 1.0.4
-dotnet add package SynapseML.Lightgbm --version 1.0.4
-dotnet add package SynapseML.DeepLearning --version 1.0.4
-dotnet add package SynapseML.Opencv --version 1.0.4
-dotnet add package SynapseML.Vw --version 1.0.4`}
-                    lang="bash"
-                  ></CodeSnippet>
-                  For detailed installation, please refer this{" "}
-                    <a href="docs/Reference/Dotnet%20Setup/#installation">instruction</a>.
                 </TabItem>
               </Tabs>
             </div>

@@ -32,20 +32,4 @@ abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: Strin
     throw new NotImplementedError("The parameter is a ComplexParam and cannot be JSON decoded.")
   }
 
-  override private[ml] def dotnetType: String = "object"
-
-  override private[ml] def dotnetGetter(capName: String): String = {
-    dotnetType match {
-      case "object" =>
-        s"""public object Get$capName() => Reference.Invoke(\"get$capName\");""".stripMargin
-      case _ =>
-        s"""|public $dotnetReturnType Get$capName() =>
-            |    new $dotnetReturnType((JvmObjectReference)Reference.Invoke(\"get$capName\"));
-            |""".stripMargin
-    }
-  }
-
-  private[ml] def dotnetTestValue(v: T): String =
-    throw new NotImplementedError("No translation found for complex parameter")
-
 }

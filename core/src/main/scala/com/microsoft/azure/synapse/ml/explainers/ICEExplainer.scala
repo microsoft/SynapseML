@@ -25,17 +25,13 @@ class ICENumericFeaturesParam(parent: Params,
                               name: String,
                               doc: String,
                               isValid: Seq[ICENumericFeature] => Boolean = _.forall(_.validate)) extends
-  TypedArrayParam[ICENumericFeature](parent, name, doc, isValid) {
-  override private[ml] def dotnetType = "ICENumericFeature[]"
-}
+  TypedArrayParam[ICENumericFeature](parent, name, doc, isValid)
 
 class ICECategoricalFeaturesParam(parent: Params,
                                   name: String,
                                   doc: String,
                                   isValid: Seq[ICECategoricalFeature] => Boolean = _.forall(_.validate)) extends
-  TypedArrayParam[ICECategoricalFeature](parent, name, doc, isValid) {
-  override private[ml] def dotnetType = "ICECategoricalFeature[]"
-}
+  TypedArrayParam[ICECategoricalFeature](parent, name, doc, isValid)
 
 
 trait ICEFeatureParams extends Params with HasNumSamples {

@@ -224,28 +224,6 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
       |""".stripMargin
   }
 
-  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
-    s"""/// <summary>
-       |/// Sets value for service name
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// Service name of the cognitive service if it's custom domain
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName SetCustomServiceName(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setCustomServiceName\", value));
-       |
-       |/// <summary>
-       |/// Sets value for endpoint
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// Endpoint of the cognitive service
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName SetEndpoint(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setEndpoint\", value));
-       |""".stripMargin
-  }
 }
 
 trait HasAPIVersion extends HasServiceParams {
@@ -403,18 +381,6 @@ trait HasSetLinkedService extends Wrappable with HasURL with HasSubscriptionKey 
       |""".stripMargin
   }
 
-  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
-    s"""/// <summary>
-       |/// Sets value for linkedService
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// linkedService name
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName SetLinkedService(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setLinkedService\", value));
-       |""".stripMargin
-  }
 
   def setLinkedService(v: String): this.type = {
     val classPath = "mssparkutils.cognitiveService"
@@ -457,20 +423,6 @@ trait HasSetLocation extends Wrappable with HasURL with HasUrlPath with DomainHe
       |    return self
       |""".stripMargin
   }
-
-  override def dotnetAdditionalMethods: String = super.dotnetAdditionalMethods + {
-    s"""/// <summary>
-       |/// Sets value for location
-       |/// </summary>
-       |/// <param name=\"value\">
-       |/// Location of the cognitive service
-       |/// </param>
-       |/// <returns> New $dotnetClassName object </returns>
-       |public $dotnetClassName SetLocation(string value) =>
-       |    $dotnetClassWrapperName(Reference.Invoke(\"setLocation\", value));
-       |""".stripMargin
-  }
-
 
   def setLocation(v: String): this.type = {
     val domain = getLocationDomain(v)
