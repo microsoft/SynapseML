@@ -61,10 +61,6 @@ module.exports = {
                         {
                             label: 'Scala',
                             href: `https://mmlspark.blob.core.windows.net/docs/${version}/scala/com/microsoft/azure/synapse/ml/index.html`,
-                        },
-                        {
-                            label: 'C#',
-                            href: `https://mmlspark.blob.core.windows.net/docs/${version}/dotnet/index.html`,
                         }
                     ]
                 },

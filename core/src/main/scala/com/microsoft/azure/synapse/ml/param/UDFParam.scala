@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe.typeTag
   */
 class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFunction => Boolean)
   extends ComplexParam[UserDefinedFunction](parent, name, doc, isValid)
-    with ParamEquality[UserDefinedFunction] with ExternalDotnetWrappableParam[UserDefinedFunction] {
+    with ParamEquality[UserDefinedFunction] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: UserDefinedFunction) => true)
@@ -37,40 +37,6 @@ class UDFParam(parent: Params, name: String, doc: String, isValid: UserDefinedFu
     }
   }
 
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    val invokeMethod = capName match {
-      case "UdfScala" => "setUDF"
-      case "TransformFunc" => "setTransform"
-      case "TransformSchemaFunc" => "setTransformSchema"
-      case _ => s"set$capName"
-    }
-    s"""|public $dotnetClassName Set$capName($dotnetType value) =>
-        |    $dotnetClassWrapperName(Reference.Invoke(\"$invokeMethod\", (object)value));
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetTestValue(v: UserDefinedFunction): String = {
-    name match {
-      case "handler" =>s"""${name}Param"""
-      case _ => super.dotnetTestValue(v)
-    }
-  }
-
-  override private[ml] def dotnetLoadLine(modelNum: Int): String = {
-    name match {
-      case "handler" =>
-        s"""var ${name}Param = _jvm.CallStaticJavaMethod(
-           |    "com.microsoft.azure.synapse.ml.param.UDFParam",
-           |    "loadForTest",
-           |    _spark,
-           |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));""".stripMargin
-      // TODO: FIX OTHER UDFParams
-      case _ => ""
-    }
-
-  }
 
 }
 

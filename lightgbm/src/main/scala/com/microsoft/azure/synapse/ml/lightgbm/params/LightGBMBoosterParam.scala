@@ -19,6 +19,5 @@ class LightGBMBoosterParam(parent: Params, name: String, doc: String,
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, { _ => true })
 
-  override def dotnetType: String = "LightGBMBooster"
 
 }
