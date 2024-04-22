@@ -62,7 +62,6 @@ object Secrets {
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
-  lazy val SynapseStorageKey: String = getSecret("synapse-storage-key")
 
   lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
 

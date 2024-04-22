@@ -17,11 +17,6 @@ class TransformerParam(parent: Params, name: String, doc: String, isValid: Trans
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Transformer) => true)
 
-  override private[ml] def dotnetType: String = "JavaTransformer"
-
-  override private[ml] def dotnetGetter(capName: String): String =
-    dotnetGetterHelper(dotnetReturnType, "JavaTransformer", capName)
-
   override def rLoadLine(modelNum: Int): String = {
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))

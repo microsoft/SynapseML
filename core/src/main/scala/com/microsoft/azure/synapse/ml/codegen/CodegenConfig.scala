@@ -15,7 +15,6 @@ case class CodegenConfig(name: String,
                          version: String,
                          pythonizedVersion: String,
                          rVersion: String,
-                         dotnetVersion: String,
                          packageName: String) {
   def generatedDir: File = new File(targetDir, "generated")
 
@@ -50,21 +49,6 @@ case class CodegenConfig(name: String,
   def rTestOverrideDir: File = new File(topDir, "src/test/R")
 
   def rSrcOverrideDir: File = new File(topDir, "src/main/R")
-
-  //Dotnet Codegen Constants
-  def dotnetSrcDir: File = new File(srcDir, "dotnet")
-
-  def dotnetPackageDir: File = new File(packageDir, "dotnet")
-
-  def dotnetTestDir: File = new File(testDir, "dotnet")
-
-  def dotnetTestDataDir: File = new File(testDataDir, "dotnet")
-
-  def dotnetSrcOverrideDir: File = new File(topDir, "src/main/dotnet")
-
-  def dotnetSrcHelperDir: File = new File(dotnetSrcDir, "helper")
-
-  def dotnetTestOverrideDir: File = new File(topDir, "src/test/dotnet")
 
   //val rPackageFile = new File(rPackageDir, s"mmlspark-$mmlVer.zip")
   def internalPrefix: String = "_"
@@ -105,5 +89,5 @@ case class CodegenConfig(name: String,
 }
 
 object CodegenConfigProtocol extends DefaultJsonProtocol {
-  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat9(CodegenConfig.apply)
+  implicit val CCFormat: RootJsonFormat[CodegenConfig] = jsonFormat8(CodegenConfig.apply)
 }
