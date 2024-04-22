@@ -13,6 +13,7 @@ import pypandoc
 import requests
 from bs4 import BeautifulSoup
 from docgen.core import Channel, ParallelChannel
+from docgen.fabric_helpers import LearnDocPreprocessor
 from markdownify import ATX, MarkdownConverter
 from nbconvert import MarkdownExporter
 from nbformat import read
@@ -223,6 +224,20 @@ class FabricChannel(Channel):
                 new_href = "#".join(split_href)
                 link["href"] = new_href
         return parsed_html
+    
+    def _generate_related_content(self, index):
+        related_content_index = index + 1
+        max_index = len(self.notebooks)
+        if max_index > 3:
+            related_content = ["""## Related content\n"""]
+            for i in range(3):
+                if related_content_index >= max_index:
+                    related_content_index = 0
+                title = self.notebooks[related_content_index]["metadata"]["title"]
+                path = self._sentence_to_snake("../../" + self.notebooks[related_content_index]["path"].replace(".ipynb", ".md"))
+                related_content.append(f"""- [{title}]({path})""")
+                related_content_index += 1
+        return "\n".join(related_content)
 
     def process(self, input_file: str, index: int) -> ():
         print(f"Processing {input_file} for fabric")
@@ -231,6 +246,7 @@ class FabricChannel(Channel):
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]["path"]
         metadata = self.notebooks[index]["metadata"]
+        auto_related_content = self._generate_related_content(index)
         self._validate_metadata(metadata)
 
         def callback(el):
@@ -276,11 +292,7 @@ class FabricChannel(Channel):
             parsed = read(full_input_file, as_version=4)
 
             c = Config()
-            c.TagRemovePreprocessor.remove_cell_tags = (self.hide_tag,)
-            c.TagRemovePreprocessor.enabled = True
-            c.MarkdownExporter.preprocessors = [
-                "nbconvert.preprocessors.TagRemovePreprocessor"
-            ]
+            c.MarkdownExporter.preprocessors = [LearnDocPreprocessor(remove_tags=[self.hide_tag])]
             md, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
             html = markdown.markdown(
@@ -323,8 +335,10 @@ class FabricChannel(Channel):
             escape_underscores=False,
         )
         # Post processing
-        new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}"
-        output_md = self._remove_content(new_md)
+        new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}" 
+        if "## Related content" not in new_md:
+            new_md += auto_related_content
+        output_md = re.sub(r'\n{3,}', '\n\n', self._remove_content(new_md))
 
         os.makedirs(dirname(output_file), exist_ok=True)
         with open(output_file, "w+", encoding="utf-8") as f:

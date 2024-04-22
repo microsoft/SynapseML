@@ -7,12 +7,13 @@ channels:
     output_dir: ../../../target/fabric-docs-pr/
     notebooks:
       - path:  Explore Algorithms/AI Services/Multivariate Anomaly Detection.ipynb
+        filename: synapseml-multivariate-anomaly-detection
         metadata:
           title: Analyze time series
-          description: Use SynapseML and Azure Cognitive Services for multivariate anomaly detection.
+          description: Use SynapseML and Azure AI services for multivariate anomaly detection.
           ms.topic: overview
-          ms.custom: build-2023
-          ms.reviewer: jessiwang
+          ms.custom:  "\n  - build-2023\n  - ignite-2023"
+          ms.reviewer: fsolomon
           author: JessicaXYWang
           ms.author: jessiwang
       - path: Explore Algorithms/AI Services/Overview.ipynb
@@ -126,10 +127,10 @@ channels:
           ms.author: jessiwang
       - path: Get Started/Quickstart - Your First Models.ipynb
         metadata:
-          title: SynapseMl first model
+          title: SynapseML first model
           description:  A quick introduction to building your first machine learning model with SynapseML.
           ms.topic: how-to
-          ms.custom: build-2023
+          ms.custom: "\n  - build-2023\n  - ignite-2023"
           ms.reviewer: mopeakande
           author: JessicaXYWang
           ms.author: jessiwang
