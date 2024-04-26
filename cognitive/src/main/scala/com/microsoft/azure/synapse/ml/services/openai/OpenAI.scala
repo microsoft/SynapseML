@@ -76,7 +76,7 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
     this, "dimensions", "Number of dimensions for output embeddings.", isRequired = false)
 
   def getDimensions: Int = getScalarParam(dimensions)
-  
+
   def setDimensions(value: Int): this.type = setScalarParam(dimensions, value)
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
