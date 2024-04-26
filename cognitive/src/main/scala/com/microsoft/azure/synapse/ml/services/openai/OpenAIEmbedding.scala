@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -21,7 +22,7 @@ import scala.language.existentials
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAISharedParams with HasOpenAICognitiveServiceInput  with SynapseMLLogging {
+  with HasOpenAIEmbeddingParams with HasOpenAICognitiveServiceInput with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
@@ -61,10 +62,16 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/embeddings"
   }
 
+  private[this] def getStringEntity[A](text: A, optionalParams: Map[String, Any]): StringEntity = {
+    val fullPayload = optionalParams.updated("input", text)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
+      lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       getValueOpt(r, text)
-        .map(text => new StringEntity(Map("input" -> text).toJson.compactPrint, ContentType.APPLICATION_JSON))
+        .map(text => getStringEntity(text, optionalParams))
       .orElse(throw new IllegalArgumentException("Please set textCol."))
   }
 

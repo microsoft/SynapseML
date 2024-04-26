@@ -38,6 +38,7 @@ from synapse.ml.core.platform import find_secret
 service_name = "synapseml-openai"
 deployment_name = "gpt-35-turbo"
 deployment_name_embeddings = "text-embedding-ada-002"
+deployment_name_embeddings_3 = "text-embedding-3-small"
 
 key = find_secret(
     secret_name="openai-api-key", keyvault="mmlspark-build-keys"
@@ -124,6 +125,29 @@ embedding = (
     .setSubscriptionKey(key)
     .setDeploymentName(deployment_name_embeddings)
     .setCustomServiceName(service_name)
+    .setTextCol("prompt")
+    .setErrorCol("error")
+    .setOutputCol("embeddings")
+)
+
+display(embedding.transform(df))
+```
+
+### Generating Text Embeddings with Reduced Dimensions
+
+Text-Embedding-3 models developed by OpenAI are trained using a Matryoshka Representation Learning technique
+which supports reducing the dimension of the embedding by trading-off some performance.
+
+```python
+from synapse.ml.services.openai import OpenAIEmbedding
+
+embedding = (
+    OpenAIEmbedding()
+    .setSubscriptionKey(key)
+    .setDeploymentName(deployment_name_embeddings_3)
+    .setCustomServiceName(service_name)
+    .setApiVersion("2024-03-01-preview")
+    .setDimensions(256)
     .setTextCol("prompt")
     .setErrorCol("error")
     .setOutputCol("embeddings")
