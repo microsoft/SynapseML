@@ -13,7 +13,7 @@ import pypandoc
 import requests
 from bs4 import BeautifulSoup
 from docgen.core import Channel, ParallelChannel
-from docgen.fabric_helpers import LearnDocPreprocessor
+from docgen.fabric_helpers import LearnDocPreprocessor, HTMLFormatter, sentence_to_snake
 from markdownify import ATX, MarkdownConverter
 from nbconvert import MarkdownExporter
 from nbformat import read
@@ -64,101 +64,6 @@ class FabricChannel(Channel):
 
     def list_input_files(self) -> List[str]:
         return [n["path"] for n in self.notebooks]
-
-    def _sentence_to_snake(self, path: str):
-        return (
-            path.lower()
-            .replace(" - ", "-")
-            .replace(" ", "-")
-            .replace(",", "")
-            .replace(".ipynb", "")
-            .replace(".rst", "")
-        )
-
-    def _is_valid_url(self, url):
-        try:
-            result = urlparse(url)
-            return all([result.scheme, result.netloc])
-        except:
-            return False
-
-    def _replace_img_tag(self, img_tag, img_path_rel):
-        img_tag.replace_with(
-            f':::image type="content" source="{img_path_rel}" '
-            f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::'
-        )
-
-    def _download_and_replace_images(
-        self,
-        html_soup,
-        resources,
-        output_folder,
-        relative_to,
-        notebook_path,
-        get_image_from_local=False,
-    ):
-        output_folder = output_folder.replace("/", os.sep)
-        os.makedirs(output_folder, exist_ok=True)
-
-        if resources:
-            # resources converted from notebook
-            resources_img, i = [], 0
-            for img_filename, content in resources.get("outputs", {}).items():
-                img_path = os.path.join(output_folder, img_filename.replace("_", "-"))
-                with open(img_path, "wb") as img_file:
-                    img_file.write(content)
-                img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                    os.sep, "/"
-                )
-                resources_img.append(img_path_rel)
-
-        img_tags = html_soup.find_all("img")
-        for img_tag in img_tags:
-            img_loc = img_tag["src"]
-
-            if self._is_valid_url(img_loc):
-                # downloaded image
-                response = requests.get(img_loc)
-                if response.status_code == 200:
-                    img_filename = self._sentence_to_snake(img_loc.split("/")[-1])
-                    img_path = os.path.join(output_folder, img_filename)
-                    with open(img_path, "wb") as img_file:
-                        img_file.write(response.content)
-                    img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                        os.sep, "/"
-                    )
-                    img_tag["src"] = img_path_rel
-                else:
-                    raise ValueError(f"Could not download image from {img_loc}")
-
-            elif get_image_from_local:
-                # process local images
-                img_filename = self._sentence_to_snake(img_loc.split("/")[-1]).replace(
-                    "_", "-"
-                )
-                file_folder = "/".join(
-                    notebook_path.split("/")[:-1]
-                )  # path read from manifest file
-                img_input_path = os.path.join(
-                    self.input_dir, file_folder, img_loc
-                ).replace("/", os.sep)
-                if not os.path.exists(img_input_path):
-                    raise ValueError(f"Could not get image from {img_loc}")
-                img_path = os.path.join(output_folder, img_filename)
-                img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                    os.sep, "/"
-                )
-                shutil.copy(img_input_path, img_path)
-
-            else:
-                # process image got from notebook resources
-                img_path_rel = resources_img[i]
-                img_tag["src"] = img_path_rel
-                i += 1
-
-            self._replace_img_tag(img_tag, img_path_rel)
-
-        return html_soup
 
     def _validate_metadata(self, metadata):
         required_metadata = [
@@ -234,7 +139,7 @@ class FabricChannel(Channel):
                 if related_content_index >= max_index:
                     related_content_index = 0
                 title = self.notebooks[related_content_index]["metadata"]["title"]
-                path = self._sentence_to_snake("../../" + self.notebooks[related_content_index]["path"].replace(".ipynb", ".md"))
+                path = sentence_to_snake("../../" + self.notebooks[related_content_index]["path"].replace(".ipynb", ".md"))
                 related_content.append(f"""- [{title}]({path})""")
                 related_content_index += 1
         return "\n".join(related_content)
@@ -242,7 +147,7 @@ class FabricChannel(Channel):
     def process(self, input_file: str, index: int) -> ():
         print(f"Processing {input_file} for fabric")
         output_file = os.path.join(self.output_dir, input_file)
-        output_img_dir = self.media_dir + "/" + self._sentence_to_snake(input_file)
+        output_img_dir = self.media_dir + "/" + sentence_to_snake(input_file)
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]["path"]
         metadata = self.notebooks[index]["metadata"]
@@ -263,56 +168,28 @@ class FabricChannel(Channel):
             return MarkdownConverter(**options).convert_soup(soup)
 
         if str(input_file).endswith(".rst"):
-            output_file = self._sentence_to_snake(
+            output_file = sentence_to_snake(
                 str(output_file).replace(".rst", ".md")
             )
-            html = self._read_rst(full_input_file)
-            parsed_html = markdown.markdown(
-                html,
-                extensions=[
-                    "markdown.extensions.tables",
-                    "markdown.extensions.fenced_code",
-                ],
-            )
-            parsed_html = BeautifulSoup(parsed_html, features="html.parser")
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                None,
-                output_img_dir,
-                os.path.dirname(output_file),
-                notebook_path,
-                True,
-            )
+            content = self._read_rst(full_input_file)
+            # TODO: Not tested yet
+            html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
             parsed_html = self._convert_to_markdown_links(parsed_html)
 
         elif str(input_file).endswith(".ipynb"):
-            output_file = self._sentence_to_snake(
+            output_file = sentence_to_snake(
                 str(output_file).replace(".ipynb", ".md")
             )
             parsed = read(full_input_file, as_version=4)
 
             c = Config()
             c.MarkdownExporter.preprocessors = [LearnDocPreprocessor(remove_tags=[self.hide_tag])]
-            md, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
+            content, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
-            html = markdown.markdown(
-                md,
-                extensions=[
-                    "markdown.extensions.tables",
-                    "markdown.extensions.fenced_code",
-                ],
-            )
-            parsed_html = BeautifulSoup(html)
-            # Download images and place them in media directory while updating their links
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                resources,
-                output_img_dir,
-                os.path.dirname(output_file),
-                None,
-                False,
-            )
-
+            html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
+            html.run()
+            parsed_html = html.bs_html
+        
         # Remove StatementMeta
         for element in parsed_html.find_all(
             text=re.compile("StatementMeta\(.*?Available\)")
