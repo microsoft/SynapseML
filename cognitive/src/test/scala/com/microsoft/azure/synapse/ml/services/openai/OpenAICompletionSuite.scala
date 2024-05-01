@@ -13,11 +13,11 @@ import org.scalactic.Equality
 
 trait OpenAIAPIKey {
   lazy val openAIAPIKey: String = sys.env.getOrElse("OPENAI_API_KEY", Secrets.OpenAIApiKey)
-  lazy val openAIServiceName: String = "synapseml-openai"
+  lazy val openAIServiceName: String = sys.env.getOrElse("OPENAI_SERVICE_NAME", "synapseml-openai")
   lazy val deploymentName: String = "gpt-35-turbo"
   lazy val modelName: String = "gpt-35-turbo"
   lazy val openAIAPIKeyGpt4: String = sys.env.getOrElse("OPENAI_API_KEY_2", Secrets.OpenAIApiKeyGpt4)
-  lazy val openAIServiceNameGpt4: String = "synapseml-openai-2"
+  lazy val openAIServiceNameGpt4: String = sys.env.getOrElse("OPENAI_SERVICE_NAME_2", "synapseml-openai-2")
   lazy val deploymentNameGpt4: String = "gpt-4"
   lazy val modelNameGpt4: String = "gpt-4"
 }
