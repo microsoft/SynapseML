@@ -165,9 +165,10 @@ class FabricChannel(Channel):
             output_img_dir = os.path.join(self.media_dir, sentence_to_snake(input_file))
         elif self.output_structure == "flat":
             #put under one directory
-            output_img_dir = self.media_dir
+            media_folder = manifest_file_name if manifest_file_name else sentence_to_snake(input_file.split("/")[-1])
+            output_img_dir = os.path.join(self.media_dir, media_folder)
             output_file = os.path.join(self.output_dir, input_file.split("/")[-1])
-            
+
         if manifest_file_name:
             output_file = output_file.replace(output_file.split("/")[-1].split(".")[0], manifest_file_name)
 

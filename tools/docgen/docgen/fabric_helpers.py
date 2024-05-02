@@ -58,16 +58,9 @@ class HTMLFormatter:
         self.bs_html = None
         self.resource_images_path_dict = {}
         self.resources = self.attributes.get("resources", None)
-        # TODO
-        # Two options
-        # 1 remain original structure with a subfolder for images for each article
-        # 2. put all output in the same folder and a subfolder for images, rasing error if there are name conflicts
         self.input_dir = self.attributes.get("input_dir", None) # access local images
         self.notebook_path = self.attributes.get("notebook_path", None) # access local images
-        # self.input_img_dir = self.attributes.get("input_img_dir", None)
-        # self.input_file_dir = self.attributes.get("input_file_dir", None)
         self.output_img_dir = self.attributes.get("output_img_dir", None)
-        # self.output_file_dir = self.attributes.get("output_file_dir", None)
         self.output_file = self.attributes.get("output_file", None)
 
     def parse_html(self):
@@ -86,6 +79,8 @@ class HTMLFormatter:
             else:
                 img_path_rel = self.process_local_images(img_path)
             img["src"] = img_path_rel
+            if not img.get("alt"):
+                img["alt"] = img_path_rel.split("/")[-1].split(".")[0].replace("-", " ")
             self._replace_img_tag(img, img_path_rel)
 
     def process_resource_images(self):
@@ -163,6 +158,7 @@ def sentence_to_snake(path: str):
     return (
         path.lower()
         .replace(" - ", "-")
+        .replace("_", "-")
         .replace(" ", "-")
         .replace(",", "")
         .replace(".ipynb", "")
