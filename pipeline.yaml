@@ -166,7 +166,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
-        azureSubscription:  'SynapseML Build'
+        azureSubscription:  'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -190,7 +190,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Get Docker Tag + Version'
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -304,7 +304,7 @@ jobs:
     - task: AzureKeyVault@1
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         keyVaultName: mmlspark-keys
     - bash: |
         set -e
@@ -388,7 +388,7 @@ jobs:
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -400,7 +400,7 @@ jobs:
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 40
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -420,7 +420,7 @@ jobs:
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -458,7 +458,7 @@ jobs:
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -476,7 +476,7 @@ jobs:
       retryCountOnTaskFailure: 3
       timeoutInMinutes: 20
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -494,7 +494,7 @@ jobs:
       retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -517,7 +517,7 @@ jobs:
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -533,7 +533,7 @@ jobs:
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
@@ -559,7 +559,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Convert notebooks to markdowns'
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -701,7 +701,7 @@ jobs:
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -715,7 +715,7 @@ jobs:
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 90
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
@@ -733,7 +733,7 @@ jobs:
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
       inputs:
-        azureSubscription: 'SynapseML Build'
+        azureSubscription: 'SynapseML MSI Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
