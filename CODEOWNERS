@@ -29,7 +29,6 @@ explainers/      @memoryz
 
 #Serena's Areas
 website/         @serena-ruan
-core/src/main/dotnet @serena-ruan
 core/src/main/scala/com/microsoft/azure/synapse/ml/codegen @serena-ruan
 
 # Scott's Areas

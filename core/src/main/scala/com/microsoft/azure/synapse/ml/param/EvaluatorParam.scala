@@ -18,7 +18,7 @@ import scala.reflect.runtime.universe.typeTag
   */
 class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluator => Boolean)
   extends ComplexParam[Evaluator](parent, name, doc, isValid)
-    with ParamEquality[Evaluator] with ExternalDotnetWrappableParam[Evaluator] {
+    with ParamEquality[Evaluator] {
 
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Evaluator) => true)
@@ -30,32 +30,6 @@ class EvaluatorParam(parent: Params, name: String, doc: String, isValid: Evaluat
       case _ =>
         throw new AssertionError("Values do not extend from Evaluator type")
     }
-  }
-
-  override private[ml] def dotnetType: String = "JavaEvaluator"
-
-  override private[ml] def dotnetGetter(capName: String): String =
-    dotnetGetterHelper(dotnetReturnType, dotnetReturnType, capName)
-
-  override private[ml] def dotnetTestValue(v: Evaluator): String = {
-    s"""${name}Param"""
-  }
-
-  override private[ml] def dotnetLoadLine(modelNum: Int): String =
-    throw new NotImplementedError("Implement dotnetLoadLine(modelNum: Int, testDataDir: String) method instead")
-
-  private[ml] def dotnetLoadLine(modelNum: Int, testDataDir: String): String = {
-    val underlyingType = EvaluatorParam.loadForTest(
-      SparkSession.builder().getOrCreate(),
-       s"$testDataDir/model-$modelNum.model/complexParams/$name")
-      .getClass.getTypeName.split(".".toCharArray).last
-
-    s"""var ${name}ParamLoaded = (JvmObjectReference)_jvm.CallStaticJavaMethod(
-       |    "com.microsoft.azure.synapse.ml.param.EvaluatorParam",
-       |    "loadForTest",
-       |    _spark,
-       |    Path.Combine(TestDataDir, "model-$modelNum.model", "complexParams", "$name"));
-       |var ${name}Param = new $underlyingType(${name}ParamLoaded);""".stripMargin
   }
 
 }

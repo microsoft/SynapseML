@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - default
 dependencies:
-  - python=3.8.8
+  - python=3.11.8
   - requests=2.26.0
   - pip=21.3
   - r-base=4.1.1
@@ -12,9 +12,9 @@ dependencies:
   - pip:
     - pyarrow>=0.15.0
     - pyspark==3.4.1
-    - pandas==1.2.5
+    - pandas==1.4.0
     - wheel
-    - sphinx==4.2.0
+    - sphinx==5.0.2
     - sphinx_paramlinks==0.5.2
     - sphinx_rtd_theme
     - coverage
@@ -32,8 +32,8 @@ dependencies:
     - jupyter
     - mlflow
     - numpy
-    - torch==1.13.1
-    - torchvision==0.14.1
+    - torch==2.0.0
+    - torchvision==0.15.1
     - horovod==0.28.1
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
@@ -42,7 +42,7 @@ dependencies:
     - Pillow
     - transformers==4.32.1
     - huggingface-hub>=0.8.1
-    - langchain==0.0.151
+    - langchain==0.0.152
     - openai==0.27.5
     - black==22.3.0
     - black[jupyter]==22.3.0

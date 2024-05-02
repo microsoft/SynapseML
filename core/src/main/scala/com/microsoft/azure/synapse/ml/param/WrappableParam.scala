@@ -5,12 +5,10 @@ package com.microsoft.azure.synapse.ml.param
 
 // Wrapper for codegen system
 trait WrappableParam[T]
-  extends DotnetWrappableParam[T]
-    with RWrappableParam[T]
+  extends RWrappableParam[T]
     with PythonWrappableParam[T]
 
 trait ExternalWrappableParam[T]
   extends ExternalPythonWrappableParam[T]
-    with ExternalDotnetWrappableParam[T]
     with ExternalRWrappableParam[T]
 

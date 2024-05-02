@@ -15,8 +15,4 @@ class ByteArrayParam(parent: Params, name: String, doc: String, isValid: Array[B
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, (_: Array[Byte]) => true)
 
-  override private[ml] def dotnetTestValue(v: Array[Byte]): String =
-    s"""new byte[]
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
-
 }

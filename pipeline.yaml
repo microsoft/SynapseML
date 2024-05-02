@@ -10,6 +10,9 @@ trigger:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
+    - "docs/Reference/Contributor Guide.md"
+    - "docs/Reference/Developer Setup.md"
+    - "docs/Reference/Docker Setup.md"
     - CODEOWNERS
 
 pr:
@@ -21,6 +24,9 @@ pr:
     - README.md
     - CONTRIBUTORS.md
     - SECURITY.md
+    - "docs/Reference/Contributor Guide.md"
+    - "docs/Reference/Developer Setup.md"
+    - "docs/Reference/Docker Setup.md"
     - CODEOWNERS
 
 schedules:
@@ -87,19 +93,23 @@ jobs:
       inputs:
         artifactsFeeds: SynapseML_PublicPackages
         mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
-    - bash: |
-        set -e
-        sudo apt-get install graphviz doxygen -y
-        source activate synapseml
-        sbt packagePython
-        sbt publishBlob publishDocs publishR publishPython uploadNotebooks
-        sbt genBuildInfo
-        echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
-        sbt publishLocalSigned
-        python tools/esrp/prepare_jar.py
-      displayName: Publish Artifacts
+    - task: AzureCLI@2
+      displayName: 'Publish Artifacts'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          sudo apt-get install graphviz doxygen -y
+          source activate synapseml
+          sbt packagePython uploadNotebooks
+          sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
+          sbt genBuildInfo
+          echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+          sbt -DskipCodegen=true publishLocalSigned
+          python tools/esrp/prepare_jar.py
       env:
-        STORAGE-KEY: $(storage-key)
         NEXUS-UN: $(nexus-un)
         NEXUS-PW: $(nexus-pw)
         PGP-PRIVATE: $(pgp-private)
@@ -152,20 +162,7 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - bash: |
-        set -e
-        source activate synapseml
-        sbt packagePython
-        sbt publishBlob
-      displayName: Publish Blob Artifacts
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+    - template: templates/publish.yml
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -301,7 +298,7 @@ jobs:
         path: $(CONDA_CACHE_DIR)
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
-        conda env create -f environment.yml -v -v -v
+        conda env create --force -f environment.yml -v
       condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
@@ -392,6 +389,7 @@ jobs:
           sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 40
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -412,6 +410,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -420,71 +419,6 @@ jobs:
       condition: succeededOrFailed()
     - template: templates/codecov.yml
 
-#
-#- job: DotnetTests
-#  timeoutInMinutes: 120
-#  cancelTimeoutInMinutes: 0
-#  condition: eq(variables.runTests, 'True')
-#  pool:
-#    vmImage: ubuntu-20.04
-#  strategy:
-#    matrix:
-#      core:
-#        PACKAGE: "core"
-#      deep-learning:
-#        PACKAGE: "deepLearning"
-#      lightgbm:
-#        PACKAGE: "lightgbm"
-#      opencv:
-#        PACKAGE: "opencv"
-#      vw:
-#        PACKAGE: "vw"
-#      cognitive:
-#        PACKAGE: "cognitive"
-#  steps:
-#    - task: ShellScript@2
-#      inputs:
-#        scriptPath: tools/dotnet/dotnetSetup.sh
-#    - task: AzureKeyVault@1
-#      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-#      inputs:
-#        azureSubscription: 'SynapseML Build'
-#        keyVaultName: mmlspark-keys
-#    - task: AzureCLI@1
-#      displayName: 'Test Dotnet Code'
-#      timeoutInMinutes: 30
-#      inputs:
-#        azureSubscription: 'SynapseML Build'
-#        scriptLocation: inlineScript
-#        publishTestResults: true
-#        inlineScript: |
-#          set -e
-#          echo "SPARK_HOME=$SPARK_HOME"
-#          echo "DOTNET_WORKER_DIR=$DOTNET_WORKER_DIR"
-#          sbt coverage publishDotnetTestBase
-#          sbt publishLocal
-#          sbt "project $(PACKAGE)" coverage publishDotnet
-#          export SBT_OPTS="-XX:+UseG1GC"
-#          echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
-#          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-#          (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet) || (sbt "project $(PACKAGE)" coverage testDotnet)
-#      env:
-#        SYNAPSEML_ENABLE_PUBLISH: true
-#    - task: PublishTestResults@2
-#      displayName: 'Publish Test Results'
-#      inputs:
-#        testRunner: VSTest
-#        testResultsFiles: '**/dotnet_test_results_*.trx'
-#        failTaskOnFailedTests: true
-#      condition: succeededOrFailed()
-#    - task: AzureCLI@1
-#      displayName: 'Generate Codecov report'
-#      inputs:
-#        azureSubscription: 'SynapseML Build'
-#        scriptLocation: inlineScript
-#        inlineScript: 'sbt coverageReport'
-#      condition: succeededOrFailed()
-#    - template: templates/codecov.yml
 
 - job: RTests
   timeoutInMinutes: 60
@@ -512,7 +446,8 @@ jobs:
     - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
-      displayName: 'Test R Code'
+      displayName: 'Prepare for tests'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -523,16 +458,24 @@ jobs:
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          # tests in opencv and deep-learning source R wrappers from core, so core wrappers must exist
-          if [[ $(PACKAGE) -eq "opencv" || $(PACKAGE) -eq "deepLearning" ]]; then
-            (sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen) || (echo "retrying" && sbt "project core" rCodegen)
-          fi
+          sbt codegen
           sbt publishM2
-
           SPARK_VERSION=3.4.1
           HADOOP_VERSION=3
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-          (timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR) || (echo "retrying" && timeout 20m sbt "project $(PACKAGE)" coverage testR)
+    - task: AzureCLI@2
+      displayName: 'Test R Code'
+      retryCountOnTaskFailure: 3
+      timeoutInMinutes: 20
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          source activate synapseml
+          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -540,6 +483,7 @@ jobs:
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
     - task: AzureCLI@2
+      retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -560,6 +504,7 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+    - template: templates/publish.yml
     - task: AzureCLI@2
       displayName: 'Test Website Samples'
       timeoutInMinutes: 30
@@ -568,10 +513,6 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
-          source activate synapseml
-          sbt packagePython
-          sbt publishBlob
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           (sbt coverage testWebsiteDocs)
     - task: PublishTestResults@2
@@ -582,6 +523,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -749,15 +691,20 @@ jobs:
     - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+          (${FFMPEG:-false} && sudo apt-get update && \
+          sudo apt-get install ffmpeg libgstreamer1.0-0 \
+          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
     - task: AzureCLI@2
       displayName: 'Unit Test'
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 90
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -765,14 +712,9 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
-
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -781,6 +723,7 @@ jobs:
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Generate Codecov report'
+      retryCountOnTaskFailure: 1
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript

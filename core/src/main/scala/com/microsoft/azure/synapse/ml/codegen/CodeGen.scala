@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import com.microsoft.azure.synapse.ml.codegen.PyCodegen.pyGen
-import com.microsoft.azure.synapse.ml.codegen.DotnetCodegen.dotnetGen
 import com.microsoft.azure.synapse.ml.codegen.RCodegen.rGen
 import org.apache.commons.io.FileUtils
 import spray.json._
@@ -27,6 +26,5 @@ object CodeGen {
     clean(conf.packageDir)
     rGen(conf)
     pyGen(conf)
-    dotnetGen(conf)
   }
 }

@@ -1,0 +1,20 @@
+steps:
+  - task: AzureCLI@2
+    displayName: 'Publish Artifacts'
+    inputs:
+      azureSubscription: 'SynapseML Build'
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -e
+        az account get-access-token --scope https://storage.azure.com/.default --output none
+        source activate synapseml
+        sbt packagePython
+        sbt publishBlob
+    env:
+      NEXUS-UN: $(nexus-un)
+      NEXUS-PW: $(nexus-pw)
+      PGP-PRIVATE: $(pgp-private)
+      PGP-PUBLIC: $(pgp-public)
+      PGP-PW: $(pgp-pw)
+      SYNAPSEML_ENABLE_PUBLISH: true
