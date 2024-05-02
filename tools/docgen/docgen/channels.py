@@ -154,6 +154,11 @@ class FabricChannel(Channel):
 
     def process(self, input_file: str, index: int) -> ():
         print(f"Processing {input_file} for fabric")
+        full_input_file = os.path.join(self.input_dir, input_file)
+        notebook_path = self.notebooks[index]["path"]
+        manifest_file_name = self.notebooks[index].get("filename", "")
+        metadata = self.notebooks[index]["metadata"]
+
         if self.output_structure == "hierarchy":
             #keep structure of input file
             output_file = os.path.join(self.output_dir, input_file)
@@ -162,10 +167,10 @@ class FabricChannel(Channel):
             #put under one directory
             output_img_dir = self.media_dir
             output_file = os.path.join(self.output_dir, input_file.split("/")[-1])
+            
+        if manifest_file_name:
+            output_file = output_file.replace(output_file.split("/")[-1].split(".")[0], manifest_file_name)
 
-        full_input_file = os.path.join(self.input_dir, input_file)
-        notebook_path = self.notebooks[index]["path"]
-        metadata = self.notebooks[index]["metadata"]
         auto_related_content = self._generate_related_content(index, output_file)
         self._validate_metadata(metadata)
 
