@@ -62,8 +62,8 @@ class HTMLFormatter:
         # Two options
         # 1 remain original structure with a subfolder for images for each article
         # 2. put all output in the same folder and a subfolder for images, rasing error if there are name conflicts
-        self.input_dir = self.attributes.get("input_dir", None)
-        self.notebook_path = self.attributes.get("notebook_path", None)
+        self.input_dir = self.attributes.get("input_dir", None) # access local images
+        self.notebook_path = self.attributes.get("notebook_path", None) # access local images
         # self.input_img_dir = self.attributes.get("input_img_dir", None)
         # self.input_file_dir = self.attributes.get("input_file_dir", None)
         self.output_img_dir = self.attributes.get("output_img_dir", None)
@@ -115,7 +115,6 @@ class HTMLFormatter:
     
     def process_external_images(self, img_loc, output_img_dir):
         if self._is_valid_url(img_loc):
-            print("url", img_loc)
             # downloaded image
             response = requests.get(img_loc)
             if response.status_code == 200:

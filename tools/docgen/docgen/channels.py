@@ -55,10 +55,11 @@ class WebsiteChannel(ParallelChannel):
 
 
 class FabricChannel(Channel):
-    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict]):
+    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], **kwargs):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.notebooks = notebooks
+        self.output_structure = kwargs.get("output_structure", "hierarchy")
         self.hide_tag = "hide-synapse-internal"
         self.media_dir = os.path.join(self.output_dir, "media")
 
@@ -130,7 +131,7 @@ class FabricChannel(Channel):
                 link["href"] = new_href
         return parsed_html
     
-    def _generate_related_content(self, index):
+    def _generate_related_content(self, index, output_file):
         related_content_index = index + 1
         max_index = len(self.notebooks)
         if max_index > 3:
@@ -139,19 +140,33 @@ class FabricChannel(Channel):
                 if related_content_index >= max_index:
                     related_content_index = 0
                 title = self.notebooks[related_content_index]["metadata"]["title"]
-                path = sentence_to_snake("../../" + self.notebooks[related_content_index]["path"].replace(".ipynb", ".md"))
-                related_content.append(f"""- [{title}]({path})""")
+                if self.output_structure == "hierarchy":
+                    path = self.notebooks[related_content_index]["path"]
+                    filename = sentence_to_snake(self.output_dir + self.notebooks[related_content_index].get("filename", path) + ".md")
+                    rel_path = os.path.relpath(filename, os.path.dirname(output_file)).replace(os.sep, "/")
+                    related_content.append(f"""- [{title}]({rel_path})""")
+                elif self.output_structure == "flat":
+                    path = self.notebooks[related_content_index]["path"].split("/")[-1]
+                    filename = sentence_to_snake(self.notebooks[related_content_index].get("filename", path) + ".md")
+                    related_content.append(f"""- [{title}]({filename})""")
                 related_content_index += 1
         return "\n".join(related_content)
 
     def process(self, input_file: str, index: int) -> ():
         print(f"Processing {input_file} for fabric")
-        output_file = os.path.join(self.output_dir, input_file)
-        output_img_dir = self.media_dir + "/" + sentence_to_snake(input_file)
+        if self.output_structure == "hierarchy":
+            #keep structure of input file
+            output_file = os.path.join(self.output_dir, input_file)
+            output_img_dir = os.path.join(self.media_dir, sentence_to_snake(input_file))
+        elif self.output_structure == "flat":
+            #put under one directory
+            output_img_dir = self.media_dir
+            output_file = os.path.join(self.output_dir, input_file.split("/")[-1])
+
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]["path"]
         metadata = self.notebooks[index]["metadata"]
-        auto_related_content = self._generate_related_content(index)
+        auto_related_content = self._generate_related_content(index, output_file)
         self._validate_metadata(metadata)
 
         def callback(el):

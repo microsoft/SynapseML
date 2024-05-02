@@ -5,6 +5,7 @@ channels:
   - name: channels.FabricChannel
     input_dir: ../../../docs/
     output_dir: ../../../target/fabric-docs-pr/
+    output_structure: flat # flat / hierarchy(default)
     notebooks:
       - path:  Explore Algorithms/AI Services/Multivariate Anomaly Detection.ipynb
         filename: synapseml-multivariate-anomaly-detection
