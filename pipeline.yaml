@@ -92,7 +92,6 @@ jobs:
       displayName: Authenticate SynapseML_PublicPackages
       inputs:
         artifactsFeeds: SynapseML_PublicPackages
-        mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
     - task: AzureCLI@2
       displayName: 'Publish Artifacts'
       inputs:
