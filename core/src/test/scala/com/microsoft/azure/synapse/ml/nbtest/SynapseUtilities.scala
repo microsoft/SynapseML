@@ -175,8 +175,11 @@ object SynapseUtilities {
   def uploadAndSubmitNotebook(poolName: String, notebook: File): LivyBatch = {
     val dest = s"$Folder/${notebook.getName}"
     exec(s"az storage fs file upload " +
-      s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
-      " --overwrite true " +
+      s" -s ${notebook.getAbsolutePath}" +
+      s" -p $dest" +
+      s" -f $StorageContainer" +
+      s" --auth-mode login" +
+      s" --overwrite true" +
       s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
