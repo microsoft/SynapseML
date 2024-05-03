@@ -88,7 +88,7 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
   }
 
   test("Basic usage with AAD auth") {
-    val aadToken = getAccessToken( "https://cognitiveservices.azure.com/")
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
     val ad = new DetectLastAnomaly()
       .setAADToken(aadToken)
       .setCustomServiceName("synapseml-ad-custom")
