@@ -26,6 +26,12 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
 
   import spark.implicits._
 
+  override def beforeAll(): Unit = {
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
+    println(s"Triggering token creation early ${aadToken.length}")
+    super.beforeAll()
+  }
+
   def newCompletion: OpenAICompletion = new OpenAICompletion()
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
