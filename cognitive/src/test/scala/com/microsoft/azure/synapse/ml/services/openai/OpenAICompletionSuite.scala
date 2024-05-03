@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
@@ -25,6 +25,12 @@ trait OpenAIAPIKey {
 class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._
+
+  override def beforeAll(): Unit = {
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
+    println(s"Triggering token creation early ${aadToken.length}")
+    super.beforeAll()
+  }
 
   def newCompletion: OpenAICompletion = new OpenAICompletion()
     .setDeploymentName(deploymentName)
@@ -60,10 +66,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
   }
 
   test("Basic usage with AAD auth") {
-    val aadToken = getAccessToken(
-      Secrets.ServicePrincipalClientId,
-      Secrets.ServiceConnectionSecret,
-      "https://cognitiveservices.azure.com/")
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
 
     val completion = new OpenAICompletion()
       .setAADToken(aadToken)

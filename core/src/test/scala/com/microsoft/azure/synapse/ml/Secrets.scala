@@ -47,6 +47,12 @@ object Secrets {
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
 
+  def getAccessToken(reqResource: String): String = {
+    println(s"[info] token for perms: $reqResource from $AccountString")
+    val json = exec(s"az account get-access-token --resource $reqResource --output json")
+    json.parseJson.asJsObject().fields("accessToken").convertTo[String]
+  }
+
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
   lazy val OpenAIApiKey: String = getSecret("openai-api-key")
   lazy val OpenAIApiKeyGpt4: String = getSecret("openai-api-key-2")
@@ -68,7 +74,5 @@ object Secrets {
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
-  lazy val ServiceConnectionSecret: String = getSecret("service-connection-secret")
-  lazy val ServicePrincipalClientId: String = getSecret("service-principal-clientId")
 
 }
