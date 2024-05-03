@@ -1,0 +1,29 @@
+
+schedules:
+  - cron: "0 1 * * 0"
+    displayName: Weekly ACR Cleanup
+    always: true
+    branches:
+      include:
+        - master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  azureServiceConnection: 'synapseml-clean-acr' # Name of the Azure service connection in Azure DevOps
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Clean ACR'
+    inputs:
+      azureSubscription: 'SynapseML Build'
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -e
+        pip install --upgrade pip
+        pip install azure-storage-blob azure-identity azure-keyvault-secrets
+        python tools/acr/clean-acr.py mmlspark-keys clean-acr-connection-string
+
+
