@@ -1,11 +1,10 @@
-trigger:
-  schedules:
-    - cron: "0 1 * * 0"
-      displayName: Weekly Cleanup
-      always: true
-      branches:
-        include:
-          - master
+schedules:
+  - cron: "0 1 * * 0"
+    displayName: Weekly Cleanup
+    always: true
+    branches:
+      include:
+        - master
 
 pool:
   vmImage: 'ubuntu-latest'
