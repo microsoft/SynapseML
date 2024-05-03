@@ -200,7 +200,7 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
@@ -210,14 +210,14 @@ jobs:
     - task: Docker@2
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
         tags: $(version)
     - task: Docker@2
       displayName: Minimal Image Build
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-minimal'
         command: 'build'
         buildContext: "."
@@ -227,7 +227,7 @@ jobs:
     - task: Docker@2
       displayName: Minimal Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
@@ -235,7 +235,7 @@ jobs:
       condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Build
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/release'
         command: 'build'
         buildContext: "."
@@ -248,7 +248,7 @@ jobs:
       condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR'
+        containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
