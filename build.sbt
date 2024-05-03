@@ -3,7 +3,6 @@ import org.apache.commons.io.FileUtils
 import sbt.ExclusionRule
 
 import java.io.File
-import java.net.URL
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
@@ -11,7 +10,7 @@ val condaEnvName = "synapseml"
 val sparkVersion = "3.2.3"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / crossScalaVersions := Seq("2.12.15", "2.13.10")
+ThisBuild / crossScalaVersions := Seq("2.12.17", "2.13.8")
 ThisBuild / scalaVersion := crossScalaVersions.value.head
 
 val scalaMajorVersion = 2.12
@@ -22,19 +21,28 @@ val excludes = Seq(
 )
 
 val coreDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
+  // Excluding protobuf-java, as spark-core is bringing the older version transitively.
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java"),
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
+  "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
+  "commons-lang" % "commons-lang" % "2.6",
   "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
   "com.chuusai" %% "shapeless" % "2.3.4",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "2.0.8"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.2.0" % "3.0.1"
+    exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
+    exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
+    exclude("org.apache.spark", "spark-sql_2.12"),
+  // Although breeze 2.1.0 is already provided by Spark, this is needed for Azure Synapse Spark 3.4 pools.
+  // Otherwise a NoSuchMethodError will be thrown by interpretability code.
+  //"org.scalanlp" %% "breeze" % "2.1.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -66,8 +74,8 @@ def pomPostFunc(node: XmlNode): scala.xml.Node = {
 pomPostProcess := pomPostFunc
 
 val getDatasetsTask = TaskKey[Unit]("getDatasets", "download datasets used for testing")
-val datasetName = "datasets-2021-12-10.tgz"
-val datasetUrl = new URL(s"https://mmlspark.blob.core.windows.net/installers/$datasetName")
+val datasetName = "datasets-2023-04-03.tgz"
+val datasetUrl = new URI(s"https://mmlspark.blob.core.windows.net/installers/$datasetName").toURL
 val datasetDir = settingKey[File]("The directory that holds the dataset")
 ThisBuild / datasetDir := {
   join((Compile / packageBin / artifactPath).value.getParentFile,
@@ -106,109 +114,6 @@ rootGenDir := {
   join(targetDir, "generated")
 }
 
-// scalastyle:off line.size.limit
-val genSleetConfig = TaskKey[Unit]("genSleetConfig",
-  "generate sleet.json file for sleet configuration so we can push nuget package to the blob")
-genSleetConfig := {
-  val fileContent =
-    s"""{
-       |  "username": "",
-       |  "useremail": "",
-       |  "sources": [
-       |    {
-       |      "name": "SynapseMLNuget",
-       |      "type": "azure",
-       |      "container": "synapsemlnuget",
-       |      "path": "https://mmlspark.blob.core.windows.net/synapsemlnuget",
-       |      "connectionString": "DefaultEndpointsProtocol=https;AccountName=mmlspark;AccountKey=${Secrets.storageKey};EndpointSuffix=core.windows.net"
-       |    }
-       |  ]
-       |}""".stripMargin
-  val sleetJsonFile = join(rootGenDir.value, "sleet.json")
-  if (sleetJsonFile.exists()) FileUtils.forceDelete(sleetJsonFile)
-  FileUtils.writeStringToFile(sleetJsonFile, fileContent, "utf-8")
-}
-// scalastyle:on line.size.limit
-
-val publishDotnetTestBase = TaskKey[Unit]("publishDotnetTestBase",
-  "generate dotnet test helper file with current library version and publish E2E test base")
-publishDotnetTestBase := {
-  genSleetConfig.value
-  val fileContent =
-    s"""// Licensed to the .NET Foundation under one or more agreements.
-       |// The .NET Foundation licenses this file to you under the MIT license.
-       |// See the LICENSE file in the project root for more information.
-       |
-       |namespace SynapseMLtest.Utils
-       |{
-       |    public class Helper
-       |    {
-       |        public static string GetSynapseMLPackage()
-       |        {
-       |            return "com.microsoft.azure:synapseml_2.12:${version.value}";
-       |        }
-       |    }
-       |
-       |}
-       |""".stripMargin
-  val dotnetTestBaseDir = join(baseDirectory.value, "core", "src", "main", "dotnet", "test")
-  val dotnetHelperFile = join(dotnetTestBaseDir, "SynapseMLVersion.cs")
-  if (dotnetHelperFile.exists()) FileUtils.forceDelete(dotnetHelperFile)
-  FileUtils.writeStringToFile(dotnetHelperFile, fileContent, "utf-8")
-
-  val dotnetTestBaseProjContent =
-    s"""<Project Sdk="Microsoft.NET.Sdk">
-       |
-       |  <PropertyGroup>
-       |    <TargetFramework>netstandard2.1</TargetFramework>
-       |    <LangVersion>9.0</LangVersion>
-       |    <AssemblyName>SynapseML.DotnetE2ETest</AssemblyName>
-       |    <IsPackable>true</IsPackable>
-       |    <Description>SynapseML .NET Test Base</Description>
-       |    <Version>${dotnetedVersion(version.value)}</Version>
-       |  </PropertyGroup>
-       |
-       |  <ItemGroup>
-       |    <PackageReference Include="xunit" Version="2.4.1" />
-       |    <PackageReference Include="Microsoft.Spark" Version="2.1.1" />
-       |    <PackageReference Include="IgnoresAccessChecksToGenerator" Version="0.4.0" PrivateAssets="All" />
-       |  </ItemGroup>
-       |
-       |  <ItemGroup>
-       |    <InternalsVisibleTo Include="SynapseML.Cognitive" />
-       |    <InternalsVisibleTo Include="SynapseML.Core" />
-       |    <InternalsVisibleTo Include="SynapseML.DeepLearning" />
-       |    <InternalsVisibleTo Include="SynapseML.Lightgbm" />
-       |    <InternalsVisibleTo Include="SynapseML.Opencv" />
-       |    <InternalsVisibleTo Include="SynapseML.Vw" />
-       |    <InternalsVisibleTo Include="SynapseML.Cognitive.Test" />
-       |    <InternalsVisibleTo Include="SynapseML.Core.Test" />
-       |    <InternalsVisibleTo Include="SynapseML.DeepLearning.Test" />
-       |    <InternalsVisibleTo Include="SynapseML.Lightgbm.Test" />
-       |    <InternalsVisibleTo Include="SynapseML.Opencv.Test" />
-       |    <InternalsVisibleTo Include="SynapseML.Vw.Test" />
-       |  </ItemGroup>
-       |
-       |  <PropertyGroup>
-       |    <InternalsAssemblyNames>Microsoft.Spark</InternalsAssemblyNames>
-       |  </PropertyGroup>
-       |
-       |  <PropertyGroup>
-       |    <InternalsAssemblyUseEmptyMethodBodies>false</InternalsAssemblyUseEmptyMethodBodies>
-       |  </PropertyGroup>
-       |
-       |</Project>""".stripMargin
-  // update the version of current dotnetTestBase assembly
-  val dotnetTestBaseProj = join(dotnetTestBaseDir, "dotnetTestBase.csproj")
-  if (dotnetTestBaseProj.exists()) FileUtils.forceDelete(dotnetTestBaseProj)
-  FileUtils.writeStringToFile(dotnetTestBaseProj, dotnetTestBaseProjContent, "utf-8")
-
-  packDotnetAssemblyCmd(join(dotnetTestBaseDir, "target").getAbsolutePath, dotnetTestBaseDir)
-  val packagePath = join(dotnetTestBaseDir,
-    "target", s"SynapseML.DotnetE2ETest.${dotnetedVersion(version.value)}.nupkg").getAbsolutePath
-  publishDotnetAssemblyCmd(packagePath, rootGenDir.value)
-}
-
 def runTaskForAllInCompile(task: TaskKey[Unit]): Def.Initialize[Task[Seq[Unit]]] = {
   task.all(ScopeFilter(
     inProjects(core, deepLearning, cognitive, vw, lightgbm, opencv),
@@ -225,30 +130,6 @@ generatePythonDoc := {
   join(dir, "ml", "__init__.py").createNewFile()
   runCmd(activateCondaEnv ++ Seq("sphinx-apidoc", "-f", "-o", "doc", "."), dir)
   runCmd(activateCondaEnv ++ Seq("sphinx-build", "-b", "html", "doc", "../../../doc/pyspark"), dir)
-}
-
-val generateDotnetDoc = TaskKey[Unit]("generateDotnetDoc", "Generate documentation for dotnet classes")
-generateDotnetDoc := {
-  Def.sequential(
-    runTaskForAllInCompile(dotnetCodeGen),
-    runTaskForAllInCompile(mergeDotnetCode)
-  ).value
-  val dotnetSrcDir = join(rootGenDir.value, "src", "dotnet")
-  runCmd(Seq("doxygen", "-g"), dotnetSrcDir)
-  FileUtils.copyFile(join(baseDirectory.value, "README.md"), join(dotnetSrcDir, "README.md"))
-  runCmd(Seq("sed", "-i", s"""s/img width=\"800\"/img width=\"300\"/g""", "README.md"), dotnetSrcDir)
-  val packageName = name.value.split("-").map(_.capitalize).mkString(" ")
-  val fileContent =
-    s"""PROJECT_NAME = "$packageName"
-       |PROJECT_NUMBER = "${dotnetedVersion(version.value)}"
-       |USE_MDFILE_AS_MAINPAGE = "README.md"
-       |RECURSIVE = YES
-       |""".stripMargin
-  val doxygenHelperFile = join(dotnetSrcDir, "DoxygenHelper.txt")
-  if (doxygenHelperFile.exists()) FileUtils.forceDelete(doxygenHelperFile)
-  FileUtils.writeStringToFile(doxygenHelperFile, fileContent, "utf-8")
-  runCmd(Seq("bash", "-c", "cat DoxygenHelper.txt >> Doxyfile", ""), dotnetSrcDir)
-  runCmd(Seq("doxygen"), dotnetSrcDir)
 }
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
@@ -318,11 +199,10 @@ publishPypi := {
   )
 }
 
-val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala, python and dotnet")
+val publishDocs = TaskKey[Unit]("publishDocs", "publish docs for scala and python")
 publishDocs := {
   Def.sequential(
     generatePythonDoc,
-    generateDotnetDoc,
     (root / Compile / unidoc)
   ).value
   val html =
@@ -339,9 +219,6 @@ publishDocs := {
   if (scalaDir.exists()) FileUtils.forceDelete(scalaDir)
   FileUtils.copyDirectory(join(targetDir, "unidoc"), scalaDir)
   FileUtils.writeStringToFile(join(unifiedDocDir.toString, "index.html"), html, "utf-8")
-  val dotnetDir = join(unifiedDocDir.toString, "dotnet")
-  if (dotnetDir.exists()) FileUtils.forceDelete(dotnetDir)
-  FileUtils.copyDirectory(join(codegenDir, "src", "dotnet", "html"), dotnetDir)
   uploadToBlob(unifiedDocDir.toString, version.value, "docs")
 }
 
@@ -366,6 +243,13 @@ publishBadges := {
   uploadBadge("master version", version.value, "blue", "master_version3.svg")
 }
 
+val uploadNotebooks = TaskKey[Unit]("uploadNotebooks", "upload docs to blob storage")
+uploadNotebooks := {
+  val localNotebooksFolder = join(baseDirectory.value.toString, "docs").toString
+  val blobNotebooksFolder = version.value
+  uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "docs")
+}
+
 val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
@@ -386,7 +270,7 @@ ThisBuild / publishMavenStyle := true
 lazy val core = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
   .settings(settings ++ Seq(
-    resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
+    //resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
     libraryDependencies ++= dependencies ++ (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, major)) if major <= 12 =>
         Seq()
@@ -408,7 +292,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.1" classifier "assembly",
+      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
@@ -417,14 +301,14 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.300"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.510"),
     name := "synapseml-lightgbm"
   ): _*)
 
 lazy val vw = (project in file("vw"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "8.9.1"),
+    libraryDependencies += ("com.github.vowpalwabbit" % "vw-jni" % "9.3.0"),
     name := "synapseml-vw"
   ): _*)
 
@@ -432,7 +316,7 @@ lazy val cognitive = (project in file("cognitive"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.cognitiveservices.speech" % "client-jar-sdk" % "1.14.0",
+      "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.24.1",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
       "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
@@ -470,12 +354,10 @@ setupTask := {
   getDatasetsTask.value
 }
 
-val convertNotebooks = TaskKey[Unit]("convertNotebooks",
-  "convert notebooks to markdown for website display")
+val convertNotebooks = TaskKey[Unit]("convertNotebooks", "convert notebooks to markdown for website display")
 convertNotebooks := {
-  runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/notebookconvert.py")}")
-  )
+  runCmd(Seq("pip", "install", "-e", "."), wd=join(baseDirectory.value, "tools/docgen"))
+  runCmd(Seq("python", "__main__.py"), wd=join(baseDirectory.value, "tools/docgen/docgen"))
 }
 
 val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
