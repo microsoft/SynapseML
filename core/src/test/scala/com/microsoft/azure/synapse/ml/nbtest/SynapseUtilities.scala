@@ -127,8 +127,6 @@ object SynapseUtilities {
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse"
-  val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-  val ClientId: String = Secrets.ServicePrincipalClientId
   val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
   val WorkspaceName: String = "mmlsparkbuild"
