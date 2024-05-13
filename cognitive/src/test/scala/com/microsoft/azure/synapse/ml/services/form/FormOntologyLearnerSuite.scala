@@ -26,9 +26,9 @@ class FormOntologyLearnerSuite extends EstimatorFuzzing[FormOntologyLearner] wit
     .setOutputCol("unified_ontology")
 
   lazy val urlDF: DataFrame = Seq(
-    "https://mmlsparkdemo.blob.core.windows.net/ignite2021/forms/2017/Invoice115991.pdf",
-    "https://mmlsparkdemo.blob.core.windows.net/ignite2021/forms/2018/Invoice119554.pdf",
-    "https://mmlsparkdemo.blob.core.windows.net/ignite2021/forms/2009/Invoice12241.pdf"
+    "https://mmlspark.blob.core.windows.net/publicwasb/form_test/Invoice115991.pdf",
+    "https://mmlspark.blob.core.windows.net/publicwasb/form_test/Invoice119554.pdf",
+    "https://mmlspark.blob.core.windows.netpublicwasb/form_test/Invoice12241.pdf"
   ).toDF("url")
 
   lazy val tableUrlDF: DataFrame = Seq(
