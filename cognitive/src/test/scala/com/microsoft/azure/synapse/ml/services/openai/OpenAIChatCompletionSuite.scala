@@ -15,13 +15,13 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   lazy val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
     .setDeploymentName(deploymentNameGpt4)
-    .setCustomServiceName(openAIServiceNameGpt4)
+    .setCustomServiceName(openAIServiceName)
     .setApiVersion("2023-05-15")
     .setMaxTokens(5000)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
-    .setSubscriptionKey(openAIAPIKeyGpt4)
+    .setSubscriptionKey(openAIAPIKey)
 
 
   lazy val goodDf: DataFrame = Seq(
