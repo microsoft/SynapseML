@@ -28,7 +28,7 @@ class FormOntologyLearnerSuite extends EstimatorFuzzing[FormOntologyLearner] wit
   lazy val urlDF: DataFrame = Seq(
     "https://mmlspark.blob.core.windows.net/publicwasb/form_test/Invoice115991.pdf",
     "https://mmlspark.blob.core.windows.net/publicwasb/form_test/Invoice119554.pdf",
-    "https://mmlspark.blob.core.windows.netpublicwasb/form_test/Invoice12241.pdf"
+    "https://mmlspark.blob.core.windows.net/publicwasb/form_test/Invoice12241.pdf"
   ).toDF("url")
 
   lazy val tableUrlDF: DataFrame = Seq(
