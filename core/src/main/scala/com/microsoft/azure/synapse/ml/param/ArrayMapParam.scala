@@ -70,51 +70,6 @@ class ArrayMapParam(parent: String, name: String, doc: String, isValid: Array[Ma
     jsonValue.convertTo[Seq[Map[String, Any]]].toArray
   }
 
-  private[ml] def dotnetType: String = "Dictionary<string, object>[]"
-
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    s"""|public $dotnetClassName Set$capName($dotnetType value)
-        |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\",
-        |        (object)value.Select(_ => _.ToJavaHashMap()).ToArray().ToJavaArrayList()));
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetGetter(capName: String): String = {
-    s"""|public $dotnetReturnType Get$capName()
-        |{
-        |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-        |    var result = new Dictionary<string, object>[jvmObjects.Length];
-        |    JvmObjectReference hashMap;
-        |    JvmObjectReference[] keySet;
-        |    Dictionary<string, object> dic;
-        |    object value;
-        |    for (int i = 0; i < result.Length; i++)
-        |    {
-        |        hashMap = (JvmObjectReference)SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-        |            "org.apache.spark.api.dotnet.DotnetUtils", "convertToJavaMap", jvmObjects[i]);
-        |        keySet = (JvmObjectReference[])(
-        |            (JvmObjectReference)hashMap.Invoke("keySet")).Invoke("toArray");
-        |        dic = new Dictionary<string, object>();
-        |        foreach (var k in keySet)
-        |        {
-        |            value = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-        |                "org.apache.spark.api.dotnet.DotnetUtils",
-        |                "mapScalaToJava", hashMap.Invoke("get", k));
-        |            dic.Add((string)k.Invoke("toString"), value);
-        |        }
-        |        result[i] = dic;
-        |    }
-        |    return result;
-        |}
-        |""".stripMargin
-  }
-
-  private[ml] def dotnetTestValue(v: Array[Map[String, Any]]): String =
-    s"""new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
-
   override def rValue(v: Array[Map[String, Any]]): String = {
     implicit val defaultFormat = seqFormat[Map[String, Any]]
     RWrappableParam.rDefaultRender(v)

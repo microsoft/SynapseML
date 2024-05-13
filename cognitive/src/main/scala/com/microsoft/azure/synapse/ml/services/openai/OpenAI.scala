@@ -66,8 +66,26 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   def setUserCol(v: String): this.type = setVectorParam(user, v)
 
-  setDefault(apiVersion -> Left("2023-03-15-preview"))
+  setDefault(apiVersion -> Left("2024-02-01"))
 
+}
+
+trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion {
+
+  val dimensions: ServiceParam[Int] = new ServiceParam[Int](
+    this, "dimensions", "Number of dimensions for output embeddings.", isRequired = false)
+
+  def getDimensions: Int = getScalarParam(dimensions)
+
+  def setDimensions(value: Int): this.type = setScalarParam(dimensions, value)
+
+  private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    Seq(
+      dimensions
+    ).flatMap(param =>
+      getValueOpt(r, param).map(v => (GenerationUtils.camelToSnake(param.name), v))
+    ).toMap
+  }
 }
 
 trait HasOpenAITextParams extends HasOpenAISharedParams {

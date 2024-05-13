@@ -78,32 +78,4 @@ class UntypedArrayParam(parent: Params, name: String, doc: String, isValid: Arra
     json.parseJson.convertTo[Array[Any]]
   }
 
-  private[ml] def dotnetType: String = "object[]"
-
-  override private[ml] def dotnetSetter(dotnetClassName: String,
-                                        capName: String,
-                                        dotnetClassWrapperName: String): String = {
-    s"""|public $dotnetClassName Set$capName($dotnetType value)
-        |    => $dotnetClassWrapperName(Reference.Invoke(\"set$capName\", (object)value.ToJavaArrayList()));
-        |""".stripMargin
-  }
-
-  override private[ml] def dotnetGetter(capName: String): String = {
-    s"""|public $dotnetReturnType Get$capName()
-        |{
-        |    var jvmObjects = (JvmObjectReference[])Reference.Invoke(\"get$capName\");
-        |    var result = new object[jvmObjects.Length];
-        |    for (int i = 0; i < result.Length; i++)
-        |    {
-        |        result[i] = SparkEnvironment.JvmBridge.CallStaticJavaMethod(
-        |            "org.apache.spark.api.dotnet.DotnetUtils", "mapScalaToJava", (object)jvmObjects[i]);
-        |    }
-        |    return result;
-        |}
-        |""".stripMargin
-  }
-
-  private[ml] def dotnetTestValue(v: Array[Any]): String =
-    s"""new $dotnetType
-       |    ${DotnetWrappableParam.dotnetDefaultRender(v, this)}""".stripMargin
 }

@@ -13,7 +13,6 @@ import spray.json._
 object TestGen {
 
   import CodeGenUtils._
-  import DotnetTestGen._
   import PyTestGen._
   import RTestGen._
 
@@ -28,17 +27,13 @@ object TestGen {
     clean(conf.testDataDir)
     clean(conf.testDir)
     generatePythonTests(conf)
-    generateDotnetTests(conf)
     generateRTests(conf)
     TestBase.stopSparkSession()
     generatePyPackageData(conf)
     generateRPackageData(conf)
     copyOverrides(conf.pyTestOverrideDir, conf.pyTestDir)
-    copyOverrides(conf.dotnetTestOverrideDir, conf.dotnetTestDir)
     copyOverrides(conf.rTestOverrideDir, conf.rTestDir)
     makeInitFiles(conf)
-    generateDotnetTestProjFile(conf)
-    generateDotnetHelperFile(conf)
   }
 
 }

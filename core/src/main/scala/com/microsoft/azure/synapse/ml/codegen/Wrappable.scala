@@ -11,10 +11,9 @@ import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 
-import java.lang.reflect.ParameterizedType
+import scala.reflect.runtime.universe._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import scala.collection.Iterator.iterate
 
 
 trait BaseWrappable extends Params {
@@ -28,19 +27,24 @@ trait BaseWrappable extends Params {
 
   protected lazy val classNameHelper: String = thisStage.getClass.getName.split(".".toCharArray).last
 
+
   protected def companionModelClassName: String = {
-    val superClass = iterate[Class[_]](thisStage.getClass)(_.getSuperclass)
-      .find(c => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")(
-        c.getSuperclass.getSimpleName))
-      .get
-    val typeArgs = superClass.getGenericSuperclass.asInstanceOf[ParameterizedType].getActualTypeArguments
-    val modelTypeArg = superClass.getSuperclass.getSimpleName match {
-      case "Estimator" =>
-        typeArgs.head
-      case model if Set("ProbabilisticClassifier", "BaseRegressor", "Predictor", "Ranker")(model) =>
-        typeArgs.last
+    val symbol = scala.reflect.runtime.currentMirror.classSymbol(thisStage.getClass)
+
+    val superClassSymbol = symbol.baseClasses
+      .find(s => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")
+        .contains(s.name.toString))
+      .getOrElse(throw new NoSuchElementException("Matching superclass was not found: " + symbol.baseClasses))
+
+    val typeArgs = symbol.toType.baseType(superClassSymbol).typeArgs
+
+    val modelTypeArg = superClassSymbol.name.toString match {
+      case "Estimator" => typeArgs.head
+      case _ => typeArgs.last
     }
-    modelTypeArg.getTypeName
+
+    val modelName = modelTypeArg.typeSymbol.asClass.fullName
+    modelName
   }
 
   def getParamInfo(p: Param[_]): ParamInfo[_] = {
@@ -486,4 +490,4 @@ trait RWrappable extends BaseWrappable {
 
 }
 
-trait Wrappable extends PythonWrappable with RWrappable with DotnetWrappable
+trait Wrappable extends PythonWrappable with RWrappable

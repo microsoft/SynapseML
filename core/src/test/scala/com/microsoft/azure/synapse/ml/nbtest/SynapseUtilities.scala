@@ -118,9 +118,9 @@ object SynapseUtilities {
 
   import SynapseJsonProtocol._
 
-  lazy val SynapseToken: String = getAccessToken(ClientId, Secrets.SynapseSpnKey,
+  lazy val SynapseToken: String = getAccessToken(ClientId, Secrets.ServiceConnectionSecret,
     "https://dev.azuresynapse.net/")
-  lazy val ArmToken: String = getAccessToken(ClientId, Secrets.SynapseSpnKey,
+  lazy val ArmToken: String = getAccessToken(ClientId, Secrets.ServiceConnectionSecret,
     "https://management.azure.com/")
 
   val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
@@ -129,7 +129,7 @@ object SynapseUtilities {
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse"
   val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-  val ClientId: String = "85dde348-dd2b-43e5-9f5a-22262af45332"
+  val ClientId: String = Secrets.ServicePrincipalClientId
   val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
   val WorkspaceName: String = "mmlsparkbuild"
@@ -178,7 +178,7 @@ object SynapseUtilities {
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
       " --overwrite true " +
-      s" --account-name $StorageAccount --account-key ${Secrets.SynapseStorageKey}")
+      s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
     val excludes: String = Seq(

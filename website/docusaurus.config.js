@@ -1,7 +1,7 @@
 const math = require('remark-math')
 const katex = require('rehype-katex')
 const path = require('path');
-let version = "1.0.2";
+let version = "1.0.4";
 
 module.exports = {
     title: 'SynapseML',
@@ -13,7 +13,7 @@ module.exports = {
     projectName: 'SynapseML',
     trailingSlash: true,
     customFields: {
-        version: "1.0.2",
+        version: "1.0.4",
     },
     stylesheets: [
         {
@@ -61,10 +61,6 @@ module.exports = {
                         {
                             label: 'Scala',
                             href: `https://mmlspark.blob.core.windows.net/docs/${version}/scala/com/microsoft/azure/synapse/ml/index.html`,
-                        },
-                        {
-                            label: 'C#',
-                            href: `https://mmlspark.blob.core.windows.net/docs/${version}/dotnet/index.html`,
                         }
                     ]
                 },
@@ -92,11 +88,11 @@ module.exports = {
                         },
                         {
                             label: 'Python API Reference',
-                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.2/pyspark/index.html',
+                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.4/pyspark/index.html',
                         },
                         {
                             label: 'Scala API Reference',
-                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.2/scala/index.html',
+                            to: 'https://mmlspark.blob.core.windows.net/docs/1.0.4/scala/index.html',
                         },
                     ],
                 },
