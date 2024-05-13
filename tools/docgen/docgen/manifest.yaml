@@ -147,7 +147,7 @@ channels:
           ms.author: jessiwang
   - name: channels.AzureChannel
     input_dir: ../../../docs/
-    output_dir:  ../../../../../Tasks/azure-docs-pr/articles/synapse-analytics/machine-learning/ #../../../target/azure-docs-pr/
+    output_dir: ../../../target/azure-docs-pr/
     output_structure: flat
     auto_pre_req: false
     notebooks:

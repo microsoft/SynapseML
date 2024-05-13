@@ -55,7 +55,14 @@ class WebsiteChannel(ParallelChannel):
 
 
 class FabricChannel(Channel):
-    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], output_structure, auto_pre_req):
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        notebooks: List[dict],
+        output_structure,
+        auto_pre_req,
+    ):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.notebooks = notebooks
@@ -132,7 +139,7 @@ class FabricChannel(Channel):
                 new_href = "#".join(split_href)
                 link["href"] = new_href
         return parsed_html
-    
+
     def _generate_related_content(self, index, output_file):
         related_content_index = index + 1
         max_index = len(self.notebooks)
@@ -145,12 +152,21 @@ class FabricChannel(Channel):
                 title = self.notebooks[related_content_index]["metadata"]["title"]
                 if self.output_structure == "hierarchy":
                     path = self.notebooks[related_content_index]["path"]
-                    filename = sentence_to_snake(self.output_dir + self.notebooks[related_content_index].get("filename", path) + ".md")
-                    rel_path = os.path.relpath(filename, os.path.dirname(output_file)).replace(os.sep, "/")
+                    filename = sentence_to_snake(
+                        self.output_dir
+                        + self.notebooks[related_content_index].get("filename", path)
+                        + ".md"
+                    )
+                    rel_path = os.path.relpath(
+                        filename, os.path.dirname(output_file)
+                    ).replace(os.sep, "/")
                     related_content.append(f"""- [{title}]({rel_path})""")
                 elif self.output_structure == "flat":
                     path = self.notebooks[related_content_index]["path"].split("/")[-1]
-                    filename = sentence_to_snake(self.notebooks[related_content_index].get("filename", path) + ".md")
+                    filename = sentence_to_snake(
+                        self.notebooks[related_content_index].get("filename", path)
+                        + ".md"
+                    )
                     related_content.append(f"""- [{title}]({filename})""")
                 related_content_index += 1
         return "\n".join(related_content)
@@ -163,17 +179,23 @@ class FabricChannel(Channel):
         metadata = self.notebooks[index]["metadata"]
 
         if self.output_structure == "hierarchy":
-            #keep structure of input file
+            # keep structure of input file
             output_file = os.path.join(self.output_dir, input_file)
             output_img_dir = os.path.join(self.media_dir, sentence_to_snake(input_file))
         elif self.output_structure == "flat":
-            #put under one directory
-            media_folder = manifest_file_name if manifest_file_name else sentence_to_snake(input_file.split("/")[-1])
+            # put under one directory
+            media_folder = (
+                manifest_file_name
+                if manifest_file_name
+                else sentence_to_snake(input_file.split("/")[-1])
+            )
             output_img_dir = os.path.join(self.media_dir, media_folder)
             output_file = os.path.join(self.output_dir, input_file.split("/")[-1])
 
         if manifest_file_name:
-            output_file = output_file.replace(output_file.split("/")[-1].split(".")[0], manifest_file_name)
+            output_file = output_file.replace(
+                output_file.split("/")[-1].split(".")[0], manifest_file_name
+            )
 
         auto_related_content = self._generate_related_content(index, output_file)
         self._validate_metadata(metadata)
@@ -192,27 +214,41 @@ class FabricChannel(Channel):
             return MarkdownConverter(**options).convert_soup(soup)
 
         if str(input_file).endswith(".rst"):
-            output_file = sentence_to_snake(
-                str(output_file).replace(".rst", ".md")
-            )
+            output_file = sentence_to_snake(str(output_file).replace(".rst", ".md"))
             content = self._read_rst(full_input_file)
-            html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
+            html = HTMLFormatter(
+                content,
+                resources=resources,
+                input_dir=self.input_dir,
+                notebook_path=input_file,
+                output_img_dir=output_img_dir,
+                output_file=output_file,
+            )
             parsed_html = self._convert_to_markdown_links(parsed_html)
 
         elif str(input_file).endswith(".ipynb"):
-            output_file = sentence_to_snake(
-                str(output_file).replace(".ipynb", ".md")
-            )
+            output_file = sentence_to_snake(str(output_file).replace(".ipynb", ".md"))
             parsed = read(full_input_file, as_version=4)
 
             c = Config()
-            c.MarkdownExporter.preprocessors = [LearnDocPreprocessor(tags_to_remove=[self.hide_tag], auto_pre_req=self.auto_pre_req)]
+            c.MarkdownExporter.preprocessors = [
+                LearnDocPreprocessor(
+                    tags_to_remove=[self.hide_tag], auto_pre_req=self.auto_pre_req
+                )
+            ]
             content, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
-            html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
+            html = HTMLFormatter(
+                content,
+                resources=resources,
+                input_dir=self.input_dir,
+                notebook_path=input_file,
+                output_img_dir=output_img_dir,
+                output_file=output_file,
+            )
             html.run()
             parsed_html = html.bs_html
-        
+
         # Remove StatementMeta
         for element in parsed_html.find_all(
             text=re.compile("StatementMeta\(.*?Available\)")
@@ -235,17 +271,27 @@ class FabricChannel(Channel):
             escape_underscores=False,
         )
         # Post processing
-        new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}" 
+        new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}"
         if "## Related content" not in new_md:
             new_md += auto_related_content
-        output_md = re.sub(r'\n{3,}', '\n\n', self._remove_content(new_md))
+        output_md = re.sub(r"\n{3,}", "\n\n", self._remove_content(new_md))
 
         os.makedirs(dirname(output_file), exist_ok=True)
         with open(output_file, "w+", encoding="utf-8") as f:
             f.write(output_md)
 
+
 class AzureChannel(FabricChannel):
-    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], output_structure, auto_pre_req):
-        super().__init__(input_dir, output_dir, notebooks, output_structure, auto_pre_req)
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        notebooks: List[dict],
+        output_structure,
+        auto_pre_req,
+    ):
+        super().__init__(
+            input_dir, output_dir, notebooks, output_structure, auto_pre_req
+        )
         self.hide_tag = "hide-azure"
         self.channel = "azure"
