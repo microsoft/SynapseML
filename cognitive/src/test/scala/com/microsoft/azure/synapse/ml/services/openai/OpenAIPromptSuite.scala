@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
@@ -13,6 +14,12 @@ import org.scalactic.Equality
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._
+
+  override def beforeAll(): Unit = {
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
+    println(s"Triggering token creation early ${aadToken.length}")
+    super.beforeAll()
+  }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)

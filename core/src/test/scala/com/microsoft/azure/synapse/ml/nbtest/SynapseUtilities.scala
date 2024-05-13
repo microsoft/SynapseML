@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.PackageUtils.{SparkMavenPackageList, SparkMavenRepositoryList}
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
@@ -118,18 +119,14 @@ object SynapseUtilities {
 
   import SynapseJsonProtocol._
 
-  lazy val SynapseToken: String = getAccessToken(ClientId, Secrets.ServiceConnectionSecret,
-    "https://dev.azuresynapse.net/")
-  lazy val ArmToken: String = getAccessToken(ClientId, Secrets.ServiceConnectionSecret,
-    "https://management.azure.com/")
+  lazy val SynapseToken: String = getAccessToken("https://dev.azuresynapse.net/")
+  lazy val ArmToken: String = getAccessToken("https://management.azure.com/")
 
   val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkbuildsynapse"
   val StorageContainer: String = "synapse"
-  val TenantId: String = "72f988bf-86f1-41af-91ab-2d7cd011db47"
-  val ClientId: String = Secrets.ServicePrincipalClientId
   val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
   val WorkspaceName: String = "mmlsparkbuild"
@@ -176,8 +173,11 @@ object SynapseUtilities {
   def uploadAndSubmitNotebook(poolName: String, notebook: File): LivyBatch = {
     val dest = s"$Folder/${notebook.getName}"
     exec(s"az storage fs file upload " +
-      s" -s ${notebook.getAbsolutePath} -p $dest -f $StorageContainer " +
-      " --overwrite true " +
+      s" -s ${notebook.getAbsolutePath}" +
+      s" -p $dest" +
+      s" -f $StorageContainer" +
+      s" --auth-mode login" +
+      s" --overwrite true" +
       s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
@@ -317,19 +317,4 @@ object SynapseUtilities {
     safeSend(deleteRequest)
   }
 
-  def getAccessToken(clientId: String, clientSecret: String, reqResource: String): String = {
-    val createRequest = new HttpPost(s"https://login.microsoftonline.com/$TenantId/oauth2/token")
-    createRequest.setHeader("Content-Type", "application/x-www-form-urlencoded")
-    createRequest.setEntity(
-      new UrlEncodedFormEntity(
-        List(
-          ("grant_type", "client_credentials"),
-          ("client_id", clientId),
-          ("client_secret", clientSecret),
-          ("resource", reqResource)
-        ).map(p => new BasicNameValuePair(p._1, p._2)).asJava, "UTF-8")
-    )
-    RESTHelpers.sendAndParseJson(createRequest).asJsObject()
-      .fields("access_token").convertTo[String]
-  }
 }

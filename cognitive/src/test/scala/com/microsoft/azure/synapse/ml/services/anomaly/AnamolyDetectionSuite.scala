@@ -4,9 +4,9 @@
 package com.microsoft.azure.synapse.ml.services.anomaly
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
@@ -88,9 +88,7 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
   }
 
   test("Basic usage with AAD auth") {
-    val aadToken = getAccessToken(Secrets.ServicePrincipalClientId,
-      Secrets.ServiceConnectionSecret,
-      "https://cognitiveservices.azure.com/")
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
     val ad = new DetectLastAnomaly()
       .setAADToken(aadToken)
       .setCustomServiceName("synapseml-ad-custom")
