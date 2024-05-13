@@ -5,7 +5,8 @@ channels:
   - name: channels.FabricChannel
     input_dir: ../../../docs/
     output_dir:  ../../../target/fabric-docs-pr/
-    output_structure: flat # flat / hierarchy(default)
+    output_structure: flat # flat / hierarchy
+    auto_pre_req: true
     notebooks:
       - path:  Explore Algorithms/AI Services/Multivariate Anomaly Detection.ipynb
         filename: multivariate-anomaly-detection
@@ -49,7 +50,7 @@ channels:
       - path: Explore Algorithms/Classification/Quickstart - SparkML vs SynapseML.ipynb
         filename: classification-before-and-after-synapseml
         metadata:
-          title: Classification tasks using SynapseML
+          title: Classification using SynapseML
           description:  Perform the same classification task with and without SynapseML.
           ms.topic: how-to
           ms.custom: build-2023
@@ -144,3 +145,20 @@ channels:
           ms.reviewer: mopeakande
           author: JessicaXYWang
           ms.author: jessiwang
+  - name: channels.AzureChannel
+    input_dir: ../../../docs/
+    output_dir:  ../../../../../Tasks/azure-docs-pr/articles/synapse-analytics/machine-learning/ #../../../target/azure-docs-pr/
+    output_structure: flat
+    auto_pre_req: false
+    notebooks:
+      - path:  Explore Algorithms/AI Services/Overview.ipynb
+        filename: overview-cognitive-services
+        metadata:
+          title: Azure AI services in Azure Synapse Analytics
+          description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure AI services.
+          ms.service: synapse-analytics
+          ms.subservice: machine-learning
+          ms.topic: overview
+          ms.reviewer: sngun, garye, negust, ruxu, jessiwang
+          author: WilliamDAssafMSFT
+          ms.author: wiassaf

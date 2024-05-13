@@ -55,11 +55,13 @@ class WebsiteChannel(ParallelChannel):
 
 
 class FabricChannel(Channel):
-    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], **kwargs):
+    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], output_structure, auto_pre_req):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.notebooks = notebooks
-        self.output_structure = kwargs.get("output_structure", "hierarchy")
+        self.output_structure = output_structure
+        self.auto_pre_req = auto_pre_req
+        self.channel = "fabric"
         self.hide_tag = "hide-synapse-internal"
         self.media_dir = os.path.join(self.output_dir, "media")
 
@@ -134,6 +136,7 @@ class FabricChannel(Channel):
     def _generate_related_content(self, index, output_file):
         related_content_index = index + 1
         max_index = len(self.notebooks)
+        related_content = []
         if max_index > 3:
             related_content = ["""## Related content\n"""]
             for i in range(3):
@@ -153,7 +156,7 @@ class FabricChannel(Channel):
         return "\n".join(related_content)
 
     def process(self, input_file: str, index: int) -> ():
-        print(f"Processing {input_file} for fabric")
+        print(f"Processing {input_file} for {self.channel}")
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]["path"]
         manifest_file_name = self.notebooks[index].get("filename", "")
@@ -193,7 +196,6 @@ class FabricChannel(Channel):
                 str(output_file).replace(".rst", ".md")
             )
             content = self._read_rst(full_input_file)
-            # TODO: Not tested yet
             html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
             parsed_html = self._convert_to_markdown_links(parsed_html)
 
@@ -204,7 +206,7 @@ class FabricChannel(Channel):
             parsed = read(full_input_file, as_version=4)
 
             c = Config()
-            c.MarkdownExporter.preprocessors = [LearnDocPreprocessor(remove_tags=[self.hide_tag])]
+            c.MarkdownExporter.preprocessors = [LearnDocPreprocessor(tags_to_remove=[self.hide_tag], auto_pre_req=self.auto_pre_req)]
             content, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
             html = HTMLFormatter(content, resources=resources, input_dir=self.input_dir, notebook_path=input_file, output_img_dir=output_img_dir, output_file=output_file)
@@ -241,3 +243,9 @@ class FabricChannel(Channel):
         os.makedirs(dirname(output_file), exist_ok=True)
         with open(output_file, "w+", encoding="utf-8") as f:
             f.write(output_md)
+
+class AzureChannel(FabricChannel):
+    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict], output_structure, auto_pre_req):
+        super().__init__(input_dir, output_dir, notebooks, output_structure, auto_pre_req)
+        self.hide_tag = "hide-azure"
+        self.channel = "azure"

@@ -9,23 +9,24 @@ import requests
 import shutil
 
 class LearnDocPreprocessor(Preprocessor):
-    def __init__(self, remove_tags=None, **kwargs):
+    def __init__(self, tags_to_remove=None, auto_pre_req=None, **kwargs):
         """
         Initializes the preprocessor with optional remove tags.
         :param remove_tags: A list of tags based on which cells will be removed.
         """
         super(LearnDocPreprocessor, self).__init__(**kwargs)
-        self.remove_tags = remove_tags if remove_tags else []
+        self.tags_to_remove = tags_to_remove if tags_to_remove else []
+        self.auto_pre_req = auto_pre_req
         
     def preprocess(self, nb, resources):
         """
         Preprocess the entire notebook, removing cells tagged with in remove tag list
         and process other cells.
         """
-        if self.remove_tags:
+        if self.tags_to_remove:
             nb.cells = [
                 cell for cell in nb.cells
-                if not set(self.remove_tags).intersection(cell.metadata.get('tags', []))
+                if not set(self.tags_to_remove).intersection(cell.metadata.get('tags', []))
             ]
         
         for index, cell in enumerate(nb.cells):
@@ -46,7 +47,7 @@ class LearnDocPreprocessor(Preprocessor):
                 if tag in ['note', 'tip', 'important', 'warning', 'caution']:
                     head = f"> [!{tag.upper()}]\n"
                     cell.source = head + '\n'.join('> ' + line for line in cell.source.splitlines() if not line.startswith(f"## {tag.capitalize()}"))
-        if index == 1 and cell.cell_type == 'markdown':
+        if self.auto_pre_req and index == 1 and cell.cell_type == 'markdown':
             cell.source = self.add_auto_prereqs() + '\n' + cell.source
         return cell, resources
     
@@ -58,8 +59,8 @@ class HTMLFormatter:
         self.bs_html = None
         self.resource_images_path_dict = {}
         self.resources = self.attributes.get("resources", None)
-        self.input_dir = self.attributes.get("input_dir", None) # access local images
-        self.notebook_path = self.attributes.get("notebook_path", None) # access local images
+        self.input_dir = self.attributes.get("input_dir", None)
+        self.notebook_path = self.attributes.get("notebook_path", None)
         self.output_img_dir = self.attributes.get("output_img_dir", None)
         self.output_file = self.attributes.get("output_file", None)
 
