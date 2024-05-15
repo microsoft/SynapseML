@@ -349,7 +349,7 @@ jobs:
         ContentType: 'Maven'
         contentsource: 'Folder'
         folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'admukund@microsoft.com,richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+        Owners: 'richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
         Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
         ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
         MainPublisher: 'synapseml'
