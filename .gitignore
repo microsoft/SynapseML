@@ -87,3 +87,5 @@ metastore_db/
 **/dist/*
 **/*.egg-info/*
 
+# build container
+!tools/docker/build/*
