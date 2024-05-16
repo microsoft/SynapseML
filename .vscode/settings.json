@@ -1,0 +1,6 @@
+{
+    "files.watcherExclude": {
+        "**/target": true
+    },
+    "azure-pipelines.1ESPipelineTemplatesSchemaFile": true
+}

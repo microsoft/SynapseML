@@ -21,7 +21,6 @@
 *.iml
 
 # Generic editors
-.vscode
 .idea
 .metals
 .bloop

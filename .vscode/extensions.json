@@ -1,0 +1,12 @@
+{
+	"recommendations": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "GitHub.copilot",
+        "scala-lang.scala",
+        "itryapitsin.Sbt",
+        "scalameta.metals"
+	],
+	"unwantedRecommendations": [
+	]
+}
