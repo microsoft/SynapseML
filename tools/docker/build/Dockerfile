@@ -2,12 +2,10 @@ FROM mcr.microsoft.com/onebranch/cbl-mariner/build:2.0
 
 USER root
 
-# Make sure bash commands are run with .bashrc
 SHELL ["/bin/bash", "--login", "-c"]
 
 RUN mkdir -p /etc/micromamba
 
-# Install NuGet credential provider (ttps://github.com/microsoft/artifacts-credprovider#setup)
 RUN wget -qO- https://aka.ms/install-artifacts-credprovider.sh | bash && \
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
     ./bin/micromamba shell init -s bash -p ~/micromamba  # this writes to your .bashrc file && \
@@ -17,7 +15,6 @@ RUN wget -qO- https://aka.ms/install-artifacts-credprovider.sh | bash && \
 RUN curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs && chmod +x cs && ./cs setup --apps scala,scalac,sbt --yes && \
     echo "export PATH=$PATH:/root/.local/share/coursier/bin" >> ~/.bashrc
 
-# procps-ng has "ps"
 RUN tdnf -y update && \
     tdnf -y install msopenjdk-11 vi conda && \
     python3.9 -m pip install -U --force-reinstall charset-normalizer  && \
@@ -25,9 +22,6 @@ RUN tdnf -y update && \
     tdnf clean all 
 
 RUN git config --global core.autocrlf true
-
-# RUN pip3 uninstall -y urllib3 && \
-#     pip3 install requests
 
 COPY environment.yml /etc/micromamba/environment.yml
 RUN micromamba env create -f /etc/micromamba/environment.yml -y
