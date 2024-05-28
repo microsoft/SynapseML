@@ -343,6 +343,14 @@ lazy val root = (project in file("."))
     ThisBuild / useCoursier := false
   ))
 
+val compileAll = TaskKey[Unit]("compileAll", "compile all projects for publishing")
+compileAll := {
+  compile.all(ScopeFilter(
+    inProjects(root, core, deepLearning, cognitive, vw, lightgbm, opencv),
+    inConfigurations(Compile))
+  ).value
+}
+
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
   compile.all(ScopeFilter(
