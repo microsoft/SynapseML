@@ -3,11 +3,6 @@ import os
 import shutil
 import glob
 
-current_username = getpass.getuser()
-
-root_dir = f"/home/{current_username}/.ivy2/local/com.microsoft.azure/"
-
-
 def find_second_level_folder(root):
     # Walk through the root directory
     for foldername, subfolders, filenames in os.walk(root):
@@ -17,10 +12,6 @@ def find_second_level_folder(root):
             return os.path.basename(foldername)
     # Return None if no such folder is found
     return None
-
-
-version = find_second_level_folder(root_dir)
-
 
 def flatten_dir(top_dir):
     # Collect directories to delete
@@ -61,19 +52,33 @@ def flatten_dir(top_dir):
         os.rmdir(directory)
         print(f"Deleted: {directory}")
 
+def prepare_jar(root_dir, version):
+    for top_dir in os.listdir(root_dir):
+        path_to_jars = os.path.join(root_dir, top_dir)
+        flatten_dir(path_to_jars)
 
-for top_dir in os.listdir(root_dir):
-    path_to_jars = os.path.join(root_dir, top_dir)
-    flatten_dir(path_to_jars)
+        for file in os.listdir(path_to_jars):
+            if "_2.12" in file and version not in file:
+                old_file_path = os.path.join(path_to_jars, file)
+                name_parts = file.split("_2.12")
+                if name_parts[1].startswith(".") or name_parts[1].startswith("-"):
+                    sep_char = ""
+                else:
+                    sep_char = "-"
+                new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
+                new_file_path = os.path.join(path_to_jars, new_file)
+                shutil.move(old_file_path, new_file_path)
 
-    for file in os.listdir(path_to_jars):
-        if "_2.12" in file and version not in file:
-            old_file_path = os.path.join(path_to_jars, file)
-            name_parts = file.split("_2.12")
-            if name_parts[1].startswith(".") or name_parts[1].startswith("-"):
-                sep_char = ""
-            else:
-                sep_char = "-"
-            new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
-            new_file_path = os.path.join(path_to_jars, new_file)
-            shutil.move(old_file_path, new_file_path)
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Prepare a jar for ESRP.")
+    parser.add_argument("--path",
+                        type=str,
+                        default=f"/home/{getpass.getuser()}/.ivy2/local/com.microsoft.azure/",
+                        help="The root directory of the package, e.g. /home/<user>/.ivy2/local/com.microsoft.azure/")
+
+    root_dir = parser.parse_args().path
+    version = find_second_level_folder(root_dir)
+
+    prepare_jar(root_dir, version)
