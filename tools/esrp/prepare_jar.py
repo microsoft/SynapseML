@@ -72,13 +72,18 @@ def prepare_jar(root_dir, version):
 if __name__ == "__main__":
     import argparse
 
+    default_path = f"/home/{getpass.getuser()}/.ivy2/local/com.microsoft.azure/"
+
     parser = argparse.ArgumentParser(description="Prepare a jar for ESRP.")
     parser.add_argument("--path",
                         type=str,
-                        default=f"/home/{getpass.getuser()}/.ivy2/local/com.microsoft.azure/",
+                        default=default_path,
                         help="The root directory of the package, e.g. /home/<user>/.ivy2/local/com.microsoft.azure/")
+
+    if parser.parse_args().path != default_path:
+        print("Non-default path passed: ", parser.parse_args().path)
 
     root_dir = parser.parse_args().path
     version = find_second_level_folder(root_dir)
-
+    print("Using root_dir: ", root_dir, " and version: ", version)
     prepare_jar(root_dir, version)
