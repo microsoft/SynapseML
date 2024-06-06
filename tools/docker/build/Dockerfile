@@ -7,12 +7,16 @@ SHELL ["/bin/bash", "--login", "-c"]
 RUN mkdir -p /etc/micromamba
 
 RUN wget -qO- https://aka.ms/install-artifacts-credprovider.sh | bash && \
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
-    ./bin/micromamba shell init -s bash -p ~/micromamba  # this writes to your .bashrc file && \
-    ./bin/micromamba config append channels conda-forge && \
-    ./bin/micromamba config set channel_priority strict
+    curl -Lv https://micro.mamba.pm/api/micromamba/linux-64/latest -o /tmp/micromamba.tar.bz2 && \
+    ls -lh /tmp/micromamba.tar.bz2 && \
+    tar -xvjf /tmp/micromamba.tar.bz2 -C /tmp && \
+    ls -lh /tmp && \
+    mv /tmp/bin/micromamba /bin/micromamba && \
+    /bin/micromamba shell init -s bash -p ~/micromamba && \
+    /bin/micromamba config append channels conda-forge && \
+    /bin/micromamba config set channel_priority strict
 
-RUN curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs && chmod +x cs && ./cs setup --apps scala,scalac,sbt --yes && \
+RUN curl -fLv https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs && chmod +x cs && ./cs setup --apps scala,scalac,sbt --yes && \
     echo "export PATH=$PATH:/root/.local/share/coursier/bin" >> ~/.bashrc
 
 RUN tdnf -y update && \
