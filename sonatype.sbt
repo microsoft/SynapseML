@@ -38,6 +38,9 @@ pgpPublicRing := Secrets.pgpPublicFile
 if(Secrets.publishToFeed) {
   ThisBuild / publishTo := Some("SynapseML_PublicPackages" at
     "https://msdata.pkgs.visualstudio.com/A365/_packaging/SynapseML_PublicPackages/maven/v1")
+} else if (Secrets.publishToVHD) {
+  ThisBuild / publishTo := Some("BBC-VHD_PublicPackages" at
+    "https://pkgs.dev.azure.com/msdata/A365/_packaging/BBC-VHD_PublicPackages/maven/v1")
 } else {
   ThisBuild / publishTo := sonatypePublishToBundle.value
 }
