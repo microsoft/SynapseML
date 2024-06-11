@@ -167,7 +167,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
         .setCustomServiceName(openAIServiceName)
     } else {
       customEndpointCompletion.setAADToken(accessToken)
-        .setCustomHeader(Map("X-ModelType" -> "gpt-4-turbo-chat-completions",
+        .setCustomHeaders(Map("X-ModelType" -> "gpt-4-turbo-chat-completions",
           "X-ScenarioGUID" -> "7687c733-45b0-425b-82b3-05eb4eb70247"))
     }
 

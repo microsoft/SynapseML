@@ -188,18 +188,18 @@ trait HasCustomAuthHeader extends HasServiceParams {
   }
 }
 
-trait HasCustomHeader extends HasServiceParams {
+trait HasCustomHeaders extends HasServiceParams {
   // scalastyle:off field.name
-  val CustomHeader = new ServiceParam[Map[String, String]](
+  val CustomHeaders = new ServiceParam[Map[String, String]](
     this, "CustomHeader", "List of Custom Header Key-Value Tuples."
   )
   // scalastyle:on field.name
 
-  def setCustomHeader(v: Map[String, String]): this.type = {
-    setScalarParam(CustomHeader, v)
+  def setCustomHeaders(v: Map[String, String]): this.type = {
+    setScalarParam(CustomHeaders, v)
   }
 
-  def getCustomHeader: Map[String, String] = getScalarParam(CustomHeader)
+  def getCustomHeader: Map[String, String] = getScalarParam(CustomHeaders)
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
@@ -270,7 +270,7 @@ object URLEncodingUtils {
 }
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
-  with HasCustomHeader with SynapseMLLogging {
+  with HasCustomHeaders with SynapseMLLogging {
 
   val customUrlRoot: Param[String] = new Param[String](
     this, "customUrlRoot", "The custom URL root for the service. " +
@@ -331,8 +331,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     }
   }
 
-  protected def getCustomHeader(row: Row): Option[Map[String, String]] = {
-    getValueOpt(row, CustomHeader)
+  protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
+    getValueOpt(row, CustomHeaders)
   }
 
   protected def addHeaders(req: HttpRequestBase,
@@ -340,7 +340,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
                            aadToken: Option[String],
                            contentType: String = "",
                            customAuthHeader: Option[String] = None,
-                           customHeader: Option[Map[String, String]] = None): Unit = {
+                           customHeaders: Option[Map[String, String]] = None): Unit = {
 
     if (subscriptionKey.nonEmpty) {
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
@@ -357,8 +357,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
       })
     }
-    if (customHeader.nonEmpty) {
-      customHeader.foreach(m => {
+    if (customHeaders.nonEmpty) {
+      customHeaders.foreach(m => {
         m.foreach {
           case (headerName, headerValue) => req.setHeader(headerName, headerValue)
         }
@@ -381,7 +381,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
           getValueOpt(row, AADToken),
           contentType(row),
           getCustomAuthHeader(row),
-          getCustomHeader(row))
+          getCustomHeaders(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
