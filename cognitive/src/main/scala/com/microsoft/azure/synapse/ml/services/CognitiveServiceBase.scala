@@ -188,6 +188,20 @@ trait HasCustomAuthHeader extends HasServiceParams {
   }
 }
 
+trait HasCustomHeader extends HasServiceParams {
+  // scalastyle:off field.name
+  val CustomHeader = new ServiceParam[Map[String, String]](
+    this, "CustomHeader", "List of Custom Header Key-Value Tuples."
+  )
+  // scalastyle:on field.name
+
+  def setCustomHeader(v: Map[String, String]): this.type = {
+    setScalarParam(CustomHeader, v)
+  }
+
+  def getCustomHeader: Map[String, String] = getScalarParam(CustomHeader)
+}
+
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.cognitiveservices.azure.com/" + urlPath.stripPrefix("/"))
@@ -256,7 +270,15 @@ object URLEncodingUtils {
 }
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
-  with SynapseMLLogging {
+  with HasCustomHeader with SynapseMLLogging {
+
+  val customUrlRoot: Param[String] = new Param[String](
+    this, "customUrlRoot", "The custom URL root for the service. " +
+      "This will not append OpenAI specific model path completions (i.e. /chat/completions) to the URL.")
+
+  def getCustomUrlRoot: String = $(customUrlRoot)
+
+  def setCustomUrlRoot(v: String): this.type = set(customUrlRoot, v)
 
   protected def paramNameToPayloadName(p: Param[_]): String = p match {
     case p: ServiceParam[_] => p.payloadName
@@ -281,7 +303,11 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         ""
       }
-      prepareUrlRoot(row) + appended
+      if (get(customUrlRoot).nonEmpty) {
+        $(customUrlRoot)
+      } else {
+        prepareUrlRoot(row) + appended
+      }
     }
   }
 
@@ -296,20 +322,25 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
-    val providedCustomHeader = getValueOpt(row, CustomAuthHeader)
-    if (providedCustomHeader .isEmpty && PlatformDetails.runningOnFabric()) {
+    val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
+    if (providedCustomAuthHeader .isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
       Option(TokenLibrary.getAuthHeader)
     } else {
-      providedCustomHeader
+      providedCustomAuthHeader
     }
+  }
+
+  protected def getCustomHeader(row: Row): Option[Map[String, String]] = {
+    getValueOpt(row, CustomHeader)
   }
 
   protected def addHeaders(req: HttpRequestBase,
                            subscriptionKey: Option[String],
                            aadToken: Option[String],
                            contentType: String = "",
-                           customAuthHeader: Option[String] = None): Unit = {
+                           customAuthHeader: Option[String] = None,
+                           customHeader: Option[Map[String, String]] = None): Unit = {
 
     if (subscriptionKey.nonEmpty) {
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
@@ -324,6 +355,13 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         req.setHeader(aadHeaderName, s)
         // this is required for internal workload
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    }
+    if (customHeader.nonEmpty) {
+      customHeader.foreach(m => {
+        m.foreach {
+          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
+        }
       })
     }
     if (contentType != "") req.setHeader("Content-Type", contentType)
@@ -342,7 +380,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row))
+          getCustomAuthHeader(row),
+          getCustomHeader(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>

@@ -151,6 +151,30 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
   }
 
+  test("Custom EndPoint") {
+    lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
+    lazy val testEndPointUrl: String = s"https://${openAIServiceName}.openai.azure.com/" +
+      s"openai/deployments/${deploymentNameGpt4}/chat/completions"
+    lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", testEndPointUrl)
+
+    val customEndpointCompletion = new OpenAIChatCompletion()
+      .setCustomUrlRoot(customRootUrlValue)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setTemperature(0)
+
+    if (accessToken.isEmpty) {
+      customEndpointCompletion.setSubscriptionKey(openAIAPIKey)
+    } else {
+      customEndpointCompletion.setAADToken(accessToken)
+        .setCustomHeader(Map("X-ModelType" -> "gpt-4-turbo-chat-completions",
+          "X-ScenarioGUID" -> "7687c733-45b0-425b-82b3-05eb4eb70247"))
+
+    }
+
+    testCompletion(customEndpointCompletion, goodDf)
+  }
+
   def testCompletion(completion: OpenAIChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = ChatCompletionResponse.makeFromRowConverter
     completion.transform(df).collect().foreach(r =>
