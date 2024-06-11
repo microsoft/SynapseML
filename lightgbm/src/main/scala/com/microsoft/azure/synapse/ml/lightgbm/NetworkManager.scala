@@ -39,7 +39,8 @@ case class TaskMessageInfo(status: String,
 
 case class NetworkTopologyInfo(lightgbmNetworkString: String,
                                executorPartitionIdList: Array[Int],
-                               localListenPort: Int)
+                               localListenPort: Int,
+                               localSocket: Socket)
 
 object NetworkManager {
   /**
@@ -107,19 +108,21 @@ object NetworkManager {
                            measures: TaskInstrumentationMeasures): NetworkTopologyInfo = {
     measures.markNetworkInitializationStart()
     val networkParams = ctx.networkParams
-    val out = using(findOpenPort(ctx, log).get) {
-      openPort =>
-        val localListenPort = openPort.getLocalPort
-        log.info(s"LightGBM task $taskId connecting to host: ${networkParams.ipAddress}, port: ${networkParams.port}")
-        FaultToleranceUtils.retryWithTimeout() {
-          getNetworkTopologyInfoFromDriver(networkParams,
-                                           taskId,
-                                           partitionId,
-                                           localListenPort,
-                                           log,
-                                           shouldExecuteTraining)
-        }
-    }.get
+    val localSocket = findOpenPort(ctx, log).get
+    //hold socket until lightgbm bind port
+    val out = ((localSocket: Socket) => {
+      val localListenPort = localSocket.getLocalPort
+      log.info(s"LightGBM task $taskId connecting to host: ${networkParams.ipAddress}, port: ${networkParams.port}")
+      FaultToleranceUtils.retryWithTimeout() {
+        getNetworkTopologyInfoFromDriver(networkParams,
+                                        taskId,
+                                        partitionId,
+                                        localListenPort,
+                                        localSocket,
+                                        log,
+                                        shouldExecuteTraining)
+      }
+    })(localSocket)
     measures.markNetworkInitializationStop()
     out
   }
@@ -128,6 +131,7 @@ object NetworkManager {
                                                taskId: Long,
                                                partitionId: Int,
                                                localListenPort: Int,
+                                               localSocket: Socket,
                                                log: Logger,
                                                shouldExecuteTraining: Boolean): NetworkTopologyInfo = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
@@ -173,7 +177,7 @@ object NetworkManager {
             log.info(s"task $taskId, partition $partitionId received nodes for network init: '$lightGbmMachineList'")
             val executorPartitionIds: Array[Int] =
               parseExecutorPartitionList(partitionsByExecutorStr, taskStatus.executorId, log)
-            NetworkTopologyInfo(lightGbmMachineList, executorPartitionIds, localListenPort)
+            NetworkTopologyInfo(lightGbmMachineList, executorPartitionIds, localListenPort,localSocket)
         }.get
     }.get
   }
