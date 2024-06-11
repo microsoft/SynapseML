@@ -153,9 +153,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
-    lazy val testEndPointUrl: String = s"https://${openAIServiceName}.openai.azure.com/" +
-      s"openai/deployments/${deploymentNameGpt4}/chat/completions"
-    lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", testEndPointUrl)
+    lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
 
     val customEndpointCompletion = new OpenAIChatCompletion()
       .setCustomUrlRoot(customRootUrlValue)
@@ -165,11 +163,12 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     if (accessToken.isEmpty) {
       customEndpointCompletion.setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentNameGpt4)
+        .setCustomServiceName(openAIServiceName)
     } else {
       customEndpointCompletion.setAADToken(accessToken)
         .setCustomHeader(Map("X-ModelType" -> "gpt-4-turbo-chat-completions",
           "X-ScenarioGUID" -> "7687c733-45b0-425b-82b3-05eb4eb70247"))
-
     }
 
     testCompletion(customEndpointCompletion, goodDf)
