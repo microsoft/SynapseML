@@ -189,17 +189,16 @@ trait HasCustomAuthHeader extends HasServiceParams {
 }
 
 trait HasCustomHeaders extends HasServiceParams {
-  // scalastyle:off field.name
-  val CustomHeaders = new ServiceParam[Map[String, String]](
-    this, "CustomHeader", "List of Custom Header Key-Value Tuples."
+
+  val customHeaders = new ServiceParam[Map[String, String]](
+    this, "customHeaders", "Map of Custom Header Key-Value Tuples."
   )
-  // scalastyle:on field.name
 
   def setCustomHeaders(v: Map[String, String]): this.type = {
-    setScalarParam(CustomHeaders, v)
+    setScalarParam(customHeaders, v)
   }
 
-  def getCustomHeader: Map[String, String] = getScalarParam(CustomHeaders)
+  def getCustomHeaders: Map[String, String] = getScalarParam(customHeaders)
 }
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
