@@ -12,24 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class SuppressLogging:
-    def __init__(self):
-        self._original_stderr = None
-
-    def start(self):
-        """Start suppressing logging by redirecting sys.stderr to /dev/null."""
-        if self._original_stderr is None:
-            self._original_stderr = sys.stderr
-            sys.stderr = open('/dev/null', 'w')
-
-    def stop(self):
-        """Stop suppressing logging and restore sys.stderr."""
-        if self._original_stderr is not None:
-            sys.stderr.close()
-            sys.stderr = self._original_stderr
-            self._original_stderr = None
-
-
 # Import necessary libraries
 import numpy as np
 import torch
@@ -63,7 +45,7 @@ from pyspark.sql.types import (
     FloatType,
 )
 
-class EmbeddingTransformer(Transformer, HasInputCol, HasOutputCol):
+class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     """
     Custom transformer that extends PySpark's Transformer class to
     perform sentence embedding using a model with optional TensorRT acceleration.
@@ -203,9 +185,9 @@ class EmbeddingTransformer(Transformer, HasInputCol, HasOutputCol):
         moduleName="e5-large-v2",
     ):
         """
-        Initialize the EmbeddingTransformer with input/output columns and optional TRT flag.
+        Initialize the HuggingFaceSentenceEmbedder with input/output columns and optional TRT flag.
         """
-        super(EmbeddingTransformer, self).__init__()
+        super(HuggingFaceSentenceEmbedder, self).__init__()
         self._setDefault(
             inputCol="combined",
             outputCol="embeddings",
