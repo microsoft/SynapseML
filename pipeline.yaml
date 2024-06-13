@@ -298,7 +298,7 @@ jobs:
         path: $(CONDA_CACHE_DIR)
         cacheHitVar: CONDA_CACHE_RESTORED
     - bash: |
-        conda env create -f environment.yml -v
+        conda env create --yes -f environment.yml -v
       condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
       displayName: Create Anaconda environment
     - task: AzureKeyVault@1
