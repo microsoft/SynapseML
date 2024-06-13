@@ -16,7 +16,7 @@ steps:
     timeoutInMinutes: 20
     retryCountOnTaskFailure: 1
   - bash: |
-      (timeout 30m conda env create --force -f environment.yml -v)  || (timeout 30m conda env create --force -f environment.yml -v)
+      (timeout 30m conda env create --yes -f environment.yml -v)  || (timeout 30m conda env create --force -f environment.yml -v)
     displayName: Create Anaconda environment
     retryCountOnTaskFailure: 1
     condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
