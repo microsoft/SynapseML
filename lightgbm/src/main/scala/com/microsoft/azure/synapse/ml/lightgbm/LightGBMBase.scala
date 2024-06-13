@@ -33,7 +33,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param dataset The input dataset to train.
     * @return The trained model.
     */
-  protected def train(dataset: Dataset[_]): TrainedModel = {
+  def train(dataset: Dataset[_]): TrainedModel = {
     LightGBMUtils.initializeNativeLibrary()
 
     val isMultiBatch = getNumBatches > 0
@@ -82,7 +82,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     }
   }
 
-  protected def castColumns(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])]): DataFrame = {
+  def castColumns(dataset: Dataset[_], trainingCols: Array[(String, Seq[DataType])]): DataFrame = {
     val schema = dataset.schema
     // Cast columns to correct types
     dataset.select(
@@ -106,7 +106,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     ).toDF()
   }
 
-  protected def prepareDataframe(dataset: Dataset[_], numTasks: Int): DataFrame = {
+  def prepareDataframe(dataset: Dataset[_], numTasks: Int): DataFrame = {
     val df = castColumns(dataset, getTrainingCols)
     // Reduce number of partitions to number of executor tasks
     /* Note: with barrier execution mode we must use repartition instead of coalesce when
@@ -143,7 +143,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     }
   }
 
-  protected def getTrainingCols: Array[(String, Seq[DataType])] = {
+  def getTrainingCols: Array[(String, Seq[DataType])] = {
     val colsToCheck: Array[(Option[String], Seq[DataType])] = Array(
       (Some(getLabelCol), Seq(DoubleType)),
       (Some(getFeaturesCol), Seq(VectorType)),
@@ -164,7 +164,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param featuresSchema The schema of the features column
     * @return the categorical indexes in the features column.
     */
-  protected def getCategoricalIndexes(featuresSchema: StructField): Array[Int] = {
+  def getCategoricalIndexes(featuresSchema: StructField): Array[Int] = {
     val categoricalColumnSlotNames = get(categoricalSlotNames).getOrElse(Array.empty[String])
     val categoricalIndexes = if (getSlotNames.nonEmpty) {
       categoricalColumnSlotNames.map(getSlotNames.indexOf(_))
@@ -197,7 +197,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       .union(categoricalIndexes).distinct
   }
 
-  private def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
+  def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
     if (getSlotNames.nonEmpty) {
       Some(getSlotNames)
     } else {
@@ -214,7 +214,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     }
   }
 
-  private def validateSlotNames(featuresSchema: StructField): Unit = {
+  def validateSlotNames(featuresSchema: StructField): Unit = {
     val metadata = AttributeGroup.fromStructField(featuresSchema)
     if (metadata.attributes.isDefined) {
       val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
@@ -237,7 +237,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return DartModeParams object containing parameters related to dart mode.
     */
-  protected def getDartParams: DartModeParams = {
+  def getDartParams: DartModeParams = {
     DartModeParams(getDropRate, getMaxDrop, getSkipDrop, getXGBoostDartMode, getUniformDrop)
   }
 
@@ -246,7 +246,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return GeneralParams object containing parameters related to general LightGBM parameters.
     */
-  protected def getGeneralParams(numTasks: Int, featuresSchema: StructField): GeneralParams = {
+  def getGeneralParams(numTasks: Int, featuresSchema: StructField): GeneralParams = {
     GeneralParams(
       getParallelism,
       get(topK),
@@ -292,7 +292,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return DatasetParams object containing parameters related to LightGBM Dataset parameters.
     */
-  protected def getDatasetParams: DatasetParams = {
+  def getDatasetParams: DatasetParams = {
     DatasetParams(
       get(isEnableSparse),
       get(useMissing),
@@ -305,7 +305,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return ExecutionParams object containing parameters related to LightGBM execution.
     */
-  protected def getExecutionParams(numTasksPerExec: Int): ExecutionParams = {
+  def getExecutionParams(numTasksPerExec: Int): ExecutionParams = {
     val execNumThreads =
       if (getUseSingleDatasetMode) get(numThreads).getOrElse(numTasksPerExec - 1)
       else getNumThreads
@@ -325,7 +325,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return ColumnParams object containing the parameters related to LightGBM columns.
     */
-  protected def getColumnParams: ColumnParams = {
+  def getColumnParams: ColumnParams = {
     ColumnParams(getLabelCol, getFeaturesCol, get(weightCol), get(initScoreCol), getOptGroupCol)
   }
 
@@ -334,7 +334,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return ObjectiveParams object containing parameters related to the objective function.
     */
-  protected def getObjectiveParams: ObjectiveParams = {
+  def getObjectiveParams: ObjectiveParams = {
     ObjectiveParams(getObjective, if (isDefined(fobj)) Some(getFObj) else None)
   }
 
@@ -343,7 +343,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return SeedParams object containing the parameters related to LightGBM seeds and determinism.
     */
-  protected def getSeedParams: SeedParams = {
+  def getSeedParams: SeedParams = {
     SeedParams(
       get(seed),
       get(deterministic),
@@ -362,7 +362,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return CategoricalParams object containing the parameters related to LightGBM categorical features.
     */
-  protected def getCategoricalParams: CategoricalParams = {
+  def getCategoricalParams: CategoricalParams = {
     CategoricalParams(
       get(minDataPerGroup),
       get(maxCatThreshold),
@@ -371,7 +371,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       get(maxCatToOnehot))
   }
 
-  protected def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+  def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
     new ParamsStringBuilder(prefix = "", delimiter = "=")
       .appendParamValueIfNotThere("is_pre_partition", Option("True"))
       .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
@@ -393,7 +393,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param batchIndex In running in batch training mode, gets the batch number.
     * @return The LightGBM Model from the trained LightGBM Booster.
     */
-  private def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
+  def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
     val measures = new InstrumentationMeasures()
     setBatchPerformanceMeasure(batchIndex, measures)
 
@@ -446,7 +446,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                     measures)
   }
 
-  private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
+  def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
     // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
     if (configNumTasks > 0) configNumTasks
     else {
@@ -461,7 +461,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param df The dataset to train on.
     * @return The number of feature columns and initial score classes
     */
-  private def collectValidationData(df: DataFrame, measures: InstrumentationMeasures): Array[Row] = {
+  def collectValidationData(df: DataFrame, measures: InstrumentationMeasures): Array[Row] = {
     measures.markValidDataCollectionStart()
     val data = preprocessData(df.filter(x =>
       x.getBoolean(x.fieldIndex(getValidationIndicatorCol)))).collect()
@@ -475,7 +475,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param dataframe The dataset to train on.
     * @return The number of feature columns and initial score classes
     */
-  private def calculateColumnStatistics(dataframe: DataFrame, measures: InstrumentationMeasures): (Int, Int) = {
+  def calculateColumnStatistics(dataframe: DataFrame, measures: InstrumentationMeasures): (Int, Int) = {
     measures.markColumnStatisticsStart()
     // Use the first row to get the column count
     val firstRow: Row = dataframe.first()
@@ -506,7 +506,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param measures Instrumentation measures.
     * @return The serialized Dataset reference and an array of partition counts.
     */
-  private def calculateRowStatistics(dataframe: DataFrame,
+  def calculateRowStatistics(dataframe: DataFrame,
                                      trainingParams: BaseTrainParams,
                                      numCols: Int,
                                      measures: InstrumentationMeasures): (Array[Byte], Array[Long]) = {
@@ -566,7 +566,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   * @param measures Instrumentation measures to populate.
   * @return The LightGBM Model from the trained LightGBM Booster.
   */
-  private def executeTraining(dataframe: DataFrame,
+  def executeTraining(dataframe: DataFrame,
                                 validationData: Option[Broadcast[Array[Row]]],
                                 serializedReferenceDataset: Option[Array[Byte]],
                                 partitionCounts: Option[Array[Long]],
@@ -605,7 +605,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     model
   }
 
-  private def executePartitionTasks(ctx: TrainingContext,
+  def executePartitionTasks(ctx: TrainingContext,
                                       dataframe: DataFrame,
                                       measures: InstrumentationMeasures): LightGBMBooster = {
     // Create the object that will manage the mapPartitions function
@@ -642,7 +642,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param networkManager The network manager.
     * @return The context of the training session.
     */
-  private def getTrainingContext(dataframe: DataFrame,
+  def getTrainingContext(dataframe: DataFrame,
                                    validationData: Option[Broadcast[Array[Row]]],
                                    serializedReferenceDataset: Option[Array[Byte]],
                                    partitionCounts: Option[Array[Long]],
@@ -683,13 +683,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     *
     * @return None
     */
-  protected def getOptGroupCol: Option[String] = None
+  def getOptGroupCol: Option[String] = None
 
   /** Gets the trained model given the train parameters and booster.
     *
     * @return trained model.
     */
-  protected def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
+  def getModel(trainParams: BaseTrainParams, lightGBMBooster: LightGBMBooster): TrainedModel
 
   /** Gets the training parameters.
     *
@@ -698,20 +698,20 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param numTasksPerExec The number of tasks per executor.
     * @return train parameters.
     */
-  protected def getTrainParams(numTasks: Int,
+  def getTrainParams(numTasks: Int,
                                featuresSchema: StructField,
                                numTasksPerExec: Int): BaseTrainParams
 
-  protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = params
+  def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = params
 
-  protected def stringFromTrainedModel(model: TrainedModel): String
+  def stringFromTrainedModel(model: TrainedModel): String
 
   /** Allow algorithm specific preprocessing of dataset.
     *
     * @param df The dataframe to preprocess prior to training.
     * @return The preprocessed data.
     */
-  protected def preprocessData(df: DataFrame): DataFrame = df
+  def preprocessData(df: DataFrame): DataFrame = df
 
   /**
     * Creates an array of Rows to use as sample data.
@@ -721,7 +721,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param trainingParams The training parameters.
     * @return The serialized Dataset reference and an array of partition counts.
     */
-  private def getSampledRows(dataframe: DataFrame,
+  def getSampledRows(dataframe: DataFrame,
                              totalNumRows: Long,
                              trainingParams: BaseTrainParams): Array[Row] = {
     val sampleCount: Int = getBinSampleCount

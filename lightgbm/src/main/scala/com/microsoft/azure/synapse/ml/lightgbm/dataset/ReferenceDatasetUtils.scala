@@ -96,7 +96,7 @@ object ReferenceDatasetUtils {
     lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
   }
 
-  private def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
+  def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
     val byteArray = new Array[Byte](bufferLen)
     val valPtr = lightgbmlib.new_bytep()
     val bufferHandle = lightgbmlib.voidpp_value(buffer)
@@ -118,7 +118,7 @@ object ReferenceDatasetUtils {
     byteArray
   }
 
-  private def deserializeReferenceDataset(serializedDataset: Array[Byte],
+  def deserializeReferenceDataset(serializedDataset: Array[Byte],
                                           rowCount: Int,
                                           datasetParams: String): LightGBMDataset = {
     // Convert byte array to native memory
