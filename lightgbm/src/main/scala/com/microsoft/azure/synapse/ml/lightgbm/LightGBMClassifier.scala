@@ -56,7 +56,7 @@ class LightGBMClassifier(override val uid: String)
       getCategoricalParams)
   }
 
-  override protected def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = {
+  override def addCustomTrainParams(params: BaseTrainParams, dataset: Dataset[_]): BaseTrainParams = {
     /* The native code for getting numClasses is always 1 unless it is multiclass-classification problem
      * so we infer the actual numClasses from the dataset here.  Since this could be a full pass over
      * the data, explicitly call it out as a calculation and only do it if needed.
@@ -106,7 +106,7 @@ class LightGBMClassificationModel(override val uid: String)
 
   def this() = this(Identifiable.randomUID("LightGBMClassificationModel"))
 
-  override protected lazy val pyInternalWrapper = true
+  override lazy val pyInternalWrapper = true
 
   /**
     * Implementation based on ProbabilisticClassifier with slight modifications to
@@ -163,7 +163,7 @@ class LightGBMClassificationModel(override val uid: String)
     }, dataset.columns.length)
   }
 
-  override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
+  override def raw2probabilityInPlace(rawPrediction: Vector): Vector = {
     throw new NotImplementedError("Unexpected error in LightGBMClassificationModel:" +
       " raw2probabilityInPlace should not be called!")
   }
@@ -180,7 +180,7 @@ class LightGBMClassificationModel(override val uid: String)
 
   override def copy(extra: ParamMap): LightGBMClassificationModel = defaultCopy(extra)
 
-  protected def predictColumn: Column = {
+  def predictColumn: Column = {
     if (getRawPredictionCol.nonEmpty && !isDefined(thresholds)) {
       // Note: Only call raw2prediction if thresholds not defined
       udf(raw2prediction _).apply(col(getRawPredictionCol))
