@@ -446,7 +446,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                     measures)
   }
 
-  def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
+  private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
     // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
     if (configNumTasks > 0) configNumTasks
     else {
