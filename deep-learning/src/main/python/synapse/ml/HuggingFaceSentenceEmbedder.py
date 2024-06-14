@@ -45,6 +45,7 @@ from pyspark.sql.types import (
     FloatType,
 )
 
+
 class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     """
     Custom transformer that extends PySpark's Transformer class to
@@ -54,7 +55,11 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     # Define additional parameters
     # useTRT = Param(Params._dummy(), "useTRT", "True if use TRT acceleration")
 
-    runtime = Param(Params._dummy(), "runtime", "Specifies the runtime environment: cpu, cuda, or tensorrt")
+    runtime = Param(
+        Params._dummy(),
+        "runtime",
+        "Specifies the runtime environment: cpu, cuda, or tensorrt",
+    )
 
     # driverOnly = Param(
     #     Params._dummy(),
@@ -195,7 +200,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         self._setDefault(
             # inputCol="combined",
             # outputCol="embeddings",
-            runtime='cpu',
+            runtime="cpu",
             # driverOnly=False,
             modelName=modelName,
             # moduleName=moduleName,
@@ -229,10 +234,12 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Sets the runtime environment for the model.
         Supported values: 'cpu', 'cuda', 'tensorrt'
         """
-        if value not in ['cpu', 'cuda', 'tensorrt']:
-            raise ValueError("Invalid runtime specified. Choose from 'cpu', 'cuda', 'tensorrt'")
+        if value not in ["cpu", "cuda", "tensorrt"]:
+            raise ValueError(
+                "Invalid runtime specified. Choose from 'cpu', 'cuda', 'tensorrt'"
+            )
         self.setOrDefault(self.runtime, value)
-    
+
     def getRuntime(self):
         return self.getOrDefault(self.runtime)
 
@@ -382,8 +389,8 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         if "model" not in globals():
             global model
             modelName = self.getModelName()
-            if runtime == 'tensorrt':
-                moduleName = modelName.split('/')[1]
+            if runtime == "tensorrt":
+                moduleName = modelName.split("/")[1]
                 model = self._SentenceTransformerNavigator(modelName).eval()
                 model = nav.Module(model, name=model.name)
                 try:
