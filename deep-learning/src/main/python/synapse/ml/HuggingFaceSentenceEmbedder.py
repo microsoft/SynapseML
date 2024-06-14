@@ -62,9 +62,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     #     "True if run encode only on Driver for small queries",
     # )
     batchSize = Param(Params._dummy(), "batchSize", "Batch size for embeddings", int)
-    modelName = Param(Params._dummy(), "modelName", "Model Name parameter")
-    moduleName = Param(Params._dummy(), "moduleName", "Module Name parameter")
-    model = Param(Params._dummy(), "model", "Model used for embedding")
+    modelName = Param(Params._dummy(), "modelName", "Full Model Name parameter")
+    # moduleName = Param(Params._dummy(), "moduleName", "Module Name parameter")
+    # model = Param(Params._dummy(), "model", "Model used for embedding")
     path = Param(Params._dummy(), "path", "Path to .csv file with data")
 
     class _SentenceTransformerNavigator(SentenceTransformer):
@@ -183,8 +183,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         runtime=None,
         # driverOnly=False,
         batchSize=16,
-        model=None,
-        modelName="intfloat/e5-large-v2",
+        # model=None,
+        # modelName="intfloat/e5-large-v2",
+        modelName=None,
         # moduleName= modelName.split('/')[1]
     ):
         """
@@ -198,7 +199,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             # driverOnly=False,
             modelName=modelName,
             # moduleName=moduleName,
-            model=None,
+            # model=None,
             batchSize=16,
         )
         self._set(
@@ -207,7 +208,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             runtime=runtime,
             # driverOnly=driverOnly,
             batchSize=batchSize,
-            model=model,
+            # model=model,
             modelName=modelName,
             # moduleName=moduleName,
         )
@@ -253,14 +254,14 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     # def getDriverOnly(self):
     #     return self.getOrDefault(self.driverOnly)
 
-    # Setter method for model
-    def setModel(self, value):
-        self._paramMap[self.model] = value
-        return self
+    # # Setter method for model
+    # def setModel(self, value):
+    #     self._paramMap[self.model] = value
+    #     return self
 
-    # Getter method for model
-    def getModel(self):
-        return self.getOrDefault(self.model)
+    # # Getter method for model
+    # def getModel(self):
+    #     return self.getOrDefault(self.model)
 
     # Setter method for modelName
     def setModelName(self, value):
@@ -302,7 +303,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             """
             Generate chunks of different batch sizes and sentence lengths.
             """
-            for batch_size in [64, 32, 16, 8, 4, 2, 1]:
+            for batch_size in [64]:
                 for sentence_length in [20, 300, 512]:
                     yield (batch_size, sentence_length)
 
@@ -326,52 +327,52 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     )
                     i += 1
 
-        total_batches = len(list(gen_size_chunk()))
+        total_batches = len(list(_gen_size_chunk()))
         func = lambda x, **kwargs: self._SentenceTransformerNavigator.encode(
             model, x, **kwargs
         )
         nav.optimize(
-            func, dataloader=tqdm(get_dataloader(), total=total_batches), config=conf
+            func, dataloader=tqdm(_get_dataloader(), total=total_batches), config=conf
         )
 
-    def _run_on_driver(self, queries, spark):
-        """
-        Method to run on the driver to generate embeddings and create a DataFrame.
-        """
-        if spark is None:
-            raise ValueError("Spark context should be set")
+    # def _run_on_driver(self, queries, spark):
+    #     """
+    #     Method to run on the driver to generate embeddings and create a DataFrame.
+    #     """
+    #     if spark is None:
+    #         raise ValueError("Spark context should be set")
 
-        # Load the model on the driver
-        model = SentenceTransformer(self.getModelName()).eval()
+    #     # Load the model on the driver
+    #     model = SentenceTransformer(self.getModelName()).eval()
 
-        # Generate embeddings
-        with torch.no_grad():
-            embeddings = [embedding.tolist() for embedding in model.encode(queries)]
+    #     # Generate embeddings
+    #     with torch.no_grad():
+    #         embeddings = [embedding.tolist() for embedding in model.encode(queries)]
 
-        # Prepare data including IDs
-        data_with_ids = [
-            (i + 1, query, embeddings[i]) for i, query in enumerate(queries)
-        ]
+    #     # Prepare data including IDs
+    #     data_with_ids = [
+    #         (i + 1, query, embeddings[i]) for i, query in enumerate(queries)
+    #     ]
 
-        # Define the schema for the DataFrame
-        schema = StructType(
-            [
-                StructField("id", IntegerType(), nullable=False),
-                StructField("query", StringType(), nullable=False),
-                StructField(
-                    "embeddings",
-                    ArrayType(FloatType(), containsNull=False),
-                    nullable=False,
-                ),
-            ]
-        )
+    #     # Define the schema for the DataFrame
+    #     schema = StructType(
+    #         [
+    #             StructField("id", IntegerType(), nullable=False),
+    #             StructField("query", StringType(), nullable=False),
+    #             StructField(
+    #                 "embeddings",
+    #                 ArrayType(FloatType(), containsNull=False),
+    #                 nullable=False,
+    #             ),
+    #         ]
+    #     )
 
-        # Create a DataFrame using the data with IDs and the schema
-        query_embeddings = spark.createDataFrame(
-            data=data_with_ids, schema=schema
-        ).cache()
+    #     # Create a DataFrame using the data with IDs and the schema
+    #     query_embeddings = spark.createDataFrame(
+    #         data=data_with_ids, schema=schema
+    #     ).cache()
 
-        return query_embeddings
+    #     return query_embeddings
 
     def _predict_batch_fn(self):
         """
@@ -384,7 +385,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             if runtime == 'tensorrt':
                 moduleName = modelName.split('/')[1]
                 model = self._SentenceTransformerNavigator(modelName).eval()
-                model = nav.Module(model, name=moduleName)
+                model = nav.Module(model, name=model.name)
                 try:
                     nav.load_optimized()
                 except Exception:
