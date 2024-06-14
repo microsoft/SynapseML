@@ -70,7 +70,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     modelName = Param(Params._dummy(), "modelName", "Full Model Name parameter")
     # moduleName = Param(Params._dummy(), "moduleName", "Module Name parameter")
     # model = Param(Params._dummy(), "model", "Model used for embedding")
-    path = Param(Params._dummy(), "path", "Path to .csv file with data")
+    # path = Param(Params._dummy(), "path", "Path to .csv file with data")
 
     class _SentenceTransformerNavigator(SentenceTransformer):
         """
@@ -392,7 +392,8 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             if runtime == "tensorrt":
                 moduleName = modelName.split("/")[1]
                 model = self._SentenceTransformerNavigator(modelName).eval()
-                model = nav.Module(model, name=model.name)
+                # model = nav.Module(model, name=model.name)
+                model = nav.Module(model, name=moduleName)
                 try:
                     nav.load_optimized()
                 except Exception:
