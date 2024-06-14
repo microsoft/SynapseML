@@ -331,7 +331,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   }
 
   protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
-    getValueOpt(row, CustomHeaders)
+    getValueOpt(row, customHeaders)
   }
 
   protected def addHeaders(req: HttpRequestBase,
