@@ -45,7 +45,6 @@ from pyspark.sql.types import (
     FloatType,
 )
 
-
 class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     """
     Custom transformer that extends PySpark's Transformer class to
@@ -53,24 +52,13 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     """
 
     # Define additional parameters
-    # useTRT = Param(Params._dummy(), "useTRT", "True if use TRT acceleration")
-
     runtime = Param(
         Params._dummy(),
         "runtime",
         "Specifies the runtime environment: cpu, cuda, or tensorrt",
     )
-
-    # driverOnly = Param(
-    #     Params._dummy(),
-    #     "driverOnly",
-    #     "True if run encode only on Driver for small queries",
-    # )
     batchSize = Param(Params._dummy(), "batchSize", "Batch size for embeddings", int)
     modelName = Param(Params._dummy(), "modelName", "Full Model Name parameter")
-    # moduleName = Param(Params._dummy(), "moduleName", "Module Name parameter")
-    # model = Param(Params._dummy(), "model", "Model used for embedding")
-    # path = Param(Params._dummy(), "path", "Path to .csv file with data")
 
     class _SentenceTransformerNavigator(SentenceTransformer):
         """
@@ -186,36 +174,24 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         inputCol=None,
         outputCol=None,
         runtime=None,
-        # driverOnly=False,
         batchSize=16,
-        # model=None,
-        # modelName="intfloat/e5-large-v2",
         modelName=None,
-        # moduleName= modelName.split('/')[1]
     ):
         """
         Initialize the HuggingFaceSentenceEmbedder with input/output columns and optional TRT flag.
         """
         super(HuggingFaceSentenceEmbedder, self).__init__()
         self._setDefault(
-            # inputCol="combined",
-            # outputCol="embeddings",
             runtime="cpu",
-            # driverOnly=False,
             modelName=modelName,
-            # moduleName=moduleName,
-            # model=None,
             batchSize=16,
         )
         self._set(
             inputCol=inputCol,
             outputCol=outputCol,
             runtime=runtime,
-            # driverOnly=driverOnly,
             batchSize=batchSize,
-            # model=model,
             modelName=modelName,
-            # moduleName=moduleName,
         )
 
     # Setter method for batchSize
@@ -243,33 +219,6 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     def getRuntime(self):
         return self.getOrDefault(self.runtime)
 
-    # # Setter method for useTRT
-    # def setUseTRT(self, value):
-    #     self._set(useTRT=value)
-    #     return self
-
-    # # Getter method for useTRT
-    # def getUseTRT(self):
-    #     return self.getOrDefault(self.useTRT)
-
-    # # Setter method for driverOnly
-    # def setDriverOnly(self, value):
-    #     self._set(driverOnly=value)
-    #     return self
-
-    # # Getter method for driverOnly
-    # def getDriverOnly(self):
-    #     return self.getOrDefault(self.driverOnly)
-
-    # # Setter method for model
-    # def setModel(self, value):
-    #     self._paramMap[self.model] = value
-    #     return self
-
-    # # Getter method for model
-    # def getModel(self):
-    #     return self.getOrDefault(self.model)
-
     # Setter method for modelName
     def setModelName(self, value):
         self._set(modelName=value)
@@ -279,19 +228,8 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     def getModelName(self):
         return self.getOrDefault(self.modelName)
 
-    # # Setter method for moduleName
-    # def setModuleName(self, value):
-    #     self._set(moduleName=value)
-    #     return self
-
-    # # Getter method for moduleName
-    # def getModuleName(self):
-    #     return self.getOrDefault(self.moduleName)
-
+    # Optimize the model using Model Navigator with TensorRT configuration.
     def _optimize(self, model):
-        """
-        Optimize the model using Model Navigator with TensorRT configuration.
-        """
         conf = nav.OptimizeConfig(
             target_formats=(nav.Format.TENSORRT,),
             runners=("TensorRT",),
@@ -335,51 +273,12 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     i += 1
 
         total_batches = len(list(_gen_size_chunk()))
-        func = lambda x, **kwargs: self._SentenceTransformerNavigator.encode(
+        func = lambda x, **kwargs: self._SentenceTransformerNavigator._encode(
             model, x, **kwargs
         )
         nav.optimize(
             func, dataloader=tqdm(_get_dataloader(), total=total_batches), config=conf
         )
-
-    # def _run_on_driver(self, queries, spark):
-    #     """
-    #     Method to run on the driver to generate embeddings and create a DataFrame.
-    #     """
-    #     if spark is None:
-    #         raise ValueError("Spark context should be set")
-
-    #     # Load the model on the driver
-    #     model = SentenceTransformer(self.getModelName()).eval()
-
-    #     # Generate embeddings
-    #     with torch.no_grad():
-    #         embeddings = [embedding.tolist() for embedding in model.encode(queries)]
-
-    #     # Prepare data including IDs
-    #     data_with_ids = [
-    #         (i + 1, query, embeddings[i]) for i, query in enumerate(queries)
-    #     ]
-
-    #     # Define the schema for the DataFrame
-    #     schema = StructType(
-    #         [
-    #             StructField("id", IntegerType(), nullable=False),
-    #             StructField("query", StringType(), nullable=False),
-    #             StructField(
-    #                 "embeddings",
-    #                 ArrayType(FloatType(), containsNull=False),
-    #                 nullable=False,
-    #             ),
-    #         ]
-    #     )
-
-    #     # Create a DataFrame using the data with IDs and the schema
-    #     query_embeddings = spark.createDataFrame(
-    #         data=data_with_ids, schema=schema
-    #     ).cache()
-
-    #     return query_embeddings
 
     def _predict_batch_fn(self):
         """
@@ -392,17 +291,14 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             if runtime == "tensorrt":
                 moduleName = modelName.split("/")[1]
                 model = self._SentenceTransformerNavigator(modelName).eval()
-                # model = nav.Module(model, name=model.name)
                 model = nav.Module(model, name=moduleName)
                 try:
                     nav.load_optimized()
                 except Exception:
                     self._optimize(model)
                     nav.load_optimized()
-                print("create trt model")
             else:
                 model = SentenceTransformer(modelName).eval()
-                print("create ST model")
 
         def predict(inputs):
             """
@@ -422,22 +318,6 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         """
         Apply the transformation to the input dataset.
         """
-        # driverOnly = self.getDriverOnly()
-
-        # if driverOnly is None or driverOnly is False:
-        #     input_col = self.getInputCol()
-        #     output_col = self.getOutputCol()
-
-        #     encode = predict_batch_udf(
-        #         self._predict_batch_fn,
-        #         return_type=ArrayType(FloatType()),
-        #         batch_size=self.getBatchSize(),
-        #     )
-        #     return dataset.withColumn(output_col, encode(input_col))
-        # else:
-        #     if spark is None:
-        #         raise ValueError("Spark context should be set")
-        #     return self.run_on_driver(dataset, spark=spark)
         input_col = self.getInputCol()
         output_col = self.getOutputCol()
 
@@ -459,57 +339,6 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Create a copy of the transformer.
         """
         return self._defaultCopy(extra)
-
-    # def load_data_food_reviews(self, spark, path=None, limit=1000):
-    #     """
-    #     Load data from public dataset and generate 1M rows dataset from 1K data.
-    #     """
-    #     if path is None:
-    #         path = "wasbs://publicwasb@mmlspark.blob.core.windows.net/fine_food_reviews_1k.csv"
-    #     file_path = path
-
-    #     # Check if the row count is less than 10
-    #     if limit <= 0 or limit >= 1000000:
-    #         raise ValueError(f"Limit is {limit}, which should be less than 1M.")
-
-    #     df = spark.read.options(inferSchema="True", delimiter=",", header=True).csv(
-    #         file_path
-    #     )
-    #     df = df.withColumn(
-    #         "combined",
-    #         F.format_string(
-    #             "Title: %s; Content: %s", F.trim(df.Summary), F.trim(df.Text)
-    #         ),
-    #     )
-
-    #     rowCnt = df.count()
-
-    #     # Check the conditions
-    #     if limit > rowCnt and rowCnt > 1000:
-
-    #         # Cross-join the DataFrame with itself to create n x n pairs for string concatenation (synthetic data)
-    #         cross_joined_df = df.crossJoin(
-    #             df.withColumnRenamed("combined", "combined_2")
-    #         )
-
-    #         # Create a new column 'result_vector' by concatenating the two source vectors
-    #         tmp_df = cross_joined_df.withColumn(
-    #             "result_vector",
-    #             F.concat(F.col("combined"), F.lit(". \n"), F.col("combined_2")),
-    #         )
-
-    #         # Select only the necessary columns and show the result
-    #         tmp_df = tmp_df.select("result_vector")
-    #         df = tmp_df.withColumnRenamed("result_vector", "combined").withColumn(
-    #             "id", monotonically_increasing_id()
-    #         )
-
-    #     # Shuffle the DataFrame with a fixed seed
-    #     seed = 42
-    #     shuffled_df = df.orderBy(rand(seed))
-
-    #     return shuffled_df.limit(limit)
-
 
 # Example usage:
 # data = input data frame
