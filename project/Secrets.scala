@@ -175,6 +175,7 @@ object Secrets {
   lazy val pgpPublicFile: File = getPgpSecretFile(PgpPublicSecretName, PgpPublicEnvVarName)
 
   lazy val publishToFeed: Boolean = sys.env.getOrElse(PublishToFeed, "false").toBoolean
+  lazy val publishToVHD: Boolean = sys.env.getOrElse(PublishToVHD, "false").toBoolean
 
   val ADOFeedTokenSecretName: String = "ado-feed-token"
   val ADOFeedTokenEnvVarName: String = "ADO-FEED-TOKEN"
@@ -191,4 +192,5 @@ object Secrets {
   val PypiApiSecretName: String = "pypi-api-token"
   val PypiApiEnvVarName: String = "PYPI-API-TOKEN"
   val PublishToFeed: String = "PUBLISH-TO-FEED"
+  val PublishToVHD: String = "PUBLISH-TO-VHD"
 }
