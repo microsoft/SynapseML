@@ -102,7 +102,7 @@ class LightGBMRegressionModel(override val uid: String)
 
   def this() = this(Identifiable.randomUID("LightGBMRegressionModel"))
 
-  override protected lazy val pyInternalWrapper = true
+  override lazy val pyInternalWrapper = true
 
   /**
     * Adds additional Leaf Index and SHAP columns if specified.
