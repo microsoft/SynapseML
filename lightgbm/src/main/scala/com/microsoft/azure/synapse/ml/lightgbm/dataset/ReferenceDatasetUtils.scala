@@ -35,16 +35,16 @@ object ReferenceDatasetUtils {
       // Create dataset from samples
       // 1. Generate the dataset for features
       val datasetVoidPtr = lightgbmlib.voidpp_handle()
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
-        sampledData.getSampleData,
-        sampledData.getSampleIndices,
-        numCols,
-        sampledData.getRowCounts,
-        sampledData.numRows,
-        1, // Used for allocation and must be > 0, but we don't use this reference set for data collection
-        numRows,
-        datasetParams,
-        datasetVoidPtr), "Dataset create from samples")
+//      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
+//        sampledData.getSampleData,
+//        sampledData.getSampleIndices,
+//        numCols,
+//        sampledData.getRowCounts,
+//        sampledData.numRows,
+//        1, // Used for allocation and must be > 0, but we don't use this reference set for data collection
+//        numRows,
+//        datasetParams,
+//        datasetVoidPtr), "Dataset create from samples")
 
 
       // 2. Serialize the raw dataset to a native buffer
