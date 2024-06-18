@@ -299,6 +299,10 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     nav.load_optimized()
             else:
                 model = SentenceTransformer(modelName).eval()
+                if runtime == "cuda":
+                    model = model.cuda()
+                else:
+                    model = model.to("cpu")
 
         def predict(inputs):
             """
