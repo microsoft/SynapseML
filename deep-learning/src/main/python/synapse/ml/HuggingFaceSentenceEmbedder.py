@@ -273,7 +273,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     i += 1
 
         total_batches = len(list(_gen_size_chunk()))
-        func = lambda x, **kwargs: self._SentenceTransformerNavigator._encode(
+        func = lambda x, **kwargs: self._SentenceTransformerNavigator.encode(
             model, x, **kwargs
         )
         nav.optimize(
