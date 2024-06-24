@@ -17,10 +17,13 @@ object PlatformDetails {
   def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
     azureService match {
+      case _ if new java.io.File("/home/trusted-service-user/.trident-context").exists() => PlatformSynapseInternal
+      // Note Below judgement doesn't work if you are not in main thread
+      // In Fabric, existence of above file should always gives right judgement
+      // In Synapse, hitting below condition has risks.
       case Some(serviceName) if serviceName == SynapseProjectName =>
         defineSynapsePlatform()
       case _ if new java.io.File("/dbfs").exists() => PlatformDatabricks
-      case _ if new java.io.File("/home/trusted-service-user/.trident-context").exists() => PlatformSynapseInternal
       case _ if sys.env.contains("BINDER_LAUNCH_HOST") => PlatformBinder
       case _ => PlatformUnknown
     }
