@@ -37,9 +37,9 @@ description: Developer Setup
     :::
 1. Update the ScalaTest Configuration Template
     - In IntelliJ, select the sandwich menu in the top left.
-    - Select "Run", then select "Edit Configurations...". At the bottom of the pop-up, select "Edit Configuration Templates".
+    - Select Run, then select Edit Configurations. At the bottom of the pop-up, select Edit Configuration Templates.
     - Select ScalaTest from the list on the right
-    - Under "VM options", add `--add-exports java.base/sun.nio.ch=ALL-UNNAMED  `. Apply the changes.
+    - Under VM options, add `--add-exports java.base/sun.nio.ch=ALL-UNNAMED  `. Apply the changes.
 
 
 > NOTE
