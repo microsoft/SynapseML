@@ -35,11 +35,11 @@ description: Developer Setup
     `horovod` requirement in the environment.yml file, because horovod installation only
     supports Linux or macOS. Horovod is used only for namespace `synapse.ml.dl`.
     :::
-1. On Windows, install WinUtils
-    - Download [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe)
-    - Place it in C:\Program Files\Hadoop\bin
-    - Add an environment variable HADOOP_HOME with value C:\Program Files\Hadoop
-    - Append C:\Program Files\Hadoop\bin to PATH environment variable
+1. Update the ScalaTest Configuration Template
+    - In IntelliJ, select the sandwich menu in the top left.
+    - Select "Run", then select "Edit Configurations...". At the bottom of the pop-up, select "Edit Configuration Templates".
+    - Select ScalaTest from the list on the right
+    - Under "VM options", add `--add-exports java.base/sun.nio.ch=ALL-UNNAMED  `. Apply the changes.
 
 
 > NOTE
