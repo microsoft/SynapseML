@@ -188,6 +188,19 @@ trait HasCustomAuthHeader extends HasServiceParams {
   }
 }
 
+trait HasCustomHeaders extends HasServiceParams {
+
+  val customHeaders = new ServiceParam[Map[String, String]](
+    this, "customHeaders", "Map of Custom Header Key-Value Tuples."
+  )
+
+  def setCustomHeaders(v: Map[String, String]): this.type = {
+    setScalarParam(customHeaders, v)
+  }
+
+  def getCustomHeaders: Map[String, String] = getScalarParam(customHeaders)
+}
+
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.cognitiveservices.azure.com/" + urlPath.stripPrefix("/"))
@@ -256,7 +269,15 @@ object URLEncodingUtils {
 }
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
-  with SynapseMLLogging {
+  with HasCustomHeaders with SynapseMLLogging {
+
+  val customUrlRoot: Param[String] = new Param[String](
+    this, "customUrlRoot", "The custom URL root for the service. " +
+      "This will not append OpenAI specific model path completions (i.e. /chat/completions) to the URL.")
+
+  def getCustomUrlRoot: String = $(customUrlRoot)
+
+  def setCustomUrlRoot(v: String): this.type = set(customUrlRoot, v)
 
   protected def paramNameToPayloadName(p: Param[_]): String = p match {
     case p: ServiceParam[_] => p.payloadName
@@ -281,7 +302,11 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         ""
       }
-      prepareUrlRoot(row) + appended
+      if (get(customUrlRoot).nonEmpty) {
+        $(customUrlRoot)
+      } else {
+        prepareUrlRoot(row) + appended
+      }
     }
   }
 
@@ -296,20 +321,25 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
-    val providedCustomHeader = getValueOpt(row, CustomAuthHeader)
-    if (providedCustomHeader .isEmpty && PlatformDetails.runningOnFabric()) {
+    val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
+    if (providedCustomAuthHeader .isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
       Option(TokenLibrary.getAuthHeader)
     } else {
-      providedCustomHeader
+      providedCustomAuthHeader
     }
+  }
+
+  protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
+    getValueOpt(row, customHeaders)
   }
 
   protected def addHeaders(req: HttpRequestBase,
                            subscriptionKey: Option[String],
                            aadToken: Option[String],
                            contentType: String = "",
-                           customAuthHeader: Option[String] = None): Unit = {
+                           customAuthHeader: Option[String] = None,
+                           customHeaders: Option[Map[String, String]] = None): Unit = {
 
     if (subscriptionKey.nonEmpty) {
       req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
@@ -324,6 +354,13 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         req.setHeader(aadHeaderName, s)
         // this is required for internal workload
         req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    }
+    if (customHeaders.nonEmpty) {
+      customHeaders.foreach(m => {
+        m.foreach {
+          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
+        }
       })
     }
     if (contentType != "") req.setHeader("Content-Type", contentType)
@@ -342,7 +379,8 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row))
+          getCustomAuthHeader(row),
+          getCustomHeaders(row))
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
