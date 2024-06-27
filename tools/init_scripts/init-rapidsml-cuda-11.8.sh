@@ -42,7 +42,7 @@ ln -s /usr/local/cuda-11.8 /usr/local/cuda
     --extra-index-url=https://pypi.nvidia.com
 
 # install model navigator
-/databricks/python/bin/pip install --extra-index-url https://pypi.nvidia.com onnxruntime-gpu==1.16.3 "tensorrt==9.3.0.post12.dev1" "triton-model-navigator<1" "sentence_transformers~=2.2.2" "faker" "urllib3<2" 
+/databricks/python/bin/pip install --extra-index-url https://pypi.nvidia.com onnxruntime-gpu "tensorrt" "triton-model-navigator==0.10.1" "sentence_transformers~=2.2.2" "urllib3<2" 
 
 # install spark-rapids-ml
 /databricks/python/bin/pip install spark-rapids-ml~=${SPARK_RAPIDSML_VERSION}

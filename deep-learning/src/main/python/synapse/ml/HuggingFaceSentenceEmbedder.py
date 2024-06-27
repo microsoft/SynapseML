@@ -12,37 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Import necessary libraries
-import numpy as np
 import torch
-import pyspark.sql.functions as F
 import tensorrt as trt
-import logging
-import warnings
-import sys
-import datetime
-import pytz
-from tqdm import tqdm, trange
-from numpy import ndarray
-from torch import Tensor
-from typing import List, Union
-
 import model_navigator as nav
 from sentence_transformers import SentenceTransformer
-from sentence_transformers.util import batch_to_device
 from pyspark.ml.functions import predict_batch_udf
-from faker import Faker
-
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
-from pyspark.sql.functions import col, struct, rand
 from pyspark.sql.types import (
-    StructType,
-    StructField,
-    IntegerType,
-    StringType,
-    ArrayType,
-    FloatType,
+     ArrayType,
+     FloatType,
 )
 
 class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
@@ -50,131 +29,24 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     Custom transformer that extends PySpark's Transformer class to
     perform sentence embedding using a model with optional TensorRT acceleration.
     """
+    NUM_OPT_ROWS = 100  # Constant for number of rows taken for model optimization
+    BATCH_SIZE_DEFAULT = 64    
 
     # Define additional parameters
     runtime = Param(
         Params._dummy(),
         "runtime",
-        "Specifies the runtime environment: cpu, cuda, or tensorrt",
+        "Specifies the runtime environment: cpu, cuda, onnxrt, or tensorrt",
     )
     batchSize = Param(Params._dummy(), "batchSize", "Batch size for embeddings", int)
     modelName = Param(Params._dummy(), "modelName", "Full Model Name parameter")
-
-    class _SentenceTransformerNavigator(SentenceTransformer):
-        """
-        Inner class extending SentenceTransformer to override the encode method
-        with additional functionality and optimizations (mainly to eliminate RecursiveErrors).
-        """
-
-        def encode(
-            self,
-            sentences: Union[str, List[str]],
-            batch_size: int = 64,
-            sentence_length: int = 512,
-            show_progress_bar: bool = False,
-            output_value: str = "sentence_embedding",
-            convert_to_numpy: bool = True,
-            convert_to_tensor: bool = False,
-            device: str = None,
-            normalize_embeddings: bool = False,
-        ) -> Union[List[Tensor], ndarray, Tensor]:
-            """
-            Encode sentences into embeddings with optional configurations.
-            """
-            self.eval()
-            show_progress_bar = (
-                show_progress_bar if show_progress_bar is not None else True
-            )
-            convert_to_numpy = convert_to_numpy and not convert_to_tensor
-            output_value = output_value or "sentence_embedding"
-
-            # Handle input as a list of sentences
-            input_was_string = isinstance(sentences, str) or not hasattr(
-                sentences, "__len__"
-            )
-            if input_was_string:
-                sentences = [sentences]
-
-            # Determine the device to use for computation
-            device = device or self._target_device
-            self.to(device)
-
-            # Initialize list for embeddings
-            all_embeddings = []
-            length_sorted_idx = np.argsort(
-                [-self._text_length(sen) for sen in sentences]
-            )
-            sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
-
-            # Process sentences in batches
-            for start_index in trange(
-                0,
-                len(sentences),
-                batch_size,
-                desc="Batches",
-                disable=not show_progress_bar,
-            ):
-                sentences_batch = sentences_sorted[
-                    start_index : start_index + batch_size
-                ]
-                features = self.tokenize(sentences_batch)
-                features = batch_to_device(features, device)
-
-                # Perform forward pass and gather embeddings
-                with torch.no_grad():
-                    out_features = self(features)
-
-                    if output_value == "token_embeddings":
-                        embeddings = []
-                        for token_emb, attention in zip(
-                            out_features[output_value], out_features["attention_mask"]
-                        ):
-                            last_mask_id = len(attention) - 1
-                            while (
-                                last_mask_id > 0 and attention[last_mask_id].item() == 0
-                            ):
-                                last_mask_id -= 1
-                            embeddings.append(token_emb[0 : last_mask_id + 1])
-                    elif output_value is None:
-                        embeddings = []
-                        for sent_idx in range(len(out_features["sentence_embedding"])):
-                            row = {
-                                name: out_features[name][sent_idx]
-                                for name in out_features
-                            }
-                            embeddings.append(row)
-                    else:
-                        embeddings = out_features[output_value]
-                        embeddings = embeddings.detach()
-                        if normalize_embeddings:
-                            embeddings = torch.nn.functional.normalize(
-                                embeddings, p=2, dim=1
-                            )
-                        if convert_to_numpy:
-                            embeddings = embeddings.cpu()
-
-                    all_embeddings.extend(embeddings)
-
-            # Restore original order of sentences
-            all_embeddings = [
-                all_embeddings[idx] for idx in np.argsort(length_sorted_idx)
-            ]
-            if convert_to_tensor:
-                all_embeddings = torch.stack(all_embeddings)
-            elif convert_to_numpy:
-                all_embeddings = np.asarray([emb.numpy() for emb in all_embeddings])
-
-            if input_was_string:
-                all_embeddings = all_embeddings[0]
-
-            return all_embeddings
 
     def __init__(
         self,
         inputCol=None,
         outputCol=None,
         runtime=None,
-        batchSize=16,
+        batchSize=None,
         modelName=None,
     ):
         """
@@ -183,16 +55,17 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         super(HuggingFaceSentenceEmbedder, self).__init__()
         self._setDefault(
             runtime="cpu",
-            modelName=modelName,
-            batchSize=16,
+            batchSize=self.BATCH_SIZE_DEFAULT,
         )
         self._set(
             inputCol=inputCol,
             outputCol=outputCol,
             runtime=runtime,
-            batchSize=batchSize,
+            batchSize=batchSize if batchSize is not None else self.BATCH_SIZE_DEFAULT,
             modelName=modelName,
         )
+        self.optData = None
+        self.model = None        
 
     # Setter method for batchSize
     def setBatchSize(self, value):
@@ -210,6 +83,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Sets the runtime environment for the model.
         Supported values: 'cpu', 'cuda', 'tensorrt'
         """
+        # if value not in ["cpu", "cuda", "onnxrt", "tensorrt"]:
         if value not in ["cpu", "cuda", "tensorrt"]:
             raise ValueError(
                 "Invalid runtime specified. Choose from 'cpu', 'cuda', 'tensorrt'"
@@ -244,66 +118,41 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             ],
         )
 
-        def _gen_size_chunk():
-            """
-            Generate chunks of different batch sizes and sentence lengths.
-            """
-            for batch_size in [64]:
-                for sentence_length in [20, 300, 512]:
-                    yield (batch_size, sentence_length)
-
-        def _get_dataloader(repeat_times: int = 2):
-            """
-            Create a data loader with synthetic data using Faker.
-            """
-            faker = Faker()
-            i = 0
-            for batch_size, chunk_size in _gen_size_chunk():
-                for _ in range(repeat_times):
-                    yield (
-                        i,
-                        (
-                            [
-                                " ".join(faker.words(chunk_size))
-                                for _ in range(batch_size)
-                            ],
-                            {"show_progress_bar": False},
-                        ),
-                    )
-                    i += 1
-
-        total_batches = len(list(_gen_size_chunk()))
-        func = lambda x, **kwargs: self._SentenceTransformerNavigator.encode(
-            model, x, **kwargs
-        )
+        def _get_dataloader():
+            input_data = self.optData
+            return [(0, (input_data, {"show_progress_bar": False, "batch_size": self.getBatchSize()}))]
+                
         nav.optimize(
-            func, dataloader=tqdm(_get_dataloader(), total=total_batches), config=conf
-        )
+            model.encode,
+            dataloader=_get_dataloader(), 
+            config=conf
+        )    
 
     def _predict_batch_fn(self):
         """
         Create and return a function for batch prediction.
-        """
+        """              
         runtime = self.getRuntime()
-        if "model" not in globals():
+        if self.model == None:
             global model
             modelName = self.getModelName()
-            if runtime == "tensorrt":
+
+            model = SentenceTransformer(modelName, device="cpu" if runtime == "cpu" else "cuda").eval()
+
+            if runtime in ("tensorrt"):
+                # this forces navigator to use specific runtime 
+                nav.inplace_config.strategy = nav.SelectedRuntimeStrategy("trt-fp16", "TensorRT")
+
                 moduleName = modelName.split("/")[1]
-                model = self._SentenceTransformerNavigator(modelName).eval()
-                model = nav.Module(model, name=moduleName)
+                model = nav.Module(model, name=moduleName, forward_func="forward")
                 try:
                     nav.load_optimized()
                 except Exception:
                     self._optimize(model)
                     nav.load_optimized()
-            else:
-                model = SentenceTransformer(modelName).eval()
-                if runtime == "cuda":
-                    model = model.cuda()
-                else:
-                    model = model.to("cpu")
 
+            self.model = model
+ 
         def predict(inputs):
             """
             Predict method to encode inputs using the model.
@@ -325,6 +174,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         input_col = self.getInputCol()
         output_col = self.getOutputCol()
 
+        df = dataset.take(self.NUM_OPT_ROWS)
+        self.optData = [row[input_col] for row in df]
+
         encode = predict_batch_udf(
             self._predict_batch_fn,
             return_type=ArrayType(FloatType()),
@@ -337,15 +189,4 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Public method to transform the dataset.
         """
         return self._transform(dataset, spark)
-
-    def copy(self, extra=None):
-        """
-        Create a copy of the transformer.
-        """
-        return self._defaultCopy(extra)
-
-# Example usage:
-# data = input data frame
-# transformer = EmbeddingTransformer(inputCol="combined", outputCol="embeddings")
-# result = transformer.transform(data)
 # result.show()
