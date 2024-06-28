@@ -36,7 +36,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     runtime = Param(
         Params._dummy(),
         "runtime",
-        "Specifies the runtime environment: cpu, cuda, onnxrt, or tensorrt",
+        "Specifies the runtime environment: cpu, cuda, or tensorrt",
     )
     batchSize = Param(Params._dummy(), "batchSize", "Batch size for embeddings", int)
     modelName = Param(Params._dummy(), "modelName", "Full Model Name parameter")
@@ -53,19 +53,28 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Initialize the HuggingFaceSentenceEmbedder with input/output columns and optional TRT flag.
         """
         super(HuggingFaceSentenceEmbedder, self).__init__()
+        
+        # Determine the default runtime based on CUDA availability
+        default_runtime = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Override the provided runtime if CUDA is not available
+        effective_runtime = runtime if torch.cuda.is_available() else "cpu"
+        
         self._setDefault(
-            runtime="cpu",
+            runtime=default_runtime,
             batchSize=self.BATCH_SIZE_DEFAULT,
         )
         self._set(
             inputCol=inputCol,
             outputCol=outputCol,
-            runtime=runtime,
+            runtime=effective_runtime,
             batchSize=batchSize if batchSize is not None else self.BATCH_SIZE_DEFAULT,
             modelName=modelName,
         )
         self.optData = None
-        self.model = None        
+        self.model = None     
+        # Placeholder for the DataFrame row count check
+        self.row_count = 0  # This should be set when the DataFrame is available           
 
     # Setter method for batchSize
     def setBatchSize(self, value):
@@ -101,6 +110,13 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     # Getter method for modelName
     def getModelName(self):
         return self.getOrDefault(self.modelName)
+
+    def setRowCount(self, row_count):
+        self.row_count = row_count
+        # Override the runtime if row count is less than 100 or CUDA is not available
+        if self.row_count < 100 or not torch.cuda.is_available():
+            self.set(self.runtime, "cpu")
+        return self
 
     # Optimize the model using Model Navigator with TensorRT configuration.
     def _optimize(self, model):
@@ -152,7 +168,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     nav.load_optimized()
 
             self.model = model
- 
+
         def predict(inputs):
             """
             Predict method to encode inputs using the model.
@@ -174,8 +190,11 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         input_col = self.getInputCol()
         output_col = self.getOutputCol()
 
-        df = dataset.take(self.NUM_OPT_ROWS)
-        self.optData = [row[input_col] for row in df]
+        size = dataset.count()
+        self.setRowCount(size)
+        if size >= self.NUM_OPT_ROWS:
+            df = dataset.take(self.NUM_OPT_ROWS)
+            self.optData = [row[input_col] for row in df]
 
         encode = predict_batch_udf(
             self._predict_batch_fn,
@@ -189,4 +208,3 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Public method to transform the dataset.
         """
         return self._transform(dataset, spark)
-# result.show()
