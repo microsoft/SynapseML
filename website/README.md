@@ -2,6 +2,14 @@
 
 This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator.
 
+### Environment
+
+```
+$ conda env create -f website/environment.yml
+$ conda activate synapseml-website
+$ cd website
+```
+
 ### Installation
 
 ```
