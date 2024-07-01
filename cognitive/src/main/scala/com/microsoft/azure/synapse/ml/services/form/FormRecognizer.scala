@@ -18,6 +18,8 @@ import org.apache.spark.sql.types.{DataType, StringType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 abstract class FormRecognizerBase(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser with BasicAsyncReply
   with HasImageInput with HasSetLocation with HasSetLinkedService {
@@ -99,6 +101,8 @@ trait HasLocale extends HasServiceParams {
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object FormsFlatteners {
 
   import FormsJsonProtocol._
@@ -183,8 +187,12 @@ object FormsFlatteners {
   }
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeLayout extends ComplexParamsReadable[AnalyzeLayout]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasPages {
   logClass(FeatureNames.AiServices.Form)
@@ -216,8 +224,12 @@ class AnalyzeLayout(override val uid: String) extends FormRecognizerBase(uid)
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeReceipts extends ComplexParamsReadable[AnalyzeReceipts]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass(FeatureNames.AiServices.Form)
@@ -230,8 +242,12 @@ class AnalyzeReceipts(override val uid: String) extends FormRecognizerBase(uid)
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeBusinessCards extends ComplexParamsReadable[AnalyzeBusinessCards]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass(FeatureNames.AiServices.Form)
@@ -244,8 +260,12 @@ class AnalyzeBusinessCards(override val uid: String) extends FormRecognizerBase(
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeInvoices extends ComplexParamsReadable[AnalyzeInvoices]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasPages with HasTextDetails with HasLocale {
   logClass(FeatureNames.AiServices.Form)
@@ -258,8 +278,12 @@ class AnalyzeInvoices(override val uid: String) extends FormRecognizerBase(uid)
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeIDDocuments extends ComplexParamsReadable[AnalyzeIDDocuments]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasPages with HasTextDetails {
   logClass(FeatureNames.AiServices.Form)
@@ -272,8 +296,12 @@ class AnalyzeIDDocuments(override val uid: String) extends FormRecognizerBase(ui
 
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object ListCustomModels extends ComplexParamsReadable[ListCustomModels]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class ListCustomModels(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasSetLocation with HasSetLinkedService with SynapseMLLogging {
@@ -297,8 +325,12 @@ class ListCustomModels(override val uid: String) extends CognitiveServicesBase(u
   override protected def responseDataType: DataType = ListCustomModelsResponse.schema
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object GetCustomModel extends ComplexParamsReadable[GetCustomModel]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid)
   with HasCognitiveServiceInput with HasInternalJsonOutputParser
   with HasSetLocation with HasSetLinkedService with SynapseMLLogging with HasModelID {
@@ -326,8 +358,12 @@ class GetCustomModel(override val uid: String) extends CognitiveServicesBase(uid
   override protected def responseDataType: DataType = GetCustomModelResponse.schema
 }
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 object AnalyzeCustomModel extends ComplexParamsReadable[AnalyzeCustomModel]
 
+@deprecated("The Form Recognition v2.1 API is deprecated please use " +
+  "com.microsoft.azure.synapse.ml.services.form.AnalyzeDocument", "v1.0.4")
 class AnalyzeCustomModel(override val uid: String) extends FormRecognizerBase(uid)
   with SynapseMLLogging with HasTextDetails with HasModelID {
   logClass(FeatureNames.AiServices.Form)
