@@ -9,10 +9,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-import java.net.URI
-import java.util.UUID
-import scala.collection.JavaConverters._
-
 class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._
