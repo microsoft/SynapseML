@@ -9,6 +9,10 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
+import java.net.URI
+import java.util.UUID
+import scala.collection.JavaConverters._
+
 class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._
@@ -154,6 +158,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
 
     val customEndpointCompletion = new OpenAIChatCompletion()
       .setCustomUrlRoot(customRootUrlValue)
@@ -167,8 +172,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
         .setCustomServiceName(openAIServiceName)
     } else {
       customEndpointCompletion.setAADToken(accessToken)
-        .setCustomHeaders(Map("X-ModelType" -> "gpt-4-turbo-chat-completions",
-          "X-ScenarioGUID" -> "7687c733-45b0-425b-82b3-05eb4eb70247"))
+        .setCustomHeaders(customHeadersValues)
     }
 
     testCompletion(customEndpointCompletion, goodDf)
