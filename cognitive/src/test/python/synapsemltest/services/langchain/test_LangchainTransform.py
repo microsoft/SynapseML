@@ -31,11 +31,11 @@ class LangchainTransformTest(unittest.TestCase):
         super(LangchainTransformTest, self).__init__(*args, **kwargs)
         # fetching openai_api_key
         secretJson = subprocess.check_output(
-            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key",
+            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
             shell=True,
         )
         openai_api_key = json.loads(secretJson)["value"]
-        openai_api_base = "https://synapseml-openai.openai.azure.com/"
+        openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
         openai_api_version = "2022-12-01"
         openai_api_type = "azure"
 
