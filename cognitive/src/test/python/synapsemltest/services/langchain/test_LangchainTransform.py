@@ -49,8 +49,8 @@ class LangchainTransformTest(unittest.TestCase):
 
         # construction of llm
         llm = AzureOpenAI(
-            deployment_name="text-davinci-003",
-            model_name="text-davinci-003",
+            deployment_name="gpt-35-turbo",
+            model_name="gpt-35-turbo",
             temperature=0,
             verbose=False,
         )
