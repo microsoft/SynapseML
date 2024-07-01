@@ -198,6 +198,12 @@ trait HasCustomHeaders extends HasServiceParams {
     setScalarParam(customHeaders, v)
   }
 
+  // For Pyspark compatability accept Java HashMap as input to parameter
+  // py4J only natively supports conversions from Python Dict to Java HashMap
+  def setCustomHeaders(v: java.util.HashMap[String,String]): this.type = {
+    setCustomHeaders(v.asScala.toMap)
+  }
+
   def getCustomHeaders: Map[String, String] = getScalarParam(customHeaders)
 }
 
