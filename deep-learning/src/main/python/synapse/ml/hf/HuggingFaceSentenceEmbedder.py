@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import torch
-import tensorrt as trt
-import model_navigator as nav
 from sentence_transformers import SentenceTransformer
 from pyspark.ml.functions import predict_batch_udf
 from pyspark.ml import Transformer
@@ -120,6 +118,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
 
     # Optimize the model using Model Navigator with TensorRT configuration.
     def _optimize(self, model):
+        import tensorrt as trt
+        import model_navigator as nav
+
         conf = nav.OptimizeConfig(
             target_formats=(nav.Format.TENSORRT,),
             runners=("TensorRT",),
@@ -156,7 +157,10 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             model = SentenceTransformer(modelName, device="cpu" if runtime == "cpu" else "cuda").eval()
 
             if runtime in ("tensorrt"):
-                # this forces navigator to use specific runtime 
+                import tensorrt as trt
+                import model_navigator as nav
+
+                # this forces navigator to use specific runtime
                 nav.inplace_config.strategy = nav.SelectedRuntimeStrategy("trt-fp16", "TensorRT")
 
                 moduleName = modelName.split("/")[1]
