@@ -62,7 +62,7 @@ class LangchainTransformTest(unittest.TestCase):
         # and should contain the words input column
         copy_prompt = PromptTemplate(
             input_variables=["technology"],
-            template="Copy the following word: {technology}",
+            template="Repeat the following word, just output the word again: {technology}",
         )
 
         self.chain = LLMChain(llm=llm, prompt=copy_prompt)
@@ -144,7 +144,7 @@ class LangchainTransformTest(unittest.TestCase):
             [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
         )
         temp_dir = "tmp"
-        os.mkdir(temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
         path = os.path.join(temp_dir, "langchainTransformer")
         self.langchainTransformer.save(path)
         loaded_transformer = LangchainTransformer.load(path)
