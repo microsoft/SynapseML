@@ -43,7 +43,7 @@ trait HasPromptInputs extends HasServiceParams {
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   val deploymentName = new ServiceParam[String](
-    this, "deploymentName", "The name of the deployment", isRequired = true)
+    this, "deploymentName", "The name of the deployment", isRequired = false)
 
   def getDeploymentName: String = getScalarParam(deploymentName)
 
