@@ -49,10 +49,44 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage JSON") {
     prompt.setPromptTemplate(
-      """Split a word into prefix and postfix a respond in JSON
-        |Cherry: {{"prefix": "Che", "suffix": "rry"}}
-        |{text}:
-        |""".stripMargin)
+        """Split a word into prefix and postfix a respond in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setPostProcessing("json")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .select("outParsed")
+      .where(col("outParsed").isNotNull)
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
+    .setSubscriptionKey(openAIAPIKey)
+    .setDeploymentName(deploymentNameGpt4)
+    .setCustomServiceName(openAIServiceName)
+    .setOutputCol("outParsed")
+    .setTemperature(0)
+
+  test("Basic Usage - Gpt 4") {
+    val nonNullCount = promptGpt4
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPostProcessing("csv")
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
+
+    assert(nonNullCount == 3)
+  }
+
+  test("Basic Usage JSON - Gpt 4") {
+    promptGpt4.setPromptTemplate(
+        """Split a word into prefix and postfix a respond in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
       .setPostProcessing("json")
       .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
       .transform(df)
