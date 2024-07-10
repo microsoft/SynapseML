@@ -76,6 +76,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setDropMessages(value: Boolean): this.type = set(dropMessages, value)
 
+  val systemPrompt = new Param[String](
+    this, "systemPrompt", "The initial system prompt to be used.")
+
+  def getSystemPrompt: String = $(systemPrompt)
+
+  def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
+
   setDefault(
     postProcessing -> "",
     postProcessingOptions -> Map.empty,
@@ -83,6 +90,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     errorCol -> (this.uid + "_error"),
     dropPrompt -> true,
     dropMessages -> true,
+    systemPrompt -> "You are an AI Chatbot. Only respond with a completion.",
     timeout -> 360.0
   )
 
@@ -91,7 +99,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private val localParamNames = Seq(
-    "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages")
+    "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
+    "systemPrompt")
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
@@ -101,10 +110,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       val completion = openAICompletion
       val promptCol = Functions.template(getPromptTemplate)
-      val systemPrompt = "You are an AI Chatbot. Only respond with a completion."
       val createMessagesUDF = udf((userMessage: String) => {
         Seq(
-          OpenAIMessage("system", systemPrompt),
+          OpenAIMessage("system", getSystemPrompt),
           OpenAIMessage("user", userMessage)
         )
       })
