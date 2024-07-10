@@ -18,8 +18,8 @@ from pyspark.ml.functions import predict_batch_udf
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
 from pyspark.sql.types import (
-     ArrayType,
-     FloatType,
+    ArrayType,
+    FloatType,
 )
 
 class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
@@ -27,7 +27,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     Custom transformer that extends PySpark's Transformer class to
     perform sentence embedding using a model with optional TensorRT acceleration.
     """
+
     NUM_OPT_ROWS = 100  # Constant for number of rows taken for model optimization
+
     BATCH_SIZE_DEFAULT = 64    
 
     # Define additional parameters
@@ -124,7 +126,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         conf = nav.OptimizeConfig(
             target_formats=(nav.Format.TENSORRT,),
             runners=("TensorRT",),
-            optimization_profile=nav.OptimizationProfile(max_batch_size=BATCH_SIZE_DEFAULT),
+            optimization_profile=nav.OptimizationProfile(
+                max_batch_size=BATCH_SIZE_DEFAULT
+            ),
             custom_configs=[
                 nav.TorchConfig(autocast=True),
                 nav.TorchScriptConfig(autocast=True),
@@ -137,13 +141,17 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
 
         def _get_dataloader():
             input_data = self.optData
-            return [(0, (input_data, {"show_progress_bar": False, "batch_size": self.getBatchSize()}))]
+            return [
+                (
+                    0, 
+                    (
+                        input_data,
+                        {"show_progress_bar": False, "batch_size": self.getBatchSize()},
+                    ),
+                )
+            ]
                 
-        nav.optimize(
-            model.encode,
-            dataloader=_get_dataloader(), 
-            config=conf
-        )    
+        nav.optimize(model.encode, dataloader=_get_dataloader(), config=conf)    
 
     def _predict_batch_fn(self):
         """
@@ -154,14 +162,18 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             global model
             modelName = self.getModelName()
 
-            model = SentenceTransformer(modelName, device="cpu" if runtime == "cpu" else "cuda").eval()
+            model = SentenceTransformer(
+                modelName, device="cpu" if runtime == "cpu" else "cuda"
+            ).eval()
 
             if runtime in ("tensorrt"):
                 import tensorrt as trt
                 import model_navigator as nav
 
                 # this forces navigator to use specific runtime
-                nav.inplace_config.strategy = nav.SelectedRuntimeStrategy("trt-fp16", "TensorRT")
+                nav.inplace_config.strategy = nav.SelectedRuntimeStrategy(
+                    "trt-fp16", "TensorRT"
+                )
 
                 moduleName = modelName.split("/")[1]
                 model = nav.Module(model, name=moduleName, forward_func="forward")
@@ -212,3 +224,4 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Public method to transform the dataset.
         """
         return self._transform(dataset, spark)
+    
