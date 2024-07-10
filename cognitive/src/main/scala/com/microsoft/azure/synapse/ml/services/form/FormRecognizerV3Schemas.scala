@@ -35,7 +35,8 @@ case class PageResultV3(pageNumber: Int,
                         spans: Seq[FormSpan],
                         words: Option[Seq[FormWord]],
                         selectionMarks: Option[Seq[FormSelectionMark]],
-                        lines: Option[Seq[FormLine]])
+                        lines: Option[Seq[FormLine]],
+                        barcodes: Option[Seq[FormBarcode]])
 
 case class DocumentParagraph(role: Option[String],
                              content: String,
@@ -49,6 +50,12 @@ case class FormWord(content: String, polygon: Option[Seq[Double]], confidence: D
 case class FormSelectionMark(state: String, polygon: Option[Seq[Double]], confidence: Double, span: FormSpan)
 
 case class FormLine(content: String, polygon: Option[Seq[Double]], spans: Option[Seq[FormSpan]])
+
+case class FormBarcode(confidence: Option[Double],
+                       kind: Option[String],
+                       polygon: Option[Seq[Double]],
+                       span: Option[FormSpan],
+                       value: Option[String])
 
 case class TableResultV3(rowCount: Int,
                          columnCount: Int,
