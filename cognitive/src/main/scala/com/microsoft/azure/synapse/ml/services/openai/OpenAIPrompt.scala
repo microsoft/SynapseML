@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAITextParams
+  with HasOpenAITextParams with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -83,6 +83,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
+  private val defaultSystemPrompt =  "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
+    "Follow their instructions carefully and be brief if they don't say otherwise."
+
   setDefault(
     postProcessing -> "",
     postProcessingOptions -> Map.empty,
@@ -90,7 +93,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     errorCol -> (this.uid + "_error"),
     dropPrompt -> true,
     dropMessages -> true,
-    systemPrompt -> "You are an AI chatbot who wants to answer user's questions and complete tasks. Follow their instructions carefully and be breif if they dont say otherwise.",
+    systemPrompt -> defaultSystemPrompt,
     timeout -> 360.0
   )
 
@@ -157,10 +160,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }, dataset.columns.length)
   }
 
+  private val legacyModels = Set("gpt-35-turbo", "gpt-35-turbo-16k", "gpt-35-turbo-instruct",
+    "text-davinci-002", "text-davinci-003")
+
   private def openAICompletion: OpenAIServicesBase = {
 
     val completion: OpenAIServicesBase =
-    if (getDeploymentName != "gpt-4") {
+    if (legacyModels.contains(getDeploymentName)) {
       new OpenAICompletion()
     }
     else {

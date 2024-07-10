@@ -96,6 +96,22 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
+  test("Setting and Keeping Messages Col - Gpt 4") {
+    promptGpt4.setMessagesCol("messages")
+      .setDropMessages(false)
+      .setPromptTemplate(
+        """Classify each word as to whether they are an F1 team or not
+          |ferrari: TRUE
+          |tomato: FALSE
+          |{text}:
+          |""".stripMargin)
+      .transform(df)
+      .select("messages")
+      .where(col("messages").isNotNull)
+      .collect()
+      .foreach(r => assert(r.get(0) != null))
+  }
+
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }
