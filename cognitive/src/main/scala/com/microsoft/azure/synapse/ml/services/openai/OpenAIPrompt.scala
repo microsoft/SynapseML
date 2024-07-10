@@ -160,7 +160,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def openAICompletion: OpenAIServicesBase = {
 
     val completion: OpenAIServicesBase =
-    // use OpenAICompletion
     if (getDeploymentName != "gpt-4") {
       new OpenAICompletion()
     }
