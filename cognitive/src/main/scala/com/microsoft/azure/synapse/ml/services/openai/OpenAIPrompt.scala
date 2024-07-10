@@ -165,7 +165,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       new OpenAICompletion()
     }
     else {
-      // use OpenAIChatCompletion
       new OpenAIChatCompletion()
     }
     // apply all parameters
