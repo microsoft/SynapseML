@@ -90,7 +90,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     errorCol -> (this.uid + "_error"),
     dropPrompt -> true,
     dropMessages -> true,
-    systemPrompt -> "You are an AI Chatbot. Only respond with a completion.",
+    systemPrompt -> "You are an AI chatbot who wants to answer user's questions and complete tasks. Follow their instructions carefully and be breif if they dont say otherwise.",
     timeout -> 360.0
   )
 
