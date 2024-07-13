@@ -69,13 +69,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setDropPrompt(value: Boolean): this.type = set(dropPrompt, value)
 
-  val dropMessages = new BooleanParam(
-    this, "dropMessages", "whether to drop the column of messages after templating (when using gpt-4 or higher)")
-
-  def getDropMessages: Boolean = $(dropMessages)
-
-  def setDropMessages(value: Boolean): this.type = set(dropMessages, value)
-
   val systemPrompt = new Param[String](
     this, "systemPrompt", "The initial system prompt to be used.")
 
@@ -93,9 +86,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     errorCol -> (this.uid + "_error"),
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
-    dropMessages -> true,
     systemPrompt -> defaultSystemPrompt,
-    timeout -> 360.0,
+    timeout -> 360.0
   )
 
   override def setCustomServiceName(v: String): this.type = {
@@ -133,7 +125,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
                 .getField("message").getField("content")))
             .drop(completionNamed.getOutputCol)
 
-          if (getDropMessages) {
+          if (getDropPrompt) {
             results.drop(messageColName)
           } else {
             results
@@ -197,16 +189,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override def transformSchema(schema: StructType): StructType = {
     openAICompletion match {
       case chatCompletion: OpenAIChatCompletion =>
-        chatCompletion.setMessagesCol(getMessagesCol)
         chatCompletion
-          .transformSchema(schema)
+          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
           .add(getPostProcessing, getParser.outputSchema)
       case completion: OpenAICompletion =>
         completion
           .transformSchema(schema)
           .add(getPostProcessing, getParser.outputSchema)
     }
-
   }
 }
 

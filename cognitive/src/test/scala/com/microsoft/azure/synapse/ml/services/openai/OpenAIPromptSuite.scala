@@ -98,7 +98,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Setting and Keeping Messages Col - Gpt 4") {
     promptGpt4.setMessagesCol("messages")
-      .setDropMessages(false)
+      .setDropPrompt(false)
       .setPromptTemplate(
         """Classify each word as to whether they are an F1 team or not
           |ferrari: TRUE
