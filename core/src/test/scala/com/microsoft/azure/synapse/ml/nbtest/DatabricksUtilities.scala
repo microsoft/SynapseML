@@ -20,7 +20,7 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
-import java.util.concurrent.{TimeUnit, TimeoutException}
+import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import scala.collection.immutable.Map
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
@@ -104,6 +104,8 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
+    .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
+    .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
@@ -297,57 +299,46 @@ object DatabricksUtilities {
     (url, nbName)
   }
 
-  //scalastyle:off cyclomatic.complexity
   def monitorJob(runId: Long,
                  timeout: Int,
                  interval: Int = 8000,
-                 logLevel: Int = 1): Future[Unit] = {
-    Future {
-      var finalState: Option[String] = None
-      var lifeCycleState: String = "Not Started"
-      val startTime = System.currentTimeMillis()
-      val (url, nbName) = getRunUrlAndNBName(runId)
-      if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
+                 logLevel: Int = 1): Unit = {
+    var finalState: Option[String] = None
+    var lifeCycleState: String = "Not Started"
+    val startTime = System.currentTimeMillis()
+    val (url, nbName) = getRunUrlAndNBName(runId)
+    if (logLevel >= 1) println(s"Started Monitoring notebook $nbName, url: $url")
 
-      while (finalState.isEmpty & //scalastyle:ignore while
-        (System.currentTimeMillis() - startTime) < timeout &
-        lifeCycleState != "INTERNAL_ERROR"
-      ) {
-        val (lcs, fs) = getRunStatuses(runId)
-        finalState = fs
-        lifeCycleState = lcs
-        if (logLevel >= 2) println(s"Job $runId state: $lifeCycleState")
-        blocking {
-          Thread.sleep(interval.toLong)
-        }
+    while (finalState.isEmpty & //scalastyle:ignore while
+      (System.currentTimeMillis() - startTime) < timeout &
+      lifeCycleState != "INTERNAL_ERROR"
+    ) {
+      val (lcs, fs) = getRunStatuses(runId)
+      finalState = fs
+      lifeCycleState = lcs
+      if (logLevel >= 2) println(s"Job $runId state: $lifeCycleState")
+      blocking {
+        Thread.sleep(interval.toLong)
       }
+    }
 
-      val error = finalState match {
-        case Some("SUCCESS") =>
-          if (logLevel >= 1) println(s"Notebook $nbName Succeeded")
-          None
-        case Some(state) =>
-          Some(new RuntimeException(s"Notebook $nbName failed with state $state. " +
-            s"For more information check the run page: \n$url\n"))
-        case None if lifeCycleState == "INTERNAL_ERROR" =>
-          Some(new RuntimeException(s"Notebook $nbName failed with state $lifeCycleState. " +
-            s"For more information check the run page: \n$url\n"))
-        case None =>
-          Some(new TimeoutException(s"Notebook $nbName timed out after $timeout ms," +
-            s" job in state $lifeCycleState, " +
-            s" For more information check the run page: \n$url\n "))
-      }
-
-      error.foreach { error =>
-        if (logLevel >= 1) print(error.getMessage)
-        throw error
-      }
-
-    }(ExecutionContext.global)
+    finalState match {
+      case Some("SUCCESS") =>
+        if (logLevel >= 1) println(s"Notebook $nbName Succeeded")
+      case Some(state) =>
+        throw new RuntimeException(s"Notebook $nbName failed with state $state. " +
+          s"For more information check the run page: \n$url\n")
+      case None if lifeCycleState == "INTERNAL_ERROR" =>
+        throw new RuntimeException(s"Notebook $nbName failed with state $lifeCycleState. " +
+          s"For more information check the run page: \n$url\n")
+      case None =>
+        throw new TimeoutException(s"Notebook $nbName timed out after $timeout ms," +
+          s" job in state $lifeCycleState, " +
+          s" For more information check the run page: \n$url\n ")
+    }
   }
-  //scalastyle:on cyclomatic.complexity
 
-  def uploadAndSubmitNotebook(clusterId: String, notebookFile: File): DatabricksNotebookRun = {
+  def runNotebook(clusterId: String, notebookFile: File): Unit = {
     val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
     val folderToCreate = Folder + "/" + dirPaths
     println(s"Creating folder $folderToCreate")
@@ -357,7 +348,8 @@ object DatabricksUtilities {
     val runId: Long = submitRun(clusterId, destination)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
-    run
+    DatabricksState.jobIdsToCancel.append(run.runId)
+    run.monitor(logLevel = 0)
   }
 
   def cancelRun(runId: Long): Unit = {
@@ -406,14 +398,17 @@ object DatabricksUtilities {
   }
 }
 
+object DatabricksState {
+  val jobIdsToCancel: mutable.ListBuffer[Long] = mutable.ListBuffer[Long]()
+}
+
 abstract class DatabricksTestHelper extends TestBase {
 
   import DatabricksUtilities._
 
   def databricksTestHelper(clusterId: String,
                            libraries: String,
-                           notebooks: Seq[File]): mutable.ListBuffer[Long] = {
-    val jobIdsToCancel: mutable.ListBuffer[Long] = mutable.ListBuffer[Long]()
+                           notebooks: Seq[File]): Unit = {
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 15)(1000).toArray) { () =>
@@ -427,40 +422,36 @@ abstract class DatabricksTestHelper extends TestBase {
       assert(areLibrariesInstalled(clusterId))
     }
 
-    println(s"Submitting jobs")
-    val parNotebookRuns: Seq[DatabricksNotebookRun] = notebooks.map(uploadAndSubmitNotebook(clusterId, _))
-    parNotebookRuns.foreach(notebookRun => jobIdsToCancel.append(notebookRun.runId))
-    println(s"Submitted ${parNotebookRuns.length} for execution: ${parNotebookRuns.map(_.runId).toList}")
-    assert(parNotebookRuns.nonEmpty)
+    assert(notebooks.nonEmpty)
 
-    parNotebookRuns.foreach(run => {
-      println(s"Testing ${run.notebookName}")
-      test(run.notebookName) {
-        val result = Await.ready(
-          run.monitor(logLevel = 0),
-          Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+    val maxConcurrency = 10
+    val executorService = Executors.newFixedThreadPool(maxConcurrency)
+    implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
-        if (!result.isSuccess) {
-          throw result.failed.get
-        }
+    val futures = notebooks.map { notebook =>
+      Future {
+        runNotebook(clusterId, notebook)
       }
-    })
+    }
+    futures.zip(notebooks).foreach { case (f, nb) =>
+      test(nb.getName) {
+        Await.result(f, Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS))
+      }
+    }
 
-    jobIdsToCancel
   }
 
-  protected def afterAllHelper(jobIdsToCancel: mutable.ListBuffer[Long],
-                               clusterId: String,
+  protected def afterAllHelper(clusterId: String,
                                clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
-    jobIdsToCancel.foreach(cancelRun)
+    DatabricksState.jobIdsToCancel.foreach(cancelRun)
     permanentDeleteCluster(clusterId)
     println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
 
 case class DatabricksNotebookRun(runId: Long, notebookName: String) {
-  def monitor(logLevel: Int = 2): Future[Any] = {
+  def monitor(logLevel: Int = 2): Unit = {
     monitorJob(runId, TimeoutInMillis, logLevel)
   }
 }

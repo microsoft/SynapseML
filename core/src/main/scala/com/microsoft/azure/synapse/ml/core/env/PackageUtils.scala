@@ -17,7 +17,9 @@ object PackageUtils {
   val PackageGroup = "com.microsoft.azure"
 
   val PackageName = s"synapseml_$ScalaVersionSuffix"
-  val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
+//  val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
+  val PackageMavenCoordinate = s"$PackageGroup:$PackageName:1.0.4-32-27f46e3c-SNAPSHOT"
+
   private val AvroCoordinate = "org.apache.spark:spark-avro_2.12:3.4.1"
   val PackageRepository: String = SparkMLRepository
 
