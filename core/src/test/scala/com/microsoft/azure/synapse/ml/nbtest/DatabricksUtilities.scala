@@ -197,7 +197,9 @@ object DatabricksUtilities {
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_conf": {
-         |        "spark.sql.shuffle.partitions": "auto"
+         |        "spark.sql.shuffle.partitions": "auto",
+         |        "spark.executor.memory": "16g",
+         |        "spark.driver.memory": "16g",
          |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
@@ -351,7 +353,7 @@ object DatabricksUtilities {
     val runId: Long = submitRun(clusterId, destination)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
-    DatabricksState.jobIdsToCancel.append(run.runId)
+    DatabricksState.JobIdsToCancel.append(run.runId)
     run.monitor(logLevel = 0)
   }
 
@@ -402,7 +404,7 @@ object DatabricksUtilities {
 }
 
 object DatabricksState {
-  val jobIdsToCancel: mutable.ListBuffer[Long] = mutable.ListBuffer[Long]()
+  val JobIdsToCancel: mutable.ListBuffer[Long] = mutable.ListBuffer[Long]()
 }
 
 abstract class DatabricksTestHelper extends TestBase {
@@ -447,7 +449,7 @@ abstract class DatabricksTestHelper extends TestBase {
   protected def afterAllHelper(clusterId: String,
                                clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
-    DatabricksState.jobIdsToCancel.foreach(cancelRun)
+    DatabricksState.JobIdsToCancel.foreach(cancelRun)
     permanentDeleteCluster(clusterId)
     println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
