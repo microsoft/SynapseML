@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
@@ -38,6 +39,16 @@ trait HasPromptInputs extends HasServiceParams {
 
   def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
 
+}
+
+trait HasMessagesInput extends Params {
+  val messagesCol: Param[String] = new Param[String](
+    this, "messagesCol", "The column messages to generate chat completions for," +
+      " in the chat format. This column should have type Array(Struct(role: String, content: String)).")
+
+  def getMessagesCol: String = $(messagesCol)
+
+  def setMessagesCol(v: String): this.type = set(messagesCol, v)
 }
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
