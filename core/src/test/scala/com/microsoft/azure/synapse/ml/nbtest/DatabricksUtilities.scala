@@ -196,6 +196,9 @@ object DatabricksUtilities {
          |  "num_workers": $numWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
+         |  "spark_conf": {
+         |        "spark.sql.shuffle.partitions": "auto"
+         |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
          |   },
