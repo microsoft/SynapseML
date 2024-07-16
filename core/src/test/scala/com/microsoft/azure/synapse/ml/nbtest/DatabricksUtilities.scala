@@ -89,7 +89,7 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   val RapidsInitScripts: String = List(
-    Map("dbfs" -> Map("destination" -> "dbfs:/FileStore/init-rapidsml-cuda-11.8.sh"))
+    Map("workspace" -> Map("destination" -> "/InitScripts/init-rapidsml-cuda-11.8.sh"))
   ).toJson.compactPrint
 
   // Execution Params
