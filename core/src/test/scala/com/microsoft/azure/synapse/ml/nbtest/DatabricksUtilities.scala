@@ -118,7 +118,9 @@ object DatabricksUtilities {
     val request = new HttpGet(baseURL(apiVersion) + path)
     request.addHeader("Authorization", AuthValue)
     val random = new Random() // Use a jittered retry to avoid overwhelming
-    RESTHelpers.sendAndParseJson(request, backoffs = List.fill(3){1000 +  random.nextInt(1000)})
+    RESTHelpers.sendAndParseJson(request, backoffs = List.fill(3) {
+      1000 + random.nextInt(1000)
+    })
   }
 
   //TODO convert all this to typed code
