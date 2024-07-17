@@ -106,6 +106,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
+    .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
