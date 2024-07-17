@@ -25,6 +25,7 @@ import scala.collection.immutable.Map
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.util.Random
 
 object DatabricksUtilities {
 
@@ -116,7 +117,8 @@ object DatabricksUtilities {
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpGet(baseURL(apiVersion) + path)
     request.addHeader("Authorization", AuthValue)
-    RESTHelpers.sendAndParseJson(request)
+    val random = new Random() // Use a jittered retry to avoid overwhelming
+    RESTHelpers.sendAndParseJson(request, backoffs = List.fill(3){1000 +  random.nextInt(1000)})
   }
 
   //TODO convert all this to typed code
@@ -332,7 +334,8 @@ object DatabricksUtilities {
       lifeCycleState = lcs
       if (logLevel >= 2) println(s"Job $runId state: $lifeCycleState")
       blocking {
-        Thread.sleep(interval.toLong)
+        val random = new Random() // Use a jittered retry to avoid overwhelming
+        Thread.sleep(interval.toLong + random.nextInt(1000))
       }
     }
 

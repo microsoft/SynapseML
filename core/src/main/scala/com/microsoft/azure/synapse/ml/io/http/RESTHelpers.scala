@@ -50,7 +50,7 @@ object RESTHelpers {
   }
 
   def safeSend(request: HttpRequestBase,
-               backoffs: List[Int] = List(100, 500, 1000),  //scalastyle:ignore magic.number
+               backoffs: List[Int] = List(100, 500, 1000), //scalastyle:ignore magic.number
                expectedCodes: Set[Int] = Set(),
                close: Boolean = true): CloseableHttpResponse = {
 
@@ -92,8 +92,11 @@ object RESTHelpers {
     IOUtils.toString(result.getEntity.getContent, "utf-8")
   }
 
-  def sendAndParseJson(request: HttpRequestBase, expectedCodes: Set[Int]=Set()): JsValue = {
-    val response = safeSend(request, expectedCodes=expectedCodes, close=false)
+  def sendAndParseJson(request: HttpRequestBase,
+                       expectedCodes: Set[Int] = Set(),
+                       backoffs: List[Int] = List(100, 500, 1000), //scalastyle:ignore magic.number
+                      ): JsValue = {
+    val response = safeSend(request, expectedCodes = expectedCodes, close = false, backoffs = backoffs)
     val output = parseResult(response).parseJson
     response.close()
     output
