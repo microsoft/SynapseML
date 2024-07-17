@@ -187,7 +187,17 @@ object DatabricksUtilities {
                           sparkVersion: String,
                           numWorkers: Int,
                           poolId: String,
-                          initScripts: String = "[]"): String = {
+                          initScripts: String = "[]",
+                          memory: Option[String] = None,
+                         ): String = {
+
+    val memoryConf = memory.map { m =>
+      s"""
+         |"spark.executor.memory": "$m",
+         |"spark.driver.memory": "$m",
+         |""".stripMargin
+    }.getOrElse("")
+
     val body =
       s"""
          |{
@@ -197,9 +207,8 @@ object DatabricksUtilities {
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
          |  "spark_conf": {
-         |        "spark.sql.shuffle.partitions": "auto",
-         |        "spark.executor.memory": "16g",
-         |        "spark.driver.memory": "16g"
+         |        $memoryConf
+         |        "spark.sql.shuffle.partitions": "auto"
          |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
