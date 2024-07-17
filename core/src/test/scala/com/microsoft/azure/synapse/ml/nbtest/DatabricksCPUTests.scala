@@ -10,11 +10,12 @@ import scala.language.existentials
 
 class DatabricksCPUTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId)
-  val jobIdsToCancel: ListBuffer[Long] = databricksTestHelper(clusterId, Libraries, CPUNotebooks)
+  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+
+  databricksTestHelper(clusterId, Libraries, CPUNotebooks)
 
   protected override def afterAll(): Unit = {
-    afterAllHelper(jobIdsToCancel, clusterId, ClusterName)
+    afterAllHelper(clusterId, ClusterName)
     super.afterAll()
   }
 
