@@ -116,19 +116,17 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
-    - bash: |
-        set -e
-        sbt publishBadges
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          sbt publishBadges
       condition: and(succeeded(), eq(variables.isMaster, true))
       displayName: Publish Badges
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+
 
 - job: E2E
   timeoutInMinutes: 120
