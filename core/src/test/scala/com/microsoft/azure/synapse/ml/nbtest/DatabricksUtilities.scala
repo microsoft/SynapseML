@@ -437,7 +437,7 @@ abstract class DatabricksTestHelper extends TestBase {
 
     assert(notebooks.nonEmpty)
 
-    val maxConcurrency = 10
+    val maxConcurrency = 15
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
