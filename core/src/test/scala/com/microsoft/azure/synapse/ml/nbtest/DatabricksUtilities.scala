@@ -315,7 +315,7 @@ object DatabricksUtilities {
 
   def monitorJob(runId: Long,
                  timeout: Int,
-                 interval: Int = 8000,
+                 interval: Int = 10000,
                  logLevel: Int = 1): Unit = {
     var finalState: Option[String] = None
     var lifeCycleState: String = "Not Started"
@@ -438,7 +438,7 @@ abstract class DatabricksTestHelper extends TestBase {
 
     assert(notebooks.nonEmpty)
 
-    val maxConcurrency = 15
+    val maxConcurrency = 10
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
