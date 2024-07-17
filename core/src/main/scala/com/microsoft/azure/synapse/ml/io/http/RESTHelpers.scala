@@ -94,7 +94,7 @@ object RESTHelpers {
 
   def sendAndParseJson(request: HttpRequestBase,
                        expectedCodes: Set[Int] = Set(),
-                       backoffs: List[Int] = List(100, 500, 1000), //scalastyle:ignore magic.number
+                       backoffs: List[Int] = List(100, 500, 1000) //scalastyle:ignore magic.number
                       ): JsValue = {
     val response = safeSend(request, expectedCodes = expectedCodes, close = false, backoffs = backoffs)
     val output = parseResult(response).parseJson
