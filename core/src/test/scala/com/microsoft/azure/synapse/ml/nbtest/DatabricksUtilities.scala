@@ -199,7 +199,7 @@ object DatabricksUtilities {
          |  "spark_conf": {
          |        "spark.sql.shuffle.partitions": "auto",
          |        "spark.executor.memory": "16g",
-         |        "spark.driver.memory": "16g",
+         |        "spark.driver.memory": "16g"
          |  },
          |  "spark_env_vars": {
          |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
