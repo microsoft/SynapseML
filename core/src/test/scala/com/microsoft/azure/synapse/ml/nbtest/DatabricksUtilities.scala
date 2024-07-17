@@ -188,8 +188,7 @@ object DatabricksUtilities {
                           numWorkers: Int,
                           poolId: String,
                           initScripts: String = "[]",
-                          memory: Option[String] = None,
-                         ): String = {
+                          memory: Option[String] = None): String = {
 
     val memoryConf = memory.map { m =>
       s"""
