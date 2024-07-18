@@ -1,10 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-from pyspark.sql import SparkSession, SQLContext
 from synapse.ml.core import __spark_package_version__
 
 def init_spark():
+    from pyspark.sql import SparkSession, SQLContext
+
     return (SparkSession.builder
             .master("local[*]")
             .appName("PysparkTests")
