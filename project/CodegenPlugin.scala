@@ -239,6 +239,7 @@ object CodegenPlugin extends AutoPlugin {
     installPipPackage := {
       packagePython.value
       publishLocal.value
+      publishM2.value
       runCmd(
         activateCondaEnv ++ Seq("pip", "install", "-I",
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
@@ -247,6 +248,7 @@ object CodegenPlugin extends AutoPlugin {
     publishPython := {
       publishLocal.value
       packagePython.value
+      publishM2.value
       val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
