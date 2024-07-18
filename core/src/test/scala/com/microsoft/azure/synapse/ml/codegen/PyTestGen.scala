@@ -57,17 +57,9 @@ object PyTestGen {
          |from pyspark.sql import SparkSession, SQLContext
          |import os
          |import synapse.ml
-         |from synapse.ml.core import __spark_package_version__
+         |from synapse.ml.init_spark import init_spark
          |
-         |spark = (SparkSession.builder
-         |    .master("local[*]")
-         |    .appName("PysparkTests")
-         |    .config("spark.jars.packages", "$SparkMavenPackageList")
-         |    .config("spark.jars.repositories", "$SparkMavenRepositoryList")
-         |    .config("spark.executor.heartbeatInterval", "60s")
-         |    .config("spark.sql.shuffle.partitions", 10)
-         |    .config("spark.sql.crossJoin.enabled", "true")
-         |    .getOrCreate())
+         |spark = init_spark()
          |
          |sc = SQLContext(spark.sparkContext)
          |
