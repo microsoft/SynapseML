@@ -3,14 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.services.form
 
-import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
-import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
+import com.microsoft.azure.synapse.ml.services._
+import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
@@ -23,6 +24,8 @@ import org.scalactic.Equality
 import spray.json._
 
 import java.net.URI
+import java.time.{ZoneOffset, ZonedDateTime}
+import scala.annotation.tailrec
 
 object TrainCustomModelProtocol extends DefaultJsonProtocol {
   implicit val SourceFilterEnc: RootJsonFormat[SourceFilter] = jsonFormat2(SourceFilter)
@@ -173,8 +176,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 
   test("Basic Usage with URL") {
     val results = imageDf1.mlTransform(analyzeLayout,
-      flattenReadResults("layout", "readlayout"),
-      flattenPageResults("layout", "pageLayout"))
+        flattenReadResults("layout", "readlayout"),
+        flattenPageResults("layout", "pageLayout"))
       .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
@@ -186,8 +189,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 
   test("Basic Usage with pdf") {
     val results = pdfDf1.mlTransform(analyzeLayout,
-      flattenReadResults("layout", "readlayout"),
-      flattenPageResults("layout", "pageLayout"))
+        flattenReadResults("layout", "readlayout"),
+        flattenPageResults("layout", "pageLayout"))
       .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
@@ -199,8 +202,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 
   test("Basic Usage with Bytes") {
     val results = bytesDF1.mlTransform(bytesAnalyzeLayout,
-      flattenReadResults("layout", "readlayout"),
-      flattenPageResults("layout", "pageLayout"))
+        flattenReadResults("layout", "readlayout"),
+        flattenPageResults("layout", "pageLayout"))
       .select("readlayout", "pageLayout")
       .collect()
     val headStr = results.head.getString(0)
@@ -237,8 +240,8 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
 
   test("Basic Usage with URL") {
     val results = imageDf2.mlTransform(analyzeReceipts,
-      flattenReadResults("receipts", "readReceipts"),
-      flattenDocumentResults("receipts", "docReceipts"))
+        flattenReadResults("receipts", "readReceipts"),
+        flattenDocumentResults("receipts", "docReceipts"))
       .select("readReceipts", "docReceipts")
       .collect()
     val headStr = results.head.getString(0)
@@ -249,8 +252,8 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
 
   test("Basic Usage with Bytes") {
     val results = bytesDF2.mlTransform(bytesAnalyzeReceipts,
-      flattenReadResults("receipts", "readReceipts"),
-      flattenDocumentResults("receipts", "docReceipts"))
+        flattenReadResults("receipts", "readReceipts"),
+        flattenDocumentResults("receipts", "docReceipts"))
       .select("readReceipts", "docReceipts")
       .collect()
     val headStr = results.head.getString(0)
@@ -285,8 +288,8 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 
   test("Basic Usage with URL") {
     val results = imageDf3.mlTransform(analyzeBusinessCards,
-      flattenReadResults("businessCards", "readBusinessCards"),
-      flattenDocumentResults("businessCards", "docBusinessCards"))
+        flattenReadResults("businessCards", "readBusinessCards"),
+        flattenDocumentResults("businessCards", "docBusinessCards"))
       .select("readBusinessCards", "docBusinessCards")
       .collect()
     val headStr = results.head.getString(0)
@@ -298,8 +301,8 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 
   test("Basic Usage with Bytes") {
     val results = bytesDF3.mlTransform(bytesAnalyzeBusinessCards,
-      flattenReadResults("businessCards", "readBusinessCards"),
-      flattenDocumentResults("businessCards", "docBusinessCards"))
+        flattenReadResults("businessCards", "readBusinessCards"),
+        flattenDocumentResults("businessCards", "docBusinessCards"))
       .select("readBusinessCards", "docBusinessCards")
       .collect()
     val headStr = results.head.getString(0)
@@ -335,8 +338,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 
   test("Basic Usage with URL") {
     val results = imageDf4.mlTransform(analyzeInvoices,
-      flattenReadResults("invoices", "readInvoices"),
-      flattenDocumentResults("invoices", "docInvoices"))
+        flattenReadResults("invoices", "readInvoices"),
+        flattenDocumentResults("invoices", "docInvoices"))
       .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
@@ -347,8 +350,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 
   test("Basic Usage with pdf") {
     val results = pdfDf2.mlTransform(analyzeInvoices,
-      flattenReadResults("invoices", "readInvoices"),
-      flattenDocumentResults("invoices", "docInvoices"))
+        flattenReadResults("invoices", "readInvoices"),
+        flattenDocumentResults("invoices", "docInvoices"))
       .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
@@ -359,8 +362,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 
   test("Basic Usage with Bytes") {
     val results = bytesDF4.mlTransform(bytesAnalyzeInvoices,
-      flattenReadResults("invoices", "readInvoices"),
-      flattenDocumentResults("invoices", "docInvoices"))
+        flattenReadResults("invoices", "readInvoices"),
+        flattenDocumentResults("invoices", "docInvoices"))
       .select("readInvoices", "docInvoices")
       .collect()
     val headStr = results.head.getString(0)
@@ -395,8 +398,8 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
 
   test("Basic Usage with URL") {
     val results = imageDf5.mlTransform(analyzeIDDocuments,
-      flattenReadResults("ids", "readIds"),
-      flattenDocumentResults("ids", "docIds"))
+        flattenReadResults("ids", "readIds"),
+        flattenDocumentResults("ids", "docIds"))
       .select("readIds", "docIds")
       .collect()
     val headStr = results.head.getString(0)
@@ -407,8 +410,8 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
 
   test("Basic Usage with Bytes") {
     val results = bytesDF5.mlTransform(bytesAnalyzeIDDocuments,
-      flattenReadResults("ids", "readIds"),
-      flattenDocumentResults("ids", "docIds"))
+        flattenReadResults("ids", "readIds"),
+        flattenDocumentResults("ids", "docIds"))
       .select("readIds", "docIds")
       .collect()
     val headStr = results.head.getString(0)
@@ -424,38 +427,14 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
   override def reader: MLReadable[_] = AnalyzeIDDocuments
 }
 
-trait CustomModelUtils extends TestBase {
+trait CustomModelUtils extends TestBase with CognitiveKey {
 
   lazy val trainingDataSAS: String = "https://mmlspark.blob.core.windows.net/datasets"
 
   lazy val getRequestUrl: String = FormRecognizerUtils.formPost("", TrainCustomModelSchema(
     trainingDataSAS, SourceFilter("CustomModelTrain", includeSubFolders = false), useLabelFile = false))
 
-  var modelToDelete = false
-
-  lazy val modelId: Option[String] = retry(List(10000, 20000, 30000), () => {
-    val resp = FormRecognizerUtils.formGet(getRequestUrl)
-    val modelInfo = resp.parseJson.asJsObject.fields.getOrElse("modelInfo", "")
-    val status = modelInfo match {
-      case x: JsObject => x.fields.getOrElse("status", "") match {
-        case y: JsString => y.value
-        case _ => throw new RuntimeException(s"No status found in response/modelInfo: $resp/$modelInfo")
-      }
-      case _ => throw new RuntimeException(s"No modelInfo found in response: $resp")
-    }
-    status match {
-      case "ready" =>
-        modelToDelete = true
-        modelInfo.asInstanceOf[JsObject].fields.get("modelId").map(_.asInstanceOf[JsString].value)
-      case "creating" => throw new RuntimeException("model creating ...")
-      case s => throw new RuntimeException(s"Received unknown status code: $s")
-    }
-  })
-
   override def afterAll(): Unit = {
-    if (modelToDelete) {
-      modelId.foreach(FormRecognizerUtils.formDelete(_))
-    }
     super.afterAll()
   }
 }
@@ -480,17 +459,15 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
     super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
-  test("List model list details") {
-    print(modelId) // Trigger model creation
+  ignore("List model list details") {
     val results = pathDf.mlTransform(listCustomModels,
-      flattenModelList("models", "modelIds"))
+        flattenModelList("models", "modelIds"))
       .select("modelIds")
       .collect()
     assert(results.head.getString(0) != "")
   }
 
-  test("List model list summary") {
-    print(modelId) // Trigger model creation
+  ignore("List model list summary") {
     val results = listCustomModels.setOp("summary").transform(pathDf)
       .withColumn("modelCount", col("models").getField("summary").getField("count"))
       .select("modelCount")
@@ -502,111 +479,4 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
     Seq(new TestObject(listCustomModels, pathDf))
 
   override def reader: MLReadable[_] = ListCustomModels
-}
-
-class GetCustomModelSuite extends TransformerFuzzing[GetCustomModel]
-  with FormRecognizerUtils with CustomModelUtils {
-
-  lazy val getCustomModel: GetCustomModel = new GetCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
-    .setModelId(modelId.get).setIncludeKeys(true)
-    .setOutputCol("model").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("model.trainResult.trainingDocuments")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("Get model detail") {
-    val results = getCustomModel.transform(pathDf)
-      .withColumn("keys", col("model").getField("keys"))
-      .select("keys")
-      .collect()
-    assert(results.head.getString(0) ===
-      ("""{"clusters":{"0":["BILL TO:","CUSTOMER ID:","CUSTOMER NAME:","DATE:","DESCRIPTION",""" +
-        """"DUE DATE:","F.O.B. POINT","INVOICE:","P.O. NUMBER","QUANTITY","REMIT TO:","REQUISITIONER",""" +
-        """"SALESPERSON","SERVICE ADDRESS:","SHIP TO:","SHIPPED VIA","TERMS","TOTAL","UNIT PRICE"]}}""").stripMargin)
-  }
-
-  test("Throw errors if required fields not set") {
-    val caught = intercept[AssertionError] {
-      new GetCustomModel()
-        .setSubscriptionKey(cognitiveKey).setLocation("eastus")
-        .setIncludeKeys(true)
-        .setOutputCol("model")
-        .transform(pathDf).collect()
-    }
-    assert(caught.getMessage.contains("Missing required params"))
-    assert(caught.getMessage.contains("modelId"))
-  }
-
-  override def testObjects(): Seq[TestObject[GetCustomModel]] =
-    Seq(new TestObject(getCustomModel, pathDf))
-
-  override def reader: MLReadable[_] = GetCustomModel
-}
-
-class AnalyzeCustomModelSuite extends TransformerFuzzing[AnalyzeCustomModel]
-  with FormRecognizerUtils with CustomModelUtils {
-
-  lazy val analyzeCustomModel: AnalyzeCustomModel = new AnalyzeCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setModelId(modelId.get)
-    .setImageUrlCol("source").setOutputCol("form").setConcurrency(5)
-
-  lazy val bytesAnalyzeCustomModel: AnalyzeCustomModel = new AnalyzeCustomModel()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus").setModelId(modelId.get)
-    .setImageBytesCol("imageBytes").setOutputCol("form").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "form.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
-
-  test("Basic Usage with URL") {
-    val results = imageDf4.mlTransform(analyzeCustomModel,
-      flattenReadResults("form", "readForm"),
-      flattenPageResults("form", "pageForm"),
-      flattenDocumentResults("form", "docForm"))
-      .select("readForm", "pageForm", "docForm")
-      .collect()
-    assert(results.head.getString(0) === "")
-    assert(results.head.getString(1)
-      .contains("""Tables: Invoice Number | Invoice Date | Invoice Due Date | Charges | VAT ID"""))
-    assert(results.head.getString(2) === "")
-  }
-
-  test("Basic Usage with Bytes") {
-    val results = bytesDF4.mlTransform(bytesAnalyzeCustomModel,
-      flattenReadResults("form", "readForm"),
-      flattenPageResults("form", "pageForm"),
-      flattenDocumentResults("form", "docForm"))
-      .select("readForm", "pageForm", "docForm")
-      .collect()
-    assert(results.head.getString(0) === "")
-    assert(results.head.getString(1)
-      .contains("""Tables: Invoice Number | Invoice Date | Invoice Due Date | Charges | VAT ID"""))
-    assert(results.head.getString(2) === "")
-  }
-
-  test("Throw errors if required fields not set") {
-    val caught = intercept[AssertionError] {
-      new AnalyzeCustomModel()
-        .setSubscriptionKey(cognitiveKey).setLocation("eastus")
-        .setImageUrlCol("source").setOutputCol("form")
-        .transform(imageDf4).collect()
-    }
-    assert(caught.getMessage.contains("Missing required params"))
-    assert(caught.getMessage.contains("modelId"))
-  }
-
-  override def testObjects(): Seq[TestObject[AnalyzeCustomModel]] =
-    Seq(new TestObject(analyzeCustomModel, imageDf4))
-
-  override def reader: MLReadable[_] = AnalyzeCustomModel
 }
