@@ -240,8 +240,9 @@ object CodegenPlugin extends AutoPlugin {
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
     installPipPackage := {
-      val _ = (publishLocal dependsOn packagePython).value
-      val _ = (publishM2 dependsOn publishLocal).value
+      val packagePythonResult: Unit = packagePython.value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
       runCmd(
         activateCondaEnv ++ Seq("pip", "install", "-I",
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
@@ -252,8 +253,9 @@ object CodegenPlugin extends AutoPlugin {
     },
 
     publishPython := {
-      val _ = (publishLocal dependsOn packagePython).value
-      val _ = (publishM2 dependsOn publishLocal).value
+      val packagePythonResult: Unit = packagePython.value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
       val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
