@@ -59,7 +59,7 @@ object PyCodegen {
       conf.pySrcDir.mkdir()
     }
     val extraPackage = if (conf.name.endsWith("core")) {
-      " + [\"mmlspark\", \"init_spark\"]"
+      " + [\"mmlspark\"]"
     } else {
       ""
     }
