@@ -249,9 +249,7 @@ object CodegenPlugin extends AutoPlugin {
         join(codegenDir.value, "package", "python"))
     },
     removePipPackage := {
-      runCmd(
-        activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value),
-        join(codegenDir.value, "package", "python"))
+      runCmd(activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value))
     },
 
     publishPython := {
