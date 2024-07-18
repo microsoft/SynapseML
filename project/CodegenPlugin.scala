@@ -65,6 +65,9 @@ object CodegenPlugin extends AutoPlugin {
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
+    val removePipPackage = TaskKey[Unit]("removePipPackage",
+      "remove the installed synapseml pip package from local env")
+
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
     val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate python code")
@@ -245,6 +248,12 @@ object CodegenPlugin extends AutoPlugin {
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
+    removePipPackage := {
+      runCmd(
+        activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value),
+        join(codegenDir.value, "package", "python"))
+    },
+
     publishPython := {
       publishLocal.value
       packagePython.value
