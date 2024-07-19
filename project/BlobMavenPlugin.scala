@@ -17,7 +17,7 @@ object BlobMavenPlugin extends AutoPlugin {
 
   import autoImport._
 
-  override def requires: Plugins = sbt.Plugins.empty
+  override def requires: Plugins = CodegenPlugin
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishBlob := {
