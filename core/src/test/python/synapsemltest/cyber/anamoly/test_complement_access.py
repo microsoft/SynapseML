@@ -6,7 +6,11 @@ from typing import Type
 from pyspark.sql import DataFrame, types as t, functions as f
 from synapse.ml.cyber.anomaly.complement_access import ComplementAccessTransformer
 from synapsemltest.cyber.explain_tester import ExplainTester
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 class TestComplementAccessTransformer(unittest.TestCase):

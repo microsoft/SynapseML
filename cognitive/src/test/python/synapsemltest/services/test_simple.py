@@ -5,9 +5,15 @@
 import unittest
 
 from synapse.ml.io.http import *
-from synapsemltest.spark import *
+from synapse.ml.core.init_spark import *
 from pyspark.sql.functions import struct
 from pyspark.sql.types import *
+
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 class SimpleHTTPTransformerSmokeTest(unittest.TestCase):
