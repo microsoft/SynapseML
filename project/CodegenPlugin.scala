@@ -241,7 +241,7 @@ object CodegenPlugin extends AutoPlugin {
     },
     installPipPackage := {
       val packagePythonResult: Unit = packagePython.value
-      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+//      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
       runCmd(
         activateCondaEnv ++ Seq("pip", "install", "-I",
@@ -254,7 +254,7 @@ object CodegenPlugin extends AutoPlugin {
 
     publishPython := {
       val packagePythonResult: Unit = packagePython.value
-      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+//      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
       val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
