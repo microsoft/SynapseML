@@ -15,6 +15,7 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
+
 class SimpleHTTPTransformerSmokeTest(unittest.TestCase):
     def test_simple(self):
         df = spark.createDataFrame([("foo",) for x in range(20)], ["data"]).withColumn(

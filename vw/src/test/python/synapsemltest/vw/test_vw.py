@@ -15,6 +15,7 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
+
 class VowpalWabbitSpec(unittest.TestCase):
     def get_data(self):
         # create sample data

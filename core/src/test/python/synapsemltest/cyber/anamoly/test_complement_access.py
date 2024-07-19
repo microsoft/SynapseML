@@ -12,6 +12,7 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
+
 class TestComplementAccessTransformer(unittest.TestCase):
     def create_dataframe(self) -> DataFrame:
         schema = t.StructType(

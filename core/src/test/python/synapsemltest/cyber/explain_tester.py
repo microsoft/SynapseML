@@ -9,6 +9,7 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
+
 class ExplainTester:
     def check_explain(
         self,

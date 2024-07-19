@@ -11,6 +11,7 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
+
 class NNSpec(unittest.TestCase):
     def test_bindings(self):
         cbt = ConditionalBallTree([[1.0, 2.0], [2.0, 3.0]], [1, 2], ["foo", "bar"], 50)
