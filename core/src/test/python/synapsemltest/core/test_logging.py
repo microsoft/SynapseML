@@ -6,9 +6,11 @@ import unittest
 
 import logging
 from synapse.ml.core.logging.SynapseMLLogger import SynapseMLLogger
+from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 
 spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 class SampleTransformer(SynapseMLLogger):
     def __init__(self):

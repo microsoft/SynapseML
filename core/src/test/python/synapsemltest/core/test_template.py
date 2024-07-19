@@ -6,6 +6,7 @@ import unittest
 
 from pyspark.sql import types as t, functions as f
 import synapse.ml.core.spark.functions as SF
+from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 
 spark = init_spark()

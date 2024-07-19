@@ -6,7 +6,11 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import AzureOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
-from synapse.ml.core.init_spark import init_spark
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 #######################################################
 # this part is to correct a bug in langchain,

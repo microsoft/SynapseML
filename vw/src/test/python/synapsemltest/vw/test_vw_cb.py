@@ -4,7 +4,6 @@ import unittest
 import tempfile
 import pyspark
 
-from synapse.ml.core.init_spark import init_spark
 from synapse.ml.vw import VowpalWabbitContextualBandit
 from synapse.ml.vw import VowpalWabbitFeaturizer
 from synapse.ml.vw import VectorZipper
@@ -15,7 +14,11 @@ from pyspark.ml import Pipeline
 from pyspark.ml.wrapper import *
 from pyspark.ml.common import inherit_doc, _java2py, _py2java
 from pyspark.sql.utils import AnalysisException
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 def has_column(df, col):
     try:
