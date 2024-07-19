@@ -127,7 +127,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             target_formats=(nav.Format.TENSORRT,),
             runners=("TensorRT",),
             optimization_profile=nav.OptimizationProfile(
-                max_batch_size=BATCH_SIZE_DEFAULT
+                max_batch_size=self.BATCH_SIZE_DEFAULT
             ),
             custom_configs=[
                 nav.TorchConfig(autocast=True),
