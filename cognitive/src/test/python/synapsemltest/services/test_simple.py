@@ -5,8 +5,9 @@
 import unittest
 
 from synapse.ml.io.http import *
-from synapsemltest.spark import *
-from pyspark.sql.functions import struct
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()from pyspark.sql.functions import struct
 from pyspark.sql.types import *
 
 

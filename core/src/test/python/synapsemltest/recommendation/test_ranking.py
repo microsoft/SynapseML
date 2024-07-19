@@ -9,8 +9,11 @@ from synapse.ml.recommendation import RankingEvaluator
 from synapse.ml.recommendation import RankingTrainValidationSplit
 from synapse.ml.recommendation import RecommendationIndexer
 from synapse.ml.recommendation import SAR
-from synapsemltest.spark import *
-from pyspark.ml import Pipeline
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import ParamGridBuilder

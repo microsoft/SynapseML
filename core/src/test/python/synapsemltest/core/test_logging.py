@@ -6,8 +6,9 @@ import unittest
 
 import logging
 from synapse.ml.core.logging.SynapseMLLogger import SynapseMLLogger
-from synapsemltest.spark import *
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
 
 class SampleTransformer(SynapseMLLogger):
     def __init__(self):

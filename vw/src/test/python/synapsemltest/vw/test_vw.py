@@ -9,8 +9,11 @@ from synapse.ml.vw.VowpalWabbitRegressor import VowpalWabbitRegressor
 from synapse.ml.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
 from pyspark.sql.types import *
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 class VowpalWabbitSpec(unittest.TestCase):
     def get_data(self):

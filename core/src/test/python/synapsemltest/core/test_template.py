@@ -6,8 +6,10 @@ import unittest
 
 from pyspark.sql import types as t, functions as f
 import synapse.ml.core.spark.functions as SF
-from synapsemltest.spark import *
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 class TemplateSpec(unittest.TestCase):
     def create_sample_dataframe(self):

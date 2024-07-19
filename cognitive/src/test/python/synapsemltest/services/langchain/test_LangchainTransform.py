@@ -6,8 +6,7 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import AzureOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
-from synapsemltest.spark import *
-
+from synapse.ml.core.init_spark import init_spark
 
 #######################################################
 # this part is to correct a bug in langchain,

@@ -4,8 +4,7 @@ import unittest
 import tempfile
 import pyspark
 
-from synapsemltest.spark import *
-
+from synapse.ml.core.init_spark import init_spark
 from synapse.ml.vw import VowpalWabbitContextualBandit
 from synapse.ml.vw import VowpalWabbitFeaturizer
 from synapse.ml.vw import VectorZipper

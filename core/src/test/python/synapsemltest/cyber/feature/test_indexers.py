@@ -6,8 +6,11 @@ from typing import Type
 from pyspark.sql import types as t, functions as f
 from synapse.ml.cyber.feature import indexers
 from synapsemltest.cyber.explain_tester import ExplainTester
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 class TestIndexers(unittest.TestCase):
     def create_sample_dataframe(self):
