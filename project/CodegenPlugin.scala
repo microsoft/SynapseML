@@ -239,23 +239,26 @@ object CodegenPlugin extends AutoPlugin {
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
+    removePipPackage := {
+      runCmd(activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value))
+    },
     installPipPackage := {
       val packagePythonResult: Unit = packagePython.value
-//      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
+      val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
+      val rootPublishM2Result: Unit = (LocalRootProject / Compile / publishM2).value
       runCmd(
         activateCondaEnv ++ Seq("pip", "install", "-I",
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
-    removePipPackage := {
-      runCmd(activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value))
-    },
-
     publishPython := {
       val packagePythonResult: Unit = packagePython.value
-//      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val publishM2Result: Unit = (publishM2 dependsOn publishLocal).value
+      val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
+      val rootPublishM2Result: Unit = (LocalRootProject / Compile / publishM2).value
       val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,
