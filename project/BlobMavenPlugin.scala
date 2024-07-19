@@ -1,9 +1,9 @@
 import java.io.File
-
 import BlobMavenPlugin.autoImport.publishBlob
 import BuildUtils.{join, uploadToBlob}
-import sbt._
-import Keys._
+import CodegenPlugin.autoImport.packagePython
+import sbt.*
+import Keys.*
 import org.apache.ivy.core.IvyPatternHelper
 
 //noinspection ScalaStyle
@@ -21,7 +21,7 @@ object BlobMavenPlugin extends AutoPlugin {
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     publishBlob := {
-      publishM2.value
+      (publishM2 dependsOn packagePython).value
       val artifactName = s"${moduleName.value}_${scalaBinaryVersion.value}"
       val repositoryDir = new File(new URI(Resolver.mavenLocal.root))
       val orgDirs = organization.value.split(".".toCharArray.head)
