@@ -6,6 +6,7 @@ from synapse.ml.hf import HuggingFaceSentenceEmbedder
 from synapse.ml.nn import KNN
 from pyspark.sql import SparkSession
 
+
 class HuggingFaceSentenceTransformerTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(HuggingFaceSentenceTransformerTest, self).__init__(*args, **kwargs)
@@ -41,7 +42,7 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         #     ["id", "data"]
         # )
         self.sentenceDataFrame = spark.createDataFrame(
-            [(1,"desserts"), (2,"disgusting")], ["id", "data"]
+            [(1, "desserts"), (2, "disgusting")], ["id", "data"]
         ).cache()
 
     def test_e5_Embedding(self):
@@ -70,7 +71,7 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         expected_num_rows = dataframe.count()
         assert (
             num_rows == expected_num_rows
-        ), f"DataFrame size mismatch after transformation: expected {expected_num_rows}, got {num_rows}"        
+        ), f"DataFrame size mismatch after transformation: expected {expected_num_rows}, got {num_rows}"
 
 if __name__ == "__main__":
     result = unittest.main()
