@@ -30,7 +30,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
 
     NUM_OPT_ROWS = 100  # Constant for number of rows taken for model optimization
 
-    BATCH_SIZE_DEFAULT = 64    
+    BATCH_SIZE_DEFAULT = 64
 
     # Define additional parameters
     runtime = Param(
@@ -53,13 +53,13 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Initialize the HuggingFaceSentenceEmbedder with input/output columns and optional TRT flag.
         """
         super(HuggingFaceSentenceEmbedder, self).__init__()
-        
+
         # Determine the default runtime based on CUDA availability
         default_runtime = "cuda" if torch.cuda.is_available() else "cpu"
-        
+
         # Override the provided runtime if CUDA is not available
         effective_runtime = runtime if torch.cuda.is_available() else "cpu"
-        
+
         self._setDefault(
             runtime=default_runtime,
             batchSize=self.BATCH_SIZE_DEFAULT,
@@ -72,9 +72,9 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             modelName=modelName,
         )
         self.optData = None
-        self.model = None     
+        self.model = None
         # Placeholder for the DataFrame row count check
-        self.row_count = 0  # This should be set when the DataFrame is available           
+        self.row_count = 0  # This should be set when the DataFrame is available
 
     # Setter method for batchSize
     def setBatchSize(self, value):
@@ -143,7 +143,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             input_data = self.optData
             return [
                 (
-                    0, 
+                    0,
                     (
                         input_data,
                         {"show_progress_bar": False, "batch_size": self.getBatchSize()},
@@ -151,12 +151,12 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                 )
             ]
                 
-        nav.optimize(model.encode, dataloader=_get_dataloader(), config=conf)    
+        nav.optimize(model.encode, dataloader=_get_dataloader(), config=conf)
 
     def _predict_batch_fn(self):
         """
         Create and return a function for batch prediction.
-        """              
+        """
         runtime = self.getRuntime()
         if self.model == None:
             global model
@@ -224,4 +224,4 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Public method to transform the dataset.
         """
         return self._transform(dataset, spark)
-    
+
