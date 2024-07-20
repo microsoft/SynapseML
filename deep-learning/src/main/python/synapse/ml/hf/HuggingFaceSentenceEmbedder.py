@@ -22,6 +22,7 @@ from pyspark.sql.types import (
     FloatType,
 )
 
+
 class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
     """
     Custom transformer that extends PySpark's Transformer class to
@@ -150,7 +151,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
                     ),
                 )
             ]
-                
+
         nav.optimize(model.encode, dataloader=_get_dataloader(), config=conf)
 
     def _predict_batch_fn(self):
@@ -224,4 +225,3 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Public method to transform the dataset.
         """
         return self._transform(dataset, spark)
-

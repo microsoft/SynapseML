@@ -14,9 +14,9 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         self.e5Size = 1024
 
         self.e5Transformer = HuggingFaceSentenceEmbedder(
-            modelName="intfloat/e5-large-v2", 
-            inputCol="data", 
-            outputCol="embeddings", 
+            modelName="intfloat/e5-large-v2",
+            inputCol="data",
+            outputCol="embeddings",
             runtime="cpu",
         )
 
@@ -41,8 +41,7 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         #     ["id", "data"]
         # )
         self.sentenceDataFrame = spark.createDataFrame(
-            [(1,"desserts"), (2,"disgusting")],
-            ["id", "data"]
+            [(1,"desserts"), (2,"disgusting")], ["id", "data"]
         ).cache()
 
     def test_e5_Embedding(self):
@@ -67,11 +66,11 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
             ), f"Embedding size mismatch: expected {expected_size}, got {size}"
 
     def _assert_embedding_df_size(self, dataframe, transformed):
-            num_rows = transformed.count()
-            expected_num_rows = dataframe.count()
-            assert (
-                num_rows == expected_num_rows
-            ), f"DataFrame size mismatch after transformation: expected {expected_num_rows}, got {num_rows}"        
+        num_rows = transformed.count()
+        expected_num_rows = dataframe.count()
+        assert (
+            num_rows == expected_num_rows
+        ), f"DataFrame size mismatch after transformation: expected {expected_num_rows}, got {num_rows}"        
 
 if __name__ == "__main__":
     result = unittest.main()
