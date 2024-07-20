@@ -2,7 +2,6 @@
 # Licensed under the Apache License, See LICENSE in project root for information.
 
 import os, json, subprocess, unittest
-from synapsemltest.spark import *
 from synapse.ml.hf import HuggingFaceSentenceEmbedder
 from synapse.ml.nn import KNN
 from pyspark.sql import SparkSession
