@@ -73,5 +73,6 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
             num_rows == expected_num_rows
         ), f"DataFrame size mismatch after transformation: expected {expected_num_rows}, got {num_rows}"
 
+
 if __name__ == "__main__":
     result = unittest.main()
