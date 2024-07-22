@@ -65,6 +65,9 @@ object CodegenPlugin extends AutoPlugin {
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
+    val removePipPackage = TaskKey[Unit]("removePipPackage",
+      "remove the installed synapseml pip package from local env")
+
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
     val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate python code")
@@ -236,17 +239,22 @@ object CodegenPlugin extends AutoPlugin {
       FileUtils.copyDirectory(sourcePyDir, destPyDir)
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
+    removePipPackage := {
+      runCmd(activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value))
+    },
     installPipPackage := {
-      packagePython.value
-      publishLocal.value
+      val packagePythonResult: Unit = packagePython.value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
       runCmd(
         activateCondaEnv ++ Seq("pip", "install", "-I",
           s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
         join(codegenDir.value, "package", "python"))
     },
     publishPython := {
-      publishLocal.value
-      packagePython.value
+      val packagePythonResult: Unit = packagePython.value
+      val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
+      val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
       val fn = s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
       singleUploadToBlob(
         join(codegenDir.value, "package", "python", fn).toString,

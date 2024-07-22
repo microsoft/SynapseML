@@ -19,8 +19,11 @@ from synapse.ml.cyber.anomaly.collaborative_filtering import (
 )
 
 from synapsemltest.cyber.explain_tester import ExplainTester
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 epsilon = 10**-3
 
 

@@ -15,11 +15,11 @@ import scala.collection.mutable.ListBuffer
 class DatabricksRapidsTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 1, GpuPoolId, RapidsInitScripts)
-  val jobIdsToCancel: ListBuffer[Long] = databricksTestHelper(
-    clusterId, GPULibraries, RapidsNotebooks)
+
+  databricksTestHelper(clusterId, GPULibraries, RapidsNotebooks)
 
   protected override def afterAll(): Unit = {
-    afterAllHelper(jobIdsToCancel, clusterId, RapidsClusterName)
+    afterAllHelper(clusterId, RapidsClusterName)
     super.afterAll()
   }
 
