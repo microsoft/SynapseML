@@ -25,25 +25,37 @@ sc = SQLContext(spark.sparkContext)
 
 class DataFrameAIExtentionsTest(unittest.TestCase):
     def test_prompt(self):
-        # Define schema
         schema = StructType([
             StructField("text", StringType(), True),
             StructField("category", StringType(), True)
         ])
 
-        # Define data
         data = [
             ("apple", "fruits"),
             ("mercedes", "cars"),
             ("cake", "dishes"),
-            (None, "none")
         ]
 
-        # Create DataFrame
         df = spark.createDataFrame(data, schema)
 
-        results = df.prompt("here is a comma separated list of 5 {category}: {text}, ")
-        results.select("outParsed").show(truncate=False)
+        results = df.ai.prompt("here is a comma separated list of 5 {category}: {text}, ")
+        results.show()
+
+    def test_prompt_2(self):
+        schema = StructType([
+            StructField("name", StringType(), True),
+            StructField("address", StringType(), True)
+        ])
+
+        data = [
+            ("Anne F.", "123 First Street, 98053"),
+            ("George K.", "345 Washington Avenue, London"),
+        ]
+
+        df = spark.createDataFrame(data, schema)
+
+        results = df.ai.prompt("Generate the likely country of {name}, given that they are from {address}. It is imperitive that your response contains the country only, no elaborations.")
+        results.show()
 
 
 if __name__ == "__main__":
