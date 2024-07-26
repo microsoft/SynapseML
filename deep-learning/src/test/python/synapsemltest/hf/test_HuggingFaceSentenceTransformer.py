@@ -4,7 +4,7 @@
 import os, json, subprocess, unittest
 from synapse.ml.hf import HuggingFaceSentenceEmbedder
 from synapse.ml.nn import KNN
-from pyspark.sql import SparkSession
+from synapse.ml.core.init_spark import *
 
 
 class HuggingFaceSentenceTransformerTest(unittest.TestCase):
@@ -29,19 +29,11 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         )
 
         # construction of test dataframe
-        # Attempt to use the Spark session if already initialized
-        try:
-            # If 'spark' is not defined, this will raise a NameError
-            spark.sparkContext._jsc.sc()
-        except NameError:
-            # If 'spark' is not defined, initialize it
-            spark = SparkSession.builder.appName("Test App").getOrCreate()
-
         # self.sentenceDataFrame = spark.createDataFrame(
         #     [(1,"Happy"), (2,"Good"), (3,"Delicious"), (4,"Like it"),(5,"OK"), (6,"Disgusting"), (7,"Bad"), (8,"Don't like it"), (9,"Tastless"), (10,"Poor quality" )],
         #     ["id", "data"]
         # )
-        self.sentenceDataFrame = spark.createDataFrame(
+        self.sentenceDataFrame = init_spark().createDataFrame(
             [(1, "desserts"), (2, "disgusting")], ["id", "data"]
         ).cache()
 

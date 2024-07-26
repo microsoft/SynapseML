@@ -16,9 +16,9 @@
 # IMPORTANT: specify RAPIDS_VERSION fully 23.10.0 and not 23.10
 # also in general, RAPIDS_VERSION (python) fields should omit any leading 0 in month/minor field (i.e. 23.8.0 and not 23.08.0)
 # while SPARK_RAPIDS_VERSION (jar) should have leading 0 in month/minor (e.g. 23.08.2 and not 23.8.2)
-RAPIDS_VERSION=23.10.0
+RAPIDS_VERSION=24.4.0
 SPARK_RAPIDS_VERSION=23.10.0
-SPARK_RAPIDSML_VERSION=24.04
+SPARK_RAPIDSML_VERSION=24.6.0
 
 curl -L https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/${SPARK_RAPIDS_VERSION}/rapids-4-spark_2.12-${SPARK_RAPIDS_VERSION}-cuda11.jar -o /databricks/jars/rapids-4-spark_2.12-${SPARK_RAPIDS_VERSION}.jar
 
