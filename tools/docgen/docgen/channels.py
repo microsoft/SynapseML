@@ -13,6 +13,7 @@ import pypandoc
 import requests
 from bs4 import BeautifulSoup
 from docgen.core import Channel, ParallelChannel
+from docgen.fabric_helpers import LearnDocPreprocessor, HTMLFormatter, sentence_to_snake
 from markdownify import ATX, MarkdownConverter
 from nbconvert import MarkdownExporter
 from nbformat import read
@@ -54,110 +55,25 @@ class WebsiteChannel(ParallelChannel):
 
 
 class FabricChannel(Channel):
-    def __init__(self, input_dir: str, output_dir: str, notebooks: List[dict]):
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        notebooks: List[dict],
+        output_structure,
+        auto_pre_req,
+    ):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.notebooks = notebooks
+        self.output_structure = output_structure
+        self.auto_pre_req = auto_pre_req
+        self.channel = "fabric"
         self.hide_tag = "hide-synapse-internal"
         self.media_dir = os.path.join(self.output_dir, "media")
 
     def list_input_files(self) -> List[str]:
         return [n["path"] for n in self.notebooks]
-
-    def _sentence_to_snake(self, path: str):
-        return (
-            path.lower()
-            .replace(" - ", "-")
-            .replace(" ", "-")
-            .replace(",", "")
-            .replace(".ipynb", "")
-            .replace(".rst", "")
-        )
-
-    def _is_valid_url(self, url):
-        try:
-            result = urlparse(url)
-            return all([result.scheme, result.netloc])
-        except:
-            return False
-
-    def _replace_img_tag(self, img_tag, img_path_rel):
-        img_tag.replace_with(
-            f':::image type="content" source="{img_path_rel}" '
-            f'alt-text="{img_tag.get("alt", "placeholder alt text")}":::'
-        )
-
-    def _download_and_replace_images(
-        self,
-        html_soup,
-        resources,
-        output_folder,
-        relative_to,
-        notebook_path,
-        get_image_from_local=False,
-    ):
-        output_folder = output_folder.replace("/", os.sep)
-        os.makedirs(output_folder, exist_ok=True)
-
-        if resources:
-            # resources converted from notebook
-            resources_img, i = [], 0
-            for img_filename, content in resources.get("outputs", {}).items():
-                img_path = os.path.join(output_folder, img_filename.replace("_", "-"))
-                with open(img_path, "wb") as img_file:
-                    img_file.write(content)
-                img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                    os.sep, "/"
-                )
-                resources_img.append(img_path_rel)
-
-        img_tags = html_soup.find_all("img")
-        for img_tag in img_tags:
-            img_loc = img_tag["src"]
-
-            if self._is_valid_url(img_loc):
-                # downloaded image
-                response = requests.get(img_loc)
-                if response.status_code == 200:
-                    img_filename = self._sentence_to_snake(img_loc.split("/")[-1])
-                    img_path = os.path.join(output_folder, img_filename)
-                    with open(img_path, "wb") as img_file:
-                        img_file.write(response.content)
-                    img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                        os.sep, "/"
-                    )
-                    img_tag["src"] = img_path_rel
-                else:
-                    raise ValueError(f"Could not download image from {img_loc}")
-
-            elif get_image_from_local:
-                # process local images
-                img_filename = self._sentence_to_snake(img_loc.split("/")[-1]).replace(
-                    "_", "-"
-                )
-                file_folder = "/".join(
-                    notebook_path.split("/")[:-1]
-                )  # path read from manifest file
-                img_input_path = os.path.join(
-                    self.input_dir, file_folder, img_loc
-                ).replace("/", os.sep)
-                if not os.path.exists(img_input_path):
-                    raise ValueError(f"Could not get image from {img_loc}")
-                img_path = os.path.join(output_folder, img_filename)
-                img_path_rel = os.path.relpath(img_path, relative_to).replace(
-                    os.sep, "/"
-                )
-                shutil.copy(img_input_path, img_path)
-
-            else:
-                # process image got from notebook resources
-                img_path_rel = resources_img[i]
-                img_tag["src"] = img_path_rel
-                i += 1
-
-            self._replace_img_tag(img_tag, img_path_rel)
-
-        return html_soup
 
     def _validate_metadata(self, metadata):
         required_metadata = [
@@ -224,13 +140,64 @@ class FabricChannel(Channel):
                 link["href"] = new_href
         return parsed_html
 
+    def _generate_related_content(self, index, output_file):
+        related_content_index = index + 1
+        max_index = len(self.notebooks)
+        related_content = []
+        if max_index > 3:
+            related_content = ["""## Related content\n"""]
+            for i in range(3):
+                if related_content_index >= max_index:
+                    related_content_index = 0
+                title = self.notebooks[related_content_index]["metadata"]["title"]
+                if self.output_structure == "hierarchy":
+                    path = self.notebooks[related_content_index]["path"]
+                    filename = sentence_to_snake(
+                        self.output_dir
+                        + self.notebooks[related_content_index].get("filename", path)
+                        + ".md"
+                    )
+                    rel_path = os.path.relpath(
+                        filename, os.path.dirname(output_file)
+                    ).replace(os.sep, "/")
+                    related_content.append(f"""- [{title}]({rel_path})""")
+                elif self.output_structure == "flat":
+                    path = self.notebooks[related_content_index]["path"].split("/")[-1]
+                    filename = sentence_to_snake(
+                        self.notebooks[related_content_index].get("filename", path)
+                        + ".md"
+                    )
+                    related_content.append(f"""- [{title}]({filename})""")
+                related_content_index += 1
+        return "\n".join(related_content)
+
     def process(self, input_file: str, index: int) -> ():
-        print(f"Processing {input_file} for fabric")
-        output_file = os.path.join(self.output_dir, input_file)
-        output_img_dir = self.media_dir + "/" + self._sentence_to_snake(input_file)
+        print(f"Processing {input_file} for {self.channel}")
         full_input_file = os.path.join(self.input_dir, input_file)
         notebook_path = self.notebooks[index]["path"]
+        manifest_file_name = self.notebooks[index].get("filename", "")
         metadata = self.notebooks[index]["metadata"]
+
+        if self.output_structure == "hierarchy":
+            # keep structure of input file
+            output_file = os.path.join(self.output_dir, input_file)
+            output_img_dir = os.path.join(self.media_dir, sentence_to_snake(input_file))
+        elif self.output_structure == "flat":
+            # put under one directory
+            media_folder = (
+                manifest_file_name
+                if manifest_file_name
+                else sentence_to_snake(input_file.split("/")[-1])
+            )
+            output_img_dir = os.path.join(self.media_dir, media_folder)
+            output_file = os.path.join(self.output_dir, input_file.split("/")[-1])
+
+        if manifest_file_name:
+            output_file = output_file.replace(
+                output_file.split("/")[-1].split(".")[0], manifest_file_name
+            )
+
+        auto_related_content = self._generate_related_content(index, output_file)
         self._validate_metadata(metadata)
 
         def callback(el):
@@ -247,59 +214,40 @@ class FabricChannel(Channel):
             return MarkdownConverter(**options).convert_soup(soup)
 
         if str(input_file).endswith(".rst"):
-            output_file = self._sentence_to_snake(
-                str(output_file).replace(".rst", ".md")
-            )
-            html = self._read_rst(full_input_file)
-            parsed_html = markdown.markdown(
-                html,
-                extensions=[
-                    "markdown.extensions.tables",
-                    "markdown.extensions.fenced_code",
-                ],
-            )
-            parsed_html = BeautifulSoup(parsed_html, features="html.parser")
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                None,
-                output_img_dir,
-                os.path.dirname(output_file),
-                notebook_path,
-                True,
+            output_file = sentence_to_snake(str(output_file).replace(".rst", ".md"))
+            content = self._read_rst(full_input_file)
+            html = HTMLFormatter(
+                content,
+                resources=resources,
+                input_dir=self.input_dir,
+                notebook_path=input_file,
+                output_img_dir=output_img_dir,
+                output_file=output_file,
             )
             parsed_html = self._convert_to_markdown_links(parsed_html)
 
         elif str(input_file).endswith(".ipynb"):
-            output_file = self._sentence_to_snake(
-                str(output_file).replace(".ipynb", ".md")
-            )
+            output_file = sentence_to_snake(str(output_file).replace(".ipynb", ".md"))
             parsed = read(full_input_file, as_version=4)
 
             c = Config()
-            c.TagRemovePreprocessor.remove_cell_tags = (self.hide_tag,)
-            c.TagRemovePreprocessor.enabled = True
             c.MarkdownExporter.preprocessors = [
-                "nbconvert.preprocessors.TagRemovePreprocessor"
+                LearnDocPreprocessor(
+                    tags_to_remove=[self.hide_tag], auto_pre_req=self.auto_pre_req
+                )
             ]
-            md, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
+            content, resources = MarkdownExporter(config=c).from_notebook_node(parsed)
 
-            html = markdown.markdown(
-                md,
-                extensions=[
-                    "markdown.extensions.tables",
-                    "markdown.extensions.fenced_code",
-                ],
+            html = HTMLFormatter(
+                content,
+                resources=resources,
+                input_dir=self.input_dir,
+                notebook_path=input_file,
+                output_img_dir=output_img_dir,
+                output_file=output_file,
             )
-            parsed_html = BeautifulSoup(html)
-            # Download images and place them in media directory while updating their links
-            parsed_html = self._download_and_replace_images(
-                parsed_html,
-                resources,
-                output_img_dir,
-                os.path.dirname(output_file),
-                None,
-                False,
-            )
+            html.run()
+            parsed_html = html.bs_html
 
         # Remove StatementMeta
         for element in parsed_html.find_all(
@@ -324,8 +272,26 @@ class FabricChannel(Channel):
         )
         # Post processing
         new_md = f"{self._generate_metadata_header(metadata)}\n{new_md}"
-        output_md = self._remove_content(new_md)
+        if "## Related content" not in new_md:
+            new_md += auto_related_content
+        output_md = re.sub(r"\n{3,}", "\n\n", self._remove_content(new_md))
 
         os.makedirs(dirname(output_file), exist_ok=True)
         with open(output_file, "w+", encoding="utf-8") as f:
             f.write(output_md)
+
+
+class AzureChannel(FabricChannel):
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        notebooks: List[dict],
+        output_structure,
+        auto_pre_req,
+    ):
+        super().__init__(
+            input_dir, output_dir, notebooks, output_structure, auto_pre_req
+        )
+        self.hide_tag = "hide-azure"
+        self.channel = "azure"

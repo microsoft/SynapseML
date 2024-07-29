@@ -5,7 +5,11 @@
 import unittest
 
 from synapse.ml.nn.ConditionalBallTree import ConditionalBallTree
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 class NNSpec(unittest.TestCase):

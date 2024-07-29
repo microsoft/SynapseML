@@ -34,12 +34,12 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   }
 
   lazy val embeddingExtra: OpenAIEmbedding = new OpenAIEmbedding()
-    .setSubscriptionKey(openAIAPIKeyGpt4)
+    .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName("text-embedding-3-small")
     .setApiVersion("2024-03-01-preview")
     .setDimensions(100)
     .setUser("testUser")
-    .setCustomServiceName(openAIServiceNameGpt4)
+    .setCustomServiceName(openAIServiceName)
     .setTextCol("text")
     .setOutputCol("out")
 

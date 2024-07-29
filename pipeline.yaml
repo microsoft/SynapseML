@@ -116,28 +116,17 @@ jobs:
         PGP-PUBLIC: $(pgp-public)
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
-    - bash: |
-        set -e
-        sbt aetherDeploy
-      displayName: Publish to Feed
-      env:
-        ADO-FEED-TOKEN: $(ado-feed-token)
-        STORAGE-KEY: $(storage-key)
-        PUBLISH-TO-FEED: true
-        SYNAPSEML_ENABLE_PUBLISH: true
-    - bash: |
-        set -e
-        sbt publishBadges
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          sbt publishBadges
       condition: and(succeeded(), eq(variables.isMaster, true))
       displayName: Publish Badges
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
+
 
 - job: E2E
   timeoutInMinutes: 120
@@ -181,80 +170,80 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-
-- job: PublishDocker
-  displayName: PublishDocker
-  pool:
-    vmImage: ubuntu-20.04
-  steps:
-    - task: AzureCLI@2
-      displayName: 'Get Docker Tag + Version'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-          echo '##vso[task.setvariable variable=version]'$VERSION
-          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
-    - task: Docker@2
-      displayName: Demo Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-demo'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
-      displayName: Demo Image Push
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-demo'
-        command: 'push'
-        tags: $(version)
-    - task: Docker@2
-      displayName: Minimal Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-minimal'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/minimal/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
-      displayName: Minimal Image Push
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-minimal'
-        command: 'push'
-        tags: $(version)
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Release Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/release'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: |
-          $(version)
-          latest
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Release Image Push
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/release'
-        command: 'push'
-        tags: |
-          $(version)
-          latest
-    - task: ComponentGovernanceComponentDetection@0
+#
+#- job: PublishDocker
+#  displayName: PublishDocker
+#  pool:
+#    vmImage: ubuntu-20.04
+#  steps:
+#    - task: AzureCLI@2
+#      displayName: 'Get Docker Tag + Version'
+#      inputs:
+#        azureSubscription: 'SynapseML Build'
+#        scriptLocation: inlineScript
+#        scriptType: bash
+#        inlineScript: |
+#          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+#          echo '##vso[task.setvariable variable=version]'$VERSION
+#          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+#    - task: Docker@2
+#      displayName: Demo Image Build
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/build-demo'
+#        command: 'build'
+#        buildContext: "."
+#        Dockerfile: 'tools/docker/demo/Dockerfile'
+#        tags: $(version)
+#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+#    - task: Docker@2
+#      displayName: Demo Image Push
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/build-demo'
+#        command: 'push'
+#        tags: $(version)
+#    - task: Docker@2
+#      displayName: Minimal Image Build
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/build-minimal'
+#        command: 'build'
+#        buildContext: "."
+#        Dockerfile: 'tools/docker/minimal/Dockerfile'
+#        tags: $(version)
+#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+#    - task: Docker@2
+#      displayName: Minimal Image Push
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/build-minimal'
+#        command: 'push'
+#        tags: $(version)
+#    - task: Docker@2
+#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+#      displayName: Release Image Build
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/release'
+#        command: 'build'
+#        buildContext: "."
+#        Dockerfile: 'tools/docker/demo/Dockerfile'
+#        tags: |
+#          $(version)
+#          latest
+#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+#    - task: Docker@2
+#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+#      displayName: Release Image Push
+#      inputs:
+#        containerRegistry: 'SynapseML MCR MSI'
+#        repository: 'public/mmlspark/release'
+#        command: 'push'
+#        tags: |
+#          $(version)
+#          latest
+#    - task: ComponentGovernanceComponentDetection@0
 
 - job: Release
   cancelTimeoutInMinutes: 0
@@ -349,7 +338,7 @@ jobs:
         ContentType: 'Maven'
         contentsource: 'Folder'
         folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'admukund@microsoft.com,richwyd@microsoft.com,taniaarya@microsoft.com,alsavelv@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+        Owners: 'richwyd@microsoft.com,taniaarya@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
         Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
         ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
         MainPublisher: 'synapseml'

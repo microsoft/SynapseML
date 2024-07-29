@@ -15,13 +15,13 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   lazy val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
     .setDeploymentName(deploymentNameGpt4)
-    .setCustomServiceName(openAIServiceNameGpt4)
+    .setCustomServiceName(openAIServiceName)
     .setApiVersion("2023-05-15")
     .setMaxTokens(5000)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
-    .setSubscriptionKey(openAIAPIKeyGpt4)
+    .setSubscriptionKey(openAIAPIKey)
 
 
   lazy val goodDf: DataFrame = Seq(
@@ -149,6 +149,29 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+  }
+
+  ignore("Custom EndPoint") {
+    lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
+    lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
+
+    val customEndpointCompletion = new OpenAIChatCompletion()
+      .setCustomUrlRoot(customRootUrlValue)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setTemperature(0)
+
+    if (accessToken.isEmpty) {
+      customEndpointCompletion.setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentNameGpt4)
+        .setCustomServiceName(openAIServiceName)
+    } else {
+      customEndpointCompletion.setAADToken(accessToken)
+        .setCustomHeaders(customHeadersValues)
+    }
+
+    testCompletion(customEndpointCompletion, goodDf)
   }
 
   def testCompletion(completion: OpenAIChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {

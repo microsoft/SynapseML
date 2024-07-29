@@ -18,6 +18,7 @@ import org.apache.http.message.BasicNameValuePair
 import spray.json._
 
 import java.io.File
+import java.net.URLEncoder
 import java.util.Calendar
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -260,17 +261,20 @@ object SynapseUtilities {
        |""".stripMargin
   }
 
+
   def tryDeleteOldSparkPools(): Unit = {
     println("Deleting stray old Apache Spark Pools...")
     val dayAgoTsInMillis: Long = Calendar.getInstance().getTimeInMillis - 24 * 60 * 60 * 1000 // Timestamp 24 hrs ago
+
+    val encodedFilter = URLEncoder.encode(s"substringof(name, '$WorkspaceName/$ClusterPrefix') and" +
+      s" resourceType eq 'Microsoft.Synapse/workspaces/bigDataPools'", "UTF-8")
+
     val getBigDataPoolsUri =
-      s"""
-         |$ManagementUrlRoot/resources?api-version=2021-04-01&
-         |$$filter=substringof(name, \'$WorkspaceName/$ClusterPrefix\') and
-         | resourceType eq \'Microsoft.Synapse/workspaces/bigDataPools\'
-         |""".stripMargin.replaceAll(LineSeparator, "").replaceAll(" ", "%20")
+      s"$ManagementUrlRoot/resources?api-version=2021-04-01&$$filter=$encodedFilter"
+
     val getBigDataPoolRequest = new HttpGet(getBigDataPoolsUri)
     getBigDataPoolRequest.setHeader("Authorization", s"Bearer $ArmToken")
+
     val sparkPools = sendAndParseJson(getBigDataPoolRequest).convertTo[SynapseResourceResponse].value
     sparkPools.foreach(sparkPool => {
       val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")

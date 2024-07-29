@@ -6,8 +6,11 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import AzureOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
 
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 #######################################################
 # this part is to correct a bug in langchain,
@@ -31,11 +34,11 @@ class LangchainTransformTest(unittest.TestCase):
         super(LangchainTransformTest, self).__init__(*args, **kwargs)
         # fetching openai_api_key
         secretJson = subprocess.check_output(
-            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key",
+            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
             shell=True,
         )
         openai_api_key = json.loads(secretJson)["value"]
-        openai_api_base = "https://synapseml-openai.openai.azure.com/"
+        openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
         openai_api_version = "2022-12-01"
         openai_api_type = "azure"
 
@@ -49,8 +52,8 @@ class LangchainTransformTest(unittest.TestCase):
 
         # construction of llm
         llm = AzureOpenAI(
-            deployment_name="text-davinci-003",
-            model_name="text-davinci-003",
+            deployment_name="gpt-35-turbo",
+            model_name="gpt-35-turbo",
             temperature=0,
             verbose=False,
         )
@@ -62,7 +65,7 @@ class LangchainTransformTest(unittest.TestCase):
         # and should contain the words input column
         copy_prompt = PromptTemplate(
             input_variables=["technology"],
-            template="Copy the following word: {technology}",
+            template="Repeat the following word, just output the word again: {technology}",
         )
 
         self.chain = LLMChain(llm=llm, prompt=copy_prompt)
@@ -144,7 +147,7 @@ class LangchainTransformTest(unittest.TestCase):
             [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
         )
         temp_dir = "tmp"
-        os.mkdir(temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
         path = os.path.join(temp_dir, "langchainTransformer")
         self.langchainTransformer.save(path)
         loaded_transformer = LangchainTransformer.load(path)

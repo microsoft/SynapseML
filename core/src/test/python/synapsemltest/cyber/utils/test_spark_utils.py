@@ -14,7 +14,11 @@ from synapse.ml.cyber.utils.spark_utils import (
     HasSetInputCol,
     HasSetOutputCol,
 )
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 class TestDataFrameUtils(unittest.TestCase):

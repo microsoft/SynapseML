@@ -40,7 +40,7 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   with HasImageInput with HasSetLocation with SynapseMLLogging with HasSetLinkedService {
   logClass(FeatureNames.AiServices.Anomaly)
 
-  setDefault(apiVersion -> Left("2022-08-31"))
+  setDefault(apiVersion -> Left("2023-07-31"))
 
   def this() = this(Identifiable.randomUID("AnalyzeDocument"))
 
@@ -59,6 +59,30 @@ class AnalyzeDocument(override val uid: String) extends CognitiveServicesBaseNoH
   def getStringIndexType: String = getScalarParam(stringIndexType)
 
   def getStringIndexTypeCol: String = getVectorParam(stringIndexType)
+
+
+  val features = new ServiceParam[Seq[String]](this, "features",
+    "List of optional analysis features. (barcodes,formulas,keyValuePairs,languages,ocrHighResolution,styleFont)",
+    {
+    case Left(s) => s.forall(entry => Set(
+      "barcodes",
+      "formulas",
+      "keyValuePairs",
+      "languages",
+      "ocrHighResolution",
+      "styleFont"
+    )(entry))
+    case Right(_) => true
+  }, isURLParam = true)
+
+  def setFeatures(v: Seq[String]): this.type = setScalarParam(features, v)
+
+  def setFeaturesCol(v: String): this.type = setVectorParam(features, v)
+
+  def getFeatures: Seq[String] = getScalarParam(features)
+
+  def getFeaturesCol: String = getVectorParam(features)
+
 
   override protected def responseDataType: DataType = AnalyzeDocumentResponse.schema
 
