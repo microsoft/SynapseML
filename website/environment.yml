@@ -1,0 +1,5 @@
+name: synapseml-website
+channels:
+  - conda-forge
+dependencies:
+  - conda-forge::yarn=1.22.19

@@ -1,0 +1,19 @@
+{
+    "image": "synapseml-host",
+    "remoteUser": "root",
+    "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "GitHub.copilot",
+        "scala-lang.scala",
+        "itryapitsin.Sbt",
+        "scalameta.metals"
+      ]
+    }
+  },
+  "mounts": [
+      "source=${localEnv:HOME}${localEnv:USERPROFILE}/.azure,target=/home/dev/.azure/,type=bind,consistency=cached"
+    ]
+}
