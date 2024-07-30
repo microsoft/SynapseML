@@ -5,22 +5,13 @@
 import unittest
 
 from synapse.ml.io.http import *
-from pyspark.sql.functions import struct
 from pyspark.sql.types import *
 from synapse.ml.services.openai import *
 
 from pyspark.sql import SparkSession, SQLContext
-from synapse.ml.core import __spark_package_version__
-spark = (SparkSession.builder
-         .master("local[*]")
-         .appName("PysparkTests")
-         .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:" + __spark_package_version__ + ",org.apache.spark:spark-avro_2.12:3.4.1")
-         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
-         .config("spark.executor.heartbeatInterval", "60s")
-         .config("spark.sql.shuffle.partitions", 10)
-         .config("spark.sql.crossJoin.enabled", "true")
-         .getOrCreate())
 
+from synapse.ml.core.init_spark import *
+spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
 class DataFrameAIExtentionsTest(unittest.TestCase):
