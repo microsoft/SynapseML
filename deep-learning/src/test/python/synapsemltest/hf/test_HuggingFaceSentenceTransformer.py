@@ -59,8 +59,8 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
         testDf = self.sentenceDataFrame
         assert isinstance(
             testDf, pyspark.sql.DataFrame
-        ), "The input is not a DataFrame."        
-
+        ), "The input is not a DataFrame."
+        
     def _assert_embedding_embedding_size(self, transformed, expected_size):
         # Debugging to check the type
         collected_data = transformed.collect()
