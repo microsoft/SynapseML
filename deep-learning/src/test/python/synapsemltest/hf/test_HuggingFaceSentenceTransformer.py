@@ -39,20 +39,29 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
             .cache()
         )
 
+
     def test_e5_Embedding(self):
+        self._assert_input(self.sentenceDataFrame)
         transformed = self.e5Transformer.transform(self.sentenceDataFrame).cache()
+        self._assert_input(self.transformed)
         self._assert_embedding_df_size(self.sentenceDataFrame, transformed)
         self._assert_embedding_embedding_size(transformed, self.e5Size)
 
     def test_miniLM_Embedding(self):
+        self._assert_input(self.sentenceDataFrame)
         transformed = self.miniLMTransformer.transform(self.sentenceDataFrame).cache()
+        self._assert_input(self.transformed)
         self._assert_embedding_df_size(self.sentenceDataFrame, transformed)
         self._assert_embedding_embedding_size(transformed, self.miniLMSize)
+
+    def _assert_input(self, input):
+        # Use assert to check if the result is a DataFrame
+        testDf = self.sentenceDataFrame
+        assert isinstance(testDf, pyspark.sql.DataFrame), "The input is not a DataFrame."
 
     def _assert_embedding_embedding_size(self, transformed, expected_size):
         # Debugging to check the type
         collected_data = transformed.collect()
-
         for row in collected_data:
             embeddings_array = row["embeddings"]
             size = len(embeddings_array)
