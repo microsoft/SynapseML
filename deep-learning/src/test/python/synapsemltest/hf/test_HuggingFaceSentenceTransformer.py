@@ -5,6 +5,7 @@ import os, json, subprocess, unittest
 from synapse.ml.hf import HuggingFaceSentenceEmbedder
 from synapse.ml.nn import KNN
 from synapse.ml.core.init_spark import *
+from pyspark.sql import DataFrame
 
 
 class HuggingFaceSentenceTransformerTest(unittest.TestCase):
