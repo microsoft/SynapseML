@@ -266,9 +266,6 @@ val settings = Seq(
   javacOptions ++= Seq(
     "-source", "11",
     "-target", "11"
-  ),
-  scalacOptions ++= Seq(
-    "-target:jvm-11"
   )
 )
 ThisBuild / publishMavenStyle := true
