@@ -262,7 +262,14 @@ val settings = Seq(
   assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
-  sbtPlugin := false
+  sbtPlugin := false,
+  javacOptions ++= Seq(
+    "-source", "11",
+    "-target", "11"
+  ),
+  scalacOptions ++= Seq(
+    "-target:jvm-11"
+  )
 )
 ThisBuild / publishMavenStyle := true
 
