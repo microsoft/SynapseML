@@ -685,6 +685,15 @@ jobs:
         PACKAGE: "vw"
   steps:
     #- template: templates/ivy_cache.yml
+    - task: AzureCLI@2
+      displayName: 'Print Java version'
+      retryCountOnTaskFailure: 1
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          java -version
     - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
