@@ -183,7 +183,7 @@ class SynapseMLLogger:
             json.dumps(self._get_payload(class_name, method_name, None, None, e))
         )
 
-    def log_verb(method_name: Optional[str] = None):
+    def log_verb(method_name: Optional[str] = None, feature_name: Optional[str] = None):
         def get_wrapper(func):
             @functools.wraps(func)
             def log_decorator_wrapper(self, *args, **kwargs):
@@ -198,7 +198,7 @@ class SynapseMLLogger:
                         method_name if method_name else func.__name__,
                         SynapseMLLogger.get_column_number(args, kwargs),
                         execution_time,
-                        None,
+                        feature_name,
                     )
                     return result
                 except Exception as e:
