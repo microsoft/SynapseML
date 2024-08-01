@@ -5,10 +5,11 @@ import os, json, subprocess, unittest
 from synapse.ml.hf import HuggingFaceSentenceEmbedder
 from synapse.ml.nn import KNN
 from synapse.ml.core.init_spark import *
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SQLContext
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
+
 
 class HuggingFaceSentenceTransformerTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -46,7 +47,7 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
                 (10, "Poor quality"),
             ],
             ["id", "data"],
-         )
+        )
         # self.sentenceDataFrame = (
         #     init_spark()
         #     .createDataFrame([(1, "desserts"), (2, "disgusting")], ["id", "data"])
