@@ -29,7 +29,7 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
             runtime="cpu",
         )
 
-        construction of test dataframe
+        # construction of test dataframe
         self.sentenceDataFrame = spark.createDataFrame(
             [(1,"Happy"), (2,"Good"), (3,"Delicious"), (4,"Like it"),(5,"OK"), (6,"Disgusting"), (7,"Bad"), (8,"Don't like it"), (9,"Tastless"), (10,"Poor quality" )],
             ["id", "data"]
