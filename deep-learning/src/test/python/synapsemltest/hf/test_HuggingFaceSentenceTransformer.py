@@ -43,14 +43,14 @@ class HuggingFaceSentenceTransformerTest(unittest.TestCase):
     def test_e5_Embedding(self):
         self._assert_input(self.sentenceDataFrame)
         transformed = self.e5Transformer.transform(self.sentenceDataFrame).cache()
-        self._assert_input(self.transformed)
+        self._assert_input(transformed)
         self._assert_embedding_df_size(self.sentenceDataFrame, transformed)
         self._assert_embedding_embedding_size(transformed, self.e5Size)
 
     def test_miniLM_Embedding(self):
         self._assert_input(self.sentenceDataFrame)
         transformed = self.miniLMTransformer.transform(self.sentenceDataFrame).cache()
-        self._assert_input(self.transformed)
+        self._assert_input(transformed)
         self._assert_embedding_df_size(self.sentenceDataFrame, transformed)
         self._assert_embedding_embedding_size(transformed, self.miniLMSize)
 
