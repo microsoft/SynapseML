@@ -30,10 +30,38 @@ class SampleTransformer(SynapseMLLogger):
     def test_throw(self):
         raise Exception("test exception")
 
+class NoInheritTransformer():
+    def __init__(self):
+        self.logger = SynapseMLLogger(log_level=logging.DEBUG)
+
+    @SynapseMLLogger.log_verb_static(method_name="transform")
+    def transform(self, df):
+        return True
+
+    @SynapseMLLogger.log_verb_static(method_name="fit")
+    def fit(self, df):
+        return True
+
+    @SynapseMLLogger.log_verb_static()
+    def test_throw(self):
+        raise Exception("test exception")
+
 
 class LoggingTest(unittest.TestCase):
     def test_logging_smoke(self):
         t = SampleTransformer()
+        data = [("Alice", 25), ("Bob", 30), ("Charlie", 35)]
+        columns = ["name", "age"]
+        df = sc.createDataFrame(data, columns)
+        t.transform(df)
+        t.fit(df)
+        try:
+            t.test_throw()
+        except Exception as e:
+            assert f"{e}" == "test exception"
+
+    def test_logging_smoke_no_inheritance(self):
+        t = NoInheritTransformer()
         data = [("Alice", 25), ("Bob", 30), ("Charlie", 35)]
         columns = ["name", "age"]
         df = sc.createDataFrame(data, columns)

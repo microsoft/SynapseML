@@ -213,6 +213,38 @@ class SynapseMLLogger:
 
         return get_wrapper
 
+    @staticmethod
+    def log_verb_static(method_name: Optional[str] = None):
+        def get_wrapper(func):
+            @functools.wraps(func)
+            def log_decorator_wrapper(self, *args, **kwargs):
+                start_time = time.perf_counter()
+                logger = self.logger
+                try:
+                    result = func(self, *args, **kwargs)
+                    execution_time = logger._round_significant(
+                        time.perf_counter() - start_time, 3
+                    )
+                    logger._log_base(
+                        func.__module__,
+                        method_name if method_name else func.__name__,
+                        logger.get_column_number(args, kwargs),
+                        execution_time,
+                        None,
+                    )
+                    return result
+                except Exception as e:
+                    logger._log_error_base(
+                        func.__module__,
+                        method_name if method_name else func.__name__,
+                        e,
+                    )
+                    raise
+
+            return log_decorator_wrapper
+
+        return get_wrapper
+
     def log_class(self, feature_name: str):
         return self._log_base("constructor", None, None, None, feature_name)
 
