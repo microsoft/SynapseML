@@ -3,7 +3,11 @@ __author__ = "rolevin"
 from typing import Any, Callable, List
 
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol
-from synapsemltest.spark import *
+from pyspark.sql import SQLContext
+from synapse.ml.core.init_spark import *
+
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 class ExplainTester:

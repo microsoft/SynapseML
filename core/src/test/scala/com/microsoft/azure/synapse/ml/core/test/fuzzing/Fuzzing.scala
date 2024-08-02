@@ -189,12 +189,16 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
     val importPathString = importPath.mkString(".").replaceAllLiterally("com.microsoft.azure.synapse.ml", "synapse.ml")
     val testClass =
       s"""import unittest
-         |from synapsemltest.spark import *
+         |from pyspark.sql import SQLContext
+         |from synapse.ml.core.init_spark import *
          |from $importPathString import $stageName
          |from os.path import join
          |import json
          |import mlflow
          |from pyspark.ml import PipelineModel
+         |
+         |spark = init_spark()
+         |sc = SQLContext(spark.sparkContext)
          |
          |test_data_dir = "${pyTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"
          |

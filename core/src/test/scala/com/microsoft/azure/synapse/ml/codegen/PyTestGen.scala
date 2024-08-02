@@ -49,29 +49,6 @@ object PyTestGen {
     if (!dir.exists()) {
       dir.mkdirs()
     }
-    writeFile(join(dir, "spark.py"),
-      s"""
-         |# Copyright (C) Microsoft Corporation. All rights reserved.
-         |# Licensed under the MIT License. See LICENSE in project root for information.
-         |
-         |from pyspark.sql import SparkSession, SQLContext
-         |import os
-         |import synapse.ml
-         |from synapse.ml.core import __spark_package_version__
-         |
-         |spark = (SparkSession.builder
-         |    .master("local[*]")
-         |    .appName("PysparkTests")
-         |    .config("spark.jars.packages", "$SparkMavenPackageList")
-         |    .config("spark.jars.repositories", "$SparkMavenRepositoryList")
-         |    .config("spark.executor.heartbeatInterval", "60s")
-         |    .config("spark.sql.shuffle.partitions", 10)
-         |    .config("spark.sql.crossJoin.enabled", "true")
-         |    .getOrCreate())
-         |
-         |sc = SQLContext(spark.sparkContext)
-         |
-         |""".stripMargin, StandardOpenOption.CREATE)
   }
 
   def main(args: Array[String]): Unit = {
