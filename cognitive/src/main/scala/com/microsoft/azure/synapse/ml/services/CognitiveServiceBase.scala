@@ -290,7 +290,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     case _ => p.name
   }
 
-  override def getUrl: String = "https://synapseml-openai-2.openai.azure.com/openai/deployments/gpt-4/chat/completions"
+  override def getUrl: String = this.getOrDefault(url)
 
   protected def prepareUrlRoot: Row => String = {
     _ => getUrl

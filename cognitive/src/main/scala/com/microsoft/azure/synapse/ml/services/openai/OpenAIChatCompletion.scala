@@ -35,7 +35,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"https://synapseml-openai-2.openai.azure.com/openai/deployments/gpt-4/chat/completions/openai/deployments/${getValue(row, deploymentName)}/chat/completions"
+    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/chat/completions"
   }
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
