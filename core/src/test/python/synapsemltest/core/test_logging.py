@@ -30,7 +30,7 @@ class SampleTransformer(SynapseMLLogger):
     def test_throw(self):
         raise Exception("test exception")
 
-    @SynapseMLLogger.log_verb(feature_name = "test_logging")
+    @SynapseMLLogger.log_verb(feature_name="test_logging")
     def test_feature_name(self):
         return 0
 
