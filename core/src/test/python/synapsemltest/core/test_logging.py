@@ -30,6 +30,10 @@ class SampleTransformer(SynapseMLLogger):
     def test_throw(self):
         raise Exception("test exception")
 
+    @SynapseMLLogger.log_verb(feature_name="test_logging")
+    def test_feature_name(self):
+        return 0
+
 
 class LoggingTest(unittest.TestCase):
     def test_logging_smoke(self):
@@ -43,6 +47,7 @@ class LoggingTest(unittest.TestCase):
             t.test_throw()
         except Exception as e:
             assert f"{e}" == "test exception"
+        t.test_feature_name()
 
 
 if __name__ == "__main__":
