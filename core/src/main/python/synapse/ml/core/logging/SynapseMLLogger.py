@@ -11,7 +11,6 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 import json
-import inspect
 
 PROTOCOL_VERSION = "0.0.1"
 
