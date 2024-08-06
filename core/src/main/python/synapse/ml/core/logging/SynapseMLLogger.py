@@ -127,9 +127,10 @@ class SynapseMLLogger:
         num_cols: int,
         execution_sec: float,
         feature_name: Optional[str] = None,
+        custom_log_info: Optional[str] = None,
     ):
         self._log_base_dict(
-            self._get_payload(class_name, method_name, num_cols, execution_sec, None),
+            self._get_payload(class_name, method_name, num_cols, execution_sec, None, custom_log_info),
             feature_name=feature_name,
         )
 
@@ -162,6 +163,7 @@ class SynapseMLLogger:
         num_cols: Optional[int],
         execution_sec: Optional[float],
         exception: Optional[Exception],
+        custom_log_info: Optional[str],
     ):
         info = self.get_required_log_fields(self.uid, class_name, method_name)
         env_conf = self.get_hadoop_conf_entries()
@@ -171,6 +173,8 @@ class SynapseMLLogger:
             info["dfInfo"] = {"input": {"numCols": str(num_cols)}}
         if execution_sec is not None:
             info["executionSeconds"] = str(execution_sec)
+        if custom_log_info is not None:
+            info["custom_log_info"] = custom_log_info
         if exception:
             exception_info = self.get_error_fields(exception)
             for k in exception_info.keys():
@@ -227,13 +231,14 @@ class SynapseMLLogger:
                 # Validate custom_log_function for proper definition
                 if custom_log_function:
                     if not callable(custom_log_function):
-                        raise ValueError("custom_log_func must be callable")
+                        raise ValueError("custom_log_function must be callable")
 
                     # Check if custom_log_function can accept the required parameters
                     sig = inspect.signature(custom_log_function)
                     params = list(sig.parameters.values())
                     if len(params) != 4:
-                        raise TypeError("custom_log_func must accept four parameters: self, *args, **kwargs, and result")
+                        raise TypeError("custom_log_function must accept four parameters: "
+                                        "self, *args, **kwargs, and result")
 
                 logger = self.logger
                 start_time = time.perf_counter()
@@ -242,12 +247,16 @@ class SynapseMLLogger:
                     execution_time = logger._round_significant(
                         time.perf_counter() - start_time, 3
                     )
+                    custom_log_info = custom_log_function(self, *args, **kwargs, result)
+                    if not isinstance(custom_log_info, str):
+                        raise TypeError("custom_log_function must return a string")
                     logger._log_base(
                         func.__module__,
                         method_name if method_name else func.__name__,
                         logger.get_column_number(args, kwargs),
                         execution_time,
                         None,
+                        custom_log_info
                     )
                     return result
                 except Exception as e:
