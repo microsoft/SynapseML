@@ -50,6 +50,13 @@ class NoInheritTransformer():
     def test_throw(self):
         raise Exception("test exception")
 
+    def custom_logging_function(self, results, *args, **kwargs):
+        return f"Custom Function with arguments {args} returned with {results}"
+
+    @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function)
+    def test_custom_function(self, df):
+        return 42
+
 
 class LoggingTest(unittest.TestCase):
     def test_logging_smoke(self):
@@ -65,13 +72,14 @@ class LoggingTest(unittest.TestCase):
             assert f"{e}" == "test exception"
         t.test_feature_name()
 
-    def test_logging_smoke_no_inheritance(self):
+    def test_log_verb_static(self):
         t = NoInheritTransformer()
         data = [("Alice", 25), ("Bob", 30), ("Charlie", 35)]
         columns = ["name", "age"]
         df = sc.createDataFrame(data, columns)
         t.transform(df)
         t.fit(df)
+        t.test_custom_function(df)
         try:
             t.test_throw()
         except Exception as e:

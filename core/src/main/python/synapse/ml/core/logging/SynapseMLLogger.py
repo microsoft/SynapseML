@@ -163,7 +163,7 @@ class SynapseMLLogger:
         num_cols: Optional[int],
         execution_sec: Optional[float],
         exception: Optional[Exception],
-        custom_log_info: Optional[str],
+        custom_log_info: Optional[str] = None,
     ):
         info = self.get_required_log_fields(self.uid, class_name, method_name)
         env_conf = self.get_hadoop_conf_entries()
@@ -233,13 +233,6 @@ class SynapseMLLogger:
                     if not callable(custom_log_function):
                         raise ValueError("custom_log_function must be callable")
 
-                    # Check if custom_log_function can accept the required parameters
-                    sig = inspect.signature(custom_log_function)
-                    params = list(sig.parameters.values())
-                    if len(params) != 4:
-                        raise TypeError("custom_log_function must accept four parameters: "
-                                        "self, *args, **kwargs, and result")
-
                 logger = self.logger
                 start_time = time.perf_counter()
                 try:
@@ -247,9 +240,13 @@ class SynapseMLLogger:
                     execution_time = logger._round_significant(
                         time.perf_counter() - start_time, 3
                     )
-                    custom_log_info = custom_log_function(self, *args, **kwargs, result)
-                    if not isinstance(custom_log_info, str):
-                        raise TypeError("custom_log_function must return a string")
+                    # Create custom logs if necessary
+                    custom_log_info = None
+                    if custom_log_function:
+                        custom_log_info = custom_log_function(self, result, *args, **kwargs)
+                        if not isinstance(custom_log_info, str):
+                            raise TypeError("custom_log_function must return a string")
+
                     logger._log_base(
                         func.__module__,
                         method_name if method_name else func.__name__,
