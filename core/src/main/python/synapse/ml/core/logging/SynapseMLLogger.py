@@ -11,6 +11,7 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 import json
+import inspect
 
 PROTOCOL_VERSION = "0.0.1"
 
@@ -214,13 +215,26 @@ class SynapseMLLogger:
         return get_wrapper
 
     @staticmethod
-    def log_verb_static(method_name: Optional[str] = None):
+    def log_verb_static(method_name: Optional[str] = None, custom_log_function = None):
         def get_wrapper(func):
             @functools.wraps(func)
             def log_decorator_wrapper(self, *args, **kwargs):
+                # Validate that self.logger is set
                 if not hasattr(self, 'logger'):
                     raise AttributeError(f"{self.__class__.__name__} does not have a 'logger' attribute. "
                                          "Ensure a logger instance is initialized in the constructor.")
+
+                # Validate custom_log_function for proper definition
+                if custom_log_function:
+                    if not callable(custom_log_function):
+                        raise ValueError("custom_log_func must be callable")
+
+                    # Check if custom_log_function can accept the required parameters
+                    sig = inspect.signature(custom_log_function)
+                    params = list(sig.parameters.values())
+                    if len(params) != 4:
+                        raise TypeError("custom_log_func must accept four parameters: self, *args, **kwargs, and result")
+
                 logger = self.logger
                 start_time = time.perf_counter()
                 try:
