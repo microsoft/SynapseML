@@ -29,6 +29,10 @@ class SampleTransformer(SynapseMLLogger):
     @SynapseMLLogger.log_verb()
     def test_throw(self):
         raise Exception("test exception")
+        
+    @SynapseMLLogger.log_verb(feature_name="test_logging")
+    def test_feature_name(self):
+        return 0
 
 class NoInheritTransformer():
     def __init__(self):
@@ -59,6 +63,7 @@ class LoggingTest(unittest.TestCase):
             t.test_throw()
         except Exception as e:
             assert f"{e}" == "test exception"
+        t.test_feature_name()
 
     def test_logging_smoke_no_inheritance(self):
         t = NoInheritTransformer()
