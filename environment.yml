@@ -51,3 +51,4 @@ dependencies:
     - markdownify
     - traitlets
     - opencv-python
+    - sentence_transformers~=2.2.2
