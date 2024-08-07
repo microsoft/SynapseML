@@ -29,12 +29,13 @@ class SampleTransformer(SynapseMLLogger):
     @SynapseMLLogger.log_verb()
     def test_throw(self):
         raise Exception("test exception")
-        
+
     @SynapseMLLogger.log_verb(feature_name="test_logging")
     def test_feature_name(self):
         return 0
 
-class NoInheritTransformer():
+
+class NoInheritTransformer:
     def __init__(self):
         self.logger = SynapseMLLogger(log_level=logging.DEBUG)
 
