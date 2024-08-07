@@ -126,10 +126,15 @@ class SynapseMLLogger:
         num_cols: int,
         execution_sec: float,
         feature_name: Optional[str] = None,
-        custom_log_info: Optional[str] = None,
+            custom_log_dict: Optional[Dict[str, str]] = None,
     ):
+        custom_named_dict = None
+        if custom_log_dict:
+            # Add a prefix to avoid collision with already logged info
+            custom_log_prefix = "customLogger-"
+            custom_named_dict = {custom_log_prefix + k: v for k, v in custom_log_dict.items()}
         self._log_base_dict(
-            self._get_payload(class_name, method_name, num_cols, execution_sec, None, custom_log_info),
+            self._get_payload(class_name, method_name, num_cols, execution_sec, None) | (custom_named_dict if custom_named_dict else {}),
             feature_name=feature_name,
         )
 
@@ -162,7 +167,6 @@ class SynapseMLLogger:
         num_cols: Optional[int],
         execution_sec: Optional[float],
         exception: Optional[Exception],
-        custom_log_info: Optional[str] = None,
     ):
         info = self.get_required_log_fields(self.uid, class_name, method_name)
         env_conf = self.get_hadoop_conf_entries()
@@ -172,8 +176,6 @@ class SynapseMLLogger:
             info["dfInfo"] = {"input": {"numCols": str(num_cols)}}
         if execution_sec is not None:
             info["executionSeconds"] = str(execution_sec)
-        if custom_log_info is not None:
-            info["custom_log_info"] = custom_log_info
         if exception:
             exception_info = self.get_error_fields(exception)
             for k in exception_info.keys():
@@ -240,11 +242,11 @@ class SynapseMLLogger:
                         time.perf_counter() - start_time, 3
                     )
                     # Create custom logs if necessary
-                    custom_log_info = None
+                    custom_log_dict = None
                     if custom_log_function:
-                        custom_log_info = custom_log_function(self, result, *args, **kwargs)
-                        if not isinstance(custom_log_info, str):
-                            raise TypeError("custom_log_function must return a string")
+                        custom_log_dict = custom_log_function(self, result, *args, **kwargs)
+                        if not isinstance(custom_log_dict, dict):
+                            raise TypeError("custom_log_function must return a Dict[str, str]")
 
                     logger._log_base(
                         func.__module__,
@@ -252,7 +254,7 @@ class SynapseMLLogger:
                         logger.get_column_number(args, kwargs),
                         execution_time,
                         None,
-                        custom_log_info
+                        custom_log_dict
                     )
                     return result
                 except Exception as e:

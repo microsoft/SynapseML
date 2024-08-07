@@ -51,7 +51,8 @@ class NoInheritTransformer():
         raise Exception("test exception")
 
     def custom_logging_function(self, results, *args, **kwargs):
-        return f"Custom Function with arguments {args} returned with {results}"
+        return {"args": f"Arguments: {args}",
+                "result": str(results)}
 
     @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function)
     def test_custom_function(self, df):
