@@ -112,6 +112,33 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.get(0) != null))
   }
 
+  ignore("Custom EndPoint") {
+    lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
+    lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
+
+    lazy val customPromptGpt4: OpenAIPrompt = new OpenAIPrompt()
+      .setCustomUrlRoot(customRootUrlValue)
+      .setOutputCol("outParsed")
+      .setTemperature(0)
+
+    if (accessToken.isEmpty) {
+      customPromptGpt4.setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentNameGpt4)
+        .setCustomServiceName(openAIServiceName)
+    } else {
+      customPromptGpt4.setAADToken(accessToken)
+        .setCustomHeaders(customHeadersValues)
+    }
+
+    customPromptGpt4.setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPostProcessing("csv")
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
+  }
+
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }
