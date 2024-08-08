@@ -126,15 +126,14 @@ class SynapseMLLogger:
         num_cols: int,
         execution_sec: float,
         feature_name: Optional[str] = None,
-            custom_log_dict: Optional[Dict[str, str]] = None,
+        custom_log_dict: Optional[Dict[str, str]] = None,
     ):
-        custom_named_dict = None
+        payload_dict = self._get_payload(class_name, method_name, num_cols, execution_sec, None)
         if custom_log_dict:
-            # Add a prefix to avoid collision with already logged info
-            custom_log_prefix = "customLogger-"
-            custom_named_dict = {custom_log_prefix + k: v for k, v in custom_log_dict.items()}
+            if shared_keys := set(custom_log_dict.keys()) & set(payload_dict.keys()):
+                raise ValueError(f"Shared keys found in custom logger dictionary: {shared_keys}")
         self._log_base_dict(
-            self._get_payload(class_name, method_name, num_cols, execution_sec, None) | (custom_named_dict if custom_named_dict else {}),
+            payload_dict | (custom_log_dict if custom_log_dict else {}),
             feature_name=feature_name,
         )
 
@@ -220,7 +219,7 @@ class SynapseMLLogger:
         return get_wrapper
 
     @staticmethod
-    def log_verb_static(method_name: Optional[str] = None, custom_log_function = None):
+    def log_verb_static(method_name: Optional[str] = None,  feature_name: Optional[str] = None, custom_log_function = None):
         def get_wrapper(func):
             @functools.wraps(func)
             def log_decorator_wrapper(self, *args, **kwargs):
@@ -253,7 +252,7 @@ class SynapseMLLogger:
                         method_name if method_name else func.__name__,
                         logger.get_column_number(args, kwargs),
                         execution_time,
-                        None,
+                        feature_name,
                         custom_log_dict
                     )
                     return result

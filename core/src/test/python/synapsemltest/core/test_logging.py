@@ -50,13 +50,26 @@ class NoInheritTransformer():
     def test_throw(self):
         raise Exception("test exception")
 
+    @SynapseMLLogger.log_verb_static(feature_name="test_logging")
+    def test_feature_name(self):
+        return 0
+
     def custom_logging_function(self, results, *args, **kwargs):
         return {"args": f"Arguments: {args}",
                 "result": str(results)}
 
     @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function)
     def test_custom_function(self, df):
-        return 42
+        return 0
+
+    def custom_logging_function_w_collision(self, results, *args, **kwargs):
+        return {"args": f"Arguments: {args}",
+                "result": str(results),
+                "className": "this is the collision key"}
+
+    @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function_w_collision)
+    def test_custom_function_w_collision(self, df):
+        return 0
 
 
 class LoggingTest(unittest.TestCase):
@@ -80,11 +93,16 @@ class LoggingTest(unittest.TestCase):
         df = sc.createDataFrame(data, columns)
         t.transform(df)
         t.fit(df)
+        t.test_feature_name()
         t.test_custom_function(df)
         try:
             t.test_throw()
         except Exception as e:
             assert f"{e}" == "test exception"
+        try:
+            t.test_custom_function_w_collision(df)
+        except Exception as e:
+            assert f"{e}" == "Shared keys found in custom logger dictionary: {'className'}"
 
 
 if __name__ == "__main__":
