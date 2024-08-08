@@ -29,12 +29,13 @@ class SampleTransformer(SynapseMLLogger):
     @SynapseMLLogger.log_verb()
     def test_throw(self):
         raise Exception("test exception")
-        
+
     @SynapseMLLogger.log_verb(feature_name="test_logging")
     def test_feature_name(self):
         return 0
 
-class NoInheritTransformer():
+
+class NoInheritTransformer:
     def __init__(self):
         self._logger = SynapseMLLogger(log_level=logging.DEBUG)
 
@@ -55,19 +56,22 @@ class NoInheritTransformer():
         return 0
 
     def custom_logging_function(self, results, *args, **kwargs):
-        return {"args": f"Arguments: {args}",
-                "result": str(results)}
+        return {"args": f"Arguments: {args}", "result": str(results)}
 
     @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function)
     def test_custom_function(self, df):
         return 0
 
     def custom_logging_function_w_collision(self, results, *args, **kwargs):
-        return {"args": f"Arguments: {args}",
-                "result": str(results),
-                "className": "this is the collision key"}
+        return {
+            "args": f"Arguments: {args}",
+            "result": str(results),
+            "className": "this is the collision key",
+        }
 
-    @SynapseMLLogger.log_verb_static(custom_log_function=custom_logging_function_w_collision)
+    @SynapseMLLogger.log_verb_static(
+        custom_log_function=custom_logging_function_w_collision
+    )
     def test_custom_function_w_collision(self, df):
         return 0
 
@@ -102,7 +106,9 @@ class LoggingTest(unittest.TestCase):
         try:
             t.test_custom_function_w_collision(df)
         except Exception as e:
-            assert f"{e}" == "Shared keys found in custom logger dictionary: {'className'}"
+            assert (
+                f"{e}" == "Shared keys found in custom logger dictionary: {'className'}"
+            )
 
 
 if __name__ == "__main__":
