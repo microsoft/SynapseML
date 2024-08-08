@@ -28,8 +28,8 @@ dependencies:
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
-    - twine
     - jupyter
+    - twine
     - mlflow
     - numpy
     - torch==2.0.0
