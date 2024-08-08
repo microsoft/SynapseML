@@ -9,12 +9,13 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 
 import scala.collection.JavaConverters._
 
@@ -25,6 +26,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
+  with HasOpenAICognitiveServiceInput
   with ComplexParamsWritable with SynapseMLLogging {
 
   logClass(FeatureNames.AiServices.OpenAI)
@@ -172,6 +174,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     completion
+  }
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
+    r =>
+      openAICompletion match {
+        case chatCompletion: OpenAIChatCompletion =>
+          chatCompletion.prepareEntity(r)
+        case completion: OpenAICompletion =>
+          completion.prepareEntity(r)
+      }
   }
 
   private def getParser: OutputParser = {
