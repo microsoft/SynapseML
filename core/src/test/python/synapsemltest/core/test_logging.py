@@ -36,7 +36,7 @@ class SampleTransformer(SynapseMLLogger):
 
 class NoInheritTransformer():
     def __init__(self):
-        self.logger = SynapseMLLogger(log_level=logging.DEBUG)
+        self._logger = SynapseMLLogger(log_level=logging.DEBUG)
 
     @SynapseMLLogger.log_verb_static(method_name="transform")
     def transform(self, df):

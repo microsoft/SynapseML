@@ -223,17 +223,17 @@ class SynapseMLLogger:
         def get_wrapper(func):
             @functools.wraps(func)
             def log_decorator_wrapper(self, *args, **kwargs):
-                # Validate that self.logger is set
-                if not hasattr(self, 'logger'):
-                    raise AttributeError(f"{self.__class__.__name__} does not have a 'logger' attribute. "
-                                         "Ensure a logger instance is initialized in the constructor.")
+                # Validate that self._logger is set
+                if not hasattr(self, '_logger'):
+                    raise AttributeError(f"{self.__class__.__name__} does not have a '_logger' attribute. "
+                                         "Ensure a _logger instance is initialized in the constructor.")
 
                 # Validate custom_log_function for proper definition
                 if custom_log_function:
                     if not callable(custom_log_function):
                         raise ValueError("custom_log_function must be callable")
 
-                logger = self.logger
+                logger = self._logger
                 start_time = time.perf_counter()
                 try:
                     result = func(self, *args, **kwargs)
