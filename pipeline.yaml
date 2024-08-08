@@ -490,6 +490,13 @@ jobs:
       condition: succeededOrFailed()
     - template: templates/codecov.yml
 
+- job: Build and Cache Conda Env
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+    - template: templates/conda.yml
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
