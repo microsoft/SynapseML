@@ -175,35 +175,52 @@ display(translated_df)
 
 
 ```python
-from synapse.ml.services.openai import OpenAIPrompt
-from pyspark.sql.functions import trim, split
+from synapse.ml.services.openai import OpenAIChatCompletion
+from pyspark.sql.functions import lit, array, struct
 
-emoji_template = """ 
-  Your job is to translate item names into emoji. Do not add anything but the emoji and end the translation with a comma
+system_message = """ 
+  Your job is to translate item names into emoji. Do not add anything but the emoji
   
+  These are some examples:
+
   Two Ducks: 🦆🦆,
   Light Bulb: 💡,
   Three Peaches: 🍑🍑🍑,
   Two kitchen stoves: ♨️♨️,
   A red car: 🚗,
-  A person and a cat: 🧍🐈,
-  A {Description}: """
+  A person and a cat: 🧍🐈
+"""
 
 prompter = (
-    OpenAIPrompt()
+    OpenAIChatCompletion()
     .setSubscriptionKey(openai_key)
     .setDeploymentName(openai_deployment_name)
-    .setUrl(openai_url)
+    .setCustomServiceName(openai_service_name)
     .setMaxTokens(5)
-    .setPromptTemplate(emoji_template)
+    .setMessagesCol("messages")
     .setErrorCol("error")
-    .setOutputCol("Emoji")
+    .setOutputCol("chat_completions")
+)
+
+def make_message(role, content):
+    return struct(
+        lit(role).alias("role"),
+        content.alias("content"),
+        lit(role).alias("name")
+    )
+
+emoji_messages_df = (
+    translated_df
+    .withColumn("messages", array(
+        make_message("system", lit(system_message)),
+        make_message("user", col("Description"))
+    ) )
 )
 
 emoji_df = (
-    prompter.transform(translated_df)
-    .withColumn("Emoji", trim(split(col("Emoji"), ",").getItem(0)))
-    .drop("error", "prompt")
+    prompter.transform(emoji_messages_df)
+    .withColumn("Emoji", col("chat_completions.choices.message.content").getItem(0))
+    .drop("error", "messages", "chat_completions")
     .cache()
 )
 ```
@@ -222,21 +239,37 @@ Which continent does the following address belong to?
 
 Pick one value from Europe, Australia, North America, South America, Asia, Africa, Antarctica. 
 
-Dont respond with anything but one of the above. If you don't know the answer or cannot figure it out from the text, return None. End your answer with a comma.
+Dont respond with anything but one of the above. If you don't know the answer or cannot figure it out from the text, return None. 
+
+Examples:
 
 Address: "6693 Ryan Rd, North Whales",
-Continent: Europe,
+Continent: Europe
+
 Address: "6693 Ryan Rd",
-Continent: None,
-Address: "{VendorAddress}",
-Continent:"""
+Continent: None
+"""
+
+def make_user_msg(column):
+    return concat(
+        lit("Address: "),
+        column,
+        lit("""",
+Continent:""")
+    )
+
+continent_messages_df = (
+    emoji_df
+    .withColumn("messages", array(
+        make_message("system", lit(continent_template)),
+        make_message("user", make_user_msg(col("VendorAddress")))
+    ) )
+)
 
 continent_df = (
-    prompter.setOutputCol("Continent")
-    .setPromptTemplate(continent_template)
-    .transform(emoji_df)
-    .withColumn("Continent", trim(split(col("Continent"), ",").getItem(0)))
-    .drop("error", "prompt")
+    prompter.transform(continent_messages_df)
+    .withColumn("Continent", col("chat_completions.choices.message.content").getItem(0))
+    .drop("error", "messages", "chat_completions")
     .cache()
 )
 ```
