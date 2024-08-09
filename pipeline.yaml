@@ -497,6 +497,7 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     - template: templates/conda.yml
+    - bash: df -H
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
