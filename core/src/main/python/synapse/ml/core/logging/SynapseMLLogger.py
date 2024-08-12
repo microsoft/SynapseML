@@ -293,7 +293,7 @@ class SynapseMLLogger:
 
     @classmethod
     def get_column_number(cls, args, kwargs):
-        if kwargs and kwargs["df"] and isinstance(kwargs["df"], DataFrame):
+        if kwargs and kwargs.get("df") and isinstance(kwargs["df"], DataFrame):
             return len(kwargs["df"].columns)
         elif args and len(args) > 0 and isinstance(args[0], DataFrame):
             return len(args[0].columns)
