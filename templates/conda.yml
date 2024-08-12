@@ -13,6 +13,8 @@ steps:
         python
       path: $(CONDA_CACHE_DIR)
       cacheHitVar: CONDA_CACHE_RESTORED
+    env:
+      AZP_CACHING_CONTENT_FORMAT: Files
     timeoutInMinutes: 20
     retryCountOnTaskFailure: 1
   - bash: |
