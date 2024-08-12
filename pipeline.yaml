@@ -56,7 +56,6 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   ComponentDetection.Timeout: 900
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
-  AZP_CACHING_CONTENT_FORMAT: Files
 
 jobs:
 - job: Style
