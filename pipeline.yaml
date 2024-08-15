@@ -84,6 +84,7 @@ jobs:
   pool:
     vmImage: ubuntu-20.04
   steps:
+    - template: templates/checkout.yml
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
