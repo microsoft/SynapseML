@@ -22,3 +22,9 @@ steps:
     displayName: Create Anaconda environment
     retryCountOnTaskFailure: 1
     condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
+  - bash: |
+        echo "system usage:"
+        sudo df -h 
+        echo "conda cache usage:"
+        sudo du -h --max-depth=1 $(CONDA_CACHE_DIR)
+    displayName: Display disk usage
