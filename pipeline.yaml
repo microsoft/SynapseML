@@ -61,6 +61,7 @@ variables:
 stages:
 - stage: Lint
   displayName: "Lint"
+  dependsOn:
   jobs:
   - job: Style
     cancelTimeoutInMinutes: 0
@@ -85,6 +86,7 @@ stages:
 
 - stage: Build
   displayName: "Build and Publish"
+  dependsOn:
   jobs:
   - job: BuildAndCacheCondaEnv
     cancelTimeoutInMinutes: 0
@@ -273,6 +275,7 @@ stages:
 
 - stage: E2E
   displayName: "End to End Tests"
+  dependsOn:
   jobs:
   - job: E2E
     timeoutInMinutes: 120
@@ -319,6 +322,7 @@ stages:
 
 - stage: Release
   displayName: "Release"
+  dependsOn:
   jobs:
   - job: Release
     cancelTimeoutInMinutes: 0
@@ -401,6 +405,7 @@ stages:
 
 - stage: Tests
   displayName: "Unit Tests"
+  dependsOn:
   jobs:
   - job: PythonTests
     timeoutInMinutes: 120
