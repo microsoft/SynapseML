@@ -17,7 +17,7 @@ class AIFunctions:
     def __init__(self, df):
         self.df = df
 
-    def prompt(self, template, **options):
+    def gen(self, template, **options):
         jvm = SparkContext.getOrCreate()._jvm
 
         secretJson = subprocess.check_output(
@@ -26,14 +26,14 @@ class AIFunctions:
         )
         openai_api_key = json.loads(secretJson)["value"]
 
-        prompt = jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt
-        prompt = prompt().setSubscriptionKey(openai_api_key)
+        prompt = jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt()
+        prompt = prompt.setSubscriptionKey(openai_api_key)
         prompt = prompt.setDeploymentName("gpt-35-turbo")
+        prompt = prompt.setCustomServiceName("synapseml-openai-2")
         prompt = prompt.setOutputCol("outParsed")
         prompt = prompt.setPromptTemplate(template)
         results = prompt.transform(self.df._jdf)
-        print(results)
-        return results
+        return DataFrame(results, self.df.sql_ctx)
 
 def get_AI_functions(df):
     return AIFunctions(df)

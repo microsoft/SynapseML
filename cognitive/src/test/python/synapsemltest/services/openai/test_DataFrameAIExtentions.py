@@ -15,7 +15,7 @@ spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
 class DataFrameAIExtentionsTest(unittest.TestCase):
-    def test_prompt(self):
+    def test_gen(self):
         schema = StructType([
             StructField("text", StringType(), True),
             StructField("category", StringType(), True)
@@ -29,10 +29,13 @@ class DataFrameAIExtentionsTest(unittest.TestCase):
 
         df = spark.createDataFrame(data, schema)
 
-        results = df.ai.prompt("here is a comma separated list of 5 {category}: {text}, ")
+        results = df.ai.gen("Complete this comma separated list of 5 {category}: {text}, ")
         results.show()
+        results.select("outParsed").show(truncate = False)
+        nonNullCount = results.filter(col("outParsed").isNotNull()).count()
+        assert (nonNullCount == 3)
 
-    def test_prompt_2(self):
+    def test_gen_2(self):
         schema = StructType([
             StructField("name", StringType(), True),
             StructField("address", StringType(), True)
@@ -45,9 +48,11 @@ class DataFrameAIExtentionsTest(unittest.TestCase):
 
         df = spark.createDataFrame(data, schema)
 
-        results = df.ai.prompt("Generate the likely country of {name}, given that they are from {address}. It is imperitive that your response contains the country only, no elaborations.")
+        results = df.ai.gen("Generate the likely country of {name}, given that they are from {address}. It is imperitive that your response contains the country only, no elaborations.")
         results.show()
-
+        results.select("outParsed").show(truncate = False)
+        nonNullCount = results.filter(col("outParsed").isNotNull()).count()
+        assert (nonNullCount == 2)
 
 if __name__ == "__main__":
     result = unittest.main()
