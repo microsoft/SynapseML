@@ -2,7 +2,9 @@ steps:
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
     retryCountOnTaskFailure: 1
-  - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+  - bash: |
+      mkdir -p $(CONDA_CACHE_DIR)
+      sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
     displayName: Fix directory permissions
   - task: Cache@2
     displayName: Use cached Anaconda environment
