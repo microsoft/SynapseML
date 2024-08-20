@@ -52,6 +52,7 @@ module.exports = {
                         "Explore Algorithms/OpenAI/OpenAI",
                         "Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding",
                         "Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding and GPU based KNN",
+                        "Explore Algorithms/OpenAI/Quickstart - Custom Embeddings and Approximate KNN on GPU",
                         "Explore Algorithms/OpenAI/Quickstart - Understand and Search Forms",
                     ],
                 },
