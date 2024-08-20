@@ -16,26 +16,29 @@ from pyspark.sql import DataFrame
 class AIFunctions:
     def __init__(self, df):
         self.df = df
+        self.subscriptionKey = None
+        self.deploymentName = None
+        self.customServiceName = None
 
-    def gen(self, template, **options):
+    def setup(self, subscriptionKey = None, deploymentName = None, customServiceName = None):
+        self.subscriptionKey = subscriptionKey
+        self.deploymentName = deploymentName
+        self.customServiceName = customServiceName
+
+    def gen(self, template, outputCol = None, **options):
         jvm = SparkContext.getOrCreate()._jvm
-
-        secretJson = subprocess.check_output(
-            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
-            shell=True,
-        )
-        openai_api_key = json.loads(secretJson)["value"]
-
         prompt = jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt()
-        prompt = prompt.setSubscriptionKey(openai_api_key)
-        prompt = prompt.setDeploymentName("gpt-35-turbo")
-        prompt = prompt.setCustomServiceName("synapseml-openai-2")
-        prompt = prompt.setOutputCol("outParsed")
+        prompt = prompt.setSubscriptionKey(self.subscriptionKey)
+        prompt = prompt.setDeploymentName(self.deploymentName)
+        prompt = prompt.setCustomServiceName(self.customServiceName)
+        prompt = prompt.setOutputCol(outputCol)
         prompt = prompt.setPromptTemplate(template)
         results = prompt.transform(self.df._jdf)
         return DataFrame(results, self.df.sql_ctx)
 
 def get_AI_functions(df):
-    return AIFunctions(df)
+    if not hasattr(df, "_ai_instance"):
+        df._ai_instance = AIFunctions(df)
+    return df._ai_instance
 
 setattr(pyspark.sql.DataFrame, "ai", property(get_AI_functions))

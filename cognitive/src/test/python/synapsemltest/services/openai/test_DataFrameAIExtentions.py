@@ -3,6 +3,7 @@
 
 # Prepare training and test data.
 import unittest
+import os, json, subprocess, unittest
 
 from synapse.ml.io.http import *
 from pyspark.sql.types import *
@@ -29,8 +30,15 @@ class DataFrameAIExtentionsTest(unittest.TestCase):
 
         df = spark.createDataFrame(data, schema)
 
-        results = df.ai.gen("Complete this comma separated list of 5 {category}: {text}, ")
-        results.show()
+        secretJson = subprocess.check_output(
+            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
+            shell=True,
+        )
+        openai_api_key = json.loads(secretJson)["value"]
+
+        df.ai.setup(subscriptionKey=openai_api_key, deploymentName="gpt-35-turbo", customServiceName="synapseml-openai-2")
+
+        results = df.ai.gen("Complete this comma separated list of 5 {category}: {text}, ", outputCol="outParsed")
         results.select("outParsed").show(truncate = False)
         nonNullCount = results.filter(col("outParsed").isNotNull()).count()
         assert (nonNullCount == 3)
@@ -48,8 +56,14 @@ class DataFrameAIExtentionsTest(unittest.TestCase):
 
         df = spark.createDataFrame(data, schema)
 
-        results = df.ai.gen("Generate the likely country of {name}, given that they are from {address}. It is imperitive that your response contains the country only, no elaborations.")
-        results.show()
+        secretJson = subprocess.check_output(
+            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
+            shell=True,
+        )
+        openai_api_key = json.loads(secretJson)["value"]
+
+        df.ai.setup(subscriptionKey=openai_api_key, deploymentName="gpt-35-turbo", customServiceName="synapseml-openai-2")
+        results = df.ai.gen("Generate the likely country of {name}, given that they are from {address}. It is imperitive that your response contains the country only, no elaborations.", outputCol="outParsed")
         results.select("outParsed").show(truncate = False)
         nonNullCount = results.filter(col("outParsed").isNotNull()).count()
         assert (nonNullCount == 2)
