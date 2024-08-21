@@ -126,9 +126,18 @@ class SynapseMLLogger:
         num_cols: int,
         execution_sec: float,
         feature_name: Optional[str] = None,
+        custom_log_dict: Optional[Dict[str, str]] = None,
     ):
+        payload_dict = self._get_payload(
+            class_name, method_name, num_cols, execution_sec, None
+        )
+        if custom_log_dict:
+            if shared_keys := set(custom_log_dict.keys()) & set(payload_dict.keys()):
+                raise ValueError(
+                    f"Shared keys found in custom logger dictionary: {shared_keys}"
+                )
         self._log_base_dict(
-            self._get_payload(class_name, method_name, num_cols, execution_sec, None),
+            payload_dict | (custom_log_dict if custom_log_dict else {}),
             feature_name=feature_name,
         )
 
@@ -183,7 +192,7 @@ class SynapseMLLogger:
             json.dumps(self._get_payload(class_name, method_name, None, None, e))
         )
 
-    def log_verb(method_name: Optional[str] = None):
+    def log_verb(method_name: Optional[str] = None, feature_name: Optional[str] = None):
         def get_wrapper(func):
             @functools.wraps(func)
             def log_decorator_wrapper(self, *args, **kwargs):
@@ -198,11 +207,71 @@ class SynapseMLLogger:
                         method_name if method_name else func.__name__,
                         SynapseMLLogger.get_column_number(args, kwargs),
                         execution_time,
-                        None,
+                        feature_name,
                     )
                     return result
                 except Exception as e:
                     self._log_error_base(
+                        func.__module__,
+                        method_name if method_name else func.__name__,
+                        e,
+                    )
+                    raise
+
+            return log_decorator_wrapper
+
+        return get_wrapper
+
+    @staticmethod
+    def log_verb_static(
+        method_name: Optional[str] = None,
+        feature_name: Optional[str] = None,
+        custom_log_function=None,
+    ):
+        def get_wrapper(func):
+            @functools.wraps(func)
+            def log_decorator_wrapper(self, *args, **kwargs):
+                # Validate that self._logger is set
+                if not hasattr(self, "_logger"):
+                    raise AttributeError(
+                        f"{self.__class__.__name__} does not have a '_logger' attribute. "
+                        "Ensure a _logger instance is initialized in the constructor."
+                    )
+
+                # Validate custom_log_function for proper definition
+                if custom_log_function:
+                    if not callable(custom_log_function):
+                        raise ValueError("custom_log_function must be callable")
+
+                logger = self._logger
+                start_time = time.perf_counter()
+                try:
+                    result = func(self, *args, **kwargs)
+                    execution_time = logger._round_significant(
+                        time.perf_counter() - start_time, 3
+                    )
+                    # Create custom logs if necessary
+                    custom_log_dict = None
+                    if custom_log_function:
+                        custom_log_dict = custom_log_function(
+                            self, result, *args, **kwargs
+                        )
+                        if not isinstance(custom_log_dict, dict):
+                            raise TypeError(
+                                "custom_log_function must return a Dict[str, str]"
+                            )
+
+                    logger._log_base(
+                        func.__module__,
+                        method_name if method_name else func.__name__,
+                        logger.get_column_number(args, kwargs),
+                        execution_time,
+                        feature_name,
+                        custom_log_dict,
+                    )
+                    return result
+                except Exception as e:
+                    logger._log_error_base(
                         func.__module__,
                         method_name if method_name else func.__name__,
                         e,
@@ -224,7 +293,7 @@ class SynapseMLLogger:
 
     @classmethod
     def get_column_number(cls, args, kwargs):
-        if kwargs and kwargs["df"] and isinstance(kwargs["df"], DataFrame):
+        if kwargs and kwargs.get("df") and isinstance(kwargs["df"], DataFrame):
             return len(kwargs["df"].columns)
         elif args and len(args) > 0 and isinstance(args[0], DataFrame):
             return len(args[0].columns)
