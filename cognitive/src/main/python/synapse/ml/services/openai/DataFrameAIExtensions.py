@@ -11,7 +11,13 @@ import pyspark
 from pyspark import SparkContext
 from pyspark import sql
 from pyspark.ml.param.shared import *
-from pyspark.sql import DataFrame
+from pyspark.rdd import RDD
+
+from pyspark.sql import SparkSession, SQLContext
+
+from synapse.ml.core.init_spark import *
+spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 class AIFunctions:
     def __init__(self, df):
@@ -34,7 +40,9 @@ class AIFunctions:
         prompt = prompt.setOutputCol(outputCol)
         prompt = prompt.setPromptTemplate(template)
         results = prompt.transform(self.df._jdf)
-        return DataFrame(results, self.df.sql_ctx)
+        results.createOrReplaceTempView("my_temp_view")
+        results = spark.sql("SELECT * FROM my_temp_view")
+        return results
 
 def get_AI_functions(df):
     if not hasattr(df, "_ai_instance"):

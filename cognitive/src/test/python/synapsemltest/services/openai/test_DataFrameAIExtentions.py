@@ -35,6 +35,7 @@ class DataFrameAIExtentionsTest(unittest.TestCase):
             shell=True,
         )
         openai_api_key = json.loads(secretJson)["value"]
+        print(openai_api_key)
 
         df.ai.setup(subscriptionKey=openai_api_key, deploymentName="gpt-35-turbo", customServiceName="synapseml-openai-2")
 
