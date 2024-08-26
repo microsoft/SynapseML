@@ -57,4 +57,5 @@ ln -s /usr/local/cuda-11.8 /usr/local/cuda
 /databricks/python/bin/pip install --upgrade sentence-transformers
 /databricks/python/bin/pip install transformers
 
+# To work with PDF
 /databricks/python/bin/pip install PyMuPDF
