@@ -16,7 +16,7 @@
 # IMPORTANT: specify RAPIDS_VERSION fully 23.10.0 and not 23.10
 # also in general, RAPIDS_VERSION (python) fields should omit any leading 0 in month/minor field (i.e. 23.8.0 and not 23.08.0)
 # while SPARK_RAPIDS_VERSION (jar) should have leading 0 in month/minor (e.g. 23.08.2 and not 23.8.2)
-RAPIDS_VERSION=24.4.0
+RAPIDS_VERSION=24.6.0
 SPARK_RAPIDS_VERSION=23.10.0
 SPARK_RAPIDSML_VERSION=24.6.0
 
@@ -46,3 +46,16 @@ ln -s /usr/local/cuda-11.8 /usr/local/cuda
 
 # install spark-rapids-ml
 /databricks/python/bin/pip install spark-rapids-ml~=${SPARK_RAPIDSML_VERSION}
+
+# install TRT-LLM
+/databricks/python/bin/pip install --upgrade cython
+/databricks/python/bin/pip install --pre --no-build-isolation --extra-index-url https://pypi.nvidia.com mpi4py
+# /databricks/python/bin/pip install --pre --extra-index-url https://pypi.nvidia.com tensorrt-llm==0.12.0.dev2024073000
+/databricks/python/bin/pip install --pre --extra-index-url https://pypi.nvidia.com tensorrt-llm
+
+# Required by NY-Embed
+/databricks/python/bin/pip install --upgrade sentence-transformers
+/databricks/python/bin/pip install transformers
+
+# To work with PDF
+/databricks/python/bin/pip install PyMuPDF
