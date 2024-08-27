@@ -40,6 +40,7 @@ module.exports = {
                         "Explore Algorithms/AI Services/Quickstart - Create a Visual Search Engine",
                         "Explore Algorithms/AI Services/Quickstart - Create Audiobooks",
                         "Explore Algorithms/AI Services/Quickstart - Document Question and Answering with PDFs",
+                        "Explore Algorithms/AI Services/Quickstart - Distributed Question - Answering with LLM on GPU",
                         "Explore Algorithms/AI Services/Quickstart - Flooding Risk",
                         "Explore Algorithms/AI Services/Quickstart - Predictive Maintenance",
                     ],
