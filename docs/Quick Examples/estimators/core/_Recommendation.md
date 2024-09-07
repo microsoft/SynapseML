@@ -61,43 +61,6 @@ ratings = (spark.createDataFrame([
     .dropDuplicates()
     .cache())
 
-ratings_with_strings = (spark.createDataFrame([
-      ("user0", "item1", 4, 4),
-      ("user0", "item3", 1, 1),
-      ("user0", "item4", 5, 5),
-      ("user0", "item5", 3, 3),
-      ("user0", "item7", 3, 3),
-      ("user0", "item9", 3, 3),
-      ("user0", "item10", 3, 3),
-      ("user1", "item1", 4, 4),
-      ("user1", "item2", 5, 5),
-      ("user1", "item3", 1, 1),
-      ("user1", "item6", 4, 4),
-      ("user1", "item7", 5, 5),
-      ("user1", "item8", 1, 1),
-      ("user1", "item10", 3, 3),
-      ("user2", "item1", 4, 4),
-      ("user2", "item2", 1, 1),
-      ("user2", "item3", 1, 1),
-      ("user2", "item4", 5, 5),
-      ("user2", "item5", 3, 3),
-      ("user2", "item6", 4, 4),
-      ("user2", "item8", 1, 1),
-      ("user2", "item9", 5, 5),
-      ("user2", "item10", 3, 3),
-      ("user3", "item2", 5, 5),
-      ("user3", "item3", 1, 1),
-      ("user3", "item4", 5, 5),
-      ("user3", "item5", 3, 3),
-      ("user3", "item6", 4, 4),
-      ("user3", "item7", 5, 5),
-      ("user3", "item8", 1, 1),
-      ("user3", "item9", 5, 5),
-      ("user3", "item10", 3, 3)
-      ], ["originalCustomerID", "newCategoryID", "rating", "notTime"])
-    .coalesce(1)
-    .cache())
-
 recommendationIndexer = (RecommendationIndexer()
     .setUserInputCol("customerIDOrg")
     .setUserOutputCol("customerID")
