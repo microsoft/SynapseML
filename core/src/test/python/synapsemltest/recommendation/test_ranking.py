@@ -109,6 +109,48 @@ ratings_with_strings = (
     .cache()
 )
 
+ratings_with_integers = (
+    spark.createDataFrame(
+        [
+            (0, 1, 4, 4),
+            (0, 3, 1, 1),
+            (0, 4, 5, 5),
+            (0, 5, 3, 3),
+            (0, 7, 3, 3),
+            (0, 9, 3, 3),
+            (0, 10, 3, 3),
+            (1, 1, 4, 4),
+            (1, 2, 5, 5),
+            (1, 3, 1, 1),
+            (1, 6, 4, 4),
+            (1, 7, 5, 5),
+            (1, 8, 1, 1),
+            (1, 10, 3, 3),
+            (2, 1, 4, 4),
+            (2, 2, 1, 1),
+            (2, 3, 1, 1),
+            (2, 4, 5, 5),
+            (2, 5, 3, 3),
+            (2, 6, 4, 4),
+            (2, 8, 1, 1),
+            (2, 9, 5, 5),
+            (2, 10, 3, 3),
+            (3, 2, 5, 5),
+            (3, 3, 1, 1),
+            (3, 4, 5, 5),
+            (3, 5, 3, 3),
+            (3, 6, 4, 4),
+            (3, 7, 5, 5),
+            (3, 8, 1, 1),
+            (3, 9, 5, 5),
+            (3, 10, 3, 3),
+        ],
+        ["originalCustomerID", "newCategoryID", "rating", "notTime"],
+    )
+    .coalesce(1)
+    .cache()
+)
+
 
 class RankingSpec(unittest.TestCase):
     @staticmethod
@@ -144,6 +186,10 @@ class RankingSpec(unittest.TestCase):
     def test_adapter_evaluator_sar_with_strings(self):
         sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
         self.adapter_evaluator(sar, ratings_with_strings)
+
+    def test_adapter_evaluator_sar_with_integers(self):
+        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(sar, ratings_with_integers)
 
     def test_all_tiny(self):
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)

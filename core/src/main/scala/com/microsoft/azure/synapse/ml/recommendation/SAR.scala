@@ -13,7 +13,7 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.{DenseVector, Matrices, SparseMatrix}
 import org.apache.spark.sql.functions.{col, collect_list, sum, udf, _}
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.types.{StringType, StructType, IntegerType, LongType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import java.text.SimpleDateFormat
@@ -117,6 +117,12 @@ class SAR(override val uid: String) extends Estimator[SARModel]
         dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
       case (_, StringType) =>
         dataset.withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (IntegerType, IntegerType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+          .withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (LongType, LongType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("long"))
+          .withColumn(getItemCol, col(getItemCol).cast("long"))
       case _ => dataset
     }
 
@@ -222,6 +228,12 @@ class SAR(override val uid: String) extends Estimator[SARModel]
         dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
       case (_, StringType) =>
         dataset.withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (IntegerType, IntegerType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+          .withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (LongType, LongType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("long"))
+          .withColumn(getItemCol, col(getItemCol).cast("long"))
       case _ => dataset
     }
 
