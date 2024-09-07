@@ -15,3 +15,8 @@ from synapse.ml.recommendation._SARModel import _SARModel
 class SARModel(_SARModel):
     def recommendForAllUsers(self, numItems):
         return self._call_java("recommendForAllUsers", numItems)
+
+    def recommendForUserSubset(self, dataset, numItems):
+        if dataset.schema[self.getUserCol()].dataType == StringType():
+            dataset = dataset.withColumn(self.getUserCol(), dataset[self.getUserCol()].cast("int"))
+        return self._call_java("recommendForUserSubset", dataset, numItems)

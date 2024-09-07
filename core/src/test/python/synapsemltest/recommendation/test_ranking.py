@@ -67,10 +67,52 @@ ratings = (
     .cache()
 )
 
+ratings_with_strings = (
+    spark.createDataFrame(
+        [
+            ("user0", "item1", 4, 4),
+            ("user0", "item3", 1, 1),
+            ("user0", "item4", 5, 5),
+            ("user0", "item5", 3, 3),
+            ("user0", "item7", 3, 3),
+            ("user0", "item9", 3, 3),
+            ("user0", "item10", 3, 3),
+            ("user1", "item1", 4, 4),
+            ("user1", "item2", 5, 5),
+            ("user1", "item3", 1, 1),
+            ("user1", "item6", 4, 4),
+            ("user1", "item7", 5, 5),
+            ("user1", "item8", 1, 1),
+            ("user1", "item10", 3, 3),
+            ("user2", "item1", 4, 4),
+            ("user2", "item2", 1, 1),
+            ("user2", "item3", 1, 1),
+            ("user2", "item4", 5, 5),
+            ("user2", "item5", 3, 3),
+            ("user2", "item6", 4, 4),
+            ("user2", "item8", 1, 1),
+            ("user2", "item9", 5, 5),
+            ("user2", "item10", 3, 3),
+            ("user3", "item2", 5, 5),
+            ("user3", "item3", 1, 1),
+            ("user3", "item4", 5, 5),
+            ("user3", "item5", 3, 3),
+            ("user3", "item6", 4, 4),
+            ("user3", "item7", 5, 5),
+            ("user3", "item8", 1, 1),
+            ("user3", "item9", 5, 5),
+            ("user3", "item10", 3, 3),
+        ],
+        ["originalCustomerID", "newCategoryID", "rating", "notTime"],
+    )
+    .coalesce(1)
+    .cache()
+)
+
 
 class RankingSpec(unittest.TestCase):
     @staticmethod
-    def adapter_evaluator(algo):
+    def adapter_evaluator(algo, data):
         recommendation_indexer = RecommendationIndexer(
             userInputCol=USER_ID,
             userOutputCol=USER_ID_INDEX,
@@ -80,7 +122,7 @@ class RankingSpec(unittest.TestCase):
 
         adapter = RankingAdapter(mode="allUsers", k=5, recommender=algo)
         pipeline = Pipeline(stages=[recommendation_indexer, adapter])
-        output = pipeline.fit(ratings).transform(ratings)
+        output = pipeline.fit(data).transform(data)
         print(str(output.take(1)) + "\n")
 
         metrics = ["ndcgAt", "fcp", "mrr"]
@@ -91,13 +133,17 @@ class RankingSpec(unittest.TestCase):
                 + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)),
             )
 
-    # def test_adapter_evaluator_als(self):
-    #     als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-    #     self.adapter_evaluator(als)
-    #
-    # def test_adapter_evaluator_sar(self):
-    #     sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-    #     self.adapter_evaluator(sar)
+    def test_adapter_evaluator_als(self):
+        als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(als, ratings)
+
+    def test_adapter_evaluator_sar(self):
+        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(sar, ratings)
+
+    def test_adapter_evaluator_sar_with_strings(self):
+        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        self.adapter_evaluator(sar, ratings_with_strings)
 
     def test_all_tiny(self):
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)

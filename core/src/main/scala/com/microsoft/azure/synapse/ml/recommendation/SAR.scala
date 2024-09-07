@@ -1,6 +1,3 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See LICENSE in project root for information.
-
 package com.microsoft.azure.synapse.ml.recommendation
 
 import breeze.linalg.{CSCMatrix => BSM}
@@ -13,7 +10,7 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.{DenseVector, Matrices, SparseMatrix}
 import org.apache.spark.sql.functions.{col, collect_list, sum, udf, _}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import java.text.SimpleDateFormat
@@ -106,8 +103,22 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       (0 to numItems.value).map(i => map.getOrElse(i, 0.0).toFloat).toArray
     })
 
-    dataset
-      .withColumn(C.AffinityCol, (dataset.columns.contains(getTimeCol), dataset.columns.contains(getRatingCol)) match {
+    val userColType = dataset.schema(getUserCol).dataType
+    val itemColType = dataset.schema(getItemCol).dataType
+
+    val castedDataset = (userColType, itemColType) match {
+      case (StringType, StringType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+          .withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (StringType, _) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+      case (_, StringType) =>
+        dataset.withColumn(getItemCol, col(getItemCol).cast("int"))
+      case _ => dataset
+    }
+
+    castedDataset
+      .withColumn(C.AffinityCol, (castedDataset.columns.contains(getTimeCol), castedDataset.columns.contains(getRatingCol)) match {
         case (true, true)   => blendWeights(timeDecay(col(getTimeCol)), col(getRatingCol))
         case (true, false)  => timeDecay(col(getTimeCol))
         case (false, true)  => col(getRatingCol)
@@ -197,7 +208,21 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       })
     })
 
-    dataset
+    val userColType = dataset.schema(getUserCol).dataType
+    val itemColType = dataset.schema(getItemCol).dataType
+
+    val castedDataset = (userColType, itemColType) match {
+      case (StringType, StringType) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+          .withColumn(getItemCol, col(getItemCol).cast("int"))
+      case (StringType, _) =>
+        dataset.withColumn(getUserCol, col(getUserCol).cast("int"))
+      case (_, StringType) =>
+        dataset.withColumn(getItemCol, col(getItemCol).cast("int"))
+      case _ => dataset
+    }
+
+    castedDataset
       .select(col(getItemCol), col(getUserCol))
       .groupBy(getItemCol).agg(collect_list(getUserCol) as "collect_list")
       .withColumn(C.FeaturesCol, createItemFeaturesVector(col("collect_list")))
