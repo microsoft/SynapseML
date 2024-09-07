@@ -122,7 +122,6 @@ By pre-multiplying this vector with the Item-to-Item similarity matrix, User 1 r
 
 In this case, the recommendation score of an item is purely based on its similarity to Item 5. Assuming that a same item isn't
 recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3.
-
 Now, if this user adds Item 2 to the shopping cart, affinity vector (assuming weight 2 for this transaction) will be
 
 |            | New User aff |
@@ -177,7 +176,11 @@ _+ sim(Item 4, Item 2) \* aff(User 1, Item 2)_
 _+ sim(Item 4, Item 3) \* aff(User 1, Item 3)_
 _+ sim(Item 4, Item 4) \* aff(User 1, Item 4)_
 _+ sim(Item 4, Item 5) \* aff(User 1, Item 5)_
-_= **3 \* 5** + 2 \* 3 + 3 \* 2.5 + 4 \* 0 + 2 \* 0_
+_= **3 \* 5** + 2 \* 3 + 3 \* 2.5 + 0 \* 0 + 2 \* 0_
 \*= **15** + 6 + 7.5 + 0 + 0 = **28.5\***
 
 Clearly, the first term (highlighted) has the highest contribution to the score. We can say that "The algorithm recommends Item 4 to User 1 because it's similar to Item 1, to which User 1 has high affinity". A message like this can be displayed automatically for each recommendation.
+
+## Data Types
+
+The SAR model accepts `userId` and `itemId` as integer types (`LongType`). This allows for more efficient storage and processing of the data. Ensure that the `userId` and `itemId` columns in your dataset are of `LongType` before fitting the model.

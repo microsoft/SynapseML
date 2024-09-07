@@ -96,10 +96,10 @@ class SAR(override val uid: String) extends Estimator[SARModel]
     val blendWeights = udf((theta: Double, rho: Double) => theta * rho)
     val fillOne = udf((_: String) => 1)
 
-    val itemCount = dataset.select(col(getItemCol)).groupBy().max(getItemCol).collect()(0).getDouble(0).toInt
+    val itemCount = dataset.select(col(getItemCol)).groupBy().max(getItemCol).collect()(0).getLong(0).toInt
     val numItems = dataset.sparkSession.sparkContext.broadcast(itemCount)
 
-    val columnsToArray = udf((itemId: Double, rating: Double) => Array(itemId, rating))
+    val columnsToArray = udf((itemId: Long, rating: Double) => Array(itemId, rating))
 
     val seqToArray = udf((itemUserAffinityPairs: Seq[Seq[Double]]) => {
       val map = itemUserAffinityPairs.map(r => r.head.toInt -> r(1)).toMap
@@ -158,21 +158,21 @@ class SAR(override val uid: String) extends Estimator[SARModel]
     val broadcastItemCounts = dataset.sparkSession.sparkContext.broadcast(itemCounts)
 
     val maxCounts = dataset.agg(max(col(getUserCol)), max(col(getItemCol))).take(1)(0)
-    val userCount = maxCounts.getDouble(0).toInt + 1
-    val itemCount = maxCounts.getDouble(1).toInt + 1
+    val userCount = maxCounts.getLong(0).toInt + 1
+    val itemCount = maxCounts.getLong(1).toInt + 1
 
     val broadcastMatrix = {
       val sparse = SparseMatrix.fromCOO(userCount, itemCount,
         dataset
           .groupBy(getUserCol, getItemCol).agg(count(getItemCol))
           .select(col(getUserCol), col(getItemCol))
-          .collect.map(userItemPair => (userItemPair.getDouble(0).toInt, userItemPair.getDouble(1).toInt, 1.0)))
+          .collect.map(userItemPair => (userItemPair.getLong(0).toInt, userItemPair.getLong(1).toInt, 1.0)))
       dataset.sparkSession.sparkContext.broadcast(
         new BSM[Double](sparse.values, sparse.numRows, sparse.numCols, sparse.colPtrs, sparse.rowIndices)
       )
     }
 
-    val createItemFeaturesVector = udf((users: Seq[Double]) => {
+    val createItemFeaturesVector = udf((users: Seq[Long]) => {
       val vec = Array.fill[Double](userCount)(0.0)
       users.foreach(user => vec(user.toInt) = 1.0)
       val sm = Matrices.dense(1, vec.length, vec).asML.toSparse
@@ -181,7 +181,7 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       new DenseVector(value.toDense.toArray)
     })
 
-    val calculateFeature = udf((itemID: Double, features: linalg.Vector) => {
+    val calculateFeature = udf((itemID: Long, features: linalg.Vector) => {
       val countI = features.apply(itemID.toInt)
       features.toArray.indices.map(i => {
         val countJ: Long = broadcastItemCounts.value.getOrElse(i, 0)
@@ -258,3 +258,4 @@ trait SARParams extends Wrappable with RecommendationParams {
     ratingCol -> C.RatingCol, userCol -> C.UserCol, itemCol -> C.ItemCol, similarityFunction ->
       "jaccard", timeCol -> "time", startTimeFormat -> "EEE MMM dd HH:mm:ss Z yyyy")
 }
+

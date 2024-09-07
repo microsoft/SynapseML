@@ -15,6 +15,7 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.recommendation import ALS
 from pyspark.ml.tuning import ParamGridBuilder
+from pyspark.sql.types import LongType
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
@@ -91,13 +92,10 @@ class RankingSpec(unittest.TestCase):
                 + str(RankingEvaluator(k=3, metricName=metric).evaluate(output)),
             )
 
-    # def test_adapter_evaluator_als(self):
-    #     als = ALS(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-    #     self.adapter_evaluator(als)
-    #
-    # def test_adapter_evaluator_sar(self):
-    #     sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
-    #     self.adapter_evaluator(sar)
+    def test_adapter_evaluator_sar_with_long(self):
+        sar = SAR(userCol=USER_ID_INDEX, itemCol=ITEM_ID_INDEX, ratingCol=RATING_ID)
+        ratings_with_long = ratings.withColumn(USER_ID, ratings[USER_ID].cast(LongType())).withColumn(ITEM_ID, ratings[ITEM_ID].cast(LongType()))
+        self.adapter_evaluator(sar)
 
     def test_all_tiny(self):
         customer_index = StringIndexer(inputCol=USER_ID, outputCol=USER_ID_INDEX)
