@@ -561,6 +561,7 @@ trait GetterSetterFuzzing[S <: PipelineStage with Params] extends TestBase with 
     val pipelineStage = getterSetterTestObject().stage.copy(new ParamMap()).asInstanceOf[S]
     val methods = pipelineStage.getClass.getMethods
     pipelineStage.params.foreach { p =>
+      println(s"Testing parameter ${p.name}")
       val getters = methods.filter(_.getName == s"get${p.name.capitalize}").toSeq
       val setters = methods.filter(_.getName == s"set${p.name.capitalize}").toSeq
       val defaultValue = getterSetterParamExample(pipelineStage, p)
