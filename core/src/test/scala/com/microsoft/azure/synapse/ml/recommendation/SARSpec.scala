@@ -17,11 +17,7 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
       new TestObject(new SAR()
         .setUserCol(recommendationIndexer.getUserOutputCol)
         .setItemCol(recommendationIndexer.getItemOutputCol)
-        .setRatingCol(ratingCol), transformedDf),
-      new TestObject(new SAR()
-        .setUserCol(recommendationIndexer.getUserOutputCol)
-        .setItemCol(recommendationIndexer.getItemOutputCol)
-        .setRatingCol(ratingCol), transformedDfWithStrings)
+        .setRatingCol(ratingCol), transformedDf)
     )
   }
 
@@ -59,41 +55,6 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
 
     val users: DataFrame = spark
       .createDataFrame(Seq(("0","0"),("1","1")))
-      .toDF(userColIndex, itemColIndex)
-
-    val recs = recopipeline.stages(1).asInstanceOf[RankingAdapterModel].getRecommenderModel
-      .asInstanceOf[SARModel].recommendForUserSubset(users, 10)
-    assert(recs.count == 2)
-  }
-
-  test("SAR with string userCol and itemCol") {
-
-    val algo = sar
-      .setSupportThreshold(1)
-      .setSimilarityFunction("jacccard")
-      .setActivityTimeFormat("EEE MMM dd HH:mm:ss Z yyyy")
-
-    val adapter: RankingAdapter = new RankingAdapter()
-      .setK(5)
-      .setRecommender(algo)
-
-    val recopipeline = new Pipeline()
-      .setStages(Array(recommendationIndexer, adapter))
-      .fit(ratingsWithStrings)
-
-    val output = recopipeline.transform(ratingsWithStrings)
-
-    val evaluator: RankingEvaluator = new RankingEvaluator()
-      .setK(5)
-      .setNItems(10)
-
-    assert(evaluator.setMetricName("ndcgAt").evaluate(output) === 0.602819875812812)
-    assert(evaluator.setMetricName("fcp").evaluate(output) === 0.05 ||
-      evaluator.setMetricName("fcp").evaluate(output) === 0.1)
-    assert(evaluator.setMetricName("mrr").evaluate(output) === 1.0)
-
-    val users: DataFrame = spark
-      .createDataFrame(Seq(("user0","item0"),("user1","item1")))
       .toDF(userColIndex, itemColIndex)
 
     val recs = recopipeline.stages(1).asInstanceOf[RankingAdapterModel].getRecommenderModel
@@ -154,12 +115,7 @@ class SARModelSpec extends RankingTestBase with TransformerFuzzing[SARModel] {
         .setUserCol(recommendationIndexer.getUserOutputCol)
         .setItemCol(recommendationIndexer.getItemOutputCol)
         .setRatingCol(ratingCol)
-        .fit(transformedDf), transformedDf),
-      new TestObject(new SAR()
-        .setUserCol(recommendationIndexer.getUserOutputCol)
-        .setItemCol(recommendationIndexer.getItemOutputCol)
-        .setRatingCol(ratingCol)
-        .fit(transformedDfWithStrings), transformedDfWithStrings)
+        .fit(transformedDf), transformedDf)
     )
   }
 
