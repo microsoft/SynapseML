@@ -5,6 +5,8 @@ trigger:
   branches:
     include:
     - master
+    - spark3.3
+    - spark3.5
   paths:
     exclude:
     - README.md
