@@ -41,11 +41,15 @@ case class OpenAIChatChoice(message: OpenAIMessage,
                             index: Long,
                             finish_reason: String)
 
+case class OpenAIUsage(completion_tokens: Long, prompt_tokens: Long, total_tokens: Long)
+
 case class ChatCompletionResponse(id: String,
                                   `object`: String,
                                   created: String,
                                   model: String,
-                                  choices: Seq[OpenAIChatChoice])
+                                  choices: Seq[OpenAIChatChoice],
+                                  system_fingerprint: Option[String],
+                                  usage: Option[OpenAIUsage])
 
 object ChatCompletionResponse extends SparkBindings[ChatCompletionResponse]
 
