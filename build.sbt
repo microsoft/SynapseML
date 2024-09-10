@@ -36,6 +36,9 @@ val extraDependencies = Seq(
     exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
     exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
     exclude("org.apache.spark", "spark-sql_2.12"),
+  // Although breeze 1.2 is already provided by Spark, this is needed for Fabric Spark 3.3 pools.
+  // Otherwise a NoSuchMethodError will be thrown by interpretability code.
+  "org.scalanlp" %% "breeze" % "1.2"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
