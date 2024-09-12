@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.search
 
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.openai.{OpenAIAPIKey, OpenAIEmbedding}
 import com.microsoft.azure.synapse.ml.services.vision.AnalyzeImage
@@ -132,9 +133,13 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   override def beforeAll(): Unit = {
     println("WARNING CREATING SEARCH ENGINE!")
-    SearchIndex.createIfNoneExists(azureSearchKey,
+    SearchIndex.createIfNoneExists(
+      Some(azureSearchKey),
+      None,
       testServiceName,
       createSimpleIndexJson(indexName))
+    val aadToken = getAccessToken("https://search.azure.com")
+    println(s"Triggering token creation early ${aadToken.length}")
   }
 
   def deleteIndex(indexName: String): Int = {
@@ -148,7 +153,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
-    val successfulCleanup = getExisting(azureSearchKey, testServiceName)
+    val successfulCleanup = getExisting(Some(azureSearchKey), None, testServiceName)
       .intersect(createdIndexes).map { n =>
       deleteIndex(n)
     }.forall(_ == 204)
@@ -163,7 +168,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     val endingDatePattern: Regex = "^.*-(\\d{17})$".r
-    val e = getExisting(azureSearchKey, testServiceName)
+    val e = getExisting(Some(azureSearchKey), None, testServiceName)
     e.foreach { name =>
       name match {
         case endingDatePattern(dateString) =>
@@ -235,7 +240,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   }
 
   ignore("clean up all search indexes") {
-    getExisting(azureSearchKey, testServiceName)
+    getExisting(Some(azureSearchKey), None, testServiceName)
       .foreach { n =>
         val deleteRequest = new HttpDelete(
           s"https://$testServiceName.search.windows.net/indexes/$n?api-version=2017-11-11")
@@ -266,7 +271,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     dependsOn(2, writeHelper(dfA, in2, isVectorField=false))
 
     dependsOn(2, retryWithBackoff({
-      if (getExisting(azureSearchKey, testServiceName).contains(in2)) {
+      if (getExisting(Some(azureSearchKey), None, testServiceName).contains(in2)) {
         writeHelper(dfB, in2, isVectorField=false)
       } else {
         throw new RuntimeException("No existing service found")
@@ -315,7 +320,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     """.stripMargin
 
     assertThrows[IllegalArgumentException] {
-      SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
+      SearchIndex.createIfNoneExists(Some(azureSearchKey), None, testServiceName, badJson)
     }
   }
 
@@ -370,7 +375,9 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       ("upload", "1", "file1", Array("p4", null, "p6")))
       .toDF("searchAction", "id", "fileName", "phrases")
 
-    SearchIndex.createIfNoneExists(azureSearchKey,
+    SearchIndex.createIfNoneExists(
+      Some(azureSearchKey),
+      None,
       testServiceName,
       phraseIndex)
 
@@ -394,6 +401,27 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     AzureSearchWriter.write(phraseDF,
       Map(
         "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "filterNulls" -> "true",
+        "indexName" -> in,
+        "keyCol" -> "id"
+      ))
+
+    retryWithBackoff(assertSize(in, 2))
+  }
+
+  test("Use AAD") {
+    val in = generateIndexName()
+    val phraseDF = Seq(
+      ("upload", "0", "file0", Array("p1", "p2", "p3")),
+      ("upload", "1", "file1", Array("p4", null, "p6")))
+      .toDF("searchAction", "id", "fileName", "phrases")
+    val aadToken = getAccessToken("https://search.azure.com")
+
+    AzureSearchWriter.write(phraseDF,
+      Map(
+        "AADToken" -> aadToken,
         "actionCol" -> "searchAction",
         "serviceName" -> testServiceName,
         "filterNulls" -> "true",
@@ -449,7 +477,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     writeHelper(dfA, in2, isVectorField=true)
 
     retryWithBackoff({
-      if (getExisting(azureSearchKey, testServiceName).contains(in2)) {
+      if (getExisting(Some(azureSearchKey), None, testServiceName).contains(in2)) {
         writeHelper(dfB, in2, isVectorField=true)
       } else {
         throw new RuntimeException("No existing service found")
@@ -459,7 +487,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     retryWithBackoff(assertSize(in1, 4))
     retryWithBackoff(assertSize(in2, 10))
 
-    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in1))
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(Some(azureSearchKey), None, testServiceName, in1))
     // assert if vectorCol is a vector field
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol").get.vectorSearchConfiguration.nonEmpty)
   }
@@ -496,7 +524,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     retryWithBackoff(assertSize(in, 2))
 
     // assert if vectorCols are a vector field
-    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(Some(azureSearchKey), None, testServiceName, in))
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol1").get.vectorSearchConfiguration.nonEmpty)
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol2").get.vectorSearchConfiguration.nonEmpty)
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol3").get.vectorSearchConfiguration.nonEmpty)
@@ -578,7 +606,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     """.stripMargin
 
     assertThrows[IllegalArgumentException] {
-      SearchIndex.createIfNoneExists(azureSearchKey, testServiceName, badJson)
+      SearchIndex.createIfNoneExists(Some(azureSearchKey), None, testServiceName, badJson)
     }
   }
 
@@ -661,7 +689,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       ))
 
     retryWithBackoff(assertSize(in, 2))
-    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(Some(azureSearchKey), None, testServiceName, in))
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
   }
 }

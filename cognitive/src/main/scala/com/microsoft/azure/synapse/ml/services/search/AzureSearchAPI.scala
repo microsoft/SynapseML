@@ -11,12 +11,14 @@ import org.apache.http.entity.StringEntity
 import org.apache.log4j.{LogManager, Logger}
 import spray.json._
 
+import java.util.UUID
 import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
   val DefaultAPIVersion = "2023-07-01-Preview"
   val VectorConfigName = "vectorConfig"
   val VectorSearchAlgorithm = "hnsw"
+  val AADHeaderName = "Authorization"
 }
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchAPIConstants._
 
@@ -27,34 +29,44 @@ trait IndexParser {
 }
 
 trait IndexLister {
-  def getExisting(key: String,
+
+  def getExisting(key: Option[String],
+                  AADToken: Option[String],
                   serviceName: String,
                   apiVersion: String = DefaultAPIVersion): Seq[String] = {
-    val indexListRequest = new HttpGet(
+    val req = new HttpGet(
       s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion&$$select=name"
     )
-    indexListRequest.setHeader("api-key", key)
-    val indexListResponse = safeSend(indexListRequest, close = false)
-    val indexList = IOUtils.toString(indexListResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
-    indexListResponse.close()
+    key.foreach(k => req.setHeader("api-key", k))
+    AADToken.foreach { token =>
+      req.setHeader(AADHeaderName, "Bearer " + token)
+    }
+
+    val response = safeSend(req, close = false)
+    val indexList = IOUtils.toString(response.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
+    response.close()
     for (i <- indexList.value.seq) yield i.name
   }
 }
 
 trait IndexJsonGetter extends IndexLister {
-  def getIndexJsonFromExistingIndex(key: String,
+  def getIndexJsonFromExistingIndex(key: Option[String],
+                                    AADToken: Option[String],
                                     serviceName: String,
                                     indexName: String,
                                     apiVersion: String = DefaultAPIVersion): String = {
-    val existingIndexNames = getExisting(key, serviceName, apiVersion)
+    val existingIndexNames = getExisting(key, AADToken, serviceName, apiVersion)
     assert(existingIndexNames.contains(indexName), s"Cannot find an existing index name with $indexName")
 
-    val indexJsonRequest = new HttpGet(
+    val req = new HttpGet(
       s"https://$serviceName.search.windows.net/indexes/$indexName?api-version=$apiVersion"
     )
-    indexJsonRequest.setHeader("api-key", key)
-    indexJsonRequest.setHeader("Content-Type", "application/json")
-    val indexJsonResponse = safeSend(indexJsonRequest, close = false)
+    key.foreach(k => req.setHeader("api-key", k))
+    AADToken.foreach { token =>
+      req.setHeader(AADHeaderName, "Bearer " + token)
+    }
+    req.setHeader("Content-Type", "application/json")
+    val indexJsonResponse = safeSend(req, close = false)
     val indexJson = IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
     indexJsonResponse.close()
     indexJson
@@ -67,20 +79,24 @@ object SearchIndex extends IndexParser with IndexLister {
 
   val Logger: Logger = LogManager.getRootLogger
 
-  def createIfNoneExists(key: String,
+  def createIfNoneExists(key: Option[String],
+                         AADToken: Option[String],
                          serviceName: String,
                          indexJson: String,
                          apiVersion: String = DefaultAPIVersion): Unit = {
     val indexName = parseIndexJson(indexJson).name.get
 
-    val existingIndexNames = getExisting(key, serviceName, apiVersion)
+    val existingIndexNames = getExisting(key, AADToken, serviceName, apiVersion)
 
     if (!existingIndexNames.contains(indexName)) {
-      val createRequest = new HttpPost(s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion")
-      createRequest.setHeader("Content-Type", "application/json")
-      createRequest.setHeader("api-key", key)
-      createRequest.setEntity(prepareEntity(indexJson))
-      val response = safeSend(createRequest)
+      val req = new HttpPost(s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion")
+      req.setHeader("Content-Type", "application/json")
+      key.foreach(k => req.setHeader("api-key", k))
+      AADToken.foreach { token =>
+        req.setHeader(AADHeaderName, "Bearer " + token)
+      }
+      req.setEntity(prepareEntity(indexJson))
+      val response = safeSend(req)
       val status = response.getStatusLine.getStatusCode
       assert(status == 201)
       ()
@@ -133,7 +149,7 @@ object SearchIndex extends IndexParser with IndexLister {
   }
 
   private def validType(t: String, fields: Option[Seq[IndexField]]): Try[String] = {
-    val tdt = Try(AzureSearchWriter.edmTypeToSparkType(t,fields))
+    val tdt = Try(AzureSearchWriter.edmTypeToSparkType(t, fields))
     tdt.map(_ => t)
   }
 

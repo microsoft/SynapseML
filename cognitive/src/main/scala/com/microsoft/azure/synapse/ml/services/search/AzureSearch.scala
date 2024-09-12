@@ -226,22 +226,32 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
   private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
                         options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
-      "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "vectorCols"
+      "subscriptionKey", "AADToken", "actionCol", "serviceName", "indexName", "indexJson",
+      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "vectorCols", "url"
     )
 
     options.keys.foreach(k =>
       assert(applicableOptions(k), s"$k not an applicable option ${applicableOptions.toList}"))
 
-    val subscriptionKey = options("subscriptionKey")
+    val subscriptionKey = options.get("subscriptionKey")
+    val aadToken = options.get("AADToken")
+
     val actionCol = options.getOrElse("actionCol", "@search.action")
+
     val serviceName = options("serviceName")
     val indexJsonOpt = options.get("indexJson")
     val apiVersion = options.getOrElse("apiVersion", AzureSearchAPIConstants.DefaultAPIVersion)
+
     val batchSize = options.getOrElse("batchSize", "100").toInt
     val fatalErrors = options.getOrElse("fatalErrors", "true").toBoolean
     val filterNulls = options.getOrElse("filterNulls", "false").toBoolean
     val vectorColsInfo = options.get("vectorCols")
+
+
+    assert(!(subscriptionKey.isEmpty && aadToken.isEmpty),
+      "No auth found: Please set either subscriptionKey or AADToken")
+    assert(!(subscriptionKey.isDefined && aadToken.isDefined),
+      "Both subscriptionKey and AADToken is set. Please set either subscriptionKey or AADToken")
 
     val keyCol = options.get("keyCol")
     val indexName = options.getOrElse("indexName", parseIndexJson(indexJsonOpt.get).name.get)
@@ -260,12 +270,13 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       }
     }
 
-    val (indexJson, preppedDF) = if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
+    val existingIndices = getExisting(subscriptionKey, aadToken, serviceName, apiVersion)
+    val (indexJson, preppedDF) = if (existingIndices.contains(indexName)) {
       if (indexJsonOpt.isDefined) {
         println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
           f"we will use the index definition obtained from the existing index instead")
       }
-      val existingIndexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+      val existingIndexJson = getIndexJsonFromExistingIndex(subscriptionKey, aadToken, serviceName, indexName)
       val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
       (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
     } else if (indexJsonOpt.isDefined) {
@@ -283,7 +294,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     // Throws an exception if any nested field is a vector in the schema
     parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
-    SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
+    SearchIndex.createIfNoneExists(subscriptionKey, aadToken, serviceName, indexJson, apiVersion)
 
     logInfo("checking schema parity")
     checkSchemaParity(preppedDF.schema, indexJson, actionCol)
@@ -297,15 +308,17 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       preppedDF
     }
 
-    new AddDocuments()
-      .setSubscriptionKey(subscriptionKey)
+    val ad = new AddDocuments()
       .setServiceName(serviceName)
       .setIndexName(indexName)
       .setActionCol(actionCol)
       .setBatchSize(batchSize)
       .setOutputCol("out")
       .setErrorCol("error")
-      .transform(df1)
+    val ad1 = subscriptionKey.map(key => ad.setSubscriptionKey(key)).getOrElse(ad)
+    val ad2 = aadToken.map(token => ad1.setAADToken(token)).getOrElse(ad1)
+
+    ad2.transform(df1)
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }
