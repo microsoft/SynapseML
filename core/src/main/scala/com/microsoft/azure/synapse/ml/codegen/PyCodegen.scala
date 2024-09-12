@@ -44,8 +44,9 @@ object PyCodegen {
       if (packageFolder != "") {
         prependToFile(initFile, conf.packageHelp(importStrings))
       } else if (initFile.exists()) {
-        throw new IllegalArgumentException("HEREEEEE!" + initFile.toString)
-//        initFile.delete()
+        if (initFile.length() == 0) {
+          initFile.delete()
+        }
       }
     }
     dir.listFiles().filter(_.isDirectory).foreach(f =>
