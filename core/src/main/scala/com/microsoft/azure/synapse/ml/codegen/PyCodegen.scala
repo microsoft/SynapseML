@@ -44,7 +44,7 @@ object PyCodegen {
       if (packageFolder != "") {
         prependToFile(initFile, conf.packageHelp(importStrings))
       } else if (initFile.exists()) {
-        throw new IllegalArgumentException(initFile.toString)
+        throw new IllegalArgumentException("HEREEEEE!" + initFile.toString)
 //        initFile.delete()
       }
     }
