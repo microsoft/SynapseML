@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.core.env
 import org.apache.hadoop.fs.Path
 
 import java.io.File
-import java.nio.file.{Files, StandardCopyOption, StandardOpenOption}
+import java.nio.file.{Files, StandardCopyOption}
 import scala.io.{BufferedSource, Source}
 
 object FileUtilities {
@@ -64,7 +64,7 @@ object FileUtilities {
   def prependToFile(file: File, stuff: Any): Unit = {
     val existingContent = new String(Files.readAllBytes(file.toPath))
     val newContent = stuff.toString + existingContent
-    Files.write(file.toPath, newContent.getBytes(), StandardOpenOption.TRUNCATE_EXISTING)
+    Files.write(file.toPath, newContent.getBytes())
     ()
   }
 
