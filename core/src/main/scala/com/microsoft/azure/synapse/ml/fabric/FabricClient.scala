@@ -122,7 +122,7 @@ object FabricClient extends RESTUtils {
 
   private def getHeaders: Map[String, String] = {
     Map(
-      "Authorization" -> s"${getMLWorkloadAuthHeader}",
+      "Authorization" -> s"${getMLWorkloadAADAuthHeader}",
       "RequestId" -> UUID.randomUUID().toString,
       "Content-Type" -> "application/json",
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
@@ -144,9 +144,9 @@ object FabricClient extends RESTUtils {
     usagePost(url, body, getHeaders);
   }
 
-  def getMLWorkloadAuthHeader: String = TokenLibrary.getMLWorkloadAuthHeader
+  def getMLWorkloadAADAuthHeader: String = TokenLibrary.getMLWorkloadAADAuthHeader
 
-  def getCognitiveAuthHeader: String = {
-    TokenLibrary.getCognitiveAuthHeader(WorkspaceID.getOrElse(""), ArtifactID.getOrElse(""))
+  def getCognitiveMWCTokenAuthHeader: String = {
+    TokenLibrary.getCognitiveMwcTokenAuthHeader(WorkspaceID.getOrElse(""), ArtifactID.getOrElse(""))
   }
 }

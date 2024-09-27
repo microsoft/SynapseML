@@ -44,8 +44,8 @@ object TokenLibrary {
   }
 
 
-  def getMLWorkloadAuthHeader: String = "Bearer " + getAccessToken
+  def getMLWorkloadAADAuthHeader: String = "Bearer " + getAccessToken
 
-  def getCognitiveAuthHeader(workspaceId: String, artifactId: String): String = "MwcToken " +
+  def getCognitiveMwcTokenAuthHeader(workspaceId: String, artifactId: String): String = "MwcToken " +
     getSparkMwcToken(workspaceId, artifactId)
 }
