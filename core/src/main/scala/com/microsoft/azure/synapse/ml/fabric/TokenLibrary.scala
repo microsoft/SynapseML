@@ -6,11 +6,7 @@ package com.microsoft.azure.synapse.ml.fabric
 import scala.reflect.runtime.currentMirror
 import scala.reflect.runtime.universe._
 
-trait AuthHeaderProvider {
-  def getAuthHeader: String
-}
-
-object TokenLibrary extends AuthHeaderProvider {
+object TokenLibrary {
   def getAccessToken: String = {
     val objectName = "com.microsoft.azure.trident.tokenlibrary.TokenLibrary"
     val mirror = currentMirror
@@ -27,9 +23,29 @@ object TokenLibrary extends AuthHeaderProvider {
       }
     }.getOrElse(throw new NoSuchMethodException(s"Method $methodName with argument type $argType not found"))
     val methodMirror = mirror.reflect(obj).reflectMethod(selectedMethodSymbol.asMethod)
-    methodMirror("pbi").asInstanceOf[String]
+    methodMirror("ml").asInstanceOf[String]
+  }
+
+  def getSparkMwcToken(workspaceId: String, artifactId: String): String = {
+    val objectName = "com.microsoft.azure.trident.tokenlibrary.TokenLibrary"
+    val mirror = currentMirror
+    val module = mirror.staticModule(objectName)
+    val obj = mirror.reflectModule(module).instance
+    val objType = mirror.reflect(obj).symbol.toType
+    val methodName = "getMwcToken"
+    val methodSymbols = objType.decl(TermName(methodName)).asTerm.alternatives
+    val argTypes = List(typeOf[String], typeOf[String], typeOf[Integer], typeOf[String])
+    val selectedMethodSymbol = methodSymbols.find { m =>
+      m.asMethod.paramLists.flatten.map(_.typeSignature).zip(argTypes).forall { case (a, b) => a =:= b }
+    }.getOrElse(throw new NoSuchMethodException(s"Method $methodName with argument type not found"))
+    val methodMirror = mirror.reflect(obj).reflectMethod(selectedMethodSymbol.asMethod)
+    methodMirror(workspaceId, artifactId, 2, "SparkCore")
+      .asInstanceOf[String]
   }
 
 
-  def getAuthHeader: String = "Bearer " + getAccessToken
+  def getMLWorkloadAuthHeader: String = "Bearer " + getAccessToken
+
+  def getCognitiveAuthHeader(workspaceId: String, artifactId: String): String = "MwcToken " +
+    getSparkMwcToken(workspaceId, artifactId)
 }

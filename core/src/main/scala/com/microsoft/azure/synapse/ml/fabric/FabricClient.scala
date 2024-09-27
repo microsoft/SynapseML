@@ -122,7 +122,7 @@ object FabricClient extends RESTUtils {
 
   private def getHeaders: Map[String, String] = {
     Map(
-      "Authorization" -> s"Bearer ${TokenLibrary.getAccessToken}",
+      "Authorization" -> s"${getMLWorkloadAuthHeader}",
       "RequestId" -> UUID.randomUUID().toString,
       "Content-Type" -> "application/json",
       "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
@@ -142,5 +142,11 @@ object FabricClient extends RESTUtils {
 
   def usagePost(url: String, body: String): JsValue = {
     usagePost(url, body, getHeaders);
+  }
+
+  def getMLWorkloadAuthHeader: String = TokenLibrary.getMLWorkloadAuthHeader
+
+  def getCognitiveAuthHeader: String = {
+    TokenLibrary.getCognitiveAuthHeader(WorkspaceID.getOrElse(""), ArtifactID.getOrElse(""))
   }
 }
