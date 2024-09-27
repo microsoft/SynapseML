@@ -330,7 +330,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
     if (providedCustomAuthHeader .isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
-      Option(FabricClient.getMLWorkloadAuthHeader)
+      Option(FabricClient.getCognitiveAuthHeader)
     } else {
       providedCustomAuthHeader
     }
