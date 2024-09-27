@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
-import com.microsoft.azure.synapse.ml.fabric.{FabricClient, TokenLibrary}
+import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
@@ -330,7 +330,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
     if (providedCustomAuthHeader .isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
-      Option(TokenLibrary.getAuthHeader)
+      Option(FabricClient.getCognitiveMWCTokenAuthHeader)
     } else {
       providedCustomAuthHeader
     }
