@@ -15,9 +15,9 @@ docker build . --build-arg SYNAPSEML_VERSION=<YOUR-VERSION-HERE> -f tools/docker
 
 eg.
 
-For building image with SynapseML version 1.0.5, run:
+For building image with SynapseML version 1.0.6, run:
 ```
-docker build . --build-arg SYNAPSEML_VERSION=1.0.5 -f tools/docker/demo/Dockerfile -t synapseml:1.0.5
+docker build . --build-arg SYNAPSEML_VERSION=1.0.6 -f tools/docker/demo/Dockerfile -t synapseml:1.0.6
 ```
 
 # Run the image
