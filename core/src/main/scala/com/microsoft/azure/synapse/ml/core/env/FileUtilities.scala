@@ -61,6 +61,13 @@ object FileUtilities {
     ()
   }
 
+  def prependToFile(file: File, stuff: Any): Unit = {
+    val existingContent = new String(Files.readAllBytes(file.toPath))
+    val newContent = stuff.toString + existingContent
+    Files.write(file.toPath, newContent.getBytes())
+    ()
+  }
+
   def copyFile(from: File, toDir: File, overwrite: Boolean = false): Unit = {
     Files.copy(from.toPath, new File(toDir, from.getName).toPath,
                (if (overwrite) Seq(StandardCopyOption.REPLACE_EXISTING)
