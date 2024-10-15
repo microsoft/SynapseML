@@ -3,16 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
@@ -26,7 +27,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
-  with HasOpenAICognitiveServiceInput
+  with HasCognitiveServiceInput
   with ComplexParamsWritable with SynapseMLLogging {
 
   logClass(FeatureNames.AiServices.OpenAI)
@@ -78,7 +79,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
-  private val defaultSystemPrompt =  "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
+  private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
   setDefault(
@@ -100,6 +101,27 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt")
 
+  private def addRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
+    val openAIResultFromRow = ChatCompletionResponse.makeFromRowConverter
+    df.map({ row =>
+      val originalOutput = Option(row.getAs[Row](outputCol))
+        .map({ row => openAIResultFromRow(row).choices.head })
+      val isFiltered = originalOutput
+        .map(output => Option(output.message.content).isEmpty)
+        .getOrElse(false)
+
+      if (isFiltered) {
+        val updatedRowSeq = row.toSeq.updated(
+          row.fieldIndex(errorCol),
+          Row(originalOutput.get.finish_reason, null) //scalastyle:ignore null
+        )
+        Row.fromSeq(updatedRowSeq)
+      } else {
+        row
+      }
+    })(RowEncoder(df.schema))
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
 
@@ -120,8 +142,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
-          val results = completionNamed
-            .transform(dfTemplated)
+          val transformed = addRAIErrors(
+            completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
+
+          val results = transformed
             .withColumn(getOutputCol,
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
                 .getField("message").getField("content")))
@@ -155,19 +179,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }, dataset.columns.length)
   }
 
-  private val legacyModels = Set("ada","babbage", "curie", "davinci",
+  private val legacyModels = Set("ada", "babbage", "curie", "davinci",
     "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002", "text-davinci-003",
     "code-cushman-001", "code-davinci-002")
 
   private def openAICompletion: OpenAIServicesBase = {
 
     val completion: OpenAIServicesBase =
-    if (legacyModels.contains(getDeploymentName)) {
-      new OpenAICompletion()
-    }
-    else {
-      new OpenAIChatCompletion()
-    }
+      if (legacyModels.contains(getDeploymentName)) {
+        new OpenAICompletion()
+      }
+      else {
+        new OpenAIChatCompletion()
+      }
     // apply all parameters
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name))
