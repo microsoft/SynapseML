@@ -5,6 +5,8 @@ trigger:
   branches:
     include:
     - master
+    - spark3.3
+    - spark3.5
   paths:
     exclude:
     - README.md
@@ -19,6 +21,8 @@ pr:
   branches:
     include:
     - master
+    - spark3.3
+    - spark3.5
   paths:
     exclude:
     - README.md
@@ -338,7 +342,7 @@ jobs:
         ContentType: 'Maven'
         contentsource: 'Folder'
         folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'richwyd@microsoft.com,taniaarya@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+        Owners: 'taniaarya@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
         Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
         ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
         MainPublisher: 'synapseml'
