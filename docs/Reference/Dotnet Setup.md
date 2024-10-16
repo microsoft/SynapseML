@@ -37,7 +37,7 @@ for a Windows x64 machine or jdk-8u231-macosx-x64.dmg for macOS. Then, use the c
 ### 3. Install Apache Spark
 
 [Download and install Apache Spark](https://spark.apache.org/downloads.html) with version >= 3.2.0.
-(SynapseML v1.0.7 only supports spark version >= 3.2.0)
+(SynapseML v1.0.8 only supports spark version >= 3.2.0)
 
 Extract downloaded zipped files (with 7-Zip app on Windows or `tar` on linux) and remember the location of
 extracted files, we take `~/bin/spark-3.2.0-bin-hadoop3.2/` as an example here.
@@ -127,7 +127,7 @@ In your command prompt or terminal, run the following command:
 dotnet add package Microsoft.Spark --version 2.1.1
 ```
 :::note
-This tutorial uses Microsoft.Spark version 2.1.1 as SynapseML 1.0.7 depends on it.
+This tutorial uses Microsoft.Spark version 2.1.1 as SynapseML 1.0.8 depends on it.
 Change to corresponding version if necessary.
 :::
 
@@ -137,7 +137,7 @@ In your command prompt or terminal, run the following command:
 ```powershell
 # Update Nuget Config to include SynapseML Feed
 dotnet nuget add source https://mmlspark.blob.core.windows.net/synapsemlnuget/index.json -n SynapseMLFeed
-dotnet add package SynapseML.Cognitive --version 1.0.7
+dotnet add package SynapseML.Cognitive --version 1.0.8
 ```
 The `dotnet nuget add` command adds SynapseML's resolver to the source, so that our package can be found.
 
@@ -202,7 +202,7 @@ namespace SynapseMLApp
 of Apache Spark applications, which manages the context and information of your application. A DataFrame is a way of organizing
 data into a set of named columns.
 
-Create a [TextSentiment](https://mmlspark.blob.core.windows.net/docs/1.0.7/dotnet/classSynapse_1_1ML_1_1Cognitive_1_1TextSentiment.html)
+Create a [TextSentiment](https://mmlspark.blob.core.windows.net/docs/1.0.8/dotnet/classSynapse_1_1ML_1_1Cognitive_1_1TextSentiment.html)
 instance, set corresponding subscription key and other configurations. Then, apply transformation to the dataframe,
 which analyzes the sentiment based on each row, and stores result into output column.
 
@@ -218,9 +218,9 @@ dotnet build
 Navigate to your build output directory. For example, in Windows you could run `cd bin\Debug\net5.0`.
 Use the spark-submit command to submit your application to run on Apache Spark.
 ```powershell
-spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:1.0.7 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
+spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:1.0.8 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
 ```
-`--packages com.microsoft.azure:synapseml_2.12:1.0.7` specifies the dependency on synapseml_2.12 version 1.0.7;
+`--packages com.microsoft.azure:synapseml_2.12:1.0.8` specifies the dependency on synapseml_2.12 version 1.0.8;
 `microsoft-spark-3-2_2.12-2.1.1.jar` specifies Microsoft.Spark version 2.1.1 and Spark version 3.2
 :::note
 This command assumes you have downloaded Apache Spark and added it to your PATH environment variable so that you can use spark-submit.
@@ -238,7 +238,7 @@ When your app runs, the sentiment analysis result is written to the console.
 +-----------------------------------------+--------+-----+--------------------------------------------------+
 ```
 Congratulations! You successfully authored and ran a .NET for SynapseML app.
-Refer to the [developer docs](https://mmlspark.blob.core.windows.net/docs/1.0.7/dotnet/index.html) for API guidance.
+Refer to the [developer docs](https://mmlspark.blob.core.windows.net/docs/1.0.8/dotnet/index.html) for API guidance.
 
 ## Next
 
