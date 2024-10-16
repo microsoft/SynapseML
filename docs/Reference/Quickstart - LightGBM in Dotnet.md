@@ -13,8 +13,8 @@ Make sure you have followed the guidance in [.NET installation](../Dotnet%20Setu
 Install NuGet packages by running following command:
 ```powershell
 dotnet add package Microsoft.Spark --version 2.1.1
-dotnet add package SynapseML.Lightgbm --version 1.0.7
-dotnet add package SynapseML.Core --version 1.0.7
+dotnet add package SynapseML.Lightgbm --version 1.0.8
+dotnet add package SynapseML.Core --version 1.0.8
 ```
 
 Use the following code in your main program file:
@@ -91,7 +91,7 @@ namespace SynapseMLApp
 
 Run `dotnet build` to build the project. Then navigate to build output directory, and run following command:
 ```powershell
-spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:1.0.7,org.apache.hadoop:hadoop-azure:3.3.1 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
+spark-submit --class org.apache.spark.deploy.dotnet.DotnetRunner --packages com.microsoft.azure:synapseml_2.12:1.0.8,org.apache.hadoop:hadoop-azure:3.3.1 --master local microsoft-spark-3-2_2.12-2.1.1.jar dotnet SynapseMLApp.dll
 ```
 :::note
 Here we added two packages: synapseml_2.12 for SynapseML's scala source, and hadoop-azure to support reading files from ADLS.
