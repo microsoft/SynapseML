@@ -9,7 +9,7 @@ trait OpenAIFabricSetting extends RESTUtils {
 
   private def getHeaders: Map[String, String] = {
     Map(
-      "Authorization" -> s"Bearer ${TokenLibrary.getAccessToken}",
+      "Authorization" -> FabricClient.getCognitiveMWCTokenAuthHeader,
       "Content-Type" -> "application/json"
     )
   }
