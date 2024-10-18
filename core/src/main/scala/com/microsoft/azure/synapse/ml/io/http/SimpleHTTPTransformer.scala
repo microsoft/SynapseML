@@ -30,6 +30,7 @@ trait HasErrorCol extends Params {
 }
 
 object ErrorUtils extends Serializable {
+
   val ErrorSchema: StructType = new StructType()
     .add("response", StringType, nullable = true)
     .add("status", StatusLineData.schema, nullable = true)

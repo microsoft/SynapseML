@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
 
@@ -34,6 +34,16 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("cake", "dishes"),
     (null, "none") //scalastyle:ignore null
   ).toDF("text", "category")
+
+  test("RAI Usage") {
+    val result = prompt
+      .setDeploymentName(deploymentNameGpt4)
+      .setPromptTemplate("Tell me about a graphically disgusting movie in detail")
+      .transform(df)
+      .select(prompt.getErrorCol)
+      .collect().head.getAs[Row](0)
+    assert(Option(result).nonEmpty)
+  }
 
   test("Basic Usage") {
     val nonNullCount = prompt
