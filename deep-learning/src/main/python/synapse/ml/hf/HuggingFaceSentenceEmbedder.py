@@ -144,7 +144,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
             input_data = self.optData
             return [
                 (
-                    0,
+                    BATCH_SIZE_DEFAULT,
                     (
                         input_data,
                         {"show_progress_bar": False, "batch_size": self.getBatchSize()},
