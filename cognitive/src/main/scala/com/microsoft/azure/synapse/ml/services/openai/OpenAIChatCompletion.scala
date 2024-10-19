@@ -37,7 +37,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/chat/completions"
   }
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
+  override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       val messages = r.getAs[Seq[Row]](getMessagesCol)
@@ -65,6 +65,3 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
 }
-
-
-
