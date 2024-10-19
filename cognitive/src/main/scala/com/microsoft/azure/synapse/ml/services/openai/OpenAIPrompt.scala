@@ -16,7 +16,7 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, functions => F, types => T}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 
 import scala.collection.JavaConverters._
 
@@ -198,6 +198,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     completion
+  }
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
+    r =>
+      openAICompletion match {
+        case chatCompletion: OpenAIChatCompletion =>
+          chatCompletion.prepareEntity(r)
+        case completion: OpenAICompletion =>
+          completion.prepareEntity(r)
+      }
   }
 
   private def getParser: OutputParser = {
