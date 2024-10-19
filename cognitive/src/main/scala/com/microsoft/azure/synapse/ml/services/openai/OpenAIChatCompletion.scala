@@ -65,3 +65,5 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
 }
+
+
