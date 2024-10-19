@@ -61,3 +61,6 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 }
+
+
+
