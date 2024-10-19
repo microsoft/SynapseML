@@ -62,5 +62,3 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   }
 }
 
-
-
