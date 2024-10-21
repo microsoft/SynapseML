@@ -48,6 +48,9 @@ class ModelConfig:
 
     def get_config(self):
         return self.config
+    
+    def set_config(self, **kwargs):
+        self.config.update(kwargs)
 
 def camel_to_snake(text):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', text).lower()
@@ -58,6 +61,8 @@ class HuggingFaceCausalLM(Transformer, HasInputCol, HasOutputCol, DefaultParamsR
     outputCol = Param(Params._dummy(), "outputCol", "output column", typeConverter=TypeConverters.toString)
     modelParam = Param(Params._dummy(), "modelParam", "Model Parameters")
     modelConfig = Param(Params._dummy(), "modelConfig", "Model configuration")
+    deviceMap = Param(Params._dummy(), "deviceMap", "device map", typeConverter=TypeConverters.toString)
+    torchDtype =Param(Params._dummy(), "torchDtype", "torch dtype", typeConverter=TypeConverters.toString)
     @keyword_only
     def __init__(self, 
                  modelName=None, 
@@ -113,9 +118,21 @@ class HuggingFaceCausalLM(Transformer, HasInputCol, HasOutputCol, DefaultParamsR
     def getModelConfig(self):
         return self.getOrDefault(self.modelConfig)
     
+    def setDeviceMap(self, value): 
+        return self._set(deviceMap=value)
+    
+    def getDeviceMap(self):
+        return self.getOrDefault(self.deviceMap)
+    
+    def setTorchDtype(self, value):
+        return self._set(torchDtype=value)
+    
+    def getTorchDtype(self):
+        return self.getOrDefault(self.torchDtype)
+    
     def _predict_single_complete(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
-        inputs = tokenizer(prompt, return_tensors="pt").input_ids
+        inputs = tokenizer(prompt, return_tensors="pt").input_ids.to(model.device)
         outputs = model.generate(inputs, **param)
         decoded_output = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
         return decoded_output
@@ -143,7 +160,15 @@ class HuggingFaceCausalLM(Transformer, HasInputCol, HasOutputCol, DefaultParamsR
             return
         model_name = self.getModelName()
         tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        device_map = self.getDeviceMap()
+        torch_dtype = self.getTorchDtype()
         model_config = self.getModelConfig().get_config()
+        if device_map:
+            model_config["device_map"] = device_map
+        if torch_dtype:
+            model_config["tourch_dtype"] = torch_dtype
+        
         model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
         model.eval()
         
