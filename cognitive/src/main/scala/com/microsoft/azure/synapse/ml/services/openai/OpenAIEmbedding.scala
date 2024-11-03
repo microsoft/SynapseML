@@ -59,7 +59,7 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/embeddings"
+    s"${getUrl}openai/deployments/${getGlobalServiceParamValue(row, deploymentName)}/embeddings"
   }
 
   private[this] def getStringEntity[A](text: A, optionalParams: Map[String, Any]): StringEntity = {

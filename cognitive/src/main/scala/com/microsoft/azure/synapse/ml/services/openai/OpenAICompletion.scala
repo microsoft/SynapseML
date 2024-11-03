@@ -34,7 +34,7 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/completions"
+    s"${getUrl}openai/deployments/${getGlobalServiceParamValue(row, deploymentName)}/completions"
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {

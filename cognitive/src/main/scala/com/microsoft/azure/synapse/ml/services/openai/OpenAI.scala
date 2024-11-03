@@ -51,12 +51,14 @@ trait HasMessagesInput extends Params {
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
 }
 
-trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
+trait HasOpenAISharedParams extends HasGlobalParams with HasAPIVersion {
 
   val deploymentName = new ServiceParam[String](
     this, "deploymentName", "The name of the deployment", isRequired = false)
 
-  def getDeploymentName: String = getScalarParam(deploymentName)
+  GlobalParamObject.registerServiceParam(deploymentName, OpenAIDeploymentNameKey)
+
+  def getDeploymentName: String = getGlobalServiceParamScalar(deploymentName)
 
   def setDeploymentName(v: String): this.type = setScalarParam(deploymentName, v)
 
