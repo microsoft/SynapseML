@@ -233,6 +233,7 @@ class LangchainTransformer(
         @udf(schema)
         def udfFunction(x):
             import openai
+            from packaging import version
 
             if self.running_on_synapse_internal and not self.isSet(self.url):
                 from synapse.ml.fabric.prerun.openai_prerun import OpenAIPrerun
@@ -244,15 +245,21 @@ class LangchainTransformer(
                 openai.api_base = self.getUrl()
                 openai.api_version = self.getApiVersion()
 
-            error_messages = {
-                openai.error.Timeout: "OpenAI API request timed out, please retry your request after a brief wait and contact us if the issue persists: {}",
-                openai.error.APIError: "OpenAI API returned an API Error: {}",
-                openai.error.APIConnectionError: "OpenAI API request failed to connect, check your network settings, proxy configuration, SSL certificates, or firewall rules: {}",
-                openai.error.InvalidRequestError: "OpenAI API request was invalid: {}",
-                openai.error.AuthenticationError: "OpenAI API request was not authorized, please check your API key or token and make sure it is correct and active. You may need to generate a new one from your account dashboard: {}",
-                openai.error.PermissionError: "OpenAI API request was not permitted, make sure your API key has the appropriate permissions for the action or model accessed: {}",
-                openai.error.RateLimitError: "OpenAI API request exceeded rate limit: {}",
-            }
+            error_messages = {}
+            if version.parse(openai.__version__) < version.parse('1.0.0'):
+                error_messages = {
+                    openai.error.Timeout: "OpenAI API request timed out, please retry your request after a brief wait and contact us if the issue persists: {}",
+                    openai.error.APIError: "OpenAI API returned an API Error: {}",
+                    openai.error.APIConnectionError: "OpenAI API request failed to connect, check your network settings, proxy configuration, SSL certificates, or firewall rules: {}",
+                    openai.error.InvalidRequestError: "OpenAI API request was invalid: {}",
+                    openai.error.AuthenticationError: "OpenAI API request was not authorized, please check your API key or token and make sure it is correct and active. You may need to generate a new one from your account dashboard: {}",
+                    openai.error.PermissionError: "OpenAI API request was not permitted, make sure your API key has the appropriate permissions for the action or model accessed: {}",
+                    openai.error.RateLimitError: "OpenAI API request exceeded rate limit: {}",
+                }
+            else:
+                {
+                    openai.OpenAIError: "OpenAI API returned an API Error: {}",
+                }
 
             try:
                 result = self.getChain().run(x)
