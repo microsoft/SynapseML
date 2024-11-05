@@ -246,7 +246,7 @@ class LangchainTransformer(
                 openai.api_version = self.getApiVersion()
 
             error_messages = {}
-            if version.parse(openai.__version__) < version.parse('1.0.0'):
+            if version.parse(openai.__version__) < version.parse("1.0.0"):
                 error_messages = {
                     openai.error.Timeout: "OpenAI API request timed out, please retry your request after a brief wait and contact us if the issue persists: {}",
                     openai.error.APIError: "OpenAI API returned an API Error: {}",
