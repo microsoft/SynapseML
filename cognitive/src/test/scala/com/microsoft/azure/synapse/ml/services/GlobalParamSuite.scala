@@ -1,17 +1,17 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.services.openai
+package com.microsoft.azure.synapse.ml.services
 
 import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.services.openai.{OpenAIAPIKey, OpenAIPrompt}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.DataFrame
 import org.scalactic.Equality
 
-class GlobalParamSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
+class GlobalParamSuite extends Flaky with OpenAIAPIKey {
 
   import spark.implicits._
 
@@ -21,7 +21,7 @@ class GlobalParamSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKe
     super.beforeAll()
   }
 
-  GlobalParamObject.setGlobalParamKey(OpenAIDeploymentNameKey, deploymentName)
+  GlobalParams.setDeploymentName(deploymentName)
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
@@ -47,18 +47,4 @@ class GlobalParamSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKe
 
     assert(nonNullCount == 3)
   }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
-  }
-
-  override def testObjects(): Seq[TestObject[OpenAIPrompt]] = {
-    val testPrompt = prompt
-      .setPromptTemplate("{text} rhymes with ")
-
-    Seq(new TestObject(testPrompt, df))
-  }
-
-  override def reader: MLReadable[_] = OpenAIPrompt
-
 }

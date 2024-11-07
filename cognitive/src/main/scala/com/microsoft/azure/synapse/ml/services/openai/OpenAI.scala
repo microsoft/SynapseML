@@ -56,7 +56,7 @@ trait HasOpenAISharedParams extends HasGlobalParams with HasAPIVersion {
   val deploymentName = new ServiceParam[String](
     this, "deploymentName", "The name of the deployment", isRequired = false)
 
-  GlobalParamObject.registerServiceParam(deploymentName, OpenAIDeploymentNameKey)
+  GlobalParams.registerServiceParam(deploymentName, OpenAIDeploymentNameKey)
 
   def getDeploymentName: String = getGlobalServiceParamScalar(deploymentName)
 
