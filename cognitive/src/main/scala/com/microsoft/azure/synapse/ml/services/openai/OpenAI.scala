@@ -51,6 +51,7 @@ trait HasMessagesInput extends Params {
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
 }
 
+
 trait HasOpenAISharedParams extends HasGlobalParams with HasAPIVersion {
 
   val deploymentName = new ServiceParam[String](

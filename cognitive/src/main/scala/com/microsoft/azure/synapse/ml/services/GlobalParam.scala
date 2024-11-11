@@ -5,42 +5,135 @@ import org.apache.spark.ml.param.Param
 import org.apache.spark.sql.Row
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
-sealed trait GlobalKey[T]
-sealed trait GlobalParamKey[T] extends GlobalKey[T]
-sealed trait GlobalServiceParamKey[T] extends GlobalKey[Either[T, String]] //left is Scalar, right is Vector
+trait GlobalKey[T] {
+  val name: String
+  val isServiceParam: Boolean
+}
 
-case object OpenAIDeploymentNameKey extends GlobalServiceParamKey[String]
+case object OpenAIDeploymentNameKey extends GlobalKey[String]
+  {val name: String = "OpenAIDeploymentName"; val isServiceParam = true}
+case object TestParamKey extends GlobalKey[Double] {val name: String = "TestParam"; val isServiceParam = false}
+case object TestServiceParamKey extends GlobalKey[Int]
+  {val name: String = "TestServiceParam"; val isServiceParam = true}
 
 object GlobalParams {
   private val ParamToKeyMap: mutable.Map[Any, GlobalKey[_]] = mutable.Map.empty
-  private val GlobalParams: mutable.Map[GlobalParamKey[Any], Any] = mutable.Map.empty
-  private val GlobalServiceParams: mutable.Map[GlobalServiceParamKey[Any], Either[Any, String]] = mutable.Map.empty
+  private val GlobalParams: mutable.Map[GlobalKey[_], Any] = mutable.Map.empty
 
-  private def setGlobalParamKey[T](key: GlobalParamKey[T], value: T): Unit = {
-    GlobalParams(key.asInstanceOf[GlobalParamKey[Any]]) = value
+  private def boxedClass(c: Class[_]): Class[_] = {
+    if (!c.isPrimitive) c
+    c match {
+      case java.lang.Integer.TYPE   => classOf[java.lang.Integer]
+      case java.lang.Long.TYPE      => classOf[java.lang.Long]
+      case java.lang.Double.TYPE    => classOf[java.lang.Double]
+      case java.lang.Float.TYPE     => classOf[java.lang.Float]
+      case java.lang.Boolean.TYPE   => classOf[java.lang.Boolean]
+      case _                        => c // Fallback for any other primitive types
+    }
   }
 
-  private def setGlobalServiceParamKey[T](key: GlobalServiceParamKey[T], value: T): Unit = {
-    GlobalServiceParams(key.asInstanceOf[GlobalServiceParamKey[Any]]) = Left(value)
+  private val StringtoKeyMap: Map[String, GlobalKey[_]] = Map(
+    "OpenAIDeploymentName" -> OpenAIDeploymentNameKey,
+    "TestParam" -> TestParamKey,
+    "TestServiceParam" -> TestServiceParamKey,
+  )
+
+  private def findGlobalKeyByName(keyName: String): Option[GlobalKey[_]] = {
+    StringtoKeyMap.get(keyName)
   }
 
-  private def setGlobalServiceParamKeyCol[T](key: GlobalServiceParamKey[T], value: String): Unit = {
-    GlobalServiceParams(key.asInstanceOf[GlobalServiceParamKey[Any]]) = Right(value)
+  def setGlobalParam[T](key: GlobalKey[T], value: T)(implicit ct: ClassTag[T]): Unit = {
+    assert(!key.isServiceParam, s"${key.name} is a Service Param. setGlobalServiceParamKey should be used.")
+    val expectedClass = boxedClass(ct.runtimeClass)
+    val actualClass = value.getClass
+    assert(
+      expectedClass.isAssignableFrom(actualClass),
+      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
+    )
+    GlobalParams(key) = value
   }
 
-  private def getGlobalParam[T](key: GlobalParamKey[T]): Option[T] = {
-    GlobalParams.get(key.asInstanceOf[GlobalParamKey[Any]]).map(_.asInstanceOf[T])
+  def setGlobalParam[T](keyName: String, value: T)(implicit ct: ClassTag[T]): Unit = {
+    val expectedClass = boxedClass(ct.runtimeClass)
+    val actualClass = value.getClass
+    assert(
+      expectedClass.isAssignableFrom(actualClass),
+      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
+    )
+    val key = findGlobalKeyByName(keyName)
+    key match {
+      case Some(k) =>
+        assert(!k.isServiceParam, s"${k.name} is a Service Param. setGlobalServiceParamKey should be used.")
+        GlobalParams(k) = value
+      case None => throw new IllegalArgumentException("${keyName} is not a valid key in GlobalParams")
+    }
   }
 
-  private def getGlobalServiceParam[T](key: GlobalServiceParamKey[T]): Option[Either[T, String]] = {
-    GlobalServiceParams.get(key.asInstanceOf[GlobalServiceParamKey[Any]]).map(_.asInstanceOf[Either[T, String]])
+  def setGlobalServiceParam[T](key: GlobalKey[T], value: T)(implicit ct: ClassTag[T]): Unit = {
+    assert(key.isServiceParam, s"${key.name} is a Param. setGlobalParamKey should be used.")
+    val expectedClass = boxedClass(ct.runtimeClass)
+    val actualClass = value.getClass
+    assert(
+      expectedClass.isAssignableFrom(actualClass),
+      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
+    )
+    GlobalParams(key) = Left(value)
+  }
+
+  def setGlobalServiceParam[T](keyName: String, value: T)(implicit ct: ClassTag[T]): Unit = {
+    val expectedClass = boxedClass(ct.runtimeClass)
+    val actualClass = value.getClass
+    assert(
+      expectedClass.isAssignableFrom(actualClass),
+      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
+    )
+    val key = findGlobalKeyByName(keyName)
+    key match {
+      case Some(k) =>
+        assert(k.isServiceParam, s"${k.name} is a Param. setGlobalParamKey should be used.")
+        GlobalParams(k) = Left(value)
+      case None => throw new IllegalArgumentException("${keyName} is not a valid key in GlobalParams")
+    }
+  }
+
+  def setGlobalServiceParamCol[T](key: GlobalKey[T], value: String): Unit = {
+    assert(key.isServiceParam, s"${key.name} is a Param. setGlobalParamKey should be used.")
+    GlobalParams(key) = Right(value)
+  }
+
+  def setGlobalServiceParamCol[T](keyName: String, value: String): Unit = {
+    val key = findGlobalKeyByName(keyName)
+    key match {
+      case Some(k) =>
+        assert(k.isServiceParam, s"${k.name} is a Param. setGlobalParamKey should be used.")
+        GlobalParams(k) = Right(value)
+      case None => throw new IllegalArgumentException("${keyName} is not a valid key in GlobalParams")
+    }
+  }
+
+  private def getGlobalParam[T](key: GlobalKey[T]): Option[T] = {
+    GlobalParams.get(key.asInstanceOf[GlobalKey[Any]]).map(_.asInstanceOf[T])
+  }
+
+  private def getGlobalServiceParam[T](key: GlobalKey[T]): Option[Either[T, String]] = {
+    val value = GlobalParams.get(key.asInstanceOf[GlobalKey[Any]]).map(_.asInstanceOf[Either[T, String]])
+    value match {
+      case some @ Some(v) =>
+        assert(v.isInstanceOf[Either[T, String]],
+        "getGlobalServiceParam used to fetch a normal Param")
+        value
+      case None => None
+    }
   }
 
   def getParam[T](p: Param[T]): Option[T] = {
     ParamToKeyMap.get(p).flatMap { key =>
       key match {
-        case k: GlobalParamKey[T] => getGlobalParam(k)
+        case k: GlobalKey[T] =>
+          assert(!k.isServiceParam, s"${k.name} is a Service Param. getServiceParam should be used.")
+          getGlobalParam(k)
         case _ => None
       }
     }
@@ -49,7 +142,9 @@ object GlobalParams {
   def getServiceParam[T](sp: ServiceParam[T]): Option[Either[T, String]] = {
     ParamToKeyMap.get(sp).flatMap { key =>
       key match {
-        case k: GlobalServiceParamKey[T] => getGlobalServiceParam(k)
+        case k: GlobalKey[T] =>
+          assert(k.isServiceParam, s"${k.name} is a Param. getParam should be used.")
+          getGlobalServiceParam(k)
         case _ => None
       }
     }
@@ -58,9 +153,11 @@ object GlobalParams {
   def getServiceParamScalar[T](sp: ServiceParam[T]): Option[T] = {
     ParamToKeyMap.get(sp).flatMap { key =>
       key match {
-        case k: GlobalServiceParamKey[T] =>
+        case k: GlobalKey[T] =>
           getGlobalServiceParam(k) match {
-            case Some(Left(value)) => Some(value)
+            case Some(Left(value)) =>
+              assert(k.isServiceParam, s"${k.name} is a Param. getParam should be used.")
+              Some(value)
             case _ => None
           }
         case _ => None
@@ -71,9 +168,11 @@ object GlobalParams {
   def getServiceParamVector[T](sp: ServiceParam[T]): Option[String] = {
     ParamToKeyMap.get(sp).flatMap { key =>
       key match {
-        case k: GlobalServiceParamKey[T] =>
+        case k: GlobalKey[T] =>
           getGlobalServiceParam(k) match {
-            case Some(Right(colName)) => Some(colName)
+            case Some(Right(colName)) =>
+              assert(k.isServiceParam, s"${k.name} is a Param. getParam should be used.")
+              Some(colName)
             case _ => None
           }
         case _ => None
@@ -81,24 +180,16 @@ object GlobalParams {
     }
   }
 
-  def registerParam[T](p: Param[T], key: GlobalParamKey[T]): Unit = {
+  def registerParam[T](p: Param[T], key: GlobalKey[T]): Unit = {
+    assert(!key.isServiceParam, s"${key.name} is a Service Param. registerServiceParam should be used.")
     ParamToKeyMap(p) = key
   }
 
-  def registerServiceParam[T](sp: ServiceParam[T], key: GlobalServiceParamKey[T]): Unit = {
+  def registerServiceParam[T](sp: ServiceParam[T], key: GlobalKey[T]): Unit = {
+    assert(key.isServiceParam, s"${key.name} is a Param. registerParam should be used.")
     ParamToKeyMap(sp) = key
   }
-
-  def setDeploymentName(deploymentName: String): Unit = {
-    setGlobalServiceParamKey(OpenAIDeploymentNameKey, deploymentName)
-  }
-
-  def setDeploymentNameCol(colName: String): Unit = {
-    setGlobalServiceParamKeyCol(OpenAIDeploymentNameKey, colName)
-  }
 }
-
-
 
 trait HasGlobalParams extends HasServiceParams {
 
