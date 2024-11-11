@@ -10,7 +10,7 @@ class DatabricksRapidsTests extends DatabricksTestHelper {
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 1, GpuPoolId, RapidsInitScripts)
 
   // We want to wait for 40 minutes for each test to complete
-  databricksTestHelper(clusterId, GPULibraries, RapidsNotebooks, retries = Seq.fill(60 * 40)(1000).toArray)
+  databricksTestHelper(clusterId, GPULibraries, RapidsNotebooks)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, RapidsClusterName)
