@@ -427,10 +427,11 @@ abstract class DatabricksTestHelper extends TestBase {
 
   def databricksTestHelper(clusterId: String,
                            libraries: String,
-                           notebooks: Seq[File]): Unit = {
+                           notebooks: Seq[File],
+                           retries: Array[Int] = Seq.fill(60 * 20)(1000).toArray): Unit = {
 
     println("Checking if cluster is active")
-    tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
+    tryWithRetries(retries) { () =>
       assert(isClusterActive(clusterId))
     }
 
