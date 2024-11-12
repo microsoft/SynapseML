@@ -294,7 +294,7 @@ jobs:
         conda env create --force -f environment.yml -v
       condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
       displayName: Create Anaconda environment
-    - task: AzureKeyVault@1
+    - task: AzureKeyVault@2
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         azureSubscription: 'SynapseML Build'
