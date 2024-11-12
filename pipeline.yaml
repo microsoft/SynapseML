@@ -264,7 +264,7 @@ jobs:
         chmod +x git-chglog_linux_amd64
         ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-    - task: GitHubRelease@0
+    - task: GitHubRelease@1
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       inputs:
         gitHubConnection: 'MMLSpark Github'
