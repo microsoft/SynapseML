@@ -5,11 +5,17 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
+import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
+
+import java.io.File
+import scala.collection.mutable.ListBuffer
+
 class DatabricksRapidsTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 1, GpuPoolId, RapidsInitScripts)
 
-  // We want to wait for 40 minutes for each test to complete
   databricksTestHelper(clusterId, GPULibraries, RapidsNotebooks)
 
   protected override def afterAll(): Unit = {
