@@ -143,6 +143,10 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests"
       databricks-gpu:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+#      databricks-rapids tests have been disabled because these tests are failing.
+#      This test will be re-enabled once the issue is fixed.
+#      databricks-rapids:
+#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
       synapse:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
 #      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
