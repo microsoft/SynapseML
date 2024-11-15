@@ -103,9 +103,11 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   private var cachedParams: Map[String, Any] = Map.empty
 
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
-    this, "max_tokens",
+    this, "maxTokens",
     "The maximum number of tokens to generate. Has minimum of 0.",
-    isRequired = false)
+    isRequired = false){
+    override val payloadName: String = "max_tokens"
+  }
 
   def getMaxTokens: Int = getScalarParam(maxTokens)
 
@@ -144,13 +146,15 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setStopCol(v: String): this.type = setVectorParam(stop, v)
 
   val topP: ServiceParam[Double] = new ServiceParam[Double](
-    this, "top_p",
+    this, "topP",
     "An alternative to sampling with temperature, called nucleus sampling, where the model considers the" +
       " results of the tokens with top_p probability mass." +
       " So 0.1 means only the tokens comprising the top 10 percent probability mass are considered." +
       " We generally recommend using this or `temperature` but not both." +
       " Minimum of 0 and maximum of 1 allowed.",
-    isRequired = false)
+    isRequired = false) {
+    override val payloadName: String = "top_p"
+  }
 
   def getTopP: Double = getScalarParam(topP)
 
@@ -174,12 +178,14 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setNCol(v: String): this.type = setVectorParam(n, v)
 
   val logProbs: ServiceParam[Int] = new ServiceParam[Int](
-    this, "logprobs",
+    this, "logProbs",
     "Include the log probabilities on the `logprobs` most likely tokens, as well the chosen tokens." +
       " So for example, if `logprobs` is 10, the API will return a list of the 10 most likely tokens." +
       " If `logprobs` is 0, only the chosen tokens will have logprobs returned." +
       " Minimum of 0 and maximum of 100 allowed.",
-    isRequired = false)
+    isRequired = false) {
+    override val payloadName: String = "logprobs"
+  }
 
   def getLogProbs: Int = getScalarParam(logProbs)
 
@@ -203,9 +209,11 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setEchoCol(v: String): this.type = setVectorParam(echo, v)
 
   val cacheLevel: ServiceParam[Int] = new ServiceParam[Int](
-    this, "cache_level",
+    this, "cacheLevel",
     "can be used to disable any server-side caching, 0=no cache, 1=prompt prefix enabled, 2=full cache",
-    isRequired = false)
+    isRequired = false){
+    override val payloadName: String = "cache_level"
+  }
 
   def getCacheLevel: Int = getScalarParam(cacheLevel)
 
@@ -216,10 +224,12 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setCacheLevelCol(v: String): this.type = setVectorParam(cacheLevel, v)
 
   val presencePenalty: ServiceParam[Double] = new ServiceParam[Double](
-    this, "presence_penalty",
+    this, "presencePenalty",
     "How much to penalize new tokens based on their existing frequency in the text so far." +
       " Decreases the likelihood of the model to repeat the same line verbatim. Has minimum of -2 and maximum of 2.",
-    isRequired = false)
+    isRequired = false){
+    override val payloadName: String = "presence_penalty"
+  }
 
   def getPresencePenalty: Double = getScalarParam(presencePenalty)
 
@@ -230,10 +240,12 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setPresencePenaltyCol(v: String): this.type = setVectorParam(presencePenalty, v)
 
   val frequencyPenalty: ServiceParam[Double] = new ServiceParam[Double](
-    this, "frequency_penalty",
+    this, "frequencyPenalty",
     "How much to penalize new tokens based on whether they appear in the text so far." +
       " Increases the likelihood of the model to talk about new topics.",
-    isRequired = false)
+    isRequired = false){
+    override val payloadName: String = "frequency_penalty"
+  }
 
   def getFrequencyPenalty: Double = getScalarParam(frequencyPenalty)
 
@@ -244,10 +256,12 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def setFrequencyPenaltyCol(v: String): this.type = setVectorParam(frequencyPenalty, v)
 
   val bestOf: ServiceParam[Int] = new ServiceParam[Int](
-    this, "best_of",
+    this, "bestOf",
     "How many generations to create server side, and display only the best." +
       " Will not stream intermediate progress if best_of > 1. Has maximum value of 128.",
-    isRequired = false)
+    isRequired = false){
+    override val payloadName: String = "best_of"
+  }
 
   def getBestOf: Int = getScalarParam(bestOf)
 
@@ -293,7 +307,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
       // Compute the optional parameters
       val optionalParams = sharedTextParams.flatMap { param =>
         getValueOpt(r, param).map { value =>
-          param.name -> value
+          param.payloadName -> value
         }
       }.toMap
 
