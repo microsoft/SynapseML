@@ -5,63 +5,35 @@ import org.apache.spark.ml.param.Param
 import org.apache.spark.sql.Row
 
 import scala.collection.mutable
-import scala.reflect.ClassTag
+import com.microsoft.azure.synapse.ml.core.utils.JarLoadingUtils
 
 trait GlobalKey[T] {
   val name: String
   val isServiceParam: Boolean
 }
 
-case object OpenAIDeploymentNameKey extends GlobalKey[String]
-  {val name: String = "OpenAIDeploymentName"; val isServiceParam = true}
-case object TestParamKey extends GlobalKey[Double] {val name: String = "TestParam"; val isServiceParam = false}
-case object TestServiceParamKey extends GlobalKey[Int]
-  {val name: String = "TestServiceParam"; val isServiceParam = true}
-
 object GlobalParams {
   private val ParamToKeyMap: mutable.Map[Any, GlobalKey[_]] = mutable.Map.empty
   private val GlobalParams: mutable.Map[GlobalKey[_], Any] = mutable.Map.empty
 
-  private def boxedClass(c: Class[_]): Class[_] = {
-    if (!c.isPrimitive) c
-    c match {
-      case java.lang.Integer.TYPE   => classOf[java.lang.Integer]
-      case java.lang.Long.TYPE      => classOf[java.lang.Long]
-      case java.lang.Double.TYPE    => classOf[java.lang.Double]
-      case java.lang.Float.TYPE     => classOf[java.lang.Float]
-      case java.lang.Boolean.TYPE   => classOf[java.lang.Boolean]
-      case _                        => c // Fallback for any other primitive types
+  private val StringtoKeyMap: mutable.Map[String, GlobalKey[_]] = {
+    val strToKeyMap = mutable.Map[String, GlobalKey[_]]()
+    JarLoadingUtils.instantiateObjects[GlobalKey[_]]().foreach { key: GlobalKey[_] =>
+        strToKeyMap += (key.name -> key)
     }
+    strToKeyMap
   }
-
-  private val StringtoKeyMap: Map[String, GlobalKey[_]] = Map(
-    "OpenAIDeploymentName" -> OpenAIDeploymentNameKey,
-    "TestParam" -> TestParamKey,
-    "TestServiceParam" -> TestServiceParamKey,
-  )
 
   private def findGlobalKeyByName(keyName: String): Option[GlobalKey[_]] = {
     StringtoKeyMap.get(keyName)
   }
 
-  def setGlobalParam[T](key: GlobalKey[T], value: T)(implicit ct: ClassTag[T]): Unit = {
+  def setGlobalParam[T](key: GlobalKey[T], value: T): Unit = {
     assert(!key.isServiceParam, s"${key.name} is a Service Param. setGlobalServiceParamKey should be used.")
-    val expectedClass = boxedClass(ct.runtimeClass)
-    val actualClass = value.getClass
-    assert(
-      expectedClass.isAssignableFrom(actualClass),
-      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
-    )
     GlobalParams(key) = value
   }
 
-  def setGlobalParam[T](keyName: String, value: T)(implicit ct: ClassTag[T]): Unit = {
-    val expectedClass = boxedClass(ct.runtimeClass)
-    val actualClass = value.getClass
-    assert(
-      expectedClass.isAssignableFrom(actualClass),
-      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
-    )
+  def setGlobalParam[T](keyName: String, value: T): Unit = {
     val key = findGlobalKeyByName(keyName)
     key match {
       case Some(k) =>
@@ -71,24 +43,12 @@ object GlobalParams {
     }
   }
 
-  def setGlobalServiceParam[T](key: GlobalKey[T], value: T)(implicit ct: ClassTag[T]): Unit = {
+  def setGlobalServiceParam[T](key: GlobalKey[T], value: T): Unit = {
     assert(key.isServiceParam, s"${key.name} is a Param. setGlobalParamKey should be used.")
-    val expectedClass = boxedClass(ct.runtimeClass)
-    val actualClass = value.getClass
-    assert(
-      expectedClass.isAssignableFrom(actualClass),
-      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
-    )
     GlobalParams(key) = Left(value)
   }
 
-  def setGlobalServiceParam[T](keyName: String, value: T)(implicit ct: ClassTag[T]): Unit = {
-    val expectedClass = boxedClass(ct.runtimeClass)
-    val actualClass = value.getClass
-    assert(
-      expectedClass.isAssignableFrom(actualClass),
-      s"Value of type ${actualClass.getName} is not compatible with expected type ${expectedClass.getName}"
-    )
+  def setGlobalServiceParam[T](keyName: String, value: T): Unit = {
     val key = findGlobalKeyByName(keyName)
     key match {
       case Some(k) =>

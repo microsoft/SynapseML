@@ -44,6 +44,11 @@ class TestGlobalParams extends TestGlobalParamsTrait {
   override val uid: String = Identifiable.randomUID("TestGlobalParams")
 }
 
+
+case object TestParamKey extends GlobalKey[Double] {val name: String = "TestParam"; val isServiceParam = false}
+case object TestServiceParamKey extends GlobalKey[Int]
+{val name: String = "TestServiceParam"; val isServiceParam = true}
+
 class GlobalParamSuite extends Flaky with OpenAIAPIKey {
 
   import spark.implicits._
@@ -54,12 +59,11 @@ class GlobalParamSuite extends Flaky with OpenAIAPIKey {
     super.beforeAll()
   }
 
-  GlobalParams.setGlobalParam(TestParamKey, 12.5)
-  GlobalParams.setGlobalServiceParam(TestServiceParamKey, 1)
-
   val testGlobalParams = new TestGlobalParams()
 
   test("Basic Usage") {
+    GlobalParams.setGlobalParam(TestParamKey, 12.5)
+    GlobalParams.setGlobalServiceParam(TestServiceParamKey, 1)
     assert(testGlobalParams.getTestParam == 12.5)
     assert(testGlobalParams.getTestServiceParam == 1)
   }
