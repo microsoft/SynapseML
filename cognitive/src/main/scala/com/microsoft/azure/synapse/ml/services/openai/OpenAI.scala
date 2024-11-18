@@ -100,8 +100,6 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
 }
 
 trait HasOpenAITextParams extends HasOpenAISharedParams {
-  private var cachedParams: Map[String, Any] = Map.empty
-
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
     "The maximum number of tokens to generate. Has minimum of 0.",
@@ -288,36 +286,10 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     logProbs
   )
 
-  // This flag is used to ensure that we compute the cacheability of parameters only once.
-  private var areParamCacheable = true
-
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    // Return cached parameters if they are already computed
-    if (cachedParams.nonEmpty) {
-      cachedParams
-    } else {
-      // The parameters are not cacheable if any of the shared text parameters are vector parameters
-      // i.e. if they are not constant for all rows. Following code checks if the parameters are cacheable
-      // or not. Since the cachability of parameter does not change over time, we can compute this only once.
-      // If the parameters are not cacheable, the instance variable areParamCacheable will be set to false
-      // and for subsequent calls, we will not even need to iterate parameters to check if they are cacheable.
-      // If parameters are cacheable, we will cache the computed parameters and return them.
-      areParamCacheable = areParamCacheable && !sharedTextParams.exists(param => get(param).exists(_.isRight))
-
-      // Compute the optional parameters
-      val optionalParams = sharedTextParams.flatMap { param =>
-        getValueOpt(r, param).map { value =>
-          param.payloadName -> value
-        }
-      }.toMap
-
-      // Cache the computed parameters if caching is enabled
-      if (areParamCacheable) {
-        cachedParams = optionalParams
-      }
-
-      optionalParams
-    }
+    sharedTextParams.flatMap { param =>
+      getValueOpt(r, param).map { value => param.payloadName -> value }
+    }.toMap
   }
 }
 
