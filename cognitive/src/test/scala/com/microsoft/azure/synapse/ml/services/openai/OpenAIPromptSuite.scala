@@ -10,6 +10,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
+import org.scalatest.matchers.must.Matchers.{be, include}
+import org.scalatest.matchers.should.Matchers.{an, convertToAnyShouldWrapper}
 
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
 
@@ -57,6 +59,18 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(nonNullCount == 3)
   }
 
+  test("Basic Usage with only post processing options") {
+    val nonNullCount = prompt
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPostProcessingOptions(Map("delimiter" -> ","))
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
+
+    assert(nonNullCount == 3)
+  }
+
   test("Basic Usage JSON") {
     prompt.setPromptTemplate(
         """Split a word into prefix and postfix a respond in JSON
@@ -71,6 +85,38 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .collect()
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
+
+  test("Basic Usage JSON using text response format") {
+    prompt.setPromptTemplate(
+        """Split a word into prefix and postfix a respond in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setResponseFormat("text")
+      .setPostProcessing("json")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .select("outParsed")
+      .where(col("outParsed").isNotNull)
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  test("Basic Usage JSON using only post processing oiptions") {
+    prompt.setPromptTemplate(
+        """Split a word into prefix and postfix a respond in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .select("outParsed")
+      .where(col("outParsed").isNotNull)
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
@@ -104,6 +150,68 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .where(col("outParsed").isNotNull)
       .collect()
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  test("Basic Usage JSON - Gpt 4 using responseFormat TEXT") {
+    promptGpt4.setPromptTemplate(
+        """Split a word into prefix and postfix a respond in JSON
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setPostProcessing("json")
+      .setResponseFormat("text")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .select("outParsed")
+      .where(col("outParsed").isNotNull)
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  lazy val promptGpt4o: OpenAIPrompt = new OpenAIPrompt()
+    .setSubscriptionKey(openAIAPIKey)
+    .setDeploymentName(deploymentNameGpt4o)
+    .setCustomServiceName(openAIServiceName)
+    .setOutputCol("outParsed")
+    .setTemperature(0)
+
+  test("Basic Usage JSON - Gpt 4o using responseFormat JSON") {
+    promptGpt4o.setPromptTemplate(
+        """Split a word into prefix and postfix
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setResponseFormat("json")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+      .transform(df)
+      .select("outParsed")
+      .where(col("outParsed").isNotNull)
+      .collect()
+      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  test("Basic Usage - Gpt 4o with response format json") {
+    val nonNullCount = promptGpt4o
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setResponseFormat(OpenAIResponseFormat.JSON)
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .length
+
+    assert(nonNullCount == 4)
+  }
+
+  test("Basic Usage - Gpt 4o with response format text") {
+    val nonNullCount = promptGpt4o
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setResponseFormat(OpenAIResponseFormat.TEXT)
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .length
+
+    assert(nonNullCount == 4)
   }
 
   test("Setting and Keeping Messages Col - Gpt 4") {
@@ -147,6 +255,100 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .select("outParsed")
       .collect()
       .count(r => Option(r.getSeq[String](0)).isDefined)
+  }
+
+  test("getResponseFormat should return the default response format") {
+    val prompt = new OpenAIPrompt()
+    prompt.getResponseFormat shouldEqual ""
+  }
+
+  test("setResponseFormat should set the response format correctly with String") {
+    val prompt = new OpenAIPrompt()
+    prompt.setResponseFormat("json")
+    prompt.getResponseFormat shouldEqual "json_object"
+
+    prompt.setResponseFormat("json_object")
+    prompt.getResponseFormat shouldEqual "json_object"
+
+    prompt.setResponseFormat("text")
+    prompt.getResponseFormat shouldEqual "text"
+  }
+
+
+  test("setResponseFormat should throw an exception for invalid response format") {
+    val prompt = new OpenAIPrompt()
+    an[IllegalArgumentException] should be thrownBy {
+      prompt.setResponseFormat("invalid_format")
+    }
+  }
+
+  test("setResponseFormat should set the response format correctly with ResponseFormat") {
+    val prompt = new OpenAIPrompt()
+    prompt.setResponseFormat(OpenAIResponseFormat.JSON)
+    prompt.getResponseFormat shouldEqual "json_object"
+
+    prompt.setResponseFormat(OpenAIResponseFormat.TEXT)
+    prompt.getResponseFormat shouldEqual "text"
+  }
+
+
+  test("setResponseFormat should set the response format correctly for valid values") {
+    val prompt = new OpenAIPrompt()
+    prompt.setResponseFormat("text")
+    prompt.getResponseFormat should be ("text")
+
+    prompt.setResponseFormat("json")
+    prompt.getResponseFormat should be ("json_object")
+
+    prompt.setResponseFormat("json_object")
+    prompt.getResponseFormat should be ("json_object")
+
+    prompt.setResponseFormat("jSoN")
+    prompt.getResponseFormat should be ("json_object")
+
+    prompt.setResponseFormat("TEXT")
+    prompt.getResponseFormat should be ("text")
+  }
+
+
+  test("setPostProcessingOptions should set postProcessing to 'csv' for delimiter option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("delimiter" -> ","))
+    prompt.getPostProcessing should be ("csv")
+  }
+
+  test("setPostProcessingOptions should set postProcessing to 'json' for jsonSchema option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
+    prompt.getPostProcessing should be ("json")
+  }
+
+  test("setPostProcessingOptions should set postProcessing to 'regex' for regex option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("regex" -> ".*", "regexGroup" -> "0"))
+    prompt.getPostProcessing should be ("regex")
+  }
+
+  test("setPostProcessingOptions should throw IllegalArgumentException for invalid options") {
+    val prompt = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("invalidOption" -> "value"))
+    }
+  }
+
+  test("setPostProcessingOptions should validate regex options contain regexGroup key") {
+    val prompt = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("regex" -> ".*"))
+    }
+  }
+
+  test("setPostProcessingOptions should validate existing postProcessing value") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessing("csv")
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
+    }
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {

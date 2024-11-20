@@ -8,6 +8,8 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
+import org.scalatest.matchers.must.Matchers.{an, be}
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion] with OpenAIAPIKey with Flaky {
 
@@ -172,6 +174,45 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     }
 
     testCompletion(customEndpointCompletion, goodDf)
+  }
+
+  test("setResponseFormat should set the response format correctly") {
+    completion.setResponseFormat("text")
+    completion.getResponseFormat shouldEqual Map("type" -> "text")
+
+    completion.setResponseFormat("tExT")
+    completion.getResponseFormat shouldEqual Map("type" -> "text")
+
+    completion.setResponseFormat("json")
+    completion.getResponseFormat shouldEqual Map("type" -> "json_object")
+
+    completion.setResponseFormat("JSON")
+    completion.getResponseFormat shouldEqual Map("type" -> "json_object")
+
+    completion.setResponseFormat("json_object")
+    completion.getResponseFormat shouldEqual Map("type" -> "json_object")
+
+    completion.setResponseFormat("Json_ObjeCt")
+    completion.getResponseFormat shouldEqual Map("type" -> "json_object")
+  }
+
+  test("setResponseFormat should throw an exception for invalid response format") {
+    an[IllegalArgumentException] should be thrownBy {
+      completion.setResponseFormat("invalid_format")
+    }
+  }
+
+  test("setResponseFormat with ResponseFormat should set the response format correctly") {
+    completion.setResponseFormat(OpenAIResponseFormat.TEXT)
+    completion.getResponseFormat shouldEqual Map("type" -> "text")
+
+    completion.setResponseFormat(OpenAIResponseFormat.JSON)
+    completion.getResponseFormat shouldEqual Map("type" -> "json_object")
+  }
+
+  test("setResponseFormatCol should set the response format column correctly") {
+    completion.setResponseFormatCol("response_format_col")
+    completion.getResponseFormatCol shouldEqual "response_format_col"
   }
 
   def testCompletion(completion: OpenAIChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {

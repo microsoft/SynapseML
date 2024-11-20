@@ -60,7 +60,37 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getPostProcessingOptions: Map[String, String] = $(postProcessingOptions)
 
-  def setPostProcessingOptions(value: Map[String, String]): this.type = set(postProcessingOptions, value)
+  def setPostProcessingOptions(value: Map[String, String]): this.type = {
+    // Helper method to validate that regex options contain the required "regexGroup" key
+    def validateRegexOptions(options: Map[String, String]): Unit = {
+      require(options.contains("regexGroup"), "regexGroup must be specified with regex")
+    }
+
+    // Helper method to set or validate the postProcessing parameter
+    def setOrValidatePostProcessing(expected: String): Unit = {
+      if (isSet(postProcessing)) {
+        require(getPostProcessing == expected, s"postProcessing must be '$expected'")
+      } else {
+        set(postProcessing, expected)
+      }
+    }
+
+    // Match on the keys in the provided value map to set the appropriate post-processing option
+    value match {
+      case v if v.contains("delimiter") =>
+        setOrValidatePostProcessing("csv")
+      case v if v.contains("jsonSchema") =>
+        setOrValidatePostProcessing("json")
+      case v if v.contains("regex") =>
+        validateRegexOptions(v)
+        setOrValidatePostProcessing("regex")
+      case _ =>
+        throw new IllegalArgumentException("Invalid post processing options")
+    }
+
+    // Set the postProcessingOptions parameter with the provided value map
+    set(postProcessingOptions, value)
+  }
 
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
     set(postProcessingOptions, v.asScala.toMap)
@@ -79,10 +109,43 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
+  val responseFormat = new Param[String](
+    this, "responseFormat", "The response format from the OpenAI API.")
+
+  def getResponseFormat: String = $(responseFormat)
+
+  def setResponseFormat(value: String): this.type = {
+    if (value.isEmpty) {
+      this
+    } else {
+      val normalizedValue = value.toLowerCase match {
+        case "json" => "json_object"
+        case other => other
+      }
+
+      // Validate the normalized value using the OpenAIResponseFormat enum
+      if (!OpenAIResponseFormat.values
+        .map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].name)
+        .contains(normalizedValue)) {
+        throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
+          "Currently supported formats are " + OpenAIResponseFormat.values
+          .map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].name)
+          .mkString(", "))
+      }
+
+      set(responseFormat, normalizedValue)
+    }
+  }
+
+  def setResponseFormat(value: OpenAIResponseFormat.ResponseFormat): this.type = {
+    this.setResponseFormat(value.name)
+  }
+
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
   setDefault(
+    responseFormat -> "",
     postProcessing -> "",
     postProcessingOptions -> Map.empty,
     outputCol -> (this.uid + "_output"),
@@ -99,16 +162,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt")
+    "systemPrompt", "responseFormat")
 
   private def addRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
     val openAIResultFromRow = ChatCompletionResponse.makeFromRowConverter
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
         .map({ row => openAIResultFromRow(row).choices.head })
-      val isFiltered = originalOutput
-        .map(output => Option(output.message.content).isEmpty)
-        .getOrElse(false)
+      val isFiltered = originalOutput.exists(output => Option(output.message.content).isEmpty)
 
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
@@ -138,6 +199,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       })
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
+          if (isSet(responseFormat)) {
+            chatCompletion.setResponseFormat(getResponseFormat)
+          }
           val messageColName = getMessagesCol
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
@@ -158,6 +222,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           }
 
         case completion: OpenAICompletion =>
+          if (isSet(responseFormat)) {
+            throw new IllegalArgumentException("responseFormat is not supported for OpenAICompletion")
+          }
           val promptColName = df.withDerivativeCol("prompt")
           val dfTemplated = df.withColumn(promptColName, promptCol)
           val completionNamed = completion.setPromptCol(promptColName)
@@ -215,8 +282,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     getPostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
-      case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
-      case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
+      case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
+      case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
       case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
     }
