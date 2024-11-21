@@ -29,7 +29,7 @@ object OpenAIResponseFormat extends Enumeration {
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
       this,
-      "responseFromat",
+      "responseFormat",
       "Response format for the completion. Can be 'json_object' or 'text'.",
       isRequired = false) {
       override val payloadName: String = "response_format"

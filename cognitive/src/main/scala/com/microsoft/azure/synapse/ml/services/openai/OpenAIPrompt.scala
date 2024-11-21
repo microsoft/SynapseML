@@ -188,7 +188,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     logTransform[DataFrame]({
       val df = dataset.toDF
-
       val completion = openAICompletion
       val promptCol = Functions.template(getPromptTemplate)
       val createMessagesUDF = udf((userMessage: String) => {
@@ -205,15 +204,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           val messageColName = getMessagesCol
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
-
           val transformed = addRAIErrors(
             completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
 
           val results = transformed
             .withColumn(getOutputCol,
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
-                .getField("message").getField("content")))
-            .drop(completionNamed.getOutputCol)
+                .getField("message").getField("content"))).drop(completionNamed.getOutputCol)
 
           if (getDropPrompt) {
             results.drop(messageColName)
