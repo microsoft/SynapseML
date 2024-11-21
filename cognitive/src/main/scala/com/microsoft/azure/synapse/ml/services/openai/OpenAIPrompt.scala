@@ -129,7 +129,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "responseFormat")
+    "systemPrompt")
 
   private def addRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
     val openAIResultFromRow = ChatCompletionResponse.makeFromRowConverter
@@ -225,7 +225,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     // apply all parameters
     extractParamMap().toSeq
-      .filter(p => completion.hasParam(p.param.name))
       .filter(p => !localParamNames.contains(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 

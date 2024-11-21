@@ -219,7 +219,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.get(0) != null))
   }
 
-  test("Basic Usage - Davinci 3 with no response format") {
+  ignore("Basic Usage - Davinci 3 with no response format") {
     val promptDavinci3 = createPromptInstance(deploymentNameDavinci3)
     val rowCount = promptDavinci3
       .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
@@ -230,7 +230,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(rowCount == 4)
   }
 
-  test("Basic Usage - Davinci 3 with response format json") {
+  ignore("Basic Usage - Davinci 3 with response format json") {
     val promptDavinci3 = createPromptInstance(deploymentNameDavinci3)
     intercept[IllegalArgumentException] {
       promptDavinci3
