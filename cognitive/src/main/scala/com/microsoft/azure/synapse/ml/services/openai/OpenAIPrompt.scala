@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAITextParams with HasMessagesInput
+  with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -109,43 +109,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
-  val responseFormat = new Param[String](
-    this, "responseFormat", "The response format from the OpenAI API.")
-
-  def getResponseFormat: String = $(responseFormat)
-
-  def setResponseFormat(value: String): this.type = {
-    if (value.isEmpty) {
-      this
-    } else {
-      val normalizedValue = value.toLowerCase match {
-        case "json" => "json_object"
-        case other => other
-      }
-
-      // Validate the normalized value using the OpenAIResponseFormat enum
-      if (!OpenAIResponseFormat.values
-        .map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].name)
-        .contains(normalizedValue)) {
-        throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-          "Currently supported formats are " + OpenAIResponseFormat.values
-          .map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].name)
-          .mkString(", "))
-      }
-
-      set(responseFormat, normalizedValue)
-    }
-  }
-
-  def setResponseFormat(value: OpenAIResponseFormat.ResponseFormat): this.type = {
-    this.setResponseFormat(value.name)
-  }
-
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
   setDefault(
-    responseFormat -> "",
     postProcessing -> "",
     postProcessingOptions -> Map.empty,
     outputCol -> (this.uid + "_output"),
@@ -162,7 +129,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "responseFormat")
+    "systemPrompt")
 
   private def addRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
     val openAIResultFromRow = ChatCompletionResponse.makeFromRowConverter
@@ -258,6 +225,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     // apply all parameters
     extractParamMap().toSeq
+      .filter(p => completion.hasParam(p.param.name))
       .filter(p => !localParamNames.contains(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
