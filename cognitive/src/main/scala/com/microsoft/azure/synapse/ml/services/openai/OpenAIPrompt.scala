@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -124,7 +124,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-
+    this.params
+      .filter(p => !this.isSet(p) && !this.hasDefault(p))
+      .foreach { p =>
+        GlobalParams.getParam(p) match {
+          case Some(v) =>
+            p match {
+              case serviceParam: ServiceParam[_] => setScalarParam(serviceParam.asInstanceOf[ServiceParam[Any]], v)
+              case param: Param[_] =>
+                set(param.asInstanceOf[Param[Any]], v)
+            }
+          case None =>
+        }
+      }
     logTransform[DataFrame]({
       val df = dataset.toDF
 

@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting}
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.ServiceParam
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.param.{Param, Params}
@@ -52,16 +52,16 @@ trait HasMessagesInput extends Params {
 }
 
 case object OpenAIDeploymentNameKey extends GlobalKey[String]
-{val name: String = "OpenAIDeploymentName"; val isServiceParam = true}
+{val name: String = "OpenAIDeploymentName"}
 
-trait HasOpenAISharedParams extends HasGlobalParams with HasAPIVersion {
+trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   val deploymentName = new ServiceParam[String](
     this, "deploymentName", "The name of the deployment", isRequired = false)
 
-  GlobalParams.registerServiceParam(deploymentName, OpenAIDeploymentNameKey)
+  GlobalParams.registerParam(deploymentName, OpenAIDeploymentNameKey)
 
-  def getDeploymentName: String = getGlobalServiceParamScalar(deploymentName)
+  def getDeploymentName: String = getScalarParam(deploymentName)
 
   def setDeploymentName(v: String): this.type = setScalarParam(deploymentName, v)
 
