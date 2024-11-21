@@ -51,8 +51,7 @@ trait HasMessagesInput extends Params {
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
 }
 
-case object OpenAIDeploymentNameKey extends GlobalKey[String]
-{val name: String = "OpenAIDeploymentName"}
+case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 

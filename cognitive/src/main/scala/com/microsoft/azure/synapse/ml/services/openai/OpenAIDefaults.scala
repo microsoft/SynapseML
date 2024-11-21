@@ -4,6 +4,6 @@ import com.microsoft.azure.synapse.ml.param.GlobalParams
 
 object OpenAIDefaults {
   def setDeploymentName(v: String): Unit = {
-    GlobalParams.setGlobalParam(OpenAIDeploymentNameKey, v)
+    GlobalParams.setGlobalParam(OpenAIDeploymentNameKey, Left(v))
   }
 }

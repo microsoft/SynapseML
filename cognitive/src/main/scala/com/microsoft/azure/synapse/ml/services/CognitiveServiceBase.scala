@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
@@ -493,7 +493,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol
   with HasAADToken with HasCustomCogServiceDomain
-  with SynapseMLLogging {
+  with SynapseMLLogging with HasGlobalParams {
 
   setDefault(
     outputCol -> (this.uid + "_output"),
@@ -547,21 +547,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // check for empty params. Fill em with OpenAIDefaults
-    this.params
-      .filter(p => !this.isSet(p) && !this.hasDefault(p))
-      .foreach { p =>
-        GlobalParams.getParam(p) match {
-          case Some(v) =>
-            p match {
-              case serviceParam: ServiceParam[_] =>
-                setScalarParam(serviceParam.asInstanceOf[ServiceParam[Any]], v)
-              case param: Param[_] =>
-                set(param.asInstanceOf[Param[Any]], v)
-            }
-          case None =>
-        }
-      }
+    transferGlobalParamsToParamMap()
     logTransform[DataFrame](getInternalTransformer(dataset.schema).transform(dataset), dataset.columns.length
     )
   }

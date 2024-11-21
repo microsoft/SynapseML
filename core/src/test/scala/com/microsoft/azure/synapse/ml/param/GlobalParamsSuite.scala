@@ -3,58 +3,47 @@
 
 package com.microsoft.azure.synapse.ml.param
 
-import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
-import spray.json.DefaultJsonProtocol.IntJsonFormat
 
-trait TestGlobalParamsTrait extends HasGlobalParams {
+case object TestParamKey extends GlobalKey[Double]
+
+class TestGlobalParams extends HasGlobalParams {
+  override val uid: String = Identifiable.randomUID("TestGlobalParams")
+
   val testParam: Param[Double] = new Param[Double](
-    this, "TestParam", "Test Param")
+    this, "TestParam", "Test Param for testing")
+
+  println(testParam.parent)
+  println(hasParam(testParam.name))
 
   GlobalParams.registerParam(testParam, TestParamKey)
 
-  def getTestParam: Double = getGlobalParam(testParam)
+  def getTestParam: Double = $(testParam)
 
   def setTestParam(v: Double): this.type = set(testParam, v)
 
-  val testServiceParam = new ServiceParam[Int](
-    this, "testServiceParam", "Test Service Param", isRequired = false)
-}
-
-class TestGlobalParams extends TestGlobalParamsTrait {
-
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
-  override val uid: String = Identifiable.randomUID("TestGlobalParams")
 }
 
-
-case object TestParamKey extends GlobalKey[Double] {val name: String = "TestParam"; val isServiceParam = false}
-case object TestServiceParamKey extends GlobalKey[Int]
-{val name: String = "TestServiceParam"; val isServiceParam = true}
-
 class GlobalParamSuite extends Flaky {
-
-  override def beforeAll(): Unit = {
-    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
-    println(s"Triggering token creation early ${aadToken.length}")
-    super.beforeAll()
-  }
 
   val testGlobalParams = new TestGlobalParams()
 
   test("Basic Usage") {
     GlobalParams.setGlobalParam(TestParamKey, 12.5)
+    testGlobalParams.transferGlobalParamsToParamMap()
     assert(testGlobalParams.getTestParam == 12.5)
   }
 
-  test("Test Changing Value") {
-    assert(testGlobalParams.getTestParam == 12.5)
-    GlobalParams.setGlobalParam("TestParam", 19.853)
-    assert(testGlobalParams.getTestParam == 19.853)
+  test("Test Setting Directly Value") {
+    testGlobalParams.setTestParam(18.7334)
+    GlobalParams.setGlobalParam(TestParamKey, 19.853)
+    testGlobalParams.transferGlobalParamsToParamMap()
+    assert(testGlobalParams.getTestParam == 18.7334)
   }
 }
 
