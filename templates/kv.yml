@@ -1,5 +1,5 @@
 steps:
-  - task: AzureKeyVault@1
+  - task: AzureKeyVault@2
     retryCountOnTaskFailure: 3
     inputs:
       azureSubscription: 'SynapseML Build'
