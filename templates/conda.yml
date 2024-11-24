@@ -17,6 +17,7 @@ steps:
     retryCountOnTaskFailure: 1
   - bash: |
       (timeout 30m conda env create --yes -f environment.yml -v)  || (timeout 30m conda env create --yes -f environment.yml -v)
+      pip install sentence_transformers=2.2.2
     displayName: Create Anaconda environment
     retryCountOnTaskFailure: 1
     condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
