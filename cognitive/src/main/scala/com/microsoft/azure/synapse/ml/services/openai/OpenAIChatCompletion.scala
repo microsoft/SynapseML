@@ -53,11 +53,11 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override def shouldSkip(row: Row): Boolean ={
     super.shouldSkip(row) || {
       val messages = Option(row.getAs[Seq[Row]](getMessagesCol)).getOrElse(Seq.empty)
-      messages.isEmpty || !messages.exists(m =>{
-        val content = Option(m.getAs[String]("content"))
-        val role = Option(m.getAs[String]("role"))
-        role.nonEmpty && role.get == "user" && content.nonEmpty && content.get.nonEmpty
-      })
+      messages.isEmpty || !messages
+        // filter out messages system messages
+        .filter(m => Option(m.getAs[String]("role")).getOrElse("").equalsIgnoreCase("user"))
+        // check if there exists a user message with non-empty content
+        .exists(m => Option(m.getAs[String]("content")).getOrElse("").nonEmpty)
     }
   }
 
