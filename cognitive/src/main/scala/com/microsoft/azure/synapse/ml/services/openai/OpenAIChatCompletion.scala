@@ -46,8 +46,20 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
-  override def shouldSkip(row: Row): Boolean =
-    super.shouldSkip(row) || Option(row.getAs[Row](getMessagesCol)).isEmpty
+  /**
+   * Check if the row should be skipped. A row should be skipped if the messages column is empty or if any of the
+   * messages are empty or if there not exists a single message with "role" as "user" and "content" as non-empty.
+   */
+  override def shouldSkip(row: Row): Boolean ={
+    super.shouldSkip(row) || {
+      val messages = Option(row.getAs[Seq[Row]](getMessagesCol)).getOrElse(Seq.empty)
+      messages.isEmpty || !messages.exists(m =>{
+        val content = Option(m.getAs[String]("content"))
+        val role = Option(m.getAs[String]("role"))
+        role.nonEmpty && role.get == "user" && content.nonEmpty && content.get.nonEmpty
+      })
+    }
+  }
 
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)

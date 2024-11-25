@@ -47,6 +47,11 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       OpenAIMessage("system", "You are very excited"),
       OpenAIMessage("user", null) //scalastyle:ignore null
     ),
+    Seq(
+      OpenAIMessage("system", "You are very excited"),
+      OpenAIMessage("user", "")
+      ),
+    Seq(OpenAIMessage("system", "You are very excited")),
     null //scalastyle:ignore null
   ).toDF("messages")
 
@@ -144,11 +149,23 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   }
 
   test("Robustness to bad inputs") {
-    val results = completion.transform(badDf).collect()
-    assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
-    assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
-    assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
-    assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+    val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
+      // by having an invalid deployment name, we should get error for all rows
+      .setDeploymentName("invalid_deployment")
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2023-05-15")
+      .setMaxTokens(5000)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setTemperature(0)
+      .setSubscriptionKey(openAIAPIKey)
+    val rows = completion.transform(goodDf).collect()
+    assert(rows.length == goodDf.count())
+    rows.foreach { row =>
+      assert(Option(row.getAs[Row]("out")).isEmpty)
+      assert(Option(row.getAs[Row](completion.getErrorCol)).isDefined)
+      assert(Option(row.getAs[Row](completion.getErrorCol)).nonEmpty)
+    }
   }
 
   ignore("Custom EndPoint") {
@@ -173,6 +190,43 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     testCompletion(customEndpointCompletion, goodDf)
   }
+
+  test("shouldSkip method for Good and Bad Data") {
+    shouldSkipRowHelper(goodDf.collect(), expectedToBeSkipped = false)
+    shouldSkipRowHelper(slowDf.collect(), expectedToBeSkipped = false)
+    shouldSkipRowHelper(badDf.collect(), expectedToBeSkipped = true)
+
+    val dfWithSomeEmptyAndNonEmptyUserMessage = Seq(
+      Seq(
+        OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+        OpenAIMessage("user", ""),
+        OpenAIMessage("user", "Whats your favorite color")
+      )
+    ).toDF("messages")
+    shouldSkipRowHelper(dfWithSomeEmptyAndNonEmptyUserMessage.collect(), expectedToBeSkipped = false)
+
+    val dfWithEmptySystemMessage = Seq(
+      Seq(
+        OpenAIMessage("system", ""),
+        OpenAIMessage("user", "Whats your favorite color")
+      ),
+      Seq(
+        OpenAIMessage("system", null), //scalastyle:ignore null
+        OpenAIMessage("user", "Whats your favorite color")
+      ),
+      Seq(OpenAIMessage("user", "Whats your favorite color"))
+    ).toDF("messages")
+    shouldSkipRowHelper(dfWithEmptySystemMessage.collect(), expectedToBeSkipped = false)
+  }
+
+  def shouldSkipRowHelper(rows: Seq[Row], expectedToBeSkipped: Boolean): Unit = {
+    val completion = new OpenAIChatCompletion()
+      .setMessagesCol("messages")
+    for (r <- rows) {
+      assert(completion.shouldSkip(r) == expectedToBeSkipped)
+    }
+  }
+
 
   def testCompletion(completion: OpenAIChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = ChatCompletionResponse.makeFromRowConverter
