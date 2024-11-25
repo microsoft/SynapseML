@@ -217,6 +217,14 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       Seq(OpenAIMessage("user", "Whats your favorite color"))
     ).toDF("messages")
     shouldSkipRowHelper(dfWithEmptySystemMessage.collect(), expectedToBeSkipped = false)
+
+    val dfWithAssistantValidMessages = Seq(
+      Seq(
+        OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+        OpenAIMessage("assistant", "Whats your favorite color")
+      )
+    ).toDF("messages")
+    shouldSkipRowHelper(dfWithAssistantValidMessages.collect(), expectedToBeSkipped = false)
   }
 
   def shouldSkipRowHelper(rows: Seq[Row], expectedToBeSkipped: Boolean): Unit = {
