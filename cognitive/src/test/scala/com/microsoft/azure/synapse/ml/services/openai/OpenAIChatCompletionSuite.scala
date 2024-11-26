@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
@@ -149,6 +150,103 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+  }
+
+  test("getOptionalParam should include responseFormat"){
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+
+    def validateResponseFormat(params: Map[String, Any], responseFormat: String): Unit = {
+      val responseFormatPayloadName = this.completion.responseFormat.payloadName
+      assert(params.contains(responseFormatPayloadName))
+      val responseFormatMap = params(responseFormatPayloadName).asInstanceOf[Map[String, String]]
+      assert(responseFormatMap.contains("type"))
+      assert(responseFormatMap("type") == responseFormat)
+    }
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Whats your favorite color")
+    ).toDF("role", "content", "name").collect()
+
+    val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
+    assert(!optionalParams.contains("response_format"))
+
+    completion.setResponseFormat("")
+    val optionalParams0: Map[String, Any] = completion.getOptionalParams(messages.head)
+    assert(!optionalParams0.contains("response_format"))
+
+    completion.setResponseFormat("json_object")
+    val optionalParams1: Map[String, Any] = completion.getOptionalParams(messages.head)
+    validateResponseFormat(optionalParams1, "json_object")
+
+    completion.setResponseFormat("text")
+    val optionalParams2: Map[String, Any] = completion.getOptionalParams(messages.head)
+    validateResponseFormat(optionalParams2, "text")
+
+    completion.setResponseFormat(Map("type" -> "json_object"))
+    val optionalParams3: Map[String, Any] = completion.getOptionalParams(messages.head)
+    validateResponseFormat(optionalParams3, "json_object")
+
+    completion.setResponseFormat(OpenAIResponseFormat.TEXT)
+    val optionalParams4: Map[String, Any] = completion.getOptionalParams(messages.head)
+    validateResponseFormat(optionalParams4, "text")
+  }
+
+  test("setResponseFormat should throw exception if invalid format"){
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+
+    assertThrows[IllegalArgumentException] {
+      completion.setResponseFormat("invalid_format")
+    }
+
+    assertThrows[IllegalArgumentException] {
+      completion.setResponseFormat(Map("type" -> "invalid_format"))
+    }
+
+    assertThrows[IllegalArgumentException] {
+      completion.setResponseFormat(Map("invalid_key" -> "json_object"))
+    }
+  }
+
+  test("getStringEntity should add system message if response format is json_object") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setMessagesCol("messages")
+      .setResponseFormat("json_object")
+      .setTemperature(0.7)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Whats your favorite color")
+      ).toDF("role", "content", "name").collect()
+
+    val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
+
+    val expectedStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.JSON.prompt + "\"}"
+    val actualStringEntity = completion.getStringEntity(messages, optionalParams)
+    val actualJsonString = IOUtils.toString(actualStringEntity.getContent, "UTF-8")
+    assert(actualJsonString.contains(expectedStringExcerpt))
+  }
+
+  test("getStringEntity should not add system message if response format is not json_object") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setMessagesCol("messages")
+      .setResponseFormat("text")
+      .setTemperature(0.7)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Whats your favorite color")
+      ).toDF("role", "content", "name").collect()
+
+    val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
+
+    val textFormatStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.TEXT.prompt + "\"}"
+    val jsonFormatStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.JSON.prompt + "\"}"
+    val actualStringEntity = completion.getStringEntity(messages, optionalParams)
+    val actualJsonString = IOUtils.toString(actualStringEntity.getContent, "UTF-8")
+    assert(!actualJsonString.contains(textFormatStringExcerpt))
+    assert(!actualJsonString.contains(jsonFormatStringExcerpt))
   }
 
   ignore("Custom EndPoint") {

@@ -122,6 +122,30 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.get(0) != null))
   }
 
+  test("Basic Usage JSON - Gpt 4o with responseFormat") {
+    val promptGpt4o: OpenAIPrompt = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentNameGpt4o)
+      .setCustomServiceName(openAIServiceName)
+      .setOutputCol("outParsed")
+      .setTemperature(0)
+      .setResponseFormat(OpenAIResponseFormat.JSON)
+
+    promptGpt4o.setPromptTemplate(
+                """Split a word into prefix and postfix
+                  |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+                  |{text}:
+                  |""".stripMargin)
+              .setPostProcessing("json")
+               .setResponseFormat("json_object")
+              .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+              .transform(df)
+              .select("outParsed")
+              .where(col("outParsed").isNotNull)
+              .collect()
+              .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")

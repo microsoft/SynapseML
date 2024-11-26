@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAITextParams with HasMessagesInput
+  with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -138,6 +138,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       })
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
+          if (isSet(responseFormat)) {
+            chatCompletion.setResponseFormat(getResponseFormat)
+          }
           val messageColName = getMessagesCol
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
@@ -158,6 +161,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           }
 
         case completion: OpenAICompletion =>
+          if (isSet(responseFormat)) {
+            throw new IllegalArgumentException("responseFormat is not supported for completion models")
+          }
           val promptColName = df.withDerivativeCol("prompt")
           val dfTemplated = df.withColumn(promptColName, promptCol)
           val completionNamed = completion.setPromptCol(promptColName)
