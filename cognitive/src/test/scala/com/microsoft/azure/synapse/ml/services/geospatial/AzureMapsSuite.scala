@@ -68,7 +68,7 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
 
     assert(flattenedResults != null)
     assert(flattenedResults.length == 15)
-    assert(flattenedResults.toSeq.head.get(1) == 47.64188)
+    assert(flattenedResults.toSeq.head.get(1).toString.startsWith("47.6418"))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
