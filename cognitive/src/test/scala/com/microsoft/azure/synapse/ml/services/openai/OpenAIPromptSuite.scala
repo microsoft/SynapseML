@@ -106,6 +106,20 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
+  test("Basic Usage JSON - Gpt 4 without explicit post-processing") {
+    promptGpt4.setPromptTemplate(
+                """Split a word into prefix and postfix a respond in JSON
+                  |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+                  |{text}:
+                  |""".stripMargin)
+              .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
+              .transform(df)
+              .select("outParsed")
+              .where(col("outParsed").isNotNull)
+              .collect()
+              .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
   test("Setting and Keeping Messages Col - Gpt 4") {
     promptGpt4.setMessagesCol("messages")
       .setDropPrompt(false)
@@ -171,6 +185,46 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .select("outParsed")
       .collect()
       .count(r => Option(r.getSeq[String](0)).isDefined)
+  }
+
+  test("setPostProcessingOptions should set postProcessing to 'csv' for delimiter option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("delimiter" -> ","))
+    assert(prompt.getPostProcessing == "csv")
+  }
+
+  test("setPostProcessingOptions should set postProcessing to 'json' for jsonSchema option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
+    assert(prompt.getPostProcessing == "json")
+  }
+
+  test("setPostProcessingOptions should set postProcessing to 'regex' for regex option") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessingOptions(Map("regex" -> ".*", "regexGroup" -> "0"))
+    assert(prompt.getPostProcessing == "regex")
+  }
+
+  test("setPostProcessingOptions should throw IllegalArgumentException for invalid options") {
+    val prompt = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("invalidOption" -> "value"))
+    }
+  }
+
+  test("setPostProcessingOptions should validate regex options contain regexGroup key") {
+    val prompt = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("regex" -> ".*"))
+    }
+  }
+
+  test("setPostProcessingOptions should validate existing postProcessing value") {
+    val prompt = new OpenAIPrompt()
+    prompt.setPostProcessing("csv")
+    intercept[IllegalArgumentException] {
+      prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
+    }
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
