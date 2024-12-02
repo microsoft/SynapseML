@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting}
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
+import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.Row
@@ -302,7 +303,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 }
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
-  with HasOpenAISharedParams with OpenAIFabricSetting {
+  with HasOpenAISharedParams with OpenAIFabricSetting with HasCognitiveServiceInput {
   setDefault(timeout -> 360.0)
 
   private def usingDefaultOpenAIEndpoint(): Boolean = {
@@ -315,4 +316,6 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
     }
     super.getInternalTransformer(schema)
   }
+
+  private[openai] def prepareEntityAIService: Row => Option[AbstractHttpEntity] = this.prepareEntity
 }

@@ -131,9 +131,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
         .map({ row => openAIResultFromRow(row).choices.head })
-      val isFiltered = originalOutput
-        .map(output => Option(output.message.content).isEmpty)
-        .getOrElse(false)
+      val isFiltered = originalOutput.exists(output => Option(output.message.content).isEmpty)
 
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
@@ -208,14 +206,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002", "text-davinci-003",
     "code-cushman-001", "code-davinci-002")
 
-  private def openAICompletion: OpenAIServicesBase = {
+  /**
+   * This method is made available in the `openai` package for testing purposes.
+   */
+  private[openai] def openAICompletion: OpenAIServicesBase = {
 
     val completion: OpenAIServicesBase =
       if (legacyModels.contains(getDeploymentName)) {
         new OpenAICompletion()
       }
       else {
-        new OpenAIChatCompletion()
+        new OpenAIChatCompletion().setMessagesCol(getMessagesCol)
       }
     // apply all parameters
     extractParamMap().toSeq
@@ -225,23 +226,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     completion
   }
 
-  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
-    r =>
-      openAICompletion match {
-        case chatCompletion: OpenAIChatCompletion =>
-          chatCompletion.prepareEntity(r)
-        case completion: OpenAICompletion =>
-          completion.prepareEntity(r)
-      }
-  }
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = openAICompletion.prepareEntityAIService
 
   private def getParser: OutputParser = {
     val opts = getPostProcessingOptions
 
     getPostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
-      case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
-      case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
+      case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
+      case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
       case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
     }
