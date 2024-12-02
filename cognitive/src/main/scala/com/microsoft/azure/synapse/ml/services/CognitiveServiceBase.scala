@@ -10,7 +10,8 @@ import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, HasGlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.services.openai.OpenAIDeploymentNameKey
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
@@ -128,9 +129,13 @@ trait HasServiceParams extends Params {
   }
 }
 
+case object OpenAISubscriptionKey extends GlobalKey[Either[String, String]]
+
 trait HasSubscriptionKey extends HasServiceParams {
   val subscriptionKey = new ServiceParam[String](
     this, "subscriptionKey", "the API key to use")
+
+  GlobalParams.registerParam(subscriptionKey, OpenAISubscriptionKey)
 
   def getSubscriptionKey: String = getScalarParam(subscriptionKey)
 
