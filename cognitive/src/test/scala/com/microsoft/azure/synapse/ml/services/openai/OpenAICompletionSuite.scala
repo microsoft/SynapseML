@@ -17,6 +17,7 @@ trait OpenAIAPIKey {
   lazy val deploymentName: String = "gpt-35-turbo"
   lazy val modelName: String = "gpt-35-turbo"
   lazy val deploymentNameGpt4: String = "gpt-4"
+  lazy val deploymentNameGpt4o: String = "gpt-4o"
   lazy val modelNameGpt4: String = "gpt-4"
 }
 
