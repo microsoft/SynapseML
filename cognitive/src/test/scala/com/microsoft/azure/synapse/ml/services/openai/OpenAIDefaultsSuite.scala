@@ -11,12 +11,14 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   import spark.implicits._
 
   OpenAIDefaults.setDeploymentName(deploymentName)
+  OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
+  OpenAIDefaults.setTemperature(0.05)
+
 
   def promptCompletion: OpenAICompletion = new OpenAICompletion()
     .setCustomServiceName(openAIServiceName)
     .setMaxTokens(200)
     .setOutputCol("out")
-    .setSubscriptionKey(openAIAPIKey)
     .setPromptCol("prompt")
 
   lazy val promptDF: DataFrame = Seq(
@@ -33,10 +35,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
-    .setSubscriptionKey(openAIAPIKey)
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
-    .setTemperature(0)
 
   lazy val df: DataFrame = Seq(
     ("apple", "fruits"),
@@ -55,5 +55,11 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
       .count(r => Option(r.getSeq[String](0)).isDefined)
 
     assert(nonNullCount == 3)
+  }
+
+  test("OpenAIPrompt Check Params") {
+    assert(prompt.getDeploymentName == deploymentName)
+    assert(prompt.getSubscriptionKey == openAIAPIKey)
+    assert(prompt.getTemperature == 0.05)
   }
 }
