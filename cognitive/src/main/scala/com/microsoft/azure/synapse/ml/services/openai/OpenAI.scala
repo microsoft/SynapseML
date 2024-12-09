@@ -104,6 +104,8 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
   }
 }
 
+case object OpenAITemperatureKey extends GlobalKey[Either[Double, String]]
+
 trait HasOpenAITextParams extends HasOpenAISharedParams {
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -126,6 +128,8 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
       " Try 0.9 for more creative applications, and 0 (argmax sampling) for ones with a well-defined answer." +
       " We generally recommend using this or `top_p` but not both. Minimum of 0 and maximum of 2 allowed.",
     isRequired = false)
+
+  GlobalParams.registerParam(temperature, OpenAITemperatureKey)
 
   def getTemperature: Double = getScalarParam(temperature)
 
