@@ -18,4 +18,23 @@ object OpenAIDefaults {
   def setTemperature(v: Double): Unit = {
     GlobalParams.setGlobalParam(OpenAITemperatureKey, Left(v))
   }
+
+  private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {
+    optEither match {
+      case Some(Left(v)) => Some(v)
+      case _ => None
+    }
+  }
+
+  def getDeploymentName(): Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAIDeploymentNameKey))
+  }
+
+  def getSubscriptionKey(): Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAISubscriptionKey))
+  }
+
+  def getTemperature(): Option[Double] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAITemperatureKey))
+  }
 }

@@ -55,9 +55,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
       .count(r => Option(r.getSeq[String](0)).isDefined)
 
     assert(nonNullCount == 3)
-  }
 
-  test("OpenAIPrompt Check Params") {
     assert(prompt.getDeploymentName == deploymentName)
     assert(prompt.getSubscriptionKey == openAIAPIKey)
     assert(prompt.getTemperature == 0.05)
