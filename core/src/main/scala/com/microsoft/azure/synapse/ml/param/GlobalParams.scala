@@ -22,6 +22,10 @@ object GlobalParams {
     GlobalParams.get(key.asInstanceOf[GlobalKey[Any]]).map(_.asInstanceOf[T])
   }
 
+  def resetGlobalParam[T](key: GlobalKey[T]): Unit = {
+    GlobalParams -= key
+  }
+
   def getParam[T](p: Param[T]): Option[T] = {
     ParamToKeyMap.get(p).flatMap { key =>
       key match {

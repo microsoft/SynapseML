@@ -10,11 +10,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
 
   import spark.implicits._
 
-  OpenAIDefaults.setDeploymentName(deploymentName)
-  OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
-  OpenAIDefaults.setTemperature(0.05)
-
-
   def promptCompletion: OpenAICompletion = new OpenAICompletion()
     .setCustomServiceName(openAIServiceName)
     .setMaxTokens(200)
@@ -28,6 +23,10 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   ).toDF("prompt")
 
   test("Completion w Globals") {
+    OpenAIDefaults.setDeploymentName(deploymentName)
+    OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
+    OpenAIDefaults.setTemperature(0.05)
+
     val fromRow = CompletionResponse.makeFromRowConverter
     promptCompletion.transform(promptDF).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
@@ -46,6 +45,10 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   ).toDF("text", "category")
 
   test("OpenAIPrompt w Globals") {
+    OpenAIDefaults.setDeploymentName(deploymentName)
+    OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
+    OpenAIDefaults.setTemperature(0.05)
+
     val nonNullCount = prompt
       .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
       .setPostProcessing("csv")
@@ -59,5 +62,25 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(prompt.getDeploymentName == deploymentName)
     assert(prompt.getSubscriptionKey == openAIAPIKey)
     assert(prompt.getTemperature == 0.05)
+  }
+
+  test("Test Getters") {
+    assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
+    assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
+    assert(OpenAIDefaults.getTemperature.contains(0.05))
+  }
+
+  test("Test Resetters") {
+    OpenAIDefaults.setDeploymentName(deploymentName)
+    OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
+    OpenAIDefaults.setTemperature(0.05)
+
+    OpenAIDefaults.resetDeploymentName()
+    OpenAIDefaults.resetSubscriptionKey()
+    OpenAIDefaults.resetTemperature()
+
+    assert(OpenAIDefaults.getDeploymentName.isEmpty)
+    assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
+    assert(OpenAIDefaults.getTemperature.isEmpty)
   }
 }
