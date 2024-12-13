@@ -1,4 +1,4 @@
-![SynapseML](https://mmlspark.azureedge.net/icons/mmlspark.svg)
+![SynapseML](https://mmlspark.blob.core.windows.net/icons/mmlspark.svg)
 
 # Synapse Machine Learning
 
@@ -97,7 +97,7 @@ In Microsoft Fabric notebooks SynapseML is already installed. To change the vers
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:<THE_SYNAPSEML_VERSION_YOU_WANT>",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -120,7 +120,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.8",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -136,7 +136,7 @@ In Azure Synapse notebooks please place the following in the first cell of your 
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -156,7 +156,7 @@ coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-fro
 in your workspace.
 
 For the coordinates use: `com.microsoft.azure:synapseml_2.12:1.0.8`
-with the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
+with the resolver: `https://mmlspark.blob.core.windows.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
 Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12. If you encounter Netty dependency issues please use DBR 10.1.

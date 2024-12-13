@@ -22,7 +22,7 @@ To install the current SynapseML package for R, first install synapseml-core:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-core-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-core-0.11.0.zip")
 ...
 ```
 
@@ -38,11 +38,11 @@ In other words:
 
 ```R
 ...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-cognitive-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-deep-learning-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-lightgbm-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-opencv-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-vw-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-cognitive-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-deep-learning-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-lightgbm-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-opencv-0.11.0.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-vw-0.11.0.zip")
 ...
 ```
 
@@ -120,7 +120,7 @@ and then use spark_connect with method = "databricks":
 
 ```R
 install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-0.11.4.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-0.11.4.zip")
 library(sparklyr)
 library(dplyr)
 sc <- spark_connect(method = "databricks")

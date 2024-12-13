@@ -19,7 +19,7 @@ To learn more about the Isolation Forest model please refer to the original pape
 #   "name": "synapseml",
 #   "conf": {
 #       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:<THE_SYNAPSEML_VERSION_YOU_WANT>",
-#       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+#       "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
 #       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
 #       "spark.yarn.user.classpath.first": "true",
 #       "spark.sql.parquet.enableVectorizedReader": "false"

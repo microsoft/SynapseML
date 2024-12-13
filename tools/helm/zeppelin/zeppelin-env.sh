@@ -71,7 +71,7 @@ export MASTER="${SPARK_MASTER:=local[*]}"
 ## defining SPARK_HOME makes Zeppelin run spark interpreter process using spark-submit
 ##
 export SPARK_HOME=/opt/spark/                            # (required) When it is defined, load it instead of Zeppelin embedded Spark libraries
-# export SPARK_SUBMIT_OPTIONS="--packages com.microsoft.ml.spark:mmlspark_2.11:0.14.dev42 --repositories https://mmlspark.azureedge.net/maven"                 # (optional) extra options to pass to spark submit. eg) "--driver-memory 512M --executor-memory 1G".
+# export SPARK_SUBMIT_OPTIONS="--packages com.microsoft.ml.spark:mmlspark_2.11:0.14.dev42 --repositories https://mmlspark.blob.core.windows.net/maven"                 # (optional) extra options to pass to spark submit. eg) "--driver-memory 512M --executor-memory 1G".
 # export SPARK_APP_NAME                         # (optional) The name of spark application.
 
 ## Use embedded spark binaries ##
