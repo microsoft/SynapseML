@@ -19,9 +19,9 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
 
-        self.assertEqual(defaults.getDeploymentName(), "Bing Bong")
-        self.assertEqual(defaults.getSubscriptionKey, "SubKey")
-        self.assertEqual(defaults.getTemperature, 0.05)
+        self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
+        self.assertEqual(defaults.get_subscription_key(), "SubKey")
+        self.assertEqual(defaults.get_temperature(), 0.05)
 
 if __name__ == "__main__":
     result = unittest.main()

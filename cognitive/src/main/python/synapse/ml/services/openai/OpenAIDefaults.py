@@ -9,6 +9,12 @@ if sys.version >= "3":
 import pyspark
 from pyspark import SparkContext
 
+def getOption(opt):
+    if opt.isDefined():
+        return opt.get()
+    else:
+        return None
+
 class OpenAIDefaults:
     def __init__(self):
         self.defaults = SparkContext.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults
@@ -17,7 +23,7 @@ class OpenAIDefaults:
         self.defaults.setDeploymentName(name)
 
     def get_deployment_name(self):
-        self.defaults.getDeploymentName()
+        return getOption(self.defaults.getDeploymentName())
 
     def reset_deployment_name(self):
         self.defaults.resetDeploymentName()
@@ -26,7 +32,7 @@ class OpenAIDefaults:
         self.defaults.setSubscriptionKey(key)
 
     def get_subscription_key(self):
-        self.defaults.getSubscriptionKey()
+        return getOption(self.defaults.getSubscriptionKey())
 
     def reset_subscription_key(self):
         self.defaults.resetSubscriptionKey()
@@ -35,7 +41,7 @@ class OpenAIDefaults:
         self.defaults.setTemperature(temp)
 
     def get_temperature(self):
-        self.defaults.getTemperature()
+        return getOption(self.defaults.getTemperature())
 
     def reset_temperature(self):
         self.defaults.resetTemperature()
