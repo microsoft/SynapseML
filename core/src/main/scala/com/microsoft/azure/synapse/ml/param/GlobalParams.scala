@@ -18,8 +18,12 @@ object GlobalParams {
     GlobalParams(key) = value
   }
 
-  private def getGlobalParam[T](key: GlobalKey[T]): Option[T] = {
+  def getGlobalParam[T](key: GlobalKey[T]): Option[T] = {
     GlobalParams.get(key.asInstanceOf[GlobalKey[Any]]).map(_.asInstanceOf[T])
+  }
+
+  def resetGlobalParam[T](key: GlobalKey[T]): Unit = {
+    GlobalParams -= key
   }
 
   def getParam[T](p: Param[T]): Option[T] = {
