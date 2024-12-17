@@ -9,15 +9,19 @@ if sys.version >= "3":
 import pyspark
 from pyspark import SparkContext
 
+
 def getOption(opt):
     if opt.isDefined():
         return opt.get()
     else:
         return None
 
+
 class OpenAIDefaults:
     def __init__(self):
-        self.defaults = SparkContext.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults
+        self.defaults = (
+            SparkContext.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults
+        )
 
     def set_deployment_name(self, name):
         self.defaults.setDeploymentName(name)
