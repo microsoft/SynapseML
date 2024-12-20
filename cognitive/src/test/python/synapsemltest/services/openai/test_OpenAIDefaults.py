@@ -21,10 +21,12 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("Bing Bong")
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
+        defaults.set_URL("Test URL")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
+        self.assertEqual(defaults.get_URL(), "Test URL")
 
     def test_resetters(self):
         defaults = OpenAIDefaults()
@@ -32,18 +34,22 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("Bing Bong")
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
+        defaults.set_URL("Test URL")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
+        self.assertEqual(defaults.get_URL(), "Test URL")
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
         defaults.reset_temperature()
+        defaults.reset_URL()
 
         self.assertEqual(defaults.get_deployment_name(), None)
         self.assertEqual(defaults.get_subscription_key(), None)
         self.assertEqual(defaults.get_temperature(), None)
+        self.assertEqual(defaults.get_URL(), None)
 
     def test_two_defaults(self):
         defaults = OpenAIDefaults()
@@ -78,10 +84,10 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("gpt-35-turbo-0125")
         defaults.set_subscription_key(openai_api_key)
         defaults.set_temperature(0.05)
+        defaults.set_URL("https://synapseml-openai-2.openai.azure.com/")
 
         prompt = OpenAIPrompt()
         prompt = prompt.setOutputCol("outParsed")
-        prompt = prompt.setCustomServiceName("synapseml-openai-2")
         prompt = prompt.setPromptTemplate("Complete this comma separated list of 5 {category}: {text}, ")
         results = prompt.transform(df)
         results.select("outParsed").show(truncate = False)

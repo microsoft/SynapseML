@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.param.GlobalParams
 import com.microsoft.azure.synapse.ml.services.OpenAISubscriptionKey
+import com.microsoft.azure.synapse.ml.io.http.URLKey
 
 object OpenAIDefaults {
   def setDeploymentName(v: String): Unit = {
@@ -41,6 +42,18 @@ object OpenAIDefaults {
 
   def resetTemperature(): Unit = {
     GlobalParams.resetGlobalParam(OpenAITemperatureKey)
+  }
+
+  def setURL(v: String): Unit = {
+    GlobalParams.setGlobalParam(URLKey, v)
+  }
+
+  def getURL: Option[String] = {
+    GlobalParams.getGlobalParam(URLKey)
+  }
+
+  def resetURL(): Unit = {
+    GlobalParams.resetGlobalParam(URLKey)
   }
 
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {

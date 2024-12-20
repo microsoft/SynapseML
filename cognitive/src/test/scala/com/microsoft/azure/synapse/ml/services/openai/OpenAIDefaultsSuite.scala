@@ -11,7 +11,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   import spark.implicits._
 
   def promptCompletion: OpenAICompletion = new OpenAICompletion()
-    .setCustomServiceName(openAIServiceName)
     .setMaxTokens(200)
     .setOutputCol("out")
     .setPromptCol("prompt")
@@ -26,6 +25,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
     OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     val fromRow = CompletionResponse.makeFromRowConverter
     promptCompletion.transform(promptDF).collect().foreach(r =>
@@ -34,7 +34,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
-    .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
 
   lazy val df: DataFrame = Seq(
@@ -48,6 +47,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
     OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     val nonNullCount = prompt
       .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
@@ -65,22 +65,31 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   }
 
   test("Test Getters") {
+    OpenAIDefaults.setDeploymentName(deploymentName)
+    OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
+    OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
+
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
     assert(OpenAIDefaults.getTemperature.contains(0.05))
+    assert(OpenAIDefaults.getURL.contains(s"https://$openAIServiceName.openai.azure.com/"))
   }
 
   test("Test Resetters") {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
     OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
     OpenAIDefaults.resetTemperature()
+    OpenAIDefaults.resetURL()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
     assert(OpenAIDefaults.getTemperature.isEmpty)
+    assert(OpenAIDefaults.getURL.isEmpty)
   }
 }

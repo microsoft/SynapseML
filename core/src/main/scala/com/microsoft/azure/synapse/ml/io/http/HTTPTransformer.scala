@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.UDFParam
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, UDFParam}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
@@ -76,9 +76,13 @@ trait ConcurrencyParams extends Wrappable {
   setDefault(concurrency -> 1, timeout -> 60.0)
 }
 
+case object URLKey extends GlobalKey[String]
+
 trait HasURL extends Params {
 
   val url: Param[String] = new Param[String](this, "url", "Url of the service")
+
+  GlobalParams.registerParam(url, URLKey)
 
   /** @group getParam */
   def getUrl: String = $(url)

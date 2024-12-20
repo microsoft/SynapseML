@@ -49,3 +49,12 @@ class OpenAIDefaults:
 
     def reset_temperature(self):
         self.defaults.resetTemperature()
+
+    def set_URL(self, URL):
+        self.defaults.setURL(URL)
+
+    def get_URL(self):
+        return getOption(self.defaults.getURL())
+
+    def reset_URL(self):
+        self.defaults.resetURL()
