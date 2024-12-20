@@ -3,7 +3,7 @@
 
 from synapse.ml.services.openai.OpenAIDefaults import OpenAIDefaults
 from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
-import unittest,os, json, subprocess
+import unittest, os, json, subprocess
 from pyspark.sql import SQLContext
 from pyspark.sql.functions import col
 
@@ -74,11 +74,14 @@ class TestOpenAIDefaults(unittest.TestCase):
         )
         openai_api_key = json.loads(secretJson)["value"]
 
-        df = spark.createDataFrame([
-            ("apple", "fruits"),
-            ("mercedes", "cars"),
-            ("cake", "dishes"),
-        ], ["text", "category"])
+        df = spark.createDataFrame(
+            [
+                ("apple", "fruits"),
+                ("mercedes", "cars"),
+                ("cake", "dishes"),
+            ],
+            ["text", "category"],
+        )
 
         defaults = OpenAIDefaults()
         defaults.set_deployment_name("gpt-35-turbo-0125")
@@ -88,11 +91,13 @@ class TestOpenAIDefaults(unittest.TestCase):
 
         prompt = OpenAIPrompt()
         prompt = prompt.setOutputCol("outParsed")
-        prompt = prompt.setPromptTemplate("Complete this comma separated list of 5 {category}: {text}, ")
+        prompt = prompt.setPromptTemplate(
+            "Complete this comma separated list of 5 {category}: {text}, "
+        )
         results = prompt.transform(df)
-        results.select("outParsed").show(truncate = False)
+        results.select("outParsed").show(truncate=False)
         nonNullCount = results.filter(col("outParsed").isNotNull()).count()
-        assert (nonNullCount == 3)
+        assert nonNullCount == 3
 
 
 if __name__ == "__main__":
