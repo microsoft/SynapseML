@@ -42,7 +42,7 @@ class OpenAIDefaults:
         self.defaults.resetSubscriptionKey()
 
     def set_temperature(self, temp):
-        self.defaults.setTemperature(temp)
+        self.defaults.setTemperature(float(temp))
 
     def get_temperature(self):
         return getOption(self.defaults.getTemperature())
