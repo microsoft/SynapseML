@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.StringStringMapParam
+import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -28,7 +28,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
-  with ComplexParamsWritable with SynapseMLLogging {
+  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams {
 
   logClass(FeatureNames.AiServices.OpenAI)
 
@@ -60,7 +60,32 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getPostProcessingOptions: Map[String, String] = $(postProcessingOptions)
 
-  def setPostProcessingOptions(value: Map[String, String]): this.type = set(postProcessingOptions, value)
+  def setPostProcessingOptions(value: Map[String, String]): this.type = {
+    // Helper method to set or validate the postProcessing parameter
+    def setOrValidatePostProcessing(expected: String): Unit = {
+      if (isSet(postProcessing)) {
+        require(getPostProcessing == expected, s"postProcessing must be '$expected'")
+      } else {
+        set(postProcessing, expected)
+      }
+    }
+
+    // Match on the keys in the provided value map to set the appropriate post-processing option
+    value match {
+      case v if v.contains("delimiter") =>
+        setOrValidatePostProcessing("csv")
+      case v if v.contains("jsonSchema") =>
+        setOrValidatePostProcessing("json")
+      case v if v.contains("regex") =>
+        require(v.contains("regexGroup"), "regexGroup must be specified with regex")
+        setOrValidatePostProcessing("regex")
+      case _ =>
+        throw new IllegalArgumentException("Invalid post processing options")
+    }
+
+    // Set the postProcessingOptions parameter with the provided value map
+    set(postProcessingOptions, value)
+  }
 
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
     set(postProcessingOptions, v.asScala.toMap)
@@ -124,7 +149,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-
+    transferGlobalParamsToParamMap()
     logTransform[DataFrame]({
       val df = dataset.toDF
 

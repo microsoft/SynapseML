@@ -10,7 +10,8 @@ import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.ServiceParam
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, HasGlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.services.openai.OpenAIDeploymentNameKey
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
@@ -128,9 +129,13 @@ trait HasServiceParams extends Params {
   }
 }
 
+case object OpenAISubscriptionKey extends GlobalKey[Either[String, String]]
+
 trait HasSubscriptionKey extends HasServiceParams {
   val subscriptionKey = new ServiceParam[String](
     this, "subscriptionKey", "the API key to use")
+
+  GlobalParams.registerParam(subscriptionKey, OpenAISubscriptionKey)
 
   def getSubscriptionKey: String = getScalarParam(subscriptionKey)
 
@@ -493,7 +498,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   with HasURL with ComplexParamsWritable
   with HasSubscriptionKey with HasErrorCol
   with HasAADToken with HasCustomCogServiceDomain
-  with SynapseMLLogging {
+  with SynapseMLLogging with HasGlobalParams {
 
   setDefault(
     outputCol -> (this.uid + "_output"),
@@ -547,6 +552,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    transferGlobalParamsToParamMap()
     logTransform[DataFrame](getInternalTransformer(dataset.schema).transform(dataset), dataset.columns.length
     )
   }
