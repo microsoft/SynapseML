@@ -39,7 +39,7 @@ object BlobMavenPlugin extends AutoPlugin {
          | `${organization.value}:${moduleName.value}_${scalaBinaryVersion.value}:${version.value}`
          |
          |### Maven Resolver
-         | `https://mmlspark.azureedge.net/maven`
+         | `https://mmlspark.blob.core.windows.net/maven`
          |""".stripMargin
     }
   )

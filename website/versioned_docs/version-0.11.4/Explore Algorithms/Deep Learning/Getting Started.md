@@ -27,7 +27,7 @@ pip install synapseml==0.11.4
 An alternative is installing the SynapseML jar package in library management section, by adding:
 ```
 Coordinate: com.microsoft.azure:synapseml_2.12:0.11.4
-Repository: https://mmlspark.azureedge.net/maven
+Repository: https://mmlspark.blob.core.windows.net/maven
 ```
 :::note
 If you install the jar package, follow the first two cells of this [sample](../Quickstart%20-%20Fine-tune%20a%20Vision%20Classifier#environment-setup----reinstall-horovod-based-on-new-version-of-pytorch)

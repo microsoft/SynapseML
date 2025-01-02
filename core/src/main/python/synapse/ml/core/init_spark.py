@@ -16,7 +16,7 @@ def init_spark():
             + __spark_package_version__
             + ",org.apache.spark:spark-avro_2.12:3.4.1",
         )
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .config("spark.jars.repositories", "https://mmlspark.blob.core.windows.net/maven")
         .config("spark.executor.heartbeatInterval", "60s")
         .config("spark.sql.shuffle.partitions", 10)
         .config("spark.sql.crossJoin.enabled", "true")
