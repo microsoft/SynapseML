@@ -254,7 +254,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       .setDeploymentName(deploymentNameGpt4o)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2023-05-15")
-      .setMaxTokens(5000)
+      .setMaxTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
