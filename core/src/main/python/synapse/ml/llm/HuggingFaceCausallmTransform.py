@@ -18,12 +18,6 @@ import subprocess
 import shutil
 import sys
 
-# from pyspark.ml import Transformer
-# from pyspark.ml.param.shared import HasInputCol, HasOutputCol
-# from pyspark.sql.types import StructType, StructField, StringType
-# from pyspark.sql import Row
-# from transformers import AutoTokenizer, AutoModelForCausalLM
-# from functools import lru_cache
 class Peekable:
     def __init__(self, iterable):
         self._iterator = iter(iterable)
