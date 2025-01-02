@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAITextParams with HasMessagesInput
+  with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -131,9 +131,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
         .map({ row => openAIResultFromRow(row).choices.head })
-      val isFiltered = originalOutput
-        .map(output => Option(output.message.content).isEmpty)
-        .getOrElse(false)
+      val isFiltered = originalOutput.exists(output => Option(output.message.content).isEmpty)
 
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
@@ -163,6 +161,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       })
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
+          if (isSet(responseFormat)) {
+            chatCompletion.setResponseFormat(getResponseFormat)
+          }
           val messageColName = getMessagesCol
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
@@ -183,6 +184,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           }
 
         case completion: OpenAICompletion =>
+          if (isSet(responseFormat)) {
+            throw new IllegalArgumentException("responseFormat is not supported for completion models")
+          }
           val promptColName = df.withDerivativeCol("prompt")
           val dfTemplated = df.withColumn(promptColName, promptCol)
           val completionNamed = completion.setPromptCol(promptColName)
@@ -240,8 +244,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     getPostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
-      case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
-      case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
+      case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
+      case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
       case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
     }
