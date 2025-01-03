@@ -143,21 +143,20 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setCustomServiceName(openAIServiceName)
       .setOutputCol("outParsed")
       .setTemperature(0)
-      .setResponseFormat(OpenAIResponseFormat.JSON)
+      .setPromptTemplate(
+        """Split a word into prefix and postfix
+          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
+          |{text}:
+          |""".stripMargin)
+      .setResponseFormat("json_object")
+      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
 
-    promptGpt4o.setPromptTemplate(
-                """Split a word into prefix and postfix
-                  |Cherry: {{"prefix": "Che", "suffix": "rry"}}
-                  |{text}:
-                  |""".stripMargin)
-              .setPostProcessing("json")
-              .setResponseFormat("json_object")
-              .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
-              .transform(df)
-              .select("outParsed")
-              .where(col("outParsed").isNotNull)
-              .collect()
-              .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+
+    promptGpt4o.transform(df)
+               .select("outParsed")
+               .where(col("outParsed").isNotNull)
+               .collect()
+               .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
   test("if responseFormat is set then appropriate system prompt should be present") {
