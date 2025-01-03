@@ -10,13 +10,13 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 
 import scala.collection.JavaConverters._
 
@@ -152,18 +152,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val df = dataset.toDF
       val completion = openAICompletion
       val promptCol = Functions.template(getPromptTemplate)
-      val createMessagesUDF = udf((userMessage: String) => {
-        Seq(
-          OpenAIMessage("system", getSystemPrompt),
-          OpenAIMessage("user", userMessage)
-        )
-      })
+
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
           if (isSet(responseFormat)) {
             chatCompletion.setResponseFormat(getResponseFormat)
           }
           val messageColName = getMessagesCol
+          val createMessagesUDF = udf((userMessage: String) => {
+            getPromptsForMessage(userMessage)
+          })
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
@@ -203,6 +201,26 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           }
       }
     }, dataset.columns.length)
+  }
+
+  // If the response format is set, add a system prompt to the messages. This is required by the
+  // OpenAI api. If the reponseFormat is json and the prompt does not contain string 'JSON' then 400 error is returned
+  // For this reason we add a system prompt to the messages.
+  // This method is made private[openai] for testing purposes
+  private[openai] def getPromptsForMessage(userMessage: String) = {
+    val basePrompts = Seq(
+      OpenAIMessage("system", getSystemPrompt),
+      OpenAIMessage("user", userMessage)
+      )
+
+    if (isSet(responseFormat)) {
+      val responseFormatPrompt = OpenAIResponseFormat
+        .fromResponseFormatString(getResponseFormat("type"))
+        .prompt
+      basePrompts :+ OpenAIMessage("system", responseFormatPrompt)
+    } else {
+      basePrompts
+    }
   }
 
   private val legacyModels = Set("ada", "babbage", "curie", "davinci",

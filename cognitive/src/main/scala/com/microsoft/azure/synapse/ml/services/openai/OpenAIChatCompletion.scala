@@ -25,6 +25,18 @@ object OpenAIResponseFormat extends Enumeration {
 
   def asStringSet: Set[String] =
     OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
+
+  def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
+    if (TEXT.paylodName== format) {
+      TEXT
+    } else if (JSON.paylodName == format) {
+      JSON
+    } else {
+      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
+                                         "Currently supported formats are " +
+                                         asStringSet.mkString(", "))
+    }
+  }
 }
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
@@ -124,27 +136,13 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override def responseDataType: DataType = ChatCompletionResponse.schema
 
-  // This method is used to convert the messages into a format that the OpenAI API can understand. The
-  // StringEntity returned by this method is in JSON format.
-  // It is marked as package private so that it can be tested.
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
       Seq("role", "content", "name").map(n =>
         n -> Option(m.getAs[String](n))
       ).toMap.filter(_._2.isDefined).mapValues(_.get)
     }
-
-    val mappedMessagesWithAdditionalMessages = {
-      // if response format is JSON, then openAI expects the prompt to contain instruction to return JSON
-      // for this reason, we add an additional message to the system prompt to ensure that the response is in JSON
-      if (isSet(responseFormat) && getResponseFormat("type") == OpenAIResponseFormat.JSON.paylodName) {
-        mappedMessages :+ Map("role" -> "system",
-                              "content" -> OpenAIResponseFormat.JSON.prompt)
-      } else {
-        mappedMessages
-      }
-    }
-    val fullPayload = optionalParams.updated("messages", mappedMessagesWithAdditionalMessages)
+    val fullPayload = optionalParams.updated("messages", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 

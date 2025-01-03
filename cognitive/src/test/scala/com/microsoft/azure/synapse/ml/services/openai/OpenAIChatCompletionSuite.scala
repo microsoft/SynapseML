@@ -209,46 +209,6 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     }
   }
 
-  test("getStringEntity should add system message if response format is json_object") {
-    val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameGpt4)
-      .setMessagesCol("messages")
-      .setResponseFormat("json_object")
-      .setTemperature(0.7)
-
-    val messages: Seq[Row] = Seq(
-      OpenAIMessage("user", "Whats your favorite color")
-      ).toDF("role", "content", "name").collect()
-
-    val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
-
-    val expectedStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.JSON.prompt + "\"}"
-    val actualStringEntity = completion.getStringEntity(messages, optionalParams)
-    val actualJsonString = IOUtils.toString(actualStringEntity.getContent, "UTF-8")
-    assert(actualJsonString.contains(expectedStringExcerpt))
-  }
-
-  test("getStringEntity should not add system message if response format is not json_object") {
-    val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameGpt4)
-      .setMessagesCol("messages")
-      .setResponseFormat("text")
-      .setTemperature(0.7)
-
-    val messages: Seq[Row] = Seq(
-      OpenAIMessage("user", "Whats your favorite color")
-      ).toDF("role", "content", "name").collect()
-
-    val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
-
-    val textFormatStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.TEXT.prompt + "\"}"
-    val jsonFormatStringExcerpt = """{"role":"system","content":""" +"\"" + OpenAIResponseFormat.JSON.prompt + "\"}"
-    val actualStringEntity = completion.getStringEntity(messages, optionalParams)
-    val actualJsonString = IOUtils.toString(actualStringEntity.getContent, "UTF-8")
-    assert(!actualJsonString.contains(textFormatStringExcerpt))
-    assert(!actualJsonString.contains(jsonFormatStringExcerpt))
-  }
-
   test("validate that gpt4o accepts json_object response format") {
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentNameGpt4o)

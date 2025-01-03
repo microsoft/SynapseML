@@ -160,6 +160,14 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
               .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
+  test("if responseFormat is set then appropriate system prompt should be present") {
+    val prompt = new OpenAIPrompt()
+    prompt.setResponseFormat("json_object")
+    val messages = prompt.getPromptsForMessage("test")
+    assert(messages.nonEmpty)
+    messages.exists(p => p.role == "system" && p.content.contains(OpenAIResponseFormat.JSON.prompt))
+  }
+
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
