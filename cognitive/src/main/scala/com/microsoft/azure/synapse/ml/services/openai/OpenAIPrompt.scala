@@ -219,7 +219,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     // apply all parameters
     extractParamMap().toSeq
-      .filter(p => !localParamNames.contains(p.param.name))
+      .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     completion
