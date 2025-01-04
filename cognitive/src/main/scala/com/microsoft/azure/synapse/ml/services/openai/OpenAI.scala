@@ -277,25 +277,22 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   def setBestOfCol(v: String): this.type = setVectorParam(bestOf, v)
 
-  // list of shared text parameters. In method getOptionalParams, we will iterate over these parameters
-  // to compute the optional parameters. Since this list never changes, we can create it once and reuse it.
-  private val sharedTextParams = Seq(
-    maxTokens,
-    temperature,
-    topP,
-    user,
-    n,
-    echo,
-    stop,
-    cacheLevel,
-    presencePenalty,
-    frequencyPenalty,
-    bestOf,
-    logProbs
-  )
-
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    sharedTextParams.flatMap { param =>
+    // list of shared text parameters. we iterate over these parameters to compute the optional parameters.
+    Seq(
+      maxTokens,
+      temperature,
+      topP,
+      user,
+      n,
+      echo,
+      stop,
+      cacheLevel,
+      presencePenalty,
+      frequencyPenalty,
+      bestOf,
+      logProbs
+    ).flatMap { param =>
       getValueOpt(r, param).map { value => param.payloadName -> value }
     }.toMap
   }
