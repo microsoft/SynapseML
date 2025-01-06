@@ -174,8 +174,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
                 .getField("message").getField("content")))
             .drop(completionNamed.getOutputCol)
-
-          // move error col to back of df
           val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
           if (getDropPrompt) {
             resultsFinal.drop(messageColName)
@@ -189,15 +187,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           val promptColName = df.withDerivativeCol("prompt")
           val dfTemplated = df.withColumn(promptColName, promptCol)
           val completionNamed = completion.setPromptCol(promptColName)
-          // run completion
           val results = completionNamed
             .transform(dfTemplated)
             .withColumn(getOutputCol,
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
                 .getField("text")))
             .drop(completionNamed.getOutputCol)
-
-          // move error col to back of df
           val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
           if (getDropPrompt) {
             resultsFinal.drop(promptColName)
