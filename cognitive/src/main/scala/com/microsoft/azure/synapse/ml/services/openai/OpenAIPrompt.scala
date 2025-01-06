@@ -111,7 +111,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     postProcessing -> "",
     postProcessingOptions -> Map.empty,
     outputCol -> (this.uid + "_output"),
-    errorCol -> "gen_error",
+    errorCol -> (this.uid + "_error"),
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
@@ -152,9 +152,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val df = dataset.toDF
       val completion = openAICompletion
       val promptCol = Functions.template(getPromptTemplate)
-      val newErrorCol = df.withDerivativeCol(getErrorCol)
-      setErrorCol(newErrorCol)
-      completion.setErrorCol(newErrorCol)
+
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
           if (isSet(responseFormat)) {
