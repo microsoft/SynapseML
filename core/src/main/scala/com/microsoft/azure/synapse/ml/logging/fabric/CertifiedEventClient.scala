@@ -19,16 +19,14 @@ object CertifiedEventClient {
 
 
   private[ml] def logToCertifiedEvents(featureName: String,
-                                       activityName: String,
-                                       attributes: Map[String, String]): Unit = {
-
+                                       activityName: String): Unit = {
     if (runningOnFabric) {
       val payload =
         s"""{
            |"timestamp":${Instant.now().getEpochSecond},
            |"feature_name":"$featureName",
            |"activity_name":"$activityName",
-           |"attributes":${attributes.toJson.compactPrint}
+           |"attributes":{}
            |}""".stripMargin
 
       FabricClient.usagePost(CertifiedEventUri, payload)
