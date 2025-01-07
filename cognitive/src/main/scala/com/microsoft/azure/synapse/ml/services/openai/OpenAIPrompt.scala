@@ -16,7 +16,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
 
 import scala.collection.JavaConverters._
 
@@ -265,7 +265,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    openAICompletion match {
+    val transformedSchema = openAICompletion match {
       case chatCompletion: OpenAIChatCompletion =>
         chatCompletion
           .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
@@ -275,6 +275,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           .transformSchema(schema)
           .add(getPostProcessing, getParser.outputSchema)
     }
+
+   // Move error column to back
+    val errorFieldOpt: Option[StructField] = transformedSchema.fields.find(_.name == getErrorCol)
+    val fieldsWithoutError: Array[StructField] = transformedSchema.fields.filterNot(_.name == getErrorCol)
+    val reorderedFields = Array.concat(fieldsWithoutError, errorFieldOpt.toArray)
+    StructType(reorderedFields)
   }
 }
 
