@@ -19,7 +19,7 @@ object PackageUtils {
   val PackageName = s"synapseml_$ScalaVersionSuffix"
   val PackageMavenCoordinate = s"$PackageGroup:$PackageName:${BuildInfo.version}"
   // Use a fixed version for local testing
-  // val PackageMavenCoordinate = s"$PackageGroup:$PackageName:1.0.8"
+  // val PackageMavenCoordinate = s"$PackageGroup:$PackageName:1.0.9"
 
   private val AvroCoordinate = "org.apache.spark:spark-avro_2.12:3.4.1"
   val PackageRepository: String = SparkMLRepository
