@@ -10,20 +10,20 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions.udf
-import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
 
 import scala.collection.JavaConverters._
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasOpenAITextParams with HasMessagesInput
+  with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -131,9 +131,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
         .map({ row => openAIResultFromRow(row).choices.head })
-      val isFiltered = originalOutput
-        .map(output => Option(output.message.content).isEmpty)
-        .getOrElse(false)
+      val isFiltered = originalOutput.exists(output => Option(output.message.content).isEmpty)
 
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
@@ -152,56 +150,75 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     transferGlobalParamsToParamMap()
     logTransform[DataFrame]({
       val df = dataset.toDF
-
       val completion = openAICompletion
       val promptCol = Functions.template(getPromptTemplate)
-      val createMessagesUDF = udf((userMessage: String) => {
-        Seq(
-          OpenAIMessage("system", getSystemPrompt),
-          OpenAIMessage("user", userMessage)
-        )
-      })
+
       completion match {
         case chatCompletion: OpenAIChatCompletion =>
+          if (isSet(responseFormat)) {
+            chatCompletion.setResponseFormat(getResponseFormat)
+          }
           val messageColName = getMessagesCol
+          val createMessagesUDF = udf((userMessage: String) => {
+            getPromptsForMessage(userMessage)
+          })
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
           val transformed = addRAIErrors(
             completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
-
           val results = transformed
             .withColumn(getOutputCol,
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
                 .getField("message").getField("content")))
             .drop(completionNamed.getOutputCol)
-
+          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
           if (getDropPrompt) {
-            results.drop(messageColName)
+            resultsFinal.drop(messageColName)
           } else {
-            results
+            resultsFinal
           }
-
         case completion: OpenAICompletion =>
+          if (isSet(responseFormat)) {
+            throw new IllegalArgumentException("responseFormat is not supported for completion models")
+          }
           val promptColName = df.withDerivativeCol("prompt")
           val dfTemplated = df.withColumn(promptColName, promptCol)
           val completionNamed = completion.setPromptCol(promptColName)
-
-          // run completion
           val results = completionNamed
             .transform(dfTemplated)
             .withColumn(getOutputCol,
               getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
                 .getField("text")))
             .drop(completionNamed.getOutputCol)
-
+          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
           if (getDropPrompt) {
-            results.drop(promptColName)
+            resultsFinal.drop(promptColName)
           } else {
-            results
+            resultsFinal
           }
       }
     }, dataset.columns.length)
+  }
+
+  // If the response format is set, add a system prompt to the messages. This is required by the
+  // OpenAI api. If the reponseFormat is json and the prompt does not contain string 'JSON' then 400 error is returned
+  // For this reason we add a system prompt to the messages.
+  // This method is made private[openai] for testing purposes
+  private[openai] def getPromptsForMessage(userMessage: String) = {
+    val basePrompts = Seq(
+      OpenAIMessage("system", getSystemPrompt),
+      OpenAIMessage("user", userMessage)
+      )
+
+    if (isSet(responseFormat)) {
+      val responseFormatPrompt = OpenAIResponseFormat
+        .fromResponseFormatString(getResponseFormat("type"))
+        .prompt
+      basePrompts :+ OpenAIMessage("system", responseFormatPrompt)
+    } else {
+      basePrompts
+    }
   }
 
   private val legacyModels = Set("ada", "babbage", "curie", "davinci",
@@ -219,7 +236,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     // apply all parameters
     extractParamMap().toSeq
-      .filter(p => !localParamNames.contains(p.param.name))
+      .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     completion
@@ -240,15 +257,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     getPostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
-      case "json" => new JsonParser(opts.get("jsonSchema").get, Map.empty)
-      case "regex" => new RegexParser(opts.get("regex").get, opts.get("regexGroup").get.toInt)
+      case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
+      case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
       case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
     }
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    openAICompletion match {
+    val transformedSchema = openAICompletion match {
       case chatCompletion: OpenAIChatCompletion =>
         chatCompletion
           .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
@@ -258,6 +275,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           .transformSchema(schema)
           .add(getPostProcessing, getParser.outputSchema)
     }
+
+   // Move error column to back
+    val errorFieldOpt: Option[StructField] = transformedSchema.fields.find(_.name == getErrorCol)
+    val fieldsWithoutError: Array[StructField] = transformedSchema.fields.filterNot(_.name == getErrorCol)
+    val reorderedFields = Array.concat(fieldsWithoutError, errorFieldOpt.toArray)
+    StructType(reorderedFields)
   }
 }
 
