@@ -14,11 +14,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from pyspark import keyword_only
 import re
 import os
-import subprocess
-import shutil
-import sys
 
-class Peekable:
+
+class _PeekableIterator:
     def __init__(self, iterable):
         self._iterator = iter(iterable)
         self._cache = []
@@ -45,7 +43,7 @@ class Peekable:
             return self._cache[:n]
 
 
-class ModelParam:
+class _ModelParam:
     def __init__(self, **kwargs):
         self.param = {}
         self.param.update(kwargs)
@@ -54,7 +52,7 @@ class ModelParam:
         return self.param
 
 
-class ModelConfig:
+class _ModelConfig:
     def __init__(self, **kwargs):
         self.config = {}
         self.config.update(kwargs)
@@ -92,30 +90,30 @@ class HuggingFaceCausalLM(
         "output column",
         typeConverter=TypeConverters.toString,
     )
-    modelParam = Param(Params._dummy(), "modelParam", "Model Parameters")
-    modelConfig = Param(Params._dummy(), "modelConfig", "Model configuration")
-    useFabricLakehouse = Param(
-        Params._dummy(),
-        "useFabricLakehouse",
-        "Use FabricLakehouse",
-        typeConverter=TypeConverters.toBoolean,
+    modelParam = Param(
+        Params._dummy(), "modelParam", "Model Parameters, max_new_tokens"
     )
-    lakehousePath = Param(
+    modelConfig = Param(
         Params._dummy(),
-        "lakehousePath",
-        "Fabric Lakehouse Path for Model",
+        "modelConfig",
+        "Model configuration, local_files_only, trust_remote_code",
+    )
+    cachePath = Param(
+        Params._dummy(),
+        "cachePath",
+        "cache path for the model. could be a lakehouse path",
         typeConverter=TypeConverters.toString,
     )
     deviceMap = Param(
         Params._dummy(),
         "deviceMap",
-        "device map",
+        "Specifies a model parameter for the device Map. For GPU usage with models such as Phi 3, set it to 'cuda'.",
         typeConverter=TypeConverters.toString,
     )
     torchDtype = Param(
         Params._dummy(),
         "torchDtype",
-        "torch dtype",
+        "Specifies a model parameter for the torch dtype. For GPU usage with models such as Phi 3, set it to 'auto'.",
         typeConverter=TypeConverters.toString,
     )
 
@@ -125,8 +123,7 @@ class HuggingFaceCausalLM(
         modelName=None,
         inputCol=None,
         outputCol=None,
-        useFabricLakehouse=False,
-        lakehousePath=None,
+        cachePath=None,
         deviceMap=None,
         torchDtype=None,
     ):
@@ -135,44 +132,14 @@ class HuggingFaceCausalLM(
             modelName=modelName,
             inputCol=inputCol,
             outputCol=outputCol,
-            modelParam=ModelParam(),
-            modelConfig=ModelConfig(),
-            useFabricLakehouse=useFabricLakehouse,
-            lakehousePath=None,
+            modelParam=_ModelParam(),
+            modelConfig=_ModelConfig(),
+            cachePath=None,
             deviceMap=None,
             torchDtype=None,
         )
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
-
-    def load_model(self):
-        """
-        Loads model and tokenizer either from Fabric Lakehouse or the HuggingFace Hub,
-        depending on the 'useFabricLakehouse' param.
-        """
-        model_name = self.getModelName()
-        model_config = self.getModelConfig().get_config()
-        device_map = self.getDeviceMap()
-        torch_dtype = self.getTorchDtype()
-
-        if device_map:
-            model_config["device_map"] = device_map
-        if torch_dtype:
-            model_config["torch_dtype"] = torch_dtype
-
-        if self.getUseFabricLakehouse():
-            local_path = (
-                self.getLakehousePath() or f"/lakehouse/default/Files/{model_name}"
-            )
-            model = AutoModelForCausalLM.from_pretrained(
-                local_path, local_files_only=True, **model_config
-            )
-            tokenizer = AutoTokenizer.from_pretrained(local_path, local_files_only=True)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        return model, tokenizer
 
     @keyword_only
     def setParams(self):
@@ -198,30 +165,24 @@ class HuggingFaceCausalLM(
         return self.getOrDefault(self.outputCol)
 
     def setModelParam(self, **kwargs):
-        param = ModelParam(**kwargs)
+        param = _ModelParam(**kwargs)
         return self._set(modelParam=param)
 
     def getModelParam(self):
         return self.getOrDefault(self.modelParam)
 
     def setModelConfig(self, **kwargs):
-        config = ModelConfig(**kwargs)
+        config = _ModelConfig(**kwargs)
         return self._set(modelConfig=config)
 
     def getModelConfig(self):
         return self.getOrDefault(self.modelConfig)
 
-    def setLakehousePath(self, value):
-        return self._set(lakehousePath=value)
+    def setCachePath(self, value):
+        return self._set(cachePath=value)
 
-    def getLakehousePath(self):
-        return self.getOrDefault(self.lakehousePath)
-
-    def setUseFabricLakehouse(self, value: bool):
-        return self._set(useFabricLakehouse=value)
-
-    def getUseFabricLakehouse(self):
-        return self.getOrDefault(self.useFabricLakehouse)
+    def getCachePath(self):
+        return self.getOrDefault(self.cachePath)
 
     def setDeviceMap(self, value):
         return self._set(deviceMap=value)
@@ -235,6 +196,36 @@ class HuggingFaceCausalLM(
     def getTorchDtype(self):
         return self.getOrDefault(self.torchDtype)
 
+    def load_model(self):
+        """
+        Loads model and tokenizer either from cache or the HuggingFace Hub
+        """
+        model_name = self.getModelName()
+        model_config = self.getModelConfig().get_config()
+        device_map = self.getDeviceMap()
+        torch_dtype = self.getTorchDtype()
+
+        if device_map:
+            model_config["device_map"] = device_map
+        if torch_dtype:
+            model_config["torch_dtype"] = torch_dtype
+
+        if self.getCachePath():
+
+            hf_cache = self.getCachePath()
+            if not os.path.isdir(hf_cache):
+                raise NotADirectoryError(f"Directory does not exist: {hf_cache}")
+
+            model = AutoModelForCausalLM.from_pretrained(
+                hf_cache, local_files_only=True, **model_config
+            )
+            tokenizer = AutoTokenizer.from_pretrained(hf_cache, local_files_only=True)
+        else:
+            model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        return model, tokenizer
+
     def _predict_single_complete(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
         inputs = tokenizer(prompt, return_tensors="pt").input_ids
@@ -244,7 +235,10 @@ class HuggingFaceCausalLM(
 
     def _predict_single_chat(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
-        chat = [{"role": "user", "content": prompt}]
+        if isinstance(prompt, list):
+            chat = prompt
+        else:
+            chat = [{"role": "user", "content": prompt}]
         formatted_chat = tokenizer.apply_chat_template(
             chat, tokenize=False, add_generation_prompt=True
         )
@@ -261,35 +255,33 @@ class HuggingFaceCausalLM(
         )
         return decoded_output
 
+    def _process_partition(self, iterator, task):
+        """Process each partition of the data."""
+        peekable_iterator = _PeekableIterator(iterator)
+        try:
+            first_row = peekable_iterator.peek()
+        except StopIteration:
+            return None
+
+        model, tokenizer = self.load_model()
+
+        for row in peekable_iterator:
+            prompt = row[self.getInputCol()]
+            if task == "chat":
+                result = self._predict_single_chat(prompt, model, tokenizer)
+            elif task == "complete":
+                result = self._predict_single_complete(prompt, model, tokenizer)
+            row_dict = row.asDict()
+            row_dict[self.getOutputCol()] = result
+            yield Row(**row_dict)
+
     def _transform(self, dataset):
-        """Transform method to apply the chat model."""
-
-        def _process_partition(iterator, task):
-            """Process each partition of the data."""
-            peekable_iterator = Peekable(iterator)
-            try:
-                first_row = peekable_iterator.peek()
-            except StopIteration:
-                return None
-
-            model, tokenizer = self.load_model()
-
-            for row in peekable_iterator:
-                prompt = row[self.getInputCol()]
-                if task == "chat":
-                    result = self._predict_single_chat(prompt, model, tokenizer)
-                elif task == "complete":
-                    result = self._predict_single_complete(prompt, model, tokenizer)
-                row_dict = row.asDict()
-                row_dict[self.getOutputCol()] = result
-                yield Row(**row_dict)
-
         input_schema = dataset.schema
         output_schema = StructType(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: _process_partition(partition, "chat")
+            lambda partition: self._process_partition(partition, "chat")
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
@@ -304,70 +296,3 @@ class HuggingFaceCausalLM(
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
-
-
-class Downloader:
-    def __init__(
-        self,
-        base_cache_dir="./cache",
-        base_url="https://mmlspark.blob.core.windows.net/huggingface/",
-    ):
-        self.base_cache_dir = base_cache_dir
-        self.base_url = base_url
-
-    def _ensure_directory_exists(self, directory_path):
-        if not os.path.exists(directory_path):
-            os.makedirs(directory_path)
-
-    def download_model_from_az(self, repo_id, local_path=None, overwrite="false"):
-        local_path = os.path.join(
-            local_path or self.base_cache_dir, repo_id.rsplit("/", 1)[0]
-        )
-
-        blob_url = f"{self.base_url}{repo_id}"
-
-        self._ensure_directory_exists(local_path)
-
-        command = [
-            "azcopy",
-            "copy",
-            blob_url,
-            local_path,
-            "--recursive=true",
-            f"--overwrite={overwrite}",
-        ]
-
-        try:
-            with subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            ) as proc:
-                for line in proc.stdout:
-                    print(line, end="")
-                for line in proc.stderr:
-                    print(line, end="", file=sys.stderr)
-                return_code = proc.wait()
-                if return_code != 0:
-                    raise subprocess.CalledProcessError(return_code, command)
-        except subprocess.CalledProcessError as e:
-            raise IOError("Error during download ", e.stderr)
-
-    def copy_contents_to_lakehouse(
-        self, dst, src=None, lakehouse_path=None, dirs_exist_ok=False
-    ):
-        if not any(os.scandir("/lakehouse/")):
-            raise FileNotFoundError("No lakehouse attached")
-
-        if lakehouse_path is None:
-            lakehouse_path = f"/lakehouse/default/Files/{dst}"
-        os.makedirs(lakehouse_path, exist_ok=True)
-
-        src = os.path.join(src or self.base_cache_dir, dst)
-
-        for item in os.listdir(src):
-            src_path = os.path.join(src, item)
-            dst_path = os.path.join(lakehouse_path, item)
-
-            if os.path.isdir(src_path):
-                shutil.copytree(src_path, dst_path, dirs_exist_ok=dirs_exist_ok)
-            else:
-                shutil.copy2(src_path, dst_path)
