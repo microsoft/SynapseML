@@ -145,14 +145,10 @@ class SynapseMLLogger:
         if feature_name is not None and running_on_synapse_internal():
             from synapse.ml.fabric.telemetry_utils import report_usage_telemetry
 
-            keys_to_remove = ["libraryName", "method"]
-            attributes = {
-                key: value for key, value in info.items() if key not in keys_to_remove
-            }
             report_usage_telemetry(
                 feature_name=self.library_name,
                 activity_name=feature_name,
-                attributes=attributes,
+                attributes={},
             )
         self.logger.info(json.dumps(info))
 

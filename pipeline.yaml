@@ -273,7 +273,7 @@ jobs:
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'
         target: '$(Build.SourceVersion)'
-        tagSource: 'auto'
+        tagSource: 'gitTag'
         releaseNotesFile: 'CHANGELOG.md'
         isDraft: true
     - bash: echo "##vso[task.prependpath]$CONDA/bin"

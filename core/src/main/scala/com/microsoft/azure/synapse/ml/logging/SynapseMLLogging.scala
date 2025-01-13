@@ -128,8 +128,7 @@ trait SynapseMLLogging extends Logging {
       Future {
         logToCertifiedEvents(
           info("libraryName"),
-          featureName.get,
-          info -- Seq("libraryName", "method")
+          featureName.get
         )
       }.failed.map {
         case e: Exception => logErrorBase("certifiedEventLogging", e)
