@@ -70,7 +70,6 @@ object DatabricksUtilities {
     "numpy==1.22.4",
     "unstructured==0.10.24",
     "pytesseract",
-    "transformers==4.48.0"
   )
 
   def baseURL(apiVersion: String): String = s"https://$Region.azuredatabricks.net/api/$apiVersion/"
@@ -106,12 +105,15 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
+    .filterNot(_.getAbsolutePath.contains("Language Model"))
     .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
+    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Language Model")
+  }
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 
