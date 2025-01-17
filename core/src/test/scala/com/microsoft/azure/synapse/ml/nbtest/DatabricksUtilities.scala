@@ -85,6 +85,7 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
     Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
     Map("pypi" -> Map("package" -> "transformers==4.48.0")),
+    Map("pypi" -> Map("package" -> "jinja2==3.1.0")), // can be removed for runtime 15.4 +
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
     Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
   ).toJson.compactPrint
