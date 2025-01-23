@@ -91,12 +91,14 @@ class HuggingFaceCausalLM(
         typeConverter=TypeConverters.toString,
     )
     modelParam = Param(
-        Params._dummy(), "modelParam", "Model Parameters, max_new_tokens"
+        Params._dummy(),
+        "modelParam",
+        "Model Parameters, passed to .generate(). For more details, check https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationConfig",
     )
     modelConfig = Param(
         Params._dummy(),
         "modelConfig",
-        "Model configuration, local_files_only, trust_remote_code",
+        "Model configuration, passed to AutoModelForCausalLM.from_pretrained(). For more details, check https://huggingface.co/docs/transformers/en/model_doc/auto#transformers.AutoModelForCausalLM",
     )
     cachePath = Param(
         Params._dummy(),
