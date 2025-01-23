@@ -11,12 +11,12 @@ _TRANSFORMERS_AVAILABLE = _module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:
     import transformers
 
-    _TRANSFORMERS_EQUAL_4_32_1 = transformers.__version__ == "4.32.1"
-    if _TRANSFORMERS_EQUAL_4_32_1:
+    _TRANSFORMERS_EQUAL_4_48_0 = transformers.__version__ == "4.48.0"
+    if _TRANSFORMERS_EQUAL_4_48_0:
         from transformers import AutoTokenizer
     else:
         raise RuntimeError(
-            "transformers should be == 4.32.1, found: {}".format(
+            "transformers should be == 4.48.0, found: {}".format(
                 transformers.__version__
             )
         )
