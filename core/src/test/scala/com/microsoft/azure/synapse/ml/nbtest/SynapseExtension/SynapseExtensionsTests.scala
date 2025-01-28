@@ -15,6 +15,7 @@ import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
 class SynapseExtensionTestCleanup extends TestBase {
+  test("Clean up old artifacts") {
     SynapseExtensionUtilities.listArtifacts()
       .foreach(artifact => {
         if (artifact.lastUpdatedDate.isBefore(LocalDateTime.now().minusDays(3))) {
@@ -24,6 +25,7 @@ class SynapseExtensionTestCleanup extends TestBase {
           SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
         }
       })
+  }
 }
 
 class SynapseExtensionsTests extends TestBase {
@@ -31,31 +33,18 @@ class SynapseExtensionsTests extends TestBase {
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("EffectsOfOutreach"))
-    .filterNot(_.getAbsolutePath.contains("HyperParameterTuning"))
-    .filterNot(_.getAbsolutePath.contains("CyberML"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitOverview"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitClassificationusingVW"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlass"))
-    .filterNot(_.getAbsolutePath.contains("Interpretability")) //TODO: Remove when fixed
-    .filterNot(_.getAbsolutePath.contains("IsolationForest"))
-    .filterNot(_.getAbsolutePath.contains("ExplanationDashboard"))
-    .filterNot(_.getAbsolutePath.contains("DeepLearning"))
-    .filterNot(_.getAbsolutePath.contains("Cognitive")) // Excluding CogServices notebooks until GetSecret API is avail
-    .filterNot(_.getAbsolutePath.contains("Geospatial"))
-    .filterNot(_.getAbsolutePath.contains("SentimentAnalysis"))
-    .filterNot(_.getAbsolutePath.contains("SparkServing")) // Not testing this functionality
-    .filterNot(_.getAbsolutePath.contains("OpenCVPipelineImage")) // Reenable with spark streaming fix
     .sortBy(_.getAbsolutePath)
 
-  selectedPythonFiles.foreach(println)
+  selectedPythonFiles.foreach(x => println(s"Notebook to be tested: $x"))
   assert(selectedPythonFiles.length > 0)
 
-  val storeArtifactId = SynapseExtensionUtilities.createStoreArtifact()
+  val storeArtifactId: String = SynapseExtensionUtilities.createStoreArtifact()
 
-  selectedPythonFiles.seq.map(createAndExecuteSJD)
+  selectedPythonFiles.seq.foreach(createAndExecuteSJD)
 
   def createAndExecuteSJD(notebookFile: File): Future[String] = {
+    SynapseExtensionUtilities.importPbix()
+
     val notebookName = SynapseExtensionUtilities.getBlobNameFromFilepath(notebookFile.getPath)
     val artifactId = SynapseExtensionUtilities.createSJDArtifact(notebookFile.getPath)
     val notebookBlobPath = SynapseExtensionUtilities.uploadNotebookToAzure(notebookFile)
