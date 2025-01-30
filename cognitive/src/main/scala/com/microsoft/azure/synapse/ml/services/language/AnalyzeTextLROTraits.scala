@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -323,7 +326,7 @@ trait HandlePiiEntityRecognition extends HasServiceParams {
   def getPiiCategoriesCol: String = getVectorParam(piiCategories)
 
   setDefault(
-    domain -> Left("none"),
+    domain -> Left("none")
     )
 
   def createPiiEntityRecognitionRequest(row: Row,
@@ -396,8 +399,7 @@ trait HandleEntityRecognition extends HasServiceParams {
     isValid = {
       case Left(value) => value == "matchLongest" || value == "allowOverlap"
       case Right(_) => true
-    }
-    )
+    })
 
   def getOverlapPolicy: String = getScalarParam(overlapPolicy)
 
@@ -448,7 +450,7 @@ trait HandleEntityRecognition extends HasServiceParams {
         ),
       taskName = None,
       kind = AnalysisTaskKind.EntityRecognition.toString
-      )
+    )
     EntityRecognitionJobsInput(displayName = None,
                                analysisInput = analysisInput,
                                tasks = Seq(taskParameter)).toJson.compactPrint
@@ -502,8 +504,7 @@ trait HandleCustomEntityRecognition extends HasServiceParams
         stringIndexType = stringIndexType
         ),
       taskName = None,
-      kind = AnalysisTaskKind.CustomEntityRecognition.toString
-      )
+      kind = AnalysisTaskKind.CustomEntityRecognition.toString)
     CustomEntitiesJobsInput(displayName = None,
                             analysisInput = analysisInput,
                             tasks = Seq(taskParameter)).toJson.compactPrint
@@ -511,7 +512,7 @@ trait HandleCustomEntityRecognition extends HasServiceParams
 }
 
 trait HandleCustomLabelClassification extends HasServiceParams
-                                            with HasCustomLanguageModelParam {
+                                              with HasCustomLanguageModelParam {
   def getKind: String
 
   def createCustomMultiLabelRequest(row: Row,

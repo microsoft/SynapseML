@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.logging.{ FeatureNames, SynapseMLLogging }
@@ -77,6 +80,7 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
                                                                          with HandleEntityRecognition
                                                                          with HandleCustomEntityRecognition {
   logClass(FeatureNames.AiServices.Language)
+
   def this() = this(Identifiable.randomUID("AnalyzeTextLongRunningOperations"))
 
   override private[ml] def internalServiceType: String = "textanalytics"
@@ -116,7 +120,7 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
     AnalysisTaskKind.PiiEntityRecognition -> PiiEntityRecognitionJobState.schema,
     AnalysisTaskKind.EntityLinking -> EntityLinkingJobState.schema,
     AnalysisTaskKind.EntityRecognition -> EntityRecognitionJobState.schema,
-    AnalysisTaskKind.CustomEntityRecognition -> EntityRecognitionJobState.schema,
+    AnalysisTaskKind.CustomEntityRecognition -> EntityRecognitionJobState.schema
     )
 
   override protected def responseDataType: DataType = {

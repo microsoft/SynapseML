@@ -2,12 +2,16 @@ package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.services.text.{ SentimentAssessment, TextEndpoint }
-import org.apache.commons.io.IOUtils
-import org.apache.http.entity.AbstractHttpEntity
+import com.microsoft.azure.synapse.ml.Secrets
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
 import org.scalactic.{ Equality, TolerantNumerics }
+
+trait LanguageServiceEndpoint {
+  lazy val langServiceKey: String = sys.env.getOrElse("LANGUAGE_API_KEY", Secrets.LanguageApiKey)
+  lazy val langServiceLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
+}
 
 class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
 
@@ -579,47 +583,42 @@ class EntityRecognitionLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
   override def reader: MLReadable[_] = AnalyzeText
 }
 
-class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations]
+                                           with LanguageServiceEndpoint {
 
   import spark.implicits._
 
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1e-3)
 
-  def df: DataFrame = Seq(
-    Seq("Microsoft was founded by Bill Gates and Paul Allen."),
-    ).toDF("text")
+  def df: DataFrame =
+    Seq("Maria Sullivan with a mailing address of 334 Shinn Avenue, City of Wampum, State of Pennsylvania")
+      .toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setSubscriptionKey(langServiceKey)
+    .setLocation(langServiceLocation)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomEntityRecognition)
     .setOutputCol("response")
     .setErrorCol("error")
-    .setDeploymentName("test-deployment")
-    .setProjectName("test-project")
+    .setDeploymentName("custom-ner-unitest-deployment")
+    .setProjectName("for-unit-test")
 
-  test("Basic request parsing") {
-    import spray.json._
-    import ATLROJSONFormat.CustomEntitiesJobsInputF
-
-    val stringEntityOption: Option[AbstractHttpEntity] = model.prepareEntity(df.head)
-    assert(stringEntityOption.isDefined)
-    val stringEntity = stringEntityOption.get
-    val stringJson = IOUtils.toString(stringEntity.getContent, "UTF-8")
-    val inputObj = stringJson.parseJson.convertTo[CustomEntitiesJobsInput]
-    assert(inputObj != null)
-    assert(inputObj.tasks.length == 1)
-    val task = inputObj.tasks.head
-    assert(task.kind == "CustomEntityRecognition")
-    assert(task.parameters.projectName == "test-project")
-    assert(task.parameters.deploymentName == "test-deployment")
-    assert(task.parameters.stringIndexType == "TextElements_v8")
-    val doc = inputObj.analysisInput.documents.head
-    assert(doc.language.getOrElse("") == "en")
-    assert(doc.id.nonEmpty)
-    assert(doc.text == "Microsoft was founded by Bill Gates and Paul Allen.")
+  test("Basic usage") {
+    val result = model.transform(df)
+                      .withColumn("documents", col("response.documents"))
+                      .withColumn("entities", col("documents.entities"))
+                      .collect()
+    val entities = result.head.getAs[Seq[Row]]("entities")
+    assert(entities.length == 4)
+    val resultMap: Map[String, String] = entities.map { entity =>
+      entity.getAs[String]("text") -> entity.getAs[String]("category")
+    }.toMap
+    assert(resultMap("Maria Sullivan") == "BorrowerName")
+    assert(resultMap("334 Shinn Avenue") == "BorrowerAddress")
+    assert(resultMap("Wampum") == "BorrowerCity")
+    assert(resultMap("Pennsylvania") == "BorrowerState")
   }
 
 
