@@ -111,7 +111,8 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
     }
   }
 
-  private val responseDataTypeSchemaMap: Map[AnalysisTaskKind.AnalysisTaskKind, StructType] = Map(
+  // This method is made package private for testing purposes
+  private[language] val responseDataTypeSchemaMap: Map[AnalysisTaskKind.AnalysisTaskKind, StructType] = Map(
     AnalysisTaskKind.ExtractiveSummarization -> ExtractiveSummarizationJobState.schema,
     AnalysisTaskKind.AbstractiveSummarization -> AbstractiveSummarizationJobState.schema,
     AnalysisTaskKind.Healthcare -> HealthcareJobState.schema,
@@ -128,7 +129,8 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
     responseDataTypeSchemaMap(taskKind)
   }
 
-  private val requestCreatorMap: Map[AnalysisTaskKind.AnalysisTaskKind,
+  // This method is made package private for testing purposes
+  private[language] val requestCreatorMap: Map[AnalysisTaskKind.AnalysisTaskKind,
     (Row, MultiLanguageAnalysisInput, String, String, Boolean) => String] = Map(
     AnalysisTaskKind.ExtractiveSummarization -> createExtractiveSummarizationRequest,
     AnalysisTaskKind.AbstractiveSummarization -> createAbstractiveSummarizationRequest,

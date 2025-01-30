@@ -1,3 +1,6 @@
+// Copyright (C) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in project root for information.
+
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
@@ -7,10 +10,20 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
 import org.scalactic.{ Equality, TolerantNumerics }
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 trait LanguageServiceEndpoint {
-  lazy val langServiceKey: String = sys.env.getOrElse("LANGUAGE_API_KEY", Secrets.LanguageApiKey)
-  lazy val langServiceLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
+  lazy val customNERKey: String = sys.env.getOrElse("CUSTOM_NER_KEY", Secrets.CustomNERLanguageApiKey)
+  lazy val customNERLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
+}
+
+class AnalyzeTextLROSuite extends AnyFunSuiteLike {
+  test("Validate that response map and creator handle same kinds") {
+    val transformer = new AnalyzeTextLongRunningOperations()
+    val responseKinds = transformer.responseDataTypeSchemaMap.keySet
+    val creatorKinds = transformer.requestCreatorMap.keySet
+    assert(responseKinds == creatorKinds)
+  }
 }
 
 class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
@@ -595,8 +608,8 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
       .toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(langServiceKey)
-    .setLocation(langServiceLocation)
+    .setSubscriptionKey(customNERKey)
+    .setLocation(customNERLocation)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomEntityRecognition)
