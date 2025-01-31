@@ -418,18 +418,18 @@ trait HandleEntityRecognition extends HasServiceParams {
 
   val excludeNormalizedValues = new ServiceParam[Boolean](
     this,
-    name = "inferenceOptions",
+    name = "excludeNormalizedValues",
     doc = "(Optional) request parameter that allows the user to provide settings for"
       + " running the inference. If set to true, the service will exclude normalized"
     )
 
-  def getInferenceOptions: Boolean = getScalarParam(excludeNormalizedValues)
+  def getExcludeNormalizedValues: Boolean = getScalarParam(excludeNormalizedValues)
 
-  def setInferenceOptions(value: Boolean): this.type = setScalarParam(excludeNormalizedValues, value)
+  def setExcludeNormalizedValues(value: Boolean): this.type = setScalarParam(excludeNormalizedValues, value)
 
-  def getInferenceOptionsCol: String = getVectorParam(excludeNormalizedValues)
+  def getExcludeNormalizedValuesCol: String = getVectorParam(excludeNormalizedValues)
 
-  def setInferenceOptionsCol(value: String): this.type = setVectorParam(excludeNormalizedValues, value)
+  def setexcludeNormalizedValuesCol(value: String): this.type = setVectorParam(excludeNormalizedValues, value)
 
   def createEntityRecognitionRequest(row: Row,
                                      analysisInput: MultiLanguageAnalysisInput,
