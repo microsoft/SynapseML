@@ -41,21 +41,15 @@ case class ExtractedSummarySentence(text: String,
                                     offset: Int,
                                     length: Int)
 
-object ExtractedSummarySentence extends SparkBindings[ExtractedSummarySentence]
-
 case class ExtractedSummaryDocumentResult(id: String,
                                           warnings: Seq[DocumentWarning],
                                           statistics: Option[RequestStatistics],
                                           sentences: Seq[ExtractedSummarySentence])
 
-object ExtractedSummaryDocumentResult extends SparkBindings[ExtractedSummaryDocumentResult]
-
 case class ExtractiveSummarizationResult(errors: Seq[ATError],
                                          statistics: Option[RequestStatistics],
                                          modelVersion: String,
                                          documents: Seq[ExtractedSummaryDocumentResult])
-
-object ExtractiveSummarizationResult extends SparkBindings[ExtractiveSummarizationResult]
 
 case class ExtractiveSummarizationLROResult(results: ExtractiveSummarizationResult,
                                             lastUpdateDateTime: String,
@@ -63,15 +57,11 @@ case class ExtractiveSummarizationLROResult(results: ExtractiveSummarizationResu
                                             taskName: Option[String],
                                             kind: String)
 
-object ExtractiveSummarizationLROResult extends SparkBindings[ExtractiveSummarizationLROResult]
-
 case class ExtractiveSummarizationTaskResult(completed: Int,
                                              failed: Int,
                                              inProgress: Int,
                                              total: Int,
                                              items: Option[Seq[ExtractiveSummarizationLROResult]])
-
-object ExtractiveSummarizationTaskResult extends SparkBindings[ExtractiveSummarizationTaskResult]
 
 case class ExtractiveSummarizationJobState(displayName: Option[String],
                                            createdDateTime: String,
@@ -112,8 +102,6 @@ case class AbstractiveSummarizationJobsInput(displayName: Option[String],
 case class AbstractiveSummary(text: String,
                               contexts: Option[Seq[SummaryContext]])
 
-object AbstractiveSummary extends SparkBindings[AbstractiveSummary]
-
 case class AbstractiveSummaryDocumentResult(id: String,
                                             warnings: Seq[DocumentWarning],
                                             statistics: Option[RequestStatistics],
@@ -126,24 +114,17 @@ case class AbstractiveSummarizationResult(errors: Seq[ATError],
                                           modelVersion: String,
                                           documents: Seq[AbstractiveSummaryDocumentResult])
 
-object AbstractiveSummarizationResult extends SparkBindings[AbstractiveSummarizationResult]
-
 case class AbstractiveSummarizationLROResult(results: AbstractiveSummarizationResult,
                                              lastUpdateDateTime: String,
                                              status: String,
                                              taskName: Option[String],
                                              kind: String)
 
-object AbstractiveSummarizationLROResult extends SparkBindings[AbstractiveSummarizationLROResult]
-
-
 case class AbstractiveSummarizationTaskResult(completed: Int,
                                               failed: Int,
                                               inProgress: Int,
                                               total: Int,
                                               items: Option[Seq[AbstractiveSummarizationLROResult]])
-
-object AbstractiveSummarizationTaskResult extends SparkBindings[AbstractiveSummarizationTaskResult]
 
 case class AbstractiveSummarizationJobState(displayName: Option[String],
                                             createdDateTime: String,
@@ -179,16 +160,12 @@ case class HealthcareAssertion(conditionality: Option[String],
                                association: Option[String],
                                temporality: Option[String])
 
-object HealthcareAssertion extends SparkBindings[HealthcareAssertion]
-
 case class HealthcareEntitiesDocumentResult(id: String,
                                             warnings: Seq[DocumentWarning],
                                             statistics: Option[RequestStatistics],
                                             entities: Seq[HealthcareEntity],
                                             relations: Seq[HealthcareRelation],
                                             fhirBundle: Option[String])
-
-object HealthcareEntitiesDocumentResult extends SparkBindings[HealthcareEntitiesDocumentResult]
 
 case class HealthcareEntity(text: String,
                             category: String,
@@ -200,12 +177,8 @@ case class HealthcareEntity(text: String,
                             name: Option[String],
                             links: Option[Seq[HealthcareEntityLink]])
 
-object HealthcareEntity extends SparkBindings[HealthcareEntity]
-
 case class HealthcareEntityLink(dataSource: String,
                                 id: String)
-
-object HealthcareEntityLink extends SparkBindings[HealthcareEntityLink]
 
 case class HealthcareLROResult(results: HealthcareResult,
                                lastUpdateDateTime: String,
@@ -213,34 +186,23 @@ case class HealthcareLROResult(results: HealthcareResult,
                                taskName: Option[String],
                                kind: String)
 
-object HealthcareLROResult extends SparkBindings[HealthcareLROResult]
-
-
 case class HealthcareRelation(relationType: String,
                               entities: Seq[HealthcareRelationEntity],
                               confidenceScore: Option[Double])
 
-object HealthcareRelation extends SparkBindings[HealthcareRelation]
-
 case class HealthcareRelationEntity(ref: String,
                                     role: String)
-
-object HealthcareRelationEntity extends SparkBindings[HealthcareRelationEntity]
 
 case class HealthcareResult(errors: Seq[DocumentError],
                             statistics: Option[RequestStatistics],
                             modelVersion: String,
                             documents: Seq[HealthcareEntitiesDocumentResult])
 
-object HealthcareResult extends SparkBindings[HealthcareResult]
-
 case class HealthcareTaskResult(completed: Int,
                                 failed: Int,
                                 inProgress: Int,
                                 total: Int,
                                 items: Option[Seq[HealthcareLROResult]])
-
-object HealthcareTaskResult extends SparkBindings[HealthcareTaskResult]
 
 case class HealthcareJobState(displayName: Option[String],
                               createdDateTime: String,
@@ -274,15 +236,11 @@ case class SentimentAnalysisLROResult(results: SentimentResult,
                                       taskName: Option[String],
                                       kind: String)
 
-object SentimentAnalysisLROResult extends SparkBindings[SentimentAnalysisLROResult]
-
 case class SentimentAnalysisTaskResult(completed: Int,
                                        failed: Int,
                                        inProgress: Int,
                                        total: Int,
                                        items: Option[Seq[SentimentAnalysisLROResult]])
-
-object SentimentAnalysisTaskResult extends SparkBindings[SentimentAnalysisTaskResult]
 
 case class SentimentAnalysisJobState(displayName: Option[String],
                                      createdDateTime: String,
@@ -315,15 +273,11 @@ case class KeyPhraseExtractionLROResult(results: KeyPhraseExtractionResult,
                                         taskName: Option[String],
                                         kind: String)
 
-object KeyPhraseExtractionLROResult extends SparkBindings[KeyPhraseExtractionLROResult]
-
 case class KeyPhraseExtractionTaskResult(completed: Int,
                                          failed: Int,
                                          inProgress: Int,
                                          total: Int,
                                          items: Option[Seq[KeyPhraseExtractionLROResult]])
-
-object KeyPhraseExtractionTaskResult extends SparkBindings[KeyPhraseExtractionTaskResult]
 
 case class KeyPhraseExtractionJobState(displayName: Option[String],
                                        createdDateTime: String,
@@ -355,22 +309,17 @@ case class PiiEntityRecognitionJobsInput(displayName: Option[String],
                                          analysisInput: MultiLanguageAnalysisInput,
                                          tasks: Seq[PiiEntityRecognitionLROTask])
 
-
 case class PiiEntityRecognitionLROResult(results: PIIResult,
                                          lastUpdateDateTime: String,
                                          status: String,
                                          taskName: Option[String],
                                          kind: String)
 
-object PiiEntityRecognitionLROResult extends SparkBindings[PiiEntityRecognitionLROResult]
-
 case class PiiEntityRecognitionTaskResult(completed: Int,
                                           failed: Int,
                                           inProgress: Int,
                                           total: Int,
                                           items: Option[Seq[PiiEntityRecognitionLROResult]])
-
-object PiiEntityRecognitionTaskResult extends SparkBindings[PiiEntityRecognitionTaskResult]
 
 case class PiiEntityRecognitionJobState(displayName: Option[String],
                                         createdDateTime: String,
@@ -405,15 +354,11 @@ case class EntityLinkingLROResult(results: EntityLinkingResult,
                                   taskName: Option[String],
                                   kind: String)
 
-object EntityLinkingLROResult extends SparkBindings[EntityLinkingLROResult]
-
 case class EntityLinkingTaskResult(completed: Int,
                                    failed: Int,
                                    inProgress: Int,
                                    total: Int,
                                    items: Option[Seq[EntityLinkingLROResult]])
-
-object EntityLinkingTaskResult extends SparkBindings[EntityLinkingTaskResult]
 
 case class EntityLinkingJobState(displayName: Option[String],
                                  createdDateTime: String,
@@ -459,15 +404,11 @@ case class EntityRecognitionLROResult(results: EntityRecognitionResult,
                                       taskName: Option[String],
                                       kind: String)
 
-object EntityRecognitionLROResult extends SparkBindings[EntityRecognitionLROResult]
-
 case class EntityRecognitionTaskResult(completed: Int,
                                        failed: Int,
                                        inProgress: Int,
                                        total: Int,
                                        items: Option[Seq[EntityRecognitionLROResult]])
-
-object EntityRecognitionTaskResult extends SparkBindings[EntityRecognitionTaskResult]
 
 case class EntityRecognitionJobState(displayName: Option[String],
                                      createdDateTime: String,
@@ -518,9 +459,9 @@ case class CustomLabelJobsInput(displayName: Option[String],
 case class ClassificationDocumentResult(id: String,
                                         warnings: Seq[DocumentWarning],
                                         statistics: Option[RequestStatistics],
-                                        classes: Seq[ClassificationResult])
+                                        classifications: Seq[ClassificationResult])
 
-object ClassificationDocumentResult extends SparkBindings[ClassificationDocumentResult]
+//object ClassificationDocumentResult extends SparkBindings[ClassificationDocumentResult]
 
 case class ClassificationResult(category: String,
                                 confidenceScore: Double)
@@ -532,23 +473,17 @@ case class CustomLabelResult(errors: Seq[DocumentError],
                              modelVersion: String,
                              documents: Seq[ClassificationDocumentResult])
 
-object CustomLabelResult extends SparkBindings[CustomLabelResult]
-
 case class CustomLabelLROResult(results: CustomLabelResult,
                                 lastUpdateDateTime: String,
                                 status: String,
                                 taskName: Option[String],
                                 kind: String)
 
-object CustomLabelLROResult extends SparkBindings[CustomLabelLROResult]
-
 case class CustomLabelTaskResult(completed: Int,
                                  failed: Int,
                                  inProgress: Int,
                                  total: Int,
                                  items: Option[Seq[CustomLabelLROResult]])
-
-object CustomLabelTaskResult extends SparkBindings[CustomLabelTaskResult]
 
 case class CustomLabelJobState(displayName: Option[String],
                                createdDateTime: String,

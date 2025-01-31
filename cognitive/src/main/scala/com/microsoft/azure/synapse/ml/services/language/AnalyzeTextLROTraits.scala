@@ -3,15 +3,22 @@
 
 package com.microsoft.azure.synapse.ml.services.language
 
+import com.microsoft.azure.synapse.ml.io.http.{ EntityData, HTTPResponseData }
+import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.HasServiceParams
 import com.microsoft.azure.synapse.ml.services.language.ATLROJSONFormat._
 import com.microsoft.azure.synapse.ml.services.language.PiiDomain.PiiDomain
 import com.microsoft.azure.synapse.ml.services.language.SummaryLength.SummaryLength
+import com.microsoft.azure.synapse.ml.services.vision.BasicAsyncReply
+import org.apache.commons.io.IOUtils
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param.ParamValidators
 import org.apache.spark.sql.Row
 import spray.json.DefaultJsonProtocol._
 import spray.json.enrichAny
+
+import java.net.URI
 
 object AnalysisTaskKind extends Enumeration {
   type AnalysisTaskKind = Value
@@ -511,8 +518,101 @@ trait HandleCustomEntityRecognition extends HasServiceParams
   }
 }
 
+/**
+ * Trait `ModifiableAsyncReply` extends `BasicAsyncReply` and provides a mechanism to modify the HTTP response
+ * received from an asynchronous service call. This trait is designed to be mixed into classes that require
+ * custom handling of the response data.
+ *
+ * The primary purpose of this trait is to allow modification of the response before it is processed further.
+ * This is particularly useful in scenarios where the response needs to be transformed or certain fields need
+ * to be renamed to comply with specific requirements or constraints.
+ *
+ * In this implementation, the `queryForResult` method is overridden and marked as `final` to prevent further
+ * overriding. This ensures that the response modification logic is consistently applied across all subclasses.
+ *
+ * @note This trait is designed to be used with the `SynapseMLLogging` trait for consistent logging.
+ */
+trait ModifiableAsyncReply extends BasicAsyncReply {
+  self: SynapseMLLogging =>
+
+  protected def modifyResponse(response: Option[HTTPResponseData]): Option[HTTPResponseData] = response
+
+  /**
+   * Queries for the result of an asynchronous service call and applies the response modification logic.
+   */
+  override final protected def queryForResult(key: Option[String],
+                                              client: CloseableHttpClient,
+                                              location: URI): Option[HTTPResponseData] = {
+    val originalResponse = super.queryForResult(key, client, location)
+    logDebug(s"Original response: ${ originalResponse }")
+    modifyResponse(originalResponse)
+  }
+}
+
+
+/**
+ * Trait `HandleCustomLabelClassification` extends `HasServiceParams` and `HasCustomLanguageModelParam` to handle
+ * custom label classification tasks. This trait provides the necessary methods to create requests for custom
+ * multi-label classification and to modify the response to comply with specific requirements.
+ *
+ * The primary purpose of this trait is to address the limitation in Spark where fields named "class" cannot be
+ * directly bound. To work around this limitation, the response is modified to rename the "class" field to
+ * "classifications".
+ *
+ * This trait is designed to be mixed into classes that require custom label classification functionality and
+ * response modification logic.
+ *
+ * @note This trait is designed to be used with the `ModifiableAsyncReply` and `SynapseMLLogging` traits for
+ *       consistent response handling and logging.
+ */
 trait HandleCustomLabelClassification extends HasServiceParams
                                               with HasCustomLanguageModelParam {
+  self: ModifiableAsyncReply
+    with SynapseMLLogging =>
+
+  private def isCustomLabelClassification: Boolean = {
+    val kind = getKind
+    kind == AnalysisTaskKind.CustomSingleLabelClassification.toString ||
+      kind == AnalysisTaskKind.CustomMultiLabelClassification.toString
+  }
+
+  /**
+   * Modifies the entity in the HTTP response to rename the "class" field to "classifications".
+   *
+   * @param response The original HTTP response.
+   * @return The modified HTTP response with the "class" field renamed to "classifications".
+   */
+  private def modifyEntity(response: HTTPResponseData): HTTPResponseData = {
+    val modifiedEntity = response.entity.flatMap { entity =>
+      val strEntity = IOUtils.toString(entity.content, "UTF-8")
+      val modifiedEntity = strEntity.replace("\"class\":", "\"classifications\":")
+      logDebug(s"Original entity: $strEntity\t Modified entity: $modifiedEntity")
+      Some(new EntityData(
+        content = modifiedEntity.getBytes,
+        contentEncoding = entity.contentEncoding,
+        contentLength = Some(strEntity.length),
+        contentType = entity.contentType,
+        isChunked = entity.isChunked,
+        isRepeatable = entity.isRepeatable,
+        isStreaming = entity.isStreaming
+        ))
+    }
+    new HTTPResponseData(response.headers, modifiedEntity, response.statusLine, response.locale)
+  }
+
+  /**
+   * Modifies the HTTP response if the task kind is custom label classification.
+   */
+  override def modifyResponse(response: Option[HTTPResponseData]): Option[HTTPResponseData] = {
+    if (!isCustomLabelClassification) {
+      logDebug(s"Kind is not CustomSingleLabelClassification or CustomMultiLabelClassification. Kind: $getKind")
+      response
+    } else {
+      response.map(modifyEntity)
+    }
+  }
+
+
   def getKind: String
 
   def createCustomMultiLabelRequest(row: Row,

@@ -13,8 +13,8 @@ import org.scalactic.{ Equality, TolerantNumerics }
 import org.scalatest.funsuite.AnyFunSuiteLike
 
 trait LanguageServiceEndpoint {
-  lazy val customNERKey: String = sys.env.getOrElse("CUSTOM_NER_KEY", Secrets.CustomNERLanguageApiKey)
-  lazy val customNERLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
+  lazy val languageApiKey: String = sys.env.getOrElse("CUSTOM_LANGUAGE_KEY", Secrets.LanguageApiKey)
+  lazy val languageApiLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
 }
 
 class AnalyzeTextLROSuite extends AnyFunSuiteLike {
@@ -191,6 +191,8 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
       .setKind("AbstractiveSummarization")
       .setOutputCol("response")
       .setErrorCol("error")
+      .setPollingDelay(5 * 1000)
+      .setMaxPollingRetries(30)
     val responses = model.transform(df)
                          .withColumn("documents", col("response.documents"))
                          .withColumn("modelVersion", col("response.modelVersion"))
@@ -219,6 +221,8 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
       .setErrorCol("error")
       .setShowStats(true)
       .setSummaryLength(SummaryLength.Short)
+      .setPollingDelay(5 * 1000)
+      .setMaxPollingRetries(30)
     val responses = model.transform(df)
                          .withColumn("documents", col("response.documents"))
                          .withColumn("modelVersion", col("response.modelVersion"))
@@ -247,6 +251,8 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
                                              .setTextCol("text")
                                              .setLanguage("en")
                                              .setKind("AbstractiveSummarization")
+                                             .setPollingDelay(5 * 1000)
+                                             .setMaxPollingRetries(30)
                                              .setOutputCol("response"),
                                                          df))
 
@@ -608,8 +614,8 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
       .toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(customNERKey)
-    .setLocation(customNERLocation)
+    .setSubscriptionKey(languageApiKey)
+    .setLocation(languageApiLocation)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomEntityRecognition)
@@ -640,3 +646,54 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
 
   override def reader: MLReadable[_] = AnalyzeText
 }
+
+
+class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations]
+                                           with LanguageServiceEndpoint {
+
+  import spark.implicits._
+
+  implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1e-3)
+
+  def df: DataFrame = {
+    // description of movie Finding Nemo
+    Seq("In the depths of the ocean, a father's worst nightmare comes to life. A grieving and determined father, " +
+          "must overcome his fears and navigate, the treacherous waters to find his missing son. The journey is " +
+          "fraught with relentless predators, dark secrets, and the haunting realization that the ocean is a vast, " +
+          "unforgiving abyss. Will a Father's unwavering resolve be enough to reunite him with his son, or will " +
+          "the shadows of the deep consume them both? Dive into the darkness and discover the lengths a parent will " +
+          "go to for their child.")
+      .toDF("text")
+  }
+
+  def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
+    .setSubscriptionKey(languageApiKey)
+    .setLocation(languageApiLocation)
+    .setLanguage("en")
+    .setTextCol("text")
+    .setKind(AnalysisTaskKind.CustomMultiLabelClassification)
+    .setOutputCol("response")
+    .setErrorCol("error")
+    .setDeploymentName("multi-class-movie-dep")
+    .setProjectName("for-unit-test-muti-class")
+
+  test("Basic usage") {
+    val result = model.transform(df)
+                      .withColumn("documents", col("response.documents"))
+                      .withColumn("classifications", col("documents.classifications"))
+                      .collect()
+    val classifications = result.head.getAs[Seq[Row]]("classifications")
+    assert(classifications.nonEmpty)
+    assert(classifications.head.getAs[String]("category").nonEmpty)
+    assert(classifications.head.getAs[Double]("confidenceScore") > 0.0)
+  }
+
+
+  override def testObjects(): Seq[TestObject[AnalyzeTextLongRunningOperations]] =
+    Seq(new TestObject[AnalyzeTextLongRunningOperations](model, df))
+
+  override def reader: MLReadable[_] = AnalyzeText
+}
+
+
+

@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.logging.{ FeatureNames, SynapseMLLogging }
-import com.microsoft.azure.synapse.ml.services.{
-  CognitiveServicesBaseNoHandler, HasAPIVersion, HasCognitiveServiceInput, HasInternalJsonOutputParser, HasSetLocation }
+import com.microsoft.azure.synapse.ml.services.{ CognitiveServicesBaseNoHandler, HasAPIVersion,
+  HasCognitiveServiceInput, HasInternalJsonOutputParser, HasSetLocation }
 import com.microsoft.azure.synapse.ml.services.text.{ TADocument, TextAnalyticsAutoBatch }
 import com.microsoft.azure.synapse.ml.services.vision.BasicAsyncReply
 import com.microsoft.azure.synapse.ml.stages.{ FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer }
@@ -78,7 +78,9 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
                                                                          with HandlePiiEntityRecognition
                                                                          with HandleEntityLinking
                                                                          with HandleEntityRecognition
-                                                                         with HandleCustomEntityRecognition {
+                                                                         with HandleCustomEntityRecognition
+                                                                         with ModifiableAsyncReply
+                                                                         with HandleCustomLabelClassification {
   logClass(FeatureNames.AiServices.Language)
 
   def this() = this(Identifiable.randomUID("AnalyzeTextLongRunningOperations"))
@@ -121,7 +123,9 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
     AnalysisTaskKind.PiiEntityRecognition -> PiiEntityRecognitionJobState.schema,
     AnalysisTaskKind.EntityLinking -> EntityLinkingJobState.schema,
     AnalysisTaskKind.EntityRecognition -> EntityRecognitionJobState.schema,
-    AnalysisTaskKind.CustomEntityRecognition -> EntityRecognitionJobState.schema
+    AnalysisTaskKind.CustomEntityRecognition -> EntityRecognitionJobState.schema,
+    AnalysisTaskKind.CustomSingleLabelClassification -> CustomLabelJobState.schema,
+    AnalysisTaskKind.CustomMultiLabelClassification -> CustomLabelJobState.schema
     )
 
   override protected def responseDataType: DataType = {
@@ -140,7 +144,9 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
     AnalysisTaskKind.PiiEntityRecognition -> createPiiEntityRecognitionRequest,
     AnalysisTaskKind.EntityLinking -> createEntityLinkingRequest,
     AnalysisTaskKind.EntityRecognition -> createEntityRecognitionRequest,
-    AnalysisTaskKind.CustomEntityRecognition -> createCustomEntityRecognitionRequest
+    AnalysisTaskKind.CustomEntityRecognition -> createCustomEntityRecognitionRequest,
+    AnalysisTaskKind.CustomSingleLabelClassification -> createCustomMultiLabelRequest,
+    AnalysisTaskKind.CustomMultiLabelClassification -> createCustomMultiLabelRequest
     )
 
   // This method is made package private for testing purposes
