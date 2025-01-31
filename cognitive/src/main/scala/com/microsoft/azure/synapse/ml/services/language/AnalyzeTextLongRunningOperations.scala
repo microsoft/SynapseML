@@ -55,6 +55,8 @@ object AnalyzeTextLongRunningOperations extends ComplexParamsReadable[AnalyzeTex
  *   <li>EntityLinking</li>
  *   <li>EntityRecognition</li>
  *   <li>CustomEntityRecognition</li>
+ *   <li>CustomSingleLabelClassification</li>
+ *   <li>CustomMultiLabelClassification</li>
  * </ul>
  * Each task has its own set of parameters that can be set to control the behavior of the service and response
  * schema.
@@ -62,7 +64,7 @@ object AnalyzeTextLongRunningOperations extends ComplexParamsReadable[AnalyzeTex
  */
 class AnalyzeTextLongRunningOperations(override val uid: String) extends CognitiveServicesBaseNoHandler(uid)
                                                                          with HasAPIVersion
-                                                                         with BasicAsyncReply
+                                                                         with ModifiableAsyncReply
                                                                          with HasCognitiveServiceInput
                                                                          with HasInternalJsonOutputParser
                                                                          with HasSetLocation
@@ -79,7 +81,6 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
                                                                          with HandleEntityLinking
                                                                          with HandleEntityRecognition
                                                                          with HandleCustomEntityRecognition
-                                                                         with ModifiableAsyncReply
                                                                          with HandleCustomLabelClassification {
   logClass(FeatureNames.AiServices.Language)
 
