@@ -59,7 +59,7 @@ openai_api_key = find_secret(
     secret_name="openai-api-key-2", keyvault="mmlspark-build-keys"
 )
 openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
-openai_api_version = "2022-12-01"
+openai_api_version = "2024-02-01"
 openai_api_type = "azure"
 deployment_name = "gpt-35-turbo-0125"
 bing_search_url = "https://api.bing.microsoft.com/v7.0/search"

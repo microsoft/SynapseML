@@ -39,7 +39,7 @@ class LangchainTransformTest(unittest.TestCase):
         )
         openai_api_key = json.loads(secretJson)["value"]
         openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
-        openai_api_version = "2022-12-01"
+        openai_api_version = "2024-02-01"
         openai_api_type = "azure"
 
         os.environ["OPENAI_API_TYPE"] = openai_api_type

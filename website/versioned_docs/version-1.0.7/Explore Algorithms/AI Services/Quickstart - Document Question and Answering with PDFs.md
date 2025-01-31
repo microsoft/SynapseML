@@ -290,7 +290,7 @@ import openai
 
 openai.api_type = "azure"
 openai.api_base = aoai_endpoint
-openai.api_version = "2022-12-01"
+openai.api_version = "2024-02-01"
 openai.api_key = aoai_key
 ```
 
@@ -306,7 +306,7 @@ def qa_chain_func():
         deployment_name=aoai_deployment_name_query,
         model_name=aoai_model_name_query,
         openai_api_key=aoai_key,
-        openai_api_version="2022-12-01",
+        openai_api_version="2024-02-01",
     )
 
     # Write a preprompt with context and query as variables

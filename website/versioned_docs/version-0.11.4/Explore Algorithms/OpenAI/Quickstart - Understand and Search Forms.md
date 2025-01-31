@@ -45,7 +45,7 @@ search_index = "form-demo-index-5"
 openai_key = find_secret(
     "openai-api-key"
 )  # Replace the call to find_secret with your key as a python string.
-openai_service_name = "synapseml-openai"
+openai_service_name = "synapseml-openai-2"
 openai_deployment_name = "gpt-35-turbo-0125"
 openai_url = f"https://{openai_service_name}.openai.azure.com/"
 ```
