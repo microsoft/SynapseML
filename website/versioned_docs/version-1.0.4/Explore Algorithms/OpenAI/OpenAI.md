@@ -36,7 +36,7 @@ from synapse.ml.core.platform import find_secret
 # Fill in the following lines with your service information
 # Learn more about selecting which embedding model to choose: https://openai.com/blog/new-and-improved-embedding-model
 service_name = "synapseml-openai"
-deployment_name = "gpt-35-turbo"
+deployment_name = "gpt-35-turbo-0125"
 deployment_name_embeddings = "text-embedding-ada-002"
 deployment_name_embeddings_3 = "text-embedding-3-small"
 

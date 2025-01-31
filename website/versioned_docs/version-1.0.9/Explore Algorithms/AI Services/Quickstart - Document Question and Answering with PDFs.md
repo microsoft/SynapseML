@@ -40,7 +40,7 @@ aoai_service_name = "synapseml-openai-2"
 aoai_endpoint = f"https://{aoai_service_name}.openai.azure.com/"
 aoai_key = find_secret(secret_name="openai-api-key-2", keyvault="mmlspark-build-keys")
 aoai_deployment_name_embeddings = "text-embedding-ada-002"
-aoai_deployment_name_query = "gpt-35-turbo"
+aoai_deployment_name_query = "gpt-35-turbo-0125"
 aoai_model_name_query = "gpt-35-turbo"
 
 # Azure Cognitive Search
