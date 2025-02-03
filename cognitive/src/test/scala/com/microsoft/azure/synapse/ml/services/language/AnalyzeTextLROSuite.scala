@@ -253,8 +253,9 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
                                              .setKind("AbstractiveSummarization")
                                              .setPollingDelay(5 * 1000)
                                              .setMaxPollingRetries(30)
+                                             .setSummaryLength(SummaryLength.Short)
                                              .setOutputCol("response"),
-                                                         df))
+                                                         Seq("Microsoft Azure AI Data Fabric").toDF("text")))
 
   override def reader: MLReadable[_] = AnalyzeTextLongRunningOperations
 }
