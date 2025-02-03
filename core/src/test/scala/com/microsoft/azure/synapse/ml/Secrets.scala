@@ -74,4 +74,5 @@ object Secrets {
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
 
+  lazy val LanguageApiKey: String = getSecret("language-api-key")
 }
