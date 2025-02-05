@@ -41,7 +41,7 @@ object AnalysisTaskKind extends Enumeration {
   }
 }
 
-trait HasSummarizationBaseParameter extends HasServiceParams {
+private[language] trait HasSummarizationBaseParameter extends HasServiceParams {
   val sentenceCount = new ServiceParam[Int](
     this,
     name = "sentenceCount",
@@ -72,7 +72,7 @@ trait HasSummarizationBaseParameter extends HasServiceParams {
  * the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/overview]]
  */
-trait HandleExtractiveSummarization extends HasServiceParams
+private[language] trait HandleExtractiveSummarization extends HasServiceParams
                                             with HasSummarizationBaseParameter {
   val sortBy = new ServiceParam[String](
     this,
@@ -91,7 +91,7 @@ trait HandleExtractiveSummarization extends HasServiceParams
 
   def setSortByCol(value: String): this.type = setVectorParam(sortBy, value)
 
-  def createExtractiveSummarizationRequest(row: Row,
+  private[language] def createExtractiveSummarizationRequest(row: Row,
                                            analysisInput: MultiLanguageAnalysisInput,
                                            modelVersion: String,
                                            stringIndexType: String,
@@ -125,7 +125,7 @@ trait HandleExtractiveSummarization extends HasServiceParams
  * the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/overview]]
  */
-trait HandleAbstractiveSummarization extends HasServiceParams with HasSummarizationBaseParameter {
+private[language] trait HandleAbstractiveSummarization extends HasServiceParams with HasSummarizationBaseParameter {
   val summaryLength = new ServiceParam[String](
     this,
     name = "summaryLength",
@@ -148,7 +148,7 @@ trait HandleAbstractiveSummarization extends HasServiceParams with HasSummarizat
 
   def setSummaryLengthCol(value: String): this.type = setVectorParam(summaryLength, value)
 
-  def createAbstractiveSummarizationRequest(row: Row,
+  private[language] def createAbstractiveSummarizationRequest(row: Row,
                                             analysisInput: MultiLanguageAnalysisInput,
                                             modelVersion: String,
                                             stringIndexType: String,
@@ -176,8 +176,8 @@ trait HandleAbstractiveSummarization extends HasServiceParams with HasSummarizat
  * the parameters, please refer to the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/text-analytics-for-health/overview]]
  */
-trait HandleHealthcareTextAnalystics extends HasServiceParams {
-  def createHealthcareTextAnalyticsRequest(row: Row,
+private[language] trait HandleHealthcareTextAnalystics extends HasServiceParams {
+  private[language] def createHealthcareTextAnalyticsRequest(row: Row,
                                            analysisInput: MultiLanguageAnalysisInput,
                                            modelVersion: String,
                                            stringIndexType: String,
@@ -204,7 +204,7 @@ trait HandleHealthcareTextAnalystics extends HasServiceParams {
  * to the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/sentiment-opinion-mining/overview]]
  */
-trait HandleSentimentAnalysis extends HasServiceParams {
+private[language] trait HandleSentimentAnalysis extends HasServiceParams {
   val opinionMining = new ServiceParam[Boolean](
     this,
     name = "opinionMining",
@@ -223,7 +223,7 @@ trait HandleSentimentAnalysis extends HasServiceParams {
     opinionMining -> Left(false)
     )
 
-  def createSentimentAnalysisRequest(row: Row,
+  private[language] def createSentimentAnalysisRequest(row: Row,
                                      analysisInput: MultiLanguageAnalysisInput,
                                      modelVersion: String,
                                      stringIndexType: String,
@@ -251,8 +251,8 @@ trait HandleSentimentAnalysis extends HasServiceParams {
  * please refer to the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/key-phrase-extraction/overview]]
  */
-trait HandleKeyPhraseExtraction extends HasServiceParams {
-  def createKeyPhraseExtractionRequest(row: Row,
+private[language] trait HandleKeyPhraseExtraction extends HasServiceParams {
+  private[language] def createKeyPhraseExtractionRequest(row: Row,
                                        analysisInput: MultiLanguageAnalysisInput,
                                        modelVersion: String,
                                        // This parameter is not used and only exists for compatibility
@@ -272,8 +272,8 @@ trait HandleKeyPhraseExtraction extends HasServiceParams {
   }
 }
 
-trait HandleEntityLinking extends HasServiceParams {
-  def createEntityLinkingRequest(row: Row,
+private[language] trait HandleEntityLinking extends HasServiceParams {
+  private[language] def createEntityLinkingRequest(row: Row,
                                  analysisInput: MultiLanguageAnalysisInput,
                                  modelVersion: String,
                                  stringIndexType: String,
@@ -300,7 +300,7 @@ trait HandleEntityLinking extends HasServiceParams {
  * the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview]]
  */
-trait HandlePiiEntityRecognition extends HasServiceParams {
+private[language] trait HandlePiiEntityRecognition extends HasServiceParams {
   val domain = new ServiceParam[String](
     this,
     name = "domain",
@@ -336,7 +336,7 @@ trait HandlePiiEntityRecognition extends HasServiceParams {
     domain -> Left("none")
     )
 
-  def createPiiEntityRecognitionRequest(row: Row,
+  private[language] def createPiiEntityRecognitionRequest(row: Row,
                                         analysisInput: MultiLanguageAnalysisInput,
                                         modelVersion: String,
                                         stringIndexType: String,
@@ -365,7 +365,7 @@ trait HandlePiiEntityRecognition extends HasServiceParams {
  * about the parameters, please refer to the documentation.
  * [[https://learn.microsoft.com/en-us/azure/ai-services/language-service/named-entity-recognition/overview]]
  */
-trait HandleEntityRecognition extends HasServiceParams {
+private[language] trait HandleEntityRecognition extends HasServiceParams {
   val inclusionList = new ServiceParam[Seq[String]](
     this,
     name = "inclusionList",
@@ -431,18 +431,18 @@ trait HandleEntityRecognition extends HasServiceParams {
 
   def setexcludeNormalizedValuesCol(value: String): this.type = setVectorParam(excludeNormalizedValues, value)
 
-  def createEntityRecognitionRequest(row: Row,
+  private[language] def createEntityRecognitionRequest(row: Row,
                                      analysisInput: MultiLanguageAnalysisInput,
                                      modelVersion: String,
                                      stringIndexType: String,
                                      loggingOptOut: Boolean): String = {
     val serviceOverlapPolicy: Option[EntityOverlapPolicy] = getValueOpt(row, overlapPolicy) match {
-      case Some(policy) => Some(new EntityOverlapPolicy(policy))
+      case Some(policy) => Some(EntityOverlapPolicy(policy))
       case None => None
     }
 
     val inferenceOptions: Option[EntityInferenceOptions] = getValueOpt(row, excludeNormalizedValues) match {
-      case Some(value) => Some(new EntityInferenceOptions(value))
+      case Some(value) => Some(EntityInferenceOptions(value))
       case None => None
     }
     val taskParameter = EntityRecognitionLROTask(
@@ -464,7 +464,7 @@ trait HandleEntityRecognition extends HasServiceParams {
   }
 }
 
-trait HasCustomLanguageModelParam extends HasServiceParams {
+private[language] trait HasCustomLanguageModelParam extends HasServiceParams {
   val projectName = new ServiceParam[String](
     this,
     name = "projectName",
@@ -494,10 +494,10 @@ trait HasCustomLanguageModelParam extends HasServiceParams {
   def setDeploymentNameCol(value: String): this.type = setVectorParam(deploymentName, value)
 }
 
-trait HandleCustomEntityRecognition extends HasServiceParams
+private[language] trait HandleCustomEntityRecognition extends HasServiceParams
                                             with HasCustomLanguageModelParam {
 
-  def createCustomEntityRecognitionRequest(row: Row,
+  private[language] def createCustomEntityRecognitionRequest(row: Row,
                                            analysisInput: MultiLanguageAnalysisInput,
                                            // This paremeter is not used and only exists for compatibility
                                            modelVersion: String,
@@ -544,7 +544,7 @@ trait ModifiableAsyncReply extends BasicAsyncReply {
                                               client: CloseableHttpClient,
                                               location: URI): Option[HTTPResponseData] = {
     val originalResponse = super.queryForResult(key, client, location)
-    logDebug(s"Original response: ${ originalResponse }")
+    logDebug(s"Original response: $originalResponse")
     modifyResponse(originalResponse)
   }
 }
@@ -565,7 +565,7 @@ trait ModifiableAsyncReply extends BasicAsyncReply {
  * @note This trait is designed to be used with the `ModifiableAsyncReply` and `SynapseMLLogging` traits for
  *       consistent response handling and logging.
  */
-trait HandleCustomLabelClassification extends HasServiceParams
+private[language] trait HandleCustomLabelClassification extends HasServiceParams
                                               with HasCustomLanguageModelParam {
   self: ModifiableAsyncReply
     with SynapseMLLogging =>
@@ -615,7 +615,7 @@ trait HandleCustomLabelClassification extends HasServiceParams
 
   def getKind: String
 
-  def createCustomMultiLabelRequest(row: Row,
+  private[language] def createCustomMultiLabelRequest(row: Row,
                                     analysisInput: MultiLanguageAnalysisInput,
                                     // This paremeter is not used and only exists for compatibility
                                     modelVersion: String,
