@@ -54,10 +54,10 @@ Next, please edit the cell in the notebook to point to your service. In particul
 
 ```python
 openai_api_key = find_secret("openai-api-key")
-openai_api_base = "https://synapseml-openai.openai.azure.com/"
-openai_api_version = "2022-12-01"
+openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
+openai_api_version = "2024-02-01"
 openai_api_type = "azure"
-deployment_name = "text-davinci-003"
+deployment_name = "gpt-35-turbo-0125"
 bing_search_url = "https://api.bing.microsoft.com/v7.0/search"
 bing_subscription_key = find_secret("bing-search-key")
 
