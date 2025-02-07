@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
 class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[StratifiedRepartition] {
@@ -37,7 +37,7 @@ class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[Strati
   test("Assert doing a stratified repartition will ensure all keys exist across all partitions") {
     val inputSchema = new StructType()
       .add(values, IntegerType).add(colors, StringType).add(const, IntegerType)
-    val inputEnc = RowEncoder(inputSchema)
+    val inputEnc = ExpressionEncoder(inputSchema)
     val valuesFieldIndex = inputSchema.fieldIndex(values)
     val numPartitions = 3
     val trainData = input.repartition(numPartitions).select(values, colors, const)
