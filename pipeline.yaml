@@ -624,7 +624,7 @@ jobs:
         FLAKY: "true"
       openai:
         PACKAGE: "services.openai"
-        EXCLUDE: "services.openai.OpenAICompletionSuite"
+        EXCLUDE: "OpenAICompletionSuite"
         FLAKY: "true"
       search:
         PACKAGE: "services.search"
