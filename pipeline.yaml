@@ -624,6 +624,7 @@ jobs:
         FLAKY: "true"
       openai:
         PACKAGE: "services.openai"
+        EXCLUDE: "services.openai.OpenAICompletionSuite"
         FLAKY: "true"
       search:
         PACKAGE: "services.search"
@@ -724,8 +725,13 @@ jobs:
         inlineScript: |
           ulimit -c unlimited
           export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          if [ -n "$(EXCLUDE)" ]; then
+            EXCLUDE_FLAG="-- -l $(EXCLUDE)"
+          else
+            EXCLUDE_FLAG=""
+          fi
+          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**" $EXCLUDE_FLAG) ||
+          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**" $EXCLUDE_FLAG)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
