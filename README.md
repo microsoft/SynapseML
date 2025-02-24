@@ -244,7 +244,7 @@ For detailed developer docs please see the [Developer Readme](https://microsoft.
 If you are an existing synapsemldeveloper, you will need to reconfigure your
 development setup. We now support platform independent development and
 better integrate with intellij and SBT.
- If you encounter issues please reach out to our support email!
+ If you encounter issues please reach out to our support email! 
 
 ## Papers
 
