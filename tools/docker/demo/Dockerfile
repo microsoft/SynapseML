@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:20.04
 
-ARG SYNAPSEML_VERSION=1.0.9
+ARG SYNAPSEML_VERSION=1.0.10
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV SPARK_VERSION=3.4.1
