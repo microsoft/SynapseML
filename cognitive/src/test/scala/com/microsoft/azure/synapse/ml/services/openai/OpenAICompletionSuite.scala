@@ -60,26 +60,26 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
       "Knock, knock")
   ).toDF("batchPrompt")
 
-//  test("Basic Usage") {
-//    testCompletion(promptCompletion, promptDF)
-//  }
-//
-//  test("Basic usage with AAD auth") {
-//    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
-//
-//    val completion = new OpenAICompletion()
-//      .setAADToken(aadToken)
-//      .setDeploymentName(deploymentName)
-//      .setCustomServiceName(openAIServiceName)
-//      .setPromptCol("prompt")
-//      .setOutputCol("out")
-//
-//    testCompletion(completion, promptDF)
-//  }
-//
-//  test("Batch Prompt") {
-//    testCompletion(batchPromptCompletion, batchPromptDF)
-//  }
+  ignore("Basic Usage") {
+    testCompletion(promptCompletion, promptDF)
+  }
+
+  ignore("Basic usage with AAD auth") {
+    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
+
+    val completion = new OpenAICompletion()
+      .setAADToken(aadToken)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setPromptCol("prompt")
+      .setOutputCol("out")
+
+    testCompletion(completion, promptDF)
+  }
+
+  ignore("Batch Prompt") {
+    testCompletion(batchPromptCompletion, batchPromptDF)
+  }
 
   def testCompletion(completion: OpenAICompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
     val fromRow = CompletionResponse.makeFromRowConverter
