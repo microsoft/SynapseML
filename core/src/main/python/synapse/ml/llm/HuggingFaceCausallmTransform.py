@@ -6,7 +6,7 @@ from pyspark.ml.param.shared import (
     Params,
     TypeConverters,
 )
-from pyspark.sql import Row
+from pyspark.sql import Row, SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType, StructType, StructField
 from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
@@ -68,6 +68,33 @@ def camel_to_snake(text):
     return re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
 
 
+class ComputableObject:
+
+    def __init__(self, model_path=None, model_config=None):
+        self.model_path = model_path
+        self.model = None
+        self.tokenizer = None
+        self.model_config = model_config
+
+ 
+    def load_model(self):
+        if self.model_path and os.path.exists(self.model_path):
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path, local_files_only=True, **self.model_config)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, local_files_only=True)
+        else:
+            raise ValueError(f"Model path {self.model_path} does not exist.")
+
+    def __getstate__(self):
+        return self.model_path
+ 
+    def __setstate__(self, state):
+        self.model_path = state.get("model_path")
+        self.model_config = state.get("model_config")
+        self.model = None
+        self.tokenizer = None
+        if self.model_path:
+            self.load_model()
+ 
 class HuggingFaceCausalLM(
     Transformer, HasInputCol, HasOutputCol, DefaultParamsReadable, DefaultParamsWritable
 ):
@@ -143,6 +170,13 @@ class HuggingFaceCausalLM(
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
+        if self.getCachePath():
+            bc_computable = ComputableObject(self.getCachePath(), self.getModelConfig())
+            sc = SparkSession.builder.getOrCreate().sparkContext
+            self.bcObject = sc.broadcast(bc_computable)
+        else:
+            self.bcObject = None
+
     @keyword_only
     def setParams(self):
         kwargs = self._input_kwargs
@@ -183,8 +217,17 @@ class HuggingFaceCausalLM(
     def setCachePath(self, value):
         return self._set(cachePath=value)
 
-    def getCachePath(self):
-        return self.getOrDefault(self.cachePath)
+    # def getCachePath(self):
+    #     return self.getOrDefault(self.cachePath)
+    def setCachePath(self, value, model_config):
+        ret = self._set(cachePath=value)
+        if value is not None:
+            bc_computable = ComputableObject(value, model_config)
+            sc = SparkSession.builder.getOrCreate().sparkContext
+            self.bcObject = sc.broadcast(bc_computable)
+        else:
+            self.bcObject = None
+        return ret
 
     def setDeviceMap(self, value):
         return self._set(deviceMap=value)
@@ -198,35 +241,8 @@ class HuggingFaceCausalLM(
     def getTorchDtype(self):
         return self.getOrDefault(self.torchDtype)
 
-    def load_model(self):
-        """
-        Loads model and tokenizer either from cache or the HuggingFace Hub
-        """
-        model_name = self.getModelName()
-        model_config = self.getModelConfig().get_config()
-        device_map = self.getDeviceMap()
-        torch_dtype = self.getTorchDtype()
-
-        if device_map:
-            model_config["device_map"] = device_map
-        if torch_dtype:
-            model_config["torch_dtype"] = torch_dtype
-
-        if self.getCachePath():
-
-            hf_cache = self.getCachePath()
-            if not os.path.isdir(hf_cache):
-                raise NotADirectoryError(f"Directory does not exist: {hf_cache}")
-
-            model = AutoModelForCausalLM.from_pretrained(
-                hf_cache, local_files_only=True, **model_config
-            )
-            tokenizer = AutoTokenizer.from_pretrained(hf_cache, local_files_only=True)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        return model, tokenizer
+    def getBCObject(self):
+        return self.bcObject
 
     def _predict_single_complete(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
@@ -257,15 +273,21 @@ class HuggingFaceCausalLM(
         )
         return decoded_output
 
-    def _process_partition(self, iterator, task):
+    def _process_partition(self, iterator, task, bc_object):
         """Process each partition of the data."""
         peekable_iterator = _PeekableIterator(iterator)
         try:
             first_row = peekable_iterator.peek()
         except StopIteration:
             return None
-
-        model, tokenizer = self.load_model()
+        
+        if bc_object:
+            lc_object = bc_object.value
+            model = lc_object.model
+            tokenizer = lc_object.tokenizer
+        else:
+            model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         for row in peekable_iterator:
             prompt = row[self.getInputCol()]
@@ -278,23 +300,25 @@ class HuggingFaceCausalLM(
             yield Row(**row_dict)
 
     def _transform(self, dataset):
+        bc_object = self.getBCObject()
         input_schema = dataset.schema
         output_schema = StructType(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, "chat")
+            lambda partition: self._process_partition(partition, "chat", bc_object)
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
 
     def complete(self, dataset):
+        bc_object = self.getBCObject()
         input_schema = dataset.schema
         output_schema = StructType(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, "complete")
+            lambda partition: self._process_partition(partition, "complete", bc_object)
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
