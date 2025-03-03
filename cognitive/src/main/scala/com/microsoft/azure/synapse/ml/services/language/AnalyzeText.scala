@@ -3,33 +3,32 @@
 
 package com.microsoft.azure.synapse.ml.services.language
 
-import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.text.{TADocument, TextAnalyticsAutoBatch}
-import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
+import com.microsoft.azure.synapse.ml.logging.{ FeatureNames, SynapseMLLogging }
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer}
-import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import com.microsoft.azure.synapse.ml.services._
+import com.microsoft.azure.synapse.ml.services.text.{ TADocument, TextAnalyticsAutoBatch }
+import com.microsoft.azure.synapse.ml.stages.{ FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer }
+import org.apache.http.entity.{ AbstractHttpEntity, StringEntity }
 import org.apache.spark.injections.UDFUtils
-import org.apache.spark.ml.param.{Param, ParamValidators}
+import org.apache.spark.ml.{ ComplexParamsReadable, NamespaceInjections, PipelineModel }
+import org.apache.spark.ml.param.{ Param, ParamValidators }
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
-import spray.json.DefaultJsonProtocol._
+import org.apache.spark.sql.types.{ ArrayType, DataType, StructType }
 import spray.json._
+import spray.json.DefaultJsonProtocol._
 
-trait AnalyzeTextTaskParameters extends HasServiceParams {
+trait HasAnalyzeTextServiceBaseParams extends HasServiceParams {
   val modelVersion = new ServiceParam[String](
     this, name = "modelVersion", "Version of the model")
 
+  def getModelVersion: String = getScalarParam(modelVersion)
   def setModelVersion(v: String): this.type = setScalarParam(modelVersion, v)
-
+  def getModelVersionCol: String = getVectorParam(modelVersion)
   def setModelVersionCol(v: String): this.type = setVectorParam(modelVersion, v)
 
-  def getModelVersion: String = getScalarParam(modelVersion)
 
-  def getModelVersionCol: String = getVectorParam(modelVersion)
 
   val loggingOptOut = new ServiceParam[Boolean](
     this, "loggingOptOut", "loggingOptOut for task"
@@ -44,13 +43,15 @@ trait AnalyzeTextTaskParameters extends HasServiceParams {
   def getLoggingOptOutCol: String = getVectorParam(loggingOptOut)
 
   val stringIndexType = new ServiceParam[String](this, "stringIndexType",
-    "Specifies the method used to interpret string offsets. " +
-      "Defaults to Text Elements (Graphemes) according to Unicode v8.0.0. " +
-      "For additional information see https://aka.ms/text-analytics-offsets",
-    isValid = {
-      case Left(s) => Set("TextElements_v8", "UnicodeCodePoint", "Utf16CodeUnit")(s)
-      case _ => true
-    })
+                                                 "Specifies the method used to interpret string offsets. " +
+                                                   "Defaults to Text Elements(Graphemes) according to Unicode v8.0.0." +
+                                                   "For more information see https://aka.ms/text-analytics-offsets",
+                                                 isValid = {
+                                                   case Left(s) => Set("TextElements_v8",
+                                                                       "UnicodeCodePoint",
+                                                                       "Utf16CodeUnit")(s)
+                                                   case _ => true
+                                                 })
 
   def setStringIndexType(v: String): this.type = setScalarParam(stringIndexType, v)
 
@@ -60,6 +61,36 @@ trait AnalyzeTextTaskParameters extends HasServiceParams {
 
   def getStringIndexTypeCol: String = getVectorParam(stringIndexType)
 
+  val showStats = new ServiceParam[Boolean](
+    this, name = "showStats", "Whether to include detailed statistics in the response",
+    isURLParam = true)
+
+  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
+
+  def getShowStats: Boolean = getScalarParam(showStats)
+
+  // We don't support setKindCol here because output schemas for different kind are different
+  val kind = new Param[String](
+    this, "kind", "Enumeration of supported Text Analysis tasks",
+    isValid = validKinds.contains(_)
+    )
+
+  protected def validKinds: Set[String]
+
+  def setKind(v: String): this.type = set(kind, v)
+
+  def getKind: String = $(kind)
+
+  setDefault(
+    showStats -> Left(false),
+    modelVersion -> Left("latest"),
+    loggingOptOut -> Left(false),
+    stringIndexType -> Left("TextElements_v8")
+  )
+}
+
+
+trait AnalyzeTextTaskParameters extends HasAnalyzeTextServiceBaseParams {
   val opinionMining = new ServiceParam[Boolean](
     this, name = "opinionMining", "opinionMining option for SentimentAnalysisTask")
 
@@ -98,9 +129,6 @@ trait AnalyzeTextTaskParameters extends HasServiceParams {
   def getPiiCategoriesCol: String = getVectorParam(piiCategories)
 
   setDefault(
-    modelVersion -> Left("latest"),
-    loggingOptOut -> Left(false),
-    stringIndexType -> Left("TextElements_v8"),
     opinionMining -> Left(false),
     domain -> Left("none")
   )
@@ -131,33 +159,21 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("AnalyzeText"))
 
-  val showStats = new ServiceParam[Boolean](
-    this, name = "showStats", "Whether to include detailed statistics in the response",
-    isURLParam = true)
-
-  def setShowStats(v: Boolean): this.type = setScalarParam(showStats, v)
-
-  def getShowStats: Boolean = getScalarParam(showStats)
+  override protected def validKinds: Set[String] = Set("EntityLinking",
+                                                       "EntityRecognition",
+                                                       "KeyPhraseExtraction",
+                                                       "LanguageDetection",
+                                                       "PiiEntityRecognition",
+                                                       "SentimentAnalysis")
 
   setDefault(
-    apiVersion -> Left("2022-05-01"),
-    showStats -> Left(false)
+    apiVersion -> Left("2022-05-01")
   )
 
   override def urlPath: String = "/language/:analyze-text"
 
   override private[ml] def internalServiceType: String = "textanalytics"
 
-  // We don't support setKindCol here because output schemas for different kind are different
-  val kind = new Param[String](
-    this, "kind", "Enumeration of supported Text Analysis tasks",
-    isValid = ParamValidators.inArray(Array("EntityLinking", "EntityRecognition", "KeyPhraseExtraction",
-      "LanguageDetection", "PiiEntityRecognition", "SentimentAnalysis"))
-  )
-
-  def setKind(v: String): this.type = set(kind, v)
-
-  def getKind: String = $(kind)
 
   override protected def shouldSkip(row: Row): Boolean = if (emptyParamData(row, text)) {
     true
