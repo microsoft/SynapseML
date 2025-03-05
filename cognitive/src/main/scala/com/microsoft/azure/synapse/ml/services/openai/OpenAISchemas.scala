@@ -35,7 +35,8 @@ case class EmbeddingObject(`object`: String,
                            embedding: Array[Double],
                            index: Int)
 
-case class OpenAIMessage(role: String, content: String, name: Option[String] = None)
+case class OpenAIMessage(role: String, content: String, name: Option[String] = None) //, `type`: String = "text" )
+// Either type for content
 
 case class OpenAIChatChoice(message: OpenAIMessage,
                             index: Long,

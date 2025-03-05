@@ -138,11 +138,19 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
-      Seq("role", "content", "name").map(n =>
-        n -> Option(m.getAs[String](n))
-      ).toMap.filter(_._2.isDefined).mapValues(_.get)
+      /** if (m.getAs[String]("type").equals("image_url")) {
+      //  Seq("role", "content", "name").map(n =>
+          n -> Option(m.getAs[String](n))
+        ).toMap.filter(_._2.isDefined).mapValues(_.get)
+      }
+      else { **/
+        Seq("role", "content", "name").map(n =>
+          n -> Option(m.getAs[String](n))
+        ).toMap.filter(_._2.isDefined).mapValues(_.get)
+      //}
     }
     val fullPayload = optionalParams.updated("messages", mappedMessages)
+    println(fullPayload.toJson.compactPrint)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 

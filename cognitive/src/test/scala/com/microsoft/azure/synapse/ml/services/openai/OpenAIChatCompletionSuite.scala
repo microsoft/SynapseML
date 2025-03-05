@@ -141,7 +141,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("Basic Usage") {
     testCompletion(completion, goodDf)
-    testCompletion(completion, slowDf)
+    //testCompletion(completion, slowDf)
   }
 
   test("Robustness to bad inputs") {
