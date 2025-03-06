@@ -79,13 +79,14 @@ class ComputableObject:
  
     def load_model(self):
         if self.model_path and os.path.exists(self.model_path):
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_path, local_files_only=True, **self.model_config)
+            model_config = self.model_config.get_config()
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path, local_files_only=True, **model_config)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, local_files_only=True)
         else:
             raise ValueError(f"Model path {self.model_path} does not exist.")
 
     def __getstate__(self):
-        return self.model_path
+        return {"model_path": self.model_path, "model_config": self.model_config}
  
     def __setstate__(self, state):
         self.model_path = state.get("model_path")
@@ -213,9 +214,6 @@ class HuggingFaceCausalLM(
 
     def getModelConfig(self):
         return self.getOrDefault(self.modelConfig)
-
-    # def setCachePath(self, value):
-    #     return self._set(cachePath=value)
 
     def setCachePath(self, value):
         ret = self._set(cachePath=value)
