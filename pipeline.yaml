@@ -81,6 +81,8 @@ jobs:
         source activate synapseml
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
+    - template: templates/free_up_space.yml
+
 
 - job: Publish
   cancelTimeoutInMinutes: 0
@@ -130,6 +132,8 @@ jobs:
           sbt publishBadges
       condition: and(succeeded(), eq(variables.isMaster, true))
       displayName: Publish Badges
+    - template: templates/free_up_space.yml
+
 
 
 - job: E2E
@@ -175,6 +179,8 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+    - template: templates/free_up_space.yml
+
 
 #
 #- job: PublishDocker
@@ -352,6 +358,8 @@ jobs:
         waitforreleasecompletion: true
       displayName: 'ESRP Publish Package'
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+    - template: templates/free_up_space.yml
+
 
 
 - job: PythonTests
@@ -421,6 +429,7 @@ jobs:
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
+    - template: templates/free_up_space.yml
 
 
 - job: RTests
@@ -495,6 +504,7 @@ jobs:
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
+    - template: templates/free_up_space.yml
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -503,7 +513,7 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     - template: templates/conda.yml
-    - bash: df -H
+    - template: templates/free_up_space.yml
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
@@ -542,6 +552,7 @@ jobs:
         inlineScript: 'sbt coverageReport'
       condition: succeededOrFailed()
     - template: templates/codecov.yml
+    - template: templates/free_up_space.yml
 
 
 
@@ -589,6 +600,7 @@ jobs:
         GH_EMAIL: $(gh-email)
         GH_TOKEN: $(gh-token)
       displayName: 'yarn deploy'
+    - template: templates/free_up_space.yml
 
 
 - job: UnitTests
@@ -743,3 +755,4 @@ jobs:
       condition: succeededOrFailed()
     - template: templates/kv.yml
     - template: templates/codecov.yml
+    - template: templates/free_up_space.yml

@@ -1,0 +1,14 @@
+steps:
+  - bash: |
+      df -H
+      rm -rf ~/.ivy2/cache
+      rm -rf target
+      sudo apt-get autoremove -y
+      sudo apt-get clean
+      conda clean --all --yes 
+      conda clean --packages --yes
+      pip cache purge
+      df -H
+    displayName: Free up space by deleting target dir
+    retryCountOnTaskFailure: 1
+
