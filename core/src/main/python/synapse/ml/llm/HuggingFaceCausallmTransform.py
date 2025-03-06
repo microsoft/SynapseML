@@ -214,21 +214,22 @@ class HuggingFaceCausalLM(
     def getModelConfig(self):
         return self.getOrDefault(self.modelConfig)
 
-    def setCachePath(self, value):
-        return self._set(cachePath=value)
+    # def setCachePath(self, value):
+    #     return self._set(cachePath=value)
 
-    # def getCachePath(self):
-    #     return self.getOrDefault(self.cachePath)
-    def setCachePath(self, value, model_config):
+    def setCachePath(self, value):
         ret = self._set(cachePath=value)
         if value is not None:
-            bc_computable = ComputableObject(value, model_config)
+            bc_computable = ComputableObject(value, self.getModelConfig())
             sc = SparkSession.builder.getOrCreate().sparkContext
             self.bcObject = sc.broadcast(bc_computable)
         else:
             self.bcObject = None
         return ret
-
+    
+    def getCachePath(self):
+        return self.getOrDefault(self.cachePath)
+    
     def setDeviceMap(self, value):
         return self._set(deviceMap=value)
 
@@ -286,6 +287,8 @@ class HuggingFaceCausalLM(
             model = lc_object.model
             tokenizer = lc_object.tokenizer
         else:
+            model_name = self.getModelName()
+            model_config = self.getModelConfig().get_config()
             model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
             tokenizer = AutoTokenizer.from_pretrained(model_name)
 
