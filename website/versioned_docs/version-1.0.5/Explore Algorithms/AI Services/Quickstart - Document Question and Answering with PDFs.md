@@ -40,7 +40,7 @@ aoai_service_name = "synapseml-openai-2"
 aoai_endpoint = f"https://{aoai_service_name}.openai.azure.com/"
 aoai_key = find_secret(secret_name="openai-api-key-2", keyvault="mmlspark-build-keys")
 aoai_deployment_name_embeddings = "text-embedding-ada-002"
-aoai_deployment_name_query = "gpt-35-turbo"
+aoai_deployment_name_query = "gpt-35-turbo-0125"
 aoai_model_name_query = "gpt-35-turbo"
 
 # Azure Cognitive Search
@@ -290,7 +290,7 @@ import openai
 
 openai.api_type = "azure"
 openai.api_base = aoai_endpoint
-openai.api_version = "2022-12-01"
+openai.api_version = "2024-02-01"
 openai.api_key = aoai_key
 ```
 
@@ -306,7 +306,7 @@ def qa_chain_func():
         deployment_name=aoai_deployment_name_query,
         model_name=aoai_model_name_query,
         openai_api_key=aoai_key,
-        openai_api_version="2022-12-01",
+        openai_api_version="2024-02-01",
     )
 
     # Write a preprompt with context and query as variables
