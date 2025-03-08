@@ -286,8 +286,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
-      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1",
-      "org.apache.hadoop" % "hadoop-client" % "3.3.4"
+      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1"
     ),
     name := "synapseml-deep-learning"
   ): _*)
@@ -312,8 +311,7 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.24.1",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-client" % "3.3.4"
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test"
     ),
     name := "synapseml-cognitive"
   ): _*)
