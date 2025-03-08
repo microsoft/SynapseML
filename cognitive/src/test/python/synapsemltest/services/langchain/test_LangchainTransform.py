@@ -21,12 +21,12 @@ sc = SQLContext(spark.sparkContext)
 # link to the PR is here:
 # https://github.com/hwchase17/langchain/pull/3721/files
 # Once that's approved, I'll remove ths correction
-@property
-def _llm_type(self):
-    return "azure"
+# @property
+# def _llm_type(self):
+#     return "azure"
 
 
-AzureOpenAI._llm_type = _llm_type
+# AzureOpenAI._llm_type = _llm_type
 #######################################################
 
 
