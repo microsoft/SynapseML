@@ -397,7 +397,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
-      timeoutInMinutes: 60
+      timeoutInMinutes: 40
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
