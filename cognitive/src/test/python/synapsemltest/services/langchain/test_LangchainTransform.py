@@ -52,8 +52,8 @@ class LangchainTransformTest(unittest.TestCase):
 
         # construction of llm
         llm = AzureChatOpenAI(
-            deployment_name="gpt-35-turbo",
-            model_name="gpt-35-turbo",
+            deployment_name="gpt-4o",
+            model_name="gpt-4o",
             temperature=0,
             verbose=False,
         )
