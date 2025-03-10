@@ -311,7 +311,7 @@ lazy val cognitive = (project in file("cognitive"))
     libraryDependencies ++= Seq(
       "com.microsoft.cognitiveservices.speech" % "client-sdk" % "1.24.1",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test"
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
     name := "synapseml-cognitive"
   ): _*)
