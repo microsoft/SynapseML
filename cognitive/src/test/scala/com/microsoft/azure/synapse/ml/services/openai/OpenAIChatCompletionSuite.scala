@@ -42,11 +42,25 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     )
   ).toDF("messages")
 
+  lazy val imageDf: DataFrame = Seq(
+    Seq(
+      OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+      OpenAIMessage("user", Array[Map[String, Any]](
+        Map("type" -> "text", "text" ->
+          Map("text" -> "What are in these images?")),
+        Map("type" -> "image_url", "image_url" ->
+        Map("url" ->
+          ("https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/" +
+          "2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"))),
+      ))
+    )
+  ).toDF("messages")
+
   lazy val badDf: DataFrame = Seq(
     Seq(),
     Seq(
       OpenAIMessage("system", "You are very excited"),
-      OpenAIMessage("user", null) //scalastyle:ignore null
+      OpenAIMessage("user", null: String) //scalastyle:ignore null
     ),
     null //scalastyle:ignore null
   ).toDF("messages")
@@ -142,6 +156,12 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   test("Basic Usage") {
     testCompletion(completion, goodDf)
     //testCompletion(completion, slowDf)
+  }
+
+  test("Image usage") {
+    val results = completion.transform(imageDf).select("out")
+      .select($"out.choices"(0)("message")("content").as("assistant_text"))
+    results.show(false)
   }
 
   test("Robustness to bad inputs") {
