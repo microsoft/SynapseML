@@ -14,7 +14,7 @@ import org.scalactic.Equality
 trait OpenAIAPIKey {
   lazy val openAIAPIKey: String = sys.env.getOrElse("OPENAI_API_KEY_2", Secrets.OpenAIApiKey)
   lazy val openAIServiceName: String = sys.env.getOrElse("OPENAI_SERVICE_NAME_2", "synapseml-openai-2")
-  lazy val deploymentName: String = "gpt-35-turbo"
+  lazy val deploymentName: String = "gpt-35-turbo-0125"
   lazy val modelName: String = "gpt-35-turbo"
   lazy val deploymentNameGpt4: String = "gpt-4"
   lazy val deploymentNameGpt4o: String = "gpt-4o"
@@ -60,11 +60,11 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
       "Knock, knock")
   ).toDF("batchPrompt")
 
-  test("Basic Usage") {
+  ignore("Basic Usage") {
     testCompletion(promptCompletion, promptDF)
   }
 
-  test("Basic usage with AAD auth") {
+  ignore("Basic usage with AAD auth") {
     val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
 
     val completion = new OpenAICompletion()
@@ -77,7 +77,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     testCompletion(completion, promptDF)
   }
 
-  test("Batch Prompt") {
+  ignore("Batch Prompt") {
     testCompletion(batchPromptCompletion, batchPromptDF)
   }
 

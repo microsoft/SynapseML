@@ -4,7 +4,8 @@
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.llms import AzureOpenAI
+#from langchain.llms import AzureOpenAI
+from langchain.chat_models import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
@@ -20,12 +21,12 @@ sc = SQLContext(spark.sparkContext)
 # link to the PR is here:
 # https://github.com/hwchase17/langchain/pull/3721/files
 # Once that's approved, I'll remove ths correction
-@property
-def _llm_type(self):
-    return "azure"
-
-
-AzureOpenAI._llm_type = _llm_type
+# @property
+# def _llm_type(self):
+#     return "azure"
+#
+#
+# AzureOpenAI._llm_type = _llm_type
 #######################################################
 
 
@@ -39,21 +40,22 @@ class LangchainTransformTest(unittest.TestCase):
         )
         openai_api_key = json.loads(secretJson)["value"]
         openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
-        openai_api_version = "2022-12-01"
+        openai_api_version = "2025-01-01-preview"
         openai_api_type = "azure"
 
         os.environ["OPENAI_API_TYPE"] = openai_api_type
         os.environ["OPENAI_API_VERSION"] = openai_api_version
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
+        os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
 
         self.subscriptionKey = openai_api_key
         self.url = openai_api_base
 
         # construction of llm
-        llm = AzureOpenAI(
-            deployment_name="gpt-35-turbo",
-            model_name="gpt-35-turbo",
+        llm = AzureChatOpenAI(
+            deployment_name="gpt-4o",
+            model_name="gpt-4o",
             temperature=0,
             verbose=False,
         )

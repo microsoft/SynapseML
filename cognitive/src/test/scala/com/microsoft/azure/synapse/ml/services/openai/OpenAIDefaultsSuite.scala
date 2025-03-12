@@ -10,15 +10,26 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
 
   import spark.implicits._
 
-  def promptCompletion: OpenAICompletion = new OpenAICompletion()
+  def promptCompletion: OpenAIChatCompletion = new OpenAIChatCompletion()
     .setMaxTokens(200)
     .setOutputCol("out")
-    .setPromptCol("prompt")
+    .setMessagesCol("prompt")
 
   lazy val promptDF: DataFrame = Seq(
-    "Once upon a time",
-    "Best programming language award goes to",
-    "SynapseML is "
+    Seq(
+      OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+      OpenAIMessage("user", "Whats your favorite color")
+    ),
+    Seq(
+      OpenAIMessage("system", "You are very excited"),
+      OpenAIMessage("user", "How are you today")
+    ),
+    Seq(
+      OpenAIMessage("system", "You are very excited"),
+      OpenAIMessage("user", "How are you today"),
+      OpenAIMessage("system", "Better than ever"),
+      OpenAIMessage("user", "Why?")
+    )
   ).toDF("prompt")
 
   test("Completion w Globals") {
@@ -27,10 +38,10 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setTemperature(0.05)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
-    val fromRow = CompletionResponse.makeFromRowConverter
+    val fromRow = ChatCompletionResponse.makeFromRowConverter
     promptCompletion.transform(promptDF).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
-        assert(c.text.length > 10)))
+        assert(c.message.content.length > 10)))
   }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
