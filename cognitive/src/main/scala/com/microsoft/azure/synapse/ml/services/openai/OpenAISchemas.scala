@@ -36,48 +36,40 @@ case class EmbeddingObject(`object`: String,
                            embedding: Array[Double],
                            index: Int)
 
-case class OpenAIMessage(role: String, content: String, name: Option[String] = None)
+final case class OpenAIMessage(
+                                role: String,
+                                content: Option[String] = None,
+                                contentList: Option[Seq[OpenAIContentItem]] = None,
+                                name: Option[String] = None
+                              )
+final case class ImageUrl(url: String)
 
-object OpenAIMessageJsonProtocol extends DefaultJsonProtocol {
-
-  implicit val ArrayEnc: RootJsonFormat[Array[Map[String, Any]]] =
-    new RootJsonFormat[Array[Map[String, Any]]] {
-      def write(arr: Array[Map[String, Any]]) =
-        JsArray(arr.map(MapJsonFormat.write).toVector)
-      def read(jsVal: JsValue) = jsVal match {
-        case JsArray(elements) =>
-          elements.map(MapJsonFormat.read).toArray
-        case other => deserializationError("Expected array, got: " + other)
-      }
-    }
-}
-
+final case class OpenAIContentItem(`type`: String,
+                             text: Option[String] = None,
+                             image_url: Option[ImageUrl] = None)
 
 object OpenAIMessage {
 
   def apply(role: String, content: String): OpenAIMessage =
-    new OpenAIMessage(role, content, None)
+    new OpenAIMessage(role, content = Some(content), name = None)
 
   def apply(role: String, content: String, name: Option[String]): OpenAIMessage =
-    new OpenAIMessage(role, content, name)
+    new OpenAIMessage(role, content = Some(content), name = name)
 
-  def apply(role: String, arr: Array[Map[String, Any]]): OpenAIMessage = {
-    import OpenAIMessageJsonProtocol._ // need implicit formats
-    val jsonStr = arr.toJson.compactPrint
-    new OpenAIMessage(role, jsonStr, None)
+  def apply(role: String, seq: Seq[OpenAIContentItem]): OpenAIMessage = {
+    new OpenAIMessage(role, contentList = Some(seq), name = None)
   }
 
-  def apply(role: String, arr: Array[Map[String, Any]], name: Option[String]): OpenAIMessage = {
-    import OpenAIMessageJsonProtocol._
-    val jsonStr = arr.toJson.compactPrint
-    new OpenAIMessage(role, jsonStr, name)
+  def apply(role: String, seq: Seq[OpenAIContentItem], name: Option[String]): OpenAIMessage = {
+    new OpenAIMessage(role, contentList = Some(seq), name = name)
   }
 
   def create(
               role: String,
-              content: String,
+              content: Option[String],
+              contentList: Option[Seq[OpenAIContentItem]],
               name: Option[String]
-            ): OpenAIMessage = new OpenAIMessage(role, content, name)
+            ): OpenAIMessage = new OpenAIMessage(role, content, contentList, name)
 }
 
 
@@ -99,5 +91,51 @@ case class ChatCompletionResponse(id: String,
 object ChatCompletionResponse extends SparkBindings[ChatCompletionResponse]
 
 object OpenAIJsonProtocol extends DefaultJsonProtocol {
-  implicit val MessageEnc: RootJsonFormat[OpenAIMessage] = jsonFormat3(OpenAIMessage.create)
+  implicit val ImageUrlEnc: RootJsonFormat[ImageUrl] = jsonFormat1(ImageUrl)
+  implicit val OpenAIContentItemEnc: RootJsonFormat[OpenAIContentItem] = jsonFormat3(OpenAIContentItem)
+
+  implicit object MessageEnc extends RootJsonFormat[OpenAIMessage] {
+    override def write(msg: OpenAIMessage): JsValue = {
+      val baseFields = Map(
+        "role" -> JsString(msg.role)
+      ) ++ msg.name.map("name" -> JsString(_))
+
+      // Decide how to write 'content':
+      val contentField: (String, JsValue) = (msg.content, msg.contentList) match {
+        case (Some(text), None) =>
+          "content" -> JsString(text)
+
+        case (None, Some(items)) =>
+          "content" -> JsArray(items.map(_.toJson).toVector)
+
+        case (None, None) =>
+          serializationError("OpenAIMessage MUST have both content & contentItems")
+
+        case (Some(_), Some(_)) =>
+          serializationError("OpenAIMessage cannot have both content & contentItems")
+      }
+
+      JsObject(baseFields + contentField)
+    }
+
+    override def read(json: JsValue): OpenAIMessage = {
+      val obj = json.asJsObject
+      val role = obj.fields("role").convertTo[String]
+      val name = obj.fields.get("name").map(_.convertTo[String])
+
+      val contentJs = obj.fields.getOrElse("content", JsString(""))
+
+      contentJs match {
+        case JsString(s) =>
+          OpenAIMessage(role, content = Some(s), contentList = None, name = name)
+
+        case JsArray(elements) =>
+          val items = elements.map(_.convertTo[OpenAIContentItem])
+          OpenAIMessage(role, content = None, contentList = Some(items), name = name)
+
+        case _ =>
+          deserializationError("content must be string or array")
+      }
+    }
+  }
 }
