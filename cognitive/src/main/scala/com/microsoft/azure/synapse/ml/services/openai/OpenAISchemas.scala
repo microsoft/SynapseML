@@ -36,15 +36,15 @@ case class EmbeddingObject(`object`: String,
                            embedding: Array[Double],
                            index: Int)
 
-final case class OpenAIMessage(
+case class OpenAIMessage(
                                 role: String,
                                 content: Option[String] = None,
                                 contentList: Option[Seq[OpenAIContentItem]] = None,
                                 name: Option[String] = None
                               )
-final case class ImageUrl(url: String)
+case class ImageUrl(url: String)
 
-final case class OpenAIContentItem(`type`: String,
+case class OpenAIContentItem(`type`: String,
                              text: Option[String] = None,
                              image_url: Option[ImageUrl] = None)
 
@@ -109,10 +109,13 @@ object OpenAIJsonProtocol extends DefaultJsonProtocol {
           "content" -> JsArray(items.map(_.toJson).toVector)
 
         case (None, None) =>
-          serializationError("OpenAIMessage MUST have both content & contentItems")
+          // how can we put these errors in the Error col?
+          //serializationError("OpenAIMessage CANNOT have both content & contentItems")
+          "content" -> JsString("")
 
         case (Some(_), Some(_)) =>
-          serializationError("OpenAIMessage cannot have both content & contentItems")
+          "content" -> JsString("")
+          //serializationError("OpenAIMessage cannot have both content & contentItems")
       }
 
       JsObject(baseFields + contentField)

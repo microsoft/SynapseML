@@ -157,16 +157,19 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("Basic Usage") {
     testCompletion(completion, goodDf)
-    //testCompletion(completion, slowDf)
+    testCompletion(completion, slowDf)
   }
 
   test("Image usage") {
     val results = completion.transform(imageDf)
     results.show(false)
+    testCompletion(completion, imageDf)
   }
 
   test("Robustness to bad inputs") {
-    val results = completion.transform(badDf).collect()
+    val transformed = completion.transform(badDf)
+    transformed.show(false)
+    val results = transformed.collect()
     assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
@@ -187,7 +190,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Whats your favorite color")
-    ).toDF("role", "content", "name").collect()
+    ).toDF("role", "content", "contentList", "name").collect()
 
     val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
     assert(!optionalParams.contains("response_format"))
