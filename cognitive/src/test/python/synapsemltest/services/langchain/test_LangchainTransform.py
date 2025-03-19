@@ -24,6 +24,7 @@ sc = SQLContext(spark.sparkContext)
 def _llm_type(self):
     return "azure"
 
+
 AzureChatOpenAI._llm_type = _llm_type
 #######################################################
 
@@ -154,4 +155,4 @@ class LangchainTransformTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    result = unittest.main(buffer=False)
+    result = unittest.main()
