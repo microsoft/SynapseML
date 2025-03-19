@@ -45,7 +45,6 @@ class LangchainTransformTest(unittest.TestCase):
         os.environ["OPENAI_API_VERSION"] = openai_api_version
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
-        # os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
 
         self.subscriptionKey = openai_api_key
         self.url = openai_api_base
