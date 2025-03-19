@@ -4,7 +4,6 @@
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-#from langchain.llms import AzureOpenAI
 from langchain.chat_models import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
 from pyspark.sql import SQLContext
@@ -21,12 +20,11 @@ sc = SQLContext(spark.sparkContext)
 # link to the PR is here:
 # https://github.com/hwchase17/langchain/pull/3721/files
 # Once that's approved, I'll remove ths correction
-# @property
-# def _llm_type(self):
-#     return "azure"
-#
-#
-# AzureOpenAI._llm_type = _llm_type
+@property
+def _llm_type(self):
+    return "azure"
+
+AzureChatOpenAI._llm_type = _llm_type
 #######################################################
 
 
@@ -47,15 +45,15 @@ class LangchainTransformTest(unittest.TestCase):
         os.environ["OPENAI_API_VERSION"] = openai_api_version
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
-        os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
+        # os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
 
         self.subscriptionKey = openai_api_key
         self.url = openai_api_base
 
         # construction of llm
         llm = AzureChatOpenAI(
+            api_version="2025-01-01-preview",
             deployment_name="gpt-4o",
-            model_name="gpt-4o",
             temperature=0,
             verbose=False,
         )
@@ -157,4 +155,4 @@ class LangchainTransformTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    result = unittest.main()
+    result = unittest.main(buffer=False)
