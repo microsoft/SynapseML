@@ -4,8 +4,6 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.param.ArrayMapJsonProtocol.MapJsonFormat
-import org.apache.spark.sql.Row
 import spray.json._
 
 object CompletionResponse extends SparkBindings[CompletionResponse]
@@ -100,7 +98,6 @@ object OpenAIJsonProtocol extends DefaultJsonProtocol {
         "role" -> JsString(msg.role)
       ) ++ msg.name.map("name" -> JsString(_))
 
-      // Decide how to write 'content':
       val contentField: (String, JsValue) = (msg.content, msg.contentList) match {
         case (Some(text), None) =>
           "content" -> JsString(text)

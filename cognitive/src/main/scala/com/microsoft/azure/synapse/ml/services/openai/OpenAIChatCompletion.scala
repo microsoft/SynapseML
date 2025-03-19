@@ -140,14 +140,13 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
                                        messages: Seq[Row],
                                        optionalParams: Map[String, Any]
                                      ): StringEntity = {
-    import spray.json._
     import OpenAIJsonProtocol._
 
     val mappedMessages = messages.map { row =>
       val role  = row.getAs[String]("role")
       val name  = row.getAs[String]("name")
 
-      val maybeContent = Option(row.getAs[String]("content")) // This is the old usage
+      val maybeContent = Option(row.getAs[String]("content"))
       val maybeItems   = Option(row.getAs[Seq[Row]]("contentList")).map { rows =>
         rows.map { r =>
           val ctype = r.getAs[String]("type")
@@ -169,11 +168,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
 
     val messagesJson: JsValue = mappedMessages.toJson
-    val paramsJson = optionalParams.toJson
-    val paramsObj = paramsJson.asJsObject
-    val fullObj = JsObject(paramsObj.fields + ("messages" -> messagesJson))
-    val jsonString = fullObj.compactPrint
-    println(jsonString)
+    val paramsObj = optionalParams.toJson.asJsObject
+    val jsonString = JsObject(paramsObj.fields + ("messages" -> messagesJson)).compactPrint
     new StringEntity(jsonString, ContentType.APPLICATION_JSON)
   }
 

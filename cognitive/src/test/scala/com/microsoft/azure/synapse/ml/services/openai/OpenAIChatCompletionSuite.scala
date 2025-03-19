@@ -15,7 +15,17 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   import spark.implicits._
 
   lazy val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
-    .setDeploymentName("gpt-4o")
+    .setDeploymentName(deploymentNameGpt4)
+    .setCustomServiceName(openAIServiceName)
+    .setApiVersion("2023-05-15")
+    .setMaxTokens(5000)
+    .setOutputCol("out")
+    .setMessagesCol("messages")
+    .setTemperature(0)
+    .setSubscriptionKey(openAIAPIKey)
+
+  lazy val completion4o: OpenAIChatCompletion = new OpenAIChatCompletion()
+    .setDeploymentName(deploymentNameGpt4o)
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2023-05-15")
     .setMaxTokens(5000)
@@ -161,15 +171,11 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   }
 
   test("Image usage") {
-    val results = completion.transform(imageDf)
-    results.show(false)
-    testCompletion(completion, imageDf)
+    testCompletion(completion4o, imageDf)
   }
 
   test("Robustness to bad inputs") {
-    val transformed = completion.transform(badDf)
-    transformed.show(false)
-    val results = transformed.collect()
+    val results = completion.transform(badDf).collect()
     assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
@@ -310,8 +316,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val fromRow = ChatCompletionResponse.makeFromRowConverter
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
-        assert(true)))
-        //assert(c.message.content.length > requiredLength)))
+        assert(c.message.content.map(_.length).getOrElse(c.message.contentList.get.length) > requiredLength)))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
