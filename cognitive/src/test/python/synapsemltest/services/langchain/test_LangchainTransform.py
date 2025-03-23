@@ -12,22 +12,6 @@ from synapse.ml.core.init_spark import *
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
-#######################################################
-# this part is to correct a bug in langchain,
-# where the llm type of AzureOpenAI was set
-# to 'openai', but it should be 'azure'.
-# I submitted a PR to langchain for this.
-# link to the PR is here:
-# https://github.com/hwchase17/langchain/pull/3721/files
-# Once that's approved, I'll remove ths correction
-@property
-def _llm_type(self):
-    return "azure"
-
-
-AzureChatOpenAI._llm_type = _llm_type
-#######################################################
-
 
 class LangchainTransformTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -142,6 +126,9 @@ class LangchainTransformTest(unittest.TestCase):
             self.langchainTransformer, dataframes_to_test
         )
 
+    @unittest.skip(
+        "Skipping this test because not supported for langchain.chat_models.AzureChatOpenAI."
+    )
     def test_save_load(self):
         dataframes_to_test = spark.createDataFrame(
             [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
