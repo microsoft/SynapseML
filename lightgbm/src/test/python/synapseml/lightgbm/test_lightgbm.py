@@ -11,16 +11,21 @@ import tempfile
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
-class PurePythonCustomTransformer(Transformer, DefaultParamsReadable, DefaultParamsWritable):
+
+class PurePythonCustomTransformer(
+    Transformer, DefaultParamsReadable, DefaultParamsWritable
+):
     """
     A pure-Python Transformer for testing serializability. Returns a string.
     """
+
     def __init__(self, outputCol="other_column"):
         super(PurePythonCustomTransformer, self).__init__()
         self.outputCol = outputCol
 
     def _transform(self, dataset):
         return dataset.withColumn(self.outputCol, f.lit("hello_world"))
+
 
 class LightGBMSerializationTests(unittest.TestCase):
     @classmethod
@@ -29,10 +34,12 @@ class LightGBMSerializationTests(unittest.TestCase):
         data = [
             Row(features=feature_data, label=1),
             Row(features=feature_data, label=0),
-            Row(features=feature_data, label=1)
+            Row(features=feature_data, label=1),
         ]
         cls.df = spark.createDataFrame(data)
-        cls.model = lgbm.LightGBMClassifier(featuresCol="features", labelCol="label").fit(cls.df)
+        cls.model = lgbm.LightGBMClassifier(
+            featuresCol="features", labelCol="label"
+        ).fit(cls.df)
 
     def test_lightgbm_model_serialization(self):
         """

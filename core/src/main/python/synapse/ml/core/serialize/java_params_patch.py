@@ -51,12 +51,14 @@ def _mml_from_java(java_stage):
 
 JavaParams._from_java = _mml_from_java
 
+
 @staticmethod
 def _mml_loadParamsInstance(path, sc):
     """
     Load a :py:class:`Params` instance from the given path, and return it.
     This assumes the instance inherits from :py:class:`MLReadable`.
     """
+
     def __get_class(clazz):
         """
         Loads Python class from its name.
@@ -67,17 +69,22 @@ def _mml_loadParamsInstance(path, sc):
         for comp in parts[1:]:
             m = getattr(m, comp)
         return m
+
     metadata = DefaultParamsReader.loadMetadata(path, sc)
     if DefaultParamsReader.isPythonParamsInstance(metadata):
         pythonClassName = metadata["class"]
     else:
         pythonClassName = metadata["class"].replace("org.apache.spark", "pyspark")
-        pythonClassName = pythonClassName.replace("com.microsoft.azure.synapse.ml", "synapse.ml")
+        pythonClassName = pythonClassName.replace(
+            "com.microsoft.azure.synapse.ml", "synapse.ml"
+        )
     py_type = __get_class(pythonClassName)
     instance = py_type.load(path)
     return instance
 
+
 DefaultParamsReader.loadParamsInstance = _mml_loadParamsInstance
+
 
 def _mml_py2java(sc, obj):
     """Convert Python object into Java"""
