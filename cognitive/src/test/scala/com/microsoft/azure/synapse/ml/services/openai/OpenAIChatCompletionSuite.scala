@@ -24,6 +24,17 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
+  lazy val completion4o: OpenAIChatCompletion = new OpenAIChatCompletion()
+    .setDeploymentName(deploymentNameGpt4o)
+    .setCustomServiceName(openAIServiceName)
+    .setApiVersion("2023-05-15")
+    .setMaxTokens(5000)
+    .setOutputCol("out")
+    .setMessagesCol("messages")
+    .setTemperature(0)
+    .setSubscriptionKey(openAIAPIKey)
+    .setMaxTokens(4000)
+
 
   lazy val goodDf: DataFrame = Seq(
     Seq(
@@ -42,11 +53,26 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     )
   ).toDF("messages")
 
+  lazy val imageDf: DataFrame = Seq(
+    Seq(
+      OpenAIMessage("system", "You are an AI chatbot that specialises with images"),
+      OpenAIMessage(
+        "user",
+        Seq(
+          OpenAIContentItem("text", text = Some("What is in this image?")),
+          OpenAIContentItem("image_url", image_url = Some(ImageUrl(
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg" +
+            "/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg")))
+        )
+      )
+    )
+    ).toDF("messages")
+
   lazy val badDf: DataFrame = Seq(
     Seq(),
     Seq(
       OpenAIMessage("system", "You are very excited"),
-      OpenAIMessage("user", null) //scalastyle:ignore null
+      OpenAIMessage("user", null: String) //scalastyle:ignore null
     ),
     null //scalastyle:ignore null
   ).toDF("messages")
@@ -144,6 +170,10 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     testCompletion(completion, slowDf)
   }
 
+  test("Image usage") {
+    testCompletion(completion4o, imageDf)
+  }
+
   test("Robustness to bad inputs") {
     val results = completion.transform(badDf).collect()
     assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
@@ -166,7 +196,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Whats your favorite color")
-    ).toDF("role", "content", "name").collect()
+    ).toDF("role", "content", "contentList", "name").collect()
 
     val optionalParams: Map[String, Any] = completion.getOptionalParams(messages.head)
     assert(!optionalParams.contains("response_format"))
@@ -286,7 +316,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val fromRow = ChatCompletionResponse.makeFromRowConverter
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
-        assert(c.message.content.length > requiredLength)))
+        assert(c.message.content.map(_.length).getOrElse(c.message.contentList.get.length) > requiredLength)))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
