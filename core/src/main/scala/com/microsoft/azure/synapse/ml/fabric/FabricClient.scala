@@ -69,7 +69,7 @@ object FabricClient extends RESTUtils {
   }
 
   private def getWorkspaceID: Option[String] = {
-    FabricContext.get("trident.artifact.workspace.id");
+    FabricContext.get("trident.artifact.workspace.id").orElse(FabricContext.get("trident.workspace.id"));
   }
 
   private def getArtifactID: Option[String] = {
