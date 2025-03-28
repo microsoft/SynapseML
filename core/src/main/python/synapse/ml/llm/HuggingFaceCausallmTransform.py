@@ -67,8 +67,12 @@ class _ModelConfig:
 def camel_to_snake(text):
     return re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
 
+def broadcast_model(cachePath, modelConfig):
+    bc_computable = _BroadcastableModel(cachePath, modelConfig)
+    sc = SparkSession.builder.getOrCreate().sparkContext
+    return sc.broadcast(bc_computable)
 
-class ComputableObject:
+class _BroadcastableModel:
 
     def __init__(self, model_path=None, model_config=None):
         self.model_path = model_path
@@ -131,7 +135,7 @@ class HuggingFaceCausalLM(
     cachePath = Param(
         Params._dummy(),
         "cachePath",
-        "cache path for the model. could be a lakehouse path",
+        "cache path for the model. A shared location between the workers, could be a lakehouse path",
         typeConverter=TypeConverters.toString,
     )
     deviceMap = Param(
@@ -143,7 +147,7 @@ class HuggingFaceCausalLM(
     torchDtype = Param(
         Params._dummy(),
         "torchDtype",
-        "Specifies a model parameter for the torch dtype. For GPU usage with models such as Phi 3, set it to 'auto'.",
+        "Specifies a model parameter for the torch dtype.",
         typeConverter=TypeConverters.toString,
     )
 
@@ -170,13 +174,6 @@ class HuggingFaceCausalLM(
         )
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
-
-        if self.getCachePath():
-            bc_computable = ComputableObject(self.getCachePath(), self.getModelConfig())
-            sc = SparkSession.builder.getOrCreate().sparkContext
-            self.bcObject = sc.broadcast(bc_computable)
-        else:
-            self.bcObject = None
 
     @keyword_only
     def setParams(self):
@@ -216,14 +213,7 @@ class HuggingFaceCausalLM(
         return self.getOrDefault(self.modelConfig)
 
     def setCachePath(self, value):
-        ret = self._set(cachePath=value)
-        if value is not None:
-            bc_computable = ComputableObject(value, self.getModelConfig())
-            sc = SparkSession.builder.getOrCreate().sparkContext
-            self.bcObject = sc.broadcast(bc_computable)
-        else:
-            self.bcObject = None
-        return ret
+        return self._set(cachePath=value)
     
     def getCachePath(self):
         return self.getOrDefault(self.cachePath)
@@ -301,7 +291,10 @@ class HuggingFaceCausalLM(
             yield Row(**row_dict)
 
     def _transform(self, dataset):
-        bc_object = self.getBCObject()
+        if self.getCachePath():
+            bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
+        else:
+            bc_object = None
         input_schema = dataset.schema
         output_schema = StructType(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
@@ -313,6 +306,10 @@ class HuggingFaceCausalLM(
         return result_df
 
     def complete(self, dataset):
+        if self.getCachePath():
+            bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
+        else:
+            bc_object = None
         bc_object = self.getBCObject()
         input_schema = dataset.schema
         output_schema = StructType(
