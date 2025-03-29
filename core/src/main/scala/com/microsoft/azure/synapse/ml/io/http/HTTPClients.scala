@@ -152,10 +152,11 @@ object HandlingUtils extends SparkLogging {
         case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
         case r => r.getURI
       }
-      SynapseMLLogging.logMessage(s"sending $message")
+      SynapseMLLogging.logDebug(s"sending $message")
       val start = System.currentTimeMillis()
       val resp = sendWithRetries(client, req, retryTimes.toArray)
-      SynapseMLLogging.logMessage(s"finished sending (${System.currentTimeMillis() - start}ms) $message")
+      SynapseMLLogging.logMessage(
+        s"finished sending to ${req.getURI} took (${System.currentTimeMillis() - start}ms)")
       val respData = convertAndClose(resp)
       req.releaseConnection()
       respData
