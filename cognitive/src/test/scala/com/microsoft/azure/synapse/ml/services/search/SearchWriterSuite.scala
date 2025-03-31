@@ -183,7 +183,6 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     }
   }
 
-  @tailrec
   private def retryWithBackoff[T](f: => T,
                                   timeouts: List[Long] =
                                   List(5000, 10000, 50000, 100000, 200000, 200000)): T = {
