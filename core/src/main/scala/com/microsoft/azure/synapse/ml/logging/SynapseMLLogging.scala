@@ -88,6 +88,7 @@ object SynapseMLLogging extends Logging {
     logInfo(SASScrubber.scrub(message))
   }
 
+  override def logDebug(msg: => String): Unit = super.logDebug(msg)
 }
 
 trait SynapseMLLogging extends Logging {
