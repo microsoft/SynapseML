@@ -5,10 +5,10 @@ package com.microsoft.azure.synapse.ml.services.search
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.openai.{OpenAIAPIKey, OpenAIEmbedding}
+import com.microsoft.azure.synapse.ml.services.openai.{ OpenAIAPIKey, OpenAIEmbedding }
 import com.microsoft.azure.synapse.ml.services.vision.AnalyzeImage
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.util.MLReadable
@@ -16,9 +16,10 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.linalg.Vectors
 
 import java.time.LocalDateTime
-import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
+import java.time.format.{ DateTimeFormatterBuilder, DateTimeParseException, SignStyle }
 import java.time.temporal.ChronoField
 import java.util.UUID
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.blocking
 
@@ -131,6 +132,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   lazy val indexName: String = generateIndexName()
 
   override def beforeAll(): Unit = {
+    cleanOldIndexes()
     println("WARNING CREATING SEARCH ENGINE!")
     SearchIndex.createIfNoneExists(azureSearchKey,
       testServiceName,
@@ -164,23 +166,24 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     val endingDatePattern: Regex = "^.*-(\\d{17})$".r
     val e = getExisting(azureSearchKey, testServiceName)
-    e.foreach { name =>
-      name match {
-        case endingDatePattern(dateString) =>
-          try {
-            val date = LocalDateTime.parse(dateString, formatter)
-            if (date.isBefore(twoDaysAgo)) {
-              deleteIndex(name)
-            }
-          } catch {
-            case _: DateTimeParseException => {}
-            case t: Throwable => throw t
+    e.foreach {
+      case name@endingDatePattern(dateString) =>
+        try {
+          val date = LocalDateTime.parse(dateString, formatter)
+          if (date.isAfter(twoDaysAgo)) {
+            Console.println(s"Deleting index ========= $name")
+            deleteIndex(name)
+            Thread.sleep(2 * 1000)
           }
-        case _ => {}
-      }
+        } catch {
+          case _: DateTimeParseException => {}
+          case t: Throwable => throw t
+        }
+      case _ => {}
     }
   }
 
+  @tailrec
   private def retryWithBackoff[T](f: => T,
                                   timeouts: List[Long] =
                                   List(5000, 10000, 50000, 100000, 200000, 200000)): T = {

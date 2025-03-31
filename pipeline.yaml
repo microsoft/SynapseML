@@ -462,7 +462,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt codegen
