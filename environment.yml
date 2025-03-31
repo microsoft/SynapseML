@@ -47,8 +47,8 @@ dependencies:
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe
-    - pypandoc
     - markdownify
+    - pypandoc
     - traitlets
     - opencv-python
     - sentence_transformers~=2.2.2
