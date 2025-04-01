@@ -136,6 +136,8 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   lazy val indexName: String = generateIndexName(false)
 
   override def beforeAll(): Unit = {
+    // to ensure that we clean up old indexes at the start of the test
+    // so we have enough capacity to create new ones
     cleanOldIndexes()
     println("WARNING CREATING SEARCH ENGINE!")
     SearchIndex.createIfNoneExists(azureSearchKey,
