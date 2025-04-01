@@ -10,7 +10,7 @@ dependencies:
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - pip:
-    - pyarrow>=0.15.0
+    - pyarrow>=15.0
     - pyspark==3.4.1
     - pandas==1.4.0
     - wheel
