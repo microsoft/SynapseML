@@ -142,7 +142,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     val deleteRequest = new HttpDelete(
       s"https://$testServiceName.search.windows.net/indexes/$indexName?api-version=2017-11-11")
     deleteRequest.setHeader("api-key", azureSearchKey)
-    val response = safeSend(deleteRequest)
+    val response = safeSend(deleteRequest, backoffs = List(1000, 5 * 1000, 10 * 1000))
     response.getStatusLine.getStatusCode
   }
 
