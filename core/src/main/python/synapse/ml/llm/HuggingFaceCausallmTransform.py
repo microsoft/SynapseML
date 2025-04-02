@@ -310,7 +310,6 @@ class HuggingFaceCausalLM(
             bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
         else:
             bc_object = None
-        bc_object = self.getBCObject()
         input_schema = dataset.schema
         output_schema = StructType(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
