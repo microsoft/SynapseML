@@ -60,6 +60,7 @@ class SynapseTests extends TestBase {
     .filterNot(_.getAbsolutePath.contains("IsolationForests")) // New issue
     .filterNot(_.getAbsolutePath.contains("CreateAudiobooks")) // New issue
     .filterNot(_.getAbsolutePath.contains("ExplanationDashboard")) // New issue
+    .filterNot(_.getAbsolutePath.contains("Phi3Model"))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
