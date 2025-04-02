@@ -134,7 +134,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   }
 
   private def generateIndexName(testName: Option[String] = None): String = {
-    val testNameNormalized = if (testName.isEmpty || testName.get.nonEmpty) {
+    val testNameNormalized = if (testName.isEmpty || testName.get.isEmpty) {
       currentTestData.get().name
     } else {
       testName.get
@@ -225,7 +225,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   private def retryWithBackoff[T](f: => T,
                                   timeouts: List[Long] =
-                                  List(5000, 10000, 50000, 100000, 200000, 200000)): T = {
+                                  List(5000, 10000, 10000, 10000, 10000, 10000)): T = {
     try {
       f
     } catch {
