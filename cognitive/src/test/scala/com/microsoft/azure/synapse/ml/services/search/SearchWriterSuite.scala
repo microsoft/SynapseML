@@ -14,7 +14,7 @@ import org.apache.http.client.methods.HttpDelete
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.scalatest.TestData
+import org.scalatest.{ Outcome, TestData }
 
 import java.time.LocalDateTime
 import java.time.format.{ DateTimeFormatter, DateTimeFormatterBuilder, DateTimeParseException, SignStyle }
@@ -120,20 +120,33 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     """.stripMargin
   }
 
-  private val createdIndexes: mutable.ListBuffer[String] = mutable.ListBuffer()
-  private val testLocalCreatedIndexes: mutable.ListBuffer[String] = mutable.ListBuffer()
+  private val createdIndexes = new mutable.HashMap[String, mutable.Set[String]]
 
-  private def generateIndexName(addTestLocal: Boolean = true): String = {
+  private val currentTestData = new ThreadLocal[TestData]
+
+  override def withFixture(test: NoArgTest): Outcome = {
+    currentTestData.set(test)
+    try {
+      super.withFixture(test)
+    } finally {
+      currentTestData.remove()
+    }
+  }
+
+  private def generateIndexName(testName: String = ""): String = {
+    val testNameNormalized = if (testName.isEmpty) {
+      currentTestData.get().name
+    } else {
+      testName
+    }
+
     val date = formatter.format(LocalDateTime.now())
     val name = s"test-${UUID.randomUUID().hashCode()}-${date}"
-    createdIndexes.append(name)
-    if (addTestLocal) {
-      testLocalCreatedIndexes.append(name)
-    }
+    createdIndexes.getOrElseUpdate(testNameNormalized, mutable.HashSet[String]()).+=(name)
     name
   }
 
-  lazy val indexName: String = generateIndexName(false)
+  lazy val indexName: String = generateIndexName("global")
 
   override def beforeAll(): Unit = {
     // to ensure that we clean up old indexes at the start of the test
@@ -156,8 +169,9 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
-    println(s"All generated indices: ${this.createdIndexes.mkString(",")}")
-    cleanTestIndices(this.createdIndexes)
+    val indexNames = this.createdIndexes.values.flatten
+    println(s"All generated indices: ${indexNames.mkString(",")}")
+    cleanTestIndices(indexNames)
     cleanOldIndexes()
     super.afterAll()
     ()
@@ -165,15 +179,20 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   override def afterEach(td: TestData): Unit = {
     Console.println("Cleaning up local test indices")
-    Console.println(s"Cleaning Test indices: ${this.testLocalCreatedIndexes.mkString(",")}")
-    cleanTestIndices(this.testLocalCreatedIndexes)
-    this.testLocalCreatedIndexes.clear()
+    val testName = td.name
+    val indices = createdIndexes.get(testName)
+    if (indices.isDefined) {
+      cleanTestIndices(indices.get)
+      createdIndexes.remove(testName)
+    } else {
+      println(s"No indices found for test $testName")
+    }
     super.afterEach(td)
   }
 
-  private def cleanTestIndices(indices: mutable.ListBuffer[String]): Unit = {
+  private def cleanTestIndices(indices: Iterable[String]): Unit = {
     val successfulCleanup = getExisting(azureSearchKey, testServiceName)
-      .intersect(indices).map { n =>
+      .intersect(indices.toSeq).map { n =>
         Console.println(s"Deleting index $n")
         deleteIndex(n)
       }.forall(_ == 204)
@@ -345,7 +364,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       .map { i => ("upload", s"$i", s"file$i", s"text$i") }
       .toDF("searchAction", "badkeyname", "fileName", "text")
     assertThrows[IllegalArgumentException] {
-      writeHelper(mismatchDF, generateIndexName(), isVectorField=false)
+      writeHelper(mismatchDF, generateIndexName(), isVectorField = false)
     }
   }
 
