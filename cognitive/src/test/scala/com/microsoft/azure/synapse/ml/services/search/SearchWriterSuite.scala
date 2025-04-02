@@ -133,11 +133,11 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     }
   }
 
-  private def generateIndexName(testName: String = ""): String = {
-    val testNameNormalized = if (testName.isEmpty) {
+  private def generateIndexName(testName: Option[String] = None): String = {
+    val testNameNormalized = if (testName.isEmpty || testName.get.nonEmpty) {
       currentTestData.get().name
     } else {
-      testName
+      testName.get
     }
 
     val date = formatter.format(LocalDateTime.now())
@@ -146,7 +146,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     name
   }
 
-  lazy val indexName: String = generateIndexName("global")
+  lazy val indexName: String = generateIndexName(Some("global"))
 
   override def beforeAll(): Unit = {
     // to ensure that we clean up old indexes at the start of the test
@@ -162,7 +162,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     val deleteRequest = new HttpDelete(
       s"https://$testServiceName.search.windows.net/indexes/$indexName?api-version=2017-11-11")
     deleteRequest.setHeader("api-key", azureSearchKey)
-    val response = safeSend(deleteRequest, backoffs = List.fill(10)(1000 * 10)) // 5 seconds for each 10 retries
+    val response = safeSend(deleteRequest, backoffs = List.fill(10)(1000 * 10)) // 10 seconds for each 10 retries
     response.getStatusLine.getStatusCode
   }
 
@@ -170,7 +170,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
     val indexNames = this.createdIndexes.values.flatten
-    println(s"All generated indices: ${indexNames.mkString(",")}")
+    println(s"Remaining indices: ${indexNames.mkString(",")}")
     cleanTestIndices(indexNames)
     cleanOldIndexes()
     super.afterAll()
@@ -178,10 +178,12 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   }
 
   override def afterEach(td: TestData): Unit = {
-    Console.println("Cleaning up local test indices")
     val testName = td.name
+    println(s"Cleaning up local test indices for test $testName")
     val indices = createdIndexes.get(testName)
+
     if (indices.isDefined) {
+      println(s"Deleting indices ${indices.get.mkString(",")}")
       cleanTestIndices(indices.get)
       createdIndexes.remove(testName)
     } else {
@@ -193,7 +195,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   private def cleanTestIndices(indices: Iterable[String]): Unit = {
     val successfulCleanup = getExisting(azureSearchKey, testServiceName)
       .intersect(indices.toSeq).map { n =>
-        Console.println(s"Deleting index $n")
+        println(s"Deleting index $n")
         deleteIndex(n)
       }.forall(_ == 204)
     assert(successfulCleanup)
