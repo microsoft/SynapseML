@@ -183,12 +183,12 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   private def retryWithBackoff[T](f: => T,
                                   timeouts: List[Long] =
-                                  List(5000, 10000, 50000, 100000, 200000, 200000)): T = {
+                                  List.fill(60)(5 * 1000)): T = { // 5 minutes
     try {
       f
     } catch {
       case _: Exception if timeouts.nonEmpty =>
-        println(s"Sleeping for ${timeouts.head}")
+        println(s"Sleeping for ${timeouts.head} ms with ${timeouts.tail.length} attempts remaining")
         blocking {
           Thread.sleep(timeouts.head)
         }
