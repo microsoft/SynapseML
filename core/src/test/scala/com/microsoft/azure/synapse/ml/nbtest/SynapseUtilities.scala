@@ -196,8 +196,8 @@ object SynapseUtilities {
          | "driverMemory" : "28g",
          | "driverCores" : 4,
          | "executorMemory" : "28g",
-         | "executorCores" : 4,
-         | "numExecutors" : 2,
+         | "executorCores" : 8,
+         | "numExecutors" : 4,
          | "conf" :
          |     {
          |         "spark.jars.packages" : "$SparkMavenPackageList",

@@ -10,7 +10,7 @@ import scala.language.existentials
 
 class DatabricksCPUTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("8g"))
 
   databricksTestHelper(clusterId, Libraries, CPUNotebooks)
 
