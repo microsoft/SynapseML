@@ -67,31 +67,35 @@ class _ModelConfig:
 def camel_to_snake(text):
     return re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
 
+
 def broadcast_model(cachePath, modelConfig):
     bc_computable = _BroadcastableModel(cachePath, modelConfig)
     sc = SparkSession.builder.getOrCreate().sparkContext
     return sc.broadcast(bc_computable)
 
-class _BroadcastableModel:
 
+class _BroadcastableModel:
     def __init__(self, model_path=None, model_config=None):
         self.model_path = model_path
         self.model = None
         self.tokenizer = None
         self.model_config = model_config
 
- 
     def load_model(self):
         if self.model_path and os.path.exists(self.model_path):
             model_config = self.model_config.get_config()
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_path, local_files_only=True, **model_config)
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, local_files_only=True)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_path, local_files_only=True, **model_config
+            )
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_path, local_files_only=True
+            )
         else:
             raise ValueError(f"Model path {self.model_path} does not exist.")
 
     def __getstate__(self):
         return {"model_path": self.model_path, "model_config": self.model_config}
- 
+
     def __setstate__(self, state):
         self.model_path = state.get("model_path")
         self.model_config = state.get("model_config")
@@ -99,7 +103,8 @@ class _BroadcastableModel:
         self.tokenizer = None
         if self.model_path:
             self.load_model()
- 
+
+
 class HuggingFaceCausalLM(
     Transformer, HasInputCol, HasOutputCol, DefaultParamsReadable, DefaultParamsWritable
 ):
@@ -214,10 +219,10 @@ class HuggingFaceCausalLM(
 
     def setCachePath(self, value):
         return self._set(cachePath=value)
-    
+
     def getCachePath(self):
         return self.getOrDefault(self.cachePath)
-    
+
     def setDeviceMap(self, value):
         return self._set(deviceMap=value)
 
@@ -233,7 +238,7 @@ class HuggingFaceCausalLM(
     def getBCObject(self):
         return self.bcObject
 
-    def _predict_single_complete(self, prompt, model, tokenizer):
+    def _predict_single_generate(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
         inputs = tokenizer(prompt, return_tensors="pt").input_ids
         outputs = model.generate(inputs, **param)
@@ -269,7 +274,7 @@ class HuggingFaceCausalLM(
             first_row = peekable_iterator.peek()
         except StopIteration:
             return None
-        
+
         if bc_object:
             lc_object = bc_object.value
             model = lc_object.model
@@ -284,8 +289,8 @@ class HuggingFaceCausalLM(
             prompt = row[self.getInputCol()]
             if task == "chat":
                 result = self._predict_single_chat(prompt, model, tokenizer)
-            elif task == "complete":
-                result = self._predict_single_complete(prompt, model, tokenizer)
+            elif task == "generate":
+                result = self._predict_single_generate(prompt, model, tokenizer)
             row_dict = row.asDict()
             row_dict[self.getOutputCol()] = result
             yield Row(**row_dict)
@@ -305,7 +310,7 @@ class HuggingFaceCausalLM(
         result_df = result_rdd.toDF(output_schema)
         return result_df
 
-    def complete(self, dataset):
+    def generate(self, dataset):
         if self.getCachePath():
             bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
         else:
@@ -315,7 +320,7 @@ class HuggingFaceCausalLM(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, "complete", bc_object)
+            lambda partition: self._process_partition(partition, "generate", bc_object)
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
