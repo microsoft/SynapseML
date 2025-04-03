@@ -69,7 +69,7 @@ object DatabricksUtilities {
     "interpret-community",
     "numpy==1.22.4",
     "unstructured==0.10.24",
-    "pytesseract",
+    "pytesseract"
   )
 
   def baseURL(apiVersion: String): String = s"https://$Region.azuredatabricks.net/api/$apiVersion/"
