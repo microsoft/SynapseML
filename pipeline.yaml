@@ -58,6 +58,7 @@ parameters:
 variables:
   runTests: True
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
+  UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
 
@@ -66,7 +67,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
@@ -86,7 +87,7 @@ jobs:
 - job: Publish
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -138,7 +139,7 @@ jobs:
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
       databricks-cpu:
@@ -257,7 +258,7 @@ jobs:
 - job: Release
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/update_cli.yml
     - bash: |
@@ -363,7 +364,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
       core:
@@ -405,7 +406,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-XX:+UseG1GC"
+          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
@@ -432,7 +433,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
       core:
@@ -462,7 +463,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt codegen
@@ -504,7 +505,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/conda.yml
 
@@ -512,7 +513,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -551,7 +552,7 @@ jobs:
 - job: WebsiteAutoDeployment
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
     - checkout: self
       persistCredentials: true
@@ -599,7 +600,7 @@ jobs:
   timeoutInMinutes: 80
   condition: eq(variables.runTests, 'True')
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
       automl:
@@ -726,7 +727,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-Xmx2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=2G -Xss2M  -Duser.timezone=GMT"
+          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
           (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
