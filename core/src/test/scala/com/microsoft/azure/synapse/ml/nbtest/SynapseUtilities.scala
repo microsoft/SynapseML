@@ -240,13 +240,13 @@ object SynapseUtilities {
        |    },
        |    "autoScale": {
        |      "enabled": "true",
-       |      "maxNodeCount": "12",
+       |      "maxNodeCount": "10",
        |      "minNodeCount": "3"
        |    },
        |    "cacheSize": "20",
        |    "dynamicExecutorAllocation": {
        |      "enabled": "true",
-       |      "maxExecutors": "11",
+       |      "maxExecutors": "8",
        |      "minExecutors": "2"
        |    },
        |    "isComputeIsolationEnabled": "false",

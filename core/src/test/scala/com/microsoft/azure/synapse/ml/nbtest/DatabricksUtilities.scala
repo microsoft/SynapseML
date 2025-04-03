@@ -36,7 +36,7 @@ object DatabricksUtilities {
   val AdbRuntime = "13.3.x-scala2.12"
   // https://docs.databricks.com/en/release-notes/runtime/13.3lts-ml.html
   val AdbGpuRuntime = "13.3.x-gpu-ml-scala2.12"
-  val NumWorkers = 7
+  val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
   lazy val Token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
@@ -443,7 +443,7 @@ abstract class DatabricksTestHelper extends TestBase {
 
     assert(notebooks.nonEmpty)
 
-    val maxConcurrency = 8
+    val maxConcurrency = 4
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
