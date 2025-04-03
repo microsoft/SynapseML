@@ -87,7 +87,8 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "transformers==4.48.0")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
-    Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
+    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
+    Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
   val RapidsInitScripts: String = List(
