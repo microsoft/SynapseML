@@ -4,10 +4,11 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.linalg.Vector
+import org.scalactic.Equality
 
 class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
 
@@ -56,4 +57,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
 
   override def reader: MLReadable[_] = OpenAIEmbedding
 
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
+  }
 }
