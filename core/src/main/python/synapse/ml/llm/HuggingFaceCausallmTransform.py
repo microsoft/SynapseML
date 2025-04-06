@@ -12,7 +12,6 @@ from pyspark.sql.types import StringType, StructType, StructField
 from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pyspark import keyword_only
-import re
 import os
 
 
@@ -62,10 +61,6 @@ class _ModelConfig:
 
     def set_config(self, **kwargs):
         self.config.update(kwargs)
-
-
-def camel_to_snake(text):
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
 
 
 def broadcast_model(cachePath, modelConfig):
@@ -238,7 +233,7 @@ class HuggingFaceCausalLM(
     def getBCObject(self):
         return self.bcObject
 
-    def _predict_single_generate(self, prompt, model, tokenizer):
+    def _predict_single_completion(self, prompt, model, tokenizer):
         param = self.getModelParam().get_param()
         inputs = tokenizer(prompt, return_tensors="pt").input_ids
         outputs = model.generate(inputs, **param)
@@ -289,13 +284,17 @@ class HuggingFaceCausalLM(
             prompt = row[self.getInputCol()]
             if task == "chat":
                 result = self._predict_single_chat(prompt, model, tokenizer)
-            elif task == "generate":
-                result = self._predict_single_generate(prompt, model, tokenizer)
+            elif task == "completion":
+                result = self._predict_single_completion(prompt, model, tokenizer)
+            else:
+                raise ValueError(
+                    f"Unsupported task '{task}'. Supported tasks are 'chat' and 'completion'."
+                )
             row_dict = row.asDict()
             row_dict[self.getOutputCol()] = result
             yield Row(**row_dict)
 
-    def _transform(self, dataset):
+    def _transform(self, dataset, task="chat"):
         if self.getCachePath():
             bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
         else:
@@ -305,22 +304,7 @@ class HuggingFaceCausalLM(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, "chat", bc_object)
-        )
-        result_df = result_rdd.toDF(output_schema)
-        return result_df
-
-    def generate(self, dataset):
-        if self.getCachePath():
-            bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
-        else:
-            bc_object = None
-        input_schema = dataset.schema
-        output_schema = StructType(
-            input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
-        )
-        result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, "generate", bc_object)
+            lambda partition: self._process_partition(partition, task, bc_object)
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df

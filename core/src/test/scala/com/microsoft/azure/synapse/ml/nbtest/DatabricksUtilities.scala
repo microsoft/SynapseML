@@ -107,6 +107,7 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
+    .filterNot(_.getAbsolutePath.contains("Phi3Model"))
     .filterNot(_.getAbsolutePath.contains("Language Model"))
     .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
