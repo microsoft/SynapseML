@@ -122,6 +122,12 @@ class HuggingFaceCausalLM(
         "output column",
         typeConverter=TypeConverters.toString,
     )
+    task = Param(
+        Params._dummy(),
+        "task",
+        "Specifies the task, can be chat or completion.",
+        typeConverter=TypeConverters.toString,
+    )
     modelParam = Param(
         Params._dummy(),
         "modelParam",
@@ -157,6 +163,7 @@ class HuggingFaceCausalLM(
         modelName=None,
         inputCol=None,
         outputCol=None,
+        task=None,
         cachePath=None,
         deviceMap=None,
         torchDtype=None,
@@ -168,6 +175,7 @@ class HuggingFaceCausalLM(
             outputCol=outputCol,
             modelParam=_ModelParam(),
             modelConfig=_ModelConfig(),
+            task=task,
             cachePath=None,
             deviceMap=None,
             torchDtype=None,
@@ -211,6 +219,12 @@ class HuggingFaceCausalLM(
 
     def getModelConfig(self):
         return self.getOrDefault(self.modelConfig)
+
+    def setTask(self, value):
+        return self._set(task=value)
+
+    def getTask(self):
+        return self.getOrDefault(self.task)
 
     def setCachePath(self, value):
         return self._set(cachePath=value)
@@ -262,7 +276,7 @@ class HuggingFaceCausalLM(
         )
         return decoded_output
 
-    def _process_partition(self, iterator, task, bc_object):
+    def _process_partition(self, iterator, bc_object):
         """Process each partition of the data."""
         peekable_iterator = _PeekableIterator(iterator)
         try:
@@ -280,6 +294,8 @@ class HuggingFaceCausalLM(
             model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)
             tokenizer = AutoTokenizer.from_pretrained(model_name)
 
+        task = self.getTask() if self.getTask() else "chat"
+
         for row in peekable_iterator:
             prompt = row[self.getInputCol()]
             if task == "chat":
@@ -294,7 +310,7 @@ class HuggingFaceCausalLM(
             row_dict[self.getOutputCol()] = result
             yield Row(**row_dict)
 
-    def _transform(self, dataset, task="chat"):
+    def _transform(self, dataset):
         if self.getCachePath():
             bc_object = broadcast_model(self.getCachePath(), self.getModelConfig())
         else:
@@ -304,7 +320,7 @@ class HuggingFaceCausalLM(
             input_schema.fields + [StructField(self.getOutputCol(), StringType(), True)]
         )
         result_rdd = dataset.rdd.mapPartitions(
-            lambda partition: self._process_partition(partition, task, bc_object)
+            lambda partition: self._process_partition(partition, bc_object)
         )
         result_df = result_rdd.toDF(output_schema)
         return result_df
