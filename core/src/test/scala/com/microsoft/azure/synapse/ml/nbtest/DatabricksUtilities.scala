@@ -84,7 +84,7 @@ object DatabricksUtilities {
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
     Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
-    Map("pypi" -> Map("package" -> "transformers==4.48.0")),
+    Map("pypi" -> Map("package" -> "transformers==4.49.0")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
     Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
@@ -107,7 +107,7 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
-    .filterNot(_.getAbsolutePath.contains("Phi 3 Model"))
+    .filterNot(_.getAbsolutePath.contains("Phi Model"))
     .filterNot(_.getAbsolutePath.contains("Language Model"))
     .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth

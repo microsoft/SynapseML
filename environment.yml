@@ -40,7 +40,7 @@ dependencies:
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
-    - transformers==4.48.0
+    - transformers==4.49.0
     - huggingface-hub==0.25.2
     - langchain==0.0.152
     - openai==0.27.5

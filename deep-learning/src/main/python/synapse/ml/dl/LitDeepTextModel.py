@@ -13,12 +13,12 @@ _TRANSFORMERS_AVAILABLE = _module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:
     import transformers
 
-    _TRANSFORMERS_EQUAL_4_48_0 = transformers.__version__ == "4.48.0"
-    if _TRANSFORMERS_EQUAL_4_48_0:
+    _TRANSFORMERS_EQUAL_4_49_0 = transformers.__version__ == "4.49.0"
+    if _TRANSFORMERS_EQUAL_4_49_0:
         from transformers import AutoModelForSequenceClassification
     else:
         raise RuntimeError(
-            "transformers should be == 4.48.0, found: {}".format(
+            "transformers should be == 4.49.0, found: {}".format(
                 transformers.__version__
             )
         )
