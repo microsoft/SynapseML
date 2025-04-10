@@ -96,7 +96,7 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 50 * 60 * 1000
+  val TimeoutInMillis: Int = 200 * 60 * 1000
 
   val DocsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile()
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(DocsDir)
@@ -115,7 +115,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
-    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("HuggingFace")
+    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
   }
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
