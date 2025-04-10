@@ -84,9 +84,11 @@ object DatabricksUtilities {
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
     Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
-    Map("pypi" -> Map("package" -> "transformers==4.32.1")),
+    Map("pypi" -> Map("package" -> "transformers==4.49.0")),
+    Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
-    Map("pypi" -> Map("package" -> "protobuf==3.20.3"))
+    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
+    Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
   val RapidsInitScripts: String = List(
@@ -105,12 +107,16 @@ object DatabricksUtilities {
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
+    .filterNot(_.getAbsolutePath.contains("Phi Model"))
+    .filterNot(_.getAbsolutePath.contains("Language Model"))
     .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
-  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("Fine-tune"))
+  val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
+    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
+  }
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 
@@ -427,7 +433,8 @@ abstract class DatabricksTestHelper extends TestBase {
 
   def databricksTestHelper(clusterId: String,
                            libraries: String,
-                           notebooks: Seq[File]): Unit = {
+                           notebooks: Seq[File],
+                           maxConcurrency: Int = 8): Unit = {
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
@@ -443,7 +450,6 @@ abstract class DatabricksTestHelper extends TestBase {
 
     assert(notebooks.nonEmpty)
 
-    val maxConcurrency = 8
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
