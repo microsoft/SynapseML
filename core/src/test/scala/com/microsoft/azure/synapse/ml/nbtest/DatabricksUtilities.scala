@@ -115,7 +115,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
-    file.getAbsolutePath.contains("Fine-tune") //|| file.getAbsolutePath.contains("Phi Model")
+    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
   }
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
@@ -433,7 +433,8 @@ abstract class DatabricksTestHelper extends TestBase {
 
   def databricksTestHelper(clusterId: String,
                            libraries: String,
-                           notebooks: Seq[File]): Unit = {
+                           notebooks: Seq[File],
+                           maxConcurrency: Int = 8): Unit = {
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
@@ -449,7 +450,6 @@ abstract class DatabricksTestHelper extends TestBase {
 
     assert(notebooks.nonEmpty)
 
-    val maxConcurrency = 8
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
     implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 

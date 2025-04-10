@@ -52,4 +52,4 @@ dependencies:
     - pypandoc
     - traitlets
     - opencv-python
-    - sentence_transformers~=2.2.2
+    - sentence_transformers~=4.0.2
