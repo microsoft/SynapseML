@@ -115,7 +115,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
-    file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
+    file.getAbsolutePath.contains("Fine-tune") //|| file.getAbsolutePath.contains("Phi Model")
   }
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
