@@ -1,3 +1,6 @@
+import os
+
+from pyspark import keyword_only
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import (
     HasInputCol,
@@ -6,13 +9,10 @@ from pyspark.ml.param.shared import (
     Params,
     TypeConverters,
 )
-from pyspark.sql import Row, SparkSession
-from pyspark.sql.functions import udf
-from pyspark.sql.types import StringType, StructType, StructField
 from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from pyspark import keyword_only
-import os
+from pyspark.sql import Row, SparkSession
+from pyspark.sql.types import StringType, StructField, StructType
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class _PeekableIterator:
@@ -107,7 +107,7 @@ class HuggingFaceCausalLM(
     modelName = Param(
         Params._dummy(),
         "modelName",
-        "model name",
+        "huggingface causal lm model name",
         typeConverter=TypeConverters.toString,
     )
     inputCol = Param(
@@ -147,13 +147,13 @@ class HuggingFaceCausalLM(
     deviceMap = Param(
         Params._dummy(),
         "deviceMap",
-        "Specifies a model parameter for the device Map. For GPU usage with models such as Phi 3, set it to 'cuda'.",
+        "Specifies a model parameter for the device map. It can also be set with modelParam. Commonly used values include 'auto', 'cuda', or 'cpu'. You may want to check your model documentation for device map",
         typeConverter=TypeConverters.toString,
     )
     torchDtype = Param(
         Params._dummy(),
         "torchDtype",
-        "Specifies a model parameter for the torch dtype.",
+        "Specifies a model parameter for the torch dtype. It can be set with modelParam. The most commonly used value is 'auto'. You may want to check your model documentation for torch dtype.",
         typeConverter=TypeConverters.toString,
     )
 
@@ -163,7 +163,7 @@ class HuggingFaceCausalLM(
         modelName=None,
         inputCol=None,
         outputCol=None,
-        task=None,
+        task="chat",
         cachePath=None,
         deviceMap=None,
         torchDtype=None,
@@ -221,6 +221,11 @@ class HuggingFaceCausalLM(
         return self.getOrDefault(self.modelConfig)
 
     def setTask(self, value):
+        supported_values = ["completion", "chat"]
+        if value not in supported_values:
+            raise ValueError(
+                f"Task must be one of {supported_values}, but got '{value}'."
+            )
         return self._set(task=value)
 
     def getTask(self):
