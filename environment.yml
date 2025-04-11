@@ -9,6 +9,7 @@ dependencies:
   - r-base=4.1.1
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
+  - cmake<=3.27
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
@@ -40,8 +41,8 @@ dependencies:
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
-    - transformers==4.32.1
-    - huggingface-hub==0.25.2
+    - transformers==4.49.0
+    - huggingface-hub==0.26.0
     - langchain==0.0.152
     - openai==0.27.5
     - black==22.3.0
@@ -51,4 +52,4 @@ dependencies:
     - pypandoc
     - traitlets
     - opencv-python
-    - sentence_transformers~=2.2.2
+    - sentence_transformers~=4.0.2

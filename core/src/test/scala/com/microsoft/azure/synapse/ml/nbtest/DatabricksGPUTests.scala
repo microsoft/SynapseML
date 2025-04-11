@@ -14,7 +14,7 @@ class DatabricksGPUTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId)
 
-  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks)
+  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, GPUClusterName)
