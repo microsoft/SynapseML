@@ -21,12 +21,12 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("Bing Bong")
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
-        defaults.set_URL("Test URL")
+        defaults.set_URL("Test URL/")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
-        self.assertEqual(defaults.get_URL(), "Test URL")
+        self.assertEqual(defaults.get_URL(), "Test URL/")
 
     def test_resetters(self):
         defaults = OpenAIDefaults()
@@ -39,7 +39,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
-        self.assertEqual(defaults.get_URL(), "Test URL")
+        self.assertEqual(defaults.get_URL(), "Test URL/")
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
