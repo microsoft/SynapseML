@@ -31,11 +31,11 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-13.3"
-  val GpuPoolName = "synapseml-build-13.3-gpu"
-  val AdbRuntime = "13.3.x-scala2.12"
-  // https://docs.databricks.com/en/release-notes/runtime/13.3lts-ml.html
-  val AdbGpuRuntime = "13.3.x-gpu-ml-scala2.12"
+  val PoolName = "synapseml-build-14.3"
+  val GpuPoolName = "synapseml-build-14.3-gpu"
+  val AdbRuntime = "14.3.x-scala2.12"
+  // https://docs.databricks.com/en/release-notes/runtime/14.3lts-ml.html
+  val AdbGpuRuntime = "14.3.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -59,15 +59,15 @@ object DatabricksUtilities {
     "Pillow",
     "onnxmltools==1.7.0",
     "lightgbm",
-    "mlflow==2.6.0",
+    "mlflow==2.21.3",
     "openai==0.28.1",
     "langchain==0.0.331",
     "pdf2image",
     "pdfminer.six",
     "sqlparse",
-    "raiwidgets",
+    // "raiwidgets", // Broken on ADB
     "interpret-community",
-    "numpy==1.22.4",
+    "numpy==1.26.4",
     "unstructured==0.10.24",
     "pytesseract"
   )
@@ -83,11 +83,11 @@ object DatabricksUtilities {
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
+    Map("pypi" -> Map("package" -> "torchvision==0.15.1")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
-    Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
-    Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
-    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
+    Map("pypi" -> Map("package" -> "jinja2==3.1.6")),
+    Map("pypi" -> Map("package" -> "petastorm==0.12.1")),
+    Map("pypi" -> Map("package" -> "protobuf==5.29.4")),
     Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
@@ -113,6 +113,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
+    .filterNot(_.getAbsolutePath.contains("Isolation Forests")) // TODO Remove this exclusion when raiwidgets is fixed
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")

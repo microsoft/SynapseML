@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.types.StructType
 
 import scala.reflect.runtime.universe.TypeTag
@@ -14,7 +14,7 @@ abstract class SparkBindings[T: TypeTag] extends Serializable {
 
   lazy val schema: StructType = enc.schema
   private lazy val enc: ExpressionEncoder[T] = ExpressionEncoder[T]().resolveAndBind()
-  private lazy val rowEnc: ExpressionEncoder[Row] = RowEncoder(enc.schema).resolveAndBind()
+  private lazy val rowEnc: ExpressionEncoder[Row] = ExpressionEncoder(enc.schema).resolveAndBind()
 
   // WARNING: each time you use this function on a dataframe, you should make a new converter.
   // Spark does some magic that makes this leak memory if re-used on a
