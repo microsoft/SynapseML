@@ -14,7 +14,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{FileEntity, StringEntity}
 import org.apache.http.impl.client.{BasicResponseHandler, CloseableHttpClient}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.execution.streaming.DistributedHTTPSourceProvider
 import org.apache.spark.sql.functions.{col, length}
 import org.apache.spark.sql.streaming.{DataStreamReader, DataStreamWriter, StreamingQuery}
@@ -396,12 +396,12 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         .mapPartitions { _ =>
           Foo.get.increment()
           Iterator(Row(Foo.get.state))
-        }(RowEncoder(new StructType().add("state", IntegerType))).cache()
+        }(ExpressionEncoder(new StructType().add("state", IntegerType))).cache()
       val States1: Array[Row] = DF.collect()
 
       val DF2: DataFrame = DF.mapPartitions { _ =>
         Iterator(Row(Foo.get.state))
-      }(RowEncoder(new StructType().add("state", IntegerType)))
+      }(ExpressionEncoder(new StructType().add("state", IntegerType)))
       val States2: Array[Row] = DF2.collect()
       assert(States2.forall(_.getInt(0) === States2.length))
     }
