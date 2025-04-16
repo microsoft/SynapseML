@@ -5,11 +5,13 @@ from pyspark.sql import DataFrame
 
 PLATFORM_SYNAPSE_INTERNAL = "synapse_internal"
 PLATFORM_SYNAPSE = "synapse"
+PLATFORM_FABRIC_PYTHON = "fabric_python_env"
 PLATFORM_BINDER = "binder"
 PLATFORM_DATABRICKS = "databricks"
 PLATFORM_UNKNOWN = "unknown"
 SECRET_STORE = "mmlspark-build-keys"
 SYNAPSE_PROJECT_NAME = "Microsoft.ProjectArcadia"
+SYNAPSE_NOTEBOOK_NAME = "SynapseNotebook"
 
 
 def current_platform():
@@ -26,6 +28,8 @@ def current_platform():
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
         return PLATFORM_BINDER
+    elif os.environ.get("MSNOTEBOOKUTILS_TRIDENT_ARTIFACT_TYPE", None) == SYNAPSE_NOTEBOOK_NAME:
+        return PLATFORM_FABRIC_PYTHON
     else:
         return PLATFORM_UNKNOWN
 
