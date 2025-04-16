@@ -226,7 +226,9 @@ object DatabricksUtilities {
          |  "init_scripts": $initScripts
          |}
       """.stripMargin
-    databricksPost("clusters/create", body).select[String]("cluster_id")
+    val cluster_id = databricksPost("clusters/create", body).select[String]("cluster_id")
+    println(s"Created cluster with Id $cluster_id, name $clusterName")
+    cluster_id
   }
 
   def installLibraries(clusterId: String, libraries: String): Unit = {
@@ -272,7 +274,7 @@ object DatabricksUtilities {
     val body =
       s"""
          |{
-         |  "run_name": "test1",
+         |  "run_name": "${clusterId}-${notebookPath.split("/").last.replace(" ", "_").replace(".ipynb", "")}",
          |  "existing_cluster_id": "$clusterId",
          |  "timeout_seconds": ${TimeoutInMillis / 1000},
          |  "notebook_task": {
@@ -436,18 +438,16 @@ abstract class DatabricksTestHelper extends TestBase {
                            notebooks: Seq[File],
                            maxConcurrency: Int = 8): Unit = {
 
+    implicit val retryDelaySchedule = Seq.fill(60 * 20)(1000).toArray
+
     println("Checking if cluster is active")
-    tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
-      assert(isClusterActive(clusterId))
-    }
+    assert(retryUntil(() => isClusterActive(clusterId)))
 
     Thread.sleep(1000) // Ensure cluster is not overwhelmed
+
     println("Installing libraries")
     installLibraries(clusterId, libraries)
-    tryWithRetries(Seq.fill(60 * 6)(1000).toArray) { () =>
-      assert(areLibrariesInstalled(clusterId))
-    }
-
+    assert(retryUntil(() => areLibrariesInstalled(clusterId)))
     assert(notebooks.nonEmpty)
 
     val executorService = Executors.newFixedThreadPool(maxConcurrency)
