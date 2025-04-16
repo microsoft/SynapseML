@@ -203,14 +203,25 @@ abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with
       try {
         return block()  //scalastyle:ignore return
       } catch {
-        case e: Exception if (i + 1) < times.length =>
+        case e: Exception =>
           println(s"RETRYING after $t ms:  Caught error: $e ")
           blocking {
             Thread.sleep(t.toLong)
           }
       }
     }
-    throw new RuntimeException("This error should not occur, bug has been introduced in tryWithRetries")
+    block()
+  }
+
+  def retryUntil(completed: () => Boolean, retryDelaySchedule: Seq[Int] = Seq(0, 100, 500, 1000, 3000, 5000)): Boolean = {
+    val schedule = 0 +: retryDelaySchedule // Try with no delay before delays
+    (schedule).find { delay =>
+      if (delay > 0) blocking(Thread.sleep(delay.toLong))
+      completed() || { print("."); false }
+    } match {
+      case Some(_) => println("Succeeded"); true
+      case _ => println("Failed"); false
+    }
   }
 
   def withoutLogging[T](e: => T): T = {

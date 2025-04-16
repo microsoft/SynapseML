@@ -3,8 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
-import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
-
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
