@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructType}
@@ -30,10 +30,10 @@ trait MiniBatchTestUtils extends TestBase with DataFrameEquality {
 
   def basicTest(t: MiniBatchBase): Assertion = {
     val delay = 5
-    val slowDf = df.map { x => Thread.sleep(3 * delay.toLong); x }(RowEncoder(df.schema))
+    val slowDf = df.map { x => Thread.sleep(3 * delay.toLong); x }(ExpressionEncoder(df.schema))
     val df2 = t.transform(slowDf)
 
-    val df3 = df2.map { x => Thread.sleep(10 * delay.toLong); x }(RowEncoder(df2.schema))
+    val df3 = df2.map { x => Thread.sleep(10 * delay.toLong); x }(ExpressionEncoder(df2.schema))
 
     assert(df3.schema == new StructType()
       .add("in1", ArrayType(IntegerType))
