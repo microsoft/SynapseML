@@ -9,7 +9,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, IntegerType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -199,7 +199,7 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
       .setNumPasses(3)
       .setLabelConversion(false)
 
-    val infoEnc = RowEncoder(dataset.schema)
+    val infoEnc = ExpressionEncoder(dataset.schema)
     val trainData = dataset
       .mapPartitions(iter => {
         val ctx = TaskContext.get
