@@ -49,6 +49,9 @@ def running_on_binder():
 def running_on_databricks():
     return current_platform() is PLATFORM_DATABRICKS
 
+def running_on_fabric_python():
+    return current_platform() is PLATFORM_FABRIC_PYTHON
+
 
 def find_secret(secret_name, keyvault):
     try:
