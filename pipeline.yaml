@@ -345,13 +345,8 @@ jobs:
         contenttype: maven
         folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
         owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
         approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
         mainpublisher: synapseml
-        # Should the one of the following three, we are using the AME tenant.
-        # 1. 975f013f-7f24-47e8-a7d3-abc4752bf346 (PME)
-        # 2. 33e01921-4d64-4f8c-a055-5bdaffd5e33d (AME)
-        # 3. cdc5aeea-15c5-4db6-b079-fcadd2505dc2 (Torus)
         domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
       displayName: 'ESRP Publish Package'
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
