@@ -6,7 +6,7 @@ import uuid
 from synapse.ml.core.platform.Platform import (
     running_on_synapse_internal,
     running_on_synapse,
-    running_on_fabric_python
+    running_on_fabric_python,
 )
 from pyspark.sql.dataframe import DataFrame
 from pyspark import SparkContext

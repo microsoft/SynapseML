@@ -28,7 +28,10 @@ def current_platform():
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
         return PLATFORM_BINDER
-    elif os.environ.get("MSNOTEBOOKUTILS_TRIDENT_ARTIFACT_TYPE", None) == SYNAPSE_NOTEBOOK_NAME:
+    elif (
+        os.environ.get("MSNOTEBOOKUTILS_TRIDENT_ARTIFACT_TYPE", None)
+        == SYNAPSE_NOTEBOOK_NAME
+    ):
         return PLATFORM_FABRIC_PYTHON
     else:
         return PLATFORM_UNKNOWN
