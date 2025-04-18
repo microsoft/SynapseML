@@ -28,7 +28,7 @@ def current_platform():
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
         return PLATFORM_BINDER
-    elif FABRIC_URL in os.environ.get("MSNOTEBOOKUTILS_SPARK_TRIDENT_PBIHOST", None):
+    elif FABRIC_URL in os.environ.get("MSNOTEBOOKUTILS_SPARK_TRIDENT_PBIHOST", ""):
         return PLATFORM_FABRIC_PYTHON
     else:
         return PLATFORM_UNKNOWN
