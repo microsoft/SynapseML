@@ -11,7 +11,7 @@ PLATFORM_DATABRICKS = "databricks"
 PLATFORM_UNKNOWN = "unknown"
 SECRET_STORE = "mmlspark-build-keys"
 SYNAPSE_PROJECT_NAME = "Microsoft.ProjectArcadia"
-SYNAPSE_NOTEBOOK_NAME = "SynapseNotebook"
+FABRIC_URL = "fabric.microsoft.com"
 
 
 def current_platform():
@@ -28,10 +28,7 @@ def current_platform():
         return PLATFORM_DATABRICKS
     elif os.environ.get("BINDER_LAUNCH_HOST", None) is not None:
         return PLATFORM_BINDER
-    elif (
-        os.environ.get("MSNOTEBOOKUTILS_TRIDENT_ARTIFACT_TYPE", None)
-        == SYNAPSE_NOTEBOOK_NAME
-    ):
+    elif FABRIC_URL in os.environ.get("MSNOTEBOOKUTILS_SPARK_TRIDENT_PBIHOST", None):
         return PLATFORM_FABRIC_PYTHON
     else:
         return PLATFORM_UNKNOWN
@@ -51,6 +48,7 @@ def running_on_binder():
 
 def running_on_databricks():
     return current_platform() is PLATFORM_DATABRICKS
+
 
 def running_on_fabric_python():
     return current_platform() is PLATFORM_FABRIC_PYTHON
