@@ -6,6 +6,7 @@ import uuid
 from synapse.ml.core.platform.Platform import (
     running_on_synapse_internal,
     running_on_synapse,
+    running_on_fabric_python,
 )
 from pyspark.sql.dataframe import DataFrame
 from pyspark import SparkContext
@@ -82,7 +83,7 @@ class SynapseMLLogger:
 
     @classmethod
     def _get_environment_logger(cls, log_level: int) -> logging.Logger:
-        if running_on_synapse_internal():
+        if running_on_synapse_internal() or running_on_fabric_python():
             from synapse.ml.pymds.synapse_logger import get_mds_logger
 
             return get_mds_logger(

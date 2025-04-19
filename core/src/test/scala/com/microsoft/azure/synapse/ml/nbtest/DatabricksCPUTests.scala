@@ -5,14 +5,13 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
-import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 
 class DatabricksCPUTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
 
-  databricksTestHelper(clusterId, Libraries, CPUNotebooks)
+  databricksTestHelper(clusterId, Libraries, CPUNotebooks, 5)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, ClusterName)

@@ -335,25 +335,19 @@ jobs:
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish jar package to maven central'
-    - task: EsrpRelease@7
+    - task: EsrpRelease@9
       inputs:
-        ConnectedServiceName: 'DataScienceESRPRelease2024'
-        # The keyvault hosting the certs https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/13842c9d-5a2d-4da1-84a8-3383f543d9ba/resourceGroups/esrp/providers/Microsoft.KeyVault/vaults/synapseml-esrp-kv/overview
-        keyvaultname: 'synapseml-esrp-kv'
-        authcertname: 'ReleaseAutomation'
-        signcertname: 'ESRPReqSignCA'
-        # The entra app https://ms.portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Manifest/appId/1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6/isMSAApp~/false
+        connectedservicename: 'SynapseML-ESRP-Service-Connection'
+        usemanagedidentity: true
+        keyvaultname: 'esrp-kv-ame'
+        signcertname: 'esrp-release-mi-cert'
         clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
-        Intent: 'PackageDistribution'
-        ContentType: 'Maven'
-        contentsource: 'Folder'
+        contenttype: maven
         folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        Owners: 'taniaarya@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        Approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
-        ServiceEndpointUrl: 'https://api.esrp.microsoft.com'
-        MainPublisher: 'synapseml'
-        DomainTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-        waitforreleasecompletion: true
+        owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+        approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
+        mainpublisher: synapseml
+        domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
       displayName: 'ESRP Publish Package'
       condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
 
