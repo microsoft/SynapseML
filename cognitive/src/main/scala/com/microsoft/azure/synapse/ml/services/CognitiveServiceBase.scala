@@ -221,7 +221,7 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
     setUrl(v + urlPath.stripPrefix("/"))
   }
 
-  override def getUrl: String = this.getOrDefault(url)
+  override def getUrl: String = "https://synapseml-openai-2.openai.azure.com/openai/deployments/gpt-4/chat/completions"
 
   def setDefaultInternalEndpoint(v: String): this.type = setDefault(
     url, v + s"/cognitive/${this.internalServiceType}/" + urlPath.stripPrefix("/"))
