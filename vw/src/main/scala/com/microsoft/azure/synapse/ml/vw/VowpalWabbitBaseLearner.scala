@@ -179,9 +179,9 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     // schedule multiple mapPartitions in
     val localInitialModel = if (isDefined(initialModel)) Some(getInitialModel) else None
 
-    // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
+    // dispatch to executors and collect the model of the first partition (everybody has the same at the end anyway)
     // important to trigger collect() here so that the spanning tree is still up
-    if (getUseBarrierExecutionMode)
+    if (getUseBarrierExecutionMode && df.rdd.getNumPartitions > 1)
       df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect().toSeq
     else
       df.mapPartitions(inputRows => trainIteration(inputRows, localInitialModel))(encoder).collect().toSeq
