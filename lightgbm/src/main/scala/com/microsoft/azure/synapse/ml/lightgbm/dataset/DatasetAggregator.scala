@@ -132,7 +132,7 @@ private[lightgbm] abstract class BaseChunkedColumns(rowsIter: PeekingIterator[Ro
     case sparse: SparseVector => sparse.size
   }
 
-  lazy val rowCount: Int = rowsIter.map { row =>
+  lazy val rowCount: Long = rowsIter.map { row =>
     addFeatures(row)
     labels.add(row.getDouble(schema.fieldIndex(columnParams.labelColumn)).toFloat)
     columnParams.weightColumn.foreach { col =>
@@ -245,9 +245,9 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
 
   protected var numCols = 0
 
-  def getRowCount: Int = rowCount.get().toInt
+  def getRowCount: Long = rowCount.get().toLong
 
-  def getInitScoreCount: Int = initScoreCount.get().toInt
+  def getInitScoreCount: Long = initScoreCount.get().toLong
 
   def getNumCols: Int = numCols
 
@@ -292,9 +292,10 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
     chunkedCols.initScores.foreach(chunkedArray => if (getRowCount == getInitScoreCount)
       ChunkedArrayUtils.copyChunkedArray(chunkedArray, initScores.get, startIndex)
     else {
+      var colNum = (getInitScoreCount/getRowCount).toInt
       ChunkedArrayUtils.insertTransposedChunkedArray(
         chunkedArray,
-        getInitScoreCount/getRowCount,
+        colNum,
         initScores.get,
         getRowCount,
         startIndex)
@@ -406,7 +407,7 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
                       referenceDataset: Option[LightGBMDataset]): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
     try {
-      val numRows = rowCount.get().toInt
+      val numRows = rowCount.get().toLong
       logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
         s" with $numRows rows and $numCols columns")
       // Generate the dataset for features
@@ -528,7 +529,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
       lightgbmlib.int_to_voidp_ptr(indexPointers.array),
       lightgbmlibConstants.C_API_DTYPE_INT32,
-      indexes.array,
+      lightgbmlib.int_to_voidp_ptr(indexes.array),
       lightgbmlib.double_to_voidp_ptr(values.array),
       lightgbmlibConstants.C_API_DTYPE_FLOAT64,
       indptrCount.get(),
