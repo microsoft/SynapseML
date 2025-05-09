@@ -199,7 +199,10 @@ case class HTTPRequestData(requestLine: RequestLineData,
       request.setProtocolVersion(pv.toHTTPCore))
     request.setHeaders(headers.map(_.toHTTPCore) ++
       Array(new BasicHeader(
-        "User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")))
+        "User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}"),
+        new BasicHeader(
+          "x-ai-telemetry-properties", "{\"SHYAM-SAI\": \"POTATO\"}"
+        )))
     request
   }
   //scalastyle:on cyclomatic.complexity
