@@ -21,7 +21,7 @@ class HuggingFaceCausalLMTester(unittest.TestCase):
             .setModelName("Qwen/Qwen2.5-0.5B-Instruct")
             .setInputCol("messages")
             .setOutputCol("result")
-            .setModelParam(max_new_token=10)
+            .setModelParam(max_new_tokens=10)
         )
         self.strDataFrame = (
             spark.createDataFrame(
