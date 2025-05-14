@@ -18,7 +18,7 @@ class HuggingFaceCausalLMTester(unittest.TestCase):
         super(HuggingFaceCausalLMTester, self).__init__(*args, **kwargs)
         self.transformer = (
             HuggingFaceCausalLM()
-            .setModelName("Qwen/Qwen2.5-0.5B-Instruct")
+            .setModelName("microsoft/Phi-4-mini-instruct")
             .setInputCol("messages")
             .setOutputCol("result")
             .setModelParam(max_new_tokens=10)
@@ -43,7 +43,7 @@ class HuggingFaceCausalLMTester(unittest.TestCase):
                         [
                             {
                                 "role": "system",
-                                "content": "You are a judge of someone's sentiments and feelings based on their words. Given some text, output a single word (without quotes) of positive or negative to reflect their intent. Output only that single word in lower case: no explanations or complete sentences.",
+                                "content": "Your job is to detect the sentiment of user reviews. Given some text, output a single word (without quotes) of positive or negative to reflect their intent. Output only that single word in lower case: no explanations or complete sentences.",
                             },
                             {"role": "user", "content": "I like SynapseML"},
                         ],
