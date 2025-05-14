@@ -18,7 +18,7 @@ class HuggingFaceCausalLMTester(unittest.TestCase):
         super(HuggingFaceCausalLMTester, self).__init__(*args, **kwargs)
         self.transformer = (
             HuggingFaceCausalLM()
-            .setModelName("microsoft/Phi-4-mini-instruct")
+            .setModelName("Qwen/Qwen2.5-0.5B-Instruct")
             .setInputCol("messages")
             .setOutputCol("result")
             .setModelParam(max_new_tokens=10)
