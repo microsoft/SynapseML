@@ -51,7 +51,7 @@ object SharedNotebookE2ETestUtilities {
     }
   }
 
-  def generateNotebooks(): Unit = {
+  def generateNotebooks(): Array[File] = {
     cleanUpGeneratedNotebooksDir()
 
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
@@ -70,10 +70,11 @@ object SharedNotebookE2ETestUtilities {
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
 
-    newFiles.foreach { f =>
-      insertTextInFile(new File(f.getPath.replace(".ipynb", ".py")), NotebookPreamble, 2)
-    }
-
+    newFiles.map(f => {
+      val file = new File(f.getPath.replace(".ipynb", ".py"))
+      insertTextInFile(f, NotebookPreamble, 2)
+      file
+    })
   }
 
   def cleanUpGeneratedNotebooksDir(): Unit = {
