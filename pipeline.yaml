@@ -146,12 +146,13 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests"
       databricks-gpu:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+      synapse:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
 #      databricks-rapids tests have been disabled because these tests are failing.
 #      This test will be re-enabled once the issue is fixed.
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
-      synapse:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+#      TODO: Re-enable the Synapse E2E tests once the environment in live.
 #      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
 #        synapse-internal:
 #          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
@@ -462,7 +463,7 @@ jobs:
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
           sbt codegen
           sbt publishM2
-          SPARK_VERSION=3.4.1
+          SPARK_VERSION=3.5.0
           HADOOP_VERSION=3
           wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
