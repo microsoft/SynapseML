@@ -60,10 +60,12 @@ class SynapseTests extends TestBase {
     "ExplanationDashboard" // New issue
   )
 
-  val selectedPythonFiles: Array[File] = SharedNotebookE2ETestUtilities.generateNotebooks()
+  val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
+  println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
+  
+  val selectedPythonFiles: Array[File] = generatedNotebooks
     .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
     .sortBy(_.getAbsolutePath)
-    .take(1)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 
@@ -76,40 +78,57 @@ class SynapseTests extends TestBase {
 
   println(s"Creating $expectedPoolCount Spark Pools...")
   val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
+  testNotebooks(sparkPools)
 
+  private def testNotebooks(sparkPools: Seq[String]): Unit = {
+    val livyBatches: Array[LivyBatch] =
+      selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
+        SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
+      }
 
-  val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
-    SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
-  }
-
-  livyBatches.foreach(testNotebook)
-
-  private def testNotebook(livyBatch: LivyBatch) {
-    println(s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
-    test(livyBatch.runName) {
-      try {
-        val result = Await.ready(
-          livyBatch.monitor(),
-          Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-        assert(result.isSuccess)
-      } catch {
-        case t: Throwable =>
-          livyBatch.cancelRun()
-          try {
-            val getStatusRequest = new HttpGet(s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}")
-            getStatusRequest.setHeader("Authorization", s"Bearer ${SynapseUtilities.SynapseToken}")
-            val batchData = sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
-            println(s"--- Livy Logs for job ${livyBatch.id} ---")
-            batchData.log.foreach(_.foreach(println))
-            println(s"--- End of Livy Logs ---")
-          } catch {
-            case logEx: Throwable =>
-              println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
-          }
-          throw new RuntimeException(
-            s"Job failed see ${livyBatch.jobStatusPage} for details",
-            t
-          )
+    livyBatches.foreach { livyBatch =>
+      println(
+        s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}"
+      )
+      test(livyBatch.runName) {
+        try {
+          val result = Await
+            .ready(
+              livyBatch.monitor(),
+              Duration(
+                SynapseUtilities.TimeoutInMillis.toLong,
+                TimeUnit.MILLISECONDS
+              )
+            )
+            .value
+            .get
+          assert(result.isSuccess)
+        } catch {
+          case t: Throwable =>
+            livyBatch.cancelRun()
+            // Fetch and print Livy logs for debugging
+            try {
+              val getStatusRequest = new HttpGet(
+                s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}"
+              )
+              getStatusRequest.setHeader(
+                "Authorization",
+                s"Bearer ${SynapseUtilities.SynapseToken}"
+              )
+              val batchData =
+                sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
+              println(s"--- Livy Logs for job ${livyBatch.id} ---")
+              batchData.log.foreach(_.foreach(println))
+              println(s"--- End of Livy Logs ---")
+            } catch {
+              case logEx: Throwable =>
+                println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
+            }
+            throw new RuntimeException(
+              s"Job failed see ${livyBatch.jobStatusPage} for details",
+              t
+            )
+        }
       }
     }
   }

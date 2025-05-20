@@ -70,11 +70,11 @@ object SharedNotebookE2ETestUtilities {
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
 
-    newFiles.map(f => {
-      val file = new File(f.getPath.replace(".ipynb", ".py"))
-      insertTextInFile(f, NotebookPreamble, 2)
-      file
-    })
+    newFiles.map { f =>
+      val newFile = new File(f.getPath.replace(".ipynb", ".py"))
+      insertTextInFile(newFile, NotebookPreamble, 2)
+      newFile
+    }
   }
 
   def cleanUpGeneratedNotebooksDir(): Unit = {
