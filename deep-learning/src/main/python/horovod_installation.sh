@@ -7,10 +7,10 @@ set -eu
 
 # Install prerequisite libraries that horovod depends on
 pip install pytorch-lightning==1.5.0
-pip install torchvision==0.14.1
+pip install torchvision==0.15.1
 pip install transformers==4.49.0
 pip install petastorm>=0.12.0
-pip install protobuf==3.20.3
+pip install protobuf==5.29.4
 
 # Remove Outdated Signing Key:
 sudo apt-key del 7fa2af80
