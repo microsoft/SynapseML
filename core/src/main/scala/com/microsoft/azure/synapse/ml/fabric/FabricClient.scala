@@ -8,7 +8,6 @@ import spray.json._
 
 import java.net.{MalformedURLException, URL}
 import java.util.UUID
-import java.nio.file.{Files, Paths}
 import scala.io.Source
 
 object FabricClient extends RESTUtils {
@@ -124,13 +123,16 @@ object FabricClient extends RESTUtils {
   }
 
   private def readClusterMetadata(): Map[String, String] = {
+    val source = Source.fromFile(ClusterInfoPath)
     try {
-      val jsonString = Files.readString(Paths.get(ClusterInfoPath))
+      val jsonString = try source.mkString finally source.close()
       val jsValue = jsonString.parseJson
       val clusterMetadataJson = jsValue.asJsObject.fields("cluster_metadata")
       clusterMetadataJson.convertTo[Map[String, String]]
     } catch {
       case _: Exception => Map.empty[String, String]
+    } finally {
+      source.close()
     }
   }
 
