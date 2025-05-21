@@ -219,8 +219,8 @@ object DatabricksUtilities {
          |  "instance_pool_id": "$poolId",
          |  "spark_conf": {
          |        $memoryConf
-         |        "spark.sql.shuffle.partitions": "auto"
-         |        "spark.executorEnv.PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python"
+         |        "spark.sql.shuffle.partitions": "auto",
+         |        "spark.executorEnv.PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python",
          |        "spark.driverEnv.PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python"
          |  },
          |  "spark_env_vars": {
