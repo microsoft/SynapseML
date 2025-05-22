@@ -84,17 +84,17 @@ object DatabricksUtilities {
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.15.1")),
+    Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
-    Map("pypi" -> Map("package" -> "protobuf==5.29.4")),
+    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
     Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
-  val RapidsInitScripts: String = List(
-    Map("workspace" -> Map("destination" -> "/InitScripts/init-rapidsml-cuda-11.8.sh"))
-  ).toJson.compactPrint
+//  val RapidsInitScripts: String = List(
+//    Map("workspace" -> Map("destination" -> "/InitScripts/init-rapidsml-cuda-11.8.sh"))
+//  ).toJson.compactPrint
 
   // Execution Params
   val TimeoutInMillis: Int = 50 * 60 * 1000
