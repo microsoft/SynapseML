@@ -30,6 +30,10 @@ case class LivyBatchData(id: Int,
                          appId: Option[String],
                          log: Option[Seq[String]])
 
+object LivyBatchData extends DefaultJsonProtocol {
+  implicit val LivyBatchDataFormat: RootJsonFormat[LivyBatchData] = jsonFormat4(LivyBatchData.apply)
+}
+
 case class LivyBatch(data: LivyBatchData,
                      runName: String,
                      sparkPool: String) {
@@ -205,7 +209,8 @@ object SynapseUtilities {
          |         "spark.jars.excludes": "$excludes",
          |         "spark.yarn.user.classpath.first": "true",
          |         "spark.sql.parquet.enableVectorizedReader":"false",
-         |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
+         |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true",
+         |         "livy.rsc.synapse.error-classification.enabled": "true"
          |     }
          | }
       """.stripMargin
@@ -214,6 +219,8 @@ object SynapseUtilities {
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $SynapseToken")
     createRequest.setEntity(new StringEntity(livyPayload))
+    println(s"Submitting job $runName to pool $poolName")
+    println(s"Payload: $livyPayload")
     LivyBatch(sendAndParseJson(createRequest).convertTo[LivyBatchData], runName, poolName)
   }
 
@@ -277,6 +284,7 @@ object SynapseUtilities {
 
     val sparkPools = sendAndParseJson(getBigDataPoolRequest).convertTo[SynapseResourceResponse].value
     sparkPools.foreach(sparkPool => {
+      println(s"Found pool ${sparkPool.name}")
       val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")
       if (sparkPool.tags.contains("createdAt") && sparkPool.tags.contains("createdBy")) {
         assert(name.stripPrefix(ClusterPrefix).length == dayAgoTsInMillis.toString.length)
@@ -286,7 +294,11 @@ object SynapseUtilities {
             deleteSparkPool(name)
           } catch {
             case e: RuntimeException => println(s"Could not delete old spark cluster: ${e.getMessage}")
+            case e: Exception =>
+              println(s"Could not delete old spark cluster: ${e.getMessage}")
           }
+        } else {
+          println(s"Pool $name is not older than 24 hours, skipping...")
         }
       }
     })
@@ -304,9 +316,10 @@ object SynapseUtilities {
       val deployRequest = new HttpPut(deployUri)
       deployRequest.setHeader("Authorization", s"Bearer $ArmToken")
       deployRequest.setHeader("Content-Type", "application/json")
-      deployRequest.setEntity(new StringEntity(
-        bigDataPoolBicepPayload(bigDataPoolName, PoolLocation, PoolNodeSize, timeStamp)))
+      val payload = bigDataPoolBicepPayload(bigDataPoolName, PoolLocation, PoolNodeSize, timeStamp)
+      deployRequest.setEntity(new StringEntity(payload))
       println(s"Creating Apache Spark Pool: $bigDataPoolName...")
+      println(s"Payload: $payload")
       safeSend(deployRequest)
       bigDataPoolName
     }
