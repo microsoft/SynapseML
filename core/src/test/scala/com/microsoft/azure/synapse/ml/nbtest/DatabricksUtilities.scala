@@ -58,7 +58,6 @@ object DatabricksUtilities {
     "bs4",
     "plotly",
     "Pillow",
-    //"onnxmltools==1.7.0",
     "lightgbm",
     "mlflow==2.6.0",
     "openai==0.28.1",
@@ -474,8 +473,8 @@ abstract class DatabricksTestHelper extends TestBase {
                                clusterName: String): Unit = {
     println("Suite test finished. Running afterAll procedure...")
     DatabricksState.JobIdsToCancel.foreach(cancelRun)
-    //permanentDeleteCluster(clusterId)
-    //println(s"Deleted cluster with Id $clusterId, name $clusterName")
+    permanentDeleteCluster(clusterId)
+    println(s"Deleted cluster with Id $clusterId, name $clusterName")
   }
 }
 
