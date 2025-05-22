@@ -151,8 +151,8 @@ jobs:
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
 #      TODO: Re-enable the Synapse E2E tests once the environment in live.
-#      synapse:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
+      synapse:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
 #      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
 #        synapse-internal:
 #          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
