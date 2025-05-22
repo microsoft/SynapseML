@@ -55,22 +55,22 @@ object DatabricksUtilities {
 
   val PipPackages: Seq[String] = Seq(
     "nltk",
-    "bs4",
-    "plotly",
-    "Pillow",
-    "onnxmltools==1.7.0",
-    "lightgbm",
-    "mlflow==2.6.0",
-    "openai==0.28.1",
-    "langchain==0.0.331",
-    "pdf2image",
-    "pdfminer.six",
-    "sqlparse",
-    "raiwidgets",
-    "interpret-community",
-    "numpy==1.22.4",
-    "unstructured==0.10.24",
-    "pytesseract"
+//    "bs4",
+//    "plotly",
+//    "Pillow",
+//    "onnxmltools==1.7.0",
+//    "lightgbm",
+//    "mlflow==2.6.0",
+//    "openai==0.28.1",
+//    "langchain==0.0.331",
+//    "pdf2image",
+//    "pdfminer.six",
+//    "sqlparse",
+//    "raiwidgets",
+//    "interpret-community",
+//    "numpy==1.22.4",
+//    "unstructured==0.10.24",
+//    "pytesseract"
   )
 
   def baseURL(apiVersion: String): String = s"https://$Region.azuredatabricks.net/api/$apiVersion/"
@@ -83,12 +83,12 @@ object DatabricksUtilities {
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
-    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
-    Map("pypi" -> Map("package" -> "transformers==4.49.0")),
-    Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
-    Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
-    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
+//    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
+//    Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
+//    Map("pypi" -> Map("package" -> "transformers==4.49.0")),
+//    Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
+//    Map("pypi" -> Map("package" -> "petastorm==0.12.0")),
+//    Map("pypi" -> Map("package" -> "protobuf==3.20.3")),
     Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
