@@ -58,7 +58,6 @@ object DatabricksUtilities {
     "bs4",
     "plotly",
     "Pillow",
-    "onnxmltools==1.7.0",
     "lightgbm",
     "mlflow==2.6.0",
     "openai==0.28.1",
@@ -280,6 +279,7 @@ object DatabricksUtilities {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
          |  },
+         |  "libraries": $Libraries
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
