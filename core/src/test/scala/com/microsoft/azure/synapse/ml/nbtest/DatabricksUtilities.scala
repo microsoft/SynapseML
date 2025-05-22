@@ -92,9 +92,9 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "accelerate==0.26.0"))
   ).toJson.compactPrint
 
-//  val RapidsInitScripts: String = List(
-//    Map("workspace" -> Map("destination" -> "/InitScripts/init-rapidsml-cuda-11.8.sh"))
-//  ).toJson.compactPrint
+  val RapidsInitScripts: String = List(
+    Map("workspace" -> Map("destination" -> "/InitScripts/init-rapidsml-cuda-11.8.sh"))
+  ).toJson.compactPrint
 
   // Execution Params
   val TimeoutInMillis: Int = 50 * 60 * 1000
