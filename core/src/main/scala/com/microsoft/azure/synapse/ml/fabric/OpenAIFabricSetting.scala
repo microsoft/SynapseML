@@ -18,14 +18,21 @@ trait OpenAIFabricSetting extends RESTUtils {
     usagePost(url, body, getHeaders);
   }
 
-  def getModelStatus(modelName: String): Boolean = {
+  def assertModelStatus(modelName: String): Unit = {
 
     val payload =
       s"""["${modelName}"]"""
 
     val mlWorkloadEndpointML = FabricClient.MLWorkloadEndpointML
     val url = mlWorkloadEndpointML + "cognitive/openai/tenantsetting"
-    val modelStatus = usagePost(url, payload).asJsObject.fields.get(modelName.toLowerCase).get
+    val modelStatus = try {
+      usagePost(url, payload).asJsObject.fields.get(modelName.toLowerCase).get
+    } catch {
+      case e: Throwable =>
+        println(
+          "Could not get model status, you are likely running in the system context of Fabric", e)
+        return ()
+    }
 
     // Allowed, Disallowed, DisallowedForCrossGeo, ModelNotFound, InvalidResult
     val resultString: String = modelStatus match {
@@ -48,7 +55,7 @@ trait OpenAIFabricSetting extends RESTUtils {
         s"Refer to https://learn.microsoft.com/en-us/fabric/data-science/ai-services/ai-services-overview " +
         s"for the models available.")
       case "InvalidResult" => throw new RuntimeException("Cannot get tenant admin setting status correctly")
-      case "Allowed" => true
+      case "Allowed" => ()
       case _ => throw new RuntimeException("Unexpected result from checking the Fabric tenant settings API.")
     }
   }
