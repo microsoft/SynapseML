@@ -20,7 +20,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.functions.vector_to_array
-import org.apache.spark.sql.functions.{col, expr, struct, to_json}
+import org.apache.spark.sql.functions.{col, expr, struct, to_json, to_utc_timestamp, date_format, when}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -297,6 +297,44 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       preppedDF
     }
 
+    // Convert date/timestamp columns to ISO8601 strings for Azure Search
+    val df2 = {
+      val indexFields = parseIndexJson(indexJson).fields
+      val dateFields = indexFields.filter(_.`type` == "Edm.DateTimeOffset").map(_.name)
+      
+      dateFields.foldLeft(df1) { (currentDF, fieldName) =>
+        if (currentDF.columns.contains(fieldName)) {
+          val fieldType = currentDF.schema(fieldName).dataType
+          fieldType match {
+            case TimestampType =>
+              // Convert to UTC first, then format
+              // This ensures consistent timezone handling regardless of source timezone
+              currentDF.withColumn(fieldName,
+                when(col(fieldName).isNotNull,
+                  date_format(to_utc_timestamp(col(fieldName), "UTC"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                ).otherwise(null)
+              )
+            case DateType =>
+              // DateType doesn't have timezone info, treat as UTC midnight
+              currentDF.withColumn(fieldName,
+                when(col(fieldName).isNotNull,
+                  date_format(col(fieldName), "yyyy-MM-dd'T'00:00:00.000'Z'")
+                ).otherwise(null)
+              )
+            case StringType => 
+              // Already a string, assume it's properly formatted
+              currentDF
+            case _ =>
+              throw new IllegalArgumentException(
+                s"Field $fieldName is defined as Edm.DateTimeOffset in index but has type $fieldType in DataFrame"
+              )
+          }
+        } else {
+          currentDF
+        }
+      }
+    }
+
     new AddDocuments()
       .setSubscriptionKey(subscriptionKey)
       .setServiceName(serviceName)
@@ -305,7 +343,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       .setBatchSize(batchSize)
       .setOutputCol("out")
       .setErrorCol("error")
-      .transform(df1)
+      .transform(df2)
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }
@@ -370,7 +408,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     case "Edm.Int32" => IntegerType
     case "Edm.Double" => DoubleType
     case "Edm.Single" => FloatType
-    case "Edm.DateTimeOffset" => StringType //See if there's a way to use spark datetimes
+    case "Edm.DateTimeOffset" => DateType
     case "Edm.GeographyPoint" => StringType
     case "Edm.ComplexType" => StructType(fields.get.map(f =>
       StructField(f.name, edmTypeToSparkType(f.`type`, f.fields))))
