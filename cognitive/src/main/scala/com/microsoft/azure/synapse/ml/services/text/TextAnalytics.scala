@@ -173,7 +173,8 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row)
+          getCustomAuthHeader(row),
+          getCustomHeaders(row)
         )
         val json = TARequest(makeDocuments(row)).toJson.compactPrint
         post.setEntity(new StringEntity(json, "UTF-8"))
@@ -646,7 +647,8 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(u
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row)
+          getCustomAuthHeader(row),
+          getCustomHeaders(row)
         )
         val tasks = TextAnalyzeTasks(
           entityRecognitionTasks = getTaskHelper(getIncludeEntityRecognition, getEntityRecognitionParams),
