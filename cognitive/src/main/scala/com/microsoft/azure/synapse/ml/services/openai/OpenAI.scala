@@ -311,12 +311,7 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
-      try {
-        getModelStatus(getDeploymentName)
-      } catch {
-        case e: Throwable => logWarning(
-          "Could not get model status, you are likely running in the system context of Fabric", e)
-      }
+      assertModelStatus(getDeploymentName)
     }
     super.getInternalTransformer(schema)
   }
