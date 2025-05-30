@@ -706,43 +706,15 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
   }
 
   test("Handle Azure Search index with scoring profiles") {
-    // Test parsing index JSON that includes scoring profiles
-    val indexJsonWithScoringProfile = """
-    {
-      "name": "test-index",
-      "fields": [
-        {
-          "name": "id",
-          "type": "Edm.String",
-          "key": true
-        },
-        {
-          "name": "date",
-          "type": "Edm.DateTimeOffset"
-        }
-      ],
-      "scoringProfiles": [
-        {
-          "name": "default_profiler",
-          "functionAggregation": "sum",
-          "functions": [
-            {
-              "type": "freshness",
-              "boost": 2.0,
-              "fieldName": "date",
-              "interpolation": "constant",
-              "freshness": {
-                "boostingDuration": "P1D"
-              }
-            }
-          ]
-        }
-      ]
-    }
-    """
-    // This should not throw a DeserializationException anymore
+    val indexJsonWithScoringProfile = """{"name": "test-index", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true},
+      {"name": "date", "type": "Edm.DateTimeOffset"}
+    ], "scoringProfiles": [{
+      "name": "default_profiler", "functionAggregation": "sum",
+      "functions": [{"type": "freshness", "boost": 2.0, "fieldName": "date",
+        "interpolation": "constant", "freshness": {"boostingDuration": "P1D"}}]
+    }]}"""
     val parsedIndex = parseIndexJson(indexJsonWithScoringProfile)
-    // Verify the scoring profile was parsed correctly
     assert(parsedIndex.scoringProfiles.isDefined)
     assert(parsedIndex.scoringProfiles.get.length == 1)
     val scoringProfile = parsedIndex.scoringProfiles.get.head
