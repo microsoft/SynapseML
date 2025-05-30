@@ -17,12 +17,12 @@ case class IndexInfo(
                     name: Option[String],
                     fields: Seq[IndexField],
                     suggesters: Option[Seq[String]],
-                    scoringProfiles: Option[Seq[String]],
+                    scoringProfiles: Option[Seq[ScoringProfile]],
                     analyzers: Option[Seq[String]],
                     charFilters: Option[Seq[String]],
                     tokenizers: Option[Seq[String]],
                     tokenFilters: Option[Seq[String]],
-                    defaultScoringProfile: Option[Seq[String]],
+                    defaultScoringProfile: Option[String],
                     corsOptions: Option[Seq[String]],
                     vectorSearch: Option[VectorSearch]
                     )
@@ -59,6 +59,41 @@ case class VectorColParams(
                           dimension: Int
                           )
 
+case class ScoringFunction(
+                          `type`: String,
+                          boost: Option[Double],
+                          fieldName: String,
+                          interpolation: Option[String],
+                          freshness: Option[FreshnessFunction],
+                          magnitude: Option[MagnitudeFunction],
+                          distance: Option[DistanceFunction],
+                          tag: Option[TagFunction]
+                          )
+
+case class FreshnessFunction(boostingDuration: String)
+
+case class MagnitudeFunction(
+                            boostingRangeStart: Double,
+                            boostingRangeEnd: Double,
+                            constantBoostBeyondRange: Option[Boolean]
+                            )
+
+case class DistanceFunction(
+                           referencePointParameter: String,
+                           boostingDistance: Double
+                           )
+
+case class TagFunction(tagsParameter: String)
+
+case class ScoringProfile(
+                         name: String,
+                         text: Option[TextWeights],
+                         functions: Option[Seq[ScoringFunction]],
+                         functionAggregation: Option[String]
+                         )
+
+case class TextWeights(weights: Map[String, Double])
+
 case class IndexStats(documentCount: Int, storageSize: Int)
 
 case class IndexList(`@odata.context`: String, value: Seq[IndexName])
@@ -71,6 +106,13 @@ object AzureSearchProtocol extends DefaultJsonProtocol {
     "dimensions", "vectorSearchConfiguration"))
   implicit val AcEnc: RootJsonFormat[AlgorithmConfigs] = jsonFormat2(AlgorithmConfigs.apply)
   implicit val VsEnc: RootJsonFormat[VectorSearch] = jsonFormat1(VectorSearch.apply)
+  implicit val FfEnc: RootJsonFormat[FreshnessFunction] = jsonFormat1(FreshnessFunction.apply)
+  implicit val MfEnc: RootJsonFormat[MagnitudeFunction] = jsonFormat3(MagnitudeFunction.apply)
+  implicit val DfEnc: RootJsonFormat[DistanceFunction] = jsonFormat2(DistanceFunction.apply)
+  implicit val TfEnc: RootJsonFormat[TagFunction] = jsonFormat1(TagFunction.apply)
+  implicit val SfEnc: RootJsonFormat[ScoringFunction] = jsonFormat8(ScoringFunction.apply)
+  implicit val TwEnc: RootJsonFormat[TextWeights] = jsonFormat1(TextWeights.apply)
+  implicit val SpEnc: RootJsonFormat[ScoringProfile] = jsonFormat4(ScoringProfile.apply)
   implicit val IiEnc: RootJsonFormat[IndexInfo] = jsonFormat11(IndexInfo.apply)
   implicit val IsEnc: RootJsonFormat[IndexStats] = jsonFormat2(IndexStats.apply)
   implicit val InEnc: RootJsonFormat[IndexName] = jsonFormat1(IndexName.apply)
