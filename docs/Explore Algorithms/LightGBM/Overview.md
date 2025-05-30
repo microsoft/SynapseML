@@ -164,11 +164,11 @@ SynapseML must pass data from Spark partitions to LightGBM native Datasets befor
 the actual LightGBM execution code for training and inference. SynapseML has two modes
 that control how this data is transferred: *streaming* and *bulk*.
 This mode doesn't affect training but can affect memory usage and overall fit/transform time.
+By default, SynapseML uses "streaming" mode.
 
 #### Bulk Execution mode
 The "Bulk" mode is older and requires accumulating all data in executor memory before creating Datasets. This mode can cause
 OOM errors for large data, especially since the data must be accumulated in its original uncompressed double-format size.
-For now, "bulk" mode is the default since "streaming" is new, but SynapseML will eventually make streaming the default.
 
 For bulk mode, native LightGBM Datasets can either be created per partition (useSingleDatasetMode=false), or
 per executor (useSingleDatasetMode=true). Generally, one Dataset per executor is more efficient since it reduces LightGBM network size and complexity during training or fitting. It also avoids using slow network protocols on partitions
