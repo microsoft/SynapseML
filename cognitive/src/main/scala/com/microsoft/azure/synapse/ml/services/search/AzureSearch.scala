@@ -20,7 +20,7 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.functions.vector_to_array
-import org.apache.spark.sql.functions.{col, expr, struct, to_json}
+import org.apache.spark.sql.functions.{col, expr, struct, to_json, to_utc_timestamp, date_format, when}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -206,6 +206,49 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     str.parseJson.convertTo[Seq[VectorColParams]]
   }
 
+  /**
+   * Converts date and timestamp columns to ISO8601 format strings as required by Azure Search.
+   *
+   * @param df DataFrame with potential date/time columns
+   * @param indexJson JSON string containing the index schema
+   * @return DataFrame with date/time columns converted to ISO8601 strings
+   */
+  private def convertDateTimeToISO8601(df: DataFrame, indexJson: String): DataFrame = {
+    import org.apache.spark.sql.functions.{date_format, when, to_utc_timestamp}
+    val indexFields = parseIndexJson(indexJson).fields
+    val dateFields = indexFields.filter(_.`type` == "Edm.DateTimeOffset").map(_.name)
+    dateFields.foldLeft(df) { (currentDF, fieldName) =>
+      if (currentDF.columns.contains(fieldName)) {
+        val fieldType = currentDF.schema(fieldName).dataType
+        fieldType match {
+          case TimestampType =>
+            // Convert to UTC first, then format
+            currentDF.withColumn(fieldName,
+              when(col(fieldName).isNotNull,
+                date_format(to_utc_timestamp(col(fieldName), "UTC"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+              )
+            )
+          case DateType =>
+            // DateType doesn't have timezone info, treat as UTC midnight
+            currentDF.withColumn(fieldName,
+              when(col(fieldName).isNotNull,
+                date_format(col(fieldName), "yyyy-MM-dd'T'00:00:00.000'Z'")
+              )
+            )
+          case StringType =>
+            // Already a string, assume it's properly formatted
+            currentDF
+          case _ =>
+            throw new IllegalArgumentException(
+              s"Field $fieldName is defined as Edm.DateTimeOffset in index but has type $fieldType in DataFrame"
+            )
+        }
+      } else {
+        currentDF
+      }
+    }
+  }
+
   private def dfToIndexJson(schema: StructType,
                             indexName: String,
                             keyCol: String,
@@ -284,18 +327,21 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
     SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
+    val dateConvertedDF = convertDateTimeToISO8601(preppedDF, indexJson)
 
     logInfo("checking schema parity")
-    checkSchemaParity(preppedDF.schema, indexJson, actionCol)
+    checkSchemaParity(dateConvertedDF.schema, indexJson, actionCol)
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
         .filter(_.`type`.startsWith("Collection"))
         .map(_.name)
-      collectionColumns.foldLeft(preppedDF) { (ndf, c) => filterOutNulls(ndf, c) }
+      collectionColumns.foldLeft(dateConvertedDF) { (ndf, c) => filterOutNulls(ndf, c) }
     } else {
-      preppedDF
+      dateConvertedDF
     }
+
+    // Convert date/timestamp columns to ISO8601 strings for Azure Search
 
     new AddDocuments()
       .setSubscriptionKey(subscriptionKey)
@@ -370,7 +416,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     case "Edm.Int32" => IntegerType
     case "Edm.Double" => DoubleType
     case "Edm.Single" => FloatType
-    case "Edm.DateTimeOffset" => StringType //See if there's a way to use spark datetimes
+    case "Edm.DateTimeOffset" => StringType // We convert date/time to ISO8601 strings
     case "Edm.GeographyPoint" => StringType
     case "Edm.ComplexType" => StructType(fields.get.map(f =>
       StructField(f.name, edmTypeToSparkType(f.`type`, f.fields))))
@@ -392,6 +438,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       case DoubleType => ("Edm.Double", None)
       case FloatType  => ("Edm.Single", None)
       case DateType => ("Edm.DateTimeOffset", None)
+      case TimestampType => ("Edm.DateTimeOffset", None)
       case StructType(fields) => ("Edm.ComplexType", Some(fields.map { f =>
         val (innerType, innerFields) = sparkTypeToEdmType(f.dataType)
         IndexField(f.name, innerType, None, None, None, None, None, None, None, None, None, None, innerFields,
