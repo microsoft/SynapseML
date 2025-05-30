@@ -740,10 +740,8 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       ]
     }
     """
-    
     // This should not throw a DeserializationException anymore
     val parsedIndex = parseIndexJson(indexJsonWithScoringProfile)
-    
     // Verify the scoring profile was parsed correctly
     assert(parsedIndex.scoringProfiles.isDefined)
     assert(parsedIndex.scoringProfiles.get.length == 1)
@@ -752,7 +750,6 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     assert(scoringProfile.functionAggregation.contains("sum"))
     assert(scoringProfile.functions.isDefined)
     assert(scoringProfile.functions.get.length == 1)
-    
     val function = scoringProfile.functions.get.head
     assert(function.`type` == "freshness")
     assert(function.boost.contains(2.0))
