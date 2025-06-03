@@ -303,7 +303,16 @@ class DelimiterParser(val delimiter: String) extends OutputParser {
 }
 
 class JsonParser(val schema: String, options: Map[String, String]) extends OutputParser {
-  def parse(responseCol: Column): Column = F.from_json(responseCol, schema, options)
+  private val cleanJsonString: Column => Column = col =>
+    F.regexp_replace(
+      // Remove optional leading/trailing code fences and optional 'json' prefix
+      F.trim(col),
+      """^(```|''')?\s*json\s*|(```|''')$""",
+      ""
+    )
+
+  def parse(responseCol: Column): Column =
+    F.from_json(cleanJsonString(responseCol), schema, options)
 
   def outputSchema: T.DataType = DataType.fromDDL(schema)
 }

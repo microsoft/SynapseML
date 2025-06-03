@@ -37,9 +37,12 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("RAI Usage") {
     val result = prompt
-      .setDeploymentName(deploymentNameGpt4)
-      .setPromptTemplate("Tell me about a graphically disgusting movie in detail")
+      .setDeploymentName(deploymentNameGpt4o)
+      .setPromptTemplate("Tell me about a graphically disgusting " +
+        "and violent movie in detail, " +
+        "be very gory and NSFW in your description.")
       .transform(df)
+      .where(col(prompt.getErrorCol).isNotNull)
       .select(prompt.getErrorCol)
       .collect().head.getAs[Row](0)
     assert(Option(result).nonEmpty)
@@ -59,7 +62,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage JSON") {
     prompt.setPromptTemplate(
-        """Split a word into prefix and postfix a respond in JSON
+        """Split a word into prefix and postfix a respond in JSON.
           |Cherry: {{"prefix": "Che", "suffix": "rry"}}
           |{text}:
           |""".stripMargin)
