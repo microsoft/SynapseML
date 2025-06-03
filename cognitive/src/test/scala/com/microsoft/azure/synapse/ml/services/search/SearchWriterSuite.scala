@@ -705,6 +705,31 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
   }
 
+  test("Handle Azure Search index with scoring profiles") {
+    val indexJsonWithScoringProfile = """{"name": "test-index", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true},
+      {"name": "date", "type": "Edm.DateTimeOffset"}
+    ], "scoringProfiles": [{
+      "name": "default_profiler", "functionAggregation": "sum",
+      "functions": [{"type": "freshness", "boost": 2.0, "fieldName": "date",
+        "interpolation": "constant", "freshness": {"boostingDuration": "P1D"}}]
+    }]}"""
+    val parsedIndex = parseIndexJson(indexJsonWithScoringProfile)
+    assert(parsedIndex.scoringProfiles.isDefined)
+    assert(parsedIndex.scoringProfiles.get.length == 1)
+    val scoringProfile = parsedIndex.scoringProfiles.get.head
+    assert(scoringProfile.name == "default_profiler")
+    assert(scoringProfile.functionAggregation.contains("sum"))
+    assert(scoringProfile.functions.isDefined)
+    assert(scoringProfile.functions.get.length == 1)
+    val function = scoringProfile.functions.get.head
+    assert(function.`type` == "freshness")
+    assert(function.boost.contains(2.0))
+    assert(function.fieldName == "date")
+    assert(function.freshness.isDefined)
+    assert(function.freshness.get.boostingDuration == "P1D")
+  }
+
   test("Handle date fields correctly") {
     val in = generateIndexName()
     import java.sql.{Date, Timestamp}
@@ -728,6 +753,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     assert(parsedIndex.fields.find(_.name == "createdDate").get.`type` == "Edm.DateTimeOffset")
     assert(parsedIndex.fields.find(_.name == "lastModified").get.`type` == "Edm.DateTimeOffset")
   }
+
   test("Date field conversion handles different timezones correctly") {
     val in = generateIndexName()
     import java.sql.{Date, Timestamp}
