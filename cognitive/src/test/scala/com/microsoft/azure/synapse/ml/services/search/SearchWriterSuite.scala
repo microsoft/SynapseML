@@ -729,4 +729,50 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     assert(function.freshness.isDefined)
     assert(function.freshness.get.boostingDuration == "P1D")
   }
+
+  test("Handle date fields correctly") {
+    val in = generateIndexName()
+    import java.sql.{Date, Timestamp}
+    val dateDF = Seq(
+      ("upload", "0", "item0", Date.valueOf("2025-05-20"), Timestamp.valueOf("2025-05-20 10:30:00")),
+      ("upload", "1", "item1", Date.valueOf("2025-05-21"), Timestamp.valueOf("2025-05-21 14:45:30")),
+      ("upload", "2", "item2", null, null)
+    ).toDF("searchAction", "id", "name", "createdDate", "lastModified")
+    val indexJson = s"""{"name": "$in", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true, "facetable": false},
+      {"name": "name", "type": "Edm.String", "searchable": true, "facetable": false},
+      {"name": "createdDate", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false},
+      {"name": "lastModified", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false}
+    ]}"""
+    AzureSearchWriter.write(dateDF, Map(
+      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+      "serviceName" -> testServiceName, "indexJson" -> indexJson))
+    retryWithBackoff(assertSize(in, 3))
+    val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    val parsedIndex = parseIndexJson(createdIndexJson)
+    assert(parsedIndex.fields.find(_.name == "createdDate").get.`type` == "Edm.DateTimeOffset")
+    assert(parsedIndex.fields.find(_.name == "lastModified").get.`type` == "Edm.DateTimeOffset")
+  }
+
+  test("Date field conversion handles different timezones correctly") {
+    val in = generateIndexName()
+    import java.sql.{Date, Timestamp}
+    import org.apache.spark.sql.functions._
+    val dateDF = spark.createDataFrame(Seq(
+      ("upload", "0", "2025-05-20", "2025-05-20 10:30:00"),
+      ("upload", "1", "2025-05-21", "2025-05-21 14:45:30.123")
+    )).toDF("searchAction", "id", "dateStr", "timestampStr")
+      .withColumn("createdDate", to_date(col("dateStr")))
+      .withColumn("lastModified", to_timestamp(col("timestampStr")))
+      .drop("dateStr", "timestampStr")
+    val indexJson = s"""{"name": "$in", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true},
+      {"name": "createdDate", "type": "Edm.DateTimeOffset"},
+      {"name": "lastModified", "type": "Edm.DateTimeOffset"}
+    ]}"""
+    AzureSearchWriter.write(dateDF, Map(
+      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+      "serviceName" -> testServiceName, "indexJson" -> indexJson))
+    retryWithBackoff(assertSize(in, 2))
+  }
 }
