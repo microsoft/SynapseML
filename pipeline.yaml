@@ -363,8 +363,14 @@ jobs:
     matrix:
       core:
         PACKAGE: "core"
-      deep-learning:
+      deep-learning-hf:
         PACKAGE: "deepLearning"
+        TEST_SUB_PATH: "hf"
+        IGNORE_TEST_PATH: ""
+      deep-learning-nohf:
+        PACKAGE: "deepLearning"
+        TEST_SUB_PATH: ""
+        IGNORE_TEST_PATH: "deepLearning/hf"
       lightgbm:
         PACKAGE: "lightgbm"
       opencv:
@@ -403,7 +409,17 @@ jobs:
           export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
-          (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
+          IGNORE_TEST_PATH_FLAG=""
+          TEST_SUB_PATH_FLAG=""
+          if [ -n "$(IGNORE_TEST_PATH)" ]; then
+            IGNORE_TEST_PATH_FLAG="-DpythonIgnoreTestPath=$(IGNORE_TEST_PATH)"
+          fi
+          if [ -n "$(TEST_SUB_PATH)" ]; then
+            TEST_SUB_PATH_FLAG="-DpythonSubTestPath=$(TEST_SUB_PATH)"
+          fi
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:

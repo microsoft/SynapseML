@@ -4,7 +4,7 @@
 # Prepare training and test data.
 
 import unittest
-from synapse.ml.llm.HuggingFaceCausallmTransform import HuggingFaceCausalLM
+from synapse.ml.hf import HuggingFaceCausalLM
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 from synapse.ml.core import __spark_package_version__
