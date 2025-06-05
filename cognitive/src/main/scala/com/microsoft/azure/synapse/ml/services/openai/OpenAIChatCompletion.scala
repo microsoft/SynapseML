@@ -136,14 +136,41 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override def responseDataType: DataType = ChatCompletionResponse.schema
 
-  private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
-      Seq("role", "content", "name").map(n =>
-        n -> Option(m.getAs[String](n))
-      ).toMap.filter(_._2.isDefined).mapValues(_.get)
+  private[openai] def getStringEntity(
+                                       messages: Seq[Row],
+                                       optionalParams: Map[String, Any]
+                                     ): StringEntity = {
+    import OpenAIJsonProtocol._
+
+    val mappedMessages = messages.map { row =>
+      val role  = row.getAs[String]("role")
+      val name  = row.getAs[String]("name")
+
+      val maybeContent = Option(row.getAs[String]("content"))
+      val maybeItems   = Option(row.getAs[Seq[Row]]("contentList")).map { rows =>
+        rows.map { r =>
+          val ctype = r.getAs[String]("type")
+          val text  = r.getAs[String]("text")
+          val imgUrlRow = r.getAs[Row]("image_url")
+          val maybeImgUrl = Option(imgUrlRow).map { irow =>
+            ImageUrl(irow.getAs[String]("url"))
+          }
+          OpenAIContentItem(ctype, Option(text), maybeImgUrl)
+        }
+      }
+
+      OpenAIMessage(
+        role     = role,
+        content  = maybeContent,
+        contentList = maybeItems,
+        name     = Option(name)
+      )
     }
-    val fullPayload = optionalParams.updated("messages", mappedMessages)
-    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+
+    val messagesJson: JsValue = mappedMessages.toJson
+    val paramsObj = optionalParams.toJson.asJsObject
+    val jsonString = JsObject(paramsObj.fields + ("messages" -> messagesJson)).compactPrint
+    new StringEntity(jsonString, ContentType.APPLICATION_JSON)
   }
 
 }
