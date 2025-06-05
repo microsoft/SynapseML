@@ -69,7 +69,7 @@ trait HasImageInput extends HasImageUrl
         .orElse(getValueOpt(r, imageBytes)
           .map(bytes => new ByteArrayEntity(bytes, ContentType.APPLICATION_OCTET_STREAM))
         ).orElse(throw new IllegalArgumentException(
-        "Payload needs to contain image bytes or url. This code should not run"))
+          "Payload needs to contain image bytes or url. This code should not run"))
   }
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
@@ -86,7 +86,7 @@ trait HasImageInput extends HasImageUrl
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req,
+        HeaderUtils.addHeaders(req,
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           "",
@@ -223,17 +223,29 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 
 trait BasicAsyncReply extends HasAsyncReply {
 
+
   override protected def queryForResult(key: Option[String],
+                                        aadToken: Option[String],
+                                        customAuthHeader: Option[String],
+                                        customHeaders: Option[Map[String, String]],
                                         client: CloseableHttpClient,
                                         location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
+
+    HeaderUtils.addHeaders(get,
+      key,
+      aadToken,
+      "",
+      customAuthHeader,
+      customHeaders)
+
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
     val status = IOUtils.toString(resp.entity.get.content, "UTF-8")
       .parseJson.asJsObject.fields.get("status").map(_.convertTo[String])
+
     status.map(_.toLowerCase()).flatMap {
       case "succeeded" | "failed" | "partiallycompleted" => Some(resp)
       case "notstarted" | "running" => None
@@ -363,6 +375,9 @@ trait HasAsyncReply extends Params {
   //scalastyle:on magic.number
 
   protected def queryForResult(key: Option[String],
+                               aadToken: Option[String],
+                               customAuthHeader: Option[String],
+                               customHeaders: Option[Map[String, String]],
                                client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData]
 
