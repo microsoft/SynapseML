@@ -279,6 +279,45 @@ object URLEncodingUtils {
   }
 }
 
+private[ml] object HeaderUtils {
+  val SubscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
+
+  val AadHeaderName = "Authorization"
+
+  def addHeaders(req: HttpRequestBase,
+                           subscriptionKey: Option[String],
+                           aadToken: Option[String],
+                           contentType: String = "",
+                           customAuthHeader: Option[String] = None,
+                           customHeaders: Option[Map[String, String]] = None): Unit = {
+
+    if (subscriptionKey.nonEmpty) {
+      req.setHeader(SubscriptionKeyHeaderName, subscriptionKey.get)
+    } else if (aadToken.nonEmpty) {
+      aadToken.foreach(s => {
+        req.setHeader(AadHeaderName, "Bearer " + s)
+        // this is required for internal workload
+        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    } else if (customAuthHeader.nonEmpty) {
+      customAuthHeader.foreach(s => {
+        req.setHeader(AadHeaderName, s)
+        // this is required for internal workload
+        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
+      })
+    }
+    if (customHeaders.nonEmpty) {
+      customHeaders.foreach(m => {
+        m.foreach {
+          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
+        }
+      })
+    }
+    if (contentType != "") req.setHeader("Content-Type", contentType)
+  }
+
+}
+
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCustomHeaders with SynapseMLLogging {
 
@@ -325,10 +364,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   protected def prepareMethod(): HttpRequestBase = new HttpPost()
 
-  protected val subscriptionKeyHeaderName = "Ocp-Apim-Subscription-Key"
-
-  protected val aadHeaderName = "Authorization"
-
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
@@ -345,38 +380,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     getValueOpt(row, customHeaders)
   }
 
-  protected def addHeaders(req: HttpRequestBase,
-                           subscriptionKey: Option[String],
-                           aadToken: Option[String],
-                           contentType: String = "",
-                           customAuthHeader: Option[String] = None,
-                           customHeaders: Option[Map[String, String]] = None): Unit = {
-
-    if (subscriptionKey.nonEmpty) {
-      req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
-    } else if (aadToken.nonEmpty) {
-      aadToken.foreach(s => {
-        req.setHeader(aadHeaderName, "Bearer " + s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
-    } else if (customAuthHeader.nonEmpty) {
-      customAuthHeader.foreach(s => {
-        req.setHeader(aadHeaderName, s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
-    }
-    if (customHeaders.nonEmpty) {
-      customHeaders.foreach(m => {
-        m.foreach {
-          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
-        }
-      })
-    }
-    if (contentType != "") req.setHeader("Content-Type", contentType)
-  }
-
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     val rowToUrl = prepareUrl
     val rowToEntity = prepareEntity;
@@ -386,7 +389,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req,
+        HeaderUtils.addHeaders(req,
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
