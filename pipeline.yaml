@@ -417,6 +417,10 @@ jobs:
           if [ -n "$(TEST_SUB_PATH)" ]; then
             TEST_SUB_PATH_FLAG="-DpythonSubTestPath=$(TEST_SUB_PATH)"
           fi
+          echo "IGNORE_TEST_PATH=$IGNORE_TEST_PATH"
+          echo "TEST_SUB_PATH=$TEST_SUB_PATH"
+          echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
+          echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)

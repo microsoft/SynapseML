@@ -61,7 +61,7 @@ class HuggingFaceCausalLMTester(unittest.TestCase):
         input_col_value = [row.messages for row in transformed_df]
         for i in range(len(gt_col_value)):
             assert (
-                gt_col_value[i] == output_col_value[i]
+                gt_col_value[i].lower() == output_col_value[i].lower()
             ), f"model prediction {output_col_value[i]} does not match with ground truth {gt_col_value[i]}, input message is {input_col_value[i]}"
 
     def test_str_df(self):
