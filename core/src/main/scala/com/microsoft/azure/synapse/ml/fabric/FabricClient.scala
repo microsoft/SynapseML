@@ -71,8 +71,9 @@ object FabricClient extends RESTUtils {
   private def getMLWorkloadHost: Option[String] = {
     if (WorkspacePeEnabled) {
       getMLWorkloadPEHost
+    } else {
+      extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
     }
-    extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
   }
 
   private def getMLWorkloadPEHost: Option[String] = {
@@ -153,21 +154,21 @@ object FabricClient extends RESTUtils {
   private def getPbiSharedHost: Option[String] = {
     if (WorkspacePeEnabled) {
       getPEPbiSharedHost
+    } else {
+      val endpoint = FabricContext.get("spark.trident.pbiHost") match {
+        case Some(value) if value.nonEmpty =>
+          value.replace("https://", "").replace("http://", "")
+        case _ =>
+          PbiEnv match {
+            case "edog"  => "powerbiapi.analysis-df.windows.net"
+            case "daily" => "dailyapi.fabric.microsoft.com"
+            case "dxt"   => "dxtapi.fabric.microsoft.com"
+            case "msit"  => "msitapi.fabric.microsoft.com"
+            case _       => "api.fabric.microsoft.com"
+          }
+      }
+      Some("https://" + endpoint)
     }
-    val endpoint = FabricContext.get("spark.trident.pbiHost") match {
-      case Some(value) if value.nonEmpty =>
-        value.replace("https://", "").replace("http://", "")
-      case _ =>
-        PbiEnv match {
-          case "edog"  => "powerbiapi.analysis-df.windows.net"
-          case "daily" => "dailyapi.fabric.microsoft.com"
-          case "dxt"   => "dxtapi.fabric.microsoft.com"
-          case "msit"  => "msitapi.fabric.microsoft.com"
-          case _       => "api.fabric.microsoft.com"
-        }
-    }
-
-    Some("https://" + endpoint)
   }
 
   private def getPEPbiSharedHost: Option[String] = {
