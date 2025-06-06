@@ -540,10 +540,10 @@ trait ModifiableAsyncReply extends BasicAsyncReply {
   /**
    * Queries for the result of an asynchronous service call and applies the response modification logic.
    */
-  override final protected def queryForResult(key: Option[String],
+  override final protected def queryForResult(headers: Map[String, String],
                                               client: CloseableHttpClient,
                                               location: URI): Option[HTTPResponseData] = {
-    val originalResponse = super.queryForResult(key, client, location)
+    val originalResponse = super.queryForResult(headers, client, location)
     logDebug(s"Original response: $originalResponse")
     modifyResponse(originalResponse)
   }

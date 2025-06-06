@@ -10,24 +10,24 @@ import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, HasGlobalParams, ServiceParam}
-import com.microsoft.azure.synapse.ml.services.openai.OpenAIDeploymentNameKey
-import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
+import com.microsoft.azure.synapse.ml.param.{ GlobalKey, GlobalParams, HasGlobalParams, ServiceParam }
+import com.microsoft.azure.synapse.ml.stages.{ DropColumns, Lambda }
 import org.apache.http.NameValuePair
-import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
+import org.apache.http.client.methods.{ HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase }
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.{ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer}
-import org.apache.spark.sql.functions.{col, lit, struct}
+import org.apache.spark.ml.{ ComplexParamsWritable, NamespaceInjections, PipelineModel, Transformer }
+import org.apache.spark.sql.functions.{ col, lit, struct }
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{ DataFrame, Dataset, Row }
 import spray.json.DefaultJsonProtocol._
 
 import java.net.URI
 import java.util.UUID
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.language.existentials
 
 trait HasServiceParams extends Params {
@@ -346,35 +346,43 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   }
 
   protected def addHeaders(req: HttpRequestBase,
-                           subscriptionKey: Option[String],
-                           aadToken: Option[String],
-                           contentType: String = "",
-                           customAuthHeader: Option[String] = None,
-                           customHeaders: Option[Map[String, String]] = None): Unit = {
+                           row: Row): Unit = {
 
-    if (subscriptionKey.nonEmpty) {
-      req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
-    } else if (aadToken.nonEmpty) {
-      aadToken.foreach(s => {
-        req.setHeader(aadHeaderName, "Bearer " + s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
-    } else if (customAuthHeader.nonEmpty) {
-      customAuthHeader.foreach(s => {
-        req.setHeader(aadHeaderName, s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
+    val headers = geHeaders(row)
+    headers.foreach { case (headerName, headerValue) => req.addHeader(headerName, headerValue) }
+  }
+
+  // Returns a list of key-value pairs representing the headers
+  protected def geHeaders(row: Row): Map[String, String] = {
+    var headers = mutable.Map.empty[String, String]
+    val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
+    val aadTokenOpt = getValueOpt(row, AADToken)
+    val contentTypeValue = contentType(row)
+    val customAuthHeaderOpt = getCustomAuthHeader(row)
+    val customHeadersOpt = getCustomHeaders(row)
+
+    if (subscriptionKeyOpt.nonEmpty) {
+      headers += (subscriptionKeyHeaderName -> getValue(row, subscriptionKey))
+    } else if (aadTokenOpt.nonEmpty) {
+      aadTokenOpt.foreach { s =>
+        headers += (aadHeaderName -> ("Bearer " + s))
+        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
+      }
+    } else if (customAuthHeaderOpt.nonEmpty) {
+      customAuthHeaderOpt.foreach { s =>
+        headers += (aadHeaderName -> s)
+        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
+      }
     }
-    if (customHeaders.nonEmpty) {
-      customHeaders.foreach(m => {
-        m.foreach {
-          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
+    if (customHeadersOpt.nonEmpty) {
+      customHeadersOpt.foreach { m =>
+        m.foreach { case (headerName, headerValue) =>
+          headers += (headerName -> headerValue)
         }
-      })
+      }
     }
-    if (contentType != "") req.setHeader("Content-Type", contentType)
+    if (contentTypeValue != "") headers += ("Content-Type" -> contentTypeValue)
+    new scala.collection.immutable.TreeMap[String, String]() ++ headers
   }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
@@ -386,12 +394,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req,
-          getValueOpt(row, subscriptionKey),
-          getValueOpt(row, AADToken),
-          contentType(row),
-          getCustomAuthHeader(row),
-          getCustomHeaders(row))
+        addHeaders(req, row)
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>

@@ -90,7 +90,7 @@ trait HasAddressInput extends HasServiceParams {
 
 trait MapsAsyncReply extends HasAsyncReply {
 
-  protected def queryForResult(key: Option[String], client: CloseableHttpClient,
+  protected def queryForResult(headers: Map[String, String], client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData] = {
     val statusRequest = new HttpGet()
     statusRequest.setURI(location)
@@ -116,7 +116,7 @@ trait MapsAsyncReply extends HasAsyncReply {
       val maxTries = getMaxPollingRetries
       val location = new URI(response.headers.filter(_.name.toLowerCase() == "location").head.value)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(None, client, location).orElse({
+        queryForResult(Map.empty, client, location).orElse({
           blocking {
             Thread.sleep(getPollingDelay.toLong)
           }

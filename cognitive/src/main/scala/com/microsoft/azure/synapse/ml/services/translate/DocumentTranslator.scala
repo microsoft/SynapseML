@@ -29,12 +29,12 @@ trait DocumentTranslatorAsyncReply extends BasicAsyncReply {
 
   import TranslatorJsonProtocol._
 
-  override protected def queryForResult(key: Option[String],
+  override protected def queryForResult(headers: Map[String, String],
                                         client: CloseableHttpClient,
                                         location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    headers.foreach { case (k, v) => get.setHeader(k, v) }
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
