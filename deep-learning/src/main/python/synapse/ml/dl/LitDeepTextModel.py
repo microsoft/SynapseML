@@ -7,9 +7,9 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from pytorch_lightning.utilities import _module_available
+from lightning_utilities.core.imports import module_available
 
-_TRANSFORMERS_AVAILABLE = _module_available("transformers")
+_TRANSFORMERS_AVAILABLE = module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:
     import transformers
 
