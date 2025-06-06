@@ -83,8 +83,8 @@ object DatabricksUtilities {
   // TODO: install synapse.ml.dl wheel package here
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
-    Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.22.1")),
+    Map("pypi" -> Map("package" -> "pytorch-lightning==1.9.0")),
+    Map("pypi" -> Map("package" -> "torchvision==0.14.1")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.0")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.0")),

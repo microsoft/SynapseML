@@ -1,13 +1,13 @@
 from horovod.spark.lightning import TorchEstimator
 import torch
 from pyspark.ml.param.shared import Param, Params
-from pytorch_lightning.utilities import _module_available
+from lightning_utilities.core.imports import module_available
 from synapse.ml.dl.DeepTextModel import DeepTextModel
 from synapse.ml.dl.LitDeepTextModel import LitDeepTextModel
 from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 from synapse.ml.dl.PredictionParams import TextPredictionParams
 
-_TRANSFORMERS_AVAILABLE = _module_available("transformers")
+_TRANSFORMERS_AVAILABLE = module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:
     import transformers
 
