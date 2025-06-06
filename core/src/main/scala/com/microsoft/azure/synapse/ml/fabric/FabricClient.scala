@@ -3,28 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.fabric
 
-import spray.json.DefaultJsonProtocol.StringJsonFormat
-import spray.json.JsValue
+import spray.json.DefaultJsonProtocol.{StringJsonFormat, mapFormat}
+import spray.json._
 
 import java.net.{MalformedURLException, URL}
 import java.util.UUID
 import scala.io.Source
 
 object FabricClient extends RESTUtils {
-  private val PbiGlobalServiceEndpoints = Map(
-    "public" -> "https://api.powerbi.com/",
-    "fairfax" -> "https://api.powerbigov.us",
-    "mooncake" -> "https://api.powerbi.cn",
-    "blackforest" -> "https://app.powerbi.de",
-    "msit" -> "https://api.powerbi.com/",
-    "prod" -> "https://api.powerbi.com/",
-    "int3" -> "https://biazure-int-edog-redirect.analysis-df.windows.net/",
-    "dxt" -> "https://powerbistagingapi.analysis.windows.net/",
-    "edog" -> "https://biazure-int-edog-redirect.analysis-df.windows.net/",
-    "dev" -> "https://onebox-redirect.analysis.windows-int.net/",
-    "console" -> "http://localhost:5001/",
-    "daily" -> "https://dailyapi.powerbi.com/")
-
   private val WorkloadEndpointTypeML = "ML";
   private val WorkloadEndpointTypeLLMPlugin = "LlmPlugin"
   private val WorkloadEndpointTypeAutomatic = "Automatic"
@@ -32,6 +18,7 @@ object FabricClient extends RESTUtils {
   private val WorkloadEndpointTypeAdmin = "MLAdmin"
   private val ContextFilePath = "/home/trusted-service-user/.trident-context";
   private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
+  private val ClusterInfoPath = "/opt/health-agent/conf/cluster-info.json";
 
   lazy val CapacityID: Option[String] = getCapacityID;
   lazy val WorkspaceID: Option[String] = getWorkspaceID;
@@ -39,8 +26,9 @@ object FabricClient extends RESTUtils {
   lazy val PbiEnv: String = getPbiEnv;
   lazy val FabricContext: Map[String, String] = getFabricContextFile;
   lazy val MLWorkloadHost: Option[String] = getMLWorkloadHost;
+  lazy val WorkspacePeEnabled: Boolean = getWorkspacePeEnabled;
 
-  lazy val PbiSharedHost: String = getPbiSharedHost;
+  lazy val PbiSharedHost: Option[String] = getPbiSharedHost;
   lazy val MLWorkloadEndpointML: String = getMLWorkloadEndpoint(WorkloadEndpointTypeML);
   lazy val MLWorkloadEndpointLLMPlugin: String = getMLWorkloadEndpoint(WorkloadEndpointTypeLLMPlugin);
   lazy val MLWorkloadEndpointAutomatic: String = getMLWorkloadEndpoint(WorkloadEndpointTypeAutomatic);
@@ -81,7 +69,22 @@ object FabricClient extends RESTUtils {
   }
 
   private def getMLWorkloadHost: Option[String] = {
-    extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
+    if (WorkspacePeEnabled) {
+      getMLWorkloadPEHost
+    } else {
+      extractSchemeAndHost(FabricContext.get("trident.lakehouse.tokenservice.endpoint"))
+    }
+  }
+
+  private def getMLWorkloadPEHost: Option[String] = {
+    WorkspaceID.map { wsId =>
+      val cleanedWsId = wsId.toLowerCase.replace("-", "")
+      val envMark = PbiEnv match {
+        case "daily" | "dxt" | "msit" => s"$PbiEnv-"
+        case _ => ""
+      }
+      s"https://${cleanedWsId}.z${cleanedWsId.take(2)}.${envMark}c.fabric.microsoft.com"
+    }
   }
 
   private def readFabricContextFile(): Map[String, String] = {
@@ -120,6 +123,25 @@ object FabricClient extends RESTUtils {
     }
   }
 
+  private def readClusterMetadata(): Map[String, String] = {
+    val source = Source.fromFile(ClusterInfoPath)
+    try {
+      val jsonString = try source.mkString finally source.close()
+      val jsValue = jsonString.parseJson
+      val clusterMetadataJson = jsValue.asJsObject.fields("cluster_metadata")
+      clusterMetadataJson.convertTo[Map[String, String]]
+    } catch {
+      case _: Exception => Map.empty[String, String]
+    } finally {
+      source.close()
+    }
+  }
+
+  private def getWorkspacePeEnabled: Boolean = {
+    val metadata = readClusterMetadata()
+    metadata.get("workspace-pe-enabled").exists(_.equalsIgnoreCase("true"))
+  }
+
   private def getHeaders: Map[String, String] = {
     Map(
       "Authorization" -> s"${getMLWorkloadAADAuthHeader}",
@@ -129,10 +151,35 @@ object FabricClient extends RESTUtils {
     )
   }
 
-  private def getPbiSharedHost: String = {
-    val clusterDetailUrl = s"${PbiGlobalServiceEndpoints(PbiEnv)}powerbi/globalservice/v201606/clusterDetails";
-    val headers = getHeaders;
-    usageGet(clusterDetailUrl, headers).asJsObject.fields("clusterUrl").convertTo[String];
+  private def getPbiSharedHost: Option[String] = {
+    if (WorkspacePeEnabled) {
+      getPEPbiSharedHost
+    } else {
+      val endpoint = FabricContext.get("spark.trident.pbiHost") match {
+        case Some(value) if value.nonEmpty =>
+          value.replace("https://", "").replace("http://", "")
+        case _ =>
+          PbiEnv match {
+            case "edog"  => "powerbiapi.analysis-df.windows.net"
+            case "daily" => "dailyapi.fabric.microsoft.com"
+            case "dxt"   => "dxtapi.fabric.microsoft.com"
+            case "msit"  => "msitapi.fabric.microsoft.com"
+            case _       => "api.fabric.microsoft.com"
+          }
+      }
+      Some("https://" + endpoint)
+    }
+  }
+
+  private def getPEPbiSharedHost: Option[String] = {
+    WorkspaceID.map { wsId =>
+      val cleanedWsId = wsId.toLowerCase.replace("-", "")
+      val envMark = PbiEnv match {
+        case "daily" | "dxt" | "msit" => PbiEnv
+        case _ => ""
+      }
+      s"https://${cleanedWsId}.z${cleanedWsId.take(2)}.w.${envMark}api.fabric.microsoft.com"
+    }
   }
 
   private def getMLWorkloadEndpoint(endpointType: String): String = {
