@@ -109,7 +109,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
     "The maximum number of tokens to generate. Has minimum of 0.",
-    isRequired = false){
+    isRequired = false) {
     override val payloadName: String = "max_tokens"
   }
 
@@ -217,7 +217,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   val cacheLevel: ServiceParam[Int] = new ServiceParam[Int](
     this, "cacheLevel",
     "can be used to disable any server-side caching, 0=no cache, 1=prompt prefix enabled, 2=full cache",
-    isRequired = false){
+    isRequired = false) {
     override val payloadName: String = "cache_level"
   }
 
@@ -233,7 +233,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     this, "presencePenalty",
     "How much to penalize new tokens based on their existing frequency in the text so far." +
       " Decreases the likelihood of the model to repeat the same line verbatim. Has minimum of -2 and maximum of 2.",
-    isRequired = false){
+    isRequired = false) {
     override val payloadName: String = "presence_penalty"
   }
 
@@ -249,7 +249,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     this, "frequencyPenalty",
     "How much to penalize new tokens based on whether they appear in the text so far." +
       " Increases the likelihood of the model to talk about new topics.",
-    isRequired = false){
+    isRequired = false) {
     override val payloadName: String = "frequency_penalty"
   }
 
@@ -265,7 +265,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     this, "bestOf",
     "How many generations to create server side, and display only the best." +
       " Will not stream intermediate progress if best_of > 1. Has maximum value of 128.",
-    isRequired = false){
+    isRequired = false) {
     override val payloadName: String = "best_of"
   }
 
@@ -311,7 +311,7 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
-      getModelStatus(getDeploymentName)
+      assertModelStatus(getDeploymentName)
     }
     super.getInternalTransformer(schema)
   }

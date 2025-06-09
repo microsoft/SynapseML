@@ -115,7 +115,8 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row)
+          getCustomAuthHeader(row),
+          getCustomHeaders(row)
         )
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
@@ -259,7 +260,8 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
           getValueOpt(row, subscriptionKey),
           getValueOpt(row, AADToken),
           contentType(row),
-          getCustomAuthHeader(row)
+          getCustomAuthHeader(row),
+          getCustomHeaders(row)
         )
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
@@ -550,7 +552,8 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
             getValueOpt(row, subscriptionKey),
             getValueOpt(row, AADToken),
             contentType(row),
-            getCustomAuthHeader(row)
+            getCustomAuthHeader(row),
+            getCustomHeaders(row)
           )
           getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
