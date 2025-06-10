@@ -12,6 +12,7 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.{ GlobalKey, GlobalParams, HasGlobalParams, ServiceParam }
 import com.microsoft.azure.synapse.ml.stages.{ DropColumns, Lambda }
+import org.apache.commons.lang.StringUtils
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{ HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase }
 import org.apache.http.client.utils.URLEncodedUtils
@@ -348,12 +349,12 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def addHeaders(req: HttpRequestBase,
                            row: Row): Unit = {
 
-    val headers = geHeaders(row)
+    val headers = getHeaders(row)
     headers.foreach { case (headerName, headerValue) => req.addHeader(headerName, headerValue) }
   }
 
   // Returns a list of key-value pairs representing the headers
-  protected def geHeaders(row: Row): Map[String, String] = {
+  protected def getHeaders(row: Row): Map[String, String] = {
     val headers = mutable.Map.empty[String, String]
     val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
     val aadTokenOpt = getValueOpt(row, AADToken)
@@ -381,6 +382,11 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         }
       }
     }
+
+    if (!StringUtils.isEmpty(contentTypeValue)) {
+      headers += ("Content-Type" -> contentTypeValue)
+    }
+
     new scala.collection.immutable.TreeMap[String, String]() ++ headers
   }
 
