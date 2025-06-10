@@ -354,7 +354,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   // Returns a list of key-value pairs representing the headers
   protected def geHeaders(row: Row): Map[String, String] = {
-    var headers = mutable.Map.empty[String, String]
+    val headers = mutable.Map.empty[String, String]
     val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
     val aadTokenOpt = getValueOpt(row, AADToken)
     val contentTypeValue = contentType(row)
@@ -381,7 +381,6 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
         }
       }
     }
-    if (contentTypeValue != "") headers += ("Content-Type" -> contentTypeValue)
     new scala.collection.immutable.TreeMap[String, String]() ++ headers
   }
 

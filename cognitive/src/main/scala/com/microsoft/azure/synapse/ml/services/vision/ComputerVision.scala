@@ -358,10 +358,8 @@ trait HasAsyncReply extends Params {
     suppressMaxRetriesException -> false)
   //scalastyle:on magic.number
 
-  protected def headerNamesForPolling: Set[String] = Set("Ocp-Apim-Subscription-Key", "Authorization")
-
   protected def extractHeaderValuesForPolling(request: HTTPRequestData): Map[String, String] = {
-    request.headers.filter(h => headerNamesForPolling.contains(h.name)).map(h => h.name -> h.value).toMap
+    request.headers.map(h => h.name -> h.value).toMap
   }
 
   protected def queryForResult(headers: Map[String, String],
