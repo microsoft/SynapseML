@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.services.language
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.services.text.{ SentimentAssessment, TextEndpoint }
 import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
@@ -66,6 +67,38 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
   test("Basic usage") {
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
       .setSubscriptionKey(textKey)
+      .setLocation(textApiLocation)
+      .setTextCol("text")
+      .setLanguage("en")
+      .setKind(AnalysisTaskKind.ExtractiveSummarization)
+      .setOutputCol("response")
+      .setErrorCol("error")
+    val responses = model.transform(df)
+                         .withColumn("documents", col("response.documents"))
+                         .withColumn("modelVersion", col("response.modelVersion"))
+                         .withColumn("errors", col("response.errors"))
+                         .withColumn("statistics", col("response.statistics"))
+                         .collect()
+    assert(responses.length == 1)
+    val response = responses.head
+    val documents = response.getAs[Seq[Row]]("documents")
+    val errors = response.getAs[Seq[Row]]("errors")
+    assert(documents.length == errors.length)
+    assert(documents.length == 3)
+    val sentences = documents.head.getAs[Seq[Row]]("sentences")
+    assert(sentences.nonEmpty)
+    sentences.foreach { sentence =>
+      assert(sentence.getAs[String]("text").nonEmpty)
+      assert(sentence.getAs[Double]("rankScore") > 0.0)
+      assert(sentence.getAs[Int]("offset") >= 0)
+      assert(sentence.getAs[Int]("length") > 0)
+    }
+  }
+
+
+  test("Basic usage with AAD Token") {
+    val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
+      .setAADToken(getAccessToken("https://cognitiveservices.azure.com/"))
       .setLocation(textApiLocation)
       .setTextCol("text")
       .setLanguage("en")
