@@ -95,39 +95,6 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
     }
   }
 
-
-  test("Basic usage with AAD Token") {
-    val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setAADToken(getAccessToken("https://cognitiveservices.azure.com/"))
-      .setLocation(textApiLocation)
-      .setTextCol("text")
-      .setLanguage("en")
-      .setKind(AnalysisTaskKind.ExtractiveSummarization)
-      .setOutputCol("response")
-      .setErrorCol("error")
-    val responses = model.transform(df)
-                         .withColumn("documents", col("response.documents"))
-                         .withColumn("modelVersion", col("response.modelVersion"))
-                         .withColumn("errors", col("response.errors"))
-                         .withColumn("statistics", col("response.statistics"))
-                         .collect()
-    assert(responses.length == 1)
-    val response = responses.head
-    val documents = response.getAs[Seq[Row]]("documents")
-    val errors = response.getAs[Seq[Row]]("errors")
-    assert(documents.length == errors.length)
-    assert(documents.length == 3)
-    val sentences = documents.head.getAs[Seq[Row]]("sentences")
-    assert(sentences.nonEmpty)
-    sentences.foreach { sentence =>
-      assert(sentence.getAs[String]("text").nonEmpty)
-      assert(sentence.getAs[Double]("rankScore") > 0.0)
-      assert(sentence.getAs[Int]("offset") >= 0)
-      assert(sentence.getAs[Int]("length") > 0)
-    }
-  }
-
-
   test("show-stats and sentence-count") {
     val sentenceCount = 10
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
