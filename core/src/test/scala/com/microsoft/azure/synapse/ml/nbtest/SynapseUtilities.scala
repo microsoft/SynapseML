@@ -210,7 +210,6 @@ object SynapseUtilities {
          |         "spark.yarn.user.classpath.first": "true",
          |         "spark.sql.parquet.enableVectorizedReader":"false",
          |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true",
-         |         "livy.rsc.synapse.error-classification.enabled": "true"
          |     }
          | }
       """.stripMargin

@@ -38,6 +38,31 @@ object SharedNotebookE2ETestUtilities {
       |
       |""".stripMargin
 
+  val OnePlusOneNotebook =
+    """
+    |{
+    |    "cells": [
+    |        {
+    |            "cell_type": "code",
+    |            "execution_count": null,
+    |            "id": "de5aebcf",
+    |            "metadata": {},
+    |            "outputs": [],
+    |            "source": [
+    |                "1+1"
+    |            ]
+    |        }
+    |    ],
+    |    "metadata": {
+    |        "language_info": {
+    |            "name": "python"
+    |        }
+    |    },
+    |    "nbformat": 4,
+    |    "nbformat_minor": 5
+    |}
+    |""".stripMargin
+
   def insertTextInFile(file: File, textToPrepend: String, locToInsert: Int): Unit = {
     val existingLines = StreamUtilities.using(Source.fromFile(file)) { s =>
       s.getLines().toList
@@ -66,6 +91,10 @@ object SharedNotebookE2ETestUtilities {
           .replace(",", "")
         FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
         new File(NotebooksDir, newName)
+      } :+ {
+        val onePlusOne = new File(NotebooksDir, "OnePlusOne.ipynb")
+        FileUtilities.writeFile(onePlusOne, OnePlusOneNotebook)
+        onePlusOne
       }
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
