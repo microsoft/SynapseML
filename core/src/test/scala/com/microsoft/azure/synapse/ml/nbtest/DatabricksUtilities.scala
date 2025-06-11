@@ -279,8 +279,7 @@ object DatabricksUtilities {
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
-         |  },
-         |  "libraries": $Libraries
+         |  }
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
