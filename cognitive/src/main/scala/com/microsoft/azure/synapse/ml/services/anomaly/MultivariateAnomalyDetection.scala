@@ -206,12 +206,12 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     Some(req)
   }
 
-  protected def queryForResult(key: Option[String],
+  protected def queryForResult(headers: Map[String, String],
                                client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    headers.foreach { case (k, v) => get.setHeader(k, v) }
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
@@ -219,7 +219,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
   }
 
   //noinspection ScalaStyle
-  protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+  protected def timeoutResult(headers: Map[String, String], client: CloseableHttpClient,
                               queryUrl: URI, maxTries: Int): HTTPResponseData = {
     throw new TimeoutException(
       s"Querying for results did not complete within $maxTries tries")
@@ -232,9 +232,9 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
     if (response.statusLine.statusCode == 201) {
       val location = new URI(response.headers.filter(_.name == "Location").head.value)
       val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
+      val headers = extractHeaderValuesForPolling(request)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
-        val resp = queryForResult(key, client, location)
+        val resp = queryForResult(headers, client, location)
         val fields = IOUtils.toString(resp.get.entity.get.content, "UTF-8").parseJson.asJsObject.fields
         val status = fields match {
           case f if f.contains("modelInfo") => f("modelInfo").convertTo[MAEModelInfo].status
@@ -254,7 +254,7 @@ trait MADHttpRequest extends HasURL with HasSubscriptionKey with HasAsyncReply {
       if (it.hasNext) {
         it.next()
       } else {
-        timeoutResult(key, client, location, maxTries)
+        timeoutResult(headers, client, location, maxTries)
       }
     } else {
       val error = IOUtils.toString(response.entity.get.content, "UTF-8")
@@ -503,10 +503,10 @@ class SimpleFitMultivariateAnomaly(override val uid: String) extends Estimator[S
   protected def prepareUrl: String = getUrl
 
   //noinspection ScalaStyle
-  override protected def timeoutResult(key: Option[String], client: CloseableHttpClient,
+  override protected def timeoutResult(headers: Map[String, String], client: CloseableHttpClient,
                                        queryUrl: URI, maxTries: Int): HTTPResponseData = {
     // if no response after max retries, return the response containing modelId directly
-    queryForResult(key, client, queryUrl).get
+    queryForResult(headers, client, queryUrl).get
   }
 
   override def fit(dataset: Dataset[_]): SimpleDetectMultivariateAnomaly = {
