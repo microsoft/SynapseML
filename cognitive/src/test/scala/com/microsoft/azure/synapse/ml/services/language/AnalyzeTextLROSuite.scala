@@ -6,7 +6,6 @@ package com.microsoft.azure.synapse.ml.services.language
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.services.text.{ SentimentAssessment, TextEndpoint }
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
@@ -94,6 +93,7 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
       assert(sentence.getAs[Int]("length") > 0)
     }
   }
+
 
   test("show-stats and sentence-count") {
     val sentenceCount = 10

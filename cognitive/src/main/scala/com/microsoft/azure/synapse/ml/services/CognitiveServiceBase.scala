@@ -347,14 +347,15 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   }
 
   protected def addHeaders(req: HttpRequestBase,
-                           row: Row): Unit = {
+                           row: Row,
+                           addContentType: Boolean = true): Unit = {
 
-    val headers = getHeaders(row)
+    val headers = getHeaders(row, addContentType)
     headers.foreach { case (headerName, headerValue) => req.addHeader(headerName, headerValue) }
   }
 
   // Returns a list of key-value pairs representing the headers
-  protected def getHeaders(row: Row): Map[String, String] = {
+  protected def getHeaders(row: Row, addContentType: Boolean = true): Map[String, String] = {
     val headers = mutable.Map.empty[String, String]
     val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
     val aadTokenOpt = getValueOpt(row, AADToken)
@@ -383,7 +384,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       }
     }
 
-    if (!StringUtils.isEmpty(contentTypeValue)) {
+    if (addContentType && !StringUtils.isEmpty(contentTypeValue)) {
       headers += ("Content-Type" -> contentTypeValue)
     }
 
