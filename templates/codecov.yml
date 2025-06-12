@@ -1,10 +1,11 @@
 steps:
   - bash: |
       set -e
-      curl -s https://codecov.io/bash > .codecov
-      chmod +x .codecov
+      curl -Os https://cli.codecov.io/latest/linux/codecov
+      chmod +x codecov
       echo "Starting Codecov Upload"
-      ./.codecov -t $(codecov-token)
+      ./codecov --verbose upload-process -t $(codecov-token) --dir .
+      echo "Codecov Upload Complete" # Ensure that uploading failure does not stop the pipeline
     retryCountOnTaskFailure: 1
     displayName: Upload Coverage Report To Codecov.io
     condition: succeededOrFailed()
