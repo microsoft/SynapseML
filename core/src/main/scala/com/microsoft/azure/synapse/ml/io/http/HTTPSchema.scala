@@ -201,7 +201,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
       Array(new BasicHeader(
         "User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}"),
         new BasicHeader(
-          "x-ai-telemetry-properties", "{\"SHYAM-SAI\": \"POTATO\"}"
+          "x-ai-telemetry-properties", "{\"ClientArtifactType\": \"AIFunctionsSpark\"}"
         )))
     request
   }
