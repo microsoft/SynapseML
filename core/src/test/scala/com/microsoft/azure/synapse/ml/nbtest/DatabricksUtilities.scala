@@ -21,11 +21,12 @@ import spray.json.{JsArray, JsObject, JsValue, _}
 import java.io.{File, FileInputStream}
 import java.time.LocalDateTime
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
-import scala.collection.immutable.Map
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.util.Random
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
+
 
 object DatabricksUtilities {
 
@@ -278,8 +279,7 @@ object DatabricksUtilities {
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
-         |  },
-         |  "libraries": $Libraries
+         |  }
          |}
       """.stripMargin
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
@@ -434,7 +434,8 @@ abstract class DatabricksTestHelper extends TestBase {
   def databricksTestHelper(clusterId: String,
                            libraries: String,
                            notebooks: Seq[File],
-                           maxConcurrency: Int = 8): Unit = {
+                           maxConcurrency: Int,
+                           retries: List[Int] = List(1000 * 15)): Unit = {
 
     println("Checking if cluster is active")
     tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
@@ -455,7 +456,9 @@ abstract class DatabricksTestHelper extends TestBase {
 
     val futures = notebooks.map { notebook =>
       Future {
-        runNotebook(clusterId, notebook)
+        retry(retries, { () =>
+          runNotebook(clusterId, notebook)
+        })
       }
     }
     futures.zip(notebooks).foreach { case (f, nb) =>
