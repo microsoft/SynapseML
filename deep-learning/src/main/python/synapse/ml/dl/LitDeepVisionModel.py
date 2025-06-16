@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-pytorch_lightning.utilities import _module_available
+from pytorch_lightning.utilities import _module_available
 from urllib.error import URLError
 import time
 
