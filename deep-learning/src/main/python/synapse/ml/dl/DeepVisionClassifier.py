@@ -9,13 +9,13 @@ from horovod.spark.lightning import TorchEstimator
 from PIL import Image
 from pyspark.context import SparkContext
 from pyspark.ml.param.shared import Param, Params
-from lightning_utilities.core.imports import module_available
+from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
 from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 from synapse.ml.dl.PredictionParams import VisionPredictionParams
 
-_HOROVOD_AVAILABLE = module_available("horovod")
+_HOROVOD_AVAILABLE = _module_available("horovod")
 if _HOROVOD_AVAILABLE:
     import horovod
 

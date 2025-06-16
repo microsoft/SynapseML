@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from lightning_utilities.core.imports import module_available
+pytorch_lightning.utilities import _module_available
 from urllib.error import URLError
 import time
 
-_TORCHVISION_AVAILABLE = module_available("torchvision")
+_TORCHVISION_AVAILABLE = _module_available("torchvision")
 if _TORCHVISION_AVAILABLE:
     import torchvision
 
