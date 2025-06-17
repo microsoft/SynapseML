@@ -270,18 +270,15 @@ object CodegenPlugin extends AutoPlugin {
       FileUtils.copyDirectory(srcDir, destDir)
     },
     pyCodegen := pyCodeGenImpl.value,
-    pythonIgnoreTestPath := None,
-    pythonSubTestPath := None,
+    pythonIgnoreTestPath := sys.props.get("pythonIgnoreTestPath"),
+    pythonSubTestPath := sys.props.get("pythonSubTestPath"),
     testPython := {
       installPipPackage.value
       pyTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
-
-      val ignoreArg = pythonIgnoreTestPath.value.map(path => s"--ignore=$path").toSeq
-      val subPathArg = pythonSubTestPath.value.map(identity).toSeq
-
       val baseTestPath = genTestPackageNamespace.value
-
+      val ignoreArg = pythonIgnoreTestPath.value.map(path => s"--ignore=${new File(baseTestPath, path)}").toSeq
+      val subPathArg = pythonSubTestPath.value.map(identity).toSeq
       val testPath: String = subPathArg.headOption
         .map(sub => join(baseTestPath, sub).toString)
         .getOrElse(baseTestPath)

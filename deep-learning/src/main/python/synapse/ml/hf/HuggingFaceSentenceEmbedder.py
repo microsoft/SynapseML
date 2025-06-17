@@ -158,6 +158,7 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         Create and return a function for batch prediction.
         """
         from sentence_transformers import SentenceTransformer
+
         runtime = self.getRuntime()
         if self.model == None:
             global model

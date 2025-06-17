@@ -370,7 +370,7 @@ jobs:
       deep-learning-nohf:
         PACKAGE: "deepLearning"
         TEST_SUB_PATH: ""
-        IGNORE_TEST_PATH: "deepLearning/hf"
+        IGNORE_TEST_PATH: "hf"
       lightgbm:
         PACKAGE: "lightgbm"
       opencv:
