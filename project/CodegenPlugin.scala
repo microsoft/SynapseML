@@ -70,6 +70,10 @@ object CodegenPlugin extends AutoPlugin {
 
     val publishPython = TaskKey[Unit]("publishPython", "publish python wheel")
     val testPython = TaskKey[Unit]("testPython", "test python sdk")
+
+    val pythonIgnoreTestPath = settingKey[Option[String]]("Optional path to ignore in pytest")
+    val pythonSubTestPath = settingKey[Option[String]]("Optional subpath of tests to run")
+
     val pyCodegen = TaskKey[Unit]("pyCodegen", "Generate python code")
     val pyTestgen = TaskKey[Unit]("pyTestgen", "Generate python tests")
 
@@ -266,21 +270,28 @@ object CodegenPlugin extends AutoPlugin {
       FileUtils.copyDirectory(srcDir, destDir)
     },
     pyCodegen := pyCodeGenImpl.value,
+    pythonIgnoreTestPath := sys.props.get("pythonIgnoreTestPath"),
+    pythonSubTestPath := sys.props.get("pythonSubTestPath"),
     testPython := {
       installPipPackage.value
       pyTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
-      runCmd(
-        activateCondaEnv ++ Seq("python",
-          "-m",
-          "pytest",
-          //s"--cov=${genPackageNamespace.value}",
-          s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
-          //"--cov-report=xml",
-          genTestPackageNamespace.value
-        ),
-        new File(codegenDir.value, "test/python/")
-      )
+      val baseTestPath = genTestPackageNamespace.value
+      val ignoreArg = pythonIgnoreTestPath.value.map(path => s"--ignore=${new File(baseTestPath, path)}").toSeq
+      val subPathArg = pythonSubTestPath.value.map(identity).toSeq
+      val testPath: String = subPathArg.headOption
+        .map(sub => join(baseTestPath, sub).toString)
+        .getOrElse(baseTestPath)
+
+      val cmd = activateCondaEnv ++ Seq(
+        "python",
+        "-m", "pytest",
+        s"--junitxml=${join(mainTargetDir, s"python-test-results-${name.value}.xml")}",
+        // "--cov=${genPackageNamespace.value}",
+        // "--cov-report=xml",
+      ) ++ ignoreArg ++ Seq(testPath)
+
+      runCmd(cmd, new File(codegenDir.value, "test/python/"))
     },
     rCodeGen := rCodeGenImpl.value,
     rTestGen := rTestGenImpl.value,

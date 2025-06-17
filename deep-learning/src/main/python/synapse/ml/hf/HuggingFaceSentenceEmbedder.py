@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import torch
-from sentence_transformers import SentenceTransformer
 from pyspark.ml.functions import predict_batch_udf
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol, Param, Params
@@ -158,6 +157,8 @@ class HuggingFaceSentenceEmbedder(Transformer, HasInputCol, HasOutputCol):
         """
         Create and return a function for batch prediction.
         """
+        from sentence_transformers import SentenceTransformer
+
         runtime = self.getRuntime()
         if self.model == None:
             global model
