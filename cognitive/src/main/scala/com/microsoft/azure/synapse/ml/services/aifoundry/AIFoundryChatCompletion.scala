@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.services.foundry
+package com.microsoft.azure.synapse.ml.services.aifoundry
 
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam}
@@ -13,7 +13,7 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
 
-trait HasFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
+trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
   val model = new ServiceParam[String](
     this, "model", "The name of the model", isRequired = true)
 
@@ -41,13 +41,13 @@ trait HasFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
   )
   }
 
-object FoundryChatCompletion extends ComplexParamsReadable[FoundryChatCompletion]
+object AIFoundryChatCompletion extends ComplexParamsReadable[AIFoundryChatCompletion]
 
-class FoundryChatCompletion(override val uid: String) extends OpenAIChatCompletion
-  with HasFoundryTextParamsExtended with SynapseMLLogging {
-  logClass(FeatureNames.AiServices.Foundry)
+class AIFoundryChatCompletion(override val uid: String) extends OpenAIChatCompletion
+  with HasAIFoundryTextParamsExtended with SynapseMLLogging {
+  logClass(FeatureNames.AiServices.OpenAI)
 
-  def this() = this(Identifiable.randomUID("FoundryChatCompletion"))
+  def this() = this(Identifiable.randomUID("AIFoundryChatCompletion"))
 
   override private[ml] def internalServiceType: String = "foundry"
 

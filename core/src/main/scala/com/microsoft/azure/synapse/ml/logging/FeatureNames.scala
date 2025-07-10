@@ -16,7 +16,6 @@ object FeatureNames {
     val Text = "aiservice-text"
     val Translate = "aiservice-translate"
     val Vision = "aiservice-vision"
-    val Foundry = "aiservice-foundry"
   }
 
   val AutoML = "automl"
