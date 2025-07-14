@@ -643,6 +643,9 @@ jobs:
       openai:
         PACKAGE: "services.openai"
         FLAKY: "true"
+      aifoundry:
+        PACKAGE: "services.aifoundry"
+        FLAKY: "true"
       search:
         PACKAGE: "services.search"
         FFMPEG: "true"
