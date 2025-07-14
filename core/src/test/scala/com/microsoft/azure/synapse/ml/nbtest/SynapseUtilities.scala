@@ -187,6 +187,7 @@ object SynapseUtilities {
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
     val excludes: String = Seq(
+      "org.apache.commons:commons-text",
       "org.scala-lang:scala-reflect",
       "org.apache.spark:spark-tags_2.12",
       "org.scalatest:scalatest_2.12",
