@@ -15,7 +15,7 @@ import org.apache.hadoop.io.{IOUtils => HUtils}
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.util.SerializableConfiguration
@@ -152,7 +152,7 @@ class TextToSpeech(override val uid: String)
         }
         Row.fromSeq(row.toSeq ++ Seq(errorRow))
       }.get
-    }(RowEncoder(dataset.schema.add(getErrorCol, SpeechSynthesisError.schema)))
+    }(ExpressionEncoder(dataset.schema.add(getErrorCol, SpeechSynthesisError.schema)))
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)

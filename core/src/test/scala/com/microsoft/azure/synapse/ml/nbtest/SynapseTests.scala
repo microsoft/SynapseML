@@ -42,25 +42,29 @@ class SynapseTestCleanup extends TestBase {
 }
 
 class SynapseTests extends TestBase {
-  SharedNotebookE2ETestUtilities.generateNotebooks()
+  final val excludedNotebooks: Set[String] = Set(
+    "Finetune", // Excluded by design task 1829306
+    "GPU",
+    "PhiModel",
+    "VWnativeFormat",
+    "VowpalWabbitMulticlassclassification", // Wait for Synapse fix
+    "Langchain", // Wait for Synapse fix
+    "DocumentQuestionandAnsweringwithPDFs", // Wait for Synapse fix
+    "SetupCognitive", // No code to run
+    "CreateaSparkCluster", // No code to run
+    "Deploying", // New issue
+    "MultivariateAnomaly", // New issue
+    "TuningHyperOpt", // New issue
+    "IsolationForests", // New issue
+    "CreateAudiobooks", // New issue
+    "ExplanationDashboard" // New issue
+  )
 
-  val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
-    .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
-    .filterNot(_.getAbsolutePath.contains("GPU"))
-    .filterNot(_.getAbsolutePath.contains("PhiModel"))
-    .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
-    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synapse fix
-    .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synapse fix
-    .filterNot(_.getAbsolutePath.contains("DocumentQuestionandAnsweringwithPDFs")) // Wait for Synapse fix
-    .filterNot(_.getAbsolutePath.contains("SetupCognitive")) // No code to run
-    .filterNot(_.getAbsolutePath.contains("CreateaSparkCluster")) // No code to run
-    .filterNot(_.getAbsolutePath.contains("Deploying")) // New issue
-    .filterNot(_.getAbsolutePath.contains("MultivariateAnomaly")) // New issue
-    .filterNot(_.getAbsolutePath.contains("TuningHyperOpt")) // New issue
-    .filterNot(_.getAbsolutePath.contains("IsolationForests")) // New issue
-    .filterNot(_.getAbsolutePath.contains("CreateAudiobooks")) // New issue
-    .filterNot(_.getAbsolutePath.contains("ExplanationDashboard")) // New issue
+  val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
+  println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
+
+  val selectedPythonFiles: Array[File] = generatedNotebooks
+    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
@@ -74,25 +78,51 @@ class SynapseTests extends TestBase {
 
   println(s"Creating $expectedPoolCount Spark Pools...")
   val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
-  //  val sparkPools: Seq[String] = Seq.fill(expectedPoolCount)("sml34pool3")
+  testNotebooks(sparkPools)
 
+  private def testNotebooks(sparkPools: Seq[String]): Unit = {
+    val livyBatches: Array[LivyBatch] =
+      selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
+        SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
+      }
 
-  val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
-    SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
-  }
-
-  livyBatches.foreach { livyBatch =>
-    println(s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
-    test(livyBatch.runName) {
-      try {
-        val result = Await.ready(
-          livyBatch.monitor(),
-          Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-        assert(result.isSuccess)
-      } catch {
-        case t: Throwable =>
-          livyBatch.cancelRun()
-          throw new RuntimeException(s"Job failed see ${livyBatch.jobStatusPage} for details", t)
+    livyBatches.foreach { livyBatch =>
+      println(s"submitted livy job: ${livyBatch.id} to sparkPool: ${livyBatch.sparkPool}")
+      test(livyBatch.runName) {
+        try {
+          val result = Await
+            .ready(
+              livyBatch.monitor(),
+              Duration(
+                SynapseUtilities.TimeoutInMillis.toLong,
+                TimeUnit.MILLISECONDS
+              )
+            )
+            .value
+            .get
+          assert(result.isSuccess)
+        } catch {
+          case t: Throwable =>
+            livyBatch.cancelRun()
+            try {
+              val getStatusRequest = new HttpGet(
+                s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}"
+              )
+              getStatusRequest.setHeader(
+                "Authorization",
+                s"Bearer ${SynapseUtilities.SynapseToken}"
+              )
+              val batchData =
+                sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
+              println(s"--- Livy Logs for job ${livyBatch.id} ---")
+              batchData.log.foreach(_.foreach(println))
+              println(s"--- End of Livy Logs ---")
+            } catch {
+              case logEx: Throwable =>
+                println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
+            }
+            throw new RuntimeException(s"Job failed see ${livyBatch.jobStatusPage} for details", t)
+        }
       }
     }
   }
